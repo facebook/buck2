@@ -63,6 +63,15 @@ load(
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 load("@prelude//utils:utils.bzl", "flatten")
 
+_HASKELL_EXTENSIONS = [
+    ".hs",
+    ".lhs",
+    ".hsc",
+    ".chs",
+    ".x",
+    ".y",
+]
+
 HaskellPlatformInfo = provider(fields = [
     "name",
 ])
@@ -187,9 +196,9 @@ def _attr_preferred_linkage(ctx: "context") -> Linkage.type:
 
 # --
 
-def _is_boot_src(x: str.type) -> bool.type:
+def _is_haskell_src(x: str.type) -> bool.type:
     _, ext = paths.split_extension(x)
-    return ext == ".hs-boot"
+    return ext in _HASKELL_EXTENSIONS
 
 def _src_to_module_name(x: str.type) -> str.type:
     base, _ext = paths.split_extension(x)
@@ -356,7 +365,7 @@ def _srcs_to_objfiles(
     objfiles = cmd_args()
     for src in ctx.attrs.srcs:
         # Don't link boot sources, as they're only meant to be used for compiling.
-        if not _is_boot_src(src):
+        if _is_haskell_src(src):
             objfiles.add(cmd_args([odir, "/", paths.replace_extension(src, "." + osuf)], delimiter = ""))
     return objfiles
 
@@ -440,16 +449,10 @@ def _compile(
     for (path, src) in ctx.attrs.srcs.items():
         # hs-boot files aren't expected to be an argument to compiler but does need
         # to be included in the directory of the associated src file
-        if _is_boot_src(path):
-            compile_args.hidden(src)
-        else:
+        if _is_haskell_src(path):
             compile_args.add(src)
-
-    for dep in ctx.attrs.deps:
-        # Make all exported files available for compilation
-        def_info = dep.get(DefaultInfo)
-        if def_info != None:
-            compile_args.hidden(def_info.default_outputs)
+        else:
+            compile_args.hidden(src)
 
     argsfile = ctx.actions.declare_output("haskell_compile_" + link_style.value + ".argsfile")
     ctx.actions.write(argsfile.as_output(), compile_args, allow_args = True)
@@ -507,7 +510,7 @@ def _make_package(
         hi: "artifact",
         lib: "artifact") -> "artifact":
     # Don't expose boot sources, as they're only meant to be used for compiling.
-    modules = [_src_to_module_name(x) for x in ctx.attrs.srcs if not _is_boot_src(x)]
+    modules = [_src_to_module_name(x) for x in ctx.attrs.srcs if _is_haskell_src(x)]
 
     uniq_hlis = {}
     for x in hlis:
