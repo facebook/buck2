@@ -18,15 +18,47 @@ use std::time::UNIX_EPOCH;
 
 use anyhow::Context;
 use buck2_common::http;
+use buck2_common::http::retries::http_retry;
+use buck2_common::http::retries::AsHttpError;
+use buck2_common::http::retries::HttpError;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use hyper::body::HttpBody;
 use hyper::Body;
 use hyper::Response;
+use thiserror::Error;
 use tokio::io::AsyncRead;
 use tokio::process::Child;
 use tokio::process::Command;
 
 use crate::find_certs::find_tls_cert;
+
+#[derive(Debug, Error)]
+enum HttpWriteError {
+    #[error("Error performing write request")]
+    Client(#[from] HttpError),
+}
+
+#[derive(Debug, Error)]
+enum HttpAppendError {
+    #[error("Error performing append request")]
+    Client(#[from] HttpError),
+}
+
+impl AsHttpError for HttpWriteError {
+    fn as_http_error(&self) -> Option<&HttpError> {
+        match self {
+            Self::Client(e) => Some(e),
+        }
+    }
+}
+
+impl AsHttpError for HttpAppendError {
+    fn as_http_error(&self) -> Option<&HttpError> {
+        match self {
+            Self::Client(e) => Some(e),
+        }
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum UploadError {
@@ -480,12 +512,13 @@ impl ManifoldClient {
             ));
         }
 
-        // TODO iguridi: implement retries
-        let res = self
-            .client
-            .put(&url, buf, headers)
-            .await
-            .context("failed write request")?;
+        let res = http_retry(|| async {
+            self.client
+                .put(&url, buf.clone(), headers.clone())
+                .await
+                .map_err(|e| HttpWriteError::Client(HttpError::Client(e)))
+        })
+        .await?;
 
         consume_response(res).await;
 
@@ -508,12 +541,13 @@ impl ManifoldClient {
             manifold_url, manifold_bucket_path, bucket.name, bucket.key, offset
         );
 
-        // TODO iguridi: implement retries
-        let res = self
-            .client
-            .post(&url, buf, vec![])
-            .await
-            .context("failed append request")?;
+        let res = http_retry(|| async {
+            self.client
+                .post(&url, buf.clone(), vec![])
+                .await
+                .map_err(|e| HttpAppendError::Client(HttpError::Client(e)))
+        })
+        .await?;
 
         consume_response(res).await;
 
