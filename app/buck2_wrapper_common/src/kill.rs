@@ -52,12 +52,15 @@ mod os_specific {
 }
 
 #[cfg(windows)]
-mod os_specific {
+pub mod os_specific {
     use std::io;
+    use std::time::Duration;
 
     use anyhow::Context;
+    use winapi::shared::minwindef::FILETIME;
     use winapi::um::minwinbase::STILL_ACTIVE;
     use winapi::um::processthreadsapi::GetExitCodeProcess;
+    use winapi::um::processthreadsapi::GetProcessTimes;
     use winapi::um::processthreadsapi::OpenProcess;
     use winapi::um::processthreadsapi::TerminateProcess;
     use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
@@ -65,22 +68,22 @@ mod os_specific {
 
     use crate::winapi_handle::WinapiHandle;
 
-    fn open_process(desired_access: u32, pid: u32) -> anyhow::Result<Option<WinapiHandle>> {
+    fn open_process(desired_access: u32, pid: u32) -> Option<WinapiHandle> {
         let proc_handle = unsafe { OpenProcess(desired_access, 0, pid) };
         if proc_handle.is_null() {
             // If proc_handle is null, process died already, or other error like access denied.
             // TODO(nga): handle error properly.
-            return Ok(None);
+            return None;
         }
-        Ok(Some(unsafe { WinapiHandle::new(proc_handle) }))
+        Some(unsafe { WinapiHandle::new(proc_handle) })
     }
 
     pub(crate) fn process_exists(pid: u32) -> anyhow::Result<bool> {
-        Ok(open_process(PROCESS_QUERY_INFORMATION, pid)?.is_some())
+        Ok(open_process(PROCESS_QUERY_INFORMATION, pid).is_some())
     }
 
     pub(super) fn kill(pid: u32) -> anyhow::Result<()> {
-        let proc_handle = match open_process(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION, pid)? {
+        let proc_handle = match open_process(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION, pid) {
             Some(proc_handle) => proc_handle,
             None => return Ok(()),
         };
@@ -102,6 +105,35 @@ mod os_specific {
                 return Err(os_error).with_context(|| format!("Failed to kill daemon ({})", pid));
             }
             Ok(())
+        }
+    }
+
+    /// Returns process creation time with 100 ns precision.
+    pub fn process_creation_time(pid: u32) -> Option<Duration> {
+        let proc_handle = open_process(PROCESS_QUERY_INFORMATION, pid)?;
+        let mut creation_time: FILETIME = unsafe { std::mem::zeroed() };
+        let mut exit_time: FILETIME = unsafe { std::mem::zeroed() };
+        let mut kernel_time: FILETIME = unsafe { std::mem::zeroed() };
+        let mut user_time: FILETIME = unsafe { std::mem::zeroed() };
+
+        let result = unsafe {
+            GetProcessTimes(
+                proc_handle.handle(),
+                &mut creation_time,
+                &mut exit_time,
+                &mut kernel_time,
+                &mut user_time,
+            )
+        };
+
+        if result != 0 {
+            // `creation_time` stores intervals of 100 ns, so multiply by 100 to obtain
+            // proper nanoseconds. The u64 type will overflow around the year 2185.
+            let intervals = ((creation_time.dwHighDateTime as u64) << 32)
+                | (creation_time.dwLowDateTime as u64);
+            Some(Duration::from_nanos(intervals * 100))
+        } else {
+            None
         }
     }
 }

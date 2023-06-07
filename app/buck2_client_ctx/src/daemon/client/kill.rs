@@ -118,50 +118,14 @@ mod os_specific {
 
 #[cfg(windows)]
 mod os_specific {
-
     use std::time::Duration;
 
-    use buck2_wrapper_common::winapi_handle::WinapiHandle;
     use sysinfo::PidExt;
     use sysinfo::Process;
     use sysinfo::ProcessExt;
-    use winapi::shared::minwindef::FILETIME;
-    use winapi::um::processthreadsapi::GetProcessTimes;
-    use winapi::um::processthreadsapi::OpenProcess;
-    use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
 
     pub(super) fn process_creation_time(process: &Process) -> Option<Duration> {
-        // Returns process creation time with 100 ns precision.
-        let proc_handle =
-            unsafe { OpenProcess(PROCESS_QUERY_INFORMATION, 0, process.pid().as_u32()) };
-        if proc_handle.is_null() {
-            return None;
-        }
-        let proc_handle = unsafe { WinapiHandle::new(proc_handle) };
-        let mut creation_time: FILETIME = unsafe { std::mem::zeroed() };
-        let mut exit_time: FILETIME = unsafe { std::mem::zeroed() };
-        let mut kernel_time: FILETIME = unsafe { std::mem::zeroed() };
-        let mut user_time: FILETIME = unsafe { std::mem::zeroed() };
-
-        let result = unsafe {
-            GetProcessTimes(
-                proc_handle.handle(),
-                &mut creation_time,
-                &mut exit_time,
-                &mut kernel_time,
-                &mut user_time,
-            )
-        };
-
-        if result != 0 {
-            // `creation_time` stores intervals of 100 ns, so multiply by 100 to obtain
-            // proper nanoseconds. The u64 type will overflow around the year 2185.
-            let intervals = ((creation_time.dwHighDateTime as u64) << 32)
-                | (creation_time.dwLowDateTime as u64);
-            Some(Duration::from_nanos(intervals * 100))
-        } else {
-            None
-        }
+        buck2_wrapper_common::kill::os_specific::process_creation_time(process.pid().as_u32())
     }
 }
 
