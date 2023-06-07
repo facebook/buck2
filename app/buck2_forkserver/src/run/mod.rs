@@ -325,7 +325,8 @@ impl KillProcess for DefaultKillProcess {
                 return kill_process_impl(pid);
             }
         }
-        buck2_wrapper_common::kill::kill(pid)
+        buck2_wrapper_common::kill::kill(pid)?;
+        Ok(())
     }
 }
 

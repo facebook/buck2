@@ -70,7 +70,7 @@ pub fn killall(write: impl Fn(String)) -> bool {
                 .as_u32()
                 .try_into()
                 .with_context(|| format!("Integer overflow converting {}", pid))?;
-            kill::kill(pid)?;
+            let handle = kill::kill(pid)?;
             let start = Instant::now();
             // 5 seconds is not enough on macOS to shutdown forkserver.
             // We don't really need to wait for forkserver shutdown,
@@ -78,7 +78,7 @@ pub fn killall(write: impl Fn(String)) -> bool {
             // between forkserver and buckd would be too fragile.
             let timeout_secs = 30;
             while start.elapsed() < Duration::from_secs(timeout_secs) {
-                if !kill::process_exists(pid)? {
+                if handle.has_exited()? {
                     return Ok(());
                 }
                 thread::sleep(Duration::from_millis(100));

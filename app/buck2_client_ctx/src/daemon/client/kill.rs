@@ -91,10 +91,11 @@ pub async fn kill(
             )?;
         }
     };
-    kill::kill(pid)?;
+
+    let handle = kill::kill(pid)?;
     let timestamp_after_kill = Instant::now();
     while time_req_sent.elapsed() < time_to_kill {
-        if !kill::process_exists(pid)? {
+        if handle.has_exited()? {
             return Ok(());
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
