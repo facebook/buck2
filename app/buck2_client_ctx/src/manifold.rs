@@ -284,7 +284,7 @@ impl<'a> FileUploader<'a> {
     }
 }
 
-pub async fn wait_for_command<F>(
+async fn wait_for_command<F>(
     timeout_s: Option<u64>,
     child: Child,
     error: F,
