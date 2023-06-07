@@ -172,13 +172,13 @@ pub struct BuildEvent {
     variant: BuildEventVariant,
 }
 
-pub async fn build_configured_label(
-    ctx: &DiceComputations,
+pub async fn build_configured_label<'a>(
+    ctx: &'a DiceComputations,
     materialization_context: &MaterializationContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     skippable: bool,
-) -> anyhow::Result<BoxStream<'static, BuildEvent>> {
+) -> anyhow::Result<BoxStream<'a, BuildEvent>> {
     let providers_label = Arc::new(providers_label);
 
     let artifact_fs = ctx.get_artifact_fs().await?;

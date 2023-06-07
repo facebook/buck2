@@ -67,13 +67,37 @@ use crate::HashSet;
 use crate::UserCycleDetectorGuard;
 
 /// Context that is the base for which all requests start from
-#[derive(Allocative, Dupe, Clone)]
+#[derive(Allocative)]
 pub(crate) struct BaseComputeCtx {
     // we need to give off references of `DiceComputation` so hold this for now, but really once we
     // get rid of the enum, we just hold onto the base data directly and do some ref casts
     data: DiceComputations,
     live_version_guard: ActiveTransactionGuard,
 }
+
+impl Clone for BaseComputeCtx {
+    fn clone(&self) -> Self {
+        Self {
+            data: match &self.data.0 {
+                DiceComputationsImpl::Legacy(_) => {
+                    unreachable!("wrong dice")
+                }
+                DiceComputationsImpl::Modern(ctx) => {
+                    DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
+                        ParentKey::None,
+                        ctx.data.async_evaluator.per_live_version_ctx.dupe(),
+                        ctx.data.async_evaluator.user_data.dupe(),
+                        ctx.data.async_evaluator.dice.dupe(),
+                        KeyComputingUserCycleDetectorData::Untracked,
+                    )))
+                }
+            },
+            live_version_guard: self.live_version_guard.dupe(),
+        }
+    }
+}
+
+impl Dupe for BaseComputeCtx {}
 
 impl BaseComputeCtx {
     pub(crate) fn new(

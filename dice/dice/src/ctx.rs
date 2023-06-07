@@ -11,7 +11,6 @@ use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
@@ -30,7 +29,7 @@ use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
 use crate::DiceComputations;
 
-#[derive(Allocative, Dupe, Clone)]
+#[derive(Allocative)]
 pub(crate) enum DiceComputationsImpl {
     Legacy(Arc<DiceComputationsImplLegacy>),
     Modern(PerComputeCtx),

@@ -10,7 +10,6 @@
 use std::future::Future;
 
 use allocative::Allocative;
-use dupe::Dupe;
 use futures::future::BoxFuture;
 use more_futures::cancellation::CancellationContext;
 
@@ -30,7 +29,7 @@ use crate::UserCycleDetectorGuard;
 ///
 /// The context is valid only for the duration of the computation of a single key, and cannot be
 /// owned.
-#[derive(Allocative, Dupe, Clone)]
+#[derive(Allocative)]
 #[repr(transparent)]
 pub struct DiceComputations(pub(crate) DiceComputationsImpl);
 

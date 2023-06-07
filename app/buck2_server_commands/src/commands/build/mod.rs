@@ -525,12 +525,12 @@ fn build_targets_for_spec<'a>(
     .try_flatten_stream()
 }
 
-async fn build_target(
-    ctx: &DiceComputations,
+async fn build_target<'a>(
+    ctx: &'a DiceComputations,
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
     materialization_context: &MaterializationContext,
-) -> impl Stream<Item = anyhow::Result<BuildEvent>> + 'static {
+) -> impl Stream<Item = anyhow::Result<BuildEvent>> + 'a {
     let res = async {
         let providers_label = ctx
             .get_configured_provider_label(
