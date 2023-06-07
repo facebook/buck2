@@ -592,7 +592,10 @@ where
                 }
                 None => {
                     if self.show_waiting_message {
-                        echo!("Waiting on buck2 daemon...")?;
+                        echo!(
+                            "Waiting on buck2 daemon {}...",
+                            self.observer.session_info().trace_id
+                        )?;
                     }
                 }
             }
