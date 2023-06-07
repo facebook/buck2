@@ -63,6 +63,7 @@ mod counting_reader {
 
 use counting_reader::CountingReader;
 
+use super::user_event_types::is_user_event;
 use crate::argv::SanitizedArgv;
 
 impl<T> CountingReader<T> {
@@ -185,21 +186,29 @@ impl<'a> WriteEventLog<'a> {
         I: IntoIterator<Item = &'b T> + Clone + 'b,
     {
         match &mut self.state {
-            // TODO(wendyy) - implement writing to simple event log
             LogWriterState::Opened { writers, .. } => {
                 for writer in writers {
                     self.buf.clear();
 
                     for event in events.clone() {
-                        match writer.path.encoding.mode {
-                            LogMode::Json => {
-                                event.serialize_to_json(&mut self.buf)?;
-                                self.buf.push(b'\n');
+                        match writer.event_log_type {
+                            EventLogType::System => {
+                                match writer.path.encoding.mode {
+                                    LogMode::Json => {
+                                        event.serialize_to_json(&mut self.buf)?;
+                                        self.buf.push(b'\n');
+                                    }
+                                    LogMode::Protobuf => event
+                                        .serialize_to_protobuf_length_delimited(&mut self.buf)?,
+                                };
                             }
-                            LogMode::Protobuf => {
-                                event.serialize_to_protobuf_length_delimited(&mut self.buf)?
+                            EventLogType::User => {
+                                if event.is_user_event() {
+                                    event.serialize_to_json(&mut self.buf)?;
+                                    self.buf.push(b'\n');
+                                }
                             }
-                        };
+                        }
                     }
 
                     writer
@@ -493,9 +502,10 @@ impl<'a> WriteEventLog<'a> {
     }
 }
 
-trait SerializeForLog {
+pub(crate) trait SerializeForLog {
     fn serialize_to_json(&self, buf: &mut Vec<u8>) -> anyhow::Result<()>;
     fn serialize_to_protobuf_length_delimited(&self, buf: &mut Vec<u8>) -> anyhow::Result<()>;
+    fn is_user_event(&self) -> bool;
 }
 
 impl SerializeForLog for Invocation {
@@ -512,6 +522,10 @@ impl SerializeForLog for Invocation {
         };
         invocation.encode_length_delimited(buf)?;
         Ok(())
+    }
+
+    fn is_user_event(&self) -> bool {
+        false
     }
 }
 
@@ -541,6 +555,13 @@ impl<'a> SerializeForLog for StreamValueForWrite<'a> {
         };
         stream_val.encode_length_delimited(buf)?;
         Ok(())
+    }
+
+    fn is_user_event(&self) -> bool {
+        match self {
+            StreamValueForWrite::Event(event) => is_user_event(event),
+            _ => false,
+        }
     }
 }
 
