@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::time::Duration;
+
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -195,7 +197,7 @@ async fn do_the_upload_and_increment_read_position(
                 manifold::Bucket::EventLogs.info(),
                 manifold_path,
                 buf.into(),
-                MANIFOLD_TTL_S.get_copied()?,
+                MANIFOLD_TTL_S.get_copied()?.map(Duration::from_secs),
             )
             .await?
     } else {
