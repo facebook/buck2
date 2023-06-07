@@ -41,6 +41,7 @@ use tokio_util::io::StreamReader;
 
 mod proxy;
 mod redirect;
+pub mod retries;
 #[cfg(fbcode_build)]
 mod x2p;
 use proxy::http_proxy_from_env;

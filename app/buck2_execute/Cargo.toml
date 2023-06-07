@@ -17,7 +17,6 @@ either = { workspace = true }
 faccess = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
-http = { workspace = true }
 hyper = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
