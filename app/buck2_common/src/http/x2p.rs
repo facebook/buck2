@@ -12,9 +12,9 @@ use std::path::Path;
 use allocative::Allocative;
 use anyhow::Context;
 use bytes::Bytes;
+use futures::stream::BoxStream;
 use http::uri::Scheme;
 use http::Uri;
-use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper_proxy::Intercept;
@@ -53,7 +53,10 @@ impl X2PAgentProxyClient {
         Ok(Self { inner: client })
     }
 
-    async fn request_impl(&self, mut request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
+    async fn request_impl(
+        &self,
+        mut request: Request<Bytes>,
+    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         change_scheme_to_http(&mut request);
         self.inner.request(request).await
     }
@@ -61,7 +64,10 @@ impl X2PAgentProxyClient {
 
 #[async_trait::async_trait]
 impl HttpClient for X2PAgentProxyClient {
-    async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
+    async fn request(
+        &self,
+        request: Request<Bytes>,
+    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         self.request_impl(request).await
     }
 
@@ -105,7 +111,7 @@ mod unix {
         async fn request_impl(
             &self,
             mut request: Request<Bytes>,
-        ) -> Result<Response<Body>, HttpError> {
+        ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
             change_scheme_to_http(&mut request);
             self.inner.request(request).await
         }
@@ -113,7 +119,10 @@ mod unix {
 
     #[async_trait::async_trait]
     impl HttpClient for X2PAgentUnixSocketClient {
-        async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
+        async fn request(
+            &self,
+            request: Request<Bytes>,
+        ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
             self.request_impl(request).await
         }
 
@@ -175,6 +184,7 @@ mod unix_tests {
     use httptest::Expectation;
     use hyper::service::make_service_fn;
     use hyper::service::service_fn;
+    use hyper::Body;
     use hyper::Server;
     use hyper_unix_connector::UnixConnector;
     use tokio::task::JoinHandle;

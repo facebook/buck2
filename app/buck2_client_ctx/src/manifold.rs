@@ -22,8 +22,9 @@ use buck2_common::http::retries::http_retry;
 use buck2_common::http::retries::AsHttpError;
 use buck2_common::http::retries::HttpError;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use hyper::body::HttpBody;
-use hyper::Body;
+use bytes::Bytes;
+use futures::stream::BoxStream;
+use futures::stream::StreamExt;
 use hyper::Response;
 use thiserror::Error;
 use tokio::io::AsyncRead;
@@ -512,8 +513,7 @@ impl ManifoldClient {
     }
 }
 
-async fn consume_response(res: Response<Body>) {
+async fn consume_response<'a>(mut res: Response<BoxStream<'a, hyper::Result<Bytes>>>) {
     // HTTP/1: Allow reusing the connection by consuming entire response
-    let mut response_body = res.into_body();
-    while let Some(_chunk) = response_body.data().await {}
+    while let Some(_chunk) = res.body_mut().next().await {}
 }

@@ -18,6 +18,8 @@ use buck2_core::is_open_source;
 use bytes::Bytes;
 use dice::UserComputationData;
 use dupe::Dupe;
+use futures::stream::BoxStream;
+use futures::stream::StreamExt;
 use futures::TryStreamExt;
 use gazebo::prelude::VecExt;
 use http::Method;
@@ -295,7 +297,7 @@ pub trait HttpClient: Allocative + Send + Sync {
     }
 
     /// Send a GET request.
-    async fn get(&self, uri: &str) -> Result<Response<Body>, HttpError> {
+    async fn get(&self, uri: &str) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         let req = Request::builder()
             .uri(uri)
             .method(Method::GET)
@@ -309,7 +311,7 @@ pub trait HttpClient: Allocative + Send + Sync {
         uri: &str,
         body: Bytes,
         headers: Vec<(String, String)>,
-    ) -> Result<Response<Body>, HttpError> {
+    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         let mut req = Request::builder().uri(uri).method(Method::POST);
         for (name, value) in headers {
             req = req.header(name, value);
@@ -323,7 +325,7 @@ pub trait HttpClient: Allocative + Send + Sync {
         uri: &str,
         body: Bytes,
         headers: Vec<(String, String)>,
-    ) -> Result<Response<Body>, HttpError> {
+    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         let mut req = Request::builder().uri(uri).method(Method::PUT);
         for (name, value) in headers {
             req = req.header(name, value);
@@ -333,7 +335,10 @@ pub trait HttpClient: Allocative + Send + Sync {
     }
 
     /// Send a generic request.
-    async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError>;
+    async fn request(
+        &self,
+        request: Request<Bytes>,
+    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError>;
 
     /// Whether this client supports vpnless operation. When set, will make requests
     /// to the `vpnless_url` attribute in the `download_file` action rather than the
@@ -396,22 +401,26 @@ impl SecureHttpClient {
     async fn send_request_impl(
         &self,
         request: Request<Bytes>,
-    ) -> Result<Response<Body>, HttpError> {
+    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         self.inner
             .request(request)
             .await
             .map_err(HttpError::SendRequest)
+            .map(|res| res.map(|body| body.boxed()))
     }
 }
 
 #[async_trait::async_trait]
 impl HttpClient for SecureHttpClient {
-    async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
+    async fn request(
+        &self,
+        request: Request<Bytes>,
+    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         let pending_request = PendingRequest::from_request(&request);
         let uri = request.uri().to_string();
         tracing::debug!("http: request: {:?}", request);
         let resp = self.send_request_impl(request).await?;
-        tracing::debug!("http: response: {:?}", resp);
+        tracing::debug!("http: response: {:?}", resp.status());
 
         // Handle redirects up to self.max_redirects times.
         let redirect_engine = RedirectEngine::new(self.max_redirects, pending_request, resp);
@@ -429,7 +438,9 @@ impl HttpClient for SecureHttpClient {
     }
 }
 
-async fn read_truncated_error_response(mut resp: Response<Body>) -> String {
+async fn read_truncated_error_response(
+    mut resp: Response<BoxStream<'_, hyper::Result<Bytes>>>,
+) -> String {
     let read = StreamReader::new(
         resp.body_mut()
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)),
@@ -476,7 +487,10 @@ impl SecureProxiedClient {
 
 #[async_trait::async_trait]
 impl HttpClient for SecureProxiedClient {
-    async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
+    async fn request(
+        &self,
+        request: Request<Bytes>,
+    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         self.inner.request(request).await
     }
 }
@@ -487,7 +501,10 @@ pub struct ClientForTest {}
 
 #[async_trait::async_trait]
 impl HttpClient for ClientForTest {
-    async fn request(&self, _request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
+    async fn request(
+        &self,
+        _request: Request<Bytes>,
+    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         Err(HttpError::Test)
     }
 }

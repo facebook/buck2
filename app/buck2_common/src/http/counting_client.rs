@@ -15,9 +15,10 @@ use std::sync::Arc;
 use allocative::Allocative;
 use bytes::Bytes;
 use dupe::Dupe;
+use futures::stream::BoxStream;
+use futures::stream::StreamExt;
 use futures::task::Poll;
 use futures::Stream;
-use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use pin_project::pin_project;
@@ -84,10 +85,13 @@ where
 
 #[async_trait::async_trait]
 impl HttpClient for CountingHttpClient {
-    async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
+    async fn request(
+        &self,
+        request: Request<Bytes>,
+    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         let resp = self.inner.request(request).await?;
-        Ok(resp
-            .map(|body| Body::wrap_stream(CountingStream::new(body, self.bytes_downloaded.dupe()))))
+        let resp = resp.map(|body| CountingStream::new(body, self.bytes_downloaded.dupe()).boxed());
+        Ok(resp)
     }
 }
 

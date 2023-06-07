@@ -14,7 +14,6 @@ use bytes::Bytes;
 use http::HeaderMap;
 use http::Method;
 use http::Uri;
-use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
@@ -88,18 +87,18 @@ impl PendingRequest {
 /// as well as the [`follow-redirects`](https://github.com/srijs/rust-follow-redirects) crate.
 /// Unfortunately, the latter is abandoned; until and unless it's maintained by someone
 /// (preferably the hyper folks), let's roll our own.
-pub(super) struct RedirectEngine {
+pub(super) struct RedirectEngine<B> {
     processed_redirects: usize,
     max_redirects: usize,
     pending_request: PendingRequest,
-    response: Response<Body>,
+    response: Response<B>,
 }
 
-impl RedirectEngine {
+impl<B> RedirectEngine<B> {
     pub(super) fn new(
         max_redirects: usize,
         pending_request: PendingRequest,
-        response: Response<Body>,
+        response: Response<B>,
     ) -> Self {
         Self {
             processed_redirects: 0,
@@ -114,9 +113,9 @@ impl RedirectEngine {
     pub(super) async fn handle_redirects<S, F>(
         mut self,
         sender_func: S,
-    ) -> Result<Response<Body>, HttpError>
+    ) -> Result<Response<B>, HttpError>
     where
-        F: Future<Output = Result<Response<Body>, HttpError>>,
+        F: Future<Output = Result<Response<B>, HttpError>>,
         S: Fn(Request<Bytes>) -> F,
     {
         let initial_uri = self.pending_request.uri.clone();
