@@ -512,12 +512,15 @@ impl ManifoldClient {
             ));
         }
 
-        let res = http_retry(|| async {
-            self.client
-                .put(&url, buf.clone(), headers.clone())
-                .await
-                .map_err(|e| HttpWriteError::Client(HttpError::Client(e)))
-        })
+        let res = http_retry(
+            || async {
+                self.client
+                    .put(&url, buf.clone(), headers.clone())
+                    .await
+                    .map_err(|e| HttpWriteError::Client(HttpError::Client(e)))
+            },
+            vec![Duration::from_secs(1), Duration::from_secs(2)],
+        )
         .await?;
 
         consume_response(res).await;
@@ -541,12 +544,15 @@ impl ManifoldClient {
             manifold_url, manifold_bucket_path, bucket.name, bucket.key, offset
         );
 
-        let res = http_retry(|| async {
-            self.client
-                .post(&url, buf.clone(), vec![])
-                .await
-                .map_err(|e| HttpAppendError::Client(HttpError::Client(e)))
-        })
+        let res = http_retry(
+            || async {
+                self.client
+                    .post(&url, buf.clone(), vec![])
+                    .await
+                    .map_err(|e| HttpAppendError::Client(HttpError::Client(e)))
+            },
+            vec![Duration::from_secs(1), Duration::from_secs(2)],
+        )
         .await?;
 
         consume_response(res).await;

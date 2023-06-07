@@ -45,16 +45,17 @@ pub trait AsHttpError {
     fn as_http_error(&self) -> Option<&HttpError>;
 }
 
-pub async fn http_retry<Exec, F, T, E>(exec: Exec) -> Result<T, E>
+pub async fn http_retry<Exec, F, T, E>(exec: Exec, mut intervals: Vec<Duration>) -> Result<T, E>
 where
     Exec: Fn() -> F,
     E: AsHttpError + std::fmt::Display,
     F: Future<Output = Result<T, E>>,
 {
-    let mut backoff = [0, 2, 4, 8].into_iter().peekable();
+    intervals.insert(0, Duration::from_secs(0));
+    let mut backoff = intervals.into_iter().peekable();
 
     while let Some(duration) = backoff.next() {
-        tokio::time::sleep(Duration::from_secs(duration)).await;
+        tokio::time::sleep(duration).await;
 
         let res = exec().await;
 
@@ -65,7 +66,7 @@ where
                 if let Some(b) = backoff.peek() {
                     tracing::warn!(
                         "Retrying a HTTP error after {} seconds: {:#}",
-                        b,
+                        b.as_secs(),
                         http_error
                     );
                     continue;

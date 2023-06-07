@@ -9,6 +9,7 @@
 
 use std::io::Write;
 use std::sync::Arc;
+use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context as _;
@@ -98,12 +99,15 @@ impl AsHttpError for HttpDownloadError {
 }
 
 pub async fn http_head(client: &dyn HttpClient, url: &str) -> anyhow::Result<Response<()>> {
-    let response = http_retry(|| async {
-        client
-            .head(url)
-            .await
-            .map_err(|e| HttpHeadError::Client(HttpError::Client(e)))
-    })
+    let response = http_retry(
+        || async {
+            client
+                .head(url)
+                .await
+                .map_err(|e| HttpHeadError::Client(HttpError::Client(e)))
+        },
+        vec![2, 4, 8].into_iter().map(Duration::from_secs).collect(),
+    )
     .await?;
     Ok(response)
 }
@@ -122,36 +126,39 @@ pub async fn http_download(
         fs_util::create_dir_all(fs.resolve(dir))?;
     }
 
-    Ok(http_retry(|| async {
-        let file = fs_util::create_file(&abs_path).map_err(HttpDownloadError::IoError)?;
+    Ok(http_retry(
+        || async {
+            let file = fs_util::create_file(&abs_path).map_err(HttpDownloadError::IoError)?;
 
-        let stream = client
-            .get(url)
-            .await
-            .map_err(|e| HttpDownloadError::Client(HttpError::Client(e)))?
-            .into_body();
-        let buf_writer = std::io::BufWriter::new(file);
+            let stream = client
+                .get(url)
+                .await
+                .map_err(|e| HttpDownloadError::Client(HttpError::Client(e)))?
+                .into_body();
+            let buf_writer = std::io::BufWriter::new(file);
 
-        let digest = copy_and_hash(
-            url,
-            &abs_path,
-            stream,
-            buf_writer,
-            digest_config.cas_digest_config(),
-            checksum,
-        )
-        .await?;
+            let digest = copy_and_hash(
+                url,
+                &abs_path,
+                stream,
+                buf_writer,
+                digest_config.cas_digest_config(),
+                checksum,
+            )
+            .await?;
 
-        if executable {
-            fs.set_executable(path)
-                .map_err(HttpDownloadError::IoError)?;
-        }
+            if executable {
+                fs.set_executable(path)
+                    .map_err(HttpDownloadError::IoError)?;
+            }
 
-        Result::<_, HttpDownloadError>::Ok(TrackedFileDigest::new(
-            digest,
-            digest_config.cas_digest_config(),
-        ))
-    })
+            Result::<_, HttpDownloadError>::Ok(TrackedFileDigest::new(
+                digest,
+                digest_config.cas_digest_config(),
+            ))
+        },
+        vec![2, 4, 8].into_iter().map(Duration::from_secs).collect(),
+    )
     .await?)
 }
 
