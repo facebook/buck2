@@ -111,6 +111,10 @@ pub mod os_specific {
     /// Returns process creation time with 100 ns precision.
     pub fn process_creation_time(pid: u32) -> Option<Duration> {
         let proc_handle = open_process(PROCESS_QUERY_INFORMATION, pid)?;
+        process_creation_time_impl(&proc_handle, pid).ok()
+    }
+
+    fn process_creation_time_impl(proc: &WinapiHandle, pid: u32) -> anyhow::Result<Duration> {
         let mut creation_time: FILETIME = unsafe { std::mem::zeroed() };
         let mut exit_time: FILETIME = unsafe { std::mem::zeroed() };
         let mut kernel_time: FILETIME = unsafe { std::mem::zeroed() };
@@ -118,7 +122,7 @@ pub mod os_specific {
 
         let result = unsafe {
             GetProcessTimes(
-                proc_handle.handle(),
+                proc.handle(),
                 &mut creation_time,
                 &mut exit_time,
                 &mut kernel_time,
@@ -126,15 +130,16 @@ pub mod os_specific {
             )
         };
 
-        if result != 0 {
-            // `creation_time` stores intervals of 100 ns, so multiply by 100 to obtain
-            // proper nanoseconds. The u64 type will overflow around the year 2185.
-            let intervals = ((creation_time.dwHighDateTime as u64) << 32)
-                | (creation_time.dwLowDateTime as u64);
-            Some(Duration::from_nanos(intervals * 100))
-        } else {
-            None
+        if result == 0 {
+            return Err(io::Error::last_os_error())
+                .with_context(|| format!("Failed to call GetProcessTimes for pid {}", pid));
         }
+
+        // `creation_time` stores intervals of 100 ns, so multiply by 100 to obtain
+        // proper nanoseconds. The u64 type will overflow around the year 2185.
+        let intervals =
+            ((creation_time.dwHighDateTime as u64) << 32) | (creation_time.dwLowDateTime as u64);
+        Ok(Duration::from_nanos(intervals * 100))
     }
 }
 
