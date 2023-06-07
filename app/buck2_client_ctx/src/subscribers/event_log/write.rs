@@ -203,7 +203,7 @@ impl<'a> WriteEventLog<'a> {
                                 };
                             }
                             EventLogType::User => {
-                                if event.is_user_event() {
+                                if event.is_user_event()? {
                                     event.serialize_to_json(&mut self.buf)?;
                                     self.buf.push(b'\n');
                                 }
@@ -505,7 +505,7 @@ impl<'a> WriteEventLog<'a> {
 pub(crate) trait SerializeForLog {
     fn serialize_to_json(&self, buf: &mut Vec<u8>) -> anyhow::Result<()>;
     fn serialize_to_protobuf_length_delimited(&self, buf: &mut Vec<u8>) -> anyhow::Result<()>;
-    fn is_user_event(&self) -> bool;
+    fn is_user_event(&self) -> anyhow::Result<bool>;
 }
 
 impl SerializeForLog for Invocation {
@@ -524,8 +524,8 @@ impl SerializeForLog for Invocation {
         Ok(())
     }
 
-    fn is_user_event(&self) -> bool {
-        false
+    fn is_user_event(&self) -> anyhow::Result<bool> {
+        Ok(false)
     }
 }
 
@@ -557,10 +557,10 @@ impl<'a> SerializeForLog for StreamValueForWrite<'a> {
         Ok(())
     }
 
-    fn is_user_event(&self) -> bool {
+    fn is_user_event(&self) -> anyhow::Result<bool> {
         match self {
             StreamValueForWrite::Event(event) => is_user_event(event),
-            _ => false,
+            _ => Ok(false),
         }
     }
 }

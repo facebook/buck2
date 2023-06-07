@@ -7,33 +7,61 @@
  * of this source tree.
  */
 
+use anyhow::Context;
 use buck2_data::ActionExecutionEnd;
 use buck2_data::ActionExecutionStart;
+use buck2_data::BuckEvent;
 use buck2_data::StarlarkUserEvent;
+use thiserror::Error;
 
 use super::write::StreamValueForWrite;
 
-pub(crate) fn is_user_event<'v>(buck_event: &'v buck2_data::BuckEvent) -> bool {
-    match buck_event.data.as_ref().unwrap() {
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum SerializeUserEventError {
+    #[error("Internal error: Missing `data` in `{0}`")]
+    MissingData(String),
+}
+
+pub(crate) fn is_user_event(buck_event: &BuckEvent) -> anyhow::Result<bool> {
+    match buck_event
+        .data
+        .as_ref()
+        .context(SerializeUserEventError::MissingData("BuckEvent".to_owned()))?
+    {
         buck2_data::buck_event::Data::Instant(ref instant) => {
-            match instant.data.as_ref().unwrap() {
-                buck2_data::instant_event::Data::StarlarkUserEvent(_) => true,
-                _ => false,
+            match instant
+                .data
+                .as_ref()
+                .context(SerializeUserEventError::MissingData(
+                    "InstantEvent".to_owned(),
+                ))? {
+                buck2_data::instant_event::Data::StarlarkUserEvent(_) => Ok(true),
+                _ => Ok(false),
             }
         }
         buck2_data::buck_event::Data::SpanStart(ref span_start_event) => {
-            match span_start_event.data.as_ref().unwrap() {
-                buck2_data::span_start_event::Data::ActionExecution(_) => true,
-                _ => false,
+            match span_start_event
+                .data
+                .as_ref()
+                .context(SerializeUserEventError::MissingData(
+                    "SpanStartEvent".to_owned(),
+                ))? {
+                buck2_data::span_start_event::Data::ActionExecution(_) => Ok(true),
+                _ => Ok(false),
             }
         }
         buck2_data::buck_event::Data::SpanEnd(ref span_end_event) => {
-            match span_end_event.data.as_ref().unwrap() {
-                buck2_data::span_end_event::Data::ActionExecution(_) => true,
-                _ => false,
+            match span_end_event
+                .data
+                .as_ref()
+                .context(SerializeUserEventError::MissingData(
+                    "SpanEndEvent".to_owned(),
+                ))? {
+                buck2_data::span_end_event::Data::ActionExecution(_) => Ok(true),
+                _ => Ok(false),
             }
         }
-        _ => false,
+        _ => Ok(false),
     }
 }
 
