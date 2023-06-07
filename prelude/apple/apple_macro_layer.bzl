@@ -28,6 +28,12 @@ APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE = AppleBuckConfigAttributeOverride(
     skip_if_false = True,
 )
 
+APPLE_STRIPPED_OVERRIDE = AppleBuckConfigAttributeOverride(
+    name = "stripped",
+    key = "stripped_override",
+    skip_if_false = True,
+)
+
 _APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES = [
     APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE,
     AppleBuckConfigAttributeOverride(name = APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME, key = "archive_objects_locally_override"),
@@ -59,10 +65,12 @@ def apple_macro_layer_set_bool_override_attrs_from_config(overrides: [AppleBuckC
 
 def apple_library_macro_impl(apple_library_rule = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES))
+    kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_OVERRIDE]))
     apple_library_rule(**kwargs)
 
 def apple_binary_macro_impl(apple_binary_rule = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_BINARY_LOCAL_EXECUTION_OVERRIDES))
+    kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_OVERRIDE]))
     apple_binary_rule(**kwargs)
 
 def apple_package_macro_impl(apple_package_rule = None, **kwargs):
