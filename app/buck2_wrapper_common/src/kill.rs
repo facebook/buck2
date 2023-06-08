@@ -92,119 +92,42 @@ mod os_specific {
 
 #[cfg(windows)]
 pub mod os_specific {
-    use std::io;
     use std::time::Duration;
 
-    use anyhow::Context;
-    use winapi::shared::minwindef::FILETIME;
-    use winapi::um::minwinbase::STILL_ACTIVE;
-    use winapi::um::processthreadsapi::GetExitCodeProcess;
-    use winapi::um::processthreadsapi::GetProcessTimes;
-    use winapi::um::processthreadsapi::OpenProcess;
-    use winapi::um::processthreadsapi::TerminateProcess;
-    use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
-    use winapi::um::winnt::PROCESS_TERMINATE;
-
     use crate::kill::KilledProcessHandle;
-    use crate::winapi_handle::WinapiHandle;
-
-    fn open_process(desired_access: u32, pid: u32) -> Option<WinapiHandle> {
-        let proc_handle = unsafe { OpenProcess(desired_access, 0, pid) };
-        if proc_handle.is_null() {
-            // If proc_handle is null, process died already, or other error like access denied.
-            // TODO(nga): handle error properly.
-            return None;
-        }
-        Some(unsafe { WinapiHandle::new(proc_handle) })
-    }
+    use crate::winapi_process::WinapiProcessHandle;
 
     pub(crate) fn process_exists(pid: u32) -> anyhow::Result<bool> {
-        Ok(open_process(PROCESS_QUERY_INFORMATION, pid).is_some())
+        Ok(WinapiProcessHandle::open_for_info(pid).is_some())
     }
 
     pub(super) fn kill(pid: u32) -> anyhow::Result<Option<impl KilledProcessHandle>> {
-        let proc_handle = match open_process(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION, pid) {
+        let handle = match WinapiProcessHandle::open_for_terminate(pid) {
             Some(proc_handle) => proc_handle,
             None => return Ok(None),
         };
 
-        unsafe {
-            if TerminateProcess(proc_handle.handle(), 1) == 0 {
-                // Stash the error before calling `process_exists` to avoid overwriting it.
-                let os_error = io::Error::last_os_error();
+        handle.terminate()?;
 
-                // From WinAPI doc:
-                // After a process has terminated, call to `TerminateProcess` with open handles
-                // to the process fails with `ERROR_ACCESS_DENIED` (5) error code.
-                let mut exit_code = 0;
-                if GetExitCodeProcess(proc_handle.handle(), &mut exit_code) != 0 {
-                    if exit_code != STILL_ACTIVE {
-                        return Ok(None);
-                    }
-                }
-
-                return Err(os_error).with_context(|| format!("Failed to kill pid {}", pid));
-            }
-
-            Ok(Some(WindowsKilledProcessHandle {
-                pid,
-                handle: proc_handle,
-            }))
-        }
+        Ok(Some(WindowsKilledProcessHandle { handle }))
     }
 
     /// Windows reuses PIDs more aggressively than UNIX, so there we add an extra guard in the form
     /// of the process creation time.
     struct WindowsKilledProcessHandle {
-        pid: u32,
-        handle: WinapiHandle,
+        handle: WinapiProcessHandle,
     }
 
     impl KilledProcessHandle for WindowsKilledProcessHandle {
         fn has_exited(&self) -> anyhow::Result<bool> {
-            let mut exit_code = 0;
-
-            if unsafe { GetExitCodeProcess(self.handle.handle(), &mut exit_code) } != 0 {
-                return Ok(exit_code != STILL_ACTIVE);
-            }
-
-            Err(io::Error::last_os_error())
-                .with_context(|| format!("Failed to call GetExitCodeProcess for pid {}", self.pid))
+            self.handle.has_exited()
         }
     }
 
     /// Returns process creation time with 100 ns precision.
     pub fn process_creation_time(pid: u32) -> Option<Duration> {
-        let proc_handle = open_process(PROCESS_QUERY_INFORMATION, pid)?;
-        process_creation_time_impl(&proc_handle, pid).ok()
-    }
-
-    fn process_creation_time_impl(proc: &WinapiHandle, pid: u32) -> anyhow::Result<Duration> {
-        let mut creation_time: FILETIME = unsafe { std::mem::zeroed() };
-        let mut exit_time: FILETIME = unsafe { std::mem::zeroed() };
-        let mut kernel_time: FILETIME = unsafe { std::mem::zeroed() };
-        let mut user_time: FILETIME = unsafe { std::mem::zeroed() };
-
-        let result = unsafe {
-            GetProcessTimes(
-                proc.handle(),
-                &mut creation_time,
-                &mut exit_time,
-                &mut kernel_time,
-                &mut user_time,
-            )
-        };
-
-        if result == 0 {
-            return Err(io::Error::last_os_error())
-                .with_context(|| format!("Failed to call GetProcessTimes for pid {}", pid));
-        }
-
-        // `creation_time` stores intervals of 100 ns, so multiply by 100 to obtain
-        // proper nanoseconds. The u64 type will overflow around the year 2185.
-        let intervals =
-            ((creation_time.dwHighDateTime as u64) << 32) | (creation_time.dwLowDateTime as u64);
-        Ok(Duration::from_nanos(intervals * 100))
+        let proc_handle = WinapiProcessHandle::open_for_info(pid)?;
+        proc_handle.process_creation_time().ok()
     }
 }
 
