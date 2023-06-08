@@ -15,7 +15,6 @@ use dupe::Dupe;
 use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
 use crate::common::CommonDaemonCommandOptions;
-use crate::subscribers::subscriber::EventSubscriber;
 
 mod imp {
     use std::cmp;
@@ -125,6 +124,7 @@ mod imp {
         has_end_of_stream: bool,
         compressed_event_log_size_bytes: Option<Arc<AtomicU64>>,
         critical_path_backend: Option<String>,
+        instant_command_is_success: Option<bool>,
     }
 
     impl<'a> InvocationRecorder<'a> {
@@ -216,7 +216,12 @@ mod imp {
                 has_end_of_stream: false,
                 compressed_event_log_size_bytes: log_size_counter_bytes,
                 critical_path_backend: None,
+                instant_command_is_success: None,
             }
+        }
+
+        pub fn instant_command_outcome(&mut self, is_success: bool) {
+            self.instant_command_is_success = Some(is_success);
         }
 
         async fn build_count(
@@ -351,6 +356,7 @@ mod imp {
                         .unwrap_or_default(),
                 ),
                 critical_path_backend: self.critical_path_backend.take(),
+                instant_command_is_success: self.instant_command_is_success.take(),
             };
 
             let event = BuckEvent::new(
@@ -1007,7 +1013,7 @@ pub fn try_get_invocation_recorder<'a>(
     command_name: &'static str,
     sanitized_argv: Vec<String>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+) -> anyhow::Result<Box<imp::InvocationRecorder<'a>>> {
     let write_to_path = opts
         .unstable_write_invocation_record
         .as_ref()
@@ -1026,7 +1032,7 @@ pub fn try_get_invocation_recorder<'a>(
         ctx.restarted_trace_id.dupe(),
         log_size_counter_bytes,
     );
-    Ok(Some(Box::new(recorder) as _))
+    Ok(Box::new(recorder))
 }
 
 fn system_memory_stats() -> u64 {

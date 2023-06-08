@@ -1572,6 +1572,7 @@ message InvocationRecord {
   optional uint64 compressed_event_log_size_bytes = 65;
   optional bool has_end_of_stream = 67;
   optional string critical_path_backend = 68;
+  optional bool instant_command_is_success = 69;
 }
 
 message CacheUploadStart {

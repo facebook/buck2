@@ -21,7 +21,7 @@ pub struct KillallCommand {}
 
 impl KillallCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let _log_on_drop = try_get_invocation_recorder(
+        let mut recorder = try_get_invocation_recorder(
             &ctx,
             CommonDaemonCommandOptions::default_ref(),
             "killall",
@@ -33,6 +33,7 @@ impl KillallCommand {
             let _ignored = buck2_client_ctx::eprintln!("{}", s);
         });
 
+        recorder.instant_command_outcome(ok);
         if ok {
             ExitResult::success()
         } else {

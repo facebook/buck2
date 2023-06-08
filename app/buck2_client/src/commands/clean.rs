@@ -80,7 +80,7 @@ impl CleanCommand {
             return cmd.exec(matches, ctx);
         }
 
-        let _log_on_drop = try_get_invocation_recorder(
+        let mut recorder = try_get_invocation_recorder(
             &ctx,
             CommonDaemonCommandOptions::default_ref(),
             "clean",
@@ -116,6 +116,8 @@ impl CleanCommand {
             }
             clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
         })?;
+
+        recorder.instant_command_outcome(true);
         ExitResult::success()
     }
 

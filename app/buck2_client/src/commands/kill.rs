@@ -31,7 +31,7 @@ impl KillCommand {
         ctx: ClientCommandContext<'_>,
     ) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
-            let _log_on_drop = try_get_invocation_recorder(
+            let mut recorder = try_get_invocation_recorder(
                 &ctx,
                 CommonDaemonCommandOptions::default_ref(),
                 "kill",
@@ -54,6 +54,8 @@ impl KillCommand {
                         .await?;
                 }
             }
+
+            recorder.instant_command_outcome(true);
             Ok(())
         })
     }

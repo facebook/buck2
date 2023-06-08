@@ -76,15 +76,15 @@ fn default_subscribers<'a, T: StreamingCommand>(
     if let Some(build_id_writer) = try_get_build_id_writer(cmd.event_log_opts(), ctx)? {
         subscribers.push(build_id_writer)
     }
-    if let Some(recorder) = try_get_invocation_recorder(
+    let recorder = try_get_invocation_recorder(
         ctx,
         cmd.event_log_opts(),
         T::COMMAND_NAME,
         ctx.sanitized_argv.argv.clone(),
         log_size_counter_bytes,
-    )? {
-        subscribers.push(recorder);
-    }
+    )?;
+    subscribers.push(recorder);
+
     subscribers.extend(cmd.extra_subscribers());
     Ok(subscribers)
 }
