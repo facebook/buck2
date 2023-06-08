@@ -50,12 +50,11 @@ use futures::future::FutureExt;
 use futures::future::Shared;
 use itertools::Itertools;
 use more_futures::cancellation::CancellationContext;
-use parking_lot::lock_api::MutexGuard;
-use parking_lot::FairMutex;
-use parking_lot::RawFairMutex;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use thiserror::Error;
+use tokio::sync::Mutex;
+use tokio::sync::MutexGuard;
 
 #[derive(Error, Debug)]
 enum ConcurrencyHandlerError {
@@ -90,7 +89,7 @@ pub enum BypassSemaphore {
 /// any computation result that occurs in one is directly reusable by another.
 #[derive(Clone, Dupe, Allocative)]
 pub struct ConcurrencyHandler {
-    data: Arc<FairMutex<ConcurrencyHandlerData>>,
+    data: Arc<Mutex<ConcurrencyHandlerData>>,
     // use an async condvar because the `wait` to `notify` spans across an async function (namely
     // the entire command execution).
     #[allocative(skip)]
@@ -309,7 +308,7 @@ impl ExclusiveCommandLock {
 impl ConcurrencyHandler {
     pub fn new(dice: Arc<Dice>) -> Self {
         ConcurrencyHandler {
-            data: Arc::new(FairMutex::new(ConcurrencyHandlerData {
+            data: Arc::new(Mutex::new(ConcurrencyHandlerData {
                 dice_status: DiceStatus::idle(),
                 active_commands: SmallMap::new(),
                 next_command_id: CommandId(0),
@@ -382,7 +381,6 @@ impl ConcurrencyHandler {
         Ok(exec(transaction).await)
     }
 
-    #[allow(clippy::await_holding_lock)]
     // this is normally super unsafe, but because we are using an async condvar that takes care
     // of unlocking this mutex, this mutex is actually essentially never held across awaits.
     // The async condvar will handle properly allowing under threads to proceed, avoiding
@@ -401,7 +399,7 @@ impl ConcurrencyHandler {
         let span = tracing::span!(tracing::Level::DEBUG, "wait_for_others", trace = %trace);
         let _enter = span.enter();
 
-        let mut data = self.data.lock();
+        let mut data = self.data.lock().await;
 
         let command_id = data.next_command_id.increment();
 
@@ -426,7 +424,7 @@ impl ConcurrencyHandler {
                             async move { (future.await, buck2_data::DiceCleanupEnd {}) },
                         )
                         .await;
-                    data = self.data.lock();
+                    data = self.data.lock().await;
 
                     data.transition_to_idle(epoch);
                 }
@@ -527,7 +525,7 @@ impl ConcurrencyHandler {
                                         },
                                         async {
                                             (
-                                                self.cond.wait(data).await,
+                                                self.cond.wait((data, &*self.data)).await,
                                                 DiceBlockConcurrentCommandEnd {
                                                     ending_active_trace_id: trace_id.to_string(),
                                                 },
@@ -628,38 +626,42 @@ fn format_traces(
 
 /// Held to execute a command so that when the command is canceled, we properly remove its state
 /// from the handler so that it's no longer registered as a ongoing command.
-struct OnExecExit(ConcurrencyHandler, CommandId);
+struct OnExecExit(Option<(ConcurrencyHandler, CommandId)>);
 
 impl OnExecExit {
     pub fn new(
         handler: ConcurrencyHandler,
         command: CommandId,
         data: CommandData,
-        mut guard: MutexGuard<'_, RawFairMutex, ConcurrencyHandlerData>,
+        mut guard: MutexGuard<'_, ConcurrencyHandlerData>,
     ) -> Self {
         guard.active_commands.insert(command, data);
-        Self(handler, command)
+        Self(Some((handler, command)))
     }
 }
 
 impl Drop for OnExecExit {
     fn drop(&mut self) {
-        tracing::info!("Command has exited: {}", self.1);
+        let this = self.0.take().expect("dropped twice");
+        tracing::info!("Command has exited: {}", this.1);
 
-        let mut data = self.0.data.lock();
-        data.active_commands
-            .remove(&self.1)
-            .expect("command was active but not in active_commands");
+        tokio::task::spawn(async move {
+            let mut data = this.0.data.lock().await;
+            data.active_commands
+                .remove(&this.1)
+                .expect("command was active but not in active_commands");
+            tracing::info!("Active command was removed: {}", this.1);
 
-        if data.has_no_active_commands() {
-            // we notify all commands since we don't know how many can actually wake up and run
-            // concurrently as several of the currently waiting commands could be "equivalent".
-            // This could cause commands to wake up out of order and race, such that the longest
-            // waiting command might not still be forced to wait. In reality, it is probably not
-            // a terrible issue, as we are unlikely to have many concurrent commands, and people
-            // are unlikely to usually care about the precise order they get to run.
-            self.0.cond.notify_all()
-        }
+            if data.has_no_active_commands() {
+                // we notify all commands since we don't know how many can actually wake up and run
+                // concurrently as several of the currently waiting commands could be "equivalent".
+                // This could cause commands to wake up out of order and race, such that the longest
+                // waiting command might not still be forced to wait. In reality, it is probably not
+                // a terrible issue, as we are unlikely to have many concurrent commands, and people
+                // are unlikely to usually care about the precise order they get to run.
+                this.0.cond.notify_all()
+            }
+        });
     }
 }
 
@@ -1482,7 +1484,7 @@ mod tests {
 
         futures::future::try_join_all(tasks).await?;
 
-        assert!(!concurrency.data.lock().previously_tainted);
+        assert!(!concurrency.data.lock().await.previously_tainted);
 
         Ok(())
     }
