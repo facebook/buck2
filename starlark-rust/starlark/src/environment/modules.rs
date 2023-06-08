@@ -42,6 +42,7 @@ use crate::environment::slots::FrozenSlots;
 use crate::environment::slots::ModuleSlotId;
 use crate::environment::slots::MutableSlots;
 use crate::environment::EnvironmentError;
+use crate::environment::Globals;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::eval::ProfileData;
@@ -129,6 +130,24 @@ pub struct Module {
 }
 
 impl FrozenModule {
+    /// Convert items in `globals` into a `FrozenModule`.
+    /// This function can be used to implement starlark module
+    /// using the `#[starlark_module]` attribute.
+    ///
+    /// This function does not return an error,
+    /// but we prefer not to panic if there's some high level logic error.
+    pub fn from_globals(globals: &Globals) -> anyhow::Result<FrozenModule> {
+        let module = Module::new();
+
+        module.frozen_heap.add_reference(globals.heap());
+
+        for (name, value) in globals.iter() {
+            module.set(name, value.to_value());
+        }
+
+        module.freeze()
+    }
+
     fn get_any_visibility_option(&self, name: &str) -> Option<(OwnedFrozenValue, Visibility)> {
         self.module.names.get_name(name).and_then(|(slot, vis)|
         // This code is safe because we know the frozen module ref keeps the values alive
@@ -534,12 +553,18 @@ where
 
 #[cfg(test)]
 mod tests {
+    use starlark_derive::starlark_module;
+
+    use crate as starlark;
+    use crate::environment::FrozenModule;
     use crate::environment::Globals;
+    use crate::environment::GlobalsBuilder;
     use crate::environment::Module;
     use crate::eval::Evaluator;
     use crate::eval::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
+    use crate::values::list::ListRef;
 
     #[test]
     fn test_gen_heap_summary_profile() {
@@ -571,5 +596,30 @@ x = f(1)
         // Smoke test.
         assert!(profile_info.unused_capacity.get() > 0);
         assert!(heap_summary.contains("\"x.star.f\""), "{:?}", heap_summary);
+    }
+
+    #[test]
+    fn test_frozen_module_from_globals() {
+        #[starlark_module]
+        fn some_globals(globals: &mut GlobalsBuilder) {
+            fn foo() -> anyhow::Result<i32> {
+                Ok(17)
+            }
+
+            const BAR: Vec<String> = Vec::new();
+        }
+
+        let mut globals = GlobalsBuilder::new();
+        some_globals(&mut globals);
+        let globals = globals.build();
+
+        let module = FrozenModule::from_globals(&globals).unwrap();
+        assert_eq!("function", module.get("foo").unwrap().value().get_type());
+        assert_eq!(
+            0,
+            ListRef::from_value(module.get("BAR").unwrap().value())
+                .unwrap()
+                .len()
+        );
     }
 }

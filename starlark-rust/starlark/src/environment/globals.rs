@@ -143,6 +143,12 @@ impl Globals {
         self.0.variable_names.iter().copied()
     }
 
+    /// Iterate over all the items in this environment.
+    /// Note returned values are owned by this globals.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
+        self.0.variables.iter().map(|(n, v)| (n.as_str(), *v))
+    }
+
     pub(crate) fn heap(&self) -> &FrozenHeapRef {
         &self.0.heap
     }
