@@ -30,34 +30,37 @@ impl KillCommand {
         _matches: &clap::ArgMatches,
         ctx: ClientCommandContext<'_>,
     ) -> anyhow::Result<()> {
-        ctx.with_runtime(async move |ctx| {
-            let mut recorder = try_get_invocation_recorder(
-                &ctx,
-                CommonDaemonCommandOptions::default_ref(),
-                "kill",
-                std::env::args().collect(),
-                None,
-            )?;
+        let mut recorder = try_get_invocation_recorder(
+            &ctx,
+            CommonDaemonCommandOptions::default_ref(),
+            "kill",
+            std::env::args().collect(),
+            None,
+        )?;
 
-            match ctx
-                .connect_buckd(BuckdConnectOptions::existing_only_no_console())
-                .await
-            {
-                Err(_) => {
-                    buck2_client_ctx::eprintln!("no buckd server running")?;
+        let result: anyhow::Result<()> = try {
+            ctx.with_runtime(async move |ctx| {
+                match ctx
+                    .connect_buckd(BuckdConnectOptions::existing_only_no_console())
+                    .await
+                {
+                    Err(_) => {
+                        buck2_client_ctx::eprintln!("no buckd server running")?;
+                    }
+                    Ok(mut client) => {
+                        buck2_client_ctx::eprintln!("killing buckd server")?;
+                        client
+                            .with_flushing()
+                            .kill("`buck kill` was invoked")
+                            .await?;
+                    }
                 }
-                Ok(mut client) => {
-                    buck2_client_ctx::eprintln!("killing buckd server")?;
-                    client
-                        .with_flushing()
-                        .kill("`buck kill` was invoked")
-                        .await?;
-                }
-            }
+                Ok::<(), anyhow::Error>(())
+            })?
+        };
 
-            recorder.instant_command_outcome(true);
-            Ok(())
-        })
+        recorder.instant_command_outcome(result.is_ok());
+        result
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {

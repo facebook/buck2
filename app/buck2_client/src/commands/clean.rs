@@ -88,7 +88,7 @@ impl CleanCommand {
             None,
         )?;
 
-        ctx.with_runtime(async move |ctx| {
+        let result = ctx.with_runtime(async move |ctx| {
             let buck_out_dir = ctx.paths()?.buck_out_path();
             let daemon_dir = ctx.paths()?.daemon_dir()?;
             let console = &self.common_opts.console_opts.final_console();
@@ -115,10 +115,14 @@ impl CleanCommand {
                     .await?;
             }
             clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
-        })?;
+        });
 
-        recorder.instant_command_outcome(true);
-        ExitResult::success()
+        recorder.instant_command_outcome(result.is_ok());
+        if result.is_ok() {
+            ExitResult::success()
+        } else {
+            ExitResult::failure()
+        }
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
