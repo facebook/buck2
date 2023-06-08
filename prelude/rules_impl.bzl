@@ -264,6 +264,30 @@ def _cxx_python_extension_attrs():
     })
     return res
 
+# Attrs specific to par creation for python
+def _python_make_par_attrs():
+    return {
+        "argcomplete": attrs.bool(default = False),
+        "build_info": attrs.option(attrs.dict(key = attrs.string(), value = attrs.option(attrs.any(), default = None), sorted = False), default = None),  # TODO should this be broken apart?
+        "build_info_mode": attrs.option(attrs.string(), default = None),
+        "bytecode_compiler": attrs.option(attrs.arg(), default = None),  # TODO how should we handle compilation here?
+        "compile": attrs.bool(default = False),  # TODO this should be an enum
+        "debug_info": attrs.option(attrs.string(), default = None),
+        "extra_build_info": attrs.option(attrs.dict(key = attrs.string(), value = attrs.option(attrs.any(), default = None), sorted = False), default = None),  # TODO should this be broken apart?
+        "extra_xar_trampoline_names": attrs.option(attrs.string(), default = None),
+        "ld_library_path": attrs.option(attrs.string(), default = None),
+        "manifest_env": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
+        "omnibus_debug_info": attrs.option(attrs.string(), default = None),
+        "optimize": attrs.bool(default = False),
+        "package_dwp": attrs.bool(default = False),
+        "python": attrs.option(attrs.string(), default = None),
+        "runtime_env": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
+        "runtime_files": attrs.option(attrs.dict(key = attrs.string(), value = attrs.arg()), default = None),  # TODO this needs to be broken apart
+        "strict_tabs": attrs.bool(default = False),
+        "strip_libpar": attrs.bool(default = False),  # TODO this should be an enum as well
+        "xar_compression_level": attrs.option(attrs.int(), default = None),
+    }
+
 # Attrs common between python binary/test
 def _python_executable_attrs():
     cxx_binary_attrs = {k: v for k, v in cxx_rules.cxx_binary.attrs.items()}
@@ -276,6 +300,9 @@ def _python_executable_attrs():
         for key in cxx_binary_attrs
         if key not in python_executable_attrs
     }
+
+    # Add attrs specifically for make_par
+    updated_attrs.update(_python_make_par_attrs())
 
     # allow non-default value for the args below
     updated_attrs.update({
