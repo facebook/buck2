@@ -78,56 +78,82 @@ pub fn killall(write: impl Fn(String)) -> bool {
         return true;
     }
 
-    let mut ok = true;
+    struct Printer<F> {
+        write: F,
+        /// All processes were killed successfully.
+        ok: bool,
+    }
 
-    for process in buck2_processes {
-        fn kill(process: &ProcessInfo) -> anyhow::Result<()> {
-            let pid = process.pid;
-            let handle = kill::kill(pid)?;
-            let start = Instant::now();
-            // 5 seconds is not enough on macOS to shutdown forkserver.
-            // We don't really need to wait for forkserver shutdown,
-            // we care about buckd shutdown. But logic to distinguish
-            // between forkserver and buckd would be too fragile.
-            let timeout_secs = 30;
-            while start.elapsed() < Duration::from_secs(timeout_secs) {
-                if handle.has_exited()? {
-                    return Ok(());
-                }
-                thread::sleep(Duration::from_millis(100));
-            }
-            Err(anyhow::anyhow!(
-                "Process {pid} still exists after {timeout_secs}s after kill sent"
-            ))
+    impl<F: Fn(String)> Printer<F> {
+        fn fmt_status(&mut self, process: &ProcessInfo, status: &str) -> String {
+            format!(
+                "{} {} ({}). {}",
+                status,
+                process.name,
+                process.pid,
+                process.cmd.join(" "),
+            )
         }
 
-        let result = kill(&process);
-
-        if result.is_err() {
-            ok = false;
-        }
-
-        let status = if result.is_ok() {
-            "Killed"
-        } else {
-            "Failed to kill"
-        };
-
-        let mut message = format!(
-            "{} {} ({}). {}",
-            status,
-            process.name,
-            process.pid,
-            process.cmd.join(" "),
-        );
-        if let Err(error) = result {
+        fn failed_to_kill(&mut self, process: &ProcessInfo, error: anyhow::Error) {
+            let mut message = self.fmt_status(process, "Failed to kill");
             for line in format!("{:?}", error).lines() {
                 message.push_str("\n  ");
                 message.push_str(line);
             }
+            (self.write)(message);
+
+            self.ok = false;
         }
-        write(message);
+
+        fn killed(&mut self, process: &ProcessInfo) {
+            let message = self.fmt_status(process, "Killed");
+            (self.write)(message);
+        }
     }
 
-    ok
+    let mut printer = Printer { write, ok: true };
+
+    // Send a kill signal and collect the processes that are still alive.
+
+    let mut processes_still_alive: Vec<(ProcessInfo, _)> = Vec::new();
+    for process in buck2_processes {
+        match kill::kill(process.pid) {
+            Ok(handle) => processes_still_alive.push((process, handle)),
+            Err(e) => printer.failed_to_kill(&process, e),
+        };
+    }
+
+    // Wait for the processes to exit.
+
+    let start = Instant::now();
+    while !processes_still_alive.is_empty() {
+        let timeout_secs = 10;
+
+        processes_still_alive.retain(|(process, handle)| match handle.has_exited() {
+            Err(e) => {
+                printer.failed_to_kill(process, e);
+                false
+            }
+            Ok(true) => {
+                printer.killed(process);
+                false
+            }
+            Ok(false) => true,
+        });
+
+        if start.elapsed() > Duration::from_secs(timeout_secs) {
+            for process in processes_still_alive {
+                printer.failed_to_kill(
+                    &process.0,
+                    anyhow::anyhow!("Process still alive after {timeout_secs}s after kill sent"),
+                );
+            }
+            break;
+        }
+
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    printer.ok
 }
