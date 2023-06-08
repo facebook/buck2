@@ -39,3 +39,4 @@ starlark_map = { workspace = true }
 [dev-dependencies]
 derivative = { workspace = true }
 tokio = { workspace = true }
+assert_matches = { workspace = true }

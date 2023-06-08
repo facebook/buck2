@@ -670,10 +670,12 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
+    use std::task::Poll;
     use std::time::Duration;
 
     use allocative::Allocative;
     use anyhow::Context;
+    use assert_matches::assert_matches;
     use async_trait::async_trait;
     use buck2_core::is_open_source;
     use buck2_events::create_source_sink_pair;
@@ -691,10 +693,13 @@ mod tests {
     use dice::Key;
     use dice::UserComputationData;
     use dupe::Dupe;
+    use futures::pin_mut;
+    use futures::poll;
     use more_futures::cancellation::CancellationContext;
     use parking_lot::Mutex;
     use tokio::sync::Barrier;
     use tokio::sync::RwLock;
+    use tokio::sync::Semaphore;
 
     use super::*;
 
@@ -1485,6 +1490,93 @@ mod tests {
         futures::future::try_join_all(tasks).await?;
 
         assert!(!concurrency.data.lock().await.previously_tainted);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_updates_are_synchronized() -> anyhow::Result<()> {
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+
+        struct Updater {
+            should_be_able_to_run: AtomicBool,
+            arrived_update: Semaphore,
+        }
+
+        #[async_trait]
+        impl DiceUpdater for Updater {
+            async fn update(
+                &self,
+                ctx: DiceTransactionUpdater,
+            ) -> anyhow::Result<DiceTransactionUpdater> {
+                self.arrived_update.add_permits(1);
+                tokio::task::yield_now().await;
+
+                if self.should_be_able_to_run.load(Ordering::SeqCst) {
+                    Ok(ctx)
+                } else {
+                    panic!("shouldn't be running")
+                }
+            }
+        }
+
+        let updater1 = Updater {
+            should_be_able_to_run: AtomicBool::new(false),
+            arrived_update: Semaphore::new(0),
+        };
+        let fut1 = concurrency.enter(
+            EventDispatcher::null(),
+            &TestDiceDataProvider,
+            &updater1,
+            |_dice| async move {
+                tokio::task::yield_now().await;
+            },
+            false,
+            Vec::new(),
+            None,
+            false,
+            CancellationContext::testing(),
+        );
+        pin_mut!(fut1);
+
+        let updater2 = Updater {
+            should_be_able_to_run: AtomicBool::new(false),
+            arrived_update: Semaphore::new(0),
+        };
+        let fut2 = concurrency.enter(
+            EventDispatcher::null(),
+            &TestDiceDataProvider,
+            &updater2,
+            |_dice| async move {
+                tokio::task::yield_now().await;
+            },
+            false,
+            Vec::new(),
+            None,
+            false,
+            CancellationContext::testing(),
+        );
+        pin_mut!(fut2);
+
+        // poll once will arrive at the `yield` in updater
+        assert_matches!(poll!(&mut fut1), Poll::Pending);
+        let _g = updater1.arrived_update.acquire().await?;
+
+        // polling multiple times on the second command will all be pending and not complete
+        assert_matches!(poll!(&mut fut2), Poll::Pending);
+        assert_matches!(poll!(&mut fut2), Poll::Pending);
+        assert_matches!(poll!(&mut fut2), Poll::Pending);
+        assert_matches!(poll!(&mut fut2), Poll::Pending);
+
+        // now make the first command runnable
+        updater1.should_be_able_to_run.store(true, Ordering::SeqCst);
+        fut1.await?;
+
+        // 1 is done and dropped, so `2` can now finish
+        updater2.should_be_able_to_run.store(true, Ordering::SeqCst);
+        fut2.await?;
 
         Ok(())
     }
