@@ -386,7 +386,7 @@ pub async fn command_details(
                     argv: command.to_owned(),
                     env: env
                         .iter()
-                        .map(|(key, value)| buck2_data::local_command::EnvironmentEntry {
+                        .map(|(key, value)| buck2_data::EnvironmentEntry {
                             key: key.clone(),
                             value: value.clone(),
                         })

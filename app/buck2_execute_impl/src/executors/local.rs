@@ -365,12 +365,38 @@ impl LocalExecutor {
         let worker = if let (Some(worker_spec), Some(worker_pool), true) =
             (request.worker(), self.worker_pool.dupe(), cfg!(unix))
         {
-            let env = iter_env().map(|(k, v)| (OsString::from(k), OsString::from(v.into_os_str())));
-            let worker = worker_pool
-                .get_or_create_worker(worker_spec, env, &self.root)
-                .await;
-
-            match worker {
+            match executor_stage_async(
+                {
+                    let stage = buck2_data::InitializeWorker {
+                        command: Some(buck2_data::WorkerInitCommand {
+                            argv: worker_spec.exe.clone(),
+                            env: request
+                                .env()
+                                .iter()
+                                .map(|(k, v)| buck2_data::EnvironmentEntry {
+                                    key: k.to_owned(),
+                                    value: v.to_owned(),
+                                })
+                                .collect(),
+                        }),
+                    };
+                    buck2_data::LocalStage {
+                        stage: Some(stage.into()),
+                    }
+                },
+                async move {
+                    // TODO(ctolliday - T155351378) set worker specific env via WorkerInfo, not from the action
+                    let env = request
+                        .env()
+                        .iter()
+                        .map(|(k, v)| (OsString::from(k), OsString::from(v)));
+                    worker_pool
+                        .get_or_create_worker(worker_spec, env, &self.root)
+                        .await
+                },
+            )
+            .await
+            {
                 Ok(worker) => Some(worker),
                 Err(e) => return manager.error("worker_init_failed", e),
             }
@@ -381,7 +407,7 @@ impl LocalExecutor {
         let (mut timing, res) = executor_stage_async(
             {
                 let env = iter_env()
-                    .map(|(k, v)| buck2_data::local_command::EnvironmentEntry {
+                    .map(|(k, v)| buck2_data::EnvironmentEntry {
                         key: k.to_owned(),
                         value: v.into_string_lossy(),
                     })

@@ -1225,6 +1225,7 @@ message LocalStage {
     LocalMaterializeInputs materialize_inputs = 3;
     LocalPrepareOutputDirs prepare_outputs = 4;
     AcquireLocalResource acquire_local_resource = 5;
+    InitializeWorker initialize_worker = 6;
   }
 }
 
@@ -1239,6 +1240,10 @@ message LocalMaterializeInputs {}
 message LocalPrepareOutputDirs {}
 
 message AcquireLocalResource {}
+
+message InitializeWorker {
+  WorkerInitCommand command = 1;
+}
 
 message ExecutorStageEnd {}
 
@@ -1390,18 +1395,23 @@ message ConsoleMessage {
   string message = 1;
 }
 
+message EnvironmentEntry {
+  // The environment key.
+  string key = 1;
+  // The environment value.
+  string value = 2;
+}
+
 /// A representation of a command that we executed locally.
 message LocalCommand {
-  message EnvironmentEntry {
-    // The environment key.
-    string key = 1;
-    // The environment value.
-    string value = 2;
-  }
-
   repeated string argv = 1;
   repeated EnvironmentEntry env = 2;
   string action_digest = 3;
+}
+
+message WorkerInitCommand {
+  repeated string argv = 1;
+  repeated EnvironmentEntry env = 2;
 }
 
 // A representation of a command we executed remotely.

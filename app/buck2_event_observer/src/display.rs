@@ -422,6 +422,7 @@ pub fn display_executor_stage(
                 Stage::MaterializeInputs(..) => "local_materialize_inputs",
                 Stage::PrepareOutputs(_) => "local_prepare_outputs",
                 Stage::AcquireLocalResource(_) => "acquire_local_resource",
+                Stage::InitializeWorker(_) => "initialize_worker",
             }
         }
     };
