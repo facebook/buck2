@@ -34,7 +34,7 @@ use buck2_client::commands::profile::ProfileCommand;
 use buck2_client::commands::query::aquery::AqueryCommand;
 use buck2_client::commands::query::cquery::CqueryCommand;
 use buck2_client::commands::query::uquery::UqueryCommand;
-// @oss-disable: use buck2_client::commands::rage::RageCommand;
+use buck2_client::commands::rage::RageCommand;
 use buck2_client::commands::root::RootCommand;
 use buck2_client::commands::run::RunCommand;
 use buck2_client::commands::server::ServerCommand;
@@ -273,7 +273,8 @@ pub(crate) enum CommandKind {
     Docs(DocsCommand),
     #[clap(subcommand)]
     Profile(ProfileCommand),
-    // @oss-disable: Rage(RageCommand),
+    #[clap(hide(true))] // @oss-enable
+    Rage(RageCommand),
     Clean(CleanCommand),
     #[clap(subcommand)]
     Log(LogCommand),
@@ -418,7 +419,7 @@ impl CommandKind {
             CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Docs(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx),
-            // @oss-disable: CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Init(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Install(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Log(cmd) => cmd.exec(matches, command_ctx),
@@ -453,7 +454,7 @@ impl CommandKind {
             CommandKind::Debug(cmd) => cmd.sanitize_argv(argv),
             CommandKind::Docs(cmd) => cmd.sanitize_argv(argv),
             CommandKind::Profile(cmd) => cmd.sanitize_argv(argv),
-            // @oss-disable: CommandKind::Rage(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Rage(cmd) => cmd.sanitize_argv(argv),
             CommandKind::Init(cmd) => cmd.sanitize_argv(argv),
             CommandKind::Install(cmd) => cmd.sanitize_argv(argv),
             CommandKind::Log(cmd) => cmd.sanitize_argv(argv),
