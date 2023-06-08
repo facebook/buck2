@@ -12,14 +12,4 @@ pub mod caching;
 pub mod hybrid;
 pub mod local;
 pub mod re;
-#[cfg(unix)]
 pub mod worker;
-#[cfg(not(unix))]
-pub mod worker {
-    pub struct WorkerPool {}
-    impl WorkerPool {
-        pub fn new() -> WorkerPool {
-            WorkerPool {}
-        }
-    }
-}

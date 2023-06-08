@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::fs::File;
-use std::os::unix::ffi::OsStrExt;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -214,6 +213,22 @@ pub struct WorkerCleanupHandle {
     socket_path: AbsNormPathBuf,
 }
 
+#[cfg(unix)]
+fn env_entries(env: &[(OsString, OsString)]) -> Vec<EnvironmentEntry> {
+    use std::os::unix::ffi::OsStrExt;
+    env.iter()
+        .map(|(k, v)| EnvironmentEntry {
+            key: k.as_bytes().into(),
+            value: v.as_bytes().into(),
+        })
+        .collect()
+}
+
+#[cfg(not(unix))]
+fn env_entries(_env: &[(OsString, OsString)]) -> Vec<EnvironmentEntry> {
+    unreachable!("worker should not exist off unix")
+}
+
 impl WorkerCommandHandle {
     pub async fn exec_cmd(
         &self,
@@ -226,13 +241,7 @@ impl WorkerCommandHandle {
             env,
         );
         let argv: Vec<Vec<u8>> = args.iter().map(|s| s.as_str().into()).collect();
-        let env: Vec<EnvironmentEntry> = env
-            .into_iter()
-            .map(|(k, v)| EnvironmentEntry {
-                key: k.as_bytes().into(),
-                value: v.as_bytes().into(),
-            })
-            .collect();
+        let env: Vec<EnvironmentEntry> = env_entries(&env);
 
         let request = ExecuteCommand { argv, env };
         let response = self.client.clone().execute(request).await;
