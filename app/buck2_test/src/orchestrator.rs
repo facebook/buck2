@@ -11,7 +11,6 @@
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::io::Write as _;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -565,14 +564,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             .await
             .context("Error accessing test output")?;
         let stdout = ExecutionStream::Inline(std_streams.stdout);
-        let mut stderr = ExecutionStream::Inline(std_streams.stderr);
-
-        {
-            let ExecutionStream::Inline(stderr) = &mut stderr;
-            writeln!(stderr)?;
-            // This should tell us whether it was local or remote.
-            writeln!(stderr, "{:#?}", status)?;
-        }
+        let stderr = ExecutionStream::Inline(std_streams.stderr);
 
         Ok(match status {
             CommandExecutionStatus::Success { .. } => (
