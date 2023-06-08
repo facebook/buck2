@@ -91,7 +91,7 @@ pub fn killall(write: impl Fn(String)) -> bool {
                 status,
                 process.name,
                 process.pid,
-                process.cmd.join(" "),
+                shlex::join(process.cmd.iter().map(|s| s.as_str())),
             )
         }
 

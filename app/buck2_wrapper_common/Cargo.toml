@@ -13,6 +13,7 @@ meaning code changes here are not "atomically" updated.
 allocative = { workspace = true }
 dupe = { workspace = true }
 anyhow = { workspace = true }
+shlex = { workspace = true }
 serde = { workspace = true }
 sysinfo = { workspace = true }
 thiserror = { workspace = true }
