@@ -22,18 +22,19 @@ pub use dialect::Dialect;
 pub use dialect::DialectTypes;
 pub use parser::AstLoad;
 
-#[cfg(test)]
-mod grammar_tests;
-#[cfg(test)]
-mod lexer_tests;
-#[cfg(test)]
-mod testcases;
-
 pub(crate) mod ast;
 pub(crate) mod cursors;
 mod dialect;
+#[cfg(test)]
+mod grammar_tests;
 pub(crate) mod lexer;
+#[cfg(test)]
+mod lexer_tests;
+pub(crate) mod parser;
 pub(crate) mod payload_map;
+#[cfg(test)]
+mod testcases;
+pub(crate) mod uniplate;
 pub(crate) mod validate;
 
 #[allow(clippy::all)]
@@ -48,6 +49,3 @@ pub(crate) mod validate;
 mod grammar {
     include!(concat!(env!("OUT_DIR"), "/syntax/grammar.rs"));
 }
-
-pub(crate) mod parser;
-pub(crate) mod uniplate;
