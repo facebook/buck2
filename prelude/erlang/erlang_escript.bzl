@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "check_dependencies", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
 load(":erlang_toolchain.bzl", "get_primary", "select_toolchains")
@@ -31,7 +32,9 @@ def create_escript(
     )
     escript_build_cmd.hidden(output.as_output())
     escript_build_cmd.hidden(files)
-    ctx.actions.run(
+    erlang_build.utils.run_with_env(
+        ctx,
+        toolchain,
         escript_build_cmd,
         category = "escript",
         identifier = action_identifier(toolchain, escript_name),

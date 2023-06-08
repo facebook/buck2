@@ -250,7 +250,9 @@ def _generate_app_file(
     app_build_cmd.hidden(srcs)
     if ctx.attrs.app_src:
         app_build_cmd.hidden(ctx.attrs.app_src)
-    ctx.actions.run(
+    erlang_build.utils.run_with_env(
+        ctx,
+        toolchain,
         app_build_cmd,
         category = "app_resource",
         identifier = action_identifier(toolchain, paths.basename(app_file_name)),

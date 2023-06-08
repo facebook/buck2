@@ -17,6 +17,7 @@ load(":erlang_toolchain.bzl", "erlang_otp_binaries_impl")
 common_attributes = {
     "contacts": attrs.list(attrs.string(), default = []),
     "labels": attrs.list(attrs.string(), default = []),
+    "os_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None),
 }
 
 common_shell_attributes = {

@@ -104,6 +104,8 @@ ErlangToolchainInfo = provider(
         "edoc_options",
         # beams we need for various reasons
         "utility_modules",
+        # env to be set for toolchain invocations
+        "env",
     ],
 )
 

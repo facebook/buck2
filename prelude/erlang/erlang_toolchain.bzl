@@ -49,6 +49,7 @@ Toolchain = record(
     edoc = field("artifact"),
     edoc_options = field(["string"]),
     utility_modules = field("artifact"),
+    env = field({"string": "string"}),
 )
 
 ToolchainUtillInfo = provider(
@@ -73,7 +74,10 @@ def get_primary(ctx: "context") -> "string":
     return ctx.attrs._toolchain[ErlangMultiVersionToolchainInfo].primary
 
 def get_primary_tools(ctx: "context") -> "Tools":
-    return (select_toolchains(ctx)[get_primary(ctx)]).otp_binaries
+    return (get_primary_toolchain(ctx)).otp_binaries
+
+def get_primary_toolchain(ctx: "context") -> "Toolchain":
+    return (select_toolchains(ctx)[get_primary(ctx)])
 
 def _multi_version_toolchain_impl(ctx: "context") -> ["provider"]:
     toolchains = {}
@@ -95,6 +99,7 @@ def _multi_version_toolchain_impl(ctx: "context") -> ["provider"]:
             edoc = toolchain_info.edoc,
             edoc_options = toolchain_info.edoc_options,
             utility_modules = toolchain_info.utility_modules,
+            env = toolchain_info.env,
         )
     return [
         DefaultInfo(),
@@ -172,6 +177,7 @@ def _config_erlang_toolchain_impl(ctx: "context") -> ["provider"]:
             boot_script_builder = utils.boot_script_builder,
             dependency_analyzer = utils.dependency_analyzer,
             erl_opts = erl_opts,
+            env = ctx.attrs.env,
             emu_flags = emu_flags,
             erlc_trampoline = utils.erlc_trampoline,
             escript_builder = utils.escript_builder,
@@ -263,6 +269,7 @@ config_erlang_toolchain_rule = rule(
         "core_parse_transforms": attrs.list(attrs.dep(), default = ["@prelude//erlang/toolchain:transform_project_root"]),
         "edoc_options": attrs.string(default = ""),
         "emu_flags": attrs.string(default = ""),
+        "env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
         "erl_opts": attrs.string(default = ""),
         "otp_binaries": attrs.dep(),
         "parse_transforms": attrs.list(attrs.dep()),

@@ -377,7 +377,9 @@ def _get_deps_file(ctx: "context", toolchain: "Toolchain", src: "artifact") -> "
             dependency_json.as_output(),
         ],
     )
-    ctx.actions.run(
+    _run_with_env(
+        ctx,
+        toolchain,
         dependency_analyzer_cmd,
         category = "dependency_analyzer",
         identifier = action_identifier(toolchain, src.short_path),
@@ -407,7 +409,9 @@ def _build_xyrl(
             xyrl,
         ],
     )
-    ctx.actions.run(
+    _run_with_env(
+        ctx,
+        toolchain,
         erlc_cmd,
         category = "erlc",
         identifier = action_identifier(toolchain, xyrl.basename),
@@ -443,7 +447,9 @@ def _build_erl(
         )
         erlc_cmd, mapping = _add_dependencies_to_args(ctx, artifacts, [outputs[output].short_path], {}, {}, erlc_cmd, build_environment)
         erlc_cmd = _add_full_dependencies(erlc_cmd, build_environment)
-        ctx.actions.run(
+        _run_with_env(
+            ctx,
+            toolchain,
             erlc_cmd,
             category = "erlc",
             identifier = action_identifier(toolchain, src.basename),
@@ -491,7 +497,9 @@ def _build_edoc(
     for include in build_environment.private_includes.values():
         eval_cmd.hidden(include)
 
-    ctx.actions.run(
+    _run_with_env(
+        ctx,
+        toolchain,
         eval_cmd,
         always_print_stderr = True,
         category = "edoc",
@@ -757,6 +765,22 @@ def _generate_file_mapping_string(mapping: {"string": ("bool", ["string", "artif
 
     return to_term_args(items)
 
+def _run_with_env(ctx: "context", toolchain: "Toolchain", *args, **kwargs):
+    """ run interfact that injects env"""
+
+    # use os_env defined in target if present
+    if getattr(ctx.attrs, "os_env", None) == None:
+        env = toolchain.env
+    else:
+        env = ctx.attrs.os_env
+
+    if "env" in kwargs:
+        env = _merge(kwargs["env"], env)
+    else:
+        env = env
+    kwargs["env"] = env
+    ctx.actions.run(*args, **kwargs)
+
 # export
 
 erlang_build = struct(
@@ -776,5 +800,6 @@ erlang_build = struct(
         private_include_name = private_include_name,
         make_dir_anchor = _make_dir_anchor,
         build_dir = _build_dir,
+        run_with_env = _run_with_env,
     ),
 )

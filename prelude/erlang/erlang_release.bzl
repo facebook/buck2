@@ -111,7 +111,10 @@ def _build_lib_dir(ctx: "context", toolchain: "Toolchain", all_apps: ErlAppDepen
     )
     return {"lib": lib_dir}
 
-def _build_boot_script(ctx: "context", toolchain: "Toolchain", lib_dir: "artifact") -> {"string": "artifact"}:
+def _build_boot_script(
+        ctx: "context",
+        toolchain: "Toolchain",
+        lib_dir: "artifact") -> {"string": "artifact"}:
     """Build Name.rel, start.script, and start.boot in the release folder."""
     release_name = _relname(ctx)
     build_dir = erlang_build.utils.build_dir(toolchain)
@@ -190,7 +193,9 @@ def _build_boot_script(ctx: "context", toolchain: "Toolchain", lib_dir: "artifac
     boot_script_build_cmd.hidden(boot_script.as_output())
     boot_script_build_cmd.hidden(lib_dir)
 
-    ctx.actions.run(
+    erlang_build.utils.run_with_env(
+        ctx,
+        toolchain,
         boot_script_build_cmd,
         category = "build_boot_script",
         identifier = action_identifier(toolchain, release_name),
@@ -248,7 +253,9 @@ def _build_release_variables(ctx: "context", toolchain: "Toolchain") -> {"string
         release_variables.as_output(),
     ])
 
-    ctx.actions.run(
+    erlang_build.utils.run_with_env(
+        ctx,
+        toolchain,
         release_variables_build_cmd,
         category = "build_release_variables",
         identifier = action_identifier(toolchain, release_name),
