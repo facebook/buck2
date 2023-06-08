@@ -1059,7 +1059,8 @@ mod tests {
         } else {
             assert!(frame_contains(&frame, "Build ID:"));
         }
-        assert!(frame_contains(&frame, "RE: reSessionID-123"));
+        assert!(frame_contains(&frame, "Network:"));
+        assert!(frame_contains(&frame, "(reSessionID-123)"));
         assert!(frame_contains(&frame, "Progress"));
 
         console

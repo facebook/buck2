@@ -66,6 +66,10 @@ impl TwoSnapshots {
     pub fn re_upload_bytes_per_second(&self) -> Option<u64> {
         self.bytes_per_second(|snapshot| snapshot.re_upload_bytes)
     }
+
+    pub fn http_download_bytes_per_second(&self) -> Option<u64> {
+        self.bytes_per_second(|snapshot| snapshot.http_download_bytes)
+    }
 }
 
 #[cfg(test)]

@@ -41,12 +41,11 @@ impl ReState {
     pub fn render_header(&self, draw_mode: DrawMode) -> Option<String> {
         let mut parts = Vec::new();
 
-        if let Some(session_id) = self.session_id.as_ref() {
-            parts.push(session_id.to_owned());
-        }
-
         if let Some((_, last)) = &self.two_snapshots.last {
-            if last.re_upload_bytes > 0 || last.re_download_bytes > 0 {
+            if last.re_upload_bytes > 0
+                || last.re_download_bytes > 0
+                || last.http_download_bytes > 0
+            {
                 let part = match draw_mode {
                     DrawMode::Normal => {
                         fn format_byte_per_second(bytes_per_second: u64) -> String {
@@ -65,12 +64,20 @@ impl ReState {
                             .two_snapshots
                             .re_download_bytes_per_second()
                             .unwrap_or_default();
+                        let http_download_bytes_per_second = self
+                            .two_snapshots
+                            .http_download_bytes_per_second()
+                            .unwrap_or_default();
                         format!(
                             "Up: {} {}  Down: {} {}",
                             HumanizedBytes::fixed_width(last.re_upload_bytes),
                             format_byte_per_second(re_upload_bytes_per_second),
-                            HumanizedBytes::fixed_width(last.re_download_bytes),
-                            format_byte_per_second(re_download_bytes_per_second),
+                            HumanizedBytes::fixed_width(
+                                last.re_download_bytes + last.http_download_bytes
+                            ),
+                            format_byte_per_second(
+                                re_download_bytes_per_second + http_download_bytes_per_second
+                            ),
                         )
                     }
                     DrawMode::Final => {
@@ -85,11 +92,15 @@ impl ReState {
             }
         }
 
+        if let Some(session_id) = self.session_id.as_ref() {
+            parts.push(format!("({})", session_id.to_owned()));
+        }
+
         if parts.is_empty() {
             return None;
         }
 
-        Some(format!("RE: {}", parts.join("  ")))
+        Some(format!("Network: {}", parts.join("  ")))
     }
 
     fn render_detailed_items(
