@@ -303,6 +303,7 @@ def _apple_watchos_bundle_macro_stub(**kwargs):
 def _apple_test_macro_stub(**kwargs):
     apple_test_macro_impl(
         apple_test_rule = __rules__["apple_test"],
+        apple_resource_bundle_rule = _user_rules["apple_resource_bundle"],
         **kwargs
     )
 

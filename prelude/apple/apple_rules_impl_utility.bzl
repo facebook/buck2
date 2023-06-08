@@ -51,6 +51,7 @@ def _apple_bundle_like_common_attrs():
         "_fast_adhoc_signing_enabled": attrs.bool(default = False),
         "_incremental_bundling_enabled": attrs.bool(default = False),
         "_profile_bundling_enabled": attrs.bool(default = False),
+        "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),
     }
@@ -63,7 +64,7 @@ def apple_test_extra_attrs():
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "binary": attrs.option(attrs.dep(), default = None),
         # The resulting test bundle should have .xctest extension.
-        "extension": attrs.string(default = "xctest"),
+        "extension": attrs.string(),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_execution_preference": link_execution_preference_attr(),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
@@ -94,7 +95,6 @@ def apple_bundle_extra_attrs():
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_provisioning_profiles": attrs.dep(default = "fbsource//xplat/buck2/platform/apple:provisioning_profiles"),
-        "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),
     }
     attribs.update(_apple_bundle_like_common_attrs())
     return attribs
