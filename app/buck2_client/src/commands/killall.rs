@@ -13,6 +13,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
+use buck2_wrapper_common::is_buck2::WhoIsAsking;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Kill all buck2 processes on the machine")]
@@ -28,7 +29,7 @@ impl KillallCommand {
             None,
         )?;
 
-        let ok = buck2_wrapper_common::killall(|s| {
+        let ok = buck2_wrapper_common::killall(WhoIsAsking::Buck2, |s| {
             let _ignored = buck2_client_ctx::eprintln!("{}", s);
         });
 

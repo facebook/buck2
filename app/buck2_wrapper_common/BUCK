@@ -32,6 +32,7 @@ rust_library(
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:shlex",
         "fbsource//third-party/rust:sysinfo",

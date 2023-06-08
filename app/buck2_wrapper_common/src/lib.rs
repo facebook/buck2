@@ -17,12 +17,17 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
+use is_buck2::WhoIsAsking;
 use sysinfo::Pid;
 use sysinfo::PidExt;
 use sysinfo::ProcessExt;
 use sysinfo::System;
 use sysinfo::SystemExt;
+
+use crate::is_buck2::is_buck2_exe;
+
 pub mod invocation_id;
+pub mod is_buck2;
 pub mod kill;
 pub mod winapi_handle;
 pub(crate) mod winapi_process;
@@ -38,7 +43,7 @@ struct ProcessInfo {
 }
 
 /// Find all buck2 processes in the system.
-fn find_buck2_processes() -> Vec<ProcessInfo> {
+fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
     let mut system = System::new();
     system.refresh_processes();
 
@@ -55,8 +60,7 @@ fn find_buck2_processes() -> Vec<ProcessInfo> {
 
     let mut buck2_processes = Vec::new();
     for (pid, process) in system.processes() {
-        let exe_name = process.exe().file_stem().and_then(|s| s.to_str());
-        if exe_name == Some("buck2") && !current_parents.contains(pid) {
+        if is_buck2_exe(process.exe(), who_is_asking) && !current_parents.contains(pid) {
             buck2_processes.push(ProcessInfo {
                 pid: pid.as_u32(),
                 name: process.name().to_owned(),
@@ -70,8 +74,8 @@ fn find_buck2_processes() -> Vec<ProcessInfo> {
 
 /// Kills all running Buck2 processes, except this process's hierarchy. Returns whether it
 /// succeeded without errors.
-pub fn killall(write: impl Fn(String)) -> bool {
-    let buck2_processes = find_buck2_processes();
+pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
+    let buck2_processes = find_buck2_processes(who_is_asking);
 
     if buck2_processes.is_empty() {
         write("No buck2 processes found".to_owned());
