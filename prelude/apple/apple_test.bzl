@@ -63,7 +63,7 @@ def apple_test_impl(ctx: "context") -> [["provider"], "promise"]:
                     shared_library_flags = ["-bundle"],
                 ),
                 generate_sub_targets = CxxRuleSubTargetParams(
-                    compilation_database = False,
+                    compilation_database = True,
                     headers = False,
                     link_group_map = False,
                 ),
