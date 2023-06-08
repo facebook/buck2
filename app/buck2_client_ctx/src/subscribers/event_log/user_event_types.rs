@@ -15,11 +15,19 @@ use buck2_data::StarlarkUserEvent;
 use thiserror::Error;
 
 use super::write::StreamValueForWrite;
+use crate::stream_value::StreamValue;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum SerializeUserEventError {
     #[error("Internal error: Missing `data` in `{0}`")]
     MissingData(String),
+}
+
+pub fn is_user_event_for_read(stream_value: &StreamValue) -> anyhow::Result<bool> {
+    match stream_value {
+        StreamValue::Event(buck_event) => is_user_event(buck_event.as_ref()),
+        _ => Ok(false),
+    }
 }
 
 pub(crate) fn is_user_event(buck_event: &BuckEvent) -> anyhow::Result<bool> {
