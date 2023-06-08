@@ -9,6 +9,7 @@
 
 #![cfg(feature = "tokio")]
 
+use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 
 use crate::Allocative;
@@ -19,6 +20,16 @@ impl<T: Allocative> Allocative for RwLock<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         if let Ok(data) = self.try_read() {
+            visitor.visit_field::<T>(Key::new("data"), &*data);
+        }
+        visitor.exit();
+    }
+}
+
+impl<T: Allocative> Allocative for Mutex<T> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        if let Ok(data) = self.try_lock() {
             visitor.visit_field::<T>(Key::new("data"), &*data);
         }
         visitor.exit();
