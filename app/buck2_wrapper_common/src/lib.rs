@@ -17,10 +17,8 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-use anyhow::Context;
 use sysinfo::Pid;
 use sysinfo::PidExt;
-use sysinfo::Process;
 use sysinfo::ProcessExt;
 use sysinfo::System;
 use sysinfo::SystemExt;
@@ -32,9 +30,15 @@ pub(crate) mod winapi_process;
 pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
 
-/// Kills all running Buck2 processes, except this process's hierarchy. Returns whether it
-/// succeeded without errors.
-pub fn killall(write: impl Fn(String)) -> bool {
+/// Because `sysinfo::Process` is not `Clone`.
+struct ProcessInfo {
+    pid: u32,
+    name: String,
+    cmd: Vec<String>,
+}
+
+/// Find all buck2 processes in the system.
+fn find_buck2_processes() -> Vec<ProcessInfo> {
     let mut system = System::new();
     system.refresh_processes();
 
@@ -53,9 +57,21 @@ pub fn killall(write: impl Fn(String)) -> bool {
     for (pid, process) in system.processes() {
         let exe_name = process.exe().file_stem().and_then(|s| s.to_str());
         if exe_name == Some("buck2") && !current_parents.contains(pid) {
-            buck2_processes.push(process);
+            buck2_processes.push(ProcessInfo {
+                pid: pid.as_u32(),
+                name: process.name().to_owned(),
+                cmd: process.cmd().to_vec(),
+            });
         }
     }
+
+    buck2_processes
+}
+
+/// Kills all running Buck2 processes, except this process's hierarchy. Returns whether it
+/// succeeded without errors.
+pub fn killall(write: impl Fn(String)) -> bool {
+    let buck2_processes = find_buck2_processes();
 
     if buck2_processes.is_empty() {
         write("No buck2 processes found".to_owned());
@@ -65,12 +81,8 @@ pub fn killall(write: impl Fn(String)) -> bool {
     let mut ok = true;
 
     for process in buck2_processes {
-        fn kill(process: &Process) -> anyhow::Result<()> {
-            let pid = process.pid();
-            let pid = pid
-                .as_u32()
-                .try_into()
-                .with_context(|| format!("Integer overflow converting {}", pid))?;
+        fn kill(process: &ProcessInfo) -> anyhow::Result<()> {
+            let pid = process.pid;
             let handle = kill::kill(pid)?;
             let start = Instant::now();
             // 5 seconds is not enough on macOS to shutdown forkserver.
@@ -89,7 +101,7 @@ pub fn killall(write: impl Fn(String)) -> bool {
             ))
         }
 
-        let result = kill(process);
+        let result = kill(&process);
 
         if result.is_err() {
             ok = false;
@@ -104,9 +116,9 @@ pub fn killall(write: impl Fn(String)) -> bool {
         let mut message = format!(
             "{} {} ({}). {}",
             status,
-            process.name(),
-            process.pid(),
-            process.cmd().join(" "),
+            process.name,
+            process.pid,
+            process.cmd.join(" "),
         );
         if let Err(error) = result {
             for line in format!("{:?}", error).lines() {
