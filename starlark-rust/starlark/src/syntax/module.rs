@@ -213,4 +213,41 @@ impl AstModule {
     pub(crate) fn file_span(&self, x: Span) -> FileSpan {
         self.codemap.file_span(x)
     }
+
+    /// Locations where statements occur.
+    pub fn stmt_locations(&self) -> Vec<FileSpan> {
+        fn go(x: &AstStmt, codemap: &CodeMap, res: &mut Vec<FileSpan>) {
+            match &**x {
+                Stmt::Statements(_) => {} // These are not interesting statements that come up
+                _ => res.push(FileSpan {
+                    span: x.span,
+                    file: codemap.dupe(),
+                }),
+            }
+            x.visit_stmt(|x| go(x, codemap, res))
+        }
+
+        let mut res = Vec::new();
+        go(&self.statement, &self.codemap, &mut res);
+        res
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::assert;
+    use crate::slice_vec_ext::SliceExt;
+
+    #[test]
+    fn test_locations() {
+        fn get(code: &str) -> String {
+            assert::parse_ast(code)
+                .stmt_locations()
+                .map(|x| x.resolve_span().to_string())
+                .join(" ")
+        }
+
+        assert_eq!(&get("foo"), "1:1-4");
+        assert_eq!(&get("foo\ndef x():\n   pass"), "1:1-4 2:1-3:8 3:4-8");
+    }
 }
