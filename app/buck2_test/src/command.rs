@@ -681,6 +681,12 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     MaybeCompatible::Compatible(node) => node,
                 };
 
+                // If this node is a forward, it'll get flattened when we do analysis and run the
+                // test later, but its `tests` attribute here will not be, and that means we'll
+                // just ignore it (since we don't traverse `tests` recursively). So ... just
+                // flatten it?
+                let node = node.forward_target().unwrap_or(&node);
+
                 // Test this, it's compatible.
                 let mut labels = vec![label];
 
