@@ -201,6 +201,8 @@ def _get_shared_only_groups(shared_only_libs: [LinkableProviders.type]) -> [Grou
 
     # Add link group specs for dlopen-able libs.
     for dep in shared_only_libs:
+        if dep.linkable_graph == None:
+            continue
         groups.append(
             Group(
                 name = str(dep.linkable_graph.nodes.value.label.raw_target()),
@@ -217,7 +219,6 @@ def _get_shared_only_groups(shared_only_libs: [LinkableProviders.type]) -> [Grou
                 ),
             ),
         )
-
     return groups
 
 def _get_link_group_info(

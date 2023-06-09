@@ -6,6 +6,10 @@
 # of this source tree.
 
 load(
+    "@prelude//linking:link_groups.bzl",
+    "LinkGroupLibInfo",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "MergedLinkInfo",
     "merge_link_infos",
@@ -41,6 +45,7 @@ def go_library_impl(ctx: "context") -> ["provider"]:
 
     return [
         DefaultInfo(default_output = default_output),
+        LinkGroupLibInfo(libs = {}),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),

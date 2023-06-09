@@ -263,7 +263,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         # Although these aren't really deps, we need to search from the
         # extra link group roots to make sure we find additional libs
         # that should be linked into the main link group.
-        link_group_other_roots = [d.linkable_graph.nodes.value.label for d in impl_params.extra_link_roots]
+        link_group_other_roots = [d.linkable_graph.nodes.value.label for d in impl_params.extra_link_roots if d.linkable_graph != None]
 
         # If we're using auto-link-groups, where we generate the link group links
         # in the prelude, the link group map will give us the link group libs.
@@ -273,7 +273,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 ctx = ctx,
                 link_group_mappings = link_group_mappings,
                 link_group_preferred_linkage = link_group_preferred_linkage,
-                executable_deps = [d.linkable_graph.nodes.value.label for d in link_deps],
+                executable_deps = [d.linkable_graph.nodes.value.label for d in link_deps if d.linkable_graph != None],
                 linker_flags = own_link_flags,
                 link_group_specs = impl_params.auto_link_group_specs,
                 root_link_group = link_group,
@@ -309,7 +309,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             },
             link_style = link_style,
             roots = (
-                [d.linkable_graph.nodes.value.label for d in link_deps] +
+                [d.linkable_graph.nodes.value.label for d in link_deps if d.linkable_graph != None] +
                 find_relevant_roots(
                     link_group = link_group,
                     linkable_graph_node_map = linkable_graph_node_map,
