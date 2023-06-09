@@ -93,7 +93,7 @@ impl BcPtrRange {
     pub(crate) fn for_slice(slice: &[u64]) -> BcPtrRange {
         BcPtrRange {
             start: slice.as_ptr() as *const u8,
-            len: slice.len() * mem::size_of::<u64>(),
+            len: mem::size_of_val::<[u64]>(slice),
         }
     }
 

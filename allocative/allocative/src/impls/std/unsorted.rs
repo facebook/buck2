@@ -218,8 +218,7 @@ impl Allocative for ! {
 
 impl<T: Allocative> Allocative for [T] {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
-        let mut visitor =
-            visitor.enter(Key::for_type_name::<T>(), mem::size_of::<T>() * self.len());
+        let mut visitor = visitor.enter(Key::for_type_name::<T>(), mem::size_of_val::<[T]>(self));
         for item in self {
             // TODO(nga): faster for primitive.
             visitor.visit_field(DATA_NAME, item);
