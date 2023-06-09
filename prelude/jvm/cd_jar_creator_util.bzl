@@ -381,12 +381,12 @@ def prepare_cd_exe(
         worker: WorkerInfo.type,
         debug_port: [int.type, None],
         debug_target: ["label", None],
-        extra_jvm_args: [str.type]) -> [WorkerRunInfo.type, cmd_args.type]:
+        extra_jvm_args: [str.type]) -> [WorkerRunInfo.type, RunInfo.type]:
     jvm_args = extra_jvm_args + ["-XX:-MaxFDLimit"]
     if debug_port and qualified_name.startswith(base_qualified_name(debug_target)):
         # Do not use a worker when debugging is enabled
         debug_args = ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port)]
-        return cmd_args([java, debug_args, jvm_args, "-jar", compiler])
+        return RunInfo(args = cmd_args([java, debug_args, jvm_args, "-jar", compiler]))
     else:
         worker_run_info = WorkerRunInfo(
             # Specifies the command to compile using a non-worker process, on RE or if workers are disabled
