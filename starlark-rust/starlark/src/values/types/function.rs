@@ -405,4 +405,8 @@ where
             Private,
         )
     }
+
+    fn documentation(&self) -> Option<DocItem> {
+        self.method.documentation()
+    }
 }
