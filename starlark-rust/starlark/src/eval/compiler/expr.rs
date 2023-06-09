@@ -1117,10 +1117,6 @@ pub(crate) fn get_attr_hashed_bind<'v>(
 }
 
 impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
-    pub fn expr_opt(&mut self, expr: Option<Box<CstExpr>>) -> Option<IrSpanned<ExprCompiled>> {
-        expr.map(|v| self.expr(*v))
-    }
-
     fn expr_ident(
         &mut self,
         ident: AstString,
