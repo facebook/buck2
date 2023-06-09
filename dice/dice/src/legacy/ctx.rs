@@ -197,10 +197,10 @@ impl DiceComputationsImplLegacy {
         (this.dep_trackers.collect_deps(), this.extra)
     }
 
-    pub(crate) fn compute_opaque<'b, 'a: 'b, K>(
+    pub(crate) fn compute_opaque<'a, K>(
         self: &'a Arc<Self>,
-        key: &'b K,
-    ) -> impl Future<Output = DiceResult<OpaqueValueImplLegacy<'a, K>>> + 'b
+        key: &K,
+    ) -> impl Future<Output = DiceResult<OpaqueValueImplLegacy<'a, K>>> + 'a
     where
         K: Key,
     {

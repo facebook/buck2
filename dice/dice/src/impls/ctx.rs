@@ -191,7 +191,7 @@ impl PerComputeCtx {
     /// context is for.
     pub(crate) fn compute<'a, K>(
         &'a self,
-        key: &'a K,
+        key: &K,
     ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
     where
         K: Key,
@@ -204,10 +204,10 @@ impl PerComputeCtx {
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
     /// than the entire opaque value.
-    pub(crate) fn compute_opaque<'b, 'a: 'b, K>(
+    pub(crate) fn compute_opaque<'a, K>(
         &'a self,
-        key: &'b K,
-    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + 'b
+        key: &K,
+    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + 'a
     where
         K: Key,
     {
