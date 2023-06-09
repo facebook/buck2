@@ -79,6 +79,8 @@ message SpanStartEvent {
     ConnectToInstallerStart connect_to_installer = 79;
     SetupLocalResourcesStart local_resources = 80;
     ReleaseLocalResourcesStart release_local_resources = 81;
+    // Measure total time it takes to ensure BXL artifacts.
+    BxlEnsureArtifactsStart bxl_ensure_artifacts = 82;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -124,6 +126,7 @@ message SpanEndEvent {
     ConnectToInstallerEnd connect_to_installer = 80;
     SetupLocalResourcesEnd local_resources = 81;
     ReleaseLocalResourcesEnd release_local_resources = 82;
+    BxlEnsureArtifactsEnd bxl_ensure_artifacts = 83;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1677,6 +1680,10 @@ message BxlExecutionEnd {}
 message BxlDiceInvocationStart {}
 
 message BxlDiceInvocationEnd {}
+
+message BxlEnsureArtifactsStart {}
+
+message BxlEnsureArtifactsEnd {}
 
 message DiceBlockConcurrentCommandStart {
   string current_active_trace_id = 1;

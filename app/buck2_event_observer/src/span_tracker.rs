@@ -507,7 +507,8 @@ pub fn is_span_shown(event: &BuckEvent) -> bool {
             Data::Command(..)
             | Data::CommandCritical(..)
             | Data::Materialization(..)
-            | Data::DiceCriticalSection(..),
+            | Data::DiceCriticalSection(..)
+            | Data::BxlEnsureArtifacts(..),
         ) => false,
         Some(
             Data::ActionExecution(..)
