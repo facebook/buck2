@@ -264,6 +264,7 @@ def create_jar_artifact_javacd(
             identifier = actions_identifier or "",
             dep_files = dep_files,
             exe = exe,
+            local_only = True if java_toolchain.javacd_debug_port else False,
         )
 
     library_classpath_jars_tag = actions.artifact_tag()

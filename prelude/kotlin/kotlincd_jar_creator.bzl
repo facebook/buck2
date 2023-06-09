@@ -289,6 +289,7 @@ def create_jar_artifact_kotlincd(
             identifier = actions_identifier,
             dep_files = dep_files,
             exe = exe,
+            local_only = True if kotlin_toolchain.kotlincd_debug_port else False,
         )
 
     library_classpath_jars_tag = actions.artifact_tag()
