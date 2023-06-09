@@ -80,10 +80,17 @@ def apply_platform_attrs(
 
 def _cargo_rust_binary(name, platform = {}, **kwargs):
     kwargs = apply_platform_attrs(platform, kwargs)
+
+    rustc_flags = kwargs.get("rustc_flags", [])
+    kwargs["rustc_flags"] = ["--cap-lints=allow"] + rustc_flags
+
     native.rust_binary(name = name, **kwargs)
 
 def _cargo_rust_library(name, platform = {}, **kwargs):
     kwargs = apply_platform_attrs(platform, kwargs)
+
+    rustc_flags = kwargs.get("rustc_flags", [])
+    kwargs["rustc_flags"] = ["--cap-lints=allow"] + rustc_flags
 
     kwargs.setdefault("doctests", False)
 
