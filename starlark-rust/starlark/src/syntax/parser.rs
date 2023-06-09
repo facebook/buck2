@@ -28,13 +28,13 @@ use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::collections::SmallMap;
 use crate::errors::Diagnostic;
-use crate::syntax::ast::AstModule;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::Stmt;
 use crate::syntax::dialect::Dialect;
 use crate::syntax::grammar::StarlarkParser;
 use crate::syntax::lexer::Lexer;
 use crate::syntax::lexer::Token;
+use crate::syntax::module::AstModule;
 
 fn one_of(expected: &[String]) -> String {
     let mut result = String::new();

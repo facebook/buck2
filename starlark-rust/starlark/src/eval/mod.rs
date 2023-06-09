@@ -50,7 +50,7 @@ use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::slice_vec_ext::SliceExt;
-use crate::syntax::ast::AstModule;
+use crate::syntax::module::AstModule;
 use crate::syntax::DialectTypes;
 use crate::values::Value;
 

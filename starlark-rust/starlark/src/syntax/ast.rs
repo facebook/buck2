@@ -23,15 +23,12 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
-use derivative::Derivative;
 use dupe::Dupe;
 
-use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::syntax::lexer::TokenInt;
-use crate::syntax::Dialect;
 
 /// Payload types attached to AST nodes.
 pub(crate) trait AstPayload: Debug {
@@ -82,42 +79,6 @@ pub(crate) type AstParameter = AstParameterP<AstNoPayload>;
 pub(crate) type AstInt = Spanned<TokenInt>;
 pub(crate) type AstFloat = Spanned<f64>;
 pub(crate) type AstStmt = AstStmtP<AstNoPayload>;
-
-/// A representation of a Starlark module abstract syntax tree.
-///
-/// Created with either [`parse`](AstModule::parse) or [`parse_file`](AstModule::parse_file),
-/// and evaluated with [`eval_module`](crate::eval::Evaluator::eval_module).
-///
-/// The internal details (statements/expressions) are deliberately omitted, as they change
-/// more regularly. A few methods to obtain information about the AST are provided.
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct AstModule {
-    #[derivative(Debug = "ignore")]
-    pub(crate) codemap: CodeMap,
-    pub(crate) statement: AstStmt,
-    pub(crate) dialect: Dialect,
-}
-
-impl AstModule {
-    /// List the top-level statements in the AST.
-    pub(crate) fn top_level_statements(&self) -> Vec<&AstStmt> {
-        fn f<'a>(ast: &'a AstStmt, res: &mut Vec<&'a AstStmt>) {
-            match &**ast {
-                StmtP::Statements(xs) => {
-                    for x in xs {
-                        f(x, res);
-                    }
-                }
-                _ => res.push(ast),
-            }
-        }
-
-        let mut res = Vec::new();
-        f(&self.statement, &mut res);
-        res
-    }
-}
 
 // A trait rather than a function to allow .ast() chaining in the parser.
 pub(crate) trait ToAst: Sized {

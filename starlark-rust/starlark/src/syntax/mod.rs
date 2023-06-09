@@ -17,9 +17,9 @@
 
 //! The AST of Starlark as [`AstModule`], along with a [`parse`](AstModule::parse) function.
 
-pub use ast::AstModule;
 pub use dialect::Dialect;
 pub use dialect::DialectTypes;
+pub use module::AstModule;
 pub use parser::AstLoad;
 
 pub(crate) mod ast;
@@ -30,6 +30,7 @@ mod grammar_tests;
 pub(crate) mod lexer;
 #[cfg(test)]
 mod lexer_tests;
+pub(crate) mod module;
 pub(crate) mod parser;
 pub(crate) mod payload_map;
 #[cfg(test)]
