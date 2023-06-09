@@ -1576,6 +1576,8 @@ message InvocationRecord {
   optional bool has_end_of_stream = 67;
   optional string critical_path_backend = 68;
   optional bool instant_command_is_success = 69;
+  // Optional - total time for final artifact materializations.
+  google.protobuf.Duration bxl_ensure_artifacts_duration = 70;
 }
 
 message CacheUploadStart {

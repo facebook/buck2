@@ -125,6 +125,7 @@ mod imp {
         compressed_event_log_size_bytes: Option<Arc<AtomicU64>>,
         critical_path_backend: Option<String>,
         instant_command_is_success: Option<bool>,
+        bxl_ensure_artifacts_duration: Option<prost_types::Duration>,
     }
 
     impl<'a> InvocationRecorder<'a> {
@@ -217,6 +218,7 @@ mod imp {
                 compressed_event_log_size_bytes: log_size_counter_bytes,
                 critical_path_backend: None,
                 instant_command_is_success: None,
+                bxl_ensure_artifacts_duration: None,
             }
         }
 
@@ -357,6 +359,7 @@ mod imp {
                 ),
                 critical_path_backend: self.critical_path_backend.take(),
                 instant_command_is_success: self.instant_command_is_success.take(),
+                bxl_ensure_artifacts_duration: self.bxl_ensure_artifacts_duration.take(),
             };
 
             let event = BuckEvent::new(
@@ -636,6 +639,24 @@ mod imp {
             Ok(())
         }
 
+        fn handle_bxl_ensure_artifacts_end(
+            &mut self,
+            _bxl_ensure_artifacts_end: &buck2_data::BxlEnsureArtifactsEnd,
+            event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            let bxl_ensure_artifacts_end = match event.data() {
+                buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "handle_bxl_ensure_artifacts_end was passed a BxlEnsureArtifacts not contained in a SpanEndEvent"
+                    ));
+                }
+            };
+
+            self.bxl_ensure_artifacts_duration = bxl_ensure_artifacts_end.duration;
+            Ok(())
+        }
+
         fn handle_test_discovery(
             &mut self,
             test_info: &buck2_data::TestDiscovery,
@@ -864,6 +885,9 @@ mod imp {
                             block_concurrent_command,
                             event,
                         ),
+                        buck2_data::span_end_event::Data::BxlEnsureArtifacts(
+                            _bxl_ensure_artifacts,
+                        ) => self.handle_bxl_ensure_artifacts_end(_bxl_ensure_artifacts, event),
                         _ => Ok(()),
                     }
                 }
