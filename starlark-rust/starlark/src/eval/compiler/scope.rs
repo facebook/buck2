@@ -45,6 +45,7 @@ use crate::syntax::ast::AstParameterP;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::AstString;
+use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
@@ -414,7 +415,7 @@ impl<'a> Scope<'a> {
         &mut self,
         scope_id: ScopeId,
         params: &mut [CstParameter],
-        ret: Option<&mut CstExpr>,
+        ret: Option<&mut CstTypeExpr>,
         body_stmt: Option<&mut CstStmt>,
         body_expr: Option<&mut CstExpr>,
     ) {
@@ -422,7 +423,7 @@ impl<'a> Scope<'a> {
             param.visit_expr_mut(|expr| self.resolve_idents_in_expr(expr));
         }
         if let Some(ret) = ret {
-            self.resolve_idents_in_expr(ret);
+            self.resolve_idents_in_expr(&mut ret.node.0);
         }
 
         self.enter_def(scope_id);
@@ -928,6 +929,7 @@ impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_> {
 }
 
 pub(crate) type CstExpr = AstExprP<CstPayload>;
+pub(crate) type CstTypeExpr = AstTypeExprP<CstPayload>;
 pub(crate) type CstAssign = AstAssignP<CstPayload>;
 pub(crate) type CstAssignIdent = AstAssignIdentP<CstPayload>;
 pub(crate) type CstArgument = AstArgumentP<CstPayload>;
@@ -1054,7 +1056,7 @@ mod tests {
                             if let Some(name) = name {
                                 self.visit_lvalue(name);
                             }
-                            self.visit_exprs(def);
+                            self.visit_exprs(def.map(|def| &def.node.0));
                             self.visit_exprs(typ);
                         }
                     }

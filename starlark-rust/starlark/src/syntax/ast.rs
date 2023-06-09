@@ -51,6 +51,7 @@ impl AstPayload for AstNoPayload {
 }
 
 pub(crate) type Expr = ExprP<AstNoPayload>;
+pub(crate) type TypeExpr = TypeExprP<AstNoPayload>;
 pub(crate) type Assign = AssignP<AstNoPayload>;
 pub(crate) type AssignIdent = AssignIdentP<AstNoPayload>;
 pub(crate) type Clause = ClauseP<AstNoPayload>;
@@ -63,6 +64,7 @@ pub(crate) type Stmt = StmtP<AstNoPayload>;
 // Boxed types used for storing information from the parsing will be used
 // especially for the location of the AST item
 pub(crate) type AstExprP<P> = Spanned<ExprP<P>>;
+pub(crate) type AstTypeExprP<P> = Spanned<TypeExprP<P>>;
 pub(crate) type AstAssignP<P> = Spanned<AssignP<P>>;
 pub(crate) type AstAssignIdentP<P> = Spanned<AssignIdentP<P>>;
 pub(crate) type AstArgumentP<P> = Spanned<ArgumentP<P>>;
@@ -71,6 +73,7 @@ pub(crate) type AstLoadP<P> = Spanned<LoadP<P>>;
 pub(crate) type AstStmtP<P> = Spanned<StmtP<P>>;
 
 pub(crate) type AstExpr = AstExprP<AstNoPayload>;
+pub(crate) type AstTypeExpr = AstTypeExprP<AstNoPayload>;
 pub(crate) type AstAssign = AstAssignP<AstNoPayload>;
 pub(crate) type AstAssignIdent = AstAssignIdentP<AstNoPayload>;
 pub(crate) type AstArgument = AstArgumentP<AstNoPayload>;
@@ -138,15 +141,15 @@ pub(crate) enum ArgumentP<P: AstPayload> {
 
 #[derive(Debug)]
 pub(crate) enum ParameterP<P: AstPayload> {
-    Normal(AstAssignIdentP<P>, Option<Box<AstExprP<P>>>),
+    Normal(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
     WithDefaultValue(
         AstAssignIdentP<P>,
-        Option<Box<AstExprP<P>>>,
+        Option<Box<AstTypeExprP<P>>>,
         Box<AstExprP<P>>,
     ),
     NoArgs,
-    Args(AstAssignIdentP<P>, Option<Box<AstExprP<P>>>),
-    KwArgs(AstAssignIdentP<P>, Option<Box<AstExprP<P>>>),
+    Args(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
+    KwArgs(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
 }
 
 #[derive(Debug, Clone)]
@@ -206,6 +209,15 @@ pub(crate) enum ExprP<P: AstPayload> {
         Vec<ClauseP<P>>,
     ),
 }
+
+/// Restricted expression at type position.
+#[derive(Debug)]
+pub(crate) struct TypeExprP<P: AstPayload>(
+    /// Currently it is an expr.
+    /// Planning to restrict it.
+    /// [Context](https://fb.workplace.com/groups/buck2eng/posts/3196541547309990).
+    pub(crate) AstExprP<P>,
+);
 
 /// In some places e.g. AssignModify, the Tuple case is not allowed.
 #[derive(Debug)]
@@ -291,7 +303,7 @@ pub enum Visibility {
 pub(crate) struct DefP<P: AstPayload> {
     pub(crate) name: AstAssignIdentP<P>,
     pub(crate) params: Vec<AstParameterP<P>>,
-    pub(crate) return_type: Option<Box<AstExprP<P>>>,
+    pub(crate) return_type: Option<Box<AstTypeExprP<P>>>,
     pub(crate) body: Box<AstStmtP<P>>,
     pub(crate) payload: P::DefPayload,
 }
@@ -317,7 +329,7 @@ pub(crate) enum StmtP<P: AstPayload> {
     Return(Option<AstExprP<P>>),
     Expression(AstExprP<P>),
     // LHS : TYPE = RHS for the fields
-    Assign(AstAssignP<P>, Box<(Option<AstExprP<P>>, AstExprP<P>)>),
+    Assign(AstAssignP<P>, Box<(Option<AstTypeExprP<P>>, AstExprP<P>)>),
     AssignModify(AstAssignP<P>, AssignOp, Box<AstExprP<P>>),
     Statements(Vec<AstStmtP<P>>),
     If(AstExprP<P>, Box<AstStmtP<P>>),
@@ -538,6 +550,12 @@ impl Display for Expr {
             }
             Expr::Literal(x) => write!(f, "{}", x),
         }
+    }
+}
+
+impl Display for TypeExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0.node, f)
     }
 }
 

@@ -53,9 +53,9 @@ use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::Captured;
 use crate::eval::compiler::scope::CstAssignIdent;
-use crate::eval::compiler::scope::CstExpr;
 use crate::eval::compiler::scope::CstParameter;
 use crate::eval::compiler::scope::CstStmt;
+use crate::eval::compiler::scope::CstTypeExpr;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
@@ -359,12 +359,12 @@ impl Compiler<'_, '_, '_> {
     /// Compile expression when it is expected to be interpreted as type.
     pub(crate) fn expr_for_type(
         &mut self,
-        expr: Option<Box<CstExpr>>,
+        expr: Option<Box<CstTypeExpr>>,
     ) -> Option<IrSpanned<ExprCompiled>> {
         if !self.check_types {
             return None;
         }
-        let expr = self.expr_opt(expr)?;
+        let expr = self.expr_opt(expr.map(|t| Box::new(t.node.0)))?;
         if let Some(value) = expr.as_value() {
             if TypeCompiled::is_wildcard_value(value.to_value()) {
                 // When type is anything, skip type check.
@@ -388,7 +388,7 @@ impl Compiler<'_, '_, '_> {
                 }
                 ParameterP::WithDefaultValue(x, t, v) => ParameterCompiled::WithDefaultValue(
                     self.parameter_name(x),
-                    self.expr_opt(t),
+                    self.expr_for_type(t),
                     self.expr(*v),
                 ),
                 ParameterP::NoArgs => return None,
@@ -408,7 +408,7 @@ impl Compiler<'_, '_, '_> {
         signature_span: FrozenFileSpan,
         scope_id: ScopeId,
         params: Vec<CstParameter>,
-        return_type: Option<Box<CstExpr>>,
+        return_type: Option<Box<CstTypeExpr>>,
         suite: CstStmt,
     ) -> ExprCompiled {
         let file = self.codemap.file_span(suite.span);

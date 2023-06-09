@@ -23,6 +23,9 @@ use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::errors::Diagnostic;
+use crate::syntax::ast::Expr;
+use crate::syntax::ast::TypeExpr;
+use crate::syntax::ast::TypeExprP;
 use crate::syntax::ast::Visibility;
 
 #[derive(Error, Debug)]
@@ -162,13 +165,14 @@ impl Dialect {
         }
     }
 
-    pub(crate) fn check_type<T>(
+    pub(crate) fn check_type(
         &self,
         codemap: &CodeMap,
-        x: Spanned<T>,
-    ) -> anyhow::Result<Spanned<T>> {
+        x: Spanned<Expr>,
+    ) -> anyhow::Result<Spanned<TypeExpr>> {
+        let span = x.span;
         if self.enable_types != DialectTypes::Disable {
-            Ok(x)
+            Ok(x.into_map(|node| TypeExprP(Spanned { span, node })))
         } else {
             err(codemap, x.span, DialectError::Types)
         }

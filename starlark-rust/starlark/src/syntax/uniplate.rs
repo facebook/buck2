@@ -26,6 +26,7 @@ use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmtP;
+use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
@@ -33,6 +34,7 @@ use crate::syntax::ast::ForClauseP;
 use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
+use crate::syntax::ast::TypeExprP;
 
 pub(crate) enum Visit<'a, P: AstPayload> {
     Stmt(&'a AstStmtP<P>),
@@ -77,7 +79,9 @@ impl<P: AstPayload> StmtP<P> {
                 params
                     .iter()
                     .for_each(|x| x.visit_expr(|x| f(Visit::Expr(x))));
-                return_type.iter().for_each(|x| f(Visit::Expr(x)));
+                return_type
+                    .iter()
+                    .for_each(|x| x.visit_expr(|x| f(Visit::Expr(x))));
                 f(Visit::Stmt(body));
             }
             StmtP::For(lhs, over_body) => {
@@ -97,7 +101,7 @@ impl<P: AstPayload> StmtP<P> {
             StmtP::Assign(lhs, ty_rhs) => {
                 let (ty, rhs) = &**ty_rhs;
                 lhs.visit_expr(|x| f(Visit::Expr(x)));
-                ty.iter().for_each(|x| f(Visit::Expr(x)));
+                ty.iter().for_each(|x| x.visit_expr(|x| f(Visit::Expr(x))));
                 f(Visit::Expr(rhs));
             }
             StmtP::AssignModify(lhs, _, rhs) => {
@@ -131,7 +135,9 @@ impl<P: AstPayload> StmtP<P> {
                 params
                     .iter_mut()
                     .for_each(|x| x.visit_expr_mut(|x| f(VisitMut::Expr(x))));
-                return_type.iter_mut().for_each(|x| f(VisitMut::Expr(x)));
+                return_type
+                    .iter_mut()
+                    .for_each(|x| x.visit_expr_mut(|x| f(VisitMut::Expr(x))));
                 f(VisitMut::Stmt(body));
             }
             StmtP::For(lhs, over_body) => {
@@ -151,7 +157,8 @@ impl<P: AstPayload> StmtP<P> {
             StmtP::Assign(lhs, ty_rhs) => {
                 let (ty, rhs) = &mut **ty_rhs;
                 lhs.visit_expr_mut(|x| f(VisitMut::Expr(x)));
-                ty.iter_mut().for_each(|x| f(VisitMut::Expr(x)));
+                ty.iter_mut()
+                    .for_each(|x| x.visit_expr_mut(|x| f(VisitMut::Expr(x))));
                 f(VisitMut::Expr(rhs));
             }
             StmtP::AssignModify(lhs, _, rhs) => {
@@ -209,7 +216,7 @@ impl<P: AstPayload> ParameterP<P> {
         &self,
     ) -> (
         Option<&AstAssignIdentP<P>>,
-        Option<&AstExprP<P>>,
+        Option<&AstTypeExprP<P>>,
         Option<&AstExprP<P>>,
     ) {
         match self {
@@ -228,7 +235,7 @@ impl<P: AstPayload> ParameterP<P> {
         &mut self,
     ) -> (
         Option<&mut AstAssignIdentP<P>>,
-        Option<&mut AstExprP<P>>,
+        Option<&mut AstTypeExprP<P>>,
         Option<&mut AstExprP<P>>,
     ) {
         match self {
@@ -244,14 +251,14 @@ impl<P: AstPayload> ParameterP<P> {
 
     pub(crate) fn visit_expr<'a>(&'a self, mut f: impl FnMut(&'a AstExprP<P>)) {
         let (_, typ, def) = self.split();
-        typ.iter().for_each(|x| f(x));
+        typ.iter().for_each(|x| x.visit_expr(&mut f));
         def.iter().for_each(|x| f(x));
     }
 
     pub(crate) fn visit_expr_mut<'a>(&'a mut self, mut f: impl FnMut(&'a mut AstExprP<P>)) {
         let (_, typ, def) = self.split_mut();
         if let Some(typ) = typ {
-            f(typ);
+            typ.visit_expr_mut(&mut f);
         }
         if let Some(def) = def {
             f(def);
@@ -382,6 +389,16 @@ impl<P: AstPayload> ExprP<P> {
                 f(&mut x.1);
             }
         }
+    }
+}
+
+impl<P: AstPayload> TypeExprP<P> {
+    fn visit_expr<'a>(&'a self, mut f: impl FnMut(&'a AstExprP<P>)) {
+        f(&self.0)
+    }
+
+    fn visit_expr_mut<'a>(&'a mut self, mut f: impl FnMut(&'a mut AstExprP<P>)) {
+        f(&mut self.0)
     }
 }
 

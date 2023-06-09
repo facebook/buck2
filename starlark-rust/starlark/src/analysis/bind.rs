@@ -26,6 +26,7 @@ use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstParameter;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstString;
+use crate::syntax::ast::AstTypeExpr;
 use crate::syntax::ast::Clause;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
@@ -134,6 +135,12 @@ fn opt_expr(x: Option<&AstExpr>, res: &mut Vec<Bind>) {
     }
 }
 
+fn opt_type_expr(x: Option<&AstTypeExpr>, res: &mut Vec<Bind>) {
+    if let Some(x) = x {
+        expr(&x.0, res)
+    }
+}
+
 fn comprehension(
     for_: &ForClause,
     clauses: &[Clause],
@@ -223,7 +230,7 @@ fn expr_lvalue(x: &AstAssign, res: &mut Vec<Bind>) {
 fn parameters(args: &[AstParameter], res: &mut Vec<Bind>, inner: &mut Vec<Bind>) {
     for a in args {
         let (name, typ, default) = a.split();
-        opt_expr(typ, res);
+        opt_type_expr(typ, res);
         opt_expr(default, res);
         if let Some(name) = name {
             inner.push(Bind::Set(Assigner::Argument, name.clone()))
@@ -271,7 +278,7 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
             body,
             payload: _,
         }) => {
-            opt_expr(return_type.as_ref().map(|x| &**x), res);
+            opt_type_expr(return_type.as_ref().map(|x| &**x), res);
             let mut inner = Vec::new();
             parameters(params, res, &mut inner);
             res.push(Bind::Set(Assigner::Assign, name.clone()));
@@ -280,7 +287,7 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
         }
         Stmt::Assign(lhs, ty_rhs) => {
             let (ty, rhs) = &**ty_rhs;
-            opt_expr(ty.as_ref(), res);
+            opt_type_expr(ty.as_ref(), res);
             expr(rhs, res);
             expr_lvalue(lhs, res);
         }

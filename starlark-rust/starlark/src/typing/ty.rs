@@ -27,7 +27,7 @@ use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocType;
-use crate::eval::compiler::scope::CstExpr;
+use crate::eval::compiler::scope::CstTypeExpr;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::AstExpr;
@@ -35,6 +35,7 @@ use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::AstModule;
@@ -593,21 +594,26 @@ impl Ty {
         return false;
     }
 
-    pub(crate) fn from_expr_opt(
-        x: &Option<Box<CstExpr>>,
+    pub(crate) fn from_type_expr_opt(
+        x: &Option<Box<CstTypeExpr>>,
         approximations: &mut Vec<Approximation>,
     ) -> Self {
         match x {
             None => Ty::Any,
-            Some(x) => Self::from_expr(x, approximations),
+            Some(x) => Self::from_type_expr(x, approximations),
         }
     }
 
-    pub(crate) fn from_expr<P: AstPayload>(
-        x: &AstExprP<P>,
+    pub(crate) fn from_type_expr<P: AstPayload>(
+        x: &AstTypeExprP<P>,
         approximations: &mut Vec<Approximation>,
     ) -> Self {
-        match &**x {
+        Self::from_expr(&x.0, approximations)
+    }
+
+    // This should go away when `ExprType` is disconnected from `Expr`.
+    fn from_expr<P: AstPayload>(x: &AstExprP<P>, approximations: &mut Vec<Approximation>) -> Self {
+        match &x.node {
             ExprP::Tuple(xs) => Ty::Tuple(xs.map(|x| Self::from_expr(x, approximations))),
             ExprP::Dot(x, b) if &**b == "type" => match &***x {
                 ExprP::Identifier(x, _) => match (*x).as_str() {

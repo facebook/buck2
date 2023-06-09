@@ -153,7 +153,7 @@ impl<'a> Bindings<'a> {
                 Visit::Stmt(x) => match &**x {
                     StmtP::Assign(lhs, ty_rhs) => {
                         if let Some(ty) = &ty_rhs.0 {
-                            let ty2 = Ty::from_expr(ty, &mut bindings.approximations);
+                            let ty2 = Ty::from_type_expr(ty, &mut bindings.approximations);
                             bindings
                                 .check_type
                                 .push((ty.span, Some(&ty_rhs.1), ty2.clone()));
@@ -186,7 +186,8 @@ impl<'a> Bindings<'a> {
                             let name_ty = match &**p {
                                 ParameterP::Normal(name, ty)
                                 | ParameterP::WithDefaultValue(name, ty, _) => {
-                                    let ty = Ty::from_expr_opt(ty, &mut bindings.approximations);
+                                    let ty =
+                                        Ty::from_type_expr_opt(ty, &mut bindings.approximations);
                                     let mut param = if seen_no_args {
                                         Param::name_only(&name.0, ty.clone())
                                     } else {
@@ -205,14 +206,15 @@ impl<'a> Bindings<'a> {
                                 ParameterP::Args(name, ty) => {
                                     // There is the type we require people calling us use (usually any)
                                     // and then separately the type we are when we are running (always tuple)
-                                    params2.push(Param::args(Ty::from_expr_opt(
+                                    params2.push(Param::args(Ty::from_type_expr_opt(
                                         ty,
                                         &mut bindings.approximations,
                                     )));
                                     Some((name, Ty::name("tuple")))
                                 }
                                 ParameterP::KwArgs(name, ty) => {
-                                    let ty = Ty::from_expr_opt(ty, &mut bindings.approximations);
+                                    let ty =
+                                        Ty::from_type_expr_opt(ty, &mut bindings.approximations);
                                     let ty = if ty.is_any() {
                                         Ty::dict(Ty::string(), Ty::Any)
                                     } else {
@@ -227,7 +229,8 @@ impl<'a> Bindings<'a> {
                                 bindings.descriptions.insert(name.1.unwrap(), name);
                             }
                         }
-                        let ret_ty = Ty::from_expr_opt(return_type, &mut bindings.approximations);
+                        let ret_ty =
+                            Ty::from_type_expr_opt(return_type, &mut bindings.approximations);
                         bindings
                             .types
                             .insert(name.1.unwrap(), Ty::function(params2, ret_ty.clone()));

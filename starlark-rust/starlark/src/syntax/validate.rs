@@ -37,6 +37,7 @@ use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstParameter;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstString;
+use crate::syntax::ast::AstTypeExpr;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::LambdaP;
@@ -261,7 +262,7 @@ impl Stmt {
     pub(crate) fn check_def(
         name: AstString,
         params: Vec<AstParameter>,
-        return_type: Option<Box<AstExpr>>,
+        return_type: Option<Box<AstTypeExpr>>,
         stmts: AstStmt,
         codemap: &CodeMap,
     ) -> anyhow::Result<Stmt> {
@@ -296,7 +297,7 @@ impl Stmt {
     pub(crate) fn check_assignment(
         codemap: &CodeMap,
         lhs: AstExpr,
-        ty: Option<Box<AstExpr>>,
+        ty: Option<Box<AstTypeExpr>>,
         op: Option<AssignOp>,
         rhs: AstExpr,
     ) -> anyhow::Result<Stmt> {

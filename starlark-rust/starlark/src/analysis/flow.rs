@@ -26,6 +26,7 @@ use crate::codemap::Spanned;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::AstTypeExpr;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
@@ -128,10 +129,10 @@ fn final_return(x: &AstStmt) -> bool {
     }
 }
 
-fn require_return_expression(ret_type: &Option<Box<AstExpr>>) -> Option<Span> {
+fn require_return_expression(ret_type: &Option<Box<AstTypeExpr>>) -> Option<Span> {
     match ret_type {
         None => None,
-        Some(x) => match &***x {
+        Some(x) => match &x.node.0.node {
             Expr::Identifier(x, _) if x.node == "None" => None,
             _ => Some(x.span),
         },

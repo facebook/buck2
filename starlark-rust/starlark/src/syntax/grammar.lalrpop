@@ -70,8 +70,8 @@ DefStmt_: Stmt =
   "def" <identifier> "(" <COMMA<ParameterTyped>> ")" <ReturnType> ":" <Suite>
       =>? Ok(Stmt::check_def(<>, codemap)?);
 
-ReturnType: Option<Box<AstExpr>> = {
-    "->" <Test> =>? Ok(Some(Box::new(dialect.check_type(codemap, <>)?))),
+ReturnType: Option<Box<AstTypeExpr>> = {
+    "->" <TypeExpr> => Some(Box::new(<>)),
     => None,
 }
 
@@ -93,8 +93,10 @@ ParameterTyped_: Parameter = {
     "**" <AssignIdent> <Type>             => Parameter::KwArgs(<>),
 };
 
-Type: Option<Box<AstExpr>> = {
-    ":" <Test> =>? Ok(Some(Box::new(dialect.check_type(codemap, <>)?))),
+TypeExpr: AstTypeExpr = <Test> =>? Ok(dialect.check_type(codemap, <>)?);
+
+Type: Option<Box<AstTypeExpr>> = {
+    ":" <TypeExpr> => Some(Box::new(<>)),
     => None,
 }
 
@@ -281,6 +283,7 @@ Clause: Clause = {
 };
 ForClause: ForClause = "for" <var:ExprList> "in" <over:OrTest>
     =>? Ok(ForClause {var: Stmt::check_assign(codemap, var)?, over});
+
 
 // Base expression. Priorities are taken from Python 3 grammar.
 Test: AstExpr = {
