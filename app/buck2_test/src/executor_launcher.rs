@@ -9,6 +9,8 @@
 
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
@@ -20,6 +22,7 @@ use buck2_test_api::grpc::TestExecutorClient;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::future::try_join3;
+use futures::future::BoxFuture;
 use futures::future::Future;
 use futures::future::FutureExt;
 use tokio::io::AsyncRead;
@@ -30,10 +33,45 @@ use crate::downward_api::BuckTestDownwardApi;
 use crate::orchestrator::BuckTestOrchestrator;
 
 pub struct ExecutorLaunch {
-    pub handle: Pin<Box<dyn Future<Output = anyhow::Result<ExecutorOutput>> + Send>>,
+    pub handle: ExecutorFuture,
     pub client: TestExecutorClient,
     pub make_server:
         Box<dyn FnOnce(BuckTestOrchestrator<'static>, BuckTestDownwardApi) -> ServerHandle + Send>,
+}
+
+pub struct ExecutorFuture {
+    fut: BoxFuture<'static, anyhow::Result<ExecutorOutput>>,
+}
+
+impl ExecutorFuture {
+    pub(crate) fn new(mut child: Child) -> Self {
+        let fut = async move {
+            let stdout_fut = read_and_log::read_to_end("stdout", child.stdout.take());
+            let stderr_fut = read_and_log::read_to_end("stderr", child.stderr.take());
+
+            let (status, stdout, stderr) = try_join3(child.wait(), stdout_fut, stderr_fut)
+                .await
+                .context("Failed to run OutOfProcessTestExecutor")?;
+
+            let exit_code = status.code().unwrap_or(1);
+
+            Ok(ExecutorOutput {
+                exit_code,
+                stdout,
+                stderr,
+            })
+        };
+
+        Self { fut: fut.boxed() }
+    }
+}
+
+impl Future for ExecutorFuture {
+    type Output = anyhow::Result<ExecutorOutput>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.fut.poll_unpin(cx)
+    }
 }
 
 #[derive(Debug, Display)]
@@ -93,29 +131,12 @@ impl ExecutorLauncher for OutOfProcessTestExecutor {
     }
 }
 async fn spawn_orchestrator<T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 'static>(
-    (mut executor_proc, executor_client_io, orchestrator_server_io): (Child, T, T),
+    (handle, executor_client_io, orchestrator_server_io): (ExecutorFuture, T, T),
     dispatcher: EventDispatcher,
 ) -> anyhow::Result<ExecutorLaunch> {
     let client = TestExecutorClient::new(executor_client_io)
         .await
         .context("Failed to create TestExecutorClient")?;
-
-    let service_task = async move {
-        let stdout_fut = read_and_log::read_to_end("stdout", executor_proc.stdout.take());
-        let stderr_fut = read_and_log::read_to_end("stderr", executor_proc.stderr.take());
-
-        let (status, stdout, stderr) = try_join3(executor_proc.wait(), stdout_fut, stderr_fut)
-            .await
-            .context("Failed to run OutOfProcessTestExecutor")?;
-
-        let exit_code = status.code().unwrap_or(1);
-
-        Ok(ExecutorOutput {
-            exit_code,
-            stdout,
-            stderr,
-        })
-    };
 
     let make_server = Box::new(move |orchestrator, downward_api| {
         let (read, write) = tokio::io::split(orchestrator_server_io);
@@ -129,7 +150,7 @@ async fn spawn_orchestrator<T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 's
     });
 
     Ok(ExecutorLaunch {
-        handle: service_task.boxed(),
+        handle,
         client,
         make_server,
     })

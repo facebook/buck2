@@ -15,13 +15,14 @@ use anyhow::Context as _;
 use buck2_util::process::async_background_command;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
-use tokio::process::Child;
+
+use crate::executor_launcher::ExecutorFuture;
 
 pub(crate) async fn spawn(
     executable: &Path,
     args: Vec<String>,
     tpx_args: Vec<String>,
-) -> anyhow::Result<(Child, TcpStream, TcpStream)> {
+) -> anyhow::Result<(ExecutorFuture, TcpStream, TcpStream)> {
     // Use TCPStream via TCPListener with accept to simulate UnixStream.
     let (executor_addr, executor_tcp_listener) = create_tcp_listener().await?;
     let (orchestrator_addr, orchestrator_tcp_listener) = create_tcp_listener().await?;
@@ -58,7 +59,11 @@ pub(crate) async fn spawn(
         )
     })?;
 
-    Ok((proc, executor_tcp_stream, orchestrator_tcp_stream))
+    Ok((
+        ExecutorFuture::new(proc),
+        executor_tcp_stream,
+        orchestrator_tcp_stream,
+    ))
 }
 
 async fn create_tcp_listener() -> anyhow::Result<(String, TcpListener)> {

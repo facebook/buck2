@@ -15,13 +15,14 @@ use std::process::Stdio;
 use anyhow::Context as _;
 use buck2_util::process::async_background_command;
 use tokio::net::UnixStream;
-use tokio::process::Child;
+
+use crate::executor_launcher::ExecutorFuture;
 
 pub(crate) async fn spawn(
     executable: &Path,
     args: Vec<String>,
     tpx_args: Vec<String>,
-) -> anyhow::Result<(Child, UnixStream, UnixStream)> {
+) -> anyhow::Result<(ExecutorFuture, UnixStream, UnixStream)> {
     let (executor_client_async_io, executor_server_async_io) =
         UnixStream::pair().context("Failed to create executor channel")?;
 
@@ -86,5 +87,9 @@ pub(crate) async fn spawn(
         )
     })?;
 
-    Ok((proc, executor_client_io, orchestrator_server_io))
+    Ok((
+        ExecutorFuture::new(proc),
+        executor_client_io,
+        orchestrator_server_io,
+    ))
 }
