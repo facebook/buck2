@@ -40,6 +40,8 @@ pub(crate) enum DialectError {
     KeywordOnlyArguments,
     #[error("type annotations are not allowed in this dialect")]
     Types,
+    #[error("{0} expression is not allowed in type expression")]
+    InvalidType(&'static str),
 }
 
 /// How to handle type annotations in Starlark.
@@ -165,17 +167,27 @@ impl Dialect {
         }
     }
 
+    fn check_expr_allowed_in_type(codemap: &CodeMap, x: &Spanned<Expr>) -> anyhow::Result<()> {
+        match x.node {
+            Expr::Lambda(..) => return err(codemap, x.span, DialectError::InvalidType("lambda")),
+            _ => {}
+        }
+        x.visit_expr_err(|e| Self::check_expr_allowed_in_type(codemap, e))
+    }
+
     pub(crate) fn check_type(
         &self,
         codemap: &CodeMap,
         x: Spanned<Expr>,
     ) -> anyhow::Result<Spanned<TypeExpr>> {
         let span = x.span;
-        if self.enable_types != DialectTypes::Disable {
-            Ok(x.into_map(|node| TypeExprP(Spanned { span, node })))
-        } else {
-            err(codemap, x.span, DialectError::Types)
+        if self.enable_types == DialectTypes::Disable {
+            return err(codemap, x.span, DialectError::Types);
         }
+
+        Self::check_expr_allowed_in_type(codemap, &x)?;
+
+        Ok(x.into_map(|node| TypeExprP(Spanned { span, node })))
     }
 
     pub(crate) fn load_visibility(&self) -> Visibility {

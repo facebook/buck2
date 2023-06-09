@@ -329,6 +329,19 @@ impl<P: AstPayload> ExprP<P> {
         }
     }
 
+    pub(crate) fn visit_expr_err<'a, E>(
+        &'a self,
+        mut f: impl FnMut(&'a AstExprP<P>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let mut ok = Ok(());
+        self.visit_expr(|x| {
+            if ok.is_ok() {
+                ok = f(x);
+            }
+        });
+        ok
+    }
+
     pub(crate) fn visit_expr_mut<'a>(&'a mut self, mut f: impl FnMut(&'a mut AstExprP<P>)) {
         match self {
             ExprP::Tuple(xs) => xs.iter_mut().for_each(|x| f(x)),
