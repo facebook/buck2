@@ -373,17 +373,7 @@ impl DocModule {
             .unwrap_or_default();
         for (k, v) in &self.members {
             res.push('\n');
-            res.push_str(
-                &(Doc {
-                    id: Identifier {
-                        name: k.clone(),
-                        location: None,
-                    },
-                    item: v.clone().to_doc_item(),
-                    custom_attrs: HashMap::new(),
-                }
-                .render_as_code()),
-            );
+            res.push_str(&(Doc::named_item(k.clone(), v.clone().to_doc_item())).render_as_code());
             res.push('\n');
         }
         res
@@ -815,6 +805,17 @@ pub struct Doc {
 }
 
 impl Doc {
+    pub fn named_item(name: String, item: DocItem) -> Self {
+        Doc {
+            id: Identifier {
+                name,
+                location: None,
+            },
+            item,
+            custom_attrs: HashMap::new(),
+        }
+    }
+
     /// Render a starlark code representation of this documentation object.
     ///
     /// Function bodies for these consist of a single "pass" statement, and objects

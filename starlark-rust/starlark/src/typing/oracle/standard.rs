@@ -16,11 +16,9 @@
  */
 
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 
 use crate::docs::Doc;
 use crate::docs::DocItem;
-use crate::docs::Identifier;
 use crate::environment::Globals;
 use crate::stdlib::LibraryExtension;
 use crate::typing::oracle::docs::OracleDocs;
@@ -45,14 +43,10 @@ impl OracleStandard {
 
         fn add<T: StarlarkValue<'static>>(fallback: &mut OracleDocs) {
             if let Some(m) = T::get_methods() {
-                fallback.add_doc(&Doc {
-                    id: Identifier {
-                        name: T::TYPE.to_owned(),
-                        location: None,
-                    },
-                    item: DocItem::Object(m.documentation()),
-                    custom_attrs: HashMap::new(),
-                });
+                fallback.add_doc(&Doc::named_item(
+                    T::TYPE.to_owned(),
+                    DocItem::Object(m.documentation()),
+                ));
             }
         }
 

@@ -22,7 +22,6 @@
 // Disagree these are good hints
 #![allow(clippy::type_complexity)]
 
-use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
@@ -39,7 +38,6 @@ use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::render_docs_as_code;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
-use starlark::docs::Identifier;
 use starlark::docs::MarkdownFlavor;
 use starlark::docs::RenderMarkdown;
 use starlark::environment::Globals;
@@ -272,14 +270,10 @@ fn main() -> anyhow::Result<()> {
             lsp::server::stdio_server(ctx)?;
         } else if let Some(docs) = args.docs {
             let mut builtin = get_registered_starlark_docs();
-            builtin.push(Doc {
-                id: Identifier {
-                    name: "globals".to_owned(),
-                    location: None,
-                },
-                item: DocItem::Module(Globals::extended().documentation()),
-                custom_attrs: HashMap::new(),
-            });
+            builtin.push(Doc::named_item(
+                "globals".to_owned(),
+                DocItem::Module(Globals::extended().documentation()),
+            ));
 
             match docs {
                 ArgsDoc::Markdown | ArgsDoc::Lsp => {
