@@ -60,10 +60,6 @@ load(
     "linkables",
 )
 load("@prelude//linking:shared_libraries.bzl", "merge_shared_libraries", "traverse_shared_library_info")
-load(
-    "@prelude//utils:types.bzl",
-    "unchecked",  # @unused Used as a type
-)
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load("@prelude//paths.bzl", "paths")
 load("@prelude//resources.bzl", "gather_resources")
@@ -106,9 +102,12 @@ def _package_style(ctx: "context") -> PackageStyle.type:
 
 # We do a lot of merging extensions, so don't use O(n) type annotations
 def _merge_extensions(
-        extensions: unchecked({str.type: ("_a", "label")}),
-        incoming_label: unchecked("label"),
-        incoming_extensions: unchecked({str.type: "_a"})) -> None:
+        # {str.type: ("_a", "label")}
+        extensions,
+        # "label"
+        incoming_label,
+        # {str.type: "_a"}
+        incoming_extensions) -> None:
     """
     Merges a incoming_extensions into `extensions`. Fails if duplicate dests exist.
     """
