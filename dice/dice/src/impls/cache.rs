@@ -13,7 +13,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
-use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dupe::Dupe;
 use fnv::FnvBuildHasher;
@@ -33,13 +32,34 @@ struct Data {
     is_cancelled: AtomicBool,
 }
 
+/// Reference to the task in the cache.
+pub(crate) enum DiceTaskRef<'a> {
+    Occupied(dashmap::mapref::entry::OccupiedEntry<'a, DiceKey, DiceTask, FnvBuildHasher>),
+    Vacant(dashmap::mapref::entry::VacantEntry<'a, DiceKey, DiceTask, FnvBuildHasher>),
+    TransactionCancelled,
+}
+
+impl<'a> DiceTaskRef<'a> {
+    #[cfg(test)]
+    pub(crate) fn testing_insert(self, task: DiceTask) {
+        if let Self::Vacant(e) = self {
+            e.insert(task);
+        } else {
+            panic!("inserting into non-vacant entry");
+        }
+    }
+}
+
 impl SharedCache {
-    pub(crate) fn get(&self, key: DiceKey) -> Option<Entry<DiceKey, DiceTask, FnvBuildHasher>> {
+    pub(crate) fn get(&self, key: DiceKey) -> DiceTaskRef {
         let entry = self.data.storage.entry(key);
         if self.data.is_cancelled.load(Ordering::Acquire) {
-            None
+            DiceTaskRef::TransactionCancelled
         } else {
-            Some(entry)
+            match entry {
+                dashmap::mapref::entry::Entry::Occupied(e) => DiceTaskRef::Occupied(e),
+                dashmap::mapref::entry::Entry::Vacant(e) => DiceTaskRef::Vacant(e),
+            }
         }
     }
 
@@ -114,6 +134,7 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
     use crate::arc::Arc;
+    use crate::impls::cache::DiceTaskRef;
     use crate::impls::cache::SharedCache;
     use crate::impls::core::graph::history::CellHistory;
     use crate::impls::key::DiceKey;
@@ -210,37 +231,33 @@ mod tests {
 
         cache
             .get(DiceKey { index: 1 })
-            .unwrap()
-            .or_insert(completed_task1);
+            .testing_insert(completed_task1);
         cache
             .get(DiceKey { index: 2 })
-            .unwrap()
-            .or_insert(completed_task2);
+            .testing_insert(completed_task2);
         cache
             .get(DiceKey { index: 3 })
-            .unwrap()
-            .or_insert(finished_cancelling_tasks1);
+            .testing_insert(finished_cancelling_tasks1);
         cache
             .get(DiceKey { index: 4 })
-            .unwrap()
-            .or_insert(finished_cancelling_tasks2);
+            .testing_insert(finished_cancelling_tasks2);
         cache
             .get(DiceKey { index: 5 })
-            .unwrap()
-            .or_insert(yet_to_cancel_tasks1);
+            .testing_insert(yet_to_cancel_tasks1);
         cache
             .get(DiceKey { index: 6 })
-            .unwrap()
-            .or_insert(yet_to_cancel_tasks2);
+            .testing_insert(yet_to_cancel_tasks2);
         cache
             .get(DiceKey { index: 7 })
-            .unwrap()
-            .or_insert(yet_to_cancel_tasks3);
+            .testing_insert(yet_to_cancel_tasks3);
 
         let pending_tasks = cache.dupe().cancel_pending_tasks();
 
         assert_eq!(pending_tasks.len(), 3);
 
-        assert!(cache.get(DiceKey { index: 999 }).is_none());
+        assert!(matches!(
+            cache.get(DiceKey { index: 999 }),
+            DiceTaskRef::TransactionCancelled
+        ));
     }
 }

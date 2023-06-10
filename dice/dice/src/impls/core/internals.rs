@@ -175,6 +175,7 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
     use crate::arc::Arc;
+    use crate::impls::cache::DiceTaskRef;
     use crate::impls::core::graph::history::CellHistory;
     use crate::impls::core::internals::CoreState;
     use crate::impls::key::DiceKey;
@@ -346,38 +347,34 @@ mod tests {
 
         cache
             .get(DiceKey { index: 1 })
-            .unwrap()
-            .or_insert(completed_task1);
+            .testing_insert(completed_task1);
         cache
             .get(DiceKey { index: 2 })
-            .unwrap()
-            .or_insert(completed_task2);
+            .testing_insert(completed_task2);
         cache
             .get(DiceKey { index: 3 })
-            .unwrap()
-            .or_insert(finished_cancelling_tasks1);
+            .testing_insert(finished_cancelling_tasks1);
         cache
             .get(DiceKey { index: 4 })
-            .unwrap()
-            .or_insert(finished_cancelling_tasks2);
+            .testing_insert(finished_cancelling_tasks2);
         cache
             .get(DiceKey { index: 5 })
-            .unwrap()
-            .or_insert(yet_to_cancel_tasks1);
+            .testing_insert(yet_to_cancel_tasks1);
         cache
             .get(DiceKey { index: 6 })
-            .unwrap()
-            .or_insert(yet_to_cancel_tasks2);
+            .testing_insert(yet_to_cancel_tasks2);
         cache
             .get(DiceKey { index: 7 })
-            .unwrap()
-            .or_insert(never_cancel_tasks1);
+            .testing_insert(never_cancel_tasks1);
 
         core.drop_ctx_at_version(v);
 
         assert_eq!(core.get_tasks_pending_cancellation().len(), 3);
 
-        assert!(cache.get(DiceKey { index: 999 }).is_none());
+        assert!(matches!(
+            cache.get(DiceKey { index: 999 }),
+            DiceTaskRef::TransactionCancelled
+        ));
 
         // let the cancellable tasks cancel
         drop(guard1);
@@ -393,8 +390,7 @@ mod tests {
 
         cache
             .get(DiceKey { index: 8 })
-            .unwrap()
-            .or_insert(never_cancel_tasks2);
+            .testing_insert(never_cancel_tasks2);
 
         core.drop_ctx_at_version(v);
 

@@ -13,7 +13,6 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use dashmap::mapref::entry::Entry;
 use derivative::Derivative;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -35,6 +34,7 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
+use crate::impls::cache::DiceTaskRef;
 use crate::impls::cache::SharedCache;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::versions::VersionEpoch;
@@ -414,7 +414,7 @@ impl SharedLiveTransactionCtx {
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
         match self.cache.get(key) {
-            Some(Entry::Occupied(mut occupied)) => {
+            DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
                     MaybeCancelled::Ok(promise) => {
                         debug!(msg = "shared state is waiting on existing task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
@@ -452,7 +452,7 @@ impl SharedLiveTransactionCtx {
                 }
                 .left_future()
             }
-            Some(Entry::Vacant(vacant)) => {
+            DiceTaskRef::Vacant(vacant) => {
                 debug!(msg = "shared state is empty, spawning new task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
 
                 let eval = eval.dupe();
@@ -477,7 +477,7 @@ impl SharedLiveTransactionCtx {
 
                 fut.left_future()
             }
-            None => {
+            DiceTaskRef::TransactionCancelled => {
                 let v = self.version;
                 let v_epoch = self.version_epoch;
                 async move {
@@ -501,7 +501,7 @@ impl SharedLiveTransactionCtx {
         events: DiceEventDispatcher,
     ) -> CancellableResult<DiceComputedValue> {
         let promise = match self.cache.get(key) {
-            Some(Entry::Occupied(mut occupied)) => {
+            DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
                     MaybeCancelled::Ok(promise) => promise,
                     MaybeCancelled::Cancelled => {
@@ -520,7 +520,7 @@ impl SharedLiveTransactionCtx {
                     }
                 }
             }
-            Some(Entry::Vacant(vacant)) => {
+            DiceTaskRef::Vacant(vacant) => {
                 let task = unsafe {
                     // SAFETY: task completed below by `IncrementalEngine::project_for_key`
                     sync_dice_task()
@@ -533,7 +533,7 @@ impl SharedLiveTransactionCtx {
                     .not_cancelled()
                     .expect("just created")
             }
-            None => {
+            DiceTaskRef::TransactionCancelled => {
                 // for projection keys, these are cheap and synchronous computes that should never
                 // be cancelled
                 let task = unsafe {
@@ -578,8 +578,7 @@ impl EvaluationData {
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use dashmap::mapref::entry::Entry;
-
+    use crate::impls::cache::DiceTaskRef;
     use crate::impls::core::versions::VersionEpoch;
     use crate::impls::ctx::SharedLiveTransactionCtx;
     use crate::impls::key::DiceKey;
@@ -599,13 +598,14 @@ pub(crate) mod testing {
                 .expect("just created")
                 .get_or_complete(|| v);
 
-            match self.cache.get(k).expect("cancelled") {
-                Entry::Occupied(o) => {
+            match self.cache.get(k) {
+                DiceTaskRef::Occupied(o) => {
                     o.replace_entry(task);
                 }
-                Entry::Vacant(v) => {
+                DiceTaskRef::Vacant(v) => {
                     v.insert(task);
                 }
+                DiceTaskRef::TransactionCancelled => panic!("transaction cancelled"),
             }
         }
 
