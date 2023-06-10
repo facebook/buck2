@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifacts.bzl", "unpack_artifact_map")
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//:resources.bzl",
@@ -211,26 +212,7 @@ def py_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])}:
     a tuple of the resource artifact and any "other" outputs exposed by it.
     """
 
-    resources = {}
-
-    for name, resource in _attr_resources(ctx).items():
-        if type(resource) == "artifact":
-            # If this is a artifact, there are no "other" artifacts.
-            other = []
-        else:
-            # Otherwise, this is a dependency, so extract the resource and other
-            # resources from the `DefaultInfo` provider.
-            info = resource[DefaultInfo]
-            expect(
-                len(info.default_outputs) == 1,
-                "expected exactly one default output from {} ({})"
-                    .format(resource, info.default_outputs),
-            )
-            [resource] = info.default_outputs
-            other = info.other_outputs
-        resources[name] = (resource, other)
-
-    return resources
+    return unpack_artifact_map(_attr_resources(ctx))
 
 def py_resources(
         ctx: "context",

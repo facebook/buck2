@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//utils:utils.bzl",
     "expect",
@@ -17,7 +18,16 @@ ArtifactGroupInfo = provider(
     ],
 )
 
-def unpack_artifacts(artifacts: [["artifact", "dependency"]]) -> ["artifact"]:
+def _from_default_info(dep: "dependency") -> ("artifact", ["_arglike"]):
+    info = dep[DefaultInfo]
+    expect(
+        len(info.default_outputs) == 1,
+        "expected exactly one default output from {} ({})"
+            .format(dep, info.default_outputs),
+    )
+    return (info.default_outputs[0], info.other_outputs)
+
+def unpack_artifacts(artifacts: [["artifact", "dependency"]]) -> [("artifact", ["_arglike"])]:
     """
     Unpack a list of `artifact` and `ArtifactGroupInfo` into a flattened list
     of `artifact`s
@@ -26,13 +36,45 @@ def unpack_artifacts(artifacts: [["artifact", "dependency"]]) -> ["artifact"]:
     out = []
 
     for artifact in artifacts:
+        if type(artifact) == "artifact":
+            out.append((artifact, []))
+            continue
+
         if ArtifactGroupInfo in artifact:
-            out.extend(artifact[ArtifactGroupInfo].artifacts)
-        elif DefaultInfo in artifact:
-            (artifact,) = artifact[DefaultInfo].default_outputs
-            out.append(artifact)
-        else:
-            expect(type(artifact) == "artifact")
-            out.append(artifact)
+            for artifact in artifact[ArtifactGroupInfo].artifacts:
+                out.append((artifact, []))
+            continue
+
+        if DefaultInfo in artifact:
+            out.append(_from_default_info(artifact))
+            continue
+
+        fail("unexpected dependency type: {}".format(type(artifact)))
+
+    return out
+
+def unpack_artifact_map(artifacts: {str.type: ["artifact", "dependency"]}) -> {str.type: ("artifact", ["_arglike"])}:
+    """
+    Unpack a list of `artifact` and `ArtifactGroupInfo` into a flattened list
+    of `artifact`s
+    """
+
+    out = {}
+
+    for name, artifact in artifacts.items():
+        if type(artifact) == "artifact":
+            out[name] = (artifact, [])
+            continue
+
+        if ArtifactGroupInfo in artifact:
+            for artifact in artifact[ArtifactGroupInfo].artifacts:
+                out[paths.join(name, artifact.short_path)] = (artifact, [])
+            continue
+
+        if DefaultInfo in artifact:
+            out[name] = _from_default_info(artifact)
+            continue
+
+        fail("unexpected dependency type: {}".format(type(artifact)))
 
     return out
