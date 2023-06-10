@@ -72,6 +72,7 @@ use crate::values::ValueTyped;
 
 const fn alloc_static<M, T>(mode: M, value: T) -> AValueRepr<AValueImpl<M, T>>
 where
+    M: AValueMode,
     AValueImpl<M, T>: AValue<'static>,
 {
     mem::forget(mode);
@@ -253,30 +254,37 @@ pub(crate) fn float_avalue<'v>(x: StarlarkFloat) -> impl AValue<'v, ExtraElem = 
     AValueImpl::<Direct, _>::new(x)
 }
 
+pub(crate) trait AValueMode: Send + Sync + 'static {}
+
 // A type where the second element is in control of what instances are in scope
 pub(crate) struct Direct;
+impl AValueMode for Direct {}
 
 // A type that implements StarlarkValue but nothing else, so will never be stored
 // in the heap (e.g. bool, None)
 pub(crate) struct Basic;
+impl AValueMode for Basic {}
 
 // A non-special type with no references to other Starlark values.
 pub(crate) struct Simple;
+impl AValueMode for Simple {}
 
 // A type that implements ComplexValue.
 pub(crate) struct Complex;
+impl AValueMode for Complex {}
 
 // A value which can be traced, but cannot be frozen.
 pub(crate) struct ComplexNoFreeze;
+impl AValueMode for ComplexNoFreeze {}
 
 // We want to define several types (Simple, Complex) that wrap a StarlarkValue,
 // reimplement it, and do some things custom. The easiest way to avoid repeating
 // the StarlarkValue trait each time is to make them all share a single wrapper,
 // where Mode is one of Simple/Complex.
 #[repr(C)]
-pub(crate) struct AValueImpl<Mode, T>(PhantomData<Mode>, pub(crate) T);
+pub(crate) struct AValueImpl<Mode: AValueMode, T>(PhantomData<Mode>, pub(crate) T);
 
-impl<Mode, T> AValueImpl<Mode, T> {
+impl<Mode: AValueMode, T> AValueImpl<Mode, T> {
     pub(crate) const fn new(value: T) -> Self {
         AValueImpl(PhantomData, value)
     }
@@ -641,7 +649,7 @@ impl<'v, T: Debug + 'static> AValue<'v> for AValueImpl<Direct, AnyArray<T>> {
     }
 }
 
-impl<Mode, C> AValueImpl<Mode, C> {
+impl<Mode: AValueMode, C> AValueImpl<Mode, C> {
     /// `heap_freeze` implementation for simple `StarlarkValue` and `StarlarkFloat`
     /// (`StarlarkFloat` is logically a simple type, but it is not considered simple type).
     unsafe fn heap_freeze_simple_impl<'v>(
@@ -686,7 +694,7 @@ impl<T: StarlarkValue<'static>> AValue<'static> for AValueImpl<Simple, T> {
     }
 }
 
-impl<Mode, C> AValueImpl<Mode, C> {
+impl<Mode: AValueMode, C> AValueImpl<Mode, C> {
     /// Common `heap_copy` implementation for types without extra.
     unsafe fn heap_copy_impl<'v>(
         me: *mut AValueRepr<Self>,
@@ -789,13 +797,13 @@ impl Serialize for BlackHole {
     }
 }
 
-impl<'v, Mode: 'static, T: StarlarkValue<'v>> StarlarkValueDyn<'v> for AValueImpl<Mode, T> {
+impl<'v, Mode: AValueMode, T: StarlarkValue<'v>> StarlarkValueDyn<'v> for AValueImpl<Mode, T> {
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         self.1.write_hash(hasher)
     }
 }
 
-impl<'v, Mode: 'static, T: StarlarkValue<'v>> Serialize for AValueImpl<Mode, T> {
+impl<'v, Mode: AValueMode, T: StarlarkValue<'v>> Serialize for AValueImpl<Mode, T> {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
