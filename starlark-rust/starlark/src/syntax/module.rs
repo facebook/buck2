@@ -60,14 +60,10 @@ fn parse_error_add_span(
     pos: usize,
     codemap: &CodeMap,
 ) -> anyhow::Error {
-    if let lu::ParseError::User { error } = err {
-        return error;
-    }
-
-    let (message, span) = match &err {
+    let (message, span) = match err {
         lu::ParseError::InvalidToken { location } => (
             "Parse error: invalid token".to_owned(),
-            Span::new(Pos::new(*location as u32), Pos::new(*location as u32)),
+            Span::new(Pos::new(location as u32), Pos::new(location as u32)),
         ),
         lu::ParseError::UnrecognizedToken {
             token: (x, t, y),
@@ -76,9 +72,9 @@ fn parse_error_add_span(
             format!(
                 "Parse error: unexpected {} here, expected {}",
                 t,
-                one_of(expected)
+                one_of(&expected)
             ),
-            Span::new(Pos::new(*x as u32), Pos::new(*y as u32)),
+            Span::new(Pos::new(x as u32), Pos::new(y as u32)),
         ),
         lu::ParseError::UnrecognizedEOF { .. } => (
             "Parse error: unexpected end of file".to_owned(),
@@ -86,9 +82,9 @@ fn parse_error_add_span(
         ),
         lu::ParseError::ExtraToken { token: (x, t, y) } => (
             format!("Parse error: extraneous token {}", t),
-            Span::new(Pos::new(*x as u32), Pos::new(*y as u32)),
+            Span::new(Pos::new(x as u32), Pos::new(y as u32)),
         ),
-        lu::ParseError::User { .. } => unreachable!(),
+        lu::ParseError::User { error } => return error,
     };
 
     Diagnostic::new(anyhow::anyhow!(message), span, codemap)
