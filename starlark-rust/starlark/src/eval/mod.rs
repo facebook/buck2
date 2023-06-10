@@ -47,6 +47,7 @@ use crate::eval::compiler::scope::Scope;
 use crate::eval::compiler::scope::ScopeData;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::Compiler;
+use crate::eval::compiler::EvalException;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::slice_vec_ext::SliceExt;
@@ -147,7 +148,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.module_env.add_eval_duration(start.elapsed());
 
         // Return the result of evaluation
-        res.map_err(|e| e.0)
+        res.map_err(EvalException::into_anyhow)
     }
 
     /// Evaluate a function stored in a [`Value`], passing in `positional` and `named` arguments.

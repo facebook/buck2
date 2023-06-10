@@ -62,6 +62,7 @@ use crate::eval::compiler::stmt::add_assign;
 use crate::eval::compiler::stmt::bit_or_assign;
 use crate::eval::compiler::stmt::possible_gc;
 use crate::eval::compiler::stmt::AssignError;
+use crate::eval::compiler::EvalException;
 use crate::eval::runtime::arguments::ResolvedArgName;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
@@ -989,14 +990,14 @@ impl InstrNoFlowImpl for InstrDictNPopImpl {
                 Ok(k) => k,
                 Err(e) => {
                     let spans = &Bc::slow_arg_at_ptr(ip).spans;
-                    return Err(add_span_to_expr_error(e, spans[i], eval).0);
+                    return Err(add_span_to_expr_error(e, spans[i], eval).into_anyhow());
                 }
             };
             let prev = dict.insert_hashed(k, v);
             if prev.is_some() {
                 let e = EvalError::DuplicateDictionaryKey(k.key().to_string()).into();
                 let spans = &Bc::slow_arg_at_ptr(ip).spans;
-                return Err(add_span_to_expr_error(e, spans[i], eval).0);
+                return Err(add_span_to_expr_error(e, spans[i], eval).into_anyhow());
             }
         }
         let dict = eval.heap().alloc(Dict::new(dict));
@@ -1403,7 +1404,8 @@ impl InstrNoFlowImpl for InstrDefImpl {
                     LocalSlotId(i),
                     name.name.clone(),
                     v,
-                    expr_throw(TypeCompiled::new(v, eval.heap()), x.span, eval).map_err(|e| e.0)?,
+                    expr_throw(TypeCompiled::new(v, eval.heap()), x.span, eval)
+                        .map_err(EvalException::into_anyhow)?,
                 ));
             }
 
@@ -1422,7 +1424,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
                             x.span,
                             eval,
                         )
-                        .map_err(|e| e.0)?;
+                        .map_err(EvalException::into_anyhow)?;
                     }
                     parameters.defaulted(&n.name, value);
                 }
@@ -1439,7 +1441,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
                 Some((
                     value,
                     expr_throw(TypeCompiled::new(value, eval.heap()), v.span, eval)
-                        .map_err(|e| e.0)?,
+                        .map_err(EvalException::into_anyhow)?,
                 ))
             }
         };

@@ -43,9 +43,19 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::Evaluator;
 use crate::values::FrozenRef;
 
-/// Error of evaluation of an expression.
+/// Error with location.
 #[derive(Debug)]
-pub(crate) struct EvalException(pub(crate) anyhow::Error);
+pub(crate) struct EvalException(
+    /// Error is `Diagnostic`, but stored as `anyhow::Error` for smaller size.
+    anyhow::Error,
+);
+
+impl EvalException {
+    #[cold]
+    pub(crate) fn into_anyhow(self) -> anyhow::Error {
+        self.0
+    }
+}
 
 #[cold]
 #[inline(never)]
