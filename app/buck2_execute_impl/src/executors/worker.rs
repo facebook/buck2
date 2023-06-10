@@ -17,6 +17,7 @@ use std::time::Duration;
 use anyhow::Context;
 use buck2_common::client_utils::get_channel_uds;
 use buck2_common::client_utils::retrying;
+use buck2_common::client_utils::RetryError;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
@@ -25,6 +26,7 @@ use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
 use buck2_forkserver::run::maybe_absolutize_exe;
 use buck2_forkserver::run::prepare_command;
+use buck2_forkserver::run::status_decoder::default_decode_exit_code;
 use buck2_forkserver::run::GatherOutputStatus;
 use buck2_util::process::background_command;
 use buck2_worker_proto::execute_command::EnvironmentEntry;
@@ -37,6 +39,23 @@ use tonic::transport::Channel;
 
 use crate::executors::local::apply_local_execution_environment;
 
+#[derive(thiserror::Error, Debug)]
+pub enum WorkerInitError {
+    #[error("Worker failed to spawn: {0}")]
+    SpawnFailed(anyhow::Error),
+    #[error("Worker exited before connecting")]
+    EarlyExit {
+        exit_code: i32,
+        stdout: String,
+        stderr: String,
+    },
+    #[error("Worker failed to connect within `{0:.2}` seconds: {1}")]
+    ConnectionTimeout(f64, String),
+    /// Any error not related to worker behavior
+    #[error("Error initializing worker `{0}`")]
+    InternalError(anyhow::Error),
+}
+
 async fn exec_spawn(
     exe: &str,
     args: impl IntoIterator<Item = impl AsRef<OsStr> + Send> + Send,
@@ -44,18 +63,28 @@ async fn exec_spawn(
     root: &AbsNormPathBuf,
     stdout_path: &AbsNormPathBuf,
     stderr_path: &AbsNormPathBuf,
-) -> anyhow::Result<Child> {
+) -> Result<Child, WorkerInitError> {
     // TODO(ctolliday) spawn using forkserver T153604128
-    let exe = maybe_absolutize_exe(exe, root)?;
+    let exe = maybe_absolutize_exe(exe, root).map_err(WorkerInitError::InternalError)?;
+
     let mut cmd = background_command(exe.as_ref());
     cmd.current_dir(root);
     cmd.args(args);
     apply_local_execution_environment(&mut cmd, root, env, None);
 
     let mut cmd: tokio::process::Command = prepare_command(cmd);
-    cmd.stdout(File::create(stdout_path)?);
-    cmd.stderr(File::create(stderr_path)?);
-    Ok(cmd.spawn()?)
+    let stdout: File = File::create(stdout_path)
+        .with_context(|| format!("Failed to create worker log file at {}", stdout_path))
+        .map_err(WorkerInitError::InternalError)?;
+    let stderr: File = File::create(stderr_path)
+        .with_context(|| format!("Failed to create worker log file at {}", stderr_path))
+        .map_err(WorkerInitError::InternalError)?;
+    cmd.stdout(stdout);
+    cmd.stderr(stderr);
+    match cmd.spawn() {
+        Ok(child) => Ok(child),
+        Err(e) => Err(WorkerInitError::SpawnFailed(e.into())),
+    }
 }
 
 async fn spawn_worker(
@@ -63,27 +92,30 @@ async fn spawn_worker(
     env: impl IntoIterator<Item = (OsString, OsString)>,
     worker: &WorkerSpec,
     root: &AbsNormPathBuf,
-) -> anyhow::Result<(WorkerCommandHandle, WorkerCleanupHandle)> {
-    let dispatcher = get_dispatcher_opt().context("No dispatcher")?;
+) -> Result<(WorkerCommandHandle, WorkerCleanupHandle), WorkerInitError> {
+    let dispatcher = get_dispatcher_opt().ok_or(WorkerInitError::InternalError(
+        anyhow::anyhow!("No dispatcher"),
+    ))?;
     // Use fixed length path at /tmp to avoid 108 character limit for unix domain sockets
     let dir_name = format!("{}-{}", dispatcher.trace_id(), worker.id);
-    let worker_dir = AbsNormPathBuf::from("/tmp/buck2_worker".to_owned())?
+    let worker_dir = AbsNormPathBuf::from("/tmp/buck2_worker".to_owned())
+        .map_err(WorkerInitError::InternalError)?
         .join(FileName::unchecked_new(&dir_name));
     let socket_path = worker_dir.join(FileName::unchecked_new("socket"));
-    if fs_util::try_exists(&worker_dir)? {
-        return Err(anyhow::anyhow!(
+    if fs_util::try_exists(&worker_dir).map_err(WorkerInitError::InternalError)? {
+        return Err(WorkerInitError::InternalError(anyhow::anyhow!(
             "Directory for worker already exists: {:?}",
             worker_dir
-        ));
+        )));
     }
     // TODO(ctolliday) put these in buck-out/<iso>/workers and only use /tmp dir for sockets
     let stdout_path = worker_dir.join(FileName::unchecked_new("stdout"));
     let stderr_path = worker_dir.join(FileName::unchecked_new("stderr"));
-    fs_util::create_dir_all(&worker_dir)?;
+    fs_util::create_dir_all(&worker_dir).map_err(WorkerInitError::InternalError)?;
 
     let args = args.to_vec();
     tracing::info!(
-        "Starting worker with logs at {:?}:\n$ {}\n",
+        "Starting worker with logs at {}:\n$ {}\n",
         worker_dir,
         args.join(" ")
     );
@@ -104,16 +136,20 @@ async fn spawn_worker(
         let stderr_path = &stderr_path;
         let socket_path = &socket_path;
 
-        let mut check_exit = move || {
-            if let Some(exit_status) = child.try_wait()? {
-                let stdout = fs_util::read_to_string(stdout_path)?;
-                let stderr = fs_util::read_to_string(stderr_path)?;
-                return Err(anyhow::anyhow!(
-                    "Worker exited early with code {}\nstdout: {:?}\nstderr: {:?}",
-                    exit_status,
+        let mut check_exit = move || -> Result<(), WorkerInitError> {
+            if let Some(exit_status) = child
+                .try_wait()
+                .map_err(|e| WorkerInitError::InternalError(e.into()))?
+            {
+                let stdout =
+                    fs_util::read_to_string(stdout_path).map_err(WorkerInitError::InternalError)?;
+                let stderr =
+                    fs_util::read_to_string(stderr_path).map_err(WorkerInitError::InternalError)?;
+                return Err(WorkerInitError::EarlyExit {
+                    exit_code: default_decode_exit_code(exit_status),
                     stdout,
-                    stderr
-                ));
+                    stderr,
+                });
             }
 
             Ok(())
@@ -121,20 +157,36 @@ async fn spawn_worker(
 
         let check_exit = &mut check_exit;
 
-        retrying(initial_delay, max_delay, timeout, move || {
+        match retrying(initial_delay, max_delay, timeout, move || {
             if let Err(e) = check_exit() {
                 futures::future::ready(Err(e)).left_future()
             } else {
                 // TODO(ctolliday) T153604304
                 // add handshake over grpc before returning a handle, to make sure the worker is responding
-                get_channel_uds(socket_path, false).right_future()
+                async move {
+                    get_channel_uds(socket_path, false).await.map_err(|e| {
+                        WorkerInitError::ConnectionTimeout(timeout.as_secs_f64(), e.to_string())
+                    })
+                }
+                .right_future()
             }
         })
         .await
-        .context("Failed to connect to worker socket")?
+        {
+            Ok(channel) => Ok(channel),
+            Err(e) => {
+                if let RetryError::Failed { last_error, .. } = e {
+                    return Err(last_error);
+                }
+                Err(WorkerInitError::ConnectionTimeout(
+                    timeout.as_secs_f64(),
+                    "Timed out without error.".to_owned(),
+                ))
+            }
+        }?
     };
 
-    tracing::info!("Connected to socket for spawned worker: {:?}", socket_path);
+    tracing::info!("Connected to socket for spawned worker: {}", socket_path);
     let client = WorkerClient::new(channel);
     Ok((
         WorkerCommandHandle {
@@ -162,7 +214,7 @@ impl Drop for WorkerPool {
                     socket_path,
                 } in cleanup_handles
                 {
-                    tracing::info!("Killing worker {:?} {:?}", child, socket_path);
+                    tracing::info!("Killing worker {:?} {}", child, socket_path);
                     let _unused = child.kill().await;
                     let _unused = fs_util::remove_file(&socket_path);
                 }
@@ -185,7 +237,7 @@ impl WorkerPool {
         worker_spec: &WorkerSpec,
         env: impl IntoIterator<Item = (OsString, OsString)>,
         root: &AbsNormPathBuf,
-    ) -> anyhow::Result<Arc<WorkerCommandHandle>> {
+    ) -> Result<Arc<WorkerCommandHandle>, WorkerInitError> {
         let mut workers = self.workers.lock().await;
         if let Some(worker_handle) = workers.get(&worker_spec.id) {
             Ok(worker_handle.clone())
@@ -262,7 +314,7 @@ impl WorkerCommandHandle {
             Err(err) => {
                 (
                     GatherOutputStatus::SpawnFailed(format!(
-                        "Error sending ExecuteCommand to worker: {:?}, see worker logs:\n{:?}\n{:?}",
+                        "Error sending ExecuteCommand to worker: {:?}, see worker logs:\n{}\n{}",
                         err, self.stdout_path, self.stderr_path,
                     )),
                     // stdout/stderr logs for worker are for multiple commands, probably do not want to dump contents here
