@@ -19,6 +19,7 @@ use std::any::type_name;
 use std::any::TypeId;
 use std::cmp;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::mem;
 
 use allocative::Allocative;
@@ -73,7 +74,8 @@ const fn alloc_static<M, T>(mode: M, value: T) -> AValueRepr<AValueImpl<M, T>>
 where
     AValueImpl<M, T>: AValue<'static>,
 {
-    let payload = AValueImpl(mode, value);
+    mem::forget(mode);
+    let payload = AValueImpl::<M, _>::new(value);
     AValueRepr::with_metadata(AValueVTable::new::<AValueImpl<M, T>>(), payload)
 }
 
@@ -190,44 +192,44 @@ pub(crate) fn starlark_str<'v>(
     len: usize,
     hash: StarlarkHashValue,
 ) -> impl AValue<'v, ExtraElem = usize> + Send + Sync {
-    AValueImpl(Direct, unsafe { StarlarkStr::new(len, hash) })
+    AValueImpl::<Direct, _>::new(unsafe { StarlarkStr::new(len, hash) })
 }
 
 pub(crate) fn tuple_avalue<'v>(len: usize) -> impl AValue<'v, ExtraElem = Value<'v>> {
-    AValueImpl(Direct, unsafe { Tuple::new(len) })
+    AValueImpl::<Direct, _>::new(unsafe { Tuple::new(len) })
 }
 
 pub(crate) fn frozen_tuple_avalue(len: usize) -> impl AValue<'static, ExtraElem = FrozenValue> {
-    AValueImpl(Direct, unsafe { FrozenTuple::new(len) })
+    AValueImpl::<Direct, _>::new(unsafe { FrozenTuple::new(len) })
 }
 
 pub(crate) fn list_avalue<'v>(
     content: ValueTyped<'v, Array<'v>>,
 ) -> impl AValue<'v, StarlarkValue = ListGen<ListData<'v>>, ExtraElem = ()> {
-    AValueImpl(Direct, ListGen(ListData::new(content)))
+    AValueImpl::<Direct, _>::new(ListGen(ListData::new(content)))
 }
 
 pub(crate) fn frozen_list_avalue(len: usize) -> impl AValue<'static, ExtraElem = FrozenValue> {
-    AValueImpl(Direct, unsafe { ListGen(FrozenListData::new(len)) })
+    AValueImpl::<Direct, _>::new(unsafe { ListGen(FrozenListData::new(len)) })
 }
 
 pub(crate) fn array_avalue<'v>(
     cap: u32,
 ) -> impl AValue<'v, StarlarkValue = Array<'v>, ExtraElem = Value<'v>> {
-    AValueImpl(Direct, unsafe { Array::new(0, cap) })
+    AValueImpl::<Direct, _>::new(unsafe { Array::new(0, cap) })
 }
 
 pub(crate) fn any_array_avalue<T: Debug + 'static>(
     cap: usize,
 ) -> impl AValue<'static, StarlarkValue = AnyArray<T>, ExtraElem = T> {
-    AValueImpl(Direct, unsafe { AnyArray::new(cap) })
+    AValueImpl::<Direct, _>::new(unsafe { AnyArray::new(cap) })
 }
 
 pub(crate) fn simple<T: StarlarkValue<'static> + Send + Sync>(
     x: T,
 ) -> impl AValue<'static, ExtraElem = ()> + Send + Sync {
     assert!(!T::is_special(Private));
-    AValueImpl(Simple, x)
+    AValueImpl::<Simple, _>::new(x)
 }
 
 pub(crate) fn complex<'v, C>(x: C) -> impl AValue<'v, ExtraElem = ()>
@@ -236,7 +238,7 @@ where
     C::Frozen: StarlarkValue<'static>,
 {
     assert!(!C::is_special(Private));
-    AValueImpl(Complex, x)
+    AValueImpl::<Complex, _>::new(x)
 }
 
 pub(crate) fn complex_no_freeze<'v, C>(x: C) -> impl AValue<'v, ExtraElem = ()>
@@ -244,11 +246,11 @@ where
     C: StarlarkValue<'v> + Trace<'v>,
 {
     assert!(!C::is_special(Private));
-    AValueImpl(ComplexNoFreeze, x)
+    AValueImpl::<ComplexNoFreeze, _>::new(x)
 }
 
 pub(crate) fn float_avalue<'v>(x: StarlarkFloat) -> impl AValue<'v, ExtraElem = ()> {
-    AValueImpl(Direct, x)
+    AValueImpl::<Direct, _>::new(x)
 }
 
 // A type where the second element is in control of what instances are in scope
@@ -272,7 +274,13 @@ pub(crate) struct ComplexNoFreeze;
 // the StarlarkValue trait each time is to make them all share a single wrapper,
 // where Mode is one of Simple/Complex.
 #[repr(C)]
-pub(crate) struct AValueImpl<Mode, T>(Mode, pub(crate) T);
+pub(crate) struct AValueImpl<Mode, T>(PhantomData<Mode>, pub(crate) T);
+
+impl<Mode, T> AValueImpl<Mode, T> {
+    pub(crate) const fn new(value: T) -> Self {
+        AValueImpl(PhantomData, value)
+    }
+}
 
 /// The overwrite operation in the heap requires that the LSB not be set.
 /// For FrozenValue this is the case, but for Value the LSB is always set.
@@ -424,7 +432,10 @@ impl<'v> AValue<'v> for AValueImpl<Direct, Tuple<'v>> {
 
         // TODO: this allocation is unnecessary
         let frozen_values = content.try_map(|v| freezer.freeze(*v))?;
-        r.fill(AValueImpl(Direct, FrozenTuple::new(content.len())));
+        r.fill(AValueImpl(
+            PhantomData::<Direct>,
+            FrozenTuple::new(content.len()),
+        ));
         maybe_uninit_write_slice(extra, &frozen_values);
 
         Ok(fv)
@@ -512,10 +523,9 @@ impl<'v> AValue<'v> for AValueImpl<Direct, ListGen<ListData<'v>>> {
         let (fv, r, extra) = freezer
             .reserve_with_extra::<AValueImpl<Direct, ListGen<FrozenListData>>>(content.len());
         AValueHeader::overwrite_with_forward::<Self>(me, ForwardPtr::new(fv.0.raw().ptr_value()));
-        r.fill(AValueImpl(
-            Direct,
-            ListGen(FrozenListData::new(content.len())),
-        ));
+        r.fill(AValueImpl::<Direct, _>::new(ListGen(FrozenListData::new(
+            content.len(),
+        ))));
         assert_eq!(extra.len(), content.len());
         for (elem_place, elem) in extra.iter_mut().zip(content) {
             elem_place.write(freezer.freeze(*elem)?);
@@ -598,10 +608,10 @@ impl<'v> AValue<'v> for AValueImpl<Direct, Array<'v>> {
         content.trace(tracer);
 
         // Note when copying we are dropping extra capacity.
-        r.fill(AValueImpl(
-            Direct,
-            Array::new(content.len() as u32, content.len() as u32),
-        ));
+        r.fill(AValueImpl::<Direct, _>::new(Array::new(
+            content.len() as u32,
+            content.len() as u32,
+        )));
         maybe_uninit_write_slice(extra, content);
         v
     }
@@ -725,7 +735,7 @@ where
             ForwardPtr::new(fv.0.raw().ptr_value()),
         );
         let res = x.1.freeze(freezer)?;
-        r.fill(AValueImpl(Simple, res));
+        r.fill(AValueImpl::<Simple, _>::new(res));
         if TypeId::of::<T::Frozen>() == TypeId::of::<FrozenDef>() {
             let frozen_def = fv.downcast_frozen_ref().unwrap();
             freezer.frozen_defs.borrow_mut().push(frozen_def);
