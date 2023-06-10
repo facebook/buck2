@@ -57,7 +57,7 @@ fn one_of(expected: &[String]) -> String {
 /// to the parsed file.
 fn parse_error_add_span(
     err: lu::ParseError<usize, Token, anyhow::Error>,
-    len: usize,
+    pos: usize,
     codemap: &CodeMap,
 ) -> anyhow::Error {
     if let lu::ParseError::User { error } = err {
@@ -88,7 +88,7 @@ fn parse_error_add_span(
             token: (x, .., y), ..
         } => Span::new(Pos::new(*x as u32), Pos::new(*y as u32)),
         lu::ParseError::UnrecognizedEOF { .. } => {
-            Span::new(Pos::new(len as u32), Pos::new(len as u32))
+            Span::new(Pos::new(pos as u32), Pos::new(pos as u32))
         }
         lu::ParseError::ExtraToken { token: (x, .., y) } => {
             Span::new(Pos::new(*x as u32), Pos::new(*y as u32))
