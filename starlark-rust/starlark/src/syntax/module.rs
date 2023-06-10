@@ -28,6 +28,7 @@ use crate::codemap::FileSpan;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::errors::Diagnostic;
+use crate::eval::compiler::EvalException;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
@@ -161,7 +162,11 @@ impl AstModule {
     pub fn parse(filename: &str, content: String, dialect: &Dialect) -> anyhow::Result<Self> {
         let codemap = CodeMap::new(filename.to_owned(), content);
         let lexer = Lexer::new(codemap.source(), dialect, codemap.dupe());
-        match StarlarkParser::new().parse(&codemap, dialect, lexer) {
+        match StarlarkParser::new().parse(
+            &codemap,
+            dialect,
+            lexer.map(|r| r.map_err(EvalException::into_anyhow)),
+        ) {
             Ok(v) => Ok(AstModule::create(codemap, v, dialect)?),
             Err(p) => Err(parse_error_add_span(p, codemap.source().len(), &codemap)),
         }

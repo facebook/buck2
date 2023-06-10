@@ -34,6 +34,7 @@ pub(crate) mod stmt;
 use std::fmt::Debug;
 
 use crate::codemap::CodeMap;
+use crate::codemap::Span;
 use crate::environment::Globals;
 use crate::errors::Diagnostic;
 use crate::eval::compiler::scope::ScopeData;
@@ -44,7 +45,7 @@ use crate::eval::Evaluator;
 use crate::values::FrozenRef;
 
 /// Error with location.
-#[derive(Debug)]
+#[derive(Debug, derive_more::Display)]
 pub(crate) struct EvalException(
     /// Error is `Diagnostic`, but stored as `anyhow::Error` for smaller size.
     anyhow::Error,
@@ -54,6 +55,11 @@ impl EvalException {
     #[cold]
     pub(crate) fn into_anyhow(self) -> anyhow::Error {
         self.0
+    }
+
+    #[cold]
+    pub(crate) fn new(error: anyhow::Error, span: Span, codemap: &CodeMap) -> EvalException {
+        EvalException(Diagnostic::new(error, span, codemap))
     }
 }
 

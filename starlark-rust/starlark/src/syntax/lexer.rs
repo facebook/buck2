@@ -26,7 +26,7 @@ use thiserror::Error;
 use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
-use crate::errors::Diagnostic;
+use crate::eval::compiler::EvalException;
 use crate::syntax::cursors::CursorBytes;
 use crate::syntax::cursors::CursorChars;
 use crate::syntax::dialect::Dialect;
@@ -54,7 +54,7 @@ pub(crate) enum LexemeError {
     IntParse(String),
 }
 
-type Lexeme = anyhow::Result<(usize, Token, usize)>;
+type Lexeme = Result<(usize, Token, usize), EvalException>;
 
 pub(crate) struct Lexer<'a> {
     // Information for spans
@@ -86,19 +86,19 @@ impl<'a> Lexer<'a> {
         lexer2
     }
 
-    fn err_pos<T>(&self, msg: LexemeError, pos: usize) -> anyhow::Result<T> {
+    fn err_pos<T>(&self, msg: LexemeError, pos: usize) -> Result<T, EvalException> {
         self.err_span(msg, pos, pos)
     }
 
-    fn err_span<T>(&self, msg: LexemeError, start: usize, end: usize) -> anyhow::Result<T> {
-        Err(Diagnostic::new(
-            msg,
+    fn err_span<T>(&self, msg: LexemeError, start: usize, end: usize) -> Result<T, EvalException> {
+        Err(EvalException::new(
+            msg.into(),
             Span::new(Pos::new(start as u32), Pos::new(end as u32)),
             &self.codemap,
         ))
     }
 
-    fn err_now<T>(&self, msg: fn(String) -> LexemeError) -> anyhow::Result<T> {
+    fn err_now<T>(&self, msg: fn(String) -> LexemeError) -> Result<T, EvalException> {
         self.err_span(
             msg(self.lexer.slice().to_owned()),
             self.lexer.span().start,
@@ -108,7 +108,7 @@ impl<'a> Lexer<'a> {
 
     /// We have just seen a newline, read how many indents we have
     /// and then set self.indent properly
-    fn calculate_indent(&mut self) -> anyhow::Result<()> {
+    fn calculate_indent(&mut self) -> Result<(), EvalException> {
         // consume tabs and spaces, output the indentation levels
         let mut it = CursorBytes::new(self.lexer.remainder());
         let mut spaces = 0;
