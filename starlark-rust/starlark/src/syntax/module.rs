@@ -64,35 +64,30 @@ fn parse_error_add_span(
         return error;
     }
 
-    let message = match &err {
-        lu::ParseError::InvalidToken { .. } => "Parse error: invalid token".to_owned(),
-        lu::ParseError::UnrecognizedToken {
-            token: (_x, t, ..),
-            expected,
-        } => format!(
-            "Parse error: unexpected {} here, expected {}",
-            t,
-            one_of(expected)
+    let (message, span) = match &err {
+        lu::ParseError::InvalidToken { location } => (
+            "Parse error: invalid token".to_owned(),
+            Span::new(Pos::new(*location as u32), Pos::new(*location as u32)),
         ),
-        lu::ParseError::ExtraToken { token: (_x, t, ..) } => {
-            format!("Parse error: extraneous token {}", t)
-        }
-        lu::ParseError::UnrecognizedEOF { .. } => "Parse error: unexpected end of file".to_owned(),
-        lu::ParseError::User { .. } => unreachable!(),
-    };
-    let span = match &err {
-        lu::ParseError::InvalidToken { location } => {
-            Span::new(Pos::new(*location as u32), Pos::new(*location as u32))
-        }
         lu::ParseError::UnrecognizedToken {
-            token: (x, .., y), ..
-        } => Span::new(Pos::new(*x as u32), Pos::new(*y as u32)),
-        lu::ParseError::UnrecognizedEOF { .. } => {
-            Span::new(Pos::new(pos as u32), Pos::new(pos as u32))
-        }
-        lu::ParseError::ExtraToken { token: (x, .., y) } => {
-            Span::new(Pos::new(*x as u32), Pos::new(*y as u32))
-        }
+            token: (x, t, y),
+            expected,
+        } => (
+            format!(
+                "Parse error: unexpected {} here, expected {}",
+                t,
+                one_of(expected)
+            ),
+            Span::new(Pos::new(*x as u32), Pos::new(*y as u32)),
+        ),
+        lu::ParseError::UnrecognizedEOF { .. } => (
+            "Parse error: unexpected end of file".to_owned(),
+            Span::new(Pos::new(pos as u32), Pos::new(pos as u32)),
+        ),
+        lu::ParseError::ExtraToken { token: (x, t, y) } => (
+            format!("Parse error: extraneous token {}", t),
+            Span::new(Pos::new(*x as u32), Pos::new(*y as u32)),
+        ),
         lu::ParseError::User { .. } => unreachable!(),
     };
 
