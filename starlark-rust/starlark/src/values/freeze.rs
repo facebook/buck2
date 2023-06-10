@@ -305,3 +305,19 @@ impl<A: Freeze, B: Freeze, C: Freeze> Freeze for (A, B, C) {
         ))
     }
 }
+
+impl<A: Freeze, B: Freeze, C: Freeze, D: Freeze> Freeze for (A, B, C, D) {
+    type Frozen = (A::Frozen, B::Frozen, C::Frozen, D::Frozen);
+
+    fn freeze(
+        self,
+        freezer: &Freezer,
+    ) -> anyhow::Result<(A::Frozen, B::Frozen, C::Frozen, D::Frozen)> {
+        Ok((
+            self.0.freeze(freezer)?,
+            self.1.freeze(freezer)?,
+            self.2.freeze(freezer)?,
+            self.3.freeze(freezer)?,
+        ))
+    }
+}
