@@ -24,8 +24,8 @@ cargo install --path=app/buck2
 Or alternatively install it directly from GitHub:
 
 ```sh
-rustup install nightly-2023-04-13
-cargo +nightly-2023-04-13 install --git https://github.com/facebook/buck2.git buck2
+rustup install nightly-2023-04-23
+cargo +nightly-2023-04-23 install --git https://github.com/facebook/buck2.git buck2
 ```
 
 Build uses prebuilt `protoc` binary from
