@@ -111,6 +111,10 @@ impl HttpClient for CountingHttpClient {
         let resp = resp.map(|body| CountingStream::new(body, self.bytes_downloaded.dupe()).boxed());
         Ok(resp)
     }
+
+    fn supports_vpnless(&self) -> bool {
+        self.inner.supports_vpnless()
+    }
 }
 
 #[cfg(test)]
