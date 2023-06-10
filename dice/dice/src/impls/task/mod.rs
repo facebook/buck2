@@ -15,6 +15,7 @@ use more_futures::spawn::spawn_cancellable;
 use more_futures::spawn::FutureAndCancellationHandle;
 use more_futures::spawner::Spawner;
 
+use crate::impls::key::DiceKey;
 use crate::impls::task::dice::Cancellations;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::DiceTaskInternal;
@@ -29,11 +30,12 @@ mod state;
 mod tests;
 
 pub(crate) fn spawn_dice_task<S>(
+    key: DiceKey,
     spawner: &dyn Spawner<S>,
     ctx: &S,
     f: impl for<'a> FnOnce(DiceTaskHandle<'a>) -> BoxFuture<'a, Box<dyn Any + Send>> + Send,
 ) -> DiceTask {
-    let internal = DiceTaskInternal::new();
+    let internal = DiceTaskInternal::new(key);
 
     let span = debug_span!(parent: None, "spawned_dice_task",);
 
@@ -66,8 +68,8 @@ pub(crate) fn spawn_dice_task<S>(
 
 /// Unsafe as this creates a Task that must be completed explicitly otherwise polling will never
 /// complete.
-pub(crate) unsafe fn sync_dice_task() -> DiceTask {
-    let internal = DiceTaskInternal::new();
+pub(crate) unsafe fn sync_dice_task(key: DiceKey) -> DiceTask {
+    let internal = DiceTaskInternal::new(key);
 
     DiceTask {
         internal,

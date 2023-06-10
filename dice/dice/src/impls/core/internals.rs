@@ -230,8 +230,8 @@ mod tests {
         assert_ne!(another_epoch, epoch);
     }
 
-    async fn make_completed_task(val: usize) -> DiceTask {
-        let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    async fn make_completed_task(key: DiceKey, val: usize) -> DiceTask {
+        let task = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             async move {
                 handle.finished(DiceComputedValue::new(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
@@ -254,8 +254,8 @@ mod tests {
         task
     }
 
-    async fn make_finished_cancelling_task() -> DiceTask {
-        let finished_cancelling_tasks = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    async fn make_finished_cancelling_task(key: DiceKey) -> DiceTask {
+        let finished_cancelling_tasks = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             async move {
                 let _handle = handle;
                 futures::future::pending().await
@@ -277,10 +277,10 @@ mod tests {
         }
     }
 
-    async fn make_yet_to_cancel_tasks() -> (DiceTask, BlockCancel, Arc<Semaphore>) {
+    async fn make_yet_to_cancel_tasks(key: DiceKey) -> (DiceTask, BlockCancel, Arc<Semaphore>) {
         let block_cancel = Arc::new(Semaphore::new(0));
         let arrive_cancel = Arc::new(Semaphore::new(0));
-        let yet_to_cancel_tasks = spawn_dice_task(&TokioSpawner, &(), |handle| {
+        let yet_to_cancel_tasks = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             let block_cancel = block_cancel.dupe();
             let arrive_cancel = arrive_cancel.dupe();
             async move {
@@ -306,9 +306,9 @@ mod tests {
         )
     }
 
-    async fn make_never_cancellable_task() -> DiceTask {
+    async fn make_never_cancellable_task(key: DiceKey) -> DiceTask {
         let arrive_never_cancel = Arc::new(Semaphore::new(0));
-        let never_cancel_tasks = spawn_dice_task(&TokioSpawner, &(), |handle| {
+        let never_cancel_tasks = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             let arrive_never_cancel = arrive_never_cancel.dupe();
             async move {
                 handle
@@ -334,16 +334,18 @@ mod tests {
 
         let (_epoch, cache) = core.ctx_at_version(v);
 
-        let completed_task1 = make_completed_task(1).await;
-        let completed_task2 = make_completed_task(2).await;
+        let completed_task1 = make_completed_task(DiceKey { index: 10 }, 1).await;
+        let completed_task2 = make_completed_task(DiceKey { index: 20 }, 2).await;
 
-        let finished_cancelling_tasks1 = make_finished_cancelling_task().await;
-        let finished_cancelling_tasks2 = make_finished_cancelling_task().await;
+        let finished_cancelling_tasks1 = make_finished_cancelling_task(DiceKey { index: 30 }).await;
+        let finished_cancelling_tasks2 = make_finished_cancelling_task(DiceKey { index: 40 }).await;
 
-        let (yet_to_cancel_tasks1, guard1, arrive_cancel1) = make_yet_to_cancel_tasks().await;
-        let (yet_to_cancel_tasks2, guard2, arrive_cancel2) = make_yet_to_cancel_tasks().await;
+        let (yet_to_cancel_tasks1, guard1, arrive_cancel1) =
+            make_yet_to_cancel_tasks(DiceKey { index: 50 }).await;
+        let (yet_to_cancel_tasks2, guard2, arrive_cancel2) =
+            make_yet_to_cancel_tasks(DiceKey { index: 60 }).await;
 
-        let never_cancel_tasks1 = make_never_cancellable_task().await;
+        let never_cancel_tasks1 = make_never_cancellable_task(DiceKey { index: 100500 }).await;
 
         cache
             .get(DiceKey { index: 1 })
@@ -386,7 +388,7 @@ mod tests {
 
         let (_epoch, cache) = core.ctx_at_version(v);
 
-        let never_cancel_tasks2 = make_never_cancellable_task().await;
+        let never_cancel_tasks2 = make_never_cancellable_task(DiceKey { index: 300 }).await;
 
         cache
             .get(DiceKey { index: 8 })

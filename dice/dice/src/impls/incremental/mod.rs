@@ -94,8 +94,12 @@ impl IncrementalEngine {
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
     ) -> DiceTask {
         let eval_dupe = eval.dupe();
-        spawn_dice_task(&*eval.user_data.spawner, &eval.user_data, move |handle| {
-            async move {
+        spawn_dice_task(
+            k,
+            &*eval.user_data.spawner,
+            &eval.user_data,
+            move |handle| {
+                async move {
                 if let Some(previous) = previously_cancelled_task {
                     debug!(msg = "waiting for previously cancelled task");
                     previous.previous.await_termination().await;
@@ -139,7 +143,8 @@ impl IncrementalEngine {
             }
             .instrument(debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.per_live_version_ctx.get_version(), v_epoch = %version_epoch))
             .boxed()
-        })
+            },
+        )
     }
 
     #[instrument(

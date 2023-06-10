@@ -65,7 +65,7 @@ async fn simple_task() -> anyhow::Result<()> {
     let lock_dupe = lock.dupe();
     let locked = lock_dupe.lock().await;
 
-    let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    let task = spawn_dice_task(DiceKey { index: 10 }, &TokioSpawner, &(), |handle| {
         async move {
             // wait for the lock too
             let _lock = lock.lock().await;
@@ -122,7 +122,7 @@ async fn simple_task() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
-    let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    let task = spawn_dice_task(DiceKey { index: 500 }, &TokioSpawner, &(), |handle| {
         async move {
             let _handle = handle;
             // never report ready
@@ -154,7 +154,7 @@ async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn multiple_promises_all_completes() -> anyhow::Result<()> {
-    let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    let task = spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |handle| {
         async move {
             // wait for the lock too
             handle.finished(DiceComputedValue::new(
@@ -229,7 +229,7 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
 async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
     let task = unsafe {
         // SAFETY: completed below later
-        sync_dice_task()
+        sync_dice_task(DiceKey { index: 100 })
     };
 
     let mut promise_before = task
@@ -287,7 +287,7 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
 async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
     let task = unsafe {
         // SAFETY: completed below later
-        sync_dice_task()
+        sync_dice_task(DiceKey { index: 88 })
     };
 
     let mut promise1 = task
@@ -380,7 +380,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     let g = lock.lock().await;
 
-    let task = spawn_dice_task(&TokioSpawner, &(), {
+    let task = spawn_dice_task(DiceKey { index: 88 }, &TokioSpawner, &(), {
         let lock = lock.dupe();
         |handle| {
             async move {
@@ -454,7 +454,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
     let sem = Arc::new(Semaphore::new(0));
 
-    let task = spawn_dice_task(&TokioSpawner, &(), {
+    let task = spawn_dice_task(DiceKey { index: 44 }, &TokioSpawner, &(), {
         let sem = sem.dupe();
         |handle| {
             async move {
@@ -530,7 +530,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 async fn dropping_all_waiters_cancels_task() {
     let barrier = Arc::new(Barrier::new(2));
 
-    let task = spawn_dice_task(&TokioSpawner, &(), {
+    let task = spawn_dice_task(DiceKey { index: 600 }, &TokioSpawner, &(), {
         let barrier = barrier.dupe();
         |handle| {
             async move {
@@ -598,7 +598,7 @@ async fn dropping_all_waiters_cancels_task() {
 
 #[tokio::test]
 async fn task_that_already_cancelled_returns_cancelled() {
-    let task = spawn_dice_task(&TokioSpawner, &(), {
+    let task = spawn_dice_task(DiceKey { index: 777 }, &TokioSpawner, &(), {
         |_handle| async move { futures::future::pending().await }.boxed()
     });
 

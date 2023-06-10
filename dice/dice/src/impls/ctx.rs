@@ -49,6 +49,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::opaque::OpaqueValueModern;
 use crate::impls::task::dice::MaybeCancelled;
+use crate::impls::task::promise::DicePromise;
 use crate::impls::task::sync_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
@@ -414,6 +415,9 @@ impl SharedLiveTransactionCtx {
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
         match self.cache.get(key) {
+            DiceTaskRef::Computed(result) => {
+                DicePromise::ready(result).left_future()
+            }
             DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
                     MaybeCancelled::Ok(promise) => {
@@ -501,13 +505,14 @@ impl SharedLiveTransactionCtx {
         events: DiceEventDispatcher,
     ) -> CancellableResult<DiceComputedValue> {
         let promise = match self.cache.get(key) {
+            DiceTaskRef::Computed(value) => DicePromise::ready(value),
             DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
                     MaybeCancelled::Ok(promise) => promise,
                     MaybeCancelled::Cancelled => {
                         let task = unsafe {
                             // SAFETY: task completed below by `IncrementalEngine::project_for_key`
-                            sync_dice_task()
+                            sync_dice_task(key)
                         };
 
                         *occupied.get_mut() = task;
@@ -523,7 +528,7 @@ impl SharedLiveTransactionCtx {
             DiceTaskRef::Vacant(vacant) => {
                 let task = unsafe {
                     // SAFETY: task completed below by `IncrementalEngine::project_for_key`
-                    sync_dice_task()
+                    sync_dice_task(key)
                 };
 
                 vacant
@@ -538,7 +543,7 @@ impl SharedLiveTransactionCtx {
                 // be cancelled
                 let task = unsafe {
                     // SAFETY: task completed below by `IncrementalEngine::project_for_key`
-                    sync_dice_task()
+                    sync_dice_task(key)
                 };
 
                 task.depended_on_by(parent_key)
@@ -590,7 +595,7 @@ pub(crate) mod testing {
         pub(crate) fn inject(&self, k: DiceKey, v: DiceComputedValue) {
             let task = unsafe {
                 // SAFETY: completed immediately below
-                sync_dice_task()
+                sync_dice_task(k)
             };
             let _r = task
                 .depended_on_by(ParentKey::None)
@@ -599,6 +604,7 @@ pub(crate) mod testing {
                 .get_or_complete(|| v);
 
             match self.cache.get(k) {
+                DiceTaskRef::Computed(_) => panic!("cannot inject already computed task"),
                 DiceTaskRef::Occupied(o) => {
                     o.replace_entry(task);
                 }

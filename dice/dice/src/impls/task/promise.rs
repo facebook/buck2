@@ -48,7 +48,7 @@ pub(super) enum DicePromiseInternal {
 }
 
 impl DicePromise {
-    pub(super) fn ready(result: DiceComputedValue) -> Self {
+    pub(crate) fn ready(result: DiceComputedValue) -> Self {
         Self(DicePromiseInternal::Ready { result })
     }
 

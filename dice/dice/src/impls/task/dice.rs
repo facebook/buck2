@@ -29,6 +29,7 @@ use slab::Slab;
 use tokio::sync::oneshot;
 
 use crate::arc::Arc;
+use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
@@ -63,13 +64,14 @@ use crate::result::Cancelled;
 /// notification into the DiceTaskInternal
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct DiceTask {
-    pub(super) internal: Arc<DiceTaskInternal>,
+    pub(crate) internal: Arc<DiceTaskInternal>,
     /// Handle to cancel the spawned task
     #[allocative(skip)]
     pub(super) cancellations: Cancellations,
 }
 
-pub(super) struct DiceTaskInternal {
+pub(crate) struct DiceTaskInternal {
+    pub(crate) key: DiceKey,
     /// The internal progress state of the task
     pub(super) state: AtomicDiceTaskState,
 
@@ -266,9 +268,10 @@ impl DiceTaskInternal {
         }
     }
 
-    pub(super) fn new() -> Arc<Self> {
+    pub(super) fn new(key: DiceKey) -> Arc<Self> {
         let (tx, rx) = oneshot::channel();
         Arc::new(Self {
+            key,
             state: AtomicDiceTaskState::default(),
             maybe_value: UnsafeCell::new(None),
             critical: Mutex::new(DiceTaskInternalCritical {
@@ -279,7 +282,7 @@ impl DiceTaskInternal {
         })
     }
 
-    pub(super) fn read_value(&self) -> Option<CancellableResult<DiceComputedValue>> {
+    pub(crate) fn read_value(&self) -> Option<CancellableResult<DiceComputedValue>> {
         if self.state.is_ready(Ordering::Acquire) || self.state.is_terminated(Ordering::Acquire) {
             Some(
                 unsafe {
