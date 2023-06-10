@@ -407,6 +407,17 @@ pub async fn command_details(
             queue_time: command.timing.re_queue_time.and_then(|d| d.try_into().ok()),
         }
         .into(),
+        CommandExecutionKind::LocalWorkerInit { command, env } => buck2_data::WorkerInitCommand {
+            argv: command.to_owned(),
+            env: env
+                .iter()
+                .map(|(key, value)| buck2_data::EnvironmentEntry {
+                    key: key.clone(),
+                    value: value.clone(),
+                })
+                .collect(),
+        }
+        .into(),
     });
 
     buck2_data::CommandExecutionDetails {

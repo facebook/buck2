@@ -581,6 +581,7 @@ fn failure_reason_for_command_execution(
     let locality = match command.command {
         Some(Command::RemoteCommand(..)) => "Remote ",
         Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => "Local ",
+        Some(Command::WorkerInitCommand(..)) => "Local Worker Initialization ",
         None => "",
     };
 

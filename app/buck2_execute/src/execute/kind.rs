@@ -29,12 +29,20 @@ pub enum CommandExecutionKind {
     /// This action was served by the action cache and not executed.
     #[display(fmt = "action_cache")]
     ActionCache { digest: ActionDigest },
+    /// This action would have executed via a local worker but failed during worker initialization.
+    #[display(fmt = "worker_init")]
+    LocalWorkerInit {
+        command: Vec<String>,
+        env: SortedVectorMap<String, String>,
+    },
 }
 
 impl CommandExecutionKind {
     pub fn as_enum(&self) -> buck2_data::ActionExecutionKind {
         match self {
-            Self::Local { .. } => buck2_data::ActionExecutionKind::Local,
+            Self::Local { .. } | Self::LocalWorkerInit { .. } => {
+                buck2_data::ActionExecutionKind::Local
+            }
             Self::Remote { .. } => buck2_data::ActionExecutionKind::Remote,
             Self::ActionCache { .. } => buck2_data::ActionExecutionKind::ActionCache,
         }

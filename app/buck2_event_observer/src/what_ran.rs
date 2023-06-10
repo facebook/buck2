@@ -264,7 +264,7 @@ impl<'a> fmt::Display for HumanReadableCommandReproducer<'a> {
             }
             CommandReproducer::LocalExecute(local_execute) => {
                 if let Some(command) = &local_execute.command {
-                    write!(formatter, "{}", local_command_to_string(command))
+                    write!(formatter, "{}", command_to_string(command))
                 } else {
                     Ok(())
                 }
@@ -273,7 +273,31 @@ impl<'a> fmt::Display for HumanReadableCommandReproducer<'a> {
     }
 }
 
-pub fn local_command_to_string(command: &buck2_data::LocalCommand) -> String {
+pub struct Command<'a> {
+    env: &'a Vec<buck2_data::EnvironmentEntry>,
+    argv: &'a Vec<String>,
+}
+
+impl<'a> From<&'a buck2_data::LocalCommand> for Command<'a> {
+    fn from(command: &'a buck2_data::LocalCommand) -> Self {
+        Command {
+            env: &command.env,
+            argv: &command.argv,
+        }
+    }
+}
+
+impl<'a> From<&'a buck2_data::WorkerInitCommand> for Command<'a> {
+    fn from(command: &'a buck2_data::WorkerInitCommand) -> Self {
+        Command {
+            env: &command.env,
+            argv: &command.argv,
+        }
+    }
+}
+
+pub fn command_to_string<'a>(command: impl Into<Command<'a>>) -> String {
+    let command = command.into();
     let mut cmd = vec![];
 
     if !command.env.is_empty() {

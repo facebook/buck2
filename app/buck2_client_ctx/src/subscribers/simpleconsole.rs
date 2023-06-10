@@ -29,7 +29,7 @@ use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_event_observer::io_state::io_in_flight_non_zero_counters;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
-use buck2_event_observer::what_ran::local_command_to_string;
+use buck2_event_observer::what_ran::command_to_string;
 use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
 use buck2_event_observer::what_ran::WhatRanOptions;
 use buck2_event_observer::what_ran::WhatRanOutputCommand;
@@ -112,7 +112,13 @@ fn eprint_command_details(
 
     match command_failed.command.as_ref() {
         Some(Command::LocalCommand(local_command)) => {
-            echo!("Local command: {}", local_command_to_string(local_command))?;
+            echo!("Local command: {}", command_to_string(local_command))?;
+        }
+        Some(Command::WorkerInitCommand(worker_init_command)) => {
+            echo!(
+                "Local worker initialization command: {}",
+                command_to_string(worker_init_command)
+            )?;
         }
         Some(Command::RemoteCommand(remote_command)) => {
             echo!(

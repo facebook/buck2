@@ -25,7 +25,7 @@ use buck2_event_observer::event_observer::DebugEventObserverExtra;
 use buck2_event_observer::session_info::SessionInfo;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
-use buck2_event_observer::what_ran::local_command_to_string;
+use buck2_event_observer::what_ran::command_to_string;
 use buck2_event_observer::what_ran::WhatRanOptions;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -751,7 +751,7 @@ fn lines_for_command_details(
 
     match command_failed.command.as_ref() {
         Some(Command::LocalCommand(local_command)) => {
-            let command = local_command_to_string(local_command);
+            let command = command_to_string(local_command);
             let command = command.as_str();
             let command = if verbosity.print_failure_full_command() {
                 Cow::Borrowed(command)
@@ -782,6 +782,25 @@ fn lines_for_command_details(
         }
         Some(Command::OmittedLocalCommand(..)) | None => {
             // Nothing to show in this case.
+        }
+        Some(Command::WorkerInitCommand(worker_init_command)) => {
+            let command = command_to_string(worker_init_command);
+            let command = command.as_str();
+            let command = if verbosity.print_failure_full_command() {
+                Cow::Borrowed(command)
+            } else {
+                match truncate(command) {
+                    None => Cow::Borrowed(command),
+                    Some(short) => Cow::Owned(format!(
+                        "{} (run `buck2 log what-failed` to get the full command)",
+                        short
+                    )),
+                }
+            };
+
+            lines.push(Line::from_iter([Span::new_styled_lossy(
+                format!("Reproduce locally: `{}`", command).with(Color::DarkRed),
+            )]));
         }
     };
 

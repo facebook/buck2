@@ -79,6 +79,7 @@ use more_futures::cancellation::CancellationContext;
 use thiserror::Error;
 use tracing::info;
 
+use crate::executors::worker::WorkerInitError;
 use crate::executors::worker::WorkerPool;
 
 #[derive(Debug, Error)]
@@ -398,7 +399,56 @@ impl LocalExecutor {
             .await
             {
                 Ok(worker) => Some(worker),
-                Err(e) => return manager.error("worker_init_failed", e),
+                Err(e) => {
+                    let manager = check_inputs(
+                        manager,
+                        &self.artifact_fs,
+                        self.blocking_executor.as_ref(),
+                        request,
+                    )
+                    .await?;
+
+                    let worker_spec = request.worker().as_ref().unwrap();
+                    let execution_kind = CommandExecutionKind::LocalWorkerInit {
+                        command: worker_spec.exe.clone(),
+                        env: request.env().clone(),
+                    };
+
+                    return match e {
+                        WorkerInitError::EarlyExit {
+                            exit_code,
+                            stdout,
+                            stderr,
+                        } => {
+                            let std_streams = CommandStdStreams::Local {
+                                stdout: stdout.into(),
+                                stderr: stderr.into(),
+                            };
+                            // TODO(ctolliday) this should be a new failure type (worker_init_failure), not conflated with a "command failure" which
+                            // implies that it is the primary command and that exit code != 0
+                            manager.failure(
+                                execution_kind,
+                                IndexMap::default(),
+                                std_streams,
+                                Some(exit_code),
+                                CommandExecutionMetadata::default(),
+                            )
+                        }
+                        // TODO(ctolliday) as above, use a new failure type (worker_init_failure) that indicates this is a worker initialization error.
+                        WorkerInitError::ConnectionTimeout(..)
+                        | WorkerInitError::SpawnFailed(..) => manager.failure(
+                            execution_kind,
+                            IndexMap::default(),
+                            CommandStdStreams::Local {
+                                stdout: Default::default(),
+                                stderr: format!("Error initializing worker: {}", e).into_bytes(),
+                            },
+                            None,
+                            CommandExecutionMetadata::default(),
+                        ),
+                        WorkerInitError::InternalError(e) => manager.error("get_worker_failed", e),
+                    };
+                }
             }
         } else {
             None

@@ -980,6 +980,9 @@ message CommandExecutionDetails {
     // The command, if it was local and omitted from this log record for
     // brevity.
     OmittedLocalCommand omitted_local_command = 9;
+    // The command used to initialize the worker, if the action failed at this
+    // step.
+    WorkerInitCommand worker_init_command = 11;
   }
 
   // We should probably get the some more fields from CommandExecutionMetadata
