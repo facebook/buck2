@@ -77,6 +77,7 @@ mod imp {
         run_action_cache_count: u64,
         run_skipped_count: u64,
         run_fallback_count: u64,
+        local_actions_executed_via_worker: u64,
         first_snapshot: Option<buck2_data::Snapshot>,
         last_snapshot: Option<buck2_data::Snapshot>,
         min_build_count_since_rebase: u64,
@@ -171,6 +172,7 @@ mod imp {
                 run_action_cache_count: 0,
                 run_skipped_count: 0,
                 run_fallback_count: 0,
+                local_actions_executed_via_worker: 0,
                 first_snapshot: None,
                 last_snapshot: None,
                 min_build_count_since_rebase: 0,
@@ -289,6 +291,7 @@ mod imp {
                 run_action_cache_count: self.run_action_cache_count,
                 run_skipped_count: self.run_skipped_count,
                 run_fallback_count: Some(self.run_fallback_count),
+                local_actions_executed_via_worker: Some(self.local_actions_executed_via_worker),
                 first_snapshot: self.first_snapshot.take(),
                 last_snapshot: self.last_snapshot.take(),
                 min_build_count_since_rebase: self.min_build_count_since_rebase,
@@ -516,9 +519,14 @@ mod imp {
                 if action_stats::was_fallback_action(action) {
                     self.run_fallback_count += 1;
                 }
+
                 match last_command_execution_kind::get_last_command_execution_kind(action) {
-                    LastCommandExecutionKind::Local | LastCommandExecutionKind::LocalWorker => {
+                    LastCommandExecutionKind::Local => {
                         self.run_local_count += 1;
+                    }
+                    LastCommandExecutionKind::LocalWorker => {
+                        self.run_local_count += 1;
+                        self.local_actions_executed_via_worker += 1;
                     }
                     LastCommandExecutionKind::Cached => {
                         self.run_action_cache_count += 1;
