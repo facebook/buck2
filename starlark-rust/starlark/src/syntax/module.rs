@@ -57,7 +57,7 @@ fn one_of(expected: &[String]) -> String {
 /// To build this diagnostic, the method needs the file span corresponding
 /// to the parsed file.
 fn parse_error_add_span(
-    err: lu::ParseError<usize, Token, anyhow::Error>,
+    err: lu::ParseError<usize, Token, EvalException>,
     pos: usize,
     codemap: &CodeMap,
 ) -> anyhow::Error {
@@ -85,7 +85,7 @@ fn parse_error_add_span(
             format!("Parse error: extraneous token {}", t),
             Span::new(Pos::new(x as u32), Pos::new(y as u32)),
         ),
-        lu::ParseError::User { error } => return error,
+        lu::ParseError::User { error } => return error.into_anyhow(),
     };
 
     Diagnostic::new(anyhow::anyhow!(message), span, codemap)
@@ -131,7 +131,7 @@ impl AstModule {
         statement: AstStmt,
         dialect: &Dialect,
     ) -> anyhow::Result<AstModule> {
-        Stmt::validate(&codemap, &statement, dialect)?;
+        Stmt::validate(&codemap, &statement, dialect).map_err(EvalException::into_anyhow)?;
         Ok(AstModule {
             codemap,
             statement,
@@ -162,11 +162,7 @@ impl AstModule {
     pub fn parse(filename: &str, content: String, dialect: &Dialect) -> anyhow::Result<Self> {
         let codemap = CodeMap::new(filename.to_owned(), content);
         let lexer = Lexer::new(codemap.source(), dialect, codemap.dupe());
-        match StarlarkParser::new().parse(
-            &codemap,
-            dialect,
-            lexer.map(|r| r.map_err(EvalException::into_anyhow)),
-        ) {
+        match StarlarkParser::new().parse(&codemap, dialect, lexer) {
             Ok(v) => Ok(AstModule::create(codemap, v, dialect)?),
             Err(p) => Err(parse_error_add_span(p, codemap.source().len(), &codemap)),
         }

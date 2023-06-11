@@ -46,7 +46,9 @@ use crate::values::FrozenRef;
 
 /// Error with location.
 #[derive(Debug, derive_more::Display)]
-pub(crate) struct EvalException(
+// TODO(nga): lalrpop generates public members which require error type to be public too.
+#[doc(hidden)]
+pub struct EvalException(
     /// Error is `Diagnostic`, but stored as `anyhow::Error` for smaller size.
     anyhow::Error,
 );

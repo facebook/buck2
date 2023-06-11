@@ -22,7 +22,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::errors::Diagnostic;
+use crate::eval::compiler::EvalException;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::TypeExpr;
 use crate::syntax::ast::TypeExprP;
@@ -127,8 +127,8 @@ impl Dialect {
     };
 }
 
-fn err<T>(codemap: &CodeMap, span: Span, err: DialectError) -> anyhow::Result<T> {
-    Err(Diagnostic::new(err, span, codemap))
+fn err<T>(codemap: &CodeMap, span: Span, err: DialectError) -> Result<T, EvalException> {
+    Err(EvalException::new(err.into(), span, codemap))
 }
 
 impl Dialect {
@@ -136,7 +136,7 @@ impl Dialect {
         &self,
         codemap: &CodeMap,
         x: Spanned<T>,
-    ) -> anyhow::Result<Spanned<T>> {
+    ) -> Result<Spanned<T>, EvalException> {
         if self.enable_lambda {
             Ok(x)
         } else {
@@ -148,7 +148,7 @@ impl Dialect {
         &self,
         codemap: &CodeMap,
         x: Spanned<T>,
-    ) -> anyhow::Result<Spanned<T>> {
+    ) -> Result<Spanned<T>, EvalException> {
         if self.enable_def {
             Ok(x)
         } else {
@@ -162,7 +162,7 @@ impl Dialect {
         begin: usize,
         end: usize,
         x: T,
-    ) -> anyhow::Result<T> {
+    ) -> Result<T, EvalException> {
         let span = Span::new(Pos::new(begin as u32), Pos::new(end as u32));
         if self.enable_keyword_only_arguments {
             Ok(x)
@@ -171,7 +171,10 @@ impl Dialect {
         }
     }
 
-    fn check_expr_allowed_in_type(codemap: &CodeMap, x: &Spanned<Expr>) -> anyhow::Result<()> {
+    fn check_expr_allowed_in_type(
+        codemap: &CodeMap,
+        x: &Spanned<Expr>,
+    ) -> Result<(), EvalException> {
         match &x.node {
             Expr::Lambda(..) => return err(codemap, x.span, DialectError::InvalidType("lambda")),
             Expr::List(list) => {
@@ -193,7 +196,7 @@ impl Dialect {
         &self,
         codemap: &CodeMap,
         x: Spanned<Expr>,
-    ) -> anyhow::Result<Spanned<TypeExpr>> {
+    ) -> Result<Spanned<TypeExpr>, EvalException> {
         let span = x.span;
         if self.enable_types == DialectTypes::Disable {
             return err(codemap, x.span, DialectError::Types);
