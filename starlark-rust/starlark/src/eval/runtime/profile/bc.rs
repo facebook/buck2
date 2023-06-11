@@ -25,11 +25,16 @@ use std::ops::AddAssign;
 use dupe::Dupe;
 
 use crate::eval::bc::opcode::BcOpcode;
-use crate::eval::runtime::evaluator::EvaluatorError;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::ProfileData;
 use crate::eval::ProfileMode;
+
+#[derive(Debug, thiserror::Error)]
+enum BcProfileError {
+    #[error("Can't call `write_bc_profile` unless you first call `enable_bc_profile`.")]
+    BcProfilingNotEnabled,
+}
 
 #[derive(Default, Clone, Dupe, Copy, Debug)]
 struct BcInstrStat {
@@ -229,7 +234,7 @@ impl BcProfile {
                 profile_mode: ProfileMode::Bytecode,
                 profile: ProfileDataImpl::Bc(bc),
             }),
-            _ => Err(EvaluatorError::BcProfilingNotEnabled.into()),
+            _ => Err(BcProfileError::BcProfilingNotEnabled.into()),
         }
     }
 
@@ -239,7 +244,7 @@ impl BcProfile {
                 profile_mode: ProfileMode::BytecodePairs,
                 profile: ProfileDataImpl::BcPairs(*bc_pairs),
             }),
-            _ => Err(EvaluatorError::BcProfilingNotEnabled.into()),
+            _ => Err(BcProfileError::BcProfilingNotEnabled.into()),
         }
     }
 

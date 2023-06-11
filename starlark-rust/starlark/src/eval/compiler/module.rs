@@ -19,7 +19,6 @@
 
 use crate::codemap::Spanned;
 use crate::const_frozen_string;
-use crate::environment::EnvironmentError;
 use crate::eval::bc::frame::alloca_frame;
 use crate::eval::compiler::add_span_to_expr_error;
 use crate::eval::compiler::expr_throw;
@@ -36,6 +35,12 @@ use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
 
+#[derive(Debug, thiserror::Error)]
+enum ModuleError {
+    #[error("No imports are available, you tried `{0}` (no call to `Evaluator.set_loader`)")]
+    NoImportsAvailable(String),
+}
+
 impl<'v> Compiler<'v, '_, '_> {
     fn eval_load(&mut self, load: CstLoad) -> Result<(), EvalException> {
         let name = load.node.module.node;
@@ -45,7 +50,7 @@ impl<'v> Compiler<'v, '_, '_> {
         let loadenv = match self.eval.loader.as_ref() {
             None => {
                 return Err(add_span_to_expr_error(
-                    EnvironmentError::NoImportsAvailable(name).into(),
+                    ModuleError::NoImportsAvailable(name).into(),
                     span,
                     self.eval,
                 ));

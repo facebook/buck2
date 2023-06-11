@@ -33,9 +33,7 @@ pub use modules::*;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub(crate) enum EnvironmentError {
-    #[error("Local variable `{0}` referenced before assignment")]
-    LocalVariableReferencedBeforeAssignment(String),
+enum EnvironmentError {
     /// Cannot import private symbol, i.e. underscore prefixed
     #[error("Cannot import private symbol `{0}`")]
     CannotImportPrivateSymbol(String),
@@ -45,6 +43,4 @@ pub(crate) enum EnvironmentError {
     ModuleHasNoSymbolDidYouMean(String, String),
     #[error("Module symbol `{0}` is not exported")]
     ModuleSymbolIsNotExported(String),
-    #[error("No imports are available, you tried `{0}` (no call to `Evaluator.set_loader`)")]
-    NoImportsAvailable(String),
 }

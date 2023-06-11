@@ -32,7 +32,6 @@ use crate::collections::alloca::Alloca;
 use crate::collections::string_pool::StringPool;
 use crate::const_frozen_string;
 use crate::environment::slots::ModuleSlotId;
-use crate::environment::EnvironmentError;
 use crate::environment::FrozenModuleData;
 use crate::environment::Module;
 use crate::errors::Diagnostic;
@@ -84,15 +83,13 @@ use crate::values::Value;
 use crate::values::ValueLike;
 
 #[derive(Error, Debug)]
-pub(crate) enum EvaluatorError {
+enum EvaluatorError {
     #[error("Profiling was not enabled")]
     ProfilingNotEnabled,
     #[error("Profile data already collected")]
     ProfileDataAlreadyCollected,
     #[error("Retained memory profiling can be only obtained from `FrozenModule`")]
     RetainedMemoryProfilingCannotBeObtainedFromEvaluator,
-    #[error("Can't call `write_bc_profile` unless you first call `enable_bc_profile`.")]
-    BcProfilingNotEnabled,
     #[error("Profile or instrumentation already enabled")]
     ProfileOrInstrumentationAlreadyEnabled,
     #[error("Top frame is not def (internal error)")]
@@ -103,6 +100,8 @@ pub(crate) enum EvaluatorError {
     CoverageNotImplemented,
     #[error("Coverage not enabled")]
     CoverageNotEnabled,
+    #[error("Local variable `{0}` referenced before assignment")]
+    LocalVariableReferencedBeforeAssignment(String),
 }
 
 /// Number of bytes to allocate between GC's.
@@ -491,7 +490,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 Some(e) => e.get_slot_name(slot).map(|s| s.as_str().to_owned()),
             }
             .unwrap_or_else(|| "<unknown>".to_owned());
-            EnvironmentError::LocalVariableReferencedBeforeAssignment(name).into()
+            EvaluatorError::LocalVariableReferencedBeforeAssignment(name).into()
         }
 
         match &self.module_variables {
@@ -514,7 +513,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         };
         let names = &def_info.used;
         let name = names[slot.0 as usize].as_str().to_owned();
-        EnvironmentError::LocalVariableReferencedBeforeAssignment(name).into()
+        EvaluatorError::LocalVariableReferencedBeforeAssignment(name).into()
     }
 
     #[inline(always)]
