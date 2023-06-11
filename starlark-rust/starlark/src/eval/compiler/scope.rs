@@ -26,7 +26,6 @@ use starlark_map::small_map::SmallMap;
 use crate::codemap::CodeMap;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::ModuleSlotId;
-use crate::environment::EnvironmentError;
 use crate::environment::Globals;
 use crate::environment::Module;
 use crate::errors::did_you_mean::did_you_mean;
@@ -61,6 +60,14 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+
+#[derive(Debug, thiserror::Error)]
+enum ScopeError {
+    #[error("Variable `{0}` not found")]
+    VariableNotFound(String),
+    #[error("Variable `{0}` not found, did you mean `{1}`?")]
+    VariableNotFoundDidYouMean(String, String),
+}
 
 pub(crate) struct Scope<'a> {
     pub(crate) scope_data: ScopeData,
@@ -492,11 +499,10 @@ impl<'a> Scope<'a> {
         let better = did_you_mean(ident.node.0.as_str(), variants.iter().map(|s| s.as_str()));
         EvalException::new(
             match better {
-                Some(better) => EnvironmentError::VariableNotFoundDidYouMean(
-                    ident.node.0.clone(),
-                    better.to_owned(),
-                ),
-                None => EnvironmentError::VariableNotFound(ident.node.0.clone()),
+                Some(better) => {
+                    ScopeError::VariableNotFoundDidYouMean(ident.node.0.clone(), better.to_owned())
+                }
+                None => ScopeError::VariableNotFound(ident.node.0.clone()),
             }
             .into(),
             ident.span,

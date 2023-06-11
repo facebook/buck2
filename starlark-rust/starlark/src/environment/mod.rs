@@ -34,11 +34,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub(crate) enum EnvironmentError {
-    /// Variables was no found.
-    #[error("Variable `{0}` not found")]
-    VariableNotFound(String),
-    #[error("Variable `{0}` not found, did you mean `{1}`?")]
-    VariableNotFoundDidYouMean(String, String),
     #[error("Local variable `{0}` referenced before assignment")]
     LocalVariableReferencedBeforeAssignment(String),
     /// Cannot import private symbol, i.e. underscore prefixed
