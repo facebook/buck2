@@ -53,6 +53,8 @@ use proxy::https_proxy_from_env;
 use redirect::PendingRequest;
 use redirect::RedirectEngine;
 
+const BUCK2_USER_AGENT: &str = "Buck2";
+
 /// Support following up to 10 redirects, after which a redirected request will
 /// error out.
 const DEFAULT_MAX_REDIRECTS: usize = 10;
@@ -293,6 +295,7 @@ pub trait HttpClient: Allocative + Send + Sync {
         let req = Request::builder()
             .uri(uri)
             .method(Method::HEAD)
+            .header(http::header::USER_AGENT, BUCK2_USER_AGENT)
             .body(Bytes::new())
             .map_err(HttpError::BuildRequest)?;
         self.request(req).await.map(|resp| resp.map(|_| ()))
@@ -303,6 +306,7 @@ pub trait HttpClient: Allocative + Send + Sync {
         let req = Request::builder()
             .uri(uri)
             .method(Method::GET)
+            .header(http::header::USER_AGENT, BUCK2_USER_AGENT)
             .body(Bytes::new())
             .map_err(HttpError::BuildRequest)?;
         self.request(req).await
@@ -314,7 +318,10 @@ pub trait HttpClient: Allocative + Send + Sync {
         body: Bytes,
         headers: Vec<(String, String)>,
     ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
-        let mut req = Request::builder().uri(uri).method(Method::POST);
+        let mut req = Request::builder()
+            .uri(uri)
+            .method(Method::POST)
+            .header(http::header::USER_AGENT, BUCK2_USER_AGENT);
         for (name, value) in headers {
             req = req.header(name, value);
         }
@@ -328,7 +335,10 @@ pub trait HttpClient: Allocative + Send + Sync {
         body: Bytes,
         headers: Vec<(String, String)>,
     ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
-        let mut req = Request::builder().uri(uri).method(Method::PUT);
+        let mut req = Request::builder()
+            .uri(uri)
+            .method(Method::PUT)
+            .header(http::header::USER_AGENT, BUCK2_USER_AGENT);
         for (name, value) in headers {
             req = req.header(name, value);
         }
