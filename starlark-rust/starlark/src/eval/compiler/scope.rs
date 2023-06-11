@@ -39,12 +39,12 @@ use crate::syntax::ast::AstArgumentP;
 use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstAssignP;
 use crate::syntax::ast::AstExprP;
+use crate::syntax::ast::AstIdentP;
 use crate::syntax::ast::AstLoadP;
 use crate::syntax::ast::AstNoPayload;
 use crate::syntax::ast::AstParameterP;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmtP;
-use crate::syntax::ast::AstString;
 use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
@@ -438,7 +438,7 @@ impl<'a> Scope<'a> {
 
     fn resolve_idents_in_expr(&mut self, expr: &mut CstExpr) {
         match &mut expr.node {
-            ExprP::Identifier(ident, slot) => self.resolve_ident(ident, slot),
+            ExprP::Identifier(ident) => self.resolve_ident(ident),
             ExprP::Lambda(LambdaP {
                 params,
                 body,
@@ -467,16 +467,16 @@ impl<'a> Scope<'a> {
         r
     }
 
-    fn variable_not_found_err(&self, ident: &AstString) -> EvalException {
+    fn variable_not_found_err(&self, ident: &CstIdent) -> EvalException {
         let variants = self.current_scope_all_visible_names_for_did_you_mean();
-        let better = did_you_mean(ident, variants.iter().map(|s| s.as_str()));
+        let better = did_you_mean(ident.node.0.as_str(), variants.iter().map(|s| s.as_str()));
         EvalException::new(
             match better {
                 Some(better) => EnvironmentError::VariableNotFoundDidYouMean(
-                    ident.node.clone(),
+                    ident.node.0.clone(),
                     better.to_owned(),
                 ),
-                None => EnvironmentError::VariableNotFound(ident.node.clone()),
+                None => EnvironmentError::VariableNotFound(ident.node.0.clone()),
             }
             .into(),
             ident.span,
@@ -484,13 +484,13 @@ impl<'a> Scope<'a> {
         )
     }
 
-    fn resolve_ident(&mut self, ident: &AstString, resolved_ident: &mut Option<ResolvedIdent>) {
-        assert!(resolved_ident.is_none());
-        *resolved_ident = Some(
-            match self.get_name(self.frozen_heap.alloc_str_intern(ident)) {
+    fn resolve_ident(&mut self, ident: &mut CstIdent) {
+        assert!(ident.node.1.is_none());
+        ident.node.1 = Some(
+            match self.get_name(self.frozen_heap.alloc_str_intern(&ident.node.0)) {
                 None => {
                     // Must be a global, since we know all variables
-                    match self.globals.get_frozen(ident) {
+                    match self.globals.get_frozen(&ident.node.0) {
                         None => {
                             self.errors.push(self.variable_not_found_err(ident));
                             return;
@@ -933,6 +933,7 @@ pub(crate) type CstExpr = AstExprP<CstPayload>;
 pub(crate) type CstTypeExpr = AstTypeExprP<CstPayload>;
 pub(crate) type CstAssign = AstAssignP<CstPayload>;
 pub(crate) type CstAssignIdent = AstAssignIdentP<CstPayload>;
+pub(crate) type CstIdent = AstIdentP<CstPayload>;
 pub(crate) type CstArgument = AstArgumentP<CstPayload>;
 pub(crate) type CstParameter = AstParameterP<CstPayload>;
 pub(crate) type CstStmt = AstStmtP<CstPayload>;
@@ -1015,12 +1016,12 @@ mod tests {
 
         impl Visitor<'_> {
             fn visit_expr(&mut self, expr: &CstExpr) {
-                if let ExprP::Identifier(ident, resolved) = &expr.node {
-                    let resolved = match resolved.as_ref().unwrap() {
+                if let ExprP::Identifier(ident) = &expr.node {
+                    let resolved = match ident.node.1.as_ref().unwrap() {
                         ResolvedIdent::Slot((_slot, binding_id)) => binding_id.0.to_string(),
                         ResolvedIdent::Global(_) => "G".to_owned(),
                     };
-                    write!(&mut self.r, " {}:{}", ident.node, resolved).unwrap();
+                    write!(&mut self.r, " {}:{}", ident.node.0, resolved).unwrap();
                 }
 
                 expr.visit_expr(|expr| self.visit_expr(expr));

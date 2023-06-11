@@ -21,6 +21,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 
 use crate::codemap::Span;
+use crate::codemap::Spanned;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::CstAssign;
 use crate::eval::compiler::scope::CstAssignIdent;
@@ -34,6 +35,7 @@ use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::IdentP;
 use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::uniplate::Visit;
@@ -120,7 +122,10 @@ impl<'a> Bindings<'a> {
                     }
                 }
                 AssignP::ArrayIndirection(array_index) => match &*array_index.0 {
-                    ExprP::Identifier(_name, Some(ResolvedIdent::Slot((_, ident)))) => {
+                    ExprP::Identifier(Spanned {
+                        span: _,
+                        node: IdentP(_name, Some(ResolvedIdent::Slot((_, ident)))),
+                    }) => {
                         bindings
                             .expressions
                             .entry(*ident)
@@ -258,7 +263,7 @@ impl<'a> Bindings<'a> {
                         // so that mutating list operations aren't invisible to us
                         if let ExprP::Call(fun, args) = &**x {
                             if let ExprP::Dot(id, attr) = &***fun {
-                                if let ExprP::Identifier(_, id) = &***id {
+                                if let ExprP::Identifier(id) = &id.node {
                                     let res = match attr.as_str() {
                                         "append" if args.len() == 1 => Some((false, 0)),
                                         "insert" if args.len() == 2 => Some((false, 1)),
@@ -266,7 +271,9 @@ impl<'a> Bindings<'a> {
                                         _ => None,
                                     };
                                     if let Some((extend, arg)) = res {
-                                        if let ResolvedIdent::Slot((_, id)) = id.as_ref().unwrap() {
+                                        if let ResolvedIdent::Slot((_, id)) =
+                                            id.node.1.as_ref().unwrap()
+                                        {
                                             let bind = if extend {
                                                 BindExpr::ListExtend(*id, args[arg].expr())
                                             } else {

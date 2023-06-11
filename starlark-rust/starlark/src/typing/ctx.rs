@@ -438,13 +438,13 @@ impl TypingContext<'_> {
                 }
                 self.expression_attribute(&self.expression_type(x), "__slice__", span)
             }
-            ExprP::Identifier(x, i) => {
-                if let Some(ResolvedIdent::Slot((_, i))) = i {
+            ExprP::Identifier(x) => {
+                if let Some(ResolvedIdent::Slot((_, i))) = &x.node.1 {
                     if let Some(ty) = self.types.get(i) {
                         return ty.clone();
                     }
                 }
-                self.builtin(x, x.span)
+                self.builtin(&x.node.0, x.span)
             }
             ExprP::Lambda(_) => {
                 self.approximation("We don't type check lambdas", ());

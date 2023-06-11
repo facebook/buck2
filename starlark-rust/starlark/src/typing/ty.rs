@@ -616,7 +616,7 @@ impl Ty {
         match &x.node {
             ExprP::Tuple(xs) => Ty::Tuple(xs.map(|x| Self::from_expr(x, approximations))),
             ExprP::Dot(x, b) if &**b == "type" => match &***x {
-                ExprP::Identifier(x, _) => match (*x).as_str() {
+                ExprP::Identifier(x) => match x.node.0.as_str() {
                     "str" => Ty::string(),
                     x => Ty::name(x),
                 },
@@ -643,7 +643,7 @@ impl Ty {
                 Self::from_expr(&x[0].0, approximations),
                 Self::from_expr(&x[0].1, approximations),
             ),
-            ExprP::Identifier(x, _) if &**x == "None" => Ty::None,
+            ExprP::Identifier(x) if x.node.0 == "None" => Ty::None,
             _ => {
                 approximations.push(Approximation::new("Unknown type", x));
                 Ty::Any

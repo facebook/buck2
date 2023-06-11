@@ -27,6 +27,7 @@ use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::LoadP;
 use crate::syntax::ast::ParameterP;
@@ -143,7 +144,7 @@ impl<A: AstPayload> ExprP<A> {
                 b.map(|e| Box::new(e.into_map_payload(f))),
                 c.map(|e| Box::new(e.into_map_payload(f))),
             ),
-            ExprP::Identifier(id, p) => ExprP::Identifier(id, f.map_ident(p)),
+            ExprP::Identifier(id) => ExprP::Identifier(id.into_map_payload(f)),
             ExprP::Lambda(LambdaP {
                 params,
                 body,
@@ -234,6 +235,16 @@ impl<A: AstPayload> AssignIdentP<A> {
     }
 }
 
+impl<A: AstPayload> IdentP<A> {
+    pub(crate) fn into_map_payload<B: AstPayload>(
+        self,
+        f: &mut impl AstPayloadFunction<A, B>,
+    ) -> IdentP<B> {
+        let IdentP(s, p) = self;
+        IdentP(s, f.map_ident(p))
+    }
+}
+
 impl<A: AstPayload> ParameterP<A> {
     pub(crate) fn into_map_payload<B: AstPayload>(
         self,
@@ -321,6 +332,7 @@ ast_payload_map_stub!(ExprP);
 ast_payload_map_stub!(TypeExprP);
 ast_payload_map_stub!(AssignP);
 ast_payload_map_stub!(AssignIdentP);
+ast_payload_map_stub!(IdentP);
 ast_payload_map_stub!(ParameterP);
 ast_payload_map_stub!(ArgumentP);
 ast_payload_map_stub!(StmtP);

@@ -23,6 +23,7 @@ use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AstAssign;
 use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstExpr;
+use crate::syntax::ast::AstIdent;
 use crate::syntax::ast::AstParameter;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstString;
@@ -31,6 +32,7 @@ use crate::syntax::ast::Clause;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::ForClause;
+use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
@@ -49,7 +51,7 @@ pub(crate) enum Assigner {
 #[derive(Debug)]
 pub(crate) enum Bind {
     Set(Assigner, AstAssignIdent), // Variable assigned to directly
-    Get(AstString),                // Variable that is referenced
+    Get(AstIdent),                 // Variable that is referenced
     GetDotted(GetDotted),          // Variable is referenced, but is part of a dotted access
     Flow,         // Flow control occurs here (if, for etc) - can arrive or leave at this point
     Scope(Scope), // Entering a new scope (lambda/def/comprehension)
@@ -60,12 +62,12 @@ pub(crate) enum Bind {
 /// e.g. `x.y.z` would be considered a variable of `x` with attributes `y` and `z`
 #[derive(Debug, Clone)]
 pub(crate) struct GetDotted {
-    pub(crate) variable: AstString,
+    pub(crate) variable: AstIdent,
     pub(crate) attributes: Vec<AstString>,
 }
 
 impl GetDotted {
-    fn new(variable: AstString, attributes: Vec<AstString>) -> Self {
+    fn new(variable: AstIdent, attributes: Vec<AstString>) -> Self {
         Self {
             variable,
             attributes,
@@ -109,10 +111,10 @@ impl Scope {
                         .or_insert((assigner.clone(), x.span));
                 }
                 Bind::Get(x) => {
-                    free.entry(x.node.clone()).or_insert(x.span);
+                    free.entry(x.node.0.clone()).or_insert(x.span);
                 }
                 Bind::GetDotted(x) => {
-                    free.entry(x.variable.node.clone())
+                    free.entry(x.variable.node.0.clone())
                         .or_insert(x.variable.span);
                 }
                 Bind::Scope(scope) => scope.free.iter().for_each(|(k, v)| {
@@ -170,7 +172,7 @@ fn dot_access<'a>(lhs: &'a AstExpr, attribute: &'a AstString, res: &mut Vec<Bind
     // Keep recursing while we have a chain of dots, if we find something else bail out
     fn f<'a>(lhs: &'a AstExpr, mut attributes: Vec<&'a AstString>, res: &mut Vec<Bind>) {
         match &**lhs {
-            Expr::Identifier(id, _) => {
+            Expr::Identifier(id) => {
                 let attrs = attributes.into_iter().rev().cloned().collect();
                 res.push(Bind::GetDotted(GetDotted::new(id.clone(), attrs)));
             }
@@ -197,7 +199,7 @@ fn dot_access<'a>(lhs: &'a AstExpr, attribute: &'a AstString, res: &mut Vec<Bind
 
 fn expr(x: &AstExpr, res: &mut Vec<Bind>) {
     match &**x {
-        Expr::Identifier(x, _) => res.push(Bind::Get(x.clone())),
+        Expr::Identifier(x) => res.push(Bind::Get(x.clone())),
         Expr::Lambda(LambdaP {
             params,
             body,
@@ -297,7 +299,11 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
             // 2. Evaluate b.
             // 3. Assign to all variables in a.
             lhs.visit_expr(|x| expr(x, res));
-            lhs.visit_lvalue(|x| res.push(Bind::Get(x.clone().into_map(|AssignIdentP(s, ())| s))));
+            lhs.visit_lvalue(|x| {
+                res.push(Bind::Get(
+                    x.clone().into_map(|AssignIdentP(s, ())| IdentP(s, ())),
+                ))
+            });
             expr(rhs, res);
             expr_lvalue(lhs, res);
         }
@@ -336,6 +342,7 @@ mod test {
     use super::*;
     use crate::codemap::Pos;
     use crate::codemap::Span;
+    use crate::slice_vec_ext::SliceExt;
     use crate::slice_vec_ext::VecExt;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
@@ -359,9 +366,9 @@ mod test {
             .inner
             .iter()
             .map(|b| match b {
-                Bind::GetDotted(get) => Ok(iter::once(&get.variable)
-                    .chain(&get.attributes)
-                    .map(|s| s.node.to_owned())
+                Bind::GetDotted(get) => Ok(iter::once(get.variable.0.as_str())
+                    .chain(get.attributes.map(|a| a.node.as_str()))
+                    .map(|s| s.to_owned())
                     .collect()),
                 _ => Err(anyhow::anyhow!("Unexpected bind {:?}", b)),
             })

@@ -43,7 +43,7 @@ impl AstModule {
                     node: Expr::Call(identifier, arguments),
                     ..
                 } => {
-                    if let Expr::Identifier(_, _) = &identifier.node {
+                    if let Expr::Identifier(_) = &identifier.node {
                         let found = arguments.iter().find_map(|argument| match &argument.node {
                             Argument::Named(
                                 arg_name,

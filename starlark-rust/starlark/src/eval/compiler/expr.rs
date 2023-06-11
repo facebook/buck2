@@ -39,6 +39,7 @@ use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::AssignCount;
 use crate::eval::compiler::scope::Captured;
 use crate::eval::compiler::scope::CstExpr;
+use crate::eval::compiler::scope::CstIdent;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::span::IrSpanned;
@@ -52,7 +53,6 @@ use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstPayload;
-use crate::syntax::ast::AstString;
 use crate::syntax::ast::BinOp;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::LambdaP;
@@ -1117,13 +1117,11 @@ pub(crate) fn get_attr_hashed_bind<'v>(
 }
 
 impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
-    fn expr_ident(
-        &mut self,
-        ident: AstString,
-        resolved_ident: Option<ResolvedIdent>,
-    ) -> ExprCompiled {
-        let resolved_ident =
-            resolved_ident.unwrap_or_else(|| panic!("variable not resolved: `{}`", ident.node));
+    fn expr_ident(&mut self, ident: CstIdent) -> ExprCompiled {
+        let resolved_ident = ident
+            .node
+            .1
+            .unwrap_or_else(|| panic!("variable not resolved: `{}`", ident.node.0));
         match resolved_ident {
             ResolvedIdent::Slot((Slot::Local(slot), binding_id)) => {
                 let binding = self.scope_data.get_binding(binding_id);
@@ -1165,7 +1163,7 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
         // println!("compile {}", expr.node);
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let expr = match expr.node {
-            ExprP::Identifier(ident, resolved_ident) => self.expr_ident(ident, resolved_ident),
+            ExprP::Identifier(ident) => self.expr_ident(ident),
             ExprP::Lambda(l) => {
                 let signature_span = l.signature_span();
                 let signature_span = FrozenFileSpan::new(self.codemap, signature_span);

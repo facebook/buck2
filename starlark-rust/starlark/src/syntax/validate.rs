@@ -288,7 +288,7 @@ impl Stmt {
                 }
                 Expr::Dot(a, b) => Assign::Dot(a, b),
                 Expr::ArrayIndirection(a_b) => Assign::ArrayIndirection(a_b),
-                Expr::Identifier(x, ()) => Assign::Identifier(x.into_map(|s| AssignIdentP(s, ()))),
+                Expr::Identifier(x) => Assign::Identifier(x.into_map(|s| AssignIdentP(s.0, ()))),
                 _ => {
                     return Err(EvalException::new(
                         ValidateError::InvalidLhs.into(),

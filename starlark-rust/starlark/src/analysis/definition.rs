@@ -26,8 +26,10 @@ use crate::codemap::Pos;
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignP;
+use crate::syntax::ast::AstIdent;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstNoPayload;
 use crate::syntax::ast::AstString;
@@ -134,7 +136,7 @@ struct TempDottedDefinition<'a> {
     /// For example, this would be the location of `x` if `source` enclosed `y` in `x.y.z`.
     root_definition_location: TempIdentifierDefinition<'a>,
     /// The variable you are pointing at, e.g. `x.y.z` would be `x`.
-    variable: &'a AstString,
+    variable: &'a AstIdent,
     /// All of the attributes up to the one that `source` includes.
     ///
     /// For example. if the `y` in `x.y.z` is the source, this would contain `y`.
@@ -250,9 +252,8 @@ impl LspModule {
                     &scope,
                     current_pos,
                 ),
-                segments: iter::once(def.variable)
-                    .chain(def.attributes)
-                    .map(|s| s.node.to_owned())
+                segments: iter::once(def.variable.0.clone())
+                    .chain(def.attributes.map(|s| s.node.to_owned()))
                     .collect(),
             }
             .into(),
@@ -291,7 +292,7 @@ impl LspModule {
         for bind in &scope.inner {
             match bind {
                 Bind::Get(g) if g.span.contains(pos) => {
-                    return resolve_get_in_scope(scope, g.node.as_str(), g.span).into();
+                    return resolve_get_in_scope(scope, g.node.0.as_str(), g.span).into();
                 }
                 Bind::Scope(inner_scope) => {
                     match Self::find_definition_in_scope(inner_scope, pos) {
@@ -339,7 +340,7 @@ impl LspModule {
                         let root_identifier = &dotted.variable;
                         let root_definition_location = resolve_get_in_scope(
                             scope,
-                            root_identifier.node.as_str(),
+                            root_identifier.node.0.as_str(),
                             root_identifier.span,
                         );
                         // If someone clicks on the "root" identifier, just treat it as a "get"
@@ -471,7 +472,7 @@ impl LspModule {
                 // Look for a function call to `struct`.
                 if let ExprP::Call(function_name, args) = &r.node {
                     match &function_name.node {
-                        ExprP::Identifier(function_name, _) if function_name.node == "struct" => {}
+                        ExprP::Identifier(function_name) if function_name.node.0 == "struct" => {}
                         _ => {
                             continue 'outer;
                         }
@@ -485,7 +486,7 @@ impl LspModule {
                             if arg_span.is_none() {
                                 arg_span = Some(arg_name.span);
                             }
-                            if let ExprP::Identifier(arg_value_id, _) = &arg_expr.node {
+                            if let ExprP::Identifier(arg_value_id) = &arg_expr.node {
                                 symbol_to_lookup = Some(arg_value_id.span);
                                 break 'outer;
                             }

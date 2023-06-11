@@ -39,7 +39,7 @@ pub(crate) trait AstPayload: Debug {
 
 /// Default implementation of payload, which attaches `()` to nodes.
 /// This payload is returned with AST by parser.
-#[derive(Debug, Copy, Clone, Dupe)]
+#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq)]
 pub(crate) struct AstNoPayload;
 impl AstPayload for AstNoPayload {
     type IdentPayload = ();
@@ -51,6 +51,7 @@ pub(crate) type Expr = ExprP<AstNoPayload>;
 pub(crate) type TypeExpr = TypeExprP<AstNoPayload>;
 pub(crate) type Assign = AssignP<AstNoPayload>;
 pub(crate) type AssignIdent = AssignIdentP<AstNoPayload>;
+pub(crate) type Ident = IdentP<AstNoPayload>;
 pub(crate) type Clause = ClauseP<AstNoPayload>;
 pub(crate) type ForClause = ForClauseP<AstNoPayload>;
 pub(crate) type Argument = ArgumentP<AstNoPayload>;
@@ -64,6 +65,7 @@ pub(crate) type AstExprP<P> = Spanned<ExprP<P>>;
 pub(crate) type AstTypeExprP<P> = Spanned<TypeExprP<P>>;
 pub(crate) type AstAssignP<P> = Spanned<AssignP<P>>;
 pub(crate) type AstAssignIdentP<P> = Spanned<AssignIdentP<P>>;
+pub(crate) type AstIdentP<P> = Spanned<IdentP<P>>;
 pub(crate) type AstArgumentP<P> = Spanned<ArgumentP<P>>;
 pub(crate) type AstParameterP<P> = Spanned<ParameterP<P>>;
 pub(crate) type AstLoadP<P> = Spanned<LoadP<P>>;
@@ -73,6 +75,7 @@ pub(crate) type AstExpr = AstExprP<AstNoPayload>;
 pub(crate) type AstTypeExpr = AstTypeExprP<AstNoPayload>;
 pub(crate) type AstAssign = AstAssignP<AstNoPayload>;
 pub(crate) type AstAssignIdent = AstAssignIdentP<AstNoPayload>;
+pub(crate) type AstIdent = AstIdentP<AstNoPayload>;
 pub(crate) type AstArgument = AstArgumentP<AstNoPayload>;
 pub(crate) type AstString = Spanned<String>;
 pub(crate) type AstParameter = AstParameterP<AstNoPayload>;
@@ -152,7 +155,7 @@ pub(crate) enum ExprP<P: AstPayload> {
         Option<Box<AstExprP<P>>>,
         Option<Box<AstExprP<P>>>,
     ),
-    Identifier(AstString, P::IdentPayload),
+    Identifier(AstIdentP<P>),
     Lambda(LambdaP<P>),
     Literal(AstLiteral),
     Not(Box<AstExprP<P>>),
@@ -194,6 +197,11 @@ pub(crate) enum AssignP<P: AstPayload> {
 /// Identifier in assign position.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub(crate) struct AssignIdentP<P: AstPayload>(pub String, pub P::IdentAssignPayload);
+
+/// Identifier in read position, e. g. `foo` in `[foo.bar]`.
+/// `foo` in `foo = 1` or `bar.foo` are **not** represented by this type.
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub(crate) struct IdentP<P: AstPayload>(pub String, pub P::IdentPayload);
 
 /// `load` statement.
 #[derive(Debug)]
@@ -472,7 +480,7 @@ impl Display for Expr {
                 }
                 Ok(())
             }
-            Expr::Identifier(s, _) => write!(f, "{}", s.node),
+            Expr::Identifier(s) => Display::fmt(&s.node, f),
             Expr::Not(e) => write!(f, "(not {})", e.node),
             Expr::Minus(e) => write!(f, "-{}", e.node),
             Expr::Plus(e) => write!(f, "+{}", e.node),
@@ -539,6 +547,12 @@ impl Display for Assign {
 }
 
 impl Display for AssignIdent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Display for Ident {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }

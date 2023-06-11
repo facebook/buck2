@@ -136,12 +136,12 @@ fn use_ignored(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<UnderscoreWar
         res: &mut Vec<LintT<UnderscoreWarning>>,
     ) {
         match &**x {
-            Expr::Identifier(x, _) => {
-                if is_ignored(x.as_str()) && !roots.contains(x.as_str()) {
+            Expr::Identifier(x) => {
+                if is_ignored(x.0.as_str()) && !roots.contains(x.0.as_str()) {
                     res.push(LintT::new(
                         codemap,
                         x.span,
-                        UnderscoreWarning::UsingIgnored(x.node.clone()),
+                        UnderscoreWarning::UsingIgnored(x.node.0.clone()),
                     ));
                 }
             }

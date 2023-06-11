@@ -53,6 +53,11 @@ string: AstString = <l:@L> <e:"STRING"> <r:@R>
 identifier: AstString = <l:@L> <e:"IDENTIFIER"> <r:@R>
     => e.ast(l, r);
 
+Ident: AstIdent = <id:identifier> => Spanned {
+    span: id.span,
+    node: IdentP(id.node, ()),
+};
+
 AssignIdent: AstAssignIdent = <id:identifier> => Spanned {
     span: id.span,
     node: AssignIdentP(id.node, ()),
@@ -242,8 +247,8 @@ Argument_: Argument = {
 };
 
 Operand: AstExpr = {
-    <l:@L> <i:identifier> <r:@R>
-        => Expr::Identifier(i, ()).ast(l, r),
+    <l:@L> <i:Ident> <r:@R>
+        => Expr::Identifier(i).ast(l, r),
     <l:@L> <i:integer> <r:@R>
         => Expr::Literal(AstLiteral::Int(i)).ast(l, r),
     <l:@L> <f:float> <r:@R>

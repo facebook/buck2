@@ -89,7 +89,7 @@ fn duplicate_dictionary_key(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
                 }
                 AstLiteral::String(x) => Some((Key::String(&x.node), x.span)),
             },
-            Expr::Identifier(x, ()) => Some((Key::Identifier(&x.node), x.span)),
+            Expr::Identifier(x) => Some((Key::Identifier(&x.node.0), x.span)),
             _ => None,
         }
     }
@@ -124,10 +124,10 @@ fn identifier_as_statement(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
     fn stmt<'a>(x: &'a AstStmt, codemap: &CodeMap, res: &mut Vec<LintT<Dubious>>) {
         match &**x {
             Stmt::Expression(x) => match &**x {
-                Expr::Identifier(x, _) => res.push(LintT::new(
+                Expr::Identifier(x) => res.push(LintT::new(
                     codemap,
                     x.span,
-                    Dubious::IdentifierAsStatement(x.node.clone()),
+                    Dubious::IdentifierAsStatement(x.node.0.clone()),
                 )),
                 _ => {}
             },
