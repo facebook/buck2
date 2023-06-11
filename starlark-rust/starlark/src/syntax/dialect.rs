@@ -42,6 +42,10 @@ pub(crate) enum DialectError {
     Types,
     #[error("{0} expression is not allowed in type expression")]
     InvalidType(&'static str),
+    #[error("Empty list is not allowed in type expression")]
+    EmptyListInType,
+    #[error("Only dict literal with single entry is allowed in type expression")]
+    DictNot1InType,
 }
 
 /// How to handle type annotations in Starlark.
@@ -168,8 +172,18 @@ impl Dialect {
     }
 
     fn check_expr_allowed_in_type(codemap: &CodeMap, x: &Spanned<Expr>) -> anyhow::Result<()> {
-        match x.node {
+        match &x.node {
             Expr::Lambda(..) => return err(codemap, x.span, DialectError::InvalidType("lambda")),
+            Expr::List(list) => {
+                if list.is_empty() {
+                    return err(codemap, x.span, DialectError::EmptyListInType);
+                }
+            }
+            Expr::Dict(dict) => {
+                if dict.len() != 1 {
+                    return err(codemap, x.span, DialectError::DictNot1InType);
+                }
+            }
             _ => {}
         }
         x.visit_expr_err(|e| Self::check_expr_allowed_in_type(codemap, e))
