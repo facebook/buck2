@@ -400,6 +400,14 @@ impl<'a> Scope<'a> {
                 Some(body),
                 None,
             ),
+            StmtP::Assign(lhs, ty_rhs) => {
+                let (ty, rhs) = &mut **ty_rhs;
+                self.resolve_idents_in_assign(lhs);
+                if let Some(ty) = ty {
+                    self.resolve_idents_in_type_expr(ty);
+                }
+                self.resolve_idents_in_expr(rhs);
+            }
             _ => code.visit_children_mut(|visit| match visit {
                 VisitMut::Stmt(stmt) => self.resolve_idents(stmt),
                 VisitMut::Expr(expr) => self.resolve_idents_in_expr(expr),
@@ -420,10 +428,16 @@ impl<'a> Scope<'a> {
         body_expr: Option<&mut CstExpr>,
     ) {
         for param in params {
-            param.visit_expr_mut(|expr| self.resolve_idents_in_expr(expr));
+            let (_, ty, def) = param.split_mut();
+            if let Some(ty) = ty {
+                self.resolve_idents_in_type_expr(ty);
+            }
+            if let Some(def) = def {
+                self.resolve_idents_in_expr(def);
+            }
         }
         if let Some(ret) = ret {
-            self.resolve_idents_in_expr(&mut ret.node.0);
+            self.resolve_idents_in_type_expr(ret);
         }
 
         self.enter_def(scope_id);
@@ -453,6 +467,12 @@ impl<'a> Scope<'a> {
             }
             _ => expr.visit_expr_mut(|expr| self.resolve_idents_in_expr(expr)),
         }
+    }
+
+    fn resolve_idents_in_type_expr(&mut self, expr: &mut CstTypeExpr) {
+        // Currently it resolves idents as regular expression.
+        // But it should also check that all idents are resolved to globals or builtins.
+        self.resolve_idents_in_expr(&mut expr.node.0);
     }
 
     fn current_scope_all_visible_names_for_did_you_mean(&self) -> Vec<FrozenStringValue> {
