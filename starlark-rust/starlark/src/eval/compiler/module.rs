@@ -39,6 +39,8 @@ use crate::values::Value;
 enum ModuleError {
     #[error("No imports are available, you tried `{0}` (no call to `Evaluator.set_loader`)")]
     NoImportsAvailable(String),
+    #[error("Unexpected statement (internal error)")]
+    UnexpectedStatement,
 }
 
 impl<'v> Compiler<'v, '_, '_> {
@@ -78,6 +80,41 @@ impl<'v> Compiler<'v, '_, '_> {
         Ok(())
     }
 
+    /// Compile and evaluate regular statement.
+    /// Regular statement is a statement which is not `load` or a sequence of statements.
+    fn eval_regular_top_level_stmt(
+        &mut self,
+        stmt: CstStmt,
+        local_names: FrozenRef<'static, [FrozenStringValue]>,
+    ) -> Result<Value<'v>, EvalException> {
+        if matches!(stmt.node, StmtP::Statements(_) | StmtP::Load(_)) {
+            return Err(EvalException::new(
+                ModuleError::UnexpectedStatement.into(),
+                stmt.span,
+                &self.codemap,
+            ));
+        }
+
+        let stmt = self.module_top_level_stmt(stmt);
+        let bc = stmt.as_bc(
+            &self.compile_context(false),
+            local_names,
+            0,
+            self.eval.module_env.frozen_heap(),
+        );
+        // We don't preserve locals between top level statements.
+        // That is OK for now: the only locals used in module evaluation
+        // are comprehension bindings.
+        let local_count = local_names.len().try_into().unwrap();
+        alloca_frame(
+            self.eval,
+            local_count,
+            bc.max_stack_size,
+            bc.max_loop_depth,
+            |eval| eval.eval_bc(const_frozen_string!("module").to_value(), &bc),
+        )
+    }
+
     fn eval_top_level_stmt(
         &mut self,
         stmt: CstStmt,
@@ -98,26 +135,7 @@ impl<'v> Compiler<'v, '_, '_> {
                 })?;
                 Ok(Value::new_none())
             }
-            _ => {
-                let stmt = self.module_top_level_stmt(stmt);
-                let bc = stmt.as_bc(
-                    &self.compile_context(false),
-                    local_names,
-                    0,
-                    self.eval.module_env.frozen_heap(),
-                );
-                // We don't preserve locals between top level statements.
-                // That is OK for now: the only locals used in module evaluation
-                // are comprehension bindings.
-                let local_count = local_names.len().try_into().unwrap();
-                alloca_frame(
-                    self.eval,
-                    local_count,
-                    bc.max_stack_size,
-                    bc.max_loop_depth,
-                    |eval| eval.eval_bc(const_frozen_string!("module").to_value(), &bc),
-                )
-            }
+            _ => self.eval_regular_top_level_stmt(stmt, local_names),
         }
     }
 
