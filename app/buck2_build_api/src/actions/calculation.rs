@@ -418,6 +418,24 @@ pub async fn command_details(
                 .collect(),
         }
         .into(),
+        CommandExecutionKind::LocalWorker {
+            command,
+            env,
+            digest,
+            fallback_exe,
+        } => buck2_data::WorkerCommand {
+            action_digest: digest.to_string(),
+            argv: command.to_owned(),
+            env: env
+                .iter()
+                .map(|(key, value)| buck2_data::EnvironmentEntry {
+                    key: key.clone(),
+                    value: value.clone(),
+                })
+                .collect(),
+            fallback_exe: fallback_exe.to_owned(),
+        }
+        .into(),
     });
 
     buck2_data::CommandExecutionDetails {

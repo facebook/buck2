@@ -454,6 +454,20 @@ impl LocalExecutor {
             None
         };
 
+        let execution_kind = match worker {
+            None => CommandExecutionKind::Local {
+                digest: action_digest.dupe(),
+                command: args.to_vec(),
+                env: request.env().clone(),
+            },
+            Some(_) => CommandExecutionKind::LocalWorker {
+                digest: action_digest.dupe(),
+                command: request.args().to_vec(),
+                env: request.env().clone(),
+                fallback_exe: request.exe().to_vec(),
+            },
+        };
+
         let (mut timing, res) = executor_stage_async(
             {
                 let env = iter_env()
@@ -462,16 +476,26 @@ impl LocalExecutor {
                         value: v.into_string_lossy(),
                     })
                     .collect();
-                let stage = buck2_data::LocalExecute {
-                    command: Some(buck2_data::LocalCommand {
-                        action_digest: action_digest.to_string(),
-                        argv: args.to_vec(),
-                        env,
-                    }),
+                let stage = match worker {
+                    None => buck2_data::LocalExecute {
+                        command: Some(buck2_data::LocalCommand {
+                            action_digest: action_digest.to_string(),
+                            argv: args.to_vec(),
+                            env,
+                        }),
+                    }
+                    .into(),
+                    Some(_) => buck2_data::WorkerExecute {
+                        command: Some(buck2_data::WorkerCommand {
+                            action_digest: action_digest.to_string(),
+                            argv: request.args().to_vec(),
+                            env,
+                            fallback_exe: request.exe().to_vec(),
+                        }),
+                    }
+                    .into(),
                 };
-                buck2_data::LocalStage {
-                    stage: Some(stage.into()),
-                }
+                buck2_data::LocalStage { stage: Some(stage) }
             },
             async move {
                 let execution_start = Instant::now();
@@ -512,12 +536,6 @@ impl LocalExecutor {
             },
         )
         .await;
-
-        let execution_kind = CommandExecutionKind::Local {
-            digest: action_digest.dupe(),
-            command: args.to_vec(),
-            env: request.env().clone(),
-        };
 
         let (status, stdout, stderr) = match res {
             Ok(res) => res,

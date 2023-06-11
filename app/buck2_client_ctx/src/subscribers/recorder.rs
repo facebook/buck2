@@ -517,7 +517,7 @@ mod imp {
                     self.run_fallback_count += 1;
                 }
                 match last_command_execution_kind::get_last_command_execution_kind(action) {
-                    LastCommandExecutionKind::Local => {
+                    LastCommandExecutionKind::Local | LastCommandExecutionKind::LocalWorker => {
                         self.run_local_count += 1;
                     }
                     LastCommandExecutionKind::Cached => {

@@ -983,6 +983,8 @@ message CommandExecutionDetails {
     // The command used to initialize the worker, if the action failed at this
     // step.
     WorkerInitCommand worker_init_command = 11;
+    // The command, if executed by a local worker.
+    WorkerCommand worker_command = 12;
   }
 
   // We should probably get the some more fields from CommandExecutionMetadata
@@ -1232,6 +1234,7 @@ message LocalStage {
     LocalPrepareOutputDirs prepare_outputs = 4;
     AcquireLocalResource acquire_local_resource = 5;
     InitializeWorker initialize_worker = 6;
+    WorkerExecute worker_execute = 7;
   }
 }
 
@@ -1239,6 +1242,10 @@ message LocalQueued {}
 
 message LocalExecute {
   LocalCommand command = 1;
+}
+
+message WorkerExecute {
+  WorkerCommand command = 1;
 }
 
 message LocalMaterializeInputs {}
@@ -1418,6 +1425,16 @@ message LocalCommand {
 message WorkerInitCommand {
   repeated string argv = 1;
   repeated EnvironmentEntry env = 2;
+}
+
+/// A representation of a command executed by a local worker.
+message WorkerCommand {
+  repeated string argv = 1;
+  repeated EnvironmentEntry env = 2;
+  string action_digest = 3;
+  /// The exe args to run this command as a separate process,
+  /// if needed to reproduce a failed command.
+  repeated string fallback_exe = 4;
 }
 
 // A representation of a command we executed remotely.

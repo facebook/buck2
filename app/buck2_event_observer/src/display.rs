@@ -424,6 +424,7 @@ pub fn display_executor_stage(
                 Stage::PrepareOutputs(_) => "local_prepare_outputs",
                 Stage::AcquireLocalResource(_) => "acquire_local_resource",
                 Stage::InitializeWorker(_) => "initialize_worker",
+                Stage::WorkerExecute(_) => "worker_execute",
             }
         }
     };
@@ -582,6 +583,7 @@ fn failure_reason_for_command_execution(
         Some(Command::RemoteCommand(..)) => "Remote ",
         Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => "Local ",
         Some(Command::WorkerInitCommand(..)) => "Local Worker Initialization ",
+        Some(Command::WorkerCommand(..)) => "Local Worker ",
         None => "",
     };
 

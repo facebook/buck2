@@ -9,6 +9,7 @@
 
 pub enum LastCommandExecutionKind {
     Local,
+    LocalWorker,
     Remote,
     Cached,
     NoCommand,
@@ -29,9 +30,12 @@ pub fn get_last_command_execution_kind(
         .and_then(|c| c.command.as_ref());
 
     match last_command {
-        Some(Command::LocalCommand(..))
-        | Some(Command::OmittedLocalCommand(..))
-        | Some(Command::WorkerInitCommand(..)) => LastCommandExecutionKind::Local,
+        Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => {
+            LastCommandExecutionKind::Local
+        }
+        Some(Command::WorkerCommand(_)) | Some(Command::WorkerInitCommand(_)) => {
+            LastCommandExecutionKind::LocalWorker
+        }
         Some(Command::RemoteCommand(buck2_data::RemoteCommand {
             cache_hit: true, ..
         })) => LastCommandExecutionKind::Cached,

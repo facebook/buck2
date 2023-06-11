@@ -65,7 +65,7 @@ impl ActionStats {
             self.fallback_actions += 1;
         }
         match get_last_command_execution_kind(action) {
-            LastCommandExecutionKind::Local => {
+            LastCommandExecutionKind::Local | LastCommandExecutionKind::LocalWorker => {
                 self.local_actions += 1;
             }
             LastCommandExecutionKind::Cached => {

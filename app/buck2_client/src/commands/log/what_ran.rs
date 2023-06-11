@@ -310,6 +310,19 @@ impl WhatRanOutputWriter for LogCommandOutputFormat {
                             .map(|entry| (entry.key.as_ref(), entry.value.as_ref()))
                             .collect(),
                     },
+                    CommandReproducer::WorkerExecute(worker_execute) => JsonReproducer::Local {
+                        command: worker_execute.command.as_ref().map_or_else(
+                            || Cow::Owned(Vec::new()),
+                            |command| Cow::Borrowed(command.argv.as_ref()),
+                        ),
+                        env: worker_execute
+                            .command
+                            .as_ref()
+                            .into_iter()
+                            .flat_map(|command| command.env.iter())
+                            .map(|entry| (entry.key.as_ref(), entry.value.as_ref()))
+                            .collect(),
+                    },
                 };
 
                 let command = JsonCommand {

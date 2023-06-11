@@ -35,12 +35,20 @@ pub enum CommandExecutionKind {
         command: Vec<String>,
         env: SortedVectorMap<String, String>,
     },
+    /// This action was executed via a local worker.
+    #[display(fmt = "worker")]
+    LocalWorker {
+        digest: ActionDigest,
+        command: Vec<String>,
+        env: SortedVectorMap<String, String>,
+        fallback_exe: Vec<String>,
+    },
 }
 
 impl CommandExecutionKind {
     pub fn as_enum(&self) -> buck2_data::ActionExecutionKind {
         match self {
-            Self::Local { .. } | Self::LocalWorkerInit { .. } => {
+            Self::Local { .. } | Self::LocalWorker { .. } | Self::LocalWorkerInit { .. } => {
                 buck2_data::ActionExecutionKind::Local
             }
             Self::Remote { .. } => buck2_data::ActionExecutionKind::Remote,

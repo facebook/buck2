@@ -174,6 +174,7 @@ pub enum CommandReproducer<'a> {
     CacheHit(&'a buck2_data::CacheHit),
     ReExecute(&'a buck2_data::ReExecute),
     LocalExecute(&'a buck2_data::LocalExecute),
+    WorkerExecute(&'a buck2_data::WorkerExecute),
 }
 
 impl<'a> CommandReproducer<'a> {
@@ -183,6 +184,7 @@ impl<'a> CommandReproducer<'a> {
             Self::CacheHit(..) => "cache".to_owned(),
             Self::ReExecute(execute) => executor_with_platform(execute),
             Self::LocalExecute(..) => "local".to_owned(),
+            Self::WorkerExecute(..) => "worker".to_owned(),
         }
     }
 
@@ -229,6 +231,13 @@ impl<'a> CommandReproducer<'a> {
                                             local_execute,
                                         ));
                                     }
+                                    Some(buck2_data::local_stage::Stage::WorkerExecute(
+                                        worker_execute,
+                                    )) => {
+                                        return Some(CommandReproducer::WorkerExecute(
+                                            worker_execute,
+                                        ));
+                                    }
                                     _ => {}
                                 }
                             }
@@ -269,6 +278,17 @@ impl<'a> fmt::Display for HumanReadableCommandReproducer<'a> {
                     Ok(())
                 }
             }
+            CommandReproducer::WorkerExecute(worker_execute) => {
+                if let Some(command) = &worker_execute.command {
+                    write!(
+                        formatter,
+                        "{}",
+                        worker_command_as_fallback_to_string(command)
+                    )
+                } else {
+                    Ok(())
+                }
+            }
         }
     }
 }
@@ -287,6 +307,15 @@ impl<'a> From<&'a buck2_data::LocalCommand> for Command<'a> {
     }
 }
 
+impl<'a> From<&'a buck2_data::WorkerCommand> for Command<'a> {
+    fn from(command: &'a buck2_data::WorkerCommand) -> Self {
+        Command {
+            env: &command.env,
+            argv: &command.argv,
+        }
+    }
+}
+
 impl<'a> From<&'a buck2_data::WorkerInitCommand> for Command<'a> {
     fn from(command: &'a buck2_data::WorkerInitCommand) -> Self {
         Command {
@@ -294,6 +323,15 @@ impl<'a> From<&'a buck2_data::WorkerInitCommand> for Command<'a> {
             argv: &command.argv,
         }
     }
+}
+
+pub fn worker_command_as_fallback_to_string(command: &buck2_data::WorkerCommand) -> String {
+    let mut argv = command.fallback_exe.to_vec();
+    argv.extend(command.argv.to_vec());
+    command_to_string(Command {
+        env: &command.env,
+        argv: &argv,
+    })
 }
 
 pub fn command_to_string<'a>(command: impl Into<Command<'a>>) -> String {

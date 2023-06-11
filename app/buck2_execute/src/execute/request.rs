@@ -366,6 +366,10 @@ impl CommandExecutionRequest {
         self.all_args().join(" ")
     }
 
+    pub fn exe(&self) -> &[String] {
+        &self.exe
+    }
+
     pub fn args(&self) -> &[String] {
         &self.args
     }
