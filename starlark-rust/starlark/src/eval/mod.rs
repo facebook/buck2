@@ -102,7 +102,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         scope.errors.truncate(1);
         if let Some(e) = scope.errors.pop() {
             // Static errors, reported even if the branch is not hit
-            return Err(e);
+            return Err(e.into_anyhow());
         }
 
         let (module_slots, scope_data) = scope.exit_module();

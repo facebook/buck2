@@ -30,8 +30,8 @@ use crate::environment::EnvironmentError;
 use crate::environment::Globals;
 use crate::environment::Module;
 use crate::errors::did_you_mean::did_you_mean;
-use crate::errors::Diagnostic;
 use crate::eval::compiler::def::CopySlotFromParent;
+use crate::eval::compiler::EvalException;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::syntax::ast::Assign;
 use crate::syntax::ast::AssignIdent;
@@ -73,7 +73,7 @@ pub(crate) struct Scope<'a> {
     unscopes: Vec<Unscope>,
     codemap: FrozenRef<'static, CodeMap>,
     globals: FrozenRef<'static, Globals>,
-    pub(crate) errors: Vec<anyhow::Error>,
+    pub(crate) errors: Vec<EvalException>,
 }
 
 struct UnscopeBinding {
@@ -467,17 +467,18 @@ impl<'a> Scope<'a> {
         r
     }
 
-    fn variable_not_found_err(&self, ident: &AstString) -> anyhow::Error {
+    fn variable_not_found_err(&self, ident: &AstString) -> EvalException {
         let variants = self.current_scope_all_visible_names_for_did_you_mean();
         let better = did_you_mean(ident, variants.iter().map(|s| s.as_str()));
-        Diagnostic::new(
+        EvalException::new(
             match better {
                 Some(better) => EnvironmentError::VariableNotFoundDidYouMean(
                     ident.node.clone(),
                     better.to_owned(),
                 ),
                 None => EnvironmentError::VariableNotFound(ident.node.clone()),
-            },
+            }
+            .into(),
             ident.span,
             &self.codemap,
         )
