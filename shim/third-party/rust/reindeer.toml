@@ -3,6 +3,10 @@
 # Overview of available options:
 # https://github.com/facebookincubator/reindeer/blob/main/example/third-party/reindeer.toml
 
+# Build dependencies through http_archive downloaded from crates.io, rather than
+# vendoring sources into this repo.
+vendor = false
+
 # Parse Rust code to work out the precise set of source files for each crate.
 precise_srcs = true
 
