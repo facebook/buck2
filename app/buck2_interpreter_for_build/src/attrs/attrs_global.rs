@@ -565,7 +565,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// `DefaultInfo` with a `default_outputs` value).
     fn source<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(default = false)] allow_directory: bool,
+        #[starlark(require = named, default = false)] allow_directory: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
