@@ -22,7 +22,10 @@ pub fn register_regex(builder: &mut GlobalsBuilder) {
     /// regex_match("^[a-z]*$", "hello") == True
     /// regex_match("^[a-z]*$", "1234") == False
     /// ```
-    fn regex_match(regex: &str, str: &str) -> anyhow::Result<bool> {
+    fn regex_match(
+        #[starlark(require = pos)] regex: &str,
+        #[starlark(require = pos)] str: &str,
+    ) -> anyhow::Result<bool> {
         let re = Regex::new(regex)?;
         Ok(re.is_match(str)?)
     }
