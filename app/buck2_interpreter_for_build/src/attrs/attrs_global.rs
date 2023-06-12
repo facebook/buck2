@@ -355,7 +355,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// ```
     fn option<'v>(
         #[starlark(this)] _this: Value<'v>,
-        inner: &AttributeAsStarlarkValue,
+        #[starlark(require = pos)] inner: &AttributeAsStarlarkValue,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
