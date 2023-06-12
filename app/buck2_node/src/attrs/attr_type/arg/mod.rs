@@ -69,7 +69,7 @@ impl StringWithMacros<ConfiguredProvidersLabel> {
 }
 
 impl StringWithMacros<ConfiguredProvidersLabel> {
-    pub(crate) fn traverse<'a>(
+    pub fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {

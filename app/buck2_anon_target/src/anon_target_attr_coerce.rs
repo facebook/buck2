@@ -13,6 +13,7 @@ use std::iter;
 
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
+use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 use buck2_core::soft_error;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
@@ -120,6 +121,13 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 }
                 None => Err(AnonTargetCoercionError::type_error("artifact", value).into()),
             },
+            AttrTypeInner::Arg(_) => match ResolvedStringWithMacros::from_value(value) {
+                Some(resolved_macro) => match resolved_macro.configured_macros() {
+                    Some(configured_macros) => Ok(AnonTargetAttr::Arg(configured_macros.clone())),
+                    None => Err(AnonTargetCoercionError::ArgNotAnonTargetCompatible.into()),
+                },
+                None => Err(AnonTargetCoercionError::type_error("resolved_macro", value).into()),
+            },
             _ => {
                 return Err(AnonTargetCoercionError::AttrTypeNotSupported(
                     value.get_type().to_owned(),
@@ -144,6 +152,8 @@ pub(crate) enum AnonTargetCoercionError {
     CannotCoerceToAny(&'static str, String),
     #[error("Attr value of type `{0}` not supported")]
     AttrTypeNotSupported(String),
+    #[error("Arg attribute must have `anon_target_compatible` set to `True`")]
+    ArgNotAnonTargetCompatible,
 }
 
 impl AnonTargetCoercionError {

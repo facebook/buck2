@@ -63,6 +63,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
+use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedPath;
@@ -125,6 +126,8 @@ pub enum AnonTargetsError {
     InternalAttribute(String),
     #[error("Missing attribute `{0}`")]
     MissingAttribute(String),
+    #[error("Query macros are not supported")]
+    QueryMacroNotSupported,
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, Display, Trace, Allocative)]
@@ -288,6 +291,14 @@ impl AnonTargetKey {
             fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
                 self.0.push(dep.target().dupe());
                 Ok(())
+            }
+
+            fn query_macro(
+                &mut self,
+                _query: &str,
+                _resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
+            ) -> anyhow::Result<()> {
+                Err(AnonTargetsError::QueryMacroNotSupported.into())
             }
         }
 

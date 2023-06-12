@@ -51,7 +51,7 @@ enum ResolveMacroError {
     UnrecognizedMacroUnimplemented(String),
 }
 
-pub(crate) trait ConfiguredStringWithMacrosExt {
+pub trait ConfiguredStringWithMacrosExt {
     fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>>;
 }
 

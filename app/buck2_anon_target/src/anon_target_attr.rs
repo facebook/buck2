@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dict::DictLiteral;
@@ -61,6 +62,7 @@ pub enum AnonTargetAttr {
     Dep(Box<DepAttr<ConfiguredProvidersLabel>>),
     // Accepts any bound artifacts. Maps to `attr.source()`.
     Artifact(Artifact),
+    Arg(ConfiguredStringWithMacros),
 }
 
 impl AttrSerializeWithContext for AnonTargetAttr {
@@ -92,6 +94,7 @@ impl AttrDisplayWithContext for AnonTargetAttr {
             AnonTargetAttr::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             AnonTargetAttr::Dep(e) => write!(f, "\"{}\"", e),
             AnonTargetAttr::Artifact(e) => write!(f, "\"{}\"", e),
+            AnonTargetAttr::Arg(e) => write!(f, "\"{}\"", e),
         }
     }
 }
@@ -115,6 +118,7 @@ impl ToJsonWithContext for AnonTargetAttr {
             AnonTargetAttr::OneOf(box l, _) => l.to_json(ctx),
             AnonTargetAttr::Dep(e) => Ok(to_value(e.to_string())?),
             AnonTargetAttr::Artifact(e) => Ok(to_value(e.to_string())?),
+            AnonTargetAttr::Arg(e) => Ok(to_value(e.to_string())?),
         }
     }
 }
@@ -160,6 +164,7 @@ impl AnonTargetAttr {
             AnonTargetAttr::OneOf(l, _) => l.traverse(pkg, traversal),
             AnonTargetAttr::Dep(dep) => traversal.dep(&dep.label),
             AnonTargetAttr::Artifact(_) => Ok(()),
+            AnonTargetAttr::Arg(e) => e.string_with_macros.traverse(traversal),
         }
     }
 

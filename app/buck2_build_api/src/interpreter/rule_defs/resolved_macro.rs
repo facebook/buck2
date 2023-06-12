@@ -196,6 +196,10 @@ impl ResolvedStringWithMacros {
             _ => None,
         }
     }
+
+    pub fn configured_macros(&self) -> &Option<ConfiguredStringWithMacros> {
+        &self.configured_macros
+    }
 }
 
 impl CommandLineArgLike for ResolvedStringWithMacros {

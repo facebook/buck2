@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_analysis::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;
 use buck2_analysis::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -90,6 +91,7 @@ impl AnonTargetAttrExt for AnonTargetAttr {
             AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, ctx),
             AnonTargetAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
             AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.clone()))),
+            AnonTargetAttr::Arg(a) => a.resolve(ctx),
         }
     }
 }
