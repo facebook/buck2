@@ -220,7 +220,12 @@ pub struct StringLiteralResult {
     /// If `None`, then just jump to the URL. Do not attempt to load the file.
     #[derivative(Debug = "ignore")]
     pub location_finder:
-        Option<Box<dyn FnOnce(&AstModule, &LspUrl) -> anyhow::Result<Option<Range>>>>,
+        Option<Box<dyn FnOnce(&AstModule, &LspUrl) -> anyhow::Result<Option<Range>> + Send>>,
+}
+
+fn _assert_string_literal_result_is_send() {
+    fn assert_send<T: Send>() {}
+    assert_send::<StringLiteralResult>();
 }
 
 /// The result of evaluating a starlark program for use in the LSP.
