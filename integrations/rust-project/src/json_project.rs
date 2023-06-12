@@ -120,6 +120,11 @@ pub struct Dep {
     pub name: String,
 }
 
+/// Sysroot paths. These are documented in the rust-analyzer manual:
+///
+/// <https://rust-analyzer.github.io/manual.html#non-cargo-based-projects>
+///
+/// rust-analyzer treats both paths as optional, but we always provide sysroot.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Sysroot {
     /// Path to the directory of the sysroot; this is a superset of `sysroot_src`.
@@ -134,7 +139,7 @@ pub struct Sysroot {
     /// macros and the source code location can be predictably inferred.
     /// Assuming the example sysroot above, the source code would be located in
     /// `/lib/rustlib/src/rust/`.
-    pub sysroot: Option<PathBuf>,
+    pub sysroot: PathBuf,
     /// Legacy sysroot config containing only the source code of libraries such
     /// as `std` and core`.
     ///

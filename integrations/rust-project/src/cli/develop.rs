@@ -116,7 +116,7 @@ impl Develop {
                 }
 
                 Sysroot {
-                    sysroot: Some(sysroot_path),
+                    sysroot: sysroot_path,
                     sysroot_src: None,
                 }
             }
