@@ -383,6 +383,7 @@ def build_kotlin_library(
             extra_sub_targets = extra_sub_targets | class_to_src_map_sub_targets
 
             default_info = get_default_info(
+                ctx.actions,
                 ctx.attrs._java_toolchain[JavaToolchainInfo],
                 outputs,
                 java_packaging_info,

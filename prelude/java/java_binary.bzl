@@ -184,7 +184,7 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
         )
         other_outputs = [classpath_file] + [packaging_jar_args] + _get_java_tool_artifacts(java_toolchain)
 
-    sub_targets = get_classpath_subtarget(packaging_info)
+    sub_targets = get_classpath_subtarget(ctx.actions, packaging_info)
 
     return [
         DefaultInfo(default_output = main_artifact, other_outputs = other_outputs, sub_targets = sub_targets),

@@ -63,7 +63,7 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
     # TODO(T107163344) this shouldn't be in prebuilt_jar itself, use overlays to remove it.
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps)
 
-    sub_targets = get_classpath_subtarget(java_packaging_info)
+    sub_targets = get_classpath_subtarget(ctx.actions, java_packaging_info)
     sub_targets["abi"] = [
         java_library_info,
         template_placeholder_info,

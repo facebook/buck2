@@ -81,11 +81,12 @@ def get_abi_generation_mode(abi_generation_mode):
     }[abi_generation_mode]
 
 def get_default_info(
+        actions: "actions",
         java_toolchain: "JavaToolchainInfo",
         outputs: ["JavaCompileOutputs", None],
         packaging_info: "JavaPackagingInfo",
         extra_sub_targets: dict.type = {}) -> DefaultInfo.type:
-    sub_targets = get_classpath_subtarget(packaging_info)
+    sub_targets = get_classpath_subtarget(actions, packaging_info)
     default_info = DefaultInfo()
     if outputs:
         abis = [
@@ -135,7 +136,7 @@ def get_class_to_source_map_info(
     )
     return (class_to_src_map_info, sub_targets)
 
-def get_classpath_subtarget(packaging_info: "JavaPackagingInfo") -> {str.type: ["provider"]}:
-    return {"classpath": [DefaultInfo(other_outputs = [
-        packaging_info.packaging_deps.project_as_args("full_jar_args"),
-    ])]}
+def get_classpath_subtarget(actions: "actions", packaging_info: "JavaPackagingInfo") -> {str.type: ["provider"]}:
+    proj = packaging_info.packaging_deps.project_as_args("full_jar_args")
+    output = actions.write_json("classpath.json", {"jars": proj})
+    return {"classpath": [DefaultInfo(output, other_outputs = [proj])]}
