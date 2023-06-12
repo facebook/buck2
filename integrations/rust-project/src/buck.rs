@@ -498,11 +498,11 @@ pub fn utf8_output(output: io::Result<Output>, command: &Command) -> Result<Stri
             status,
         }) if status.success() => String::from_utf8(stdout)
             .or_else(|err| {
-                let context = cmd_err(command, err.as_bytes(), &stderr);
+                let context = cmd_err(command, &stderr);
                 Err(err).context(context)
             })
             .context("command returned non-utf8 output"),
-        Ok(output) => Err(cmd_err(command, &output.stdout, &output.stderr))
+        Ok(output) => Err(cmd_err(command, &output.stderr))
             .with_context(|| format!("command ended with {}", output.status)),
         Err(err) => Err(err)
             .with_context(|| format!("command `{:?}`", command))
@@ -525,10 +525,10 @@ where
         }) if status.success() => {
             tracing::debug!("parsing command output");
             serde_json::from_slice(&stdout)
-                .with_context(|| cmd_err(command, &stdout, &stderr))
+                .with_context(|| cmd_err(command, &stderr))
                 .context("failed to deserialize command output")
         }
-        Ok(output) => Err(cmd_err(command, &output.stdout, &output.stderr))
+        Ok(output) => Err(cmd_err(command, &output.stderr))
             .with_context(|| format!("command ended with {}", output.status)),
         Err(err) => Err(err)
             .with_context(|| format!("command `{:?}`", command))
@@ -536,11 +536,10 @@ where
     }
 }
 
-fn cmd_err(command: &Command, stdout: &[u8], stderr: &[u8]) -> anyhow::Error {
+fn cmd_err(command: &Command, stderr: &[u8]) -> anyhow::Error {
     anyhow::anyhow!(
-        "command `{:?}`\nstdout:\n{}\nstderr:\n{}",
+        "command `{:?}`\nstderr:\n{}",
         command,
-        String::from_utf8_lossy(stdout),
         String::from_utf8_lossy(stderr),
     )
 }
