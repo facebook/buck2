@@ -199,7 +199,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// plan to execute things from this dependency as part of the compilation.
     fn exec_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -215,7 +215,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// dependencies will be used to select the execution platform for this rule.
     fn toolchain_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -228,8 +228,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     fn transition_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
         cfg: Value<'v>,
+        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -262,7 +262,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     fn configured_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -275,8 +275,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     fn split_transition_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
         cfg: Value<'v>,
+        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -315,7 +315,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// on the dependency.
     fn dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
