@@ -302,7 +302,7 @@ impl<'a> WriteEventLog<'a> {
             );
         }
 
-        // Also open the user's simple log file, if any as provided, json-formatted with no compression.
+        // Also open the user's simple log file, if any as provided, json-line formatted with no compression if no extensions are detected.
         if let Some(extra_user_event_log_path) = maybe_extra_user_event_log_path {
             writers.push(
                 open_event_log_for_writing(
