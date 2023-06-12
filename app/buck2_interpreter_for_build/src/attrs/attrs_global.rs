@@ -470,13 +470,12 @@ fn attr_module(registry: &mut MethodsBuilder) {
     fn set<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] value_type: &AttributeAsStarlarkValue,
-        #[allow(unused_variables)]
-        #[starlark(default = false)]
-        sorted: bool,
+        #[starlark(require = named, default = false)] sorted: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
+        let _unused = sorted;
         let coercer = AttrType::list(value_type.coercer_for_inner()?);
         Attribute::attr(eval, default, doc, coercer)
     }
@@ -484,7 +483,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
     fn named_set<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] value_type: &AttributeAsStarlarkValue,
-        #[starlark(default = false)] sorted: bool,
+        #[starlark(require = named, default = false)] sorted: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
