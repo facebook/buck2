@@ -48,8 +48,9 @@ pub enum CommandExecutionKind {
 impl CommandExecutionKind {
     pub fn as_enum(&self) -> buck2_data::ActionExecutionKind {
         match self {
-            Self::Local { .. } | Self::LocalWorker { .. } | Self::LocalWorkerInit { .. } => {
-                buck2_data::ActionExecutionKind::Local
+            Self::Local { .. } => buck2_data::ActionExecutionKind::Local,
+            Self::LocalWorker { .. } | Self::LocalWorkerInit { .. } => {
+                buck2_data::ActionExecutionKind::LocalWorker
             }
             Self::Remote { .. } => buck2_data::ActionExecutionKind::Remote,
             Self::ActionCache { .. } => buck2_data::ActionExecutionKind::ActionCache,

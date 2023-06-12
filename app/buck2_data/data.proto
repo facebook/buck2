@@ -926,6 +926,8 @@ enum ActionExecutionKind {
   ACTION_EXECUTION_KIND_DEFERRED = 6;
   // This action was served by the local dep file cache and not executed.
   ACTION_EXECUTION_KIND_LOCAL_DEP_FILE = 7;
+  // This action was executed locally via a worker.
+  ACTION_EXECUTION_KIND_LOCAL_WORKER = 8;
 }
 
 // A name for a particular action, suitable for offline analytics and user
