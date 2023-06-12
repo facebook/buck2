@@ -42,6 +42,8 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
 use smallvec::SmallVec;
 use starlark::environment::Globals;
@@ -82,11 +84,11 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         ))
     }
 
-    async fn get_interpreter_results(
+    fn get_interpreter_results<'a>(
         &self,
-        ctx: &DiceComputations,
+        ctx: &'a DiceComputations,
         package: PackageLabel,
-    ) -> anyhow::Result<Arc<EvaluationResult>> {
+    ) -> BoxFuture<'a, anyhow::Result<Arc<EvaluationResult>>> {
         #[async_trait]
         impl Key for InterpreterResultsKey {
             type Value = SharedResult<Arc<EvaluationResult>>;
@@ -123,8 +125,8 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         }
 
         ctx.compute(&InterpreterResultsKey(package.dupe()))
-            .await?
-            .unshared_error()
+            .map(|res| res?.unshared_error())
+            .boxed()
     }
 }
 
