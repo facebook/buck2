@@ -89,7 +89,6 @@ pub use crate::values::unpack::UnpackValue;
 pub use crate::values::unpack::ValueOf;
 
 mod alloc_value;
-pub(crate) mod basic;
 mod comparison;
 pub(crate) mod demand;
 pub(crate) mod error;

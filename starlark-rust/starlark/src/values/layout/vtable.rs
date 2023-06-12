@@ -110,7 +110,6 @@ pub(crate) struct AValueVTable {
     // Common `AValue` fields.
     static_type_of_value: ConstTypeId,
     type_name: &'static str,
-    get_hash: fn(StarlarkValueRawPtr) -> anyhow::Result<StarlarkHashValue>,
     /// Cache `type_name` here to avoid computing hash.
     type_as_allocative_key: allocative::Key,
 
@@ -157,7 +156,6 @@ impl AValueVTable {
 
             heap_freeze: |_, _| panic!("BlackHole"),
             heap_copy: |_, _| panic!("BlackHole"),
-            get_hash: |_| panic!("BlackHole"),
             type_name: "BlackHole",
             type_as_allocative_key: BLACKHOLE_ALLOCATIVE_KEY,
 
@@ -202,10 +200,6 @@ impl AValueVTable {
             },
             static_type_of_value:
                 GetTypeId::<<T::StarlarkValue as ProvidesStaticType>::StaticType>::TYPE_ID,
-            get_hash: |p| unsafe {
-                let p = &*p.value_ptr::<T>();
-                T::get_hash(p)
-            },
             type_name: T::StarlarkValue::TYPE,
             type_as_allocative_key: GetAllocativeKey::<T::StarlarkValue>::ALLOCATIVE_KEY,
             display: |this| unsafe {
@@ -430,7 +424,7 @@ impl<'v> AValueDyn<'v> {
 
     #[inline]
     pub(crate) fn get_hash(self) -> anyhow::Result<StarlarkHashValue> {
-        (self.vtable.get_hash)(self.value)
+        (self.vtable.starlark_value.get_hash)(self.value, Private)
     }
 
     #[inline]

@@ -44,7 +44,6 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::starlark_type;
-use crate::values::basic::StarlarkValueBasic;
 use crate::values::error::ValueError;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::Basic;
@@ -203,6 +202,11 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         hasher.write_u64(NumRef::Int(StarlarkIntRef::Small(self.get())).get_hash_64());
         Ok(())
     }
+
+    fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
+        Ok(NumRef::Int(StarlarkIntRef::Small(self.get())).get_hash())
+    }
+
     fn plus(&self, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(Value::new_int(self.get()))
     }
@@ -304,12 +308,6 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
             None => ValueError::unsupported_with(self, ">>", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Small(self.get()).right_shift(other)?)),
         }
-    }
-}
-
-impl<'v> StarlarkValueBasic<'v> for PointerI32 {
-    fn get_hash(&self) -> StarlarkHashValue {
-        NumRef::Int(StarlarkIntRef::Small(self.get())).get_hash()
     }
 }
 

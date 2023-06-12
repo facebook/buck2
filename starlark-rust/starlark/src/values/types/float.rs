@@ -27,6 +27,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use serde::Serialize;
 use starlark_derive::StarlarkDocs;
+use starlark_map::StarlarkHashValue;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -273,6 +274,10 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         hasher.write_u64(NumRef::from(self.0).get_hash_64());
         Ok(())
+    }
+
+    fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
+        Ok(NumRef::Float(self.0).get_hash())
     }
 
     fn plus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

@@ -35,7 +35,6 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::starlark_type;
-use crate::values::basic::StarlarkValueBasic;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -126,6 +125,15 @@ impl StarlarkValue<'_> for StarlarkBool {
         Ok(())
     }
 
+    fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
+        // These constants are just two random numbers.
+        Ok(StarlarkHashValue::new_unchecked(if self.0 {
+            0xa4acba08
+        } else {
+            0x71e8ba71
+        }))
+    }
+
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
         // We always compare values for pointer equality before calling `equals`,
         // and there are only two instances of `StarlarkBool`.
@@ -140,12 +148,5 @@ impl StarlarkValue<'_> for StarlarkBool {
         } else {
             ValueError::unsupported_with(self, "<>", other)
         }
-    }
-}
-
-impl<'v> StarlarkValueBasic<'v> for StarlarkBool {
-    fn get_hash(&self) -> StarlarkHashValue {
-        // These constants are just two random numbers.
-        StarlarkHashValue::new_unchecked(if self.0 { 0xa4acba08 } else { 0x71e8ba71 })
     }
 }

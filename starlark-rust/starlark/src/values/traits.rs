@@ -28,6 +28,7 @@
 //! https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#sequence-types).
 //! We also use the term _container_ for denoting any of those type that can
 //! hold several values.
+
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -36,6 +37,7 @@ use std::fmt::Write;
 use allocative::Allocative;
 use erased_serde::Serialize;
 use starlark_derive::starlark_internal_vtable;
+use starlark_map::StarlarkHashValue;
 
 use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
@@ -330,6 +332,14 @@ pub trait StarlarkValue<'v>:
         } else {
             Err(ControlError::NotHashableValue(Self::TYPE.to_owned()).into())
         }
+    }
+
+    /// Get the hash value. Calls [`write_hash`](Self::write_hash) by default.
+    #[doc(hidden)]
+    fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
+        let mut hasher = StarlarkHasher::new();
+        self.write_hash(&mut hasher)?;
+        Ok(hasher.finish_small())
     }
 
     /// Compare `self` with `other` for equality.

@@ -274,6 +274,10 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         Ok(())
     }
 
+    fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
+        Ok(self.get_hash())
+    }
+
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
         if let Some(other) = other.unpack_str() {
             Ok(self.as_str() == other)

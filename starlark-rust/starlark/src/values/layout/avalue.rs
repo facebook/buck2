@@ -37,7 +37,6 @@ use crate::collections::StarlarkHasher;
 use crate::eval::compiler::def::FrozenDef;
 use crate::private::Private;
 use crate::slice_vec_ext::SliceExt;
-use crate::values::basic::StarlarkValueBasic;
 use crate::values::bool::StarlarkBool;
 use crate::values::dict::value::DictGen;
 use crate::values::dict::value::FrozenDictData;
@@ -52,7 +51,6 @@ use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::ListGen;
 use crate::values::none::NoneType;
-use crate::values::num::NumRef;
 use crate::values::string::StarlarkStr;
 use crate::values::traits::StarlarkValueDyn;
 use crate::values::types::any_array::AnyArray;
@@ -180,12 +178,6 @@ pub(crate) trait AValue<'v>: StarlarkValueDyn<'v> + Sized {
     ) -> anyhow::Result<FrozenValue>;
 
     unsafe fn heap_copy(me: *mut AValueRepr<Self>, tracer: &Tracer<'v>) -> Value<'v>;
-
-    fn get_hash(&self) -> anyhow::Result<StarlarkHashValue> {
-        let mut hasher = StarlarkHasher::new();
-        self.write_hash(&mut hasher)?;
-        Ok(hasher.finish_small())
-    }
 }
 
 #[inline]
@@ -298,7 +290,7 @@ fn clear_lsb(x: usize) -> usize {
     x & !1
 }
 
-impl<'v, T: StarlarkValueBasic<'v>> AValue<'v> for AValueImpl<Basic, T> {
+impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueImpl<Basic, T> {
     type StarlarkValue = T;
 
     type ExtraElem = ();
@@ -319,10 +311,6 @@ impl<'v, T: StarlarkValueBasic<'v>> AValue<'v> for AValueImpl<Basic, T> {
     }
     unsafe fn heap_copy(_me: *mut AValueRepr<Self>, _tracer: &Tracer<'v>) -> Value<'v> {
         unreachable!("Basic types don't appear in the heap")
-    }
-
-    fn get_hash(&self) -> anyhow::Result<StarlarkHashValue> {
-        Ok(self.1.get_hash())
     }
 }
 
@@ -348,10 +336,6 @@ impl<'v> AValue<'v> for AValueImpl<Direct, StarlarkFloat> {
 
     unsafe fn heap_copy(me: *mut AValueRepr<Self>, tracer: &Tracer<'v>) -> Value<'v> {
         Self::heap_copy_impl(me, tracer, |_v, _tracer| {})
-    }
-
-    fn get_hash(&self) -> anyhow::Result<StarlarkHashValue> {
-        Ok(NumRef::from(self.1.0).get_hash())
     }
 }
 
@@ -402,10 +386,6 @@ impl<'v> AValue<'v> for AValueImpl<Direct, StarlarkStr> {
             ForwardPtr::new(v.0.raw().ptr_value() & !1),
         );
         v
-    }
-
-    fn get_hash(&self) -> anyhow::Result<StarlarkHashValue> {
-        Ok(self.1.get_hash())
     }
 }
 
