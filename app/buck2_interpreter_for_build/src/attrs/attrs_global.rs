@@ -406,9 +406,10 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// Takes a dict from the user, supplies a dict to the rule.
     fn dict<'v>(
         #[starlark(this)] _this: Value<'v>,
+        // TODO(nga): require positional only for key and value.
         key: &AttributeAsStarlarkValue,
         value: &AttributeAsStarlarkValue,
-        #[starlark(default = false)] sorted: bool,
+        #[starlark(require = named, default = false)] sorted: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
