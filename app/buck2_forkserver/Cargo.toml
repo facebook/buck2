@@ -34,7 +34,6 @@ buck2_data = { workspace = true }
 buck2_grpc = { workspace = true }
 buck2_util = { workspace = true }
 buck2_miniperf_proto = { workspace = true }
-buck2_wrapper_common = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }

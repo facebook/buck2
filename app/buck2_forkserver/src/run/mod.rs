@@ -226,7 +226,7 @@ where
             Outcome::Finished(status) => decoder.decode_status(status).await?.into(),
             Outcome::Cancelled(res) => {
                 kill_process
-                    .kill(&child)
+                    .kill(&mut child)
                     .context("Failed to terminate child after timeout")?;
 
                 decoder
@@ -301,13 +301,13 @@ where
 
 /// Dependency injection for kill. We use this in testing.
 pub trait KillProcess {
-    fn kill(self, child: &Child) -> anyhow::Result<()>;
+    fn kill(self, child: &mut Child) -> anyhow::Result<()>;
 }
 
 pub struct DefaultKillProcess;
 
 impl KillProcess for DefaultKillProcess {
-    fn kill(self, child: &Child) -> anyhow::Result<()> {
+    fn kill(self, child: &mut Child) -> anyhow::Result<()> {
         let pid = match child.id() {
             Some(pid) => pid,
             None => {
@@ -325,7 +325,10 @@ impl KillProcess for DefaultKillProcess {
                 return kill_process_impl(pid);
             }
         }
-        buck2_wrapper_common::kill::kill(pid)?;
+        // `start_kill` is just `std::process::Child::kill` on Windows.
+        // Ignore the error because `kill` fails on Windows if the process has been terminated
+        // even if we did not wait for it.
+        let _ignore = child.start_kill();
         Ok(())
     }
 }
@@ -627,7 +630,7 @@ mod tests {
         }
 
         impl KillProcess for Kill {
-            fn kill(self, child: &Child) -> anyhow::Result<()> {
+            fn kill(self, child: &mut Child) -> anyhow::Result<()> {
                 *self.killed.lock().unwrap() = true;
 
                 // We still need to kill the process. On Windows in particular our test will hang

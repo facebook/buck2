@@ -64,7 +64,6 @@ rust_library(
         "//buck2/app/buck2_grpc:buck2_grpc",
         "//buck2/app/buck2_miniperf_proto:buck2_miniperf_proto",
         "//buck2/app/buck2_util:buck2_util",
-        "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
     ],
 )
