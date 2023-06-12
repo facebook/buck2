@@ -11,6 +11,7 @@ AppleToolchainInfo = provider(fields = [
     "codesign_identities_command",  # ["RunInfo", None]
     "codesign",  # "RunInfo"
     "compile_resources_locally",  # bool.type
+    "copy_scene_kit_assets",  # "RunInfo"
     "cxx_platform_info",  # "CxxPlatformInfo"
     "cxx_toolchain_info",  # "CxxToolchainInfo"
     "dsymutil",  # "RunInfo"

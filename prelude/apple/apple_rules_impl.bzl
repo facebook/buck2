@@ -121,6 +121,7 @@ extra_attributes = {
         "codesign_identities_command": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         # Controls invocations of `ibtool`, `actool` and `momc`
         "compile_resources_locally": attrs.bool(default = False),
+        "copy_scene_kit_assets": attrs.exec_dep(providers = [RunInfo]),
         "cxx_toolchain": attrs.toolchain_dep(),
         "dsymutil": attrs.exec_dep(providers = [RunInfo]),
         "dwarfdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),

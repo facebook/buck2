@@ -18,6 +18,7 @@ def _impl(ctx: "context") -> ["provider"]:
             actool = base.actool,
             codesign = base.codesign,
             codesign_allocate = base.codesign_allocate,
+            copy_scene_kit_assets = base.copy_scene_kit_assets,
             compile_resources_locally = base.compile_resources_locally,
             cxx_platform_info = base.cxx_platform_info,
             cxx_toolchain_info = cxx_toolchain_override if cxx_toolchain_override != None else base.cxx_toolchain_info,
