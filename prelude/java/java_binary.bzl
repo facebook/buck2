@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//java/utils:java_utils.bzl", "get_classpath_subtarget")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@prelude//utils:utils.bzl", "expect")
 load(
@@ -183,8 +184,10 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
         )
         other_outputs = [classpath_file] + [packaging_jar_args] + _get_java_tool_artifacts(java_toolchain)
 
+    sub_targets = get_classpath_subtarget(packaging_info)
+
     return [
-        DefaultInfo(default_output = main_artifact, other_outputs = other_outputs),
+        DefaultInfo(default_output = main_artifact, other_outputs = other_outputs, sub_targets = sub_targets),
         RunInfo(args = run_cmd),
         create_template_info(packaging_info, first_order_libs),
     ]
