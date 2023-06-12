@@ -1069,6 +1069,9 @@ pub trait ValueLike<'v>:
     /// Produce a [`Value`] regardless of the type you are starting with.
     fn to_value(self) -> Value<'v>;
 
+    /// Convert from [`FrozenValue`].
+    fn from_frozen_value(v: FrozenValue) -> Self;
+
     /// Call this value as a function with given arguments.
     fn invoke(
         self,
@@ -1130,6 +1133,11 @@ impl<'v> ValueLike<'v> for Value<'v> {
         self
     }
 
+    #[inline]
+    fn from_frozen_value(v: FrozenValue) -> Self {
+        v.to_value()
+    }
+
     fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T> {
         if T::static_type_id() == StarlarkStr::static_type_id() {
             if self.is_str() {
@@ -1188,6 +1196,11 @@ impl<'v> ValueLike<'v> for FrozenValue {
     #[inline]
     fn to_value(self) -> Value<'v> {
         Value::new_frozen(self)
+    }
+
+    #[inline]
+    fn from_frozen_value(v: FrozenValue) -> Self {
+        v
     }
 
     #[inline]
