@@ -228,8 +228,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     fn transition_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        cfg: Value<'v>,
         #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named)] cfg: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -275,8 +275,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     fn split_transition_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        cfg: Value<'v>,
         #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named)] cfg: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
