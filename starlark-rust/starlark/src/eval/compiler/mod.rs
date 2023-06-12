@@ -30,6 +30,7 @@ pub(crate) mod scope;
 pub(crate) mod small_vec_1;
 pub(crate) mod span;
 pub(crate) mod stmt;
+pub(crate) mod types;
 
 use std::fmt::Debug;
 

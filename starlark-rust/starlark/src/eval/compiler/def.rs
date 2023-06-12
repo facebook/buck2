@@ -356,24 +356,6 @@ impl Compiler<'_, '_, '_> {
         }
     }
 
-    /// Compile expression when it is expected to be interpreted as type.
-    pub(crate) fn expr_for_type(
-        &mut self,
-        expr: Option<Box<CstTypeExpr>>,
-    ) -> Option<IrSpanned<ExprCompiled>> {
-        if !self.check_types {
-            return None;
-        }
-        let expr = self.expr(expr?.node.0);
-        if let Some(value) = expr.as_value() {
-            if TypeCompiled::is_wildcard_value(value.to_value()) {
-                // When type is anything, skip type check.
-                return None;
-            }
-        }
-        Some(expr)
-    }
-
     /// Compile a parameter. Return `None` for `*` pseudo parameter.
     fn parameter(
         &mut self,
