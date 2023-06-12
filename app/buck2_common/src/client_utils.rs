@@ -114,7 +114,7 @@ pub async fn retrying<L, E, Fut: Future<Output = Result<L, E>>, F: FnMut() -> Fu
     max_delay: Duration,
     timeout: Duration,
     mut func: F,
-) -> anyhow::Result<L, RetryError<E>> {
+) -> Result<L, RetryError<E>> {
     let deadline = Instant::now() + timeout;
     let mut wait = initial_delay;
     let mut tries = 0;
