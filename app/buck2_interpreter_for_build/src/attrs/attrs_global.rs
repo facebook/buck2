@@ -173,12 +173,11 @@ fn attr_module(registry: &mut MethodsBuilder) {
     fn string<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
-        #[allow(unused_variables)]
-        #[starlark(require = named)]
-        validate: Option<Value<'v>>,
+        #[starlark(require = named)] validate: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
+        let _unused = validate;
         Attribute::attr(eval, default, doc, AttrType::string())
     }
 
