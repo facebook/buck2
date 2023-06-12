@@ -8,6 +8,9 @@ max_line_length = 100
 indent_size = 4
 tab_width = 4
 
+[*.md]
+max_line_length = 72
+
 [.patternlint/config.json]
 indent_size = 2
 tab_width = 2
