@@ -419,16 +419,19 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     /// Takes a command line argument from the user and supplies a `cmd_args` compatible value to the rule.
     /// The argument may contain special macros such as `$(location :my_target)` or `$(exe :my_target)` which
-    /// will be replaced with references to those values in the rule.
+    /// will be replaced with references to those values in the rule. Takes in an optional `anon_target_compatible`
+    /// flag, which indicates whether the args can be passed into anon targets. Note that there is a slight memory
+    /// hit when using this flag.
     fn arg<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = false)] json: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
+        #[starlark(require = named, default = false)] anon_target_compatible: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         let _unused = json;
-        Attribute::attr(eval, default, doc, AttrType::arg())
+        Attribute::attr(eval, default, doc, AttrType::arg(anon_target_compatible))
     }
 
     /// Takes a string from one of the variants given, and gives that string to the rule.

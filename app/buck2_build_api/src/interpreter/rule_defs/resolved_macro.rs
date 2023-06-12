@@ -14,6 +14,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_util::arc_str::ArcStr;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
@@ -160,6 +161,7 @@ impl Display for ResolvedStringWithMacrosPart {
 #[derive(Debug, PartialEq, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct ResolvedStringWithMacros {
     parts: Vec<ResolvedStringWithMacrosPart>,
+    configured_macros: Option<ConfiguredStringWithMacros>,
 }
 
 starlark_simple_value!(ResolvedStringWithMacros);
@@ -175,8 +177,14 @@ impl Display for ResolvedStringWithMacros {
 }
 
 impl ResolvedStringWithMacros {
-    pub fn new(parts: Vec<ResolvedStringWithMacrosPart>) -> Self {
-        Self { parts }
+    pub fn new(
+        parts: Vec<ResolvedStringWithMacrosPart>,
+        configured_macros: Option<&ConfiguredStringWithMacros>,
+    ) -> Self {
+        Self {
+            parts,
+            configured_macros: configured_macros.cloned(),
+        }
     }
 
     /// Access the `&str` in this ResolvedStringWithMacros, *if* this ResolvedStringWithMacros is

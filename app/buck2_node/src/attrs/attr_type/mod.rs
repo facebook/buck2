@@ -135,8 +135,14 @@ impl AttrType {
     /// for string parameter macros and make variables. Command line
     /// builders used in rule implementations use args (and so an arg attribute
     /// can be directly added to them).
-    pub fn arg() -> Self {
-        Self(Arc::new(AttrTypeInner::Arg(ArgAttrType)))
+    ///
+    /// Takes in an anon_target_compatible flag, which indicates whether the arg
+    /// can be passed into anon targets. There is a slight memory hit when using
+    /// this flag.
+    pub fn arg(anon_target_compatible: bool) -> Self {
+        Self(Arc::new(AttrTypeInner::Arg(ArgAttrType {
+            anon_target_compatible,
+        })))
     }
 
     pub fn enumeration(variants: Vec<String>) -> anyhow::Result<Self> {

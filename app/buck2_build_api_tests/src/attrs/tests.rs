@@ -767,7 +767,7 @@ fn test_arg() -> anyhow::Result<()> {
     let heap = Heap::new();
     let value = heap.alloc("$(exe //some:exe) --file=$(location \"//some:location\")");
 
-    let attr = AttrType::arg();
+    let attr = AttrType::arg(false);
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     // Note that targets are canonicalized.
@@ -881,7 +881,7 @@ fn test_user_placeholders() -> anyhow::Result<()> {
         .build();
 
     let resolve = move |value: &str| {
-        let attr = AttrType::arg();
+        let attr = AttrType::arg(false);
         let coerced = attr.coerce(
             AttrIsConfigurable::Yes,
             &coercion_ctx(),

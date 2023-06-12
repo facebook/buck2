@@ -16,6 +16,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_util::arc_str::ArcStr;
+use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use static_assertions::assert_eq_size;
@@ -26,11 +27,14 @@ use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative)]
-pub struct ArgAttrType;
+pub struct ArgAttrType {
+    pub anon_target_compatible: bool,
+}
 
 /// [StringWithMacros] is the core representation for an attrs.arg() (in all of it's coerced, configured, and resolved
 /// forms). The parsed arg string is held as a sequence of parts (each part either a literal string or a macro). When
 /// being added to a command line, these parts will be concattenated together and added as a single arg.
+/// Each variant takes in a boolean which determines if the resolved form should be compatible with anon targets.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum StringWithMacros<P: ProvidersLabelMaybeConfigured> {
     /// Semantically, StringWithMacros::StringPart(s) is equivalent to
@@ -52,8 +56,12 @@ impl StringWithMacros<ConfiguredProvidersLabel> {
         let mut parts = Vec::new();
         for x in std::iter::once(Ok(self)).chain(items) {
             match x? {
-                Self::StringPart(x) => parts.push(StringWithMacrosPart::String(x)),
-                Self::ManyParts(xs) => parts.extend(xs.into_vec().into_iter()),
+                Self::StringPart(x) => {
+                    parts.push(StringWithMacrosPart::String(x));
+                }
+                Self::ManyParts(xs) => {
+                    parts.extend(xs.into_vec().into_iter());
+                }
             }
         }
         Ok(Self::ManyParts(parts.into_boxed_slice()))
@@ -86,12 +94,19 @@ impl StringWithMacros<ProvidersLabel> {
     pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
+        anon_target_compatible: bool,
     ) -> anyhow::Result<ConfiguredStringWithMacros> {
         match self {
-            Self::StringPart(part) => Ok(ConfiguredStringWithMacros::StringPart(part.clone())),
-            Self::ManyParts(parts) => Ok(ConfiguredStringWithMacros::ManyParts(
-                parts.try_map(|p| p.configure(ctx))?.into_boxed_slice(),
-            )),
+            Self::StringPart(part) => Ok(ConfiguredStringWithMacros {
+                string_with_macros: StringWithMacros::StringPart(part.clone()),
+                anon_target_compatible,
+            }),
+            Self::ManyParts(parts) => Ok(ConfiguredStringWithMacros {
+                string_with_macros: StringWithMacros::ManyParts(
+                    parts.try_map(|p| p.configure(ctx))?.into_boxed_slice(),
+                ),
+                anon_target_compatible,
+            }),
         }
     }
 
@@ -242,7 +257,13 @@ pub type UnconfiguredStringWithMacrosPart = StringWithMacrosPart<ProvidersLabel>
 pub type ConfiguredStringWithMacrosPart = StringWithMacrosPart<ConfiguredProvidersLabel>;
 
 pub type UnconfiguredStringWithMacros = StringWithMacros<ProvidersLabel>;
-pub type ConfiguredStringWithMacros = StringWithMacros<ConfiguredProvidersLabel>;
+
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Display)]
+#[display(fmt = "{}", string_with_macros)]
+pub struct ConfiguredStringWithMacros {
+    pub string_with_macros: StringWithMacros<ConfiguredProvidersLabel>,
+    pub anon_target_compatible: bool,
+}
 
 /// Display attempts to approximately reproduce the string that created a macro.
 impl<P: ProvidersLabelMaybeConfigured> Display for MacroBase<P> {

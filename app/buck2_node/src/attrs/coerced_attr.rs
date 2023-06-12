@@ -591,7 +591,9 @@ impl CoercedAttr {
                 source.configure_pair(ctx.cfg().cfg_pair().dupe()),
             )),
             CoercedAttrWithType::Label(label, _) => LabelAttrType::configure(ctx, label)?,
-            CoercedAttrWithType::Arg(arg, _) => ConfiguredAttr::Arg(arg.configure(ctx)?),
+            CoercedAttrWithType::Arg(arg, attr_type) => {
+                ConfiguredAttr::Arg(arg.configure(ctx, attr_type.anon_target_compatible)?)
+            }
             CoercedAttrWithType::Query(query, _) => {
                 ConfiguredAttr::Query(Box::new(query.configure(ctx)?))
             }

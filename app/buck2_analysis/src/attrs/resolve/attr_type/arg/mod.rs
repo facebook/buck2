@@ -18,6 +18,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
+use buck2_node::attrs::attr_type::arg::StringWithMacros;
 use buck2_node::attrs::attr_type::arg::UnrecognizedMacro;
 use dupe::Dupe;
 use either::Either;
@@ -56,11 +57,11 @@ pub(crate) trait ConfiguredStringWithMacrosExt {
 
 impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
     fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>> {
-        let resolved_parts = match self {
-            ConfiguredStringWithMacros::StringPart(s) => {
+        let resolved_parts = match &self.string_with_macros {
+            StringWithMacros::StringPart(s) => {
                 vec![ResolvedStringWithMacrosPart::String(s.dupe())]
             }
-            ConfiguredStringWithMacros::ManyParts(ref parts) => {
+            StringWithMacros::ManyParts(ref parts) => {
                 let mut resolved_parts = Vec::with_capacity(parts.len());
                 for part in parts.iter() {
                     match part {
@@ -80,9 +81,16 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
             }
         };
 
-        Ok(ctx
-            .heap()
-            .alloc(ResolvedStringWithMacros::new(resolved_parts)))
+        let configured_macros = if self.anon_target_compatible {
+            Some(self)
+        } else {
+            None
+        };
+
+        Ok(ctx.heap().alloc(ResolvedStringWithMacros::new(
+            resolved_parts,
+            configured_macros,
+        )))
     }
 }
 
