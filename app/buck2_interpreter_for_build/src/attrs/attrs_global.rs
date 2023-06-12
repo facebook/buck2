@@ -379,7 +379,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// ```
     fn default_only<'v>(
         #[starlark(this)] _this: Value<'v>,
-        inner: &AttributeAsStarlarkValue,
+        #[starlark(require = pos)] inner: &AttributeAsStarlarkValue,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         let Some(default) = inner.default().duped() else {
