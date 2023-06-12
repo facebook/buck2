@@ -21,11 +21,14 @@ use async_trait::async_trait;
 use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
+use buck2_build_api::build_signals::create_build_signals;
 use buck2_build_api::build_signals::BuildSignalsInstaller;
 use buck2_build_api::build_signals::SetBuildSignals;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
+use buck2_build_signals::CriticalPathBackendName;
+use buck2_build_signals::HasCriticalPathBackend;
 use buck2_cli_proto::client_context::HostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
@@ -197,9 +200,6 @@ pub struct ServerCommandContext<'a> {
     // also use this to send a RemoteExecutionSessionCreated if the connection is made.
     _re_connection_handle: ReConnectionHandle,
 
-    /// A sender for build signals. This field is exposed to the rest of the command via DICE.
-    build_signals: BuildSignalsInstaller,
-
     /// Starlark profiler instrumentation requested throughout the duration of this command. Usually associated with
     /// the `buck2 profile` command.
     pub starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
@@ -238,7 +238,6 @@ impl<'a> ServerCommandContext<'a> {
     pub fn new(
         base_context: BaseServerCommandContext,
         client_context: &ClientContext,
-        build_signals: BuildSignalsInstaller,
         starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
         build_options: Option<&CommonBuildOptions>,
         buck_out_dir: ProjectRelativePathBuf,
@@ -323,7 +322,6 @@ impl<'a> ServerCommandContext<'a> {
             host_xcode_version_override: client_context.host_xcode_version.clone(),
             oncall,
             _re_connection_handle: re_connection_handle,
-            build_signals,
             starlark_profiler_instrumentation_override,
             buck_out_dir,
             build_options: build_options.cloned(),
@@ -340,7 +338,10 @@ impl<'a> ServerCommandContext<'a> {
         })
     }
 
-    async fn dice_data_constructor(&self) -> DiceCommandDataProvider {
+    async fn dice_data_constructor(
+        &self,
+        build_signals: BuildSignalsInstaller,
+    ) -> DiceCommandDataProvider {
         let execution_strategy = self
             .build_options
             .as_ref()
@@ -382,7 +383,6 @@ impl<'a> ServerCommandContext<'a> {
         let blocking_executor: Arc<_> = self.base_context.blocking_executor.dupe();
         let materializer = self.base_context.materializer.dupe();
         let re_connection = Arc::new(self.get_re_connection());
-        let build_signals = self.build_signals.dupe();
 
         let forkserver = self.base_context.forkserver.dupe();
 
@@ -590,6 +590,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
 
         let worker_pool = Arc::new(WorkerPool::new());
 
+        let critical_path_backend = root_config
+            .parse("buck2", "critical_path_backend2")?
+            .unwrap_or(CriticalPathBackendName::Default);
+
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
         data.set_re_client(self.re_connection.get_client());
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
@@ -618,6 +622,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock.dupe());
         data.set_starlark_debugger_handle(self.starlark_debugger.clone().map(|v| Box::new(v) as _));
         data.set_keep_going(self.keep_going);
+        data.set_critical_path_backend(critical_path_backend);
         data.spawner = Arc::new(BuckSpawner::default());
 
         let tags = vec![
@@ -720,6 +725,8 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
     async fn dice_accessor(&self, _private: PrivateStruct) -> SharedResult<DiceAccessor> {
+        let (build_signals_installer, deferred_build_signals) = create_build_signals();
+
         let is_nested_invocation = if let Some(uuid) = &self.daemon_uuid_from_client {
             uuid == &daemon_id::DAEMON_UUID.to_string()
         } else {
@@ -728,11 +735,12 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
         Ok(DiceAccessor {
             dice_handler: self.base_context.dice_manager.dupe(),
-            data: Box::new(self.dice_data_constructor().await),
+            data: Box::new(self.dice_data_constructor(build_signals_installer).await),
             setup: Box::new(self.dice_updater().await?),
             is_nested_invocation,
             sanitized_argv: self.sanitized_argv.clone(),
             exit_when_different_state: self.exit_when_different_state,
+            build_signals: deferred_build_signals,
         })
     }
 

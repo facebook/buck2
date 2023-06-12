@@ -16,7 +16,6 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_build_api::build_signals::CriticalPathBackendName;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmKind;
@@ -144,8 +143,6 @@ pub struct DaemonStateData {
 
     #[allocative(skip)]
     pub create_unhashed_outputs_lock: Arc<Mutex<()>>,
-
-    pub critical_path_backend: CriticalPathBackendName,
 
     /// A unique identifier for the materializer state.
     pub materializer_state_identity: Option<MaterializerStateIdentity>,
@@ -452,10 +449,6 @@ impl DaemonState {
         )
         .context("failed to init scribe sink")?;
 
-        let critical_path_backend = root_config
-            .parse("buck2", "critical_path_backend2")?
-            .unwrap_or(CriticalPathBackendName::Default);
-
         let enable_restarter = root_config
             .parse::<RolloutPercentage>("buck2", "restarter")?
             .unwrap_or_else(RolloutPercentage::never)
@@ -480,7 +473,6 @@ impl DaemonState {
             disk_state_options,
             start_time: std::time::Instant::now(),
             create_unhashed_outputs_lock,
-            critical_path_backend,
             materializer_state_identity,
             enable_restarter,
             http_client,

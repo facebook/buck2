@@ -24,7 +24,6 @@ use std::time::SystemTime;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::build_signals;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::daemon_api_server::*;
@@ -475,25 +474,17 @@ impl BuckdServer {
                     let result: anyhow::Result<Res> = try {
                         let base_context =
                             daemon_state.prepare_command(dispatch.dupe(), guard).await?;
-                        build_signals::scope(
-                            base_context.events.dupe(),
-                            data.critical_path_backend,
-                            |build_sender| async {
-                                let context = ServerCommandContext::new(
-                                    base_context,
-                                    req.client_context()?,
-                                    build_sender,
-                                    opts.starlark_profiler_instrumentation_override(&req)?,
-                                    req.build_options(),
-                                    daemon_state.paths.buck_out_dir(),
-                                    cancellations,
-                                )?;
 
-                                func(&context, PartialResultDispatcher::new(dispatch.dupe()), req)
-                                    .await
-                            },
-                        )
-                        .await?
+                        let context = ServerCommandContext::new(
+                            base_context,
+                            req.client_context()?,
+                            opts.starlark_profiler_instrumentation_override(&req)?,
+                            req.build_options(),
+                            daemon_state.paths.buck_out_dir(),
+                            cancellations,
+                        )?;
+
+                        func(&context, PartialResultDispatcher::new(dispatch.dupe()), req).await?
                     };
 
                     let result: CommandResult = result_to_command_result(result);

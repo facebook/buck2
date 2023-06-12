@@ -64,6 +64,7 @@ buck2_query = { workspace = true }
 buck2_test_api = { workspace = true }
 buck2_cli_proto = { workspace = true }
 buck2_util = { workspace = true }
+buck2_build_signals = { workspace = true }
 
 [dev-dependencies]
 buck2_wrapper_common = { workspace = true }

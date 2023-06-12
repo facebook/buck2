@@ -10,8 +10,8 @@
 use std::sync::Arc;
 
 use buck2_build_api::actions::RegisteredAction;
-use buck2_build_api::build_signals::CriticalPathBackendName;
 use buck2_build_api::build_signals::NodeDuration;
+use buck2_build_signals::CriticalPathBackendName;
 use buck2_events::span::SpanId;
 use smallvec::SmallVec;
 

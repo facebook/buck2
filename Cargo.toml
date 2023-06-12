@@ -69,6 +69,7 @@ members = [
     "app/buck2_build_api_tests",
     "app/buck2_subscription_proto",
     "app/buck2_critical_path",
+    "app/buck2_build_signals",
     "app/buck2_build_signals_impl",
     "dice/dice",
     "dice/dice_examples",
@@ -355,6 +356,7 @@ buck2_transition = { path = "app/buck2_transition" }
 buck2_worker_proto = { path = "app/buck2_worker_proto" }
 buck2_wrapper_common = { path = "app/buck2_wrapper_common" }
 buck2_critical_path = { path = "app/buck2_critical_path" }
+buck2_build_signals = { path = "app/buck2_build_signals" }
 buck2_build_signals_impl = { path = "app/buck2_build_signals_impl" }
 
 [profile.release]

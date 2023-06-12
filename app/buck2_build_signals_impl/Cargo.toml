@@ -8,6 +8,7 @@ authors = ["Meta"]
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 derive_more = { workspace = true }
 itertools = { workspace = true }
 smallvec = { workspace = true }
@@ -16,6 +17,7 @@ tokio-stream = { workspace = true }
 buck2_analysis = { workspace = true }
 buck2_artifact = { workspace = true }
 buck2_build_api = { workspace = true }
+buck2_build_signals = { workspace = true }
 buck2_configured = { workspace = true }
 buck2_core = { workspace = true }
 buck2_critical_path = { workspace = true }

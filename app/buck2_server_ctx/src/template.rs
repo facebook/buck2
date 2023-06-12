@@ -26,7 +26,7 @@ pub trait ServerCommandTemplate: Send + Sync {
     type EndEvent: Into<buck2_data::command_end::Data> + Default;
     /// Command return type.
     /// TODO: This is called `Result` everywhere, we should probably be consistent.
-    type Response;
+    type Response: Send;
     /// Command partial response.
     type PartialResult: Send + Sync;
 
@@ -77,7 +77,7 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
     span_async(start_event, async {
         let result = server_ctx
             .with_dice_ctx_maybe_exclusive(
-                |server_ctx, ctx| command.command(server_ctx, partial_result_dispatcher, ctx),
+                |server_ctx, dice| command.command(server_ctx, partial_result_dispatcher, dice),
                 command.exclusive_command_name(),
             )
             .await;

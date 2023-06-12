@@ -406,6 +406,7 @@ impl<'a> BuckLspContext<'a> {
     where
         F: FnOnce(DiceTransaction) -> Fut + Send,
         Fut: Future<Output = anyhow::Result<R>> + Send,
+        R: Send,
     {
         self.server_ctx
             .with_dice_ctx(|_, dice_ctx| async move { Ok(exec(dice_ctx).await) })
