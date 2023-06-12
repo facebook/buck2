@@ -533,7 +533,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     fn query<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(default = "")] doc: &str,
+        #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         Attribute::attr(eval, None, doc, AttrType::query())
