@@ -24,6 +24,7 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr_with_type::CoercedAttrWithType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::json::ToJsonWithContext;
@@ -124,16 +125,12 @@ pub(crate) enum AnonTargetFromCoercedAttrError {
     DefaultAttrTypeNotSupported(String),
 }
 
-pub trait AnonTargetAttrTraversal {
-    fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()>;
-}
-
 impl AnonTargetAttr {
     /// Traverses the anon target attribute and calls the traverse for every encountered target label (in deps, sources, or other places).
     pub fn traverse<'a>(
         &'a self,
         pkg: PackageLabel,
-        traversal: &mut dyn AnonTargetAttrTraversal,
+        traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         match self {
             AnonTargetAttr::Bool(_) => Ok(()),

@@ -69,6 +69,7 @@ use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::internal::internal_attrs;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_util::arc_str::ArcSlice;
@@ -95,7 +96,6 @@ use thiserror::Error;
 
 use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
-use crate::anon_target_attr::AnonTargetAttrTraversal;
 use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
 use crate::anon_target_attr_resolve::AnonTargetAttrExt;
 use crate::anon_target_node::AnonTarget;
@@ -284,7 +284,7 @@ impl AnonTargetKey {
     fn deps(&self) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
         struct Traversal(Vec<ConfiguredTargetLabel>);
 
-        impl AnonTargetAttrTraversal for Traversal {
+        impl ConfiguredAttrTraversal for Traversal {
             fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
                 self.0.push(dep.target().dupe());
                 Ok(())
