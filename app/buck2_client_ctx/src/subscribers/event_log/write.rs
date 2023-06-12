@@ -524,8 +524,9 @@ impl SerializeForLog for Invocation {
         Ok(())
     }
 
+    // Always log invocation record to user event log for `buck2 log show` compatibility
     fn is_user_event(&self) -> anyhow::Result<bool> {
-        Ok(false)
+        Ok(true)
     }
 }
 
