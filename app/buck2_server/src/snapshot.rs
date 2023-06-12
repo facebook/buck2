@@ -180,9 +180,7 @@ impl SnapshotCollector {
     }
 
     fn add_materializer_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        if let Some(dm) = self.materializer.as_deferred_materializer_extension() {
-            snapshot.deferred_materializer_queue_size = dm.queue_size() as _;
-        }
+        self.materializer.add_snapshot_stats(snapshot);
     }
 
     fn add_sink_metrics(&self, snapshot: &mut buck2_data::Snapshot) {

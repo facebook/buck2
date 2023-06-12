@@ -358,10 +358,6 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
         receiver.await.context("No response from materializer")
     }
 
-    fn queue_size(&self) -> usize {
-        self.command_sender.counters.queue_size()
-    }
-
     async fn create_subscription(
         &self,
     ) -> anyhow::Result<Box<dyn DeferredMaterializerSubscription>> {

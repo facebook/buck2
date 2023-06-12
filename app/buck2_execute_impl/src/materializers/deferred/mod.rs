@@ -863,6 +863,10 @@ impl Materializer for DeferredMaterializer {
     fn log_materializer_state(&self, events: &EventDispatcher) {
         events.instant_event(self.materializer_state_info.clone())
     }
+
+    fn add_snapshot_stats(&self, snapshot: &mut buck2_data::Snapshot) {
+        snapshot.deferred_materializer_queue_size = self.command_sender.counters.queue_size() as _;
+    }
 }
 
 impl DeferredMaterializer {

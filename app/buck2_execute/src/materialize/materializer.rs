@@ -263,6 +263,10 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
 
     /// Currently no-op for all materializers except deferred materializer
     fn log_materializer_state(&self, _events: &EventDispatcher) {}
+
+    /// Inject stats into a snapshot. This is also used only for the deferred materializer at this
+    /// time.
+    fn add_snapshot_stats(&self, _snapshot: &mut buck2_data::Snapshot) {}
 }
 
 #[derive(Copy, Clone, Dupe, Debug)]
@@ -674,8 +678,6 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
     ) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse>;
 
     async fn test_iter(&self, count: usize) -> anyhow::Result<String>;
-
-    fn queue_size(&self) -> usize;
 
     /// Create a new DeferredMaterializerSubscription.
     async fn create_subscription(
