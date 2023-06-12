@@ -228,7 +228,7 @@ pub(crate) async fn targets_streaming(
 
 /// Given the patterns, separate into those which have an explicit package, and those which are recursive
 fn stream_packages<T: PatternType>(
-    dice: &DiceComputations,
+    dice: &DiceTransaction,
     patterns: Vec<ParsedPattern<T>>,
 ) -> impl Stream<Item = anyhow::Result<(PackageLabel, PackageSpec<T>)>> {
     let mut spec = ResolvedPattern::<T>::new();

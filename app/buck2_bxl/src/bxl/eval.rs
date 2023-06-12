@@ -45,6 +45,7 @@ use buck2_util::collections::ordered_map::OrderedMap;
 use clap::ErrorKind;
 use dashmap::DashMap;
 use dice::DiceComputations;
+use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::FutureExt;
 use more_futures::cancellable_future::CancellationObserver;
@@ -310,7 +311,7 @@ pub struct CliResolutionCtx<'a> {
     pub target_alias_resolver: BuckConfigTargetAliasResolver,
     pub cell_resolver: CellResolver,
     pub relative_dir: PackageLabel,
-    pub dice: &'a DiceComputations,
+    pub dice: &'a DiceTransaction,
 }
 
 pub(crate) enum BxlResolvedCliArgs {
