@@ -171,8 +171,6 @@ impl<'c> Component for TimedListBody<'c> {
 
         let mut first_not_rendered = None;
 
-        let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
-
         for root in &mut roots {
             let rows = self.draw_root(&root)?;
 
@@ -185,10 +183,10 @@ impl<'c> Component for TimedListBody<'c> {
         }
 
         // Add remaining unshown tasks, if any.
-        let more = roots.len() as u64 + first_not_rendered.map_or(0, |_| 1) + pending;
+        let more = roots.len() as u64 + first_not_rendered.map_or(0, |_| 1);
 
         if more > 0 {
-            let remaining = format!("... and {} more", more);
+            let remaining = format!("... and {} more currently executing", more);
             builder.rows.push(
                 std::iter::once(Span::new_styled(remaining.italic())?)
                     .collect::<Line>()
@@ -218,17 +216,19 @@ impl<'s> Component for CountComponent<'s> {
             fmt_duration::fmt_duration(self.state.current_tick.elapsed_time, time_speed.speed());
 
         let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
-        let total = finished + spans.iter_roots().len() as u64 + pending;
 
-        let finished = HumanizedCount::new(finished);
+        let remaining = spans.iter_roots().len() as u64 + pending;
+        let total = remaining + finished;
+
+        let remaining = HumanizedCount::new(remaining);
         let total = HumanizedCount::new(total);
 
         let contents = match mode {
             DrawMode::Normal => {
                 if action_stats.log_stats() {
                     let mut actions_summary = format!(
-                        "Progress: {}/{}. Cache hits: {}%. ",
-                        finished,
+                        "Remaining: {}/{}. Cache hits: {}%. ",
+                        remaining,
                         total,
                         action_stats.action_cache_hit_percentage()
                     );
@@ -244,8 +244,8 @@ impl<'s> Component for CountComponent<'s> {
                     actions_summary
                 } else {
                     format!(
-                        "Progress: {}/{}. Time elapsed: {}",
-                        finished, total, elapsed
+                        "Remaining: {}/{}. Time elapsed: {}",
+                        remaining, total, elapsed
                     )
                 }
             }
@@ -473,7 +473,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "testProgress: 0/2. Cache hits: 100%. Tim",
+            "testRemaining: 2/2. Cache hits: 100%. Ti",
             "----------------------------------------",
             "<span fg=dark_yellow>test -- speak of the devil</span>          <span fg=dark_yellow>3.0s</span>",
             "foo -- speak of the devil           1.0s",
@@ -558,10 +558,10 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "testProgress: 0/3. Cache hits: 100%. Tim",
+            "testRemaining: 3/3. Cache hits: 100%. Ti",
             "----------------------------------------",
             "e1 -- speak of the devil            1.0s",
-            "<span italic>... and 2 more</span>",
+            "<span italic>... and 2 more currently executing</span>",
         ]
         .iter()
         .map(|l| format!("{}\n", l))
@@ -671,10 +671,9 @@ mod tests {
             )?;
 
             let expected = [
-                "test                       Progress: 0/3. Time elapsed: 0.0s",
+                "test                      Remaining: 3/3. Time elapsed: 0.0s",
                 "------------------------------------------------------------",
                 "<span fg=dark_red>pkg:target -- action (category identifier)</span>             <span fg=dark_red>10.0s</span>",
-                "<span italic>... and 2 more</span>",
             ].iter().map(|l| format!("{}\n", l)).join("");
 
             pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
@@ -692,9 +691,9 @@ mod tests {
             )?;
 
             let expected = [
-                "test                       Progress: 0/3. Time elapsed: 0.0s",
+                "test                      Remaining: 3/3. Time elapsed: 0.0s",
                 "------------------------------------------------------------",
-                "<span italic>... and 3 more</span>",
+                "<span italic>... and 1 more currently executing</span>",
             ]
             .iter()
             .map(|l| format!("{}\n", l))
@@ -801,7 +800,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "test                         Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
+            "test                        Remaining: 1/1. Cache hits: 100%. Time elapsed: 0.0s",
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s]</span>                  <span fg=dark_red>10.0s</span>",
         ].iter().map(|l| format!("{}\n", l)).join("");
@@ -847,7 +846,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "test                         Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
+            "test                        Remaining: 1/1. Cache hits: 100%. Time elapsed: 0.0s",
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s + 1]</span>              <span fg=dark_red>10.0s</span>",
         ].iter().map(|l| format!("{}\n", l)).join("");

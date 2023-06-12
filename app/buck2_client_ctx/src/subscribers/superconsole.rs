@@ -1100,7 +1100,7 @@ mod tests {
         }
         assert!(frame_contains(&frame, "Network:"));
         assert!(frame_contains(&frame, "(reSessionID-123)"));
-        assert!(frame_contains(&frame, "Progress"));
+        assert!(frame_contains(&frame, "Remaining"));
 
         console
             .handle_command_result(&buck2_cli_proto::CommandResult { result: None })
