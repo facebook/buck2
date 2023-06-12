@@ -422,13 +422,12 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// will be replaced with references to those values in the rule.
     fn arg<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[allow(unused_variables)]
-        #[starlark(default = false)]
-        json: bool,
+        #[starlark(require = named, default = false)] json: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
+        let _unused = json;
         Attribute::attr(eval, default, doc, AttrType::arg())
     }
 
