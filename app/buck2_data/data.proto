@@ -551,6 +551,9 @@ message Snapshot {
 
   uint64 http_download_bytes = 110;
 
+  uint64 deferred_materializer_declares = 200;
+  uint64 deferred_materializer_declares_reused = 201;
+
   // Client side metrics.
 
   // Delay between time snapshot is created and time it is received

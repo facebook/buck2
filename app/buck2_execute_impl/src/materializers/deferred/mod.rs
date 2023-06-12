@@ -19,6 +19,7 @@ mod tests;
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::pin::Pin;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -149,6 +150,8 @@ pub struct DeferredMaterializer {
 
     /// Tracked for logging purposes.
     materializer_state_info: buck2_data::MaterializerStateInfo,
+
+    stats: Arc<DeferredMaterializerStats>,
 }
 
 impl Drop for DeferredMaterializer {
@@ -156,6 +159,13 @@ impl Drop for DeferredMaterializer {
         // We don't try to stop the underlying thread, since in practice when we drop the
         // DeferredMaterializer we are about to just terminate the process.
     }
+}
+
+/// Statistics we collect while operating the Deferred Materializer.
+#[derive(Allocative, Default)]
+pub struct DeferredMaterializerStats {
+    declares: AtomicU64,
+    declares_reused: AtomicU64,
 }
 
 pub struct DeferredMaterializerConfigs {
@@ -262,6 +272,7 @@ struct DeferredMaterializerCommandProcessor<T: 'static> {
     /// The current ttl_refresh instance, if any exists.
     ttl_refresh_instance: Option<oneshot::Receiver<(DateTime<Utc>, anyhow::Result<()>)>>,
     cancellations: &'static CancellationContext,
+    stats: Arc<DeferredMaterializerStats>,
 }
 
 struct TtlRefreshHistoryEntry {
@@ -865,6 +876,9 @@ impl Materializer for DeferredMaterializer {
     }
 
     fn add_snapshot_stats(&self, snapshot: &mut buck2_data::Snapshot) {
+        snapshot.deferred_materializer_declares = self.stats.declares.load(Ordering::Relaxed);
+        snapshot.deferred_materializer_declares_reused =
+            self.stats.declares_reused.load(Ordering::Relaxed);
         snapshot.deferred_materializer_queue_size = self.command_sender.counters.queue_size() as _;
     }
 }
@@ -901,6 +915,8 @@ impl DeferredMaterializer {
             counters,
         };
 
+        let stats = Arc::new(DeferredMaterializerStats::default());
+
         let num_entries_from_sqlite = sqlite_state.as_ref().map_or(0, |s| s.len()) as u64;
         let materializer_state_info = buck2_data::MaterializerStateInfo {
             num_entries_from_sqlite,
@@ -929,6 +945,7 @@ impl DeferredMaterializer {
             let io_executor = io_executor.dupe();
             let rt = Handle::current();
             let fs = fs.dupe();
+            let stats = stats.dupe();
             move |cancellations| DeferredMaterializerCommandProcessor {
                 io: Arc::new(DefaultIoHandler {
                     fs,
@@ -950,6 +967,7 @@ impl DeferredMaterializer {
                 ttl_refresh_history: Vec::new(),
                 ttl_refresh_instance: None,
                 cancellations,
+                stats,
             }
         };
 
@@ -980,6 +998,7 @@ impl DeferredMaterializer {
             io_executor,
             digest_config,
             materializer_state_info,
+            stats,
         })
     }
 }
@@ -1314,6 +1333,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         value: ArtifactValue,
         method: Box<ArtifactMaterializationMethod>,
     ) {
+        self.stats.declares.fetch_add(1, Ordering::Relaxed);
+
         // Check if artifact to be declared is same as artifact that's already materialized.
         let mut path_iter = path.iter();
         if let Some(data) = self.tree.prefix_get_mut(&mut path_iter) {
@@ -1351,6 +1372,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             active: true,
                         };
                         data.deps = deps;
+
+                        self.stats.declares_reused.fetch_add(1, Ordering::Relaxed);
 
                         return;
                     }

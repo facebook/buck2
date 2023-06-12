@@ -257,6 +257,7 @@ mod state_machine {
                 ttl_refresh_history: Default::default(),
                 ttl_refresh_instance: Default::default(),
                 cancellations: CancellationContext::testing(),
+                stats: Arc::new(DeferredMaterializerStats::default()),
             },
             command_receiver,
         )
