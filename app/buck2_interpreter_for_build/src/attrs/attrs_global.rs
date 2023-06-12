@@ -469,7 +469,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     fn set<'v>(
         #[starlark(this)] _this: Value<'v>,
-        value_type: &AttributeAsStarlarkValue,
+        #[starlark(require = pos)] value_type: &AttributeAsStarlarkValue,
         #[allow(unused_variables)]
         #[starlark(default = false)]
         sorted: bool,
@@ -483,7 +483,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     fn named_set<'v>(
         #[starlark(this)] _this: Value<'v>,
-        value_type: &AttributeAsStarlarkValue,
+        #[starlark(require = pos)] value_type: &AttributeAsStarlarkValue,
         #[starlark(default = false)] sorted: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
