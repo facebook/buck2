@@ -204,7 +204,9 @@ impl Dialect {
 
         Self::check_expr_allowed_in_type(codemap, &x)?;
 
-        Ok(x.into_map(|node| TypeExprP(Spanned { span, node })))
+        Ok(x.into_map(|node| TypeExprP {
+            expr: Spanned { span, node },
+        }))
     }
 
     pub(crate) fn load_visibility(&self) -> Visibility {

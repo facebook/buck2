@@ -139,7 +139,7 @@ fn opt_expr(x: Option<&AstExpr>, res: &mut Vec<Bind>) {
 
 fn opt_type_expr(x: Option<&AstTypeExpr>, res: &mut Vec<Bind>) {
     if let Some(x) = x {
-        expr(&x.0, res)
+        expr(&x.expr, res)
     }
 }
 

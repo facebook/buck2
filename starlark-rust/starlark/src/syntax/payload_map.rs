@@ -198,8 +198,10 @@ impl<A: AstPayload> TypeExprP<A> {
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> TypeExprP<B> {
-        let TypeExprP(expr) = self;
-        TypeExprP(expr.into_map(|e| e.into_map_payload(f)))
+        let TypeExprP { expr } = self;
+        TypeExprP {
+            expr: expr.into_map(|e| e.into_map_payload(f)),
+        }
     }
 }
 

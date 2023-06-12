@@ -479,7 +479,7 @@ impl<'a> Scope<'a> {
     fn resolve_idents_in_type_expr(&mut self, expr: &mut CstTypeExpr) {
         // Currently it resolves idents as regular expression.
         // But it should also check that all idents are resolved to globals or builtins.
-        self.resolve_idents_in_expr(&mut expr.node.0);
+        self.resolve_idents_in_expr(&mut expr.node.expr);
     }
 
     fn current_scope_all_visible_names_for_did_you_mean(&self) -> Vec<FrozenStringValue> {
@@ -1084,7 +1084,7 @@ mod tests {
                             if let Some(name) = name {
                                 self.visit_lvalue(name);
                             }
-                            self.visit_exprs(def.map(|def| &def.node.0));
+                            self.visit_exprs(def.map(|def| &def.node.expr));
                             self.visit_exprs(typ);
                         }
                     }

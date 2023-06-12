@@ -176,12 +176,12 @@ pub(crate) enum ExprP<P: AstPayload> {
 
 /// Restricted expression at type position.
 #[derive(Debug)]
-pub(crate) struct TypeExprP<P: AstPayload>(
+pub(crate) struct TypeExprP<P: AstPayload> {
     /// Currently it is an expr.
     /// Planning to restrict it.
     /// [Context](https://fb.workplace.com/groups/buck2eng/posts/3196541547309990).
-    pub(crate) AstExprP<P>,
-);
+    pub(crate) expr: AstExprP<P>,
+}
 
 /// In some places e.g. AssignModify, the Tuple case is not allowed.
 #[derive(Debug)]
@@ -524,7 +524,7 @@ impl Display for Expr {
 
 impl Display for TypeExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.0.node, f)
+        Display::fmt(&self.expr.node, f)
     }
 }
 

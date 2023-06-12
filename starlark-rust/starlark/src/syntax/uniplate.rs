@@ -407,11 +407,11 @@ impl<P: AstPayload> ExprP<P> {
 
 impl<P: AstPayload> TypeExprP<P> {
     fn visit_expr<'a>(&'a self, mut f: impl FnMut(&'a AstExprP<P>)) {
-        f(&self.0)
+        f(&self.expr)
     }
 
     fn visit_expr_mut<'a>(&'a mut self, mut f: impl FnMut(&'a mut AstExprP<P>)) {
-        f(&mut self.0)
+        f(&mut self.expr)
     }
 }
 

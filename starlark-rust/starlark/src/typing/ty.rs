@@ -608,7 +608,7 @@ impl Ty {
         x: &AstTypeExprP<P>,
         approximations: &mut Vec<Approximation>,
     ) -> Self {
-        Self::from_expr(&x.0, approximations)
+        Self::from_expr(&x.expr, approximations)
     }
 
     // This should go away when `ExprType` is disconnected from `Expr`.

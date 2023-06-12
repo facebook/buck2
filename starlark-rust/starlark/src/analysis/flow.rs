@@ -132,7 +132,7 @@ fn final_return(x: &AstStmt) -> bool {
 fn require_return_expression(ret_type: &Option<Box<AstTypeExpr>>) -> Option<Span> {
     match ret_type {
         None => None,
-        Some(x) => match &x.node.0.node {
+        Some(x) => match &x.node.expr.node {
             Expr::Identifier(x) if x.node.0 == "None" => None,
             _ => Some(x.span),
         },

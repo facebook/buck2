@@ -30,7 +30,7 @@ impl Compiler<'_, '_, '_> {
         if !self.check_types {
             return None;
         }
-        let expr = self.expr(expr?.node.0);
+        let expr = self.expr(expr?.node.expr);
         if let Some(value) = expr.as_value() {
             if TypeCompiled::is_wildcard_value(value.to_value()) {
                 // When type is anything, skip type check.
