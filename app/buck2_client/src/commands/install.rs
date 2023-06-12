@@ -38,6 +38,13 @@ pub struct InstallCommand {
     )]
     installer_debug: bool,
 
+    #[clap(
+        short,
+        long,
+        help = "Run an Android activity. Here for compatibility with buck1 - it is automatically forwarded to the installer"
+    )]
+    run: bool,
+
     #[clap(name = "TARGET", help = "Target to build and install")]
     patterns: Vec<String>,
 
@@ -58,6 +65,11 @@ impl StreamingCommand for InstallCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
+        let mut extra_run_args: Vec<String> = self.extra_run_args.clone();
+        if self.run {
+            extra_run_args.push("-r".to_owned());
+        }
+
         let context = ctx.client_context(
             &self.common_opts.config_opts,
             matches,
@@ -72,7 +84,7 @@ impl StreamingCommand for InstallCommand {
                         value: pat.to_owned(),
                     }),
                     build_opts: Some(self.build_opts.to_proto()),
-                    installer_run_args: self.extra_run_args,
+                    installer_run_args: extra_run_args,
                     installer_debug: self.installer_debug,
                 },
                 ctx.stdin()
