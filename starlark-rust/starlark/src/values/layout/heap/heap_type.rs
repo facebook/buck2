@@ -54,7 +54,6 @@ use crate::values::layout::avalue::any_array_avalue;
 use crate::values::layout::avalue::array_avalue;
 use crate::values::layout::avalue::complex;
 use crate::values::layout::avalue::complex_no_freeze;
-use crate::values::layout::avalue::float_avalue;
 use crate::values::layout::avalue::frozen_list_avalue;
 use crate::values::layout::avalue::frozen_tuple_avalue;
 use crate::values::layout::avalue::list_avalue;
@@ -80,7 +79,6 @@ use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
 use crate::values::string::intern::interner::FrozenStringInterner;
 use crate::values::string::StarlarkStr;
-use crate::values::types::float::StarlarkFloat;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::ComplexValue;
@@ -385,10 +383,6 @@ impl FrozenHeap {
         } else {
             self.alloc_list(&elems.collect::<Vec<_>>())
         }
-    }
-
-    pub(crate) fn alloc_float(&self, f: StarlarkFloat) -> FrozenValue {
-        self.alloc_raw(float_avalue(f))
     }
 
     pub(crate) fn alloc_simple_typed<T: StarlarkValue<'static> + Send + Sync>(
@@ -754,10 +748,6 @@ impl Heap {
         let mut dst = [0; 4];
         let res = x.encode_utf8(&mut dst);
         self.alloc_str(res)
-    }
-
-    pub(crate) fn alloc_float<'v>(&'v self, f: StarlarkFloat) -> Value<'v> {
-        self.alloc_raw(float_avalue(f))
     }
 
     /// Allocate a simple [`StarlarkValue`] on this heap.

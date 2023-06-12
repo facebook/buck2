@@ -213,15 +213,27 @@ impl StarlarkTypeRepr for f64 {
     }
 }
 
+impl<'v> AllocValue<'v> for StarlarkFloat {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_simple(self)
+    }
+}
+
+impl AllocFrozenValue for StarlarkFloat {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        heap.alloc_simple(self)
+    }
+}
+
 impl<'v> AllocValue<'v> for f64 {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_float(StarlarkFloat(self))
+        heap.alloc(StarlarkFloat(self))
     }
 }
 
 impl AllocFrozenValue for f64 {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        heap.alloc_float(StarlarkFloat(self))
+        heap.alloc(StarlarkFloat(self))
     }
 }
 
@@ -252,13 +264,6 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
         "float.type".to_owned()
     }
 
-    fn is_special(_: Private) -> bool
-    where
-        Self: Sized,
-    {
-        true
-    }
-
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
         Ok(Some(NumRef::Float(self.0)) == other.unpack_num())
     }
@@ -281,11 +286,11 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     }
 
     fn plus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc_float(*self))
+        Ok(heap.alloc(*self))
     }
 
     fn minus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc_float(StarlarkFloat(-self.0)))
+        Ok(heap.alloc(StarlarkFloat(-self.0)))
     }
 
     fn add(&self, other: Value, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {

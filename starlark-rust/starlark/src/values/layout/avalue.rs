@@ -40,7 +40,6 @@ use crate::slice_vec_ext::SliceExt;
 use crate::values::bool::StarlarkBool;
 use crate::values::dict::value::DictGen;
 use crate::values::dict::value::FrozenDictData;
-use crate::values::float::StarlarkFloat;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::heap::arena::MIN_ALLOC;
 use crate::values::layout::heap::repr::AValueForward;
@@ -242,10 +241,6 @@ where
     AValueImpl::<ComplexNoFreeze, _>::new(x)
 }
 
-pub(crate) fn float_avalue<'v>(x: StarlarkFloat) -> impl AValue<'v, ExtraElem = ()> {
-    AValueImpl::<Direct, _>::new(x)
-}
-
 pub(crate) trait AValueMode: Send + Sync + 'static {}
 
 // A type where the second element is in control of what instances are in scope
@@ -311,31 +306,6 @@ impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueImpl<Basic, T> {
     }
     unsafe fn heap_copy(_me: *mut AValueRepr<Self>, _tracer: &Tracer<'v>) -> Value<'v> {
         unreachable!("Basic types don't appear in the heap")
-    }
-}
-
-impl<'v> AValue<'v> for AValueImpl<Direct, StarlarkFloat> {
-    type StarlarkValue = StarlarkFloat;
-
-    type ExtraElem = ();
-
-    fn extra_len(&self) -> usize {
-        0
-    }
-
-    fn offset_of_extra() -> usize {
-        mem::size_of::<Self>()
-    }
-
-    unsafe fn heap_freeze(
-        me: *mut AValueRepr<Self>,
-        freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
-        Self::heap_freeze_simple_impl(me, freezer)
-    }
-
-    unsafe fn heap_copy(me: *mut AValueRepr<Self>, tracer: &Tracer<'v>) -> Value<'v> {
-        Self::heap_copy_impl(me, tracer, |_v, _tracer| {})
     }
 }
 
