@@ -209,7 +209,7 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
     }
 
     fn assert_type<'v>(v: Value<'v>, ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<NoneType> {
-        v.check_type(ty, Some("v"), heap)?;
+        TypeCompiled::new(ty, heap)?.check_type(v, Some("v"))?;
         Ok(NoneType)
     }
 

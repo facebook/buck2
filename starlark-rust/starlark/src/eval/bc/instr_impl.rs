@@ -1127,7 +1127,7 @@ impl InstrNoFlowImpl for InstrCheckTypeImpl {
         } else {
             None
         };
-        let res = expr.check_type(ty, None, eval.heap());
+        let res = TypeCompiled::new(ty, eval.heap())?.check_type(expr, None);
         if let Some(start) = start {
             let name = const_frozen_string!("assignment");
             eval.typecheck_profile.add(name, start.elapsed());

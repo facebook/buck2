@@ -784,18 +784,6 @@ fn invalid_type_annotation<'v>(ty: Value<'v>, heap: &'v Heap) -> TypingError {
     }
 }
 
-impl<'v> Value<'v> {
-    pub(crate) fn check_type(
-        self,
-        ty: Value<'v>,
-        arg_name: Option<&str>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<()> {
-        let ty = TypeCompiled::new(ty, heap)?;
-        ty.check_type(self, arg_name)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::assert;
