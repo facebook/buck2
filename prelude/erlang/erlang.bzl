@@ -80,6 +80,7 @@ rules_attributes = {
         "deps": attrs.list(attrs.dep(), default = []),
         "env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
         "extra_ct_hooks": attrs.list(attrs.string(), default = []),
+        "preamble": attrs.string(default = read_config("erlang", "erlang_test_preamble", "test:info(),test:ensure_initialized(),user_drv:start().")),
         "property_tests": attrs.list(attrs.dep(), default = []),
         "resources": attrs.list(attrs.dep(), default = []),
         "suite": attrs.source(),
