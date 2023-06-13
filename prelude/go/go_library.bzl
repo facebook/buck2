@@ -25,7 +25,7 @@ load(
 )
 load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
-load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
+load(":packages.bzl", "GoPkg", "go_attr_pkg_name", "merge_pkgs")
 
 def go_library_impl(ctx: "context") -> ["provider"]:
     pkgs = {}
@@ -33,15 +33,31 @@ def go_library_impl(ctx: "context") -> ["provider"]:
     pkg_name = None
     if ctx.attrs.srcs:
         pkg_name = go_attr_pkg_name(ctx)
-        lib = compile(
+        srcs = get_filtered_srcs(ctx, ctx.attrs.srcs)
+
+        static_pkg = compile(
             ctx,
             pkg_name,
-            get_filtered_srcs(ctx, ctx.attrs.srcs),
+            srcs = srcs,
             deps = ctx.attrs.deps + ctx.attrs.exported_deps,
             compile_flags = ctx.attrs.compiler_flags,
+            shared = False,
         )
-        default_output = lib
-        pkgs[pkg_name] = lib
+
+        shared_pkg = compile(
+            ctx,
+            pkg_name,
+            srcs = srcs,
+            deps = ctx.attrs.deps + ctx.attrs.exported_deps,
+            compile_flags = ctx.attrs.compiler_flags,
+            shared = True,
+        )
+
+        default_output = static_pkg
+        pkgs[pkg_name] = GoPkg(
+            shared = shared_pkg,
+            static = static_pkg,
+        )
 
     return [
         DefaultInfo(default_output = default_output),

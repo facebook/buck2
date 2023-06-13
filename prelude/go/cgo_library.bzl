@@ -44,7 +44,7 @@ load(
 )
 load(":compile.bzl", "GoPkgCompileInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
-load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
+load(":packages.bzl", "GoPkg", "go_attr_pkg_name", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
 # A map of expected linkages for provided link style
@@ -179,16 +179,29 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
         all_srcs.add(get_filtered_srcs(ctx, ctx.attrs.go_srcs))
 
     # Build Go library.
-    lib = compile(
+    static_pkg = compile(
         ctx,
         pkg_name,
         all_srcs,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
+        shared = False,
     )
+    shared_pkg = compile(
+        ctx,
+        pkg_name,
+        all_srcs,
+        deps = ctx.attrs.deps + ctx.attrs.exported_deps,
+        shared = True,
+    )
+    pkgs = {
+        pkg_name: GoPkg(
+            shared = shared_pkg,
+            static = static_pkg,
+        ),
+    }
 
-    pkgs = {pkg_name: lib}
     return [
-        DefaultInfo(default_output = lib),
+        DefaultInfo(default_output = static_pkg),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),
