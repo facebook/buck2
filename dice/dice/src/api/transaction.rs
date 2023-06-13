@@ -82,7 +82,7 @@ impl DiceTransactionUpdater {
 /// the time of creation of this transaction.
 ///
 /// This SHOULD NOT be ever stored by computations, or any results of computations.
-#[derive(Allocative)]
+#[derive(Allocative, Clone, Dupe)]
 pub struct DiceTransaction(pub(crate) DiceTransactionImpl);
 
 impl DiceTransaction {
@@ -146,11 +146,3 @@ impl Deref for DiceTransaction {
         self.0.as_computations()
     }
 }
-
-impl Clone for DiceTransaction {
-    fn clone(&self) -> Self {
-        Self(self.0.dupe())
-    }
-}
-
-impl Dupe for DiceTransaction {}
