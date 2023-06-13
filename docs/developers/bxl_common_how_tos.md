@@ -107,11 +107,12 @@ You can use `buck2 bxl profiler`, with various measurements, to determine where 
 To time individual pieces of the script, you can use BXL’s timestamp methods:
 
 ```python
-def _impl_example(ctx):
-    now = ctx.now() # call once and reuse wherever is necessary
-    start = now.elapsed_millis()
+def _impl_example(_ctx):
+    start = now() # call once and reuse wherever is necessary
     # do something time intensive here
-    end = now.elapsed_millis()
+    end1 = start.elapsed_millis()
+    # do something else time intensive here
+    end2 = start.elapsed_millis()
 ```
 
 BXL does not have a debugger available nor a robust testing framework for mocking.
