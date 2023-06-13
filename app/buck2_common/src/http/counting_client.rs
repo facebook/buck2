@@ -95,14 +95,6 @@ where
 
 #[async_trait::async_trait]
 impl HttpClient for CountingHttpClient {
-    async fn put(
-        &self,
-        uri: &str,
-        body: Bytes,
-        headers: Vec<(String, String)>,
-    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
-        Ok(self.inner.put(uri, body, headers).await?)
-    }
     async fn request(
         &self,
         request: Request<Bytes>,
