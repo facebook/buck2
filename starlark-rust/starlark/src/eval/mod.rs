@@ -81,7 +81,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
         let root_scope_id = scope_data.new_scope().0;
 
-        let mut statement = statement.into_map_payload(&mut CompilerAstMap(&mut scope_data));
+        let mut statement = statement.into_map_payload(&mut CompilerAstMap {
+            scope_data: &mut scope_data,
+        });
 
         if let Some(docstring) = DocString::extract_raw_starlark_docstring(&statement) {
             self.module_env.set_docstring(docstring)

@@ -942,7 +942,10 @@ impl AstPayload for CstPayload {
     type TypeExprPayload = ();
 }
 
-pub(crate) struct CompilerAstMap<'a>(pub(crate) &'a mut ScopeData);
+pub(crate) struct CompilerAstMap<'a> {
+    pub(crate) scope_data: &'a mut ScopeData,
+}
+
 impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_> {
     fn map_load(&mut self, _import_path: &str, (): ()) {}
 
@@ -955,7 +958,7 @@ impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_> {
     }
 
     fn map_def(&mut self, (): ()) -> ScopeId {
-        self.0.new_scope().0
+        self.scope_data.new_scope().0
     }
 
     fn map_type_expr(&mut self, (): ()) {}
@@ -1003,9 +1006,9 @@ mod tests {
         let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::Extended).unwrap();
         let mut scope_data = ScopeData::new();
         let root_scope_id = scope_data.new_scope().0;
-        let mut cst = ast
-            .statement
-            .into_map_payload(&mut CompilerAstMap(&mut scope_data));
+        let mut cst = ast.statement.into_map_payload(&mut CompilerAstMap {
+            scope_data: &mut scope_data,
+        });
         let frozen_heap = FrozenHeap::new();
         let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap.dupe());
         let scope = Scope::enter_module(

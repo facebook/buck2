@@ -54,9 +54,9 @@ fn unique_identifiers<'f>(
 ) -> (CstStmt, Scope<'f>) {
     let mut scope_data = ScopeData::new();
     let root_scope_id = scope_data.new_scope().0;
-    let mut cst = ast
-        .statement
-        .into_map_payload(&mut CompilerAstMap(&mut scope_data));
+    let mut cst = ast.statement.into_map_payload(&mut CompilerAstMap {
+        scope_data: &mut scope_data,
+    });
     let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap.dupe());
     let scope = Scope::enter_module(
         names,
