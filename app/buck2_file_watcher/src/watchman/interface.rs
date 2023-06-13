@@ -30,14 +30,14 @@ use watchman_client::expr::Expr;
 use watchman_client::prelude::Connector;
 use watchman_client::prelude::FileType;
 
-use crate::file_watcher::stats::FileWatcherStats;
-use crate::file_watcher::watchman::core::SyncableQuery;
-use crate::file_watcher::watchman::core::SyncableQueryProcessor;
-use crate::file_watcher::watchman::core::WatchmanEvent;
-use crate::file_watcher::watchman::core::WatchmanEventType;
-use crate::file_watcher::watchman::core::WatchmanKind;
 use crate::file_watcher::FileWatcher;
-use crate::file_watcher::Mergebase;
+use crate::mergebase::Mergebase;
+use crate::stats::FileWatcherStats;
+use crate::watchman::core::SyncableQuery;
+use crate::watchman::core::SyncableQueryProcessor;
+use crate::watchman::core::WatchmanEvent;
+use crate::watchman::core::WatchmanEventType;
+use crate::watchman::core::WatchmanKind;
 
 struct WatchmanQueryProcessor {
     cells: CellResolver,
@@ -243,7 +243,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         // former (where we'll fetch loads of dep files that all miss), so we err on the side of
         // being safe and drop them when the mergebase changes.
         if clear_dep_files {
-            buck2_build_api::actions::impls::dep_files::flush_dep_files();
+            crate::dep_files::flush_dep_files();
         }
 
         self.last_mergebase = mergebase.clone();

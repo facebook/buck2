@@ -35,9 +35,9 @@ use notify::RecommendedWatcher;
 use notify::Watcher;
 use tracing::info;
 
-use crate::file_watcher::stats::FileWatcherStats;
 use crate::file_watcher::FileWatcher;
-use crate::file_watcher::Mergebase;
+use crate::mergebase::Mergebase;
+use crate::stats::FileWatcherStats;
 
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Hash, Allocative)]
 enum ChangeType {

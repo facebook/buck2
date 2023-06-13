@@ -23,7 +23,6 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:maplit",
-        "fbsource//third-party/rust:tempfile",
         "//buck2/app/buck2_util:buck2_util",
     ],
     deps = [
@@ -41,7 +40,6 @@ rust_library(
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:lsp-types",
         "fbsource//third-party/rust:maplit",
-        "fbsource//third-party/rust:notify",
         "fbsource//third-party/rust:num_cpus",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:parking_lot",
@@ -49,7 +47,6 @@ rust_library(
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:rand",
-        "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:shlex",
         "fbsource//third-party/rust:sync_wrapper",
@@ -73,6 +70,7 @@ rust_library(
         "//buck2/app/buck2_events:buck2_events",
         "//buck2/app/buck2_execute:buck2_execute",
         "//buck2/app/buck2_execute_impl:buck2_execute_impl",
+        "//buck2/app/buck2_file_watcher:buck2_file_watcher",
         "//buck2/app/buck2_forkserver:buck2_forkserver",
         "//buck2/app/buck2_interpreter:buck2_interpreter",
         "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",
@@ -94,6 +92,5 @@ rust_library(
         "//buck2/starlark-rust/starlark_map:starlark_map",
         # @oss-disable: "//common/rust/shed/detect_eden:detect_eden", 
         "//common/rust/shed/fbinit:fbinit",
-        "//watchman/rust/watchman_client:watchman_client",
     ],
 )

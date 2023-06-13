@@ -24,9 +24,9 @@ use watchman_client::expr::Expr;
 use watchman_client::prelude::Connector;
 use watchman_client::prelude::FileType;
 
-use crate::file_watcher::watchman::core::SyncableQuery;
-use crate::file_watcher::watchman::core::SyncableQueryProcessor;
-use crate::file_watcher::watchman::core::WatchmanEvent;
+use crate::watchman::core::SyncableQuery;
+use crate::watchman::core::SyncableQueryProcessor;
+use crate::watchman::core::WatchmanEvent;
 
 struct TestQueryProcessor;
 

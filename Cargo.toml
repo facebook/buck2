@@ -316,6 +316,7 @@ buck2_test = { path = "app/buck2_test" }
 buck2_test_api = { path = "app/buck2_test_api" }
 buck2_test_proto = { path = "app/buck2_test_proto" }
 buck2_test_runner = { path = "app/buck2_test_runner" }
+buck2_file_watcher = { path = "app/buck2_file_watcher" }
 buck2_forkserver = { path = "app/buck2_forkserver" }
 buck2_forkserver_proto = { path = "app/buck2_forkserver_proto" }
 buck2_profile = { path = "app/buck2_profile" }

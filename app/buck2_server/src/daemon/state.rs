@@ -53,6 +53,7 @@ use buck2_execute_impl::materializers::immediate::ImmediateMaterializer;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
+use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
@@ -73,8 +74,6 @@ use crate::daemon::disk_state::DiskStateOptions;
 use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
-use crate::file_watcher::FileWatcher;
-
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
 #[derive(Allocative)]
 pub struct DaemonState {

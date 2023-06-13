@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
-pub mod expanded_command_line;
-pub mod json;
-pub mod run_action_knobs;
+pub mod dep_files;
+pub mod file_watcher;
+pub mod mergebase;
+mod notify;
+mod stats;
+mod watchman;

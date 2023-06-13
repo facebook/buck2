@@ -13,7 +13,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_build_api::actions::impls::mergebase::Mergebase;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::name::CellName;
@@ -22,12 +21,9 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::is_open_source;
 use dice::DiceTransactionUpdater;
 
-use crate::file_watcher::notify::NotifyFileWatcher;
-use crate::file_watcher::watchman::interface::WatchmanFileWatcher;
-
-mod notify;
-mod stats;
-mod watchman;
+use crate::mergebase::Mergebase;
+use crate::notify::NotifyFileWatcher;
+use crate::watchman::interface::WatchmanFileWatcher;
 
 #[async_trait]
 pub trait FileWatcher: Allocative + Send + Sync + 'static {
