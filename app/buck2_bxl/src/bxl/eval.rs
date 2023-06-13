@@ -30,6 +30,7 @@ use buck2_data::BxlExecutionEnd;
 use buck2_data::BxlExecutionStart;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher;
+use buck2_events::dispatch::with_dispatcher_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
@@ -47,7 +48,7 @@ use dashmap::DashMap;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use futures::FutureExt;
+use itertools::Itertools;
 use more_futures::cancellable_future::CancellationObserver;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -77,203 +78,227 @@ pub(crate) async fn eval(
     // and yielded. So, for cancellation observers to work properly within the dice cancellable
     // future context, we need the future that it's attached to the cancellation context can
     // yield and be polled. To ensure that, we have to spawn the future that then enters block_in_place
-    ctx.temporary_spawn(move |ctx, _cancellations| {
-        async move {
-            let bxl_module = ctx
-                .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
-                .await?;
 
-            let cell_resolver = ctx.get_cell_resolver().await?;
+    let dispatcher = ctx.per_transaction_data().get_dispatcher().dupe();
 
-            let bxl_cell = cell_resolver
-                .get(key.label().bxl_path.cell())
-                .with_context(|| format!("Cell does not exist: `{}`", key.label().bxl_path.cell()))?
-                .dupe();
+    let (_, futs) = unsafe {
+        // SAFETY: as long as we don't `forget` the return object from `scope_and_collect`, it is safe
 
-            let target_alias_resolver = ctx
-                .target_alias_resolver_for_cell(key.label().bxl_path.cell())
-                .await?;
+        // Additional cancellation notes:
+        // the `scope_and_collect` will block on drop, but it will move the blocking to a tokio
+        // blocking thread, freeing up the main worker threads. Additionally, the `spawn_cancellable`
+        // on the scope will be dropped at the earliest await point. If we are within the blocking
+        // section of bxl, the cancellation observer will be notified and cause the blocking calls
+        // to terminate.
+        async_scoped::TokioScope::scope_and_collect(|s| {
+            s.spawn_cancellable(
+                with_dispatcher_async(dispatcher.dupe(), async move {
+                    let bxl_module = ctx
+                        .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
+                        .await?;
 
-            let project_fs = ctx.global_data().get_io_provider().project_root().dupe();
-            let artifact_fs = ctx.get_artifact_fs().await?;
+                    let cell_resolver = ctx.get_cell_resolver().await?;
 
-            let digest_config = ctx.global_data().get_digest_config();
+                    let bxl_cell = cell_resolver
+                        .get(key.label().bxl_path.cell())
+                        .with_context(|| {
+                            format!("Cell does not exist: `{}`", key.label().bxl_path.cell())
+                        })?
+                        .dupe();
 
-            let dispatcher = ctx.per_transaction_data().get_dispatcher().dupe();
+                    let target_alias_resolver = ctx
+                        .target_alias_resolver_for_cell(key.label().bxl_path.cell())
+                        .await?;
 
-            // The bxl function may trigger async operations like builds, analysis, parsing etc, but those
-            // will be blocking calls so that starlark can remain synchronous.
-            // So indicate to tokio that this may block in place to avoid starvation. Ideally we use
-            // spawn_blocking but that requires a static lifetime. There is no `join`s of multiple
-            // futures that requires work to be done on the current thread, so using block_in_place
-            // should have no noticeable different compared to spawn_blocking
+                    let project_fs = ctx.global_data().get_io_provider().project_root().dupe();
+                    let artifact_fs = ctx.get_artifact_fs().await?;
 
-            // we put a file as our output stream cache. The file is associated with the `BxlKey`, which
-            // is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping
-            // the output file cache up to date.
-            let output_stream = BuckOutPath::new(
-                BaseDeferredKey::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl()),
-                ForwardRelativePathBuf::unchecked_new(
-                    "__bxl_internal__/outputstream_cache".to_owned(),
-                ),
-            );
-            let file_path = artifact_fs
-                .buck_out_path_resolver()
-                .resolve_gen(&output_stream);
+                    let digest_config = ctx.global_data().get_digest_config();
 
-            let file = RefCell::new(Box::new(project_fs.create_file(&file_path, false)?));
+                    // The bxl function may trigger async operations like builds, analysis, parsing etc, but those
+                    // will be blocking calls so that starlark can remain synchronous.
+                    // So indicate to tokio that this may block in place to avoid starvation. Ideally we use
+                    // spawn_blocking but that requires a static lifetime. There is no `join`s of multiple
+                    // futures that requires work to be done on the current thread, so using block_in_place
+                    // should have no noticeable different compared to spawn_blocking
 
-            let error_stream = BuckOutPath::new(
-                BaseDeferredKey::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl()),
-                ForwardRelativePathBuf::unchecked_new(
-                    "__bxl_internal__/errorstream_cache".to_owned(),
-                ),
-            );
-            let error_file_path = artifact_fs
-                .buck_out_path_resolver()
-                .resolve_gen(&error_stream);
+                    // we put a file as our output stream cache. The file is associated with the `BxlKey`, which
+                    // is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping
+                    // the output file cache up to date.
+                    let output_stream = BuckOutPath::new(
+                        BaseDeferredKey::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl()),
+                        ForwardRelativePathBuf::unchecked_new(
+                            "__bxl_internal__/outputstream_cache".to_owned(),
+                        ),
+                    );
+                    let file_path = artifact_fs
+                        .buck_out_path_resolver()
+                        .resolve_gen(&output_stream);
 
-            let error_file =
-                RefCell::new(Box::new(project_fs.create_file(&error_file_path, false)?));
+                    let file = RefCell::new(Box::new(project_fs.create_file(&file_path, false)?));
 
-            let print = EventDispatcherPrintHandler(dispatcher.clone());
+                    let error_stream = BuckOutPath::new(
+                        BaseDeferredKey::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl()),
+                        ForwardRelativePathBuf::unchecked_new(
+                            "__bxl_internal__/errorstream_cache".to_owned(),
+                        ),
+                    );
+                    let error_file_path = artifact_fs
+                        .buck_out_path_resolver()
+                        .resolve_gen(&error_stream);
 
-            let mut profiler_opt = profile_mode_or_instrumentation
-                .profile_mode()
-                .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
+                    let error_file =
+                        RefCell::new(Box::new(project_fs.create_file(&error_file_path, false)?));
 
-            let mut profiler = match &mut profiler_opt {
-                None => StarlarkProfilerOrInstrumentation::disabled(),
-                Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
-            };
+                    let print = EventDispatcherPrintHandler(dispatcher.clone());
 
-            let global_target_platform = key.global_target_platform().clone();
+                    let mut profiler_opt = profile_mode_or_instrumentation
+                        .profile_mode()
+                        .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
 
-            let (bxl_result, materializations) = with_starlark_eval_provider(
-                ctx,
-                &mut profiler,
-                format!("bxl:{}", key),
-                move |provider| {
-                    let env = Module::new();
+                    let mut profiler = match &mut profiler_opt {
+                        None => StarlarkProfilerOrInstrumentation::disabled(),
+                        Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
+                    };
 
-                    let resolved_args = env.heap().alloc(AllocStruct(
-                        key.cli_args()
-                            .iter()
-                            .map(|(k, v)| (k, v.as_starlark(env.heap()))),
-                    ));
+                    let global_target_platform = key.global_target_platform().clone();
 
-                    let mut eval = provider.make(&env)?;
-                    let bxl_function_name = key.label().name.clone();
-                    let frozen_callable = get_bxl_callable(key.label(), &bxl_module)?;
-                    eval.set_print_handler(&print);
+                    let (bxl_result, materializations) = with_starlark_eval_provider(
+                        ctx,
+                        &mut profiler,
+                        format!("bxl:{}", key),
+                        move |provider| {
+                            let env = Module::new();
 
-                    let bxl_ctx = BxlContext::new(
-                        eval.heap(),
-                        key,
-                        resolved_args,
-                        target_alias_resolver,
-                        project_fs,
-                        artifact_fs,
-                        cell_resolver,
-                        bxl_cell.name(),
-                        BxlSafeDiceComputations::new(&ctx, liveness),
-                        file,
-                        error_file,
-                        digest_config,
-                        global_target_platform,
-                    )?;
+                            let resolved_args = env.heap().alloc(AllocStruct(
+                                key.cli_args()
+                                    .iter()
+                                    .map(|(k, v)| (k, v.as_starlark(env.heap()))),
+                            ));
 
-                    let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
+                            let mut eval = provider.make(&env)?;
+                            let bxl_function_name = key.label().name.clone();
+                            let frozen_callable = get_bxl_callable(key.label(), &bxl_module)?;
+                            eval.set_print_handler(&print);
 
-                    let result = tokio::task::block_in_place(|| {
-                        with_dispatcher(dispatcher.clone(), || {
-                            dispatcher.clone().span(
-                                BxlExecutionStart {
-                                    name: bxl_function_name,
-                                },
-                                || {
-                                    (
-                                        eval_bxl(
-                                            &mut eval,
-                                            frozen_callable,
-                                            bxl_ctx.to_value(),
-                                            provider,
-                                        ),
-                                        BxlExecutionEnd {},
+                            let bxl_ctx = BxlContext::new(
+                                eval.heap(),
+                                key,
+                                resolved_args,
+                                target_alias_resolver,
+                                project_fs,
+                                artifact_fs,
+                                cell_resolver,
+                                bxl_cell.name(),
+                                BxlSafeDiceComputations::new(ctx, liveness),
+                                file,
+                                error_file,
+                                digest_config,
+                                global_target_platform,
+                            )?;
+
+                            let bxl_ctx =
+                                ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
+
+                            let result = tokio::task::block_in_place(|| {
+                                with_dispatcher(dispatcher.clone(), || {
+                                    dispatcher.clone().span(
+                                        BxlExecutionStart {
+                                            name: bxl_function_name,
+                                        },
+                                        || {
+                                            (
+                                                eval_bxl(
+                                                    &mut eval,
+                                                    frozen_callable,
+                                                    bxl_ctx.to_value(),
+                                                    provider,
+                                                ),
+                                                BxlExecutionEnd {},
+                                            )
+                                        },
                                     )
-                                },
-                            )
-                        })
-                    })?;
-                    if !result.is_none() {
-                        return Err(anyhow::anyhow!(NotAValidReturnType(result.get_type())));
-                    }
+                                })
+                            })?;
+                            if !result.is_none() {
+                                return Err(anyhow::anyhow!(NotAValidReturnType(
+                                    result.get_type()
+                                )));
+                            }
 
-                    let (actions, ensured_artifacts, materializations) =
-                        BxlContext::take_state(bxl_ctx)?;
-                    std::mem::drop(eval);
+                            let (actions, ensured_artifacts, materializations) =
+                                BxlContext::take_state(bxl_ctx)?;
+                            std::mem::drop(eval);
 
-                    let (actions_finalizer, ensured_artifacts, materializations) = {
-                        // help rust understand that actions is consumed here.
-                        let actions = actions;
-                        match actions {
-                            Some(registry) => (
-                                Some(registry.finalize(&env)?),
-                                ensured_artifacts,
-                                materializations,
-                            ),
-                            None => (None, ensured_artifacts, materializations),
-                        }
-                    };
+                            let (actions_finalizer, ensured_artifacts, materializations) = {
+                                // help rust understand that actions is consumed here.
+                                let actions = actions;
+                                match actions {
+                                    Some(registry) => (
+                                        Some(registry.finalize(&env)?),
+                                        ensured_artifacts,
+                                        materializations,
+                                    ),
+                                    None => (None, ensured_artifacts, materializations),
+                                }
+                            };
 
-                    let (frozen_module, bxl_result) = match actions_finalizer {
-                        Some(actions_finalizer) => {
-                            // this bxl registered actions, so extract the deferreds from it
-                            let (frozen_module, deferred) = actions_finalizer(env)?;
+                            let (frozen_module, bxl_result) = match actions_finalizer {
+                                Some(actions_finalizer) => {
+                                    // this bxl registered actions, so extract the deferreds from it
+                                    let (frozen_module, deferred) = actions_finalizer(env)?;
 
-                            let deferred_table = DeferredTable::new(deferred.take_result()?);
+                                    let deferred_table =
+                                        DeferredTable::new(deferred.take_result()?);
 
-                            (
-                                frozen_module,
-                                BxlResult::new(
-                                    output_stream,
-                                    error_stream,
-                                    ensured_artifacts,
-                                    deferred_table,
-                                ),
-                            )
-                        }
-                        None => {
-                            let frozen_module = env.freeze()?;
+                                    (
+                                        frozen_module,
+                                        BxlResult::new(
+                                            output_stream,
+                                            error_stream,
+                                            ensured_artifacts,
+                                            deferred_table,
+                                        ),
+                                    )
+                                }
+                                None => {
+                                    let frozen_module = env.freeze()?;
 
-                            // this bxl did not try to build anything, so we don't have any deferreds
-                            (
-                                frozen_module,
-                                BxlResult::new(
-                                    output_stream,
-                                    error_stream,
-                                    ensured_artifacts,
-                                    DeferredTable::new(Vec::new()),
-                                ),
-                            )
-                        }
-                    };
+                                    // this bxl did not try to build anything, so we don't have any deferreds
+                                    (
+                                        frozen_module,
+                                        BxlResult::new(
+                                            output_stream,
+                                            error_stream,
+                                            ensured_artifacts,
+                                            DeferredTable::new(Vec::new()),
+                                        ),
+                                    )
+                                }
+                            };
 
-                    provider
-                        .visit_frozen_module(Some(&frozen_module))
-                        .context("Profiler heap visitation failed")?;
+                            provider
+                                .visit_frozen_module(Some(&frozen_module))
+                                .context("Profiler heap visitation failed")?;
 
-                    Ok((bxl_result, materializations))
-                },
+                            Ok((bxl_result, materializations))
+                        },
+                    )
+                    .await?;
+
+                    let profile_data = profiler_opt.map(|p| p.finish()).transpose()?;
+                    Ok((bxl_result, profile_data, materializations))
+                }),
+                || Err(anyhow::anyhow!("cancelled")),
             )
-            .await?;
+        })
+    }
+    .await;
 
-            let profile_data = profiler_opt.map(|p| p.finish()).transpose()?;
-            Ok((bxl_result, profile_data, materializations))
-        }
-        .boxed()
-    })
-    .await
+    match futs.into_iter().exactly_one() {
+        Ok(res) => res?,
+        Err(_) => panic!("only spawned one task"),
+    }
 }
 
 fn eval_bxl<'a>(
