@@ -938,6 +938,7 @@ impl AstPayload for CstPayload {
     /// When compilation starts, all payloads are `Some`.
     type IdentAssignPayload = Option<BindingId>;
     type DefPayload = ScopeId;
+    type TypeExprPayload = ();
 }
 
 pub(crate) struct CompilerAstMap<'a>(pub(crate) &'a mut ScopeData);
@@ -953,6 +954,8 @@ impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_> {
     fn map_def(&mut self, (): ()) -> ScopeId {
         self.0.new_scope().0
     }
+
+    fn map_type_expr(&mut self, (): ()) {}
 }
 
 pub(crate) type CstExpr = AstExprP<CstPayload>;

@@ -38,6 +38,7 @@ pub(crate) trait AstPayloadFunction<A: AstPayload, B: AstPayload> {
     fn map_ident(&mut self, a: A::IdentPayload) -> B::IdentPayload;
     fn map_ident_assign(&mut self, a: A::IdentAssignPayload) -> B::IdentAssignPayload;
     fn map_def(&mut self, a: A::DefPayload) -> B::DefPayload;
+    fn map_type_expr(&mut self, a: A::TypeExprPayload) -> B::TypeExprPayload;
 }
 
 impl<A: AstPayload> LoadP<A> {
@@ -198,9 +199,10 @@ impl<A: AstPayload> TypeExprP<A> {
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> TypeExprP<B> {
-        let TypeExprP { expr } = self;
+        let TypeExprP { expr, payload } = self;
         TypeExprP {
             expr: expr.into_map(|e| e.into_map_payload(f)),
+            payload: f.map_type_expr(payload),
         }
     }
 }

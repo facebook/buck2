@@ -257,6 +257,7 @@ impl Dialect {
 
         Ok(x.into_map(|node| TypeExprP {
             expr: Spanned { span, node },
+            payload: (),
         }))
     }
 

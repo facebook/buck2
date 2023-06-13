@@ -35,6 +35,7 @@ pub(crate) trait AstPayload: Debug {
     type IdentPayload: Debug;
     type IdentAssignPayload: Debug;
     type DefPayload: Debug;
+    type TypeExprPayload: Debug;
 }
 
 /// Default implementation of payload, which attaches `()` to nodes.
@@ -45,6 +46,7 @@ impl AstPayload for AstNoPayload {
     type IdentPayload = ();
     type IdentAssignPayload = ();
     type DefPayload = ();
+    type TypeExprPayload = ();
 }
 
 pub(crate) type Expr = ExprP<AstNoPayload>;
@@ -181,6 +183,7 @@ pub(crate) struct TypeExprP<P: AstPayload> {
     /// Planning to restrict it.
     /// [Context](https://fb.workplace.com/groups/buck2eng/posts/3196541547309990).
     pub(crate) expr: AstExprP<P>,
+    pub(crate) payload: P::TypeExprPayload,
 }
 
 /// In some places e.g. AssignModify, the Tuple case is not allowed.
