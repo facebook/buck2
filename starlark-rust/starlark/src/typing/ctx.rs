@@ -80,7 +80,7 @@ pub(crate) enum TypingError {
 }
 
 pub(crate) struct TypingContext<'a> {
-    pub(crate) codemap: CodeMap,
+    pub(crate) codemap: &'a CodeMap,
     pub(crate) oracle: &'a dyn TypingOracle,
     // We'd prefer this to be a &mut self,
     // but that makes writing the code more fiddly, so just RefCell the errors
