@@ -618,6 +618,10 @@ impl Ty {
 
     // This should go away when `ExprType` is disconnected from `Expr`.
     fn from_expr<P: AstPayload>(x: &AstExprP<P>, approximations: &mut Vec<Approximation>) -> Self {
+        let mut unknown = || {
+            approximations.push(Approximation::new("Unknown type", x));
+            Ty::Any
+        };
         match &x.node {
             ExprP::Tuple(xs) => Ty::Tuple(xs.map(|x| Self::from_expr(x, approximations))),
             ExprP::Dot(x, b) if &**b == "type" => match &***x {
@@ -625,10 +629,7 @@ impl Ty {
                     "str" => Ty::string(),
                     x => Ty::name(x),
                 },
-                _ => {
-                    approximations.push(Approximation::new("Unknown type", x));
-                    Ty::Any
-                }
+                _ => unknown(),
             },
             ExprP::Literal(AstLiteral::String(x)) => {
                 if x.is_empty() || x.starts_with('_') {
@@ -649,10 +650,7 @@ impl Ty {
                 Self::from_expr(&x[0].1, approximations),
             ),
             ExprP::Identifier(x) if x.node.0 == "None" => Ty::None,
-            _ => {
-                approximations.push(Approximation::new("Unknown type", x));
-                Ty::Any
-            }
+            _ => unknown(),
         }
     }
 
