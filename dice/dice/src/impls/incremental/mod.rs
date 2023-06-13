@@ -235,7 +235,7 @@ impl IncrementalEngine {
                             ActivationData::Reused,
                         );
 
-                        let task_state = task_state.deps_match();
+                        let task_state = task_state.deps_match()?;
 
                         // report reuse
                         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -273,19 +273,9 @@ impl IncrementalEngine {
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        let eval_result = eval
-            .evaluate(k, cycles, task_state.cancellation_ctx())
-            .await?;
+        let eval_result = eval.evaluate(k, cycles, &task_state).await?;
 
-        let _guard = match task_state.cancellation_ctx().try_to_disable_cancellation() {
-            Some(g) => g,
-            None => {
-                debug!("evaluation cancelled, skipping cache updates");
-                return Err(Cancelled);
-            }
-        };
-
-        let task_state = task_state.finished();
+        let task_state = task_state.finished()?;
 
         let res = {
             report_key_activation(

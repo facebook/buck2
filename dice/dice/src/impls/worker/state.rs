@@ -9,10 +9,13 @@
 
 //! The main worker thread for the dice task
 
+use more_futures::cancellable_future::DisableCancellationGuard;
 use more_futures::cancellation::CancellationContext;
 
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::value::DiceComputedValue;
+use crate::result::CancellableResult;
+use crate::result::Cancelled;
 
 /// Represents when we are in a spawned dice task worker and are currently waiting for the previous
 /// cancelled instance of this task to finish cancelling.
@@ -109,12 +112,25 @@ impl<'a> DiceWorkerStateCheckingDeps<'a> {
         }
     }
 
-    pub(crate) fn deps_match(self) -> DiceWorkerStateFinished<'a> {
+    pub(crate) fn deps_match(self) -> CancellableResult<DiceWorkerStateFinished<'a>> {
         debug!(msg = "reusing previous value because deps didn't change. Updating caches");
 
-        DiceWorkerStateFinished {
+        let guard = match self
+            .internals
+            .cancellation_ctx()
+            .try_to_disable_cancellation()
+        {
+            Some(g) => g,
+            None => {
+                debug!("evaluation cancelled, skipping cache updates");
+                return Err(Cancelled);
+            }
+        };
+
+        Ok(DiceWorkerStateFinished {
             internals: self.internals,
-        }
+            _prevent_cancellation: guard,
+        })
     }
 
     #[cfg(test)]
@@ -135,12 +151,25 @@ impl<'a> DiceWorkerStateComputing<'a> {
         self.internals.cancellation_ctx()
     }
 
-    pub(crate) fn finished(self) -> DiceWorkerStateFinished<'a> {
+    pub(crate) fn finished(self) -> CancellableResult<DiceWorkerStateFinished<'a>> {
         debug!(msg = "evaluation finished. updating caches");
 
-        DiceWorkerStateFinished {
+        let guard = match self
+            .internals
+            .cancellation_ctx()
+            .try_to_disable_cancellation()
+        {
+            Some(g) => g,
+            None => {
+                debug!("evaluation cancelled, skipping cache updates");
+                return Err(Cancelled);
+            }
+        };
+
+        Ok(DiceWorkerStateFinished {
             internals: self.internals,
-        }
+            _prevent_cancellation: guard,
+        })
     }
 }
 
@@ -149,6 +178,7 @@ impl<'a> DiceWorkerStateComputing<'a> {
 /// updating the caches and return the correct instance of the value.
 pub(crate) struct DiceWorkerStateFinished<'a> {
     internals: DiceTaskHandle<'a>,
+    _prevent_cancellation: DisableCancellationGuard,
 }
 
 impl<'a> DiceWorkerStateFinished<'a> {

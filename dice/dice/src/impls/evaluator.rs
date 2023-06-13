@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
 use crate::api::projection::DiceProjectionComputations;
@@ -27,6 +26,7 @@ use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::impls::worker::state::DiceWorkerStateComputing;
 use crate::result::CancellableResult;
 use crate::HashSet;
 
@@ -51,7 +51,7 @@ impl AsyncEvaluator {
         &self,
         key: DiceKey,
         cycles: KeyComputingUserCycleDetectorData,
-        cancellation: &CancellationContext,
+        state: &DiceWorkerStateComputing<'_>,
     ) -> CancellableResult<KeyEvaluationResult> {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
@@ -64,7 +64,7 @@ impl AsyncEvaluator {
                     cycles,
                 )));
 
-                let value = key_dyn.compute(&new_ctx, cancellation).await;
+                let value = key_dyn.compute(&new_ctx, state.cancellation_ctx()).await;
                 let ((deps, dep_validity), evaluation_data) = match new_ctx.0 {
                     DiceComputationsImpl::Legacy(_) => {
                         unreachable!("modern dice created above")
