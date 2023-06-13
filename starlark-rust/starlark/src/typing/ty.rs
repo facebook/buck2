@@ -676,7 +676,7 @@ impl Ty {
 
     pub(crate) fn from_docs_function(function: &DocFunction) -> Self {
         let mut params = Vec::with_capacity(function.params.len());
-        let mut no_args = false;
+        let mut seen_no_args = false;
         for p in &function.params {
             match p {
                 DocParam::Arg {
@@ -685,7 +685,7 @@ impl Ty {
                     default_value,
                     ..
                 } => {
-                    let mut r = if no_args {
+                    let mut r = if seen_no_args {
                         Param::name_only(name, Ty::from_docs_type(typ))
                     } else {
                         Param::pos_or_name(name, Ty::from_docs_type(typ))
@@ -702,9 +702,9 @@ impl Ty {
                         }
                     }
                 }
-                DocParam::NoArgs => no_args = true,
+                DocParam::NoArgs => seen_no_args = true,
                 DocParam::Args { typ, .. } => {
-                    no_args = true;
+                    seen_no_args = true;
                     params.push(Param::args(Ty::from_docs_type(typ)))
                 }
                 DocParam::Kwargs { typ, .. } => params.push(Param::kwargs(Ty::from_docs_type(typ))),
