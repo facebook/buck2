@@ -157,7 +157,7 @@ message StarlarkUserEvent {
 
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 9, 13, 22;
+  reserved 8, 9, 13, 22;
 
   oneof data {
     StructuredError structured_error = 1;
@@ -172,8 +172,6 @@ message InstantEvent {
     // Test result is an instant event for similar reasons as TestDiscovery.
     // It corresponds with the completion of an individual test.
     TestResult test_result = 7;
-    // Inform tailer that rage was performed on certain command.
-    RageInvoked rage_invoked = 8;
     Snapshot snapshot = 10;
 
     DiceStateSnapshot dice_state_snapshot = 11;
@@ -197,7 +195,7 @@ message InstantEvent {
     // Notify the client that the daemon is shutting down.
     DaemonShutdown daemon_shutdown = 19;
 
-    // TODO iguridi: consolidate with RageInvoked
+    // Information collected by buck2 rage command
     RageResult rage_result = 20;
 
     // Notify the client that the daemon would like to update the rendering.
@@ -442,13 +440,6 @@ message TestDiscovery {
     TestSessionInfo session = 1;
     TestSuite tests = 2;
   }
-}
-
-// Event indicating buck2 rage has been invoked.
-message RageInvoked {
-  map<string, string> metadata = 1;
-  // the trace id of the command that rage was invoked upon.
-  optional string recent_command_trace_id = 2;
 }
 
 // Result of invoking buck2 rage

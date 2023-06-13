@@ -364,7 +364,6 @@ mod fbcode {
 
                 match i.data {
                     Some(Data::BuildGraphInfo(..)) => true,
-                    Some(Data::RageInvoked(..)) => true,
                     Some(Data::RageResult(..)) => true,
                     Some(Data::ReSession(..)) => true,
                     Some(Data::StructuredError(..)) => true,
