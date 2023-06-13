@@ -37,8 +37,6 @@ pub(crate) fn spawn_dice_task<S>(
 ) -> DiceTask {
     let internal = DiceTaskInternal::new(key);
 
-    let span = debug_span!(parent: None, "spawned_dice_task",);
-
     // since the spawn is alive until cancelled via the handle, we can drop the spawn future itself
     let FutureAndCancellationHandle {
         cancellation_handle,
@@ -57,7 +55,6 @@ pub(crate) fn spawn_dice_task<S>(
         },
         spawner,
         ctx,
-        span,
     );
 
     DiceTask {

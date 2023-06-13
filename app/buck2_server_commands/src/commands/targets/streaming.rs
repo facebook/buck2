@@ -46,7 +46,6 @@ use more_futures::spawn::spawn_cancellable;
 use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 use tokio::sync::Semaphore;
-use tracing::trace_span;
 
 use crate::commands::targets::fmt::Stats;
 use crate::commands::targets::fmt::TargetFormatter;
@@ -159,7 +158,6 @@ pub(crate) async fn targets_streaming(
                 },
                 &*dice.per_transaction_data().spawner,
                 dice.per_transaction_data(),
-                trace_span!("load targets"),
             )
             .into_drop_cancel()
         })

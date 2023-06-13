@@ -25,7 +25,6 @@ use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_cancellable;
 use once_cell::sync::Lazy;
 use tokio::sync::Semaphore;
-use tracing::trace_span;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::file_ops::HasFileOps;
@@ -68,7 +67,6 @@ pub fn find_package_roots_stream(
         },
         &*ctx_data.spawner,
         ctx_data,
-        trace_span!("package roots"),
     );
 
     DropTogether::new(packages_rx, spawned)

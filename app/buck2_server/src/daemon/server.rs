@@ -81,7 +81,6 @@ use tonic::Code;
 use tonic::Request;
 use tonic::Response;
 use tonic::Status;
-use tracing::debug_span;
 
 use crate::active_commands::ActiveCommand;
 use crate::active_commands::ActiveCommandStateWriter;
@@ -718,7 +717,6 @@ where
         |cancellations| func(req, cancellations),
         &BuckSpawner::default(),
         &events_ctx,
-        debug_span!(parent: None, "running-command",),
     );
     let (output_send, output_recv) = tokio::sync::mpsc::unbounded_channel();
 

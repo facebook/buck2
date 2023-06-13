@@ -319,7 +319,6 @@ impl PerComputeCtx {
             },
             self.data.async_evaluator.user_data.spawner.as_ref(),
             &self.data.async_evaluator.user_data,
-            debug_span!(parent: None, "spawned_task",),
         )
         .into_drop_cancel()
         .right_future()

@@ -231,7 +231,6 @@ pub fn spawn_cancellable<F, T, S>(
     f: F,
     spawner: &dyn Spawner<S>,
     ctx: &S,
-    span: Span,
 ) -> FutureAndCancellationHandle<T>
 where
     for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
@@ -242,7 +241,6 @@ where
     // For Ready<()> and BoxFuture<()> futures we get these sizes:
     // future alone: 196/320 bits
     // future via async block: 448/704 bits
-    // future + instrument: 512/640 bits
 
     // As the spawner is going to take a boxed future and erase its concrete type,
     // we can have different future types for different scenarios in order to
@@ -251,11 +249,6 @@ where
     // While we could feasibly distinguish the no-op preamble case, one extra pointer
     // is an okay cost for the simpler api (for now).
     let future = future.map(|v| Box::new(v) as _);
-    let future = if span.is_disabled() {
-        future.boxed()
-    } else {
-        future.instrument(span).boxed()
-    };
 
     let task = spawner.spawn(ctx, future.boxed());
     let task = task
@@ -406,7 +399,6 @@ mod tests {
             },
             sp.as_ref(),
             &MockCtx::default(),
-            tracing::debug_span!("test"),
         );
 
         // Trigger cancellation
@@ -440,7 +432,6 @@ mod tests {
             },
             sp.as_ref(),
             &MockCtx::default(),
-            tracing::debug_span!("test"),
         );
 
         let future = task.into_drop_cancel(cancellation_handle);
@@ -460,12 +451,8 @@ mod tests {
         let sp = Arc::new(TokioSpawner::default());
         let fut = async { "Hello world!" }.boxed();
 
-        let FutureAndCancellationHandle { future: task, .. } = spawn_cancellable(
-            |_| fut,
-            sp.as_ref(),
-            &MockCtx::default(),
-            tracing::debug_span!("test"),
-        );
+        let FutureAndCancellationHandle { future: task, .. } =
+            spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx::default());
 
         let res = task.await;
         assert_eq!(res, Ok("Hello world!"));
@@ -479,12 +466,7 @@ mod tests {
         let FutureAndCancellationHandle {
             future: task,
             cancellation_handle,
-        } = spawn_cancellable(
-            |_| fut,
-            sp.as_ref(),
-            &MockCtx::default(),
-            tracing::debug_span!("test"),
-        );
+        } = spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx::default());
 
         let future = task.into_drop_cancel(cancellation_handle);
 

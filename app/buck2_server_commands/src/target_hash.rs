@@ -49,7 +49,6 @@ use more_futures::spawn::DropCancelFuture;
 use os_str_bytes::OsStrBytes;
 use siphasher::sip128::Hasher128;
 use siphasher::sip128::SipHasher24;
-use tracing::trace_span;
 
 #[derive(Clone, Dupe, derive_more::Display)]
 #[display(fmt = "{:032x}", _0)]
@@ -322,7 +321,6 @@ impl TargetHashes {
                         },
                         &*dice.per_transaction_data().spawner,
                         dice.per_transaction_data(),
-                        trace_span!("node hasher"),
                     )
                     .into_drop_cancel()
                     .shared(),
