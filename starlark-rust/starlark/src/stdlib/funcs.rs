@@ -1051,7 +1051,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// tuple([1,2,3]) == (1, 2, 3)
     /// # "#);
     /// ```
-    #[starlark(dot_type = Tuple::TYPE, speculative_exec_safe)]
+    #[starlark(dot_type = Tuple::TYPE, speculative_exec_safe, return_type = "tuple.type")]
     fn tuple<'v>(
         #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
         heap: &'v Heap,
