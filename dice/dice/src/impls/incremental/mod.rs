@@ -161,6 +161,8 @@ impl IncrementalEngine {
         events_dispatcher: DiceEventDispatcher,
         task_handle: &DiceTaskHandle<'_>,
     ) -> CancellableResult<(DiceComputedValue, Option<DisableCancellationGuard>)> {
+        task_handle.report_initial_lookup();
+
         let v = eval.per_live_version_ctx.get_version();
         let (tx, rx) = oneshot::channel();
         self.state.request(StateRequest::LookupKey {
