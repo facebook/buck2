@@ -47,6 +47,8 @@ pub(crate) enum DialectError {
     EmptyListInType,
     #[error("Only dict literal with single entry is allowed in type expression")]
     DictNot1InType,
+    #[error("Only dot expression of form `ident.ident` is allowed in type expression")]
+    DotInType,
 }
 
 /// How to handle type annotations in Starlark.
@@ -178,7 +180,17 @@ impl Dialect {
     ) -> Result<(), EvalException> {
         match &x.node {
             Expr::Tuple(..) => {}
-            Expr::Dot(..) => {}
+            Expr::Dot(object, _) => {
+                match &object.node {
+                    Expr::Identifier(..) => {}
+                    Expr::Dot(..) => {}
+                    _ => return err(codemap, x.span, DialectError::DotInType),
+                }
+                // We would also want to ban expressions like `x.y` where `x` is not `type`,
+                // or `x.y.z` but these are used now.
+                // Try `xbgs metalos.ProvisioningConfig`.
+                // That expression has type string which is the type name.
+            }
             Expr::Call(..) => return err(codemap, x.span, DialectError::InvalidType("call")),
             Expr::ArrayIndirection(..) => {
                 return err(
