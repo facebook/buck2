@@ -1403,7 +1403,6 @@ impl InstrNoFlowImpl for InstrDefImpl {
                 parameter_types.push((
                     LocalSlotId(i),
                     name.name.clone(),
-                    v,
                     expr_throw(TypeCompiled::new(v, eval.heap()), x.span, eval)
                         .map_err(EvalException::into_anyhow)?,
                 ));
@@ -1418,7 +1417,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
 
                     if ty.is_some() {
                         // Check the type of the default
-                        let (_, _, _ty_value, ty_compiled) = parameter_types.last().unwrap();
+                        let (_, _, ty_compiled) = parameter_types.last().unwrap();
                         expr_throw(
                             value.check_type_compiled(ty_compiled.to_value(), Some(&n.name)),
                             x.span,
@@ -1438,11 +1437,10 @@ impl InstrNoFlowImpl for InstrDefImpl {
                 assert!(v.node == pop_index);
                 let value = pop[pop_index as usize];
                 pop_index += 1;
-                Some((
-                    value,
+                Some(
                     expr_throw(TypeCompiled::new(value, eval.heap()), v.span, eval)
                         .map_err(EvalException::into_anyhow)?,
-                ))
+                )
             }
         };
         assert!(pop_index as usize == pop.len());

@@ -487,8 +487,8 @@ pub(crate) struct DefGen<V> {
     parameter_captures: FrozenRef<'static, [LocalSlotId]>,
     // The types of the parameters.
     // (Sparse indexed array, (0, argm T) implies parameter 0 named arg must have type T).
-    parameter_types: Vec<(LocalSlotId, String, V, TypeCompiled<V>)>,
-    pub(crate) return_type: Option<(V, TypeCompiled<V>)>, // The return type annotation for the function
+    parameter_types: Vec<(LocalSlotId, String, TypeCompiled<V>)>,
+    pub(crate) return_type: Option<TypeCompiled<V>>, // The return type annotation for the function
     /// Data created during function compilation but before function instantiation.
     /// `DefInfo` can be shared by multiple `def` instances, for example,
     /// `lambda` functions can be instantiated multiple times.
@@ -524,8 +524,8 @@ starlark_complex_values!(Def);
 impl<'v> Def<'v> {
     pub(crate) fn new(
         parameters: ParametersSpec<Value<'v>>,
-        parameter_types: Vec<(LocalSlotId, String, Value<'v>, TypeCompiled<Value<'v>>)>,
-        return_type: Option<(Value<'v>, TypeCompiled<Value<'v>>)>,
+        parameter_types: Vec<(LocalSlotId, String, TypeCompiled<Value<'v>>)>,
+        return_type: Option<TypeCompiled<Value<'v>>>,
         stmt: FrozenRef<'static, DefInfo>,
         eval: &mut Evaluator<'v, '_>,
     ) -> Value<'v> {
@@ -551,18 +551,18 @@ impl<'v, T1: ValueLike<'v>> DefGen<T1> {
         let parameter_types: HashMap<usize, DocType> = self
             .parameter_types
             .iter()
-            .map(|(idx, _, v, _)| {
+            .map(|(idx, _, ty)| {
                 (
                     idx.0 as usize,
                     DocType {
-                        raw_type: v.to_value().to_repr(),
+                        raw_type: TypeCompiled::to_string(ty),
                     },
                 )
             })
             .collect();
 
-        let return_type = self.return_type.as_ref().map(|r| DocType {
-            raw_type: r.0.to_value().to_repr(),
+        let return_type = self.return_type.map(|r| DocType {
+            raw_type: TypeCompiled::to_string(&r),
         });
 
         let function_docs = DocFunction::from_docstring(
@@ -654,12 +654,12 @@ where
         } else {
             None
         };
-        for (i, arg_name, _ty, ty2) in &self.parameter_types {
+        for (i, arg_name, ty) in &self.parameter_types {
             match eval.current_frame.get_slot(i.to_captured_or_not()) {
                 None => {
                     panic!("Not allowed optional unassigned with type annotations on them")
                 }
-                Some(v) => v.check_type_compiled(ty2.to_value(), Some(arg_name))?,
+                Some(v) => v.check_type_compiled(ty.to_value(), Some(arg_name))?,
             }
         }
         if let Some(start) = start {
@@ -674,10 +674,8 @@ where
         ret: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<()> {
-        let (_return_type_value, return_type_ty): &(V, TypeCompiled<V>) = self
-            .return_type
-            .as_ref()
-            .ok_or(DefError::CheckReturnTypeNoType)?;
+        let return_type_ty: TypeCompiled<V> =
+            self.return_type.ok_or(DefError::CheckReturnTypeNoType)?;
         let start = if eval.typecheck_profile.enabled {
             Some(Instant::now())
         } else {
