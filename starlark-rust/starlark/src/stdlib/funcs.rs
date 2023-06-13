@@ -22,7 +22,6 @@ use std::char;
 use std::cmp::Ordering;
 use std::num::NonZeroI32;
 
-use either::Either;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
@@ -266,12 +265,9 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn chr(#[starlark(require = pos)] i: Either<i32, bool>) -> anyhow::Result<char> {
-        let cp = match i {
-            Either::Left(i) => u32::try_from(i)
-                .map_err(|_| anyhow::anyhow!("chr() parameter value negative integer {i}"))?,
-            Either::Right(i) => i as u32,
-        };
+    fn chr(#[starlark(require = pos)] i: i32) -> anyhow::Result<char> {
+        let cp = u32::try_from(i)
+            .map_err(|_| anyhow::anyhow!("chr() parameter value negative integer {i}"))?;
         match char::from_u32(cp) {
             Some(x) => Ok(x),
             None => Err(anyhow::anyhow!(
