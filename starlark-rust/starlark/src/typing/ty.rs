@@ -688,7 +688,13 @@ impl Ty {
                     }
                     params.push(r);
                 }
-                DocParam::OnlyPosBefore => {}
+                DocParam::OnlyPosBefore => {
+                    for x in params.iter_mut() {
+                        if matches!(x.mode, ParamMode::PosOrName(_)) {
+                            x.mode = ParamMode::PosOnly;
+                        }
+                    }
+                }
                 DocParam::NoArgs => no_args = true,
                 DocParam::Args { typ, .. } => params.push(Param::args(Ty::from_docs_type(typ))),
                 DocParam::Kwargs { typ, .. } => params.push(Param::kwargs(Ty::from_docs_type(typ))),

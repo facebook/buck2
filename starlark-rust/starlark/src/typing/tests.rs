@@ -47,18 +47,17 @@ fn mk_oracle() -> impl TypingOracle {
 #[test]
 fn test_oracle() {
     let o = mk_oracle();
-    // TODO(ndmitchell): In both cases these _should_ be positional only, but the docs don't currently record that
     assert_eq!(
         o.attribute(&Ty::string(), "removeprefix"),
         Some(Ok(Ty::function(
-            vec![Param::pos_or_name("prefix", Ty::string())],
+            vec![Param::pos_only(Ty::string())],
             Ty::string()
         )))
     );
     assert_eq!(
         o.builtin("hash"),
         Some(Ok(Ty::function(
-            vec![Param::pos_or_name("a", Ty::string())],
+            vec![Param::pos_only(Ty::string())],
             Ty::int()
         )))
     );
