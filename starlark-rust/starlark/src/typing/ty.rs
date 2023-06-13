@@ -368,8 +368,8 @@ impl Ty {
     }
 
     /// Create a list type.
-    pub fn list(inner: Ty) -> Self {
-        Ty::List(Box::new(inner))
+    pub fn list(element: Ty) -> Self {
+        Ty::List(Box::new(element))
     }
 
     /// Create a iterable type.
