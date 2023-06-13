@@ -191,7 +191,7 @@ impl Diagnostic {
 
 impl Display for Diagnostic {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        diagnostic_display(self, f)
+        diagnostic_display(self, false, f)
     }
 }
 
@@ -201,12 +201,12 @@ impl Display for Diagnostic {
 // variants by doing a conversion using annotate-snippets
 // (https://github.com/rust-lang/annotate-snippets-rs)
 
-fn diagnostic_display(diagnostic: &Diagnostic, f: &mut Formatter<'_>) -> fmt::Result {
+fn diagnostic_display(diagnostic: &Diagnostic, color: bool, f: &mut dyn fmt::Write) -> fmt::Result {
     write!(f, "{}", diagnostic.call_stack)?;
     let annotation_label = format!("{}", diagnostic.message);
     // I set color to false here to make the comparison easier with tests (coloring
     // adds in pretty strange unicode chars).
-    let display_list = diagnostic.get_display_list(&annotation_label, false);
+    let display_list = diagnostic.get_display_list(&annotation_label, color);
     writeln!(f, "{}", display_list)?;
     // Print out the `Caused by:` trace (if exists) and rust backtrace (if enabled).
     // The trace printed comes from an [`anyhow::Error`] that is not a [`Diagnostic`].
@@ -218,13 +218,7 @@ fn diagnostic_display(diagnostic: &Diagnostic, f: &mut Formatter<'_>) -> fmt::Re
 }
 
 fn diagnostic_stderr(diagnostic: &Diagnostic) {
-    eprint!("{}", diagnostic.call_stack);
-    let annotation_label = format!("{}", diagnostic.message);
-    let display_list = diagnostic.get_display_list(&annotation_label, true);
-    eprintln!("{}", display_list);
-    // Print out the `Caused by:` trace (if exists) and rust backtrace (if enabled).
-    // The trace printed comes from an [`anyhow::Error`] that is not a [`Diagnostic`].
-    if diagnostic.message.source().is_some() {
-        eprintln!("\n\n{:?}", diagnostic.message);
-    }
+    let mut stderr = String::new();
+    diagnostic_display(diagnostic, true, &mut stderr).unwrap();
+    eprint!("{}", stderr);
 }
