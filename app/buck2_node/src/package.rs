@@ -22,6 +22,4 @@ pub struct Package {
     pub buildfile_path: Arc<BuildFilePath>,
     /// The oncall attribute, if set
     pub oncall: Option<Arc<String>>,
-    /// Visibility is public by default.
-    pub default_visibility_to_public: bool,
 }

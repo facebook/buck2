@@ -78,14 +78,10 @@ impl GlobalInterpreterState {
         let bxl_file_global_env = interpreter_configuror.bxl_file_globals();
 
         let mut cell_configs = HashMap::new();
-        for (cell_name, config) in legacy_configs.iter() {
+        for (cell_name, _config) in legacy_configs.iter() {
             cell_configs.insert(
                 BuildFileCell::new(cell_name),
-                InterpreterCellInfo::new(
-                    BuildFileCell::new(cell_name),
-                    config,
-                    cell_resolver.dupe(),
-                )?,
+                InterpreterCellInfo::new(BuildFileCell::new(cell_name), cell_resolver.dupe())?,
             );
         }
         Ok(Self {

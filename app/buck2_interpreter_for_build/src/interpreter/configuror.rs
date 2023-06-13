@@ -209,7 +209,6 @@ impl BuildInterpreterConfiguror {
             Arc::new(buildfile_path),
             imports,
             package_implicits,
-            cell_info.default_visibility_to_public(),
             record_target_call_stack,
             skip_targets_with_duplicate_names,
             package_listing,

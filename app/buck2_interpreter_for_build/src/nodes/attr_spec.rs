@@ -100,17 +100,7 @@ impl AttributeSpecExt for AttributeSpec {
                     })?;
 
                 if is_visibility {
-                    if internals.package().default_visibility_to_public {
-                        if coerced
-                            == CoercedValue::Custom(CoercedAttr::Visibility(
-                                VisibilitySpecification::DEFAULT,
-                            ))
-                        {
-                            coerced = CoercedValue::Custom(CoercedAttr::Visibility(
-                                VisibilitySpecification::Public,
-                            ));
-                        }
-                    } else if coerced == CoercedValue::Default {
+                    if coerced == CoercedValue::Default {
                         coerced = CoercedValue::Custom(CoercedAttr::Visibility(
                             internals.super_package.visibility().dupe(),
                         ));
@@ -124,18 +114,7 @@ impl AttributeSpecExt for AttributeSpec {
                     CoercedValue::Default => {}
                 }
             } else if is_visibility {
-                if internals.package().default_visibility_to_public {
-                    attr_values.push_sorted(
-                        attr_idx,
-                        CoercedAttr::Visibility(VisibilitySpecification::Public),
-                    );
-                } else if internals.super_package.visibility() != &VisibilitySpecification::DEFAULT
-                {
-                    // This behavior of handling `default_visibility_to_public`
-                    // and package visibility is different:
-                    // When visibility is specified explicitly to "default" (i.e. `[]`),
-                    // we flush visibility to public when `default_visibility_to_public` is true.
-                    // but do not apply package visibility.
+                if internals.super_package.visibility() != &VisibilitySpecification::DEFAULT {
                     attr_values.push_sorted(
                         attr_idx,
                         CoercedAttr::Visibility(internals.super_package.visibility().dupe()),

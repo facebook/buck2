@@ -79,7 +79,6 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     .unwrap_or_else(|err| panic!("Failed parsing `{}`. Error: `{}`", content, err));
     let cell_info = InterpreterCellInfo::new(
         BuildFileCell::new(CellName::testing_new("root")),
-        &LegacyBuckConfig::empty(),
         cell_resolver(),
     )
     .unwrap();

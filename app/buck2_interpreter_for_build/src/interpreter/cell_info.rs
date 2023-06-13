@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
 use dupe::Dupe;
@@ -22,24 +21,16 @@ pub(crate) struct InterpreterCellInfo(Arc<Data>);
 struct Data {
     cell_name: BuildFileCell,
     cell_resolver: CellResolver,
-    default_visibility_to_public: bool,
 }
 
 impl InterpreterCellInfo {
     pub(crate) fn new(
         cell_name: BuildFileCell,
-        config: &dyn LegacyBuckConfigView,
         cell_resolver: CellResolver,
     ) -> anyhow::Result<Self> {
-        // TODO(nga): move this to dice
-        let default_visibility_to_public = config
-            .parse("buildfile", "buck2_default_visibility_to_public")?
-            .unwrap_or(false);
-
         Ok(Self(Arc::new(Data {
             cell_name,
             cell_resolver,
-            default_visibility_to_public,
         })))
     }
 
@@ -49,9 +40,5 @@ impl InterpreterCellInfo {
 
     pub(crate) fn cell_resolver(&self) -> &CellResolver {
         &self.0.cell_resolver
-    }
-
-    pub(crate) fn default_visibility_to_public(&self) -> bool {
-        self.0.default_visibility_to_public
     }
 }
