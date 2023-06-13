@@ -137,6 +137,7 @@ pub fn configure_base_globals(
         LibraryExtension::RecordType,
         LibraryExtension::ExperimentalRegex,
         LibraryExtension::StructType,
+        LibraryExtension::Typing,
     ];
     let mut global_env = GlobalsBuilder::extended_by(&starlark_extensions)
         .with(register_base_natives)
