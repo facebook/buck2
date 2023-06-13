@@ -49,6 +49,7 @@ use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
+use crate::impls::worker::DiceTaskWorker;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
 use crate::versions::VersionNumber;
@@ -100,49 +101,23 @@ impl IncrementalEngine {
             &eval.user_data,
             move |handle| {
                 async move {
-                if let Some(previous) = previously_cancelled_task {
-                    debug!(msg = "waiting for previously cancelled task");
-                    previous.previous.await_termination().await;
-                    // old task actually finished, so just use that result if it wasn't
-                    // cancelled
+                    let engine = IncrementalEngine::new(eval_dupe.dice.state_handle.dupe(), version_epoch);
+                    let worker = DiceTaskWorker::new(k, eval_dupe, cycles, events_dispatcher, previously_cancelled_task, engine);
 
-
-                    match previous.previous.get_finished_value().expect("Terminated task must have finished value") {
-                        Ok(res) => {
-                            debug!(msg = "previously cancelled task actually finished");
-
-                            handle.finished(res);
-                            return Box::new(()) as Box<dyn Any + Send + 'static>;
+                    match worker.do_work(&handle).await {
+                        Ok((res, _guard)) => {
+                            handle.finished(res)
                         }
-                        Err(_err) => {
-                            // actually was cancelled, so just continue re-evaluating
+                        Err(_) => {
+                            // we drop the current handle, leaving the original `DiceTask` as terminated
+                            // state
                         }
                     }
-                }
 
-                let engine =
-                    IncrementalEngine::new(eval_dupe.dice.state_handle.dupe(), version_epoch);
-
-                let result = engine
-                    .eval_entry_versioned(k, eval_dupe, cycles, events_dispatcher, &handle)
-                    .await;
-
-                debug!("finished versioned evaluation");
-
-                match result {
-                    Ok((res, _guard)) => {
-                        handle.finished(res)
-                    }
-                    Err(_) => {
-                        // we drop the current handle, leaving the original `DiceTask` as terminated
-                        // state
-                    }
-                }
-
-                Box::new(()) as Box<dyn Any + Send + 'static>
-            }
-            .instrument(debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.per_live_version_ctx.get_version(), v_epoch = %version_epoch))
-            .boxed()
+                    Box::new(()) as Box<dyn Any + Send + 'static>
+               }
+               .instrument(debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.per_live_version_ctx.get_version(), v_epoch = %version_epoch))
+               .boxed()
             },
         )
     }
@@ -198,7 +173,7 @@ impl IncrementalEngine {
         })
     }
 
-    async fn eval_entry_versioned(
+    pub(crate) async fn eval_entry_versioned(
         &self,
         k: DiceKey,
         eval: AsyncEvaluator,
