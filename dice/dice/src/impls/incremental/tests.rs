@@ -57,7 +57,7 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
-use crate::impls::worker::DiceWorkerStateCheckingDeps;
+use crate::impls::worker::state::DiceWorkerStateCheckingDeps;
 use crate::versions::testing::VersionRangesExt;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
