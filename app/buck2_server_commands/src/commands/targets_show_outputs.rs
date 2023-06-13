@@ -156,22 +156,20 @@ async fn retrieve_artifacts_for_targets(
         .into_iter()
         .map(|(package, spec)| {
             let global_target_platform = global_target_platform.dupe();
-            ctx.temporary_spawn(move |ctx, _cancellation| {
-                async move {
-                    {
-                        let res = ctx.get_interpreter_results(package.dupe()).await?;
-                        retrieve_artifacts_for_spec(
-                            &ctx,
-                            package.dupe(),
-                            spec,
-                            global_target_platform,
-                            res,
-                        )
-                        .await
-                    }
+            async move {
+                {
+                    let res = ctx.get_interpreter_results(package.dupe()).await?;
+                    retrieve_artifacts_for_spec(
+                        ctx,
+                        package.dupe(),
+                        spec,
+                        global_target_platform,
+                        res,
+                    )
+                    .await
                 }
-                .boxed()
-            })
+            }
+            .boxed()
         })
         .collect();
 
@@ -220,14 +218,7 @@ async fn retrieve_artifacts_for_spec(
     let mut futs: FuturesUnordered<_> = todo_targets
         .into_iter()
         .map(|(providers_label, target_platform)| {
-            // TODO(cjhopman): Figure out why we need these explicit spawns to get actual multithreading.
-            ctx.temporary_spawn(move |ctx, _cancellation| {
-                async move {
-                    retrieve_artifacts_for_provider_label(&ctx, providers_label, target_platform)
-                        .await
-                }
-                .boxed()
-            })
+            retrieve_artifacts_for_provider_label(ctx, providers_label, target_platform)
         })
         .collect();
 
