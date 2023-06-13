@@ -492,7 +492,7 @@ impl<'v> Value<'v> {
     }
 
     /// Conversion to an int that sees through `bool` and `int`.
-    pub fn to_int(self) -> anyhow::Result<i32> {
+    pub(crate) fn to_int(self) -> anyhow::Result<i32> {
         // Fast path for the common case
         if let Some(x) = self.unpack_i32() {
             Ok(x)
