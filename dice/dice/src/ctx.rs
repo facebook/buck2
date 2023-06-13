@@ -11,9 +11,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use futures::future::BoxFuture;
 use futures::FutureExt;
-use more_futures::cancellation::CancellationContext;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -27,7 +25,6 @@ use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::opaque::OpaqueValueImpl;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
-use crate::DiceComputations;
 
 #[derive(Allocative)]
 pub(crate) enum DiceComputationsImpl {
@@ -78,22 +75,6 @@ impl DiceComputationsImpl {
                 .compute_opaque(key)
                 .map(|r| r.map(|x| OpaqueValue::new(OpaqueValueImpl::Modern(x))))
                 .right_future(),
-        }
-    }
-
-    /// temporarily here while we figure out why dice isn't paralleling computations so that we can
-    /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
-    /// the Arc, which makes lifetimes weird.
-    pub(crate) fn temporary_spawn<F, R>(&self, f: F) -> impl Future<Output = R>
-    where
-        F: for<'a> FnOnce(&'a DiceComputations, &'a CancellationContext) -> BoxFuture<'a, R>
-            + Send
-            + 'static,
-        R: Send + 'static,
-    {
-        match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.temporary_spawn(f),
-            DiceComputationsImpl::Modern(delegate) => delegate.temporary_spawn(f),
         }
     }
 

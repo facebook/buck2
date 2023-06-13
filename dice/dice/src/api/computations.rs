@@ -10,8 +10,6 @@
 use std::future::Future;
 
 use allocative::Allocative;
-use futures::future::BoxFuture;
-use more_futures::cancellation::CancellationContext;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -64,19 +62,6 @@ impl DiceComputations {
         K: Key,
     {
         self.0.compute_opaque(key)
-    }
-
-    /// temporarily here while we figure out why dice isn't paralleling computations so that we can
-    /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
-    /// the Arc, which makes lifetimes weird.
-    pub fn temporary_spawn<F, R>(&self, f: F) -> impl Future<Output = R>
-    where
-        F: for<'a> FnOnce(&'a DiceComputations, &'a CancellationContext) -> BoxFuture<'a, R>
-            + Send
-            + 'static,
-        R: Send + 'static,
-    {
-        self.0.temporary_spawn(f)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the

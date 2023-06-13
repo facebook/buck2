@@ -15,14 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
-use futures::future::BoxFuture;
-use futures::future::Either;
 use futures::FutureExt;
-use more_futures::cancellation::CancellationContext;
-use more_futures::spawn::spawn_cancellable;
-use more_futures::spawn::DropCancelFuture;
-use more_futures::spawn::StrongJoinHandle;
-use more_futures::spawn::WeakFutureError;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 
@@ -289,39 +282,6 @@ impl PerComputeCtx {
             .downcast_maybe_transient::<K::Value>()
             .expect("Type mismatch when computing key")
             .dupe())
-    }
-
-    /// temporarily here while we figure out why dice isn't paralleling computations so that we can
-    /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
-    /// the Arc, which makes lifetimes weird.
-    pub(crate) fn temporary_spawn<F, R>(
-        &self,
-        f: F,
-    ) -> Either<StrongJoinHandle<BoxFuture<'static, Result<R, WeakFutureError>>>, DropCancelFuture<R>>
-    where
-        F: for<'a> FnOnce(&'a DiceComputations, &'a CancellationContext) -> BoxFuture<'a, R>
-            + Send
-            + 'static,
-        R: Send + 'static,
-    {
-        let duped = self.dupe();
-
-        spawn_cancellable(
-            |cancellations| {
-                async move {
-                    f(
-                        &DiceComputations(DiceComputationsImpl::Modern(duped)),
-                        cancellations,
-                    )
-                    .await
-                }
-                .boxed()
-            },
-            self.data.async_evaluator.user_data.spawner.as_ref(),
-            &self.data.async_evaluator.user_data,
-        )
-        .into_drop_cancel()
-        .right_future()
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
