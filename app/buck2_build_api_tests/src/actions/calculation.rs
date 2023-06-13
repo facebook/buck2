@@ -19,6 +19,7 @@ use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_artifact::deferred::id::DeferredId;
 use buck2_build_api::actions::calculation::command_details;
 use buck2_build_api::actions::calculation::ActionCalculation;
+use buck2_build_api::actions::impls::mergebase::SetMergebase;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::RegisteredAction;
@@ -200,6 +201,7 @@ async fn make_default_dice_state(
     extra.set_materializer(Arc::new(NoDiskMaterializer));
     extra.set_re_client(ManagedRemoteExecutionClient::testing_new_dummy());
     extra.set_http_client(CountingHttpClient::new(Arc::new(ClientForTest {})));
+    extra.set_mergebase(Default::default());
     extra.data.set(EventDispatcher::null());
     extra.data.set(RunActionKnobs::default());
     extra.spawner = Arc::new(BuckSpawner::default());

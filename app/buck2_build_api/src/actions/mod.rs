@@ -74,6 +74,7 @@ use thiserror::Error;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
+use crate::actions::impls::mergebase::Mergebase;
 use crate::actions::impls::run_action_knobs::RunActionKnobs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
@@ -193,6 +194,8 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn events(&self) -> &EventDispatcher;
 
     fn command_execution_manager(&self) -> CommandExecutionManager;
+
+    fn mergebase(&self) -> &Mergebase;
 
     fn prepare_action(
         &mut self,

@@ -18,6 +18,7 @@ use std::time::Instant;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::actions::impls::mergebase::SetMergebase;
 use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
@@ -657,7 +658,11 @@ struct DiceCommandUpdater {
 
 #[async_trait]
 impl DiceUpdater for DiceCommandUpdater {
-    async fn update(&self, ctx: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater> {
+    async fn update(
+        &self,
+        ctx: DiceTransactionUpdater,
+        user_data: &mut UserComputationData,
+    ) -> anyhow::Result<DiceTransactionUpdater> {
         let (cell_resolver, legacy_configs, _): (CellResolver, LegacyBuckConfigs, _) = self
             .cell_config_loader
             .cells_and_configs(ctx.existing_state().await.deref())
@@ -681,7 +686,8 @@ impl DiceUpdater for DiceCommandUpdater {
             None,
         )?;
 
-        let (mut ctx, _mergebase) = self.file_watcher.sync(ctx).await?;
+        let (mut ctx, mergebase) = self.file_watcher.sync(ctx).await?;
+        user_data.set_mergebase(mergebase);
 
         ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
 

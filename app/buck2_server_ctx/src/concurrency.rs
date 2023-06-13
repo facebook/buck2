@@ -243,6 +243,7 @@ pub trait DiceUpdater: Send + Sync {
     async fn update(
         &self,
         mut ctx: DiceTransactionUpdater,
+        _user_data: &mut UserComputationData,
     ) -> anyhow::Result<DiceTransactionUpdater>;
 }
 
@@ -439,11 +440,11 @@ impl ConcurrencyHandler {
 
                     let transaction = async {
                         let updater = self.dice.updater();
-                        let user_data = user_data
+                        let mut user_data = user_data
                             .provide(updater.existing_state().await.deref())
                             .await?;
 
-                        let transaction = updates.update(updater).await?;
+                        let transaction = updates.update(updater, &mut user_data).await?;
 
                         event_dispatcher
                             .span_async(buck2_data::DiceStateUpdateStart {}, async {
@@ -710,6 +711,7 @@ mod tests {
         async fn update(
             &self,
             ctx: DiceTransactionUpdater,
+            _user_data: &mut UserComputationData,
         ) -> anyhow::Result<DiceTransactionUpdater> {
             Ok(ctx)
         }
@@ -722,6 +724,7 @@ mod tests {
         async fn update(
             &self,
             mut ctx: DiceTransactionUpdater,
+            _user_data: &mut UserComputationData,
         ) -> anyhow::Result<DiceTransactionUpdater> {
             ctx.changed_to(vec![(K, ())])?;
             Ok(ctx)
@@ -1510,6 +1513,7 @@ mod tests {
             async fn update(
                 &self,
                 ctx: DiceTransactionUpdater,
+                _user_data: &mut UserComputationData,
             ) -> anyhow::Result<DiceTransactionUpdater> {
                 self.arrived_update.add_permits(1);
                 tokio::task::yield_now().await;

@@ -65,6 +65,8 @@ use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::error::CommandExecutionErrorMarker;
 use crate::actions::execute::error::ExecuteError;
+use crate::actions::impls::mergebase::GetMergebase;
+use crate::actions::impls::mergebase::Mergebase;
 use crate::actions::impls::run_action_knobs::HasRunActionKnobs;
 use crate::actions::impls::run_action_knobs::RunActionKnobs;
 use crate::actions::ActionExecutable;
@@ -239,6 +241,7 @@ impl HasActionExecutor for DiceComputations {
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
         let io_provider = self.global_data().get_io_provider();
         let http_client = self.per_transaction_data().get_http_client();
+        let mergebase = self.per_transaction_data().get_mergebase();
 
         Ok(Arc::new(BuckActionExecutor::new(
             CommandExecutor::new(
@@ -257,6 +260,7 @@ impl HasActionExecutor for DiceComputations {
             run_action_knobs,
             io_provider,
             http_client,
+            mergebase,
         )))
     }
 }
@@ -271,6 +275,7 @@ pub struct BuckActionExecutor {
     run_action_knobs: RunActionKnobs,
     io_provider: Arc<dyn IoProvider>,
     http_client: CountingHttpClient,
+    mergebase: Mergebase,
 }
 
 impl BuckActionExecutor {
@@ -284,6 +289,7 @@ impl BuckActionExecutor {
         run_action_knobs: RunActionKnobs,
         io_provider: Arc<dyn IoProvider>,
         http_client: CountingHttpClient,
+        mergebase: Mergebase,
     ) -> Self {
         Self {
             command_executor,
@@ -295,6 +301,7 @@ impl BuckActionExecutor {
             run_action_knobs,
             io_provider,
             http_client,
+            mergebase,
         }
     }
 }
@@ -408,6 +415,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
 
     fn cancellation_context(&self) -> &CancellationContext {
         self.cancellations
+    }
+
+    fn mergebase(&self) -> &Mergebase {
+        &self.executor.mergebase
     }
 
     fn prepare_action(
@@ -757,6 +768,7 @@ mod tests {
                 CasDigestConfig::testing_default(),
             )),
             CountingHttpClient::new(Arc::new(ClientForTest {})),
+            Default::default(),
         );
 
         #[derive(Debug, Allocative)]

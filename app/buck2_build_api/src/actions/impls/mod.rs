@@ -10,4 +10,5 @@
 pub mod dep_files;
 pub mod expanded_command_line;
 pub mod json;
+pub mod mergebase;
 pub mod run_action_knobs;
