@@ -36,11 +36,12 @@ pub use crate::analysis::Lint;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
+pub use crate::errors::frame::Frame;
 use crate::eval::CallStack;
 use crate::values::string::fast_string;
-use crate::values::string::CharIndex;
 
 pub(crate) mod did_you_mean;
+pub(crate) mod frame;
 
 /// An error plus its origination location and call stack.
 ///
@@ -57,67 +58,6 @@ pub struct Diagnostic {
 
     /// Call stack where the error originated.
     pub call_stack: CallStack,
-}
-
-/// A frame of the call-stack.
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct Frame {
-    /// The name of the entry on the call-stack.
-    pub name: String,
-    /// The location of the definition, or [`None`] for native Rust functions.
-    pub location: Option<FileSpan>,
-}
-
-impl Display for Frame {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.name)?;
-        if let Some(loc) = &self.location {
-            write!(f, " (called from {})", loc)?;
-        }
-        Ok(())
-    }
-}
-
-fn truncate_snippet(snippet: &str, max_len: usize) -> (&str, &str) {
-    let ddd = "...";
-    assert!(max_len >= ddd.len());
-    match fast_string::split_at(snippet, CharIndex(max_len - ddd.len())) {
-        None => (snippet, ""),
-        Some((_, b)) if b.chars().nth(3).is_none() => (snippet, ""),
-        Some((a, _)) => (a, "..."),
-    }
-}
-
-impl Frame {
-    pub(crate) fn write_two_lines(
-        &self,
-        indent: &str,
-        caller: &str,
-        write: &mut dyn fmt::Write,
-    ) -> fmt::Result {
-        if let Some(location) = &self.location {
-            let line = location
-                .file
-                .source_line_at_pos(location.span.begin())
-                .trim();
-            let (line, ddd) = truncate_snippet(line, 80);
-            writeln!(
-                write,
-                "{}* {}:{}, in {}",
-                indent,
-                location.file.filename(),
-                location.file.find_line(location.span.begin()) + 1,
-                // Note we print caller function here as in Python, not callee,
-                // so in the stack trace, top frame is printed without executed function name.
-                caller,
-            )?;
-            writeln!(write, "{}    {}{}", indent, line, ddd)?;
-        } else {
-            // Python just omits builtin functions in the traceback.
-            writeln!(write, "{}File <builtin>, in {}", indent, caller)?;
-        }
-        Ok(())
-    }
 }
 
 impl Error for Diagnostic {
@@ -286,26 +226,5 @@ fn diagnostic_stderr(diagnostic: &Diagnostic) {
     // The trace printed comes from an [`anyhow::Error`] that is not a [`Diagnostic`].
     if diagnostic.message.source().is_some() {
         eprintln!("\n\n{:?}", diagnostic.message);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::errors::truncate_snippet;
-
-    #[test]
-    fn test_truncate_snippet() {
-        assert_eq!(("", ""), truncate_snippet("", 5));
-        assert_eq!(("a", ""), truncate_snippet("a", 5));
-        assert_eq!(("ab", ""), truncate_snippet("ab", 5));
-        assert_eq!(("abc", ""), truncate_snippet("abc", 5));
-        assert_eq!(("abcd", ""), truncate_snippet("abcd", 5));
-        assert_eq!(("abcde", ""), truncate_snippet("abcde", 5));
-        assert_eq!(("ab", "..."), truncate_snippet("abcdef", 5));
-        assert_eq!(("ab", "..."), truncate_snippet("abcdefg", 5));
-        assert_eq!(("ab", "..."), truncate_snippet("abcdefgh", 5));
-        assert_eq!(("ab", "..."), truncate_snippet("abcdefghi", 5));
-        assert_eq!(("Київ", ""), truncate_snippet("Київ", 5));
-        assert_eq!(("па", "..."), truncate_snippet("паляниця", 5));
     }
 }
