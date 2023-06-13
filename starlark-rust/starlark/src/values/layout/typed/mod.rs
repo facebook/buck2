@@ -361,11 +361,10 @@ mod tests {
     use crate::values::int::PointerI32;
     use crate::values::FrozenValue;
     use crate::values::FrozenValueTyped;
-    use crate::values::StarlarkValue;
 
     #[test]
     fn int() {
         let v = FrozenValueTyped::<PointerI32>::new(FrozenValue::testing_new_int(17)).unwrap();
-        assert_eq!(17, v.as_ref().to_int().unwrap());
+        assert_eq!(17, v.as_ref().get().to_i32());
     }
 }
