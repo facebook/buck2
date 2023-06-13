@@ -76,6 +76,14 @@ And some assertions:
 
 ---
 
+## notypes
+
+```python
+def notypes(a: "") -> ""
+```
+
+---
+
 ## pos\_either\_named
 
 ```python

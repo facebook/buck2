@@ -149,6 +149,10 @@ fn module(builder: &mut GlobalsBuilder) {
         let _unused = (a, b, c);
         Ok(NoneType)
     }
+
+    fn notypes<'v>(a: Value<'v>) -> anyhow::Result<Value<'v>> {
+        Ok(a)
+    }
 }
 
 #[derive(ProvidesStaticType, Debug, Display, Allocative, Serialize)]
