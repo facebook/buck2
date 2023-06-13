@@ -79,7 +79,7 @@ use more_futures::cancellation::CancellationContext;
 use thiserror::Error;
 use tracing::info;
 
-use crate::executors::worker::WorkerInitError;
+use crate::executors::worker::WorkerCommandHandle;
 use crate::executors::worker::WorkerPool;
 
 #[derive(Debug, Error)]
@@ -363,96 +363,7 @@ impl LocalExecutor {
 
         let liveliness_observer = manager.liveliness_observer.dupe().and(cancellation);
 
-        let worker = if let (Some(worker_spec), Some(worker_pool), true) =
-            (request.worker(), self.worker_pool.dupe(), cfg!(unix))
-        {
-            match executor_stage_async(
-                {
-                    let stage = buck2_data::InitializeWorker {
-                        command: Some(buck2_data::WorkerInitCommand {
-                            argv: worker_spec.exe.clone(),
-                            env: request
-                                .env()
-                                .iter()
-                                .map(|(k, v)| buck2_data::EnvironmentEntry {
-                                    key: k.to_owned(),
-                                    value: v.to_owned(),
-                                })
-                                .collect(),
-                        }),
-                    };
-                    buck2_data::LocalStage {
-                        stage: Some(stage.into()),
-                    }
-                },
-                async move {
-                    // TODO(ctolliday - T155351378) set worker specific env via WorkerInfo, not from the action
-                    let env = request
-                        .env()
-                        .iter()
-                        .map(|(k, v)| (OsString::from(k), OsString::from(v)));
-                    worker_pool
-                        .get_or_create_worker(worker_spec, env, &self.root)
-                        .await
-                },
-            )
-            .await
-            {
-                Ok(worker) => Some(worker),
-                Err(e) => {
-                    let manager = check_inputs(
-                        manager,
-                        &self.artifact_fs,
-                        self.blocking_executor.as_ref(),
-                        request,
-                    )
-                    .await?;
-
-                    let worker_spec = request.worker().as_ref().unwrap();
-                    let execution_kind = CommandExecutionKind::LocalWorkerInit {
-                        command: worker_spec.exe.clone(),
-                        env: request.env().clone(),
-                    };
-
-                    return match e {
-                        WorkerInitError::EarlyExit {
-                            exit_code,
-                            stdout,
-                            stderr,
-                        } => {
-                            let std_streams = CommandStdStreams::Local {
-                                stdout: stdout.into(),
-                                stderr: stderr.into(),
-                            };
-                            // TODO(ctolliday) this should be a new failure type (worker_init_failure), not conflated with a "command failure" which
-                            // implies that it is the primary command and that exit code != 0
-                            manager.failure(
-                                execution_kind,
-                                IndexMap::default(),
-                                std_streams,
-                                Some(exit_code),
-                                CommandExecutionMetadata::default(),
-                            )
-                        }
-                        // TODO(ctolliday) as above, use a new failure type (worker_init_failure) that indicates this is a worker initialization error.
-                        WorkerInitError::ConnectionTimeout(..)
-                        | WorkerInitError::SpawnFailed(..) => manager.failure(
-                            execution_kind,
-                            IndexMap::default(),
-                            CommandStdStreams::Local {
-                                stdout: Default::default(),
-                                stderr: format!("Error initializing worker: {}", e).into_bytes(),
-                            },
-                            None,
-                            CommandExecutionMetadata::default(),
-                        ),
-                        WorkerInitError::InternalError(e) => manager.error("get_worker_failed", e),
-                    };
-                }
-            }
-        } else {
-            None
-        };
+        let (worker, manager) = self.initialize_worker(request, manager).await?;
 
         let execution_kind = match worker {
             None => CommandExecutionKind::Local {
@@ -658,6 +569,73 @@ impl LocalExecutor {
         self.materializer.declare_existing(to_declare).await?;
 
         Ok(mapped_outputs)
+    }
+
+    async fn initialize_worker(
+        &self,
+        request: &CommandExecutionRequest,
+        manager: CommandExecutionManagerWithClaim,
+    ) -> ControlFlow<
+        CommandExecutionResult,
+        (
+            Option<Arc<WorkerCommandHandle>>,
+            CommandExecutionManagerWithClaim,
+        ),
+    > {
+        if let (Some(worker_spec), Some(worker_pool), true) =
+            (request.worker(), self.worker_pool.dupe(), cfg!(unix))
+        {
+            match executor_stage_async(
+                {
+                    let stage = buck2_data::InitializeWorker {
+                        command: Some(buck2_data::WorkerInitCommand {
+                            argv: worker_spec.exe.clone(),
+                            env: request
+                                .env()
+                                .iter()
+                                .map(|(k, v)| buck2_data::EnvironmentEntry {
+                                    key: k.to_owned(),
+                                    value: v.to_owned(),
+                                })
+                                .collect(),
+                        }),
+                    };
+                    buck2_data::LocalStage {
+                        stage: Some(stage.into()),
+                    }
+                },
+                async move {
+                    // TODO(ctolliday - T155351378) set worker specific env via WorkerInfo, not from the action
+                    let env = request
+                        .env()
+                        .iter()
+                        .map(|(k, v)| (OsString::from(k), OsString::from(v)));
+                    worker_pool
+                        .get_or_create_worker(worker_spec, env, &self.root)
+                        .await
+                },
+            )
+            .await
+            {
+                Ok(worker) => ControlFlow::Continue((Some(worker), manager)),
+                Err(e) => {
+                    let res = {
+                        let manager = check_inputs(
+                            manager,
+                            &self.artifact_fs,
+                            self.blocking_executor.as_ref(),
+                            request,
+                        )
+                        .await?;
+
+                        e.to_command_execution_result(request, manager)
+                    };
+                    ControlFlow::Break(res)
+                }
+            }
+        } else {
+            ControlFlow::Continue((None, manager))
+        }
     }
 }
 

@@ -22,8 +22,15 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_events::dispatch::get_dispatcher_opt;
+use buck2_execute::execute::kind::CommandExecutionKind;
+use buck2_execute::execute::manager::CommandExecutionManagerExt;
+use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
+use buck2_execute::execute::output::CommandStdStreams;
+use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
+use buck2_execute::execute::result::CommandExecutionMetadata;
+use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_forkserver::run::maybe_absolutize_exe;
 use buck2_forkserver::run::prepare_command;
 use buck2_forkserver::run::status_decoder::default_decode_exit_code;
@@ -34,6 +41,7 @@ use buck2_worker_proto::worker_client::WorkerClient;
 use buck2_worker_proto::ExecuteCommand;
 use buck2_worker_proto::ExecuteResponse;
 use futures::future::FutureExt;
+use indexmap::IndexMap;
 use tokio::process::Child;
 use tonic::transport::Channel;
 
@@ -54,6 +62,55 @@ pub enum WorkerInitError {
     /// Any error not related to worker behavior
     #[error("Error initializing worker `{0}`")]
     InternalError(anyhow::Error),
+}
+
+impl WorkerInitError {
+    pub(crate) fn to_command_execution_result(
+        self,
+        request: &CommandExecutionRequest,
+        manager: CommandExecutionManagerWithClaim,
+    ) -> CommandExecutionResult {
+        let worker_spec = request.worker().as_ref().unwrap();
+        let execution_kind = CommandExecutionKind::LocalWorkerInit {
+            command: worker_spec.exe.clone(),
+            env: request.env().clone(),
+        };
+
+        match self {
+            WorkerInitError::EarlyExit {
+                exit_code,
+                stdout,
+                stderr,
+            } => {
+                let std_streams = CommandStdStreams::Local {
+                    stdout: stdout.into(),
+                    stderr: stderr.into(),
+                };
+                // TODO(ctolliday) this should be a new failure type (worker_init_failure), not conflated with a "command failure" which
+                // implies that it is the primary command and that exit code != 0
+                manager.failure(
+                    execution_kind,
+                    IndexMap::default(),
+                    std_streams,
+                    Some(exit_code),
+                    CommandExecutionMetadata::default(),
+                )
+            }
+            // TODO(ctolliday) as above, use a new failure type (worker_init_failure) that indicates this is a worker initialization error.
+            WorkerInitError::ConnectionTimeout(..) | WorkerInitError::SpawnFailed(..) => manager
+                .failure(
+                    execution_kind,
+                    IndexMap::default(),
+                    CommandStdStreams::Local {
+                        stdout: Default::default(),
+                        stderr: format!("Error initializing worker: {}", self).into_bytes(),
+                    },
+                    None,
+                    CommandExecutionMetadata::default(),
+                ),
+            WorkerInitError::InternalError(error) => manager.error("get_worker_failed", error),
+        }
+    }
 }
 
 async fn exec_spawn(
