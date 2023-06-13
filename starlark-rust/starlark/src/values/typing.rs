@@ -25,12 +25,17 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use anyhow::Context;
 use dupe::Dupe;
+use starlark_derive::starlark_module;
 use starlark_map::StarlarkHasher;
 use thiserror::Error;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
+use crate::environment::GlobalsBuilder;
+use crate::environment::Methods;
+use crate::environment::MethodsBuilder;
+use crate::environment::MethodsStatic;
 use crate::private::Private;
 use crate::slice_vec_ext::SliceExt;
 use crate::starlark_type;
@@ -41,8 +46,11 @@ use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::list::ListRef;
+use crate::values::none::NoneType;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::types::tuple::value::TupleGen;
+use crate::values::AllocValue;
 use crate::values::Demand;
 use crate::values::Freeze;
 use crate::values::FrozenValue;
@@ -65,6 +73,8 @@ enum TypingError {
     /// it
     #[error(r#"Found `{0}` instead of a valid type annotation. Perhaps you meant `"{1}"`?"#)]
     PerhapsYouMeant(String, String),
+    #[error("Value of type `{1}` does not match type `{2}`: {0}")]
+    ValueDoesNotMatchType(String, &'static str, String),
 }
 
 trait TypeCompiledImpl<'v>: Allocative + Display + Debug + 'v {
@@ -75,16 +85,7 @@ unsafe impl<'v> ProvidesStaticType for &'v dyn TypeCompiledImpl<'v> {
     type StaticType = &'static dyn TypeCompiledImpl<'static>;
 }
 
-#[derive(
-    Debug,
-    Trace,
-    Freeze,
-    Allocative,
-    derive_more::Display,
-    ProvidesStaticType,
-    NoSerialize
-)]
-#[display(fmt = "type")]
+#[derive(Debug, Trace, Freeze, Allocative, ProvidesStaticType, NoSerialize)]
 struct TypeCompiledImplAsStarlarkValue<T>(T);
 
 impl<T> TypeCompiledImplAsStarlarkValue<T>
@@ -122,6 +123,52 @@ where
         };
         Ok(self.0 == other.0)
     }
+
+    fn get_methods() -> Option<&'static Methods>
+    where
+        Self: Sized,
+    {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(type_compiled_methods)
+    }
+}
+
+impl<'v, T: TypeCompiledImpl<'v>> Display for TypeCompiledImplAsStarlarkValue<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "eval_type({})", self.0)
+    }
+}
+
+#[starlark_module]
+fn type_compiled_methods(methods: &mut MethodsBuilder) {
+    /// True iff the value matches this type.
+    fn matches<'v>(this: Value<'v>, value: Value<'v>) -> anyhow::Result<bool> {
+        Ok(this.get_ref().type_matches_value(value))
+    }
+
+    /// Error if the value does not match this type.
+    fn check_matches<'v>(this: Value<'v>, value: Value<'v>) -> anyhow::Result<NoneType> {
+        if !this.get_ref().type_matches_value(value) {
+            return Err(TypingError::ValueDoesNotMatchType(
+                value.to_repr(),
+                value.get_type(),
+                TypeCompiled(this).to_string(),
+            )
+            .into());
+        }
+        Ok(NoneType)
+    }
+}
+
+#[starlark_module]
+pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {
+    /// Create a runtime type object which can be used to check if a value matches the given type.
+    fn eval_type<'v>(
+        #[starlark(require = pos)] ty: Value<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<TypeCompiled<Value<'v>>> {
+        TypeCompiled::new(ty, heap)
+    }
 }
 
 #[derive(
@@ -151,6 +198,18 @@ impl<'v, V: ValueLike<'v>> Display for TypeCompiled<V> {
                 Display::fmt(&self.0, f)
             }
         }
+    }
+}
+
+impl<V> StarlarkTypeRepr for TypeCompiled<V> {
+    fn starlark_type_repr() -> String {
+        "eval_type.type".to_owned()
+    }
+}
+
+impl<'v, V: ValueLike<'v>> AllocValue<'v> for TypeCompiled<V> {
+    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+        self.0.to_value()
     }
 }
 
@@ -903,5 +962,17 @@ def foo(f: int.type = None):
         t("[\"\"]", "[\"\"]");
         t("None", "None");
         t("[\"a\", \"b\"]", "[\"a\", \"b\"]");
+    }
+
+    #[test]
+    fn test_type_compiled_starlark_api() {
+        assert::eq("\"eval_type(int.type)\"", "repr(eval_type(int.type))");
+        assert::is_true("eval_type(int.type).matches(1)");
+        assert::is_true("not eval_type(int.type).matches([])");
+        assert::pass("eval_type(int.type).check_matches(1)");
+        assert::fail(
+            "eval_type(int.type).check_matches([])",
+            "Value of type `list` does not match type `int.type`: []",
+        );
     }
 }

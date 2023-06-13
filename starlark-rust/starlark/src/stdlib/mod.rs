@@ -38,6 +38,8 @@ pub(crate) mod util;
 
 pub use extra::PrintHandler;
 
+use crate::values::typing;
+
 /// Return the default global environment, it is not yet frozen so that a caller
 /// can refine it.
 ///
@@ -79,6 +81,8 @@ pub enum LibraryExtension {
     Json,
     /// Add a function `abs()` which will take the absolute value of an int.
     Abs,
+    /// `type_compiled()` function.
+    Typing,
     // Make sure if you add anything new, you add it to `all` below.
 }
 
@@ -100,6 +104,7 @@ impl LibraryExtension {
             Breakpoint,
             Json,
             Abs,
+            Typing,
         ]
     }
 
@@ -120,6 +125,7 @@ impl LibraryExtension {
             Breakpoint => breakpoint::global(builder),
             Json => json::json(builder),
             Abs => extra::abs(builder),
+            Typing => typing::register_eval_type(builder),
         }
     }
 }
