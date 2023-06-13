@@ -140,6 +140,15 @@ fn module(builder: &mut GlobalsBuilder) {
         let _unused = (explicit_default, hidden_default, string_default);
         Ok(NoneType)
     }
+
+    fn pos_either_named(
+        #[starlark(require = pos)] a: i32,
+        b: i32,
+        #[starlark(require = named)] c: i32,
+    ) -> anyhow::Result<NoneType> {
+        let _unused = (a, b, c);
+        Ok(NoneType)
+    }
 }
 
 #[derive(ProvidesStaticType, Debug, Display, Allocative, Serialize)]

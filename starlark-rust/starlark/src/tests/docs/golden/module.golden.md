@@ -71,6 +71,19 @@ And some assertions:
 
 ---
 
+## pos\_either\_named
+
+```python
+def pos_either_named(
+    a: int.type,
+    b: int.type,
+    *,
+    c: int.type
+) -> None
+```
+
+---
+
 ## with\_defaults
 
 ```python
