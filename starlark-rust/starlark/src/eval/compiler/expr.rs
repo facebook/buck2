@@ -144,7 +144,7 @@ impl Builtin1 {
         match self {
             Builtin1::Minus => v.to_value().minus(ctx.heap()).ok(),
             Builtin1::Plus => v.to_value().plus(ctx.heap()).ok(),
-            Builtin1::BitNot => Some(ctx.heap().alloc(!v.to_value().to_int().ok()?)),
+            Builtin1::BitNot => v.to_value().bit_not(ctx.heap()).ok(),
             Builtin1::Not => Some(Value::new_bool(!v.to_value().to_bool())),
             Builtin1::TypeIs(t) => Some(Value::new_bool(v.to_value().get_type_value() == *t)),
             Builtin1::FormatOne(before, after) => {
