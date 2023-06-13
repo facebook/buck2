@@ -1005,6 +1005,7 @@ mod unix {
             env: vec![],
             timeout: command_timeout.try_map(|d| d.try_into())?,
             enable_miniperf,
+            std_redirects: None,
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver

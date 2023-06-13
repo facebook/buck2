@@ -175,6 +175,7 @@ pub fn stream_command_events<T>(
     cancellation: T,
     decoder: impl StatusDecoder,
     kill_process: impl KillProcess,
+    stream_stdio: bool,
 ) -> anyhow::Result<impl Stream<Item = anyhow::Result<CommandEvent>>>
 where
     T: Future<Output = anyhow::Result<GatherOutputStatus>> + Send,
@@ -189,19 +190,29 @@ where
         }
     };
 
-    let stdout = child.stdout.take().context("Child stdout is not piped")?;
-    let stderr = child.stderr.take().context("Child stderr is not piped")?;
+    let stdio = if stream_stdio {
+        let stdout = child.stdout.take().context("Child stdout is not piped")?;
+        let stderr = child.stderr.take().context("Child stderr is not piped")?;
 
-    #[cfg(unix)]
-    type Drainer<R> = self::interruptible_async_read::UnixNonBlockingDrainer<R>;
+        #[cfg(unix)]
+        type Drainer<R> = self::interruptible_async_read::UnixNonBlockingDrainer<R>;
 
-    // On Windows, for the time being we just give ourselves a timeout to finish reading.
-    // Ideally this would perform a non-blocking read on self instead like we do on Unix.
-    #[cfg(not(unix))]
-    type Drainer<R> = self::interruptible_async_read::TimeoutDrainer<R>;
+        // On Windows, for the time being we just give ourselves a timeout to finish reading.
+        // Ideally this would perform a non-blocking read on self instead like we do on Unix.
+        #[cfg(not(unix))]
+        type Drainer<R> = self::interruptible_async_read::TimeoutDrainer<R>;
 
-    let stdout = InterruptibleAsyncRead::<_, Drainer<_>>::new(stdout);
-    let stderr = InterruptibleAsyncRead::<_, Drainer<_>>::new(stderr);
+        let stdout = InterruptibleAsyncRead::<_, Drainer<_>>::new(stdout);
+        let stderr = InterruptibleAsyncRead::<_, Drainer<_>>::new(stderr);
+        let stdout = FramedRead::new(stdout, BytesCodec::new())
+            .map(|data| anyhow::Ok(StdioEvent::Stdout(data?.freeze())));
+        let stderr = FramedRead::new(stderr, BytesCodec::new())
+            .map(|data| anyhow::Ok(StdioEvent::Stderr(data?.freeze())));
+
+        futures::stream::select(stdout, stderr).left_stream()
+    } else {
+        futures::stream::empty().right_stream()
+    };
 
     let status = async move {
         enum Outcome {
@@ -246,13 +257,6 @@ where
         })
     };
 
-    let stdout = FramedRead::new(stdout, BytesCodec::new())
-        .map(|data| anyhow::Ok(StdioEvent::Stdout(data?.freeze())));
-    let stderr = FramedRead::new(stderr, BytesCodec::new())
-        .map(|data| anyhow::Ok(StdioEvent::Stderr(data?.freeze())));
-
-    let stdio = futures::stream::select(stdout, stderr);
-
     Ok(CommandEventStream::new(status, stdio).right_stream())
 }
 
@@ -295,6 +299,7 @@ where
         cancellation,
         DefaultStatusDecoder,
         DefaultKillProcess,
+        true,
     )?;
     decode_command_event_stream(stream).await
 }
@@ -599,6 +604,7 @@ mod tests {
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess,
+            true,
         )?
         .boxed();
         assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
@@ -680,6 +686,7 @@ mod tests {
             Kill {
                 killed: killed.dupe(),
             },
+            true,
         )?;
 
         let (status, _stdout, _stderr) = decode_command_event_stream(stream).await?;
@@ -687,6 +694,34 @@ mod tests {
 
         assert!(*killed.lock().unwrap());
         assert!(*cancelled.lock().unwrap());
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_no_stdio_stream_command_events() -> anyhow::Result<()> {
+        let mut cmd = background_command("sh");
+        cmd.args(["-c", "echo hello"]);
+
+        let mut cmd = prepare_command(cmd);
+        let tempdir = tempfile::tempdir()?;
+        let stdout = tempdir.path().join("stdout");
+        cmd.stdout(std::fs::File::create(stdout.clone())?);
+
+        let child = cmd.spawn();
+        let mut events = stream_command_events(
+            child,
+            futures::future::pending(),
+            DefaultStatusDecoder,
+            DefaultKillProcess,
+            false,
+        )?
+        .boxed();
+        assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
+        assert_matches!(futures::poll!(events.next()), Poll::Ready(None));
+
+        assert_matches!(tokio::fs::read_to_string(stdout).await?.as_str(), "hello\n");
 
         Ok(())
     }

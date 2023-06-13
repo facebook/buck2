@@ -8,6 +8,7 @@
  */
 
 use std::ffi::OsStr;
+use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
@@ -112,6 +113,7 @@ impl Forkserver for UnixForkserverService {
                 cwd,
                 timeout,
                 enable_miniperf,
+                std_redirects,
             } = msg;
 
             let exe = OsStr::from_bytes(&exe);
@@ -158,6 +160,11 @@ impl Forkserver for UnixForkserverService {
             }
 
             let mut cmd = prepare_command(cmd);
+            let stream_stdio = std_redirects.is_none();
+            if let Some(std_redirects) = std_redirects {
+                cmd.stdout(File::create(OsStr::from_bytes(&std_redirects.stdout))?);
+                cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
+            }
             let child = cmd.spawn();
 
             let timeout = timeout_into_cancellation(timeout);
@@ -170,6 +177,7 @@ impl Forkserver for UnixForkserverService {
                     cancellation,
                     MiniperfStatusDecoder::new(out),
                     DefaultKillProcess,
+                    stream_stdio,
                 )?
                 .left_stream(),
                 None => stream_command_events(
@@ -177,6 +185,7 @@ impl Forkserver for UnixForkserverService {
                     cancellation,
                     DefaultStatusDecoder,
                     DefaultKillProcess,
+                    stream_stdio,
                 )?
                 .right_stream(),
             };

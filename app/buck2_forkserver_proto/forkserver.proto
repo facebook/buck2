@@ -28,6 +28,14 @@ message CommandRequest {
   repeated EnvDirective env = 8;
   // Enable Miniperf if available?
   bool enable_miniperf = 9;
+
+  message StdRedirectPaths {
+    bytes stdout = 10;
+    bytes stderr = 11;
+  }
+  // Used to optionally redirect stdout and stderr to files.
+  // If set, stdout and stderr events will not be streamed.
+  optional StdRedirectPaths std_redirects = 12;
 }
 
 message WorkingDirectory {
