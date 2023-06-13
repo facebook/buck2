@@ -42,9 +42,11 @@ use futures::StreamExt;
 use gazebo::prelude::VecExt;
 use itertools::Either;
 use itertools::Itertools;
+use more_futures::spawn::spawn_cancellable;
 use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 use tokio::sync::Semaphore;
+use tracing::trace_span;
 
 use crate::commands::targets::fmt::Stats;
 use crate::commands::targets::fmt::TargetFormatter;
@@ -81,71 +83,85 @@ pub(crate) async fn targets_streaming(
             let formatter = formatter.dupe();
             let imported = imported.dupe();
             let threads = threads.dupe();
+            let ctx = dice.dupe();
 
-            dice.temporary_spawn(move |dice, _cancellation| {
-                async move {
-                    let (package, spec) = x?;
-                    let mut res = Res {
-                        stats: Stats::default(),
-                        package: package.dupe(),
-                        stderr: None,
-                        stdout: String::new(),
-                    };
-                    let targets = {
-                        // This bit of code is the heavy CPU stuff, so guard it with the threads
-                        let _permit = threads.acquire().await.unwrap();
-                        load_targets(&dice, package.dupe(), spec, cached, keep_going).await
-                    };
-                    let mut show_err = |err| {
-                        res.stats.errors += 1;
-                        let mut stderr = String::new();
-                        formatter.package_error(package.dupe(), err, &mut res.stdout, &mut stderr);
-                        res.stderr = Some(stderr);
-                    };
-                    match targets {
-                        Ok((eval_result, targets, err)) => {
-                            if let Some(err) = err {
-                                show_err(&err);
-                                formatter.separator(&mut res.stdout);
-                            }
-                            res.stats.success += 1;
-                            if imports {
-                                let eval_imports = eval_result.imports();
-                                formatter.imports(
-                                    &eval_result.buildfile_path().path(),
-                                    eval_imports,
-                                    Some(package.dupe()),
+            spawn_cancellable(
+                |_cancellation| {
+                    {
+                        async move {
+                            let (package, spec) = x?;
+                            let mut res = Res {
+                                stats: Stats::default(),
+                                package: package.dupe(),
+                                stderr: None,
+                                stdout: String::new(),
+                            };
+                            let targets = {
+                                // This bit of code is the heavy CPU stuff, so guard it with the threads
+                                let _permit = threads.acquire().await.unwrap();
+                                load_targets(&ctx, package.dupe(), spec, cached, keep_going).await
+                            };
+                            let mut show_err = |err| {
+                                res.stats.errors += 1;
+                                let mut stderr = String::new();
+                                formatter.package_error(
+                                    package.dupe(),
+                                    err,
                                     &mut res.stdout,
+                                    &mut stderr,
                                 );
-                                imported
-                                    .lock()
-                                    .unwrap()
-                                    .extend(eval_imports.iter().cloned());
-                            }
-                            for (i, node) in targets.iter().enumerate() {
-                                res.stats.targets += 1;
-                                if imports || i != 0 {
-                                    formatter.separator(&mut res.stdout);
+                                res.stderr = Some(stderr);
+                            };
+                            match targets {
+                                Ok((eval_result, targets, err)) => {
+                                    if let Some(err) = err {
+                                        show_err(&err);
+                                        formatter.separator(&mut res.stdout);
+                                    }
+                                    res.stats.success += 1;
+                                    if imports {
+                                        let eval_imports = eval_result.imports();
+                                        formatter.imports(
+                                            &eval_result.buildfile_path().path(),
+                                            eval_imports,
+                                            Some(package.dupe()),
+                                            &mut res.stdout,
+                                        );
+                                        imported
+                                            .lock()
+                                            .unwrap()
+                                            .extend(eval_imports.iter().cloned());
+                                    }
+                                    for (i, node) in targets.iter().enumerate() {
+                                        res.stats.targets += 1;
+                                        if imports || i != 0 {
+                                            formatter.separator(&mut res.stdout);
+                                        }
+                                        formatter.target(
+                                            TargetInfo {
+                                                node,
+                                                target_hash: fast_hash.map(|fast| {
+                                                    TargetHashes::compute_immediate_one(node, fast)
+                                                }),
+                                            },
+                                            &mut res.stdout,
+                                        )
+                                    }
                                 }
-                                formatter.target(
-                                    TargetInfo {
-                                        node,
-                                        target_hash: fast_hash.map(|fast| {
-                                            TargetHashes::compute_immediate_one(node, fast)
-                                        }),
-                                    },
-                                    &mut res.stdout,
-                                )
+                                Err(err) => {
+                                    show_err(&err);
+                                }
                             }
-                        }
-                        Err(err) => {
-                            show_err(&err);
+                            anyhow::Ok(res)
                         }
                     }
-                    anyhow::Ok(res)
-                }
-                .boxed()
-            })
+                    .boxed()
+                },
+                &*dice.per_transaction_data().spawner,
+                dice.per_transaction_data(),
+                trace_span!("load targets"),
+            )
+            .into_drop_cancel()
         })
         // Use unlimited parallelism - tokio will restrict us anyway
         .buffer_unordered(1000000);
