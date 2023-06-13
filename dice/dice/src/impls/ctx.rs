@@ -151,7 +151,6 @@ pub(crate) struct PerComputeCtx {
     evaluation_data: Mutex<EvaluationData>,
 }
 
-#[allow(clippy::manual_async_fn, unused)]
 impl PerComputeCtx {
     pub(crate) fn new(
         parent_key: ParentKey,
@@ -218,7 +217,7 @@ impl PerComputeCtx {
                     OpaqueValueModern::new(self, dice_key, dice_value.value().dupe())
                 });
 
-                cancellable.map_err(|e| DiceError::cancelled())
+                cancellable.map_err(|_| DiceError::cancelled())
             })
     }
 

@@ -48,10 +48,7 @@ impl DiceComputationsImpl {
                 .compute_opaque(key)
                 .map(|r| r.map(|x| x.into_value()))
                 .left_future(),
-            DiceComputationsImpl::Modern(delegate) => delegate
-                .compute_opaque(key)
-                .map(|r| r.map(|x| x.into_value()))
-                .right_future(),
+            DiceComputationsImpl::Modern(delegate) => delegate.compute(key).right_future(),
         }
     }
 
