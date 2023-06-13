@@ -372,6 +372,11 @@ impl Ty {
         Ty::List(Box::new(inner))
     }
 
+    /// Create a iterable type.
+    pub fn iter(item: Ty) -> Self {
+        Ty::Iter(Box::new(item))
+    }
+
     /// Create a dictionary type.
     pub fn dict(key: Ty, value: Ty) -> Self {
         Ty::Dict(Box::new((key, value)))
