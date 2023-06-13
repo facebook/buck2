@@ -173,12 +173,7 @@ impl IncrementalEngine {
         let state_result = rx.await.unwrap();
 
         match state_result {
-            VersionedGraphResult::Match(entry) => {
-                debug!(
-                    msg = "found existing entry with matching version in cache. reusing result.",
-                );
-                Ok(task_state.lookup_matches(entry))
-            }
+            VersionedGraphResult::Match(entry) => Ok(task_state.lookup_matches(entry)),
             VersionedGraphResult::Compute => {
                 let cycles = cycles.start_computing_key(
                     k,
@@ -232,10 +227,6 @@ impl IncrementalEngine {
                         .await
                     }
                     DidDepsChange::NoChange(deps) => {
-                        debug!(
-                            msg = "reusing previous value because deps didn't change. Updating caches"
-                        );
-
                         report_key_activation(
                             &eval.dice.key_index,
                             eval.user_data.activation_tracker.as_deref(),
@@ -256,8 +247,6 @@ impl IncrementalEngine {
                             deps,
                             resp: tx,
                         });
-
-                        debug!(msg = "Update caches complete");
 
                         rx.await.unwrap().map(|r| task_state.cached(r))
                     }
@@ -298,8 +287,6 @@ impl IncrementalEngine {
 
         let task_state = task_state.finished();
 
-        debug!(msg = "evaluation finished. updating caches");
-
         let res = {
             report_key_activation(
                 &eval.dice.key_index,
@@ -329,8 +316,6 @@ impl IncrementalEngine {
                 )),
             }
         };
-
-        debug!(msg = "update future completed");
 
         res.map(|res| task_state.cached(res))
     }
@@ -379,7 +364,6 @@ impl IncrementalEngine {
                     verified_versions =
                         Cow::Owned(verified_versions.intersect(&dep_version_ranges));
                     if verified_versions.is_empty() {
-                        debug!(msg = "deps changed");
                         return Ok(DidDepsChange::Changed);
                     }
                 }
@@ -388,8 +372,6 @@ impl IncrementalEngine {
                 }
             }
         }
-
-        debug!(msg = "deps did not change");
 
         Ok(DidDepsChange::NoChange(deps))
     }

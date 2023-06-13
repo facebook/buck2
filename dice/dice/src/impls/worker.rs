@@ -36,16 +36,25 @@ pub(crate) struct DiceWorkerStateAwaitingPrevious<'a> {
 }
 
 impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
+    pub(crate) fn new(handle: DiceTaskHandle<'a>) -> Self {
+        debug!(msg = "Task started. Waiting for previously cancelled task if any");
+        Self { internals: handle }
+    }
+
     pub(crate) fn previously_finished(
         self,
         value: DiceComputedValue,
     ) -> DiceWorkerStateFinishedAndCached {
+        debug!(msg = "previously cancelled task actually finished");
+
         self.internals.finished(value);
 
         DiceWorkerStateFinishedAndCached {}
     }
 
     pub(crate) fn previously_cancelled(self) -> DiceWorkerStateLookupNode<'a> {
+        debug!(msg = "previously cancelled task was cancelled");
+
         self.internals.report_initial_lookup();
 
         DiceWorkerStateLookupNode {
@@ -54,6 +63,8 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
     }
 
     pub(crate) fn no_previous_task(self) -> DiceWorkerStateLookupNode<'a> {
+        debug!(msg = "no previous task to wait for");
+
         self.internals.report_initial_lookup();
 
         DiceWorkerStateLookupNode {
@@ -89,6 +100,8 @@ impl<'a> DiceWorkerStateLookupNode<'a> {
         self,
         value: DiceComputedValue,
     ) -> DiceWorkerStateFinishedAndCached {
+        debug!(msg = "found existing entry with matching version in cache. reusing result.",);
+
         self.internals.finished(value);
 
         DiceWorkerStateFinishedAndCached {}
@@ -103,6 +116,7 @@ pub(crate) struct DiceWorkerStateCheckingDeps<'a> {
 
 impl<'a> DiceWorkerStateCheckingDeps<'a> {
     pub(crate) fn deps_not_match(self) -> DiceWorkerStateComputing<'a> {
+        debug!(msg = "deps changed");
         self.internals.computing();
 
         DiceWorkerStateComputing {
@@ -111,6 +125,8 @@ impl<'a> DiceWorkerStateCheckingDeps<'a> {
     }
 
     pub(crate) fn deps_match(self) -> DiceWorkerStateFinished<'a> {
+        debug!(msg = "reusing previous value because deps didn't change. Updating caches");
+
         DiceWorkerStateFinished {
             internals: self.internals,
         }
@@ -135,6 +151,8 @@ impl<'a> DiceWorkerStateComputing<'a> {
     }
 
     pub(crate) fn finished(self) -> DiceWorkerStateFinished<'a> {
+        debug!(msg = "evaluation finished. updating caches");
+
         DiceWorkerStateFinished {
             internals: self.internals,
         }
@@ -150,6 +168,8 @@ pub(crate) struct DiceWorkerStateFinished<'a> {
 
 impl<'a> DiceWorkerStateFinished<'a> {
     pub(crate) fn cached(self, value: DiceComputedValue) -> DiceWorkerStateFinishedAndCached {
+        debug!(msg = "Update caches complete");
+
         self.internals.finished(value);
 
         DiceWorkerStateFinishedAndCached {}
@@ -196,7 +216,7 @@ impl DiceTaskWorker {
                     );
 
                     match worker
-                        .do_work(DiceWorkerStateAwaitingPrevious { internals: handle })
+                        .do_work(DiceWorkerStateAwaitingPrevious::new(handle))
                         .await
                     {
                         Ok(_res) => {
@@ -239,7 +259,6 @@ impl DiceTaskWorker {
         state: DiceWorkerStateAwaitingPrevious<'_>,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         let state = if let Some(previous) = self.previously_cancelled_task {
-            debug!(msg = "waiting for previously cancelled task");
             previous.previous.await_termination().await;
             // old task actually finished, so just use that result if it wasn't
             // cancelled
@@ -250,8 +269,6 @@ impl DiceTaskWorker {
                 .expect("Terminated task must have finished value")
             {
                 Ok(res) => {
-                    debug!(msg = "previously cancelled task actually finished");
-
                     return Ok(state.previously_finished(res));
                 }
                 Err(Cancelled) => {
@@ -264,8 +281,7 @@ impl DiceTaskWorker {
             state.no_previous_task()
         };
 
-        let result = self
-            .incremental
+        self.incremental
             .eval_entry_versioned(
                 self.k,
                 self.eval,
@@ -273,10 +289,6 @@ impl DiceTaskWorker {
                 self.events_dispatcher,
                 state,
             )
-            .await;
-
-        debug!("finished versioned evaluation");
-
-        result
+            .await
     }
 }
