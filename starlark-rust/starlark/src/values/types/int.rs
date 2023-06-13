@@ -192,9 +192,6 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         Ok(Some(NumRef::Int(StarlarkIntRef::Small(self.get()))) == other.unpack_num())
     }
 
-    fn to_int(&self) -> anyhow::Result<i32> {
-        Ok(self.get().to_i32())
-    }
     fn to_bool(&self) -> bool {
         self.get().to_i32() != 0
     }

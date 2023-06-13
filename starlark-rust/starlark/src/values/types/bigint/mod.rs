@@ -219,10 +219,6 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         }
     }
 
-    fn to_int(&self) -> anyhow::Result<i32> {
-        Err(ValueError::IntegerOverflow.into())
-    }
-
     fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,

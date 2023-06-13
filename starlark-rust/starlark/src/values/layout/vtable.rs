@@ -388,12 +388,6 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    #[allow(dead_code)] // TEMPORARY til the next diff
-    pub(crate) fn to_int(self) -> anyhow::Result<i32> {
-        (self.vtable.starlark_value.to_int)(self.value)
-    }
-
-    #[inline]
     pub(crate) fn to_bool(self) -> bool {
         (self.vtable.starlark_value.to_bool)(self.value)
     }

@@ -113,9 +113,6 @@ impl StarlarkValue<'_> for StarlarkBool {
         }
     }
 
-    fn to_int(&self) -> anyhow::Result<i32> {
-        Ok(if self.0 { 1 } else { 0 })
-    }
     fn to_bool(&self) -> bool {
         self.0
     }

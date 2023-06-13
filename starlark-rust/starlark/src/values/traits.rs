@@ -309,13 +309,6 @@ pub trait StarlarkValue<'v>:
         true
     }
 
-    /// Convert self to a integer value, as returned by the int() function if
-    /// the type is numeric (not for string).
-    /// Works for int and bool (0 = false, 1 = true).
-    fn to_int(&self) -> anyhow::Result<i32> {
-        ValueError::unsupported(self, "int()")
-    }
-
     /// Return a hash data for self to be used when self is placed as a key in a `Dict`.
     /// Return an [`Err`] if there is no hash for this value (e.g. list).
     /// Must be stable between frozen and non-frozen values.
