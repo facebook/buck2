@@ -68,6 +68,10 @@ fn test_oracle() {
             Ty::bool()
         )))
     );
+    assert_eq!(
+        o.builtin("fail"),
+        Some(Ok(Ty::function(vec![Param::args(Ty::Any)], Ty::Void)))
+    );
     assert_eq!(o.builtin("not_a_symbol"), Some(Err(())));
 
     fn get_type(x: &Option<Result<Ty, ()>>) -> &str {

@@ -326,6 +326,7 @@ impl Ty {
                 fields: BTreeMap::new(),
                 extra: true,
             },
+            "never" => Self::Void,
             // Note that "tuple" cannot be converted to Ty::Tuple
             // since we don't know the length of the tuple.
             _ => Self::Name(TyName(name.to_owned())),
@@ -334,7 +335,7 @@ impl Ty {
 
     /// Turn a type back into a name, potentially erasing some structure.
     /// E.g. the type `[bool]` would return `list`.
-    /// Types like [`Ty::Void`] and [`Ty::Any`] will return `None`.
+    /// Types like [`Ty::Any`] will return `None`.
     pub(crate) fn as_name(&self) -> Option<&str> {
         match self {
             Ty::Name(x) => Some(x.as_str()),
@@ -344,6 +345,7 @@ impl Ty {
             Ty::Dict(_) => Some("dict"),
             Ty::Struct { .. } => Some("struct"),
             Ty::Function { .. } => Some("function"),
+            Ty::Void => Some("never"),
             _ => None,
         }
     }

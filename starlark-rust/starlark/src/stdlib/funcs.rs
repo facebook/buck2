@@ -148,6 +148,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// fail("oops", 1, False)  # fail: oops 1 False
     /// # "#, "oops 1 False");
     /// ```
+    #[starlark(return_type = "\"never\"")]
     fn fail(#[starlark(args)] args: Vec<Value>) -> anyhow::Result<NoneType> {
         let mut s = String::new();
         for x in args {
