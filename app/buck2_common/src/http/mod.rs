@@ -41,6 +41,8 @@ use tokio::io::AsyncReadExt;
 use tokio_rustls::TlsConnector;
 use tokio_util::io::StreamReader;
 
+use self::find_certs::find_tls_cert;
+
 pub mod counting_client;
 pub mod find_certs;
 mod proxy;
@@ -103,11 +105,8 @@ pub fn http_client_for_oss() -> anyhow::Result<Arc<dyn HttpClient>> {
 /// Returns a client suitable for Meta-internal usecases. Supports standard
 /// $THRIFT_TLS_CL_* environment variables.
 fn http_client_for_internal() -> anyhow::Result<Arc<dyn HttpClient>> {
-    let tls_config = if let (Some(cert_path), Some(key_path)) = (
-        std::env::var_os("THRIFT_TLS_CL_CERT_PATH"),
-        std::env::var_os("THRIFT_TLS_CL_KEY_PATH"),
-    ) {
-        tls_config_with_single_cert(cert_path.as_os_str(), key_path.as_os_str())?
+    let tls_config = if let Ok(Some(cert_path)) = find_tls_cert() {
+        tls_config_with_single_cert(cert_path.clone(), cert_path)?
     } else {
         tls_config_with_system_roots()?
     };
