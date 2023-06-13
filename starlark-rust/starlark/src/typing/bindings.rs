@@ -73,11 +73,9 @@ impl<'a> BindExpr<'a> {
 #[derive(Default)]
 pub(crate) struct Bindings<'a> {
     pub(crate) expressions: HashMap<BindingId, Vec<BindExpr<'a>>>,
-    pub(crate) descriptions: HashMap<BindingId, &'a CstAssignIdent>,
     pub(crate) types: HashMap<BindingId, Ty>,
     pub(crate) check: Vec<&'a CstExpr>,
     pub(crate) check_type: Vec<(Span, Option<&'a CstExpr>, Ty)>,
-    pub(crate) approximations: Vec<Approximation>,
 }
 
 /// Interface representing the types of all bindings in a module.
@@ -101,14 +99,22 @@ impl Interface {
     }
 }
 
-impl<'a> Bindings<'a> {
+#[derive(Default)]
+pub(crate) struct BindingsCollect<'a> {
+    pub(crate) bindings: Bindings<'a>,
+    pub(crate) descriptions: HashMap<BindingId, &'a CstAssignIdent>,
+    pub(crate) approximations: Vec<Approximation>,
+}
+
+impl<'a> BindingsCollect<'a> {
     /// Collect all the assignments to variables
     pub(crate) fn collect(x: &'a CstStmt) -> Self {
-        fn assign<'a>(lhs: &'a CstAssign, rhs: BindExpr<'a>, bindings: &mut Bindings<'a>) {
+        fn assign<'a>(lhs: &'a CstAssign, rhs: BindExpr<'a>, bindings: &mut BindingsCollect<'a>) {
             match &**lhs {
                 AssignP::Identifier(x) => {
                     bindings.descriptions.insert(x.1.unwrap(), x);
                     bindings
+                        .bindings
                         .expressions
                         .entry(x.1.unwrap())
                         .or_default()
@@ -125,6 +131,7 @@ impl<'a> Bindings<'a> {
                         node: IdentP(_name, Some(ResolvedIdent::Slot((_, ident)))),
                     }) => {
                         bindings
+                            .bindings
                             .expressions
                             .entry(*ident)
                             .or_default()
@@ -146,19 +153,25 @@ impl<'a> Bindings<'a> {
             }
         }
 
-        fn visit<'a>(x: Visit<'a, CstPayload>, return_type: &Ty, bindings: &mut Bindings<'a>) {
+        fn visit<'a>(
+            x: Visit<'a, CstPayload>,
+            return_type: &Ty,
+            bindings: &mut BindingsCollect<'a>,
+        ) {
             match x {
                 Visit::Stmt(x) => match &**x {
                     StmtP::Assign(lhs, ty_rhs) => {
                         if let Some(ty) = &ty_rhs.0 {
                             let ty2 = Ty::from_type_expr(ty, &mut bindings.approximations);
-                            bindings
-                                .check_type
-                                .push((ty.span, Some(&ty_rhs.1), ty2.clone()));
+                            bindings.bindings.check_type.push((
+                                ty.span,
+                                Some(&ty_rhs.1),
+                                ty2.clone(),
+                            ));
                             if let AssignP::Identifier(id) = &**lhs {
                                 // FIXME: This could be duplicated if you declare the type of a variable twice,
                                 // we would only see the second one.
-                                bindings.types.insert(id.1.unwrap(), ty2);
+                                bindings.bindings.types.insert(id.1.unwrap(), ty2);
                             }
                         }
                         assign(lhs, BindExpr::Expr(&ty_rhs.1), bindings)
@@ -223,13 +236,14 @@ impl<'a> Bindings<'a> {
                                 }
                             };
                             if let Some((name, ty)) = name_ty {
-                                bindings.types.insert(name.1.unwrap(), ty);
+                                bindings.bindings.types.insert(name.1.unwrap(), ty);
                                 bindings.descriptions.insert(name.1.unwrap(), name);
                             }
                         }
                         let ret_ty =
                             Ty::from_type_expr_opt(return_type, &mut bindings.approximations);
                         bindings
+                            .bindings
                             .types
                             .insert(name.1.unwrap(), Ty::function(params2, ret_ty.clone()));
                         x.visit_children(|x| visit(x, &ret_ty, bindings));
@@ -241,14 +255,14 @@ impl<'a> Bindings<'a> {
                         for (ident, _load) in &x.args {
                             let ty = mp.get(ident.0.as_str()).cloned().unwrap_or(Ty::Any);
                             bindings.descriptions.insert(ident.1.unwrap(), ident);
-                            bindings.types.insert(ident.1.unwrap(), ty);
+                            bindings.bindings.types.insert(ident.1.unwrap(), ty);
                         }
                     }
-                    StmtP::Return(ret) => {
-                        bindings
-                            .check_type
-                            .push((x.span, ret.as_ref(), return_type.clone()))
-                    }
+                    StmtP::Return(ret) => bindings.bindings.check_type.push((
+                        x.span,
+                        ret.as_ref(),
+                        return_type.clone(),
+                    )),
                     StmtP::Expression(x) => {
                         // We want to find ident.append(), ident.extend(), ident.extend()
                         // to fake up a BindExpr::ListAppend/ListExtend
@@ -271,17 +285,22 @@ impl<'a> Bindings<'a> {
                                             } else {
                                                 BindExpr::ListAppend(*id, args[arg].expr())
                                             };
-                                            bindings.expressions.entry(*id).or_default().push(bind)
+                                            bindings
+                                                .bindings
+                                                .expressions
+                                                .entry(*id)
+                                                .or_default()
+                                                .push(bind)
                                         }
                                     }
                                 }
                             }
                         }
 
-                        bindings.check.push(x)
+                        bindings.bindings.check.push(x)
                     }
-                    StmtP::If(x, _) => bindings.check.push(x),
-                    StmtP::IfElse(x, _) => bindings.check.push(x),
+                    StmtP::If(x, _) => bindings.bindings.check.push(x),
+                    StmtP::IfElse(x, _) => bindings.bindings.check.push(x),
                     _ => {}
                 },
                 Visit::Expr(x) => match &**x {
@@ -311,7 +330,7 @@ impl<'a> Bindings<'a> {
             x.visit_children(|x| visit(x, return_type, bindings))
         }
 
-        let mut res = Bindings::default();
+        let mut res = BindingsCollect::default();
         visit(Visit::Stmt(x), &Ty::Any, &mut res);
         res
     }

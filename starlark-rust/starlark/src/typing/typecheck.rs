@@ -37,6 +37,7 @@ use crate::syntax::ast::Visibility;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::bindings::Bindings;
+use crate::typing::bindings::BindingsCollect;
 use crate::typing::bindings::Interface;
 use crate::typing::ctx::TypingContext;
 use crate::typing::ctx::TypingError;
@@ -176,10 +177,11 @@ impl AstModule {
         let names = MutableNames::new();
         let frozen_heap = FrozenHeap::new();
         let (cst, scope) = unique_identifiers(&frozen_heap, self, &names, loads);
-        let bindings = Bindings::collect(&cst);
-        let descriptions = bindings.descriptions.clone();
-        let mut approximations = bindings.approximations.clone();
-        let (errors, types, solve_approximations) = solve_bindings(oracle, bindings, &codemap);
+        let bindings = BindingsCollect::collect(&cst);
+        let descriptions = bindings.descriptions;
+        let mut approximations = bindings.approximations;
+        let (errors, types, solve_approximations) =
+            solve_bindings(oracle, bindings.bindings, &codemap);
 
         approximations.extend(solve_approximations);
 
