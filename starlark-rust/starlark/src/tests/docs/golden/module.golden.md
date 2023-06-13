@@ -46,7 +46,12 @@ def func2() -> str.type
 ## func3
 
 ```python
-def func3(a1: int.type, a2: int.type = _, step: int.type = 1) -> str.type
+def func3(
+    a1: int.type,
+    a2: int.type = _,
+    step: int.type = 1,
+    /
+) -> str.type
 ```
 
 A function with only positional arguments.
@@ -76,6 +81,7 @@ And some assertions:
 ```python
 def pos_either_named(
     a: int.type,
+    /,
     b: int.type,
     *,
     c: int.type

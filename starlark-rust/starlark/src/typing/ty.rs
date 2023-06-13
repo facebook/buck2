@@ -688,6 +688,7 @@ impl Ty {
                     }
                     params.push(r);
                 }
+                DocParam::OnlyPosBefore => {}
                 DocParam::NoArgs => no_args = true,
                 DocParam::Args { typ, .. } => params.push(Param::args(Ty::from_docs_type(typ))),
                 DocParam::Kwargs { typ, .. } => params.push(Param::kwargs(Ty::from_docs_type(typ))),

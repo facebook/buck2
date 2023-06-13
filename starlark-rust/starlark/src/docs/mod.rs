@@ -408,7 +408,7 @@ impl DocFunction {
             .params
             .iter()
             .map(|p| match p {
-                DocParam::NoArgs => 0,
+                DocParam::NoArgs | DocParam::OnlyPosBefore => 0,
                 DocParam::Arg { name, .. }
                 | DocParam::Args { name, .. }
                 | DocParam::Kwargs { name, .. } => name.len() + 2,
@@ -603,6 +603,8 @@ pub enum DocParam {
     },
     /// Represents the "*" argument.
     NoArgs,
+    /// Represents the "/" argument from [PEP 570](https://peps.python.org/pep-0570/).
+    OnlyPosBefore,
     /// Represents the "*args" style of argument.
     Args {
         name: String,
@@ -623,7 +625,7 @@ impl DocParam {
     fn starlark_docstring(&self, max_indentation: &str) -> Option<String> {
         let (name, docs) = match self {
             DocParam::Arg { name, docs, .. } => Some((name, docs)),
-            DocParam::NoArgs => None,
+            DocParam::NoArgs | DocParam::OnlyPosBefore => None,
             DocParam::Args { name, docs, .. } => Some((name, docs)),
             DocParam::Kwargs { name, docs, .. } => Some((name, docs)),
         }?;
@@ -647,6 +649,7 @@ impl DocParam {
                 (None, None) => name.clone(),
             },
             DocParam::NoArgs => "*".to_owned(),
+            DocParam::OnlyPosBefore => "/".to_owned(),
             DocParam::Args { name, typ, .. } | DocParam::Kwargs { name, typ, .. } => {
                 match typ.as_ref() {
                     Some(typ) => format!("{}: {}", name, typ.raw_type),
