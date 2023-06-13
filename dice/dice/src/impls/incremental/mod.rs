@@ -14,7 +14,6 @@
 //! with multiple versions in-flight at the same time.
 //!
 
-use std::any::Any;
 use std::borrow::Cow;
 use std::fmt::Debug;
 
@@ -25,7 +24,6 @@ use futures::FutureExt;
 use futures::StreamExt;
 use more_futures::cancellable_future::DisableCancellationGuard;
 use tokio::sync::oneshot;
-use tracing::Instrument;
 
 use crate::api::activation_tracker::ActivationData;
 use crate::arc::Arc;
@@ -44,7 +42,6 @@ use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::promise::DicePromise;
-use crate::impls::task::spawn_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
@@ -69,7 +66,7 @@ mod tests;
 #[derive(Allocative)]
 pub(crate) struct IncrementalEngine {
     state: CoreStateHandle,
-    version_epoch: VersionEpoch,
+    pub(crate) version_epoch: VersionEpoch,
 }
 
 impl Debug for IncrementalEngine {
@@ -94,31 +91,14 @@ impl IncrementalEngine {
         events_dispatcher: DiceEventDispatcher,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
     ) -> DiceTask {
-        let eval_dupe = eval.dupe();
-        spawn_dice_task(
+        let state_handle = eval.dice.state_handle.dupe();
+        DiceTaskWorker::spawn(
             k,
-            &*eval.user_data.spawner,
-            &eval.user_data,
-            move |handle| {
-                async move {
-                    let engine = IncrementalEngine::new(eval_dupe.dice.state_handle.dupe(), version_epoch);
-                    let worker = DiceTaskWorker::new(k, eval_dupe, cycles, events_dispatcher, previously_cancelled_task, engine);
-
-                    match worker.do_work(&handle).await {
-                        Ok((res, _guard)) => {
-                            handle.finished(res)
-                        }
-                        Err(_) => {
-                            // we drop the current handle, leaving the original `DiceTask` as terminated
-                            // state
-                        }
-                    }
-
-                    Box::new(()) as Box<dyn Any + Send + 'static>
-               }
-               .instrument(debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.per_live_version_ctx.get_version(), v_epoch = %version_epoch))
-               .boxed()
-            },
+            eval,
+            cycles,
+            events_dispatcher,
+            previously_cancelled_task,
+            IncrementalEngine::new(state_handle, version_epoch),
         )
     }
 
