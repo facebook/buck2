@@ -866,7 +866,7 @@ xs == [1, 2, 3, 1, 2, 3]
 xs = [1, 2, 3]
 xs.pop(xs)
 "#,
-        "not supported",
+        "Type of parameter `index` doesn't match",
     );
     assert::fail(
         r#"
