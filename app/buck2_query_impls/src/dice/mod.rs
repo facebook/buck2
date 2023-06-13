@@ -176,7 +176,7 @@ impl<'c> DiceQueryDelegate<'c> {
         })
     }
 
-    pub(crate) fn ctx(&self) -> &DiceComputations {
+    pub(crate) fn ctx(&self) -> &'c DiceComputations {
         self.ctx
     }
 

@@ -36,7 +36,6 @@ use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use futures::future::Shared;
 use futures::stream::FuturesOrdered;
-use futures::Future;
 use futures::StreamExt;
 use gazebo::prelude::*;
 use itertools::Either;
@@ -57,11 +56,11 @@ enum ActionQueryError {
 }
 
 /// A simple concurrent map with a `get_or_compute()` function
-struct NodeCache<K: Hash + Eq + PartialEq + Dupe, V: Dupe> {
-    map: DashMap<K, Shared<BoxFuture<'static, V>>>,
+struct NodeCache<'c, K: Hash + Eq + PartialEq + Dupe, V: Dupe> {
+    map: DashMap<K, Shared<BoxFuture<'c, V>>>,
 }
 
-impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
+impl<'c, K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<'c, K, V> {
     fn new() -> Self {
         Self {
             map: DashMap::new(),
@@ -71,19 +70,16 @@ impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
     /// Gets the value or computes it with the provided function. The function is called while holding
     /// a lock on the map and so should not do much work. The future returned by that function isn't
     /// polled until later so it's fine for it to do more work.
-    fn get_or_compute<Fut: Future<Output = V> + Send + 'static, F: FnOnce(K) -> Fut>(
-        self: Arc<Self>,
-        key: K,
-        f: F,
-    ) -> Shared<BoxFuture<'static, V>> {
+    fn get_or_compute<F>(self: Arc<Self>, key: K, f: F) -> Shared<BoxFuture<'c, V>>
+    where
+        F: FnOnce(K) -> BoxFuture<'c, V>,
+    {
         if let Some(v) = self.map.get(&key) {
             return v.clone();
         }
 
         let entry = self.map.entry(key.dupe());
-        entry
-            .or_insert_with(move || f(key).boxed().shared())
-            .clone()
+        entry.or_insert_with(move || f(key).shared()).clone()
     }
 }
 
@@ -91,12 +87,12 @@ impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
 /// QueryTarget::deps() requires that deps are synchronously available and so we need to
 /// be able to iterate the tset structure synchronously.
 #[derive(Clone, Dupe)]
-struct DiceAqueryNodesCache {
-    action_nodes: Arc<NodeCache<ActionKey, SharedResult<ActionQueryNode>>>,
-    tset_nodes: Arc<NodeCache<TransitiveSetProjectionKey, SharedResult<SetProjectionInputs>>>,
+struct DiceAqueryNodesCache<'c> {
+    action_nodes: Arc<NodeCache<'c, ActionKey, SharedResult<ActionQueryNode>>>,
+    tset_nodes: Arc<NodeCache<'c, TransitiveSetProjectionKey, SharedResult<SetProjectionInputs>>>,
 }
 
-impl DiceAqueryNodesCache {
+impl<'c> DiceAqueryNodesCache<'c> {
     fn new() -> Self {
         Self {
             action_nodes: Arc::new(NodeCache::new()),
@@ -107,7 +103,7 @@ impl DiceAqueryNodesCache {
 
 pub(crate) struct DiceAqueryDelegate<'c> {
     base_delegate: DiceQueryDelegate<'c>,
-    nodes_cache: DiceAqueryNodesCache,
+    nodes_cache: DiceAqueryNodesCache<'c>,
     artifact_fs: Arc<ArtifactFs>,
 }
 
@@ -117,9 +113,9 @@ pub(crate) struct DiceAqueryDelegate<'c> {
 // than `(TransitiveSetKey, ProjectionIndex)`. We already have that information when constructing it and the
 // artifact side of it holds a starlark ref. That would allow someone with an ArtifactGroup to synchronously
 // traverse the tset graph rather than needing to asynchronously resolve a TransitiveSetKey.
-async fn convert_inputs<'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
-    ctx: &DiceComputations,
-    node_cache: DiceAqueryNodesCache,
+async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
+    ctx: &'c DiceComputations,
+    node_cache: DiceAqueryNodesCache<'c>,
     inputs: Iter,
 ) -> anyhow::Result<Vec<ActionInput>> {
     let (artifacts, projections): (Vec<_>, Vec<_>) = Itertools::partition_map(
@@ -147,11 +143,11 @@ async fn convert_inputs<'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
     Ok(deps)
 }
 
-fn compute_tset_node(
-    node_cache: DiceAqueryNodesCache,
-    ctx: &DiceComputations,
+fn compute_tset_node<'c>(
+    node_cache: DiceAqueryNodesCache<'c>,
+    ctx: &'c DiceComputations,
     key: TransitiveSetProjectionKey,
-) -> BoxFuture<SharedResult<SetProjectionInputs>> {
+) -> BoxFuture<'c, SharedResult<SetProjectionInputs>> {
     async move {
         let set = ctx
             .compute_deferred_data(&key.key)
@@ -174,28 +170,26 @@ fn compute_tset_node(
     .boxed()
 }
 
-async fn get_tset_node(
-    node_cache: DiceAqueryNodesCache,
-    ctx: &DiceComputations,
+async fn get_tset_node<'c>(
+    node_cache: DiceAqueryNodesCache<'c>,
+    ctx: &'c DiceComputations,
     key: TransitiveSetProjectionKey,
 ) -> anyhow::Result<SetProjectionInputs> {
     let copied_node_cache = node_cache.dupe();
     Ok(node_cache
         .tset_nodes
         .get_or_compute(key, move |key| {
-            ctx.temporary_spawn(move |ctx, _cancellation| {
-                compute_tset_node(copied_node_cache, ctx, key).boxed()
-            })
+            compute_tset_node(copied_node_cache, ctx, key)
         })
         .await?)
 }
 
-fn compute_action_node(
-    node_cache: DiceAqueryNodesCache,
-    ctx: &DiceComputations,
+fn compute_action_node<'c>(
+    node_cache: DiceAqueryNodesCache<'c>,
+    ctx: &'c DiceComputations,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
-) -> BoxFuture<SharedResult<ActionQueryNode>> {
+) -> BoxFuture<'c, SharedResult<ActionQueryNode>> {
     async move {
         let action = ActionCalculation::get_action(ctx, &key).await?;
         let deps = convert_inputs(&ctx, node_cache, action.inputs()?.iter()).await?;
@@ -204,9 +198,9 @@ fn compute_action_node(
     .boxed()
 }
 
-async fn get_action_node(
-    node_cache: DiceAqueryNodesCache,
-    ctx: &DiceComputations,
+async fn get_action_node<'c>(
+    node_cache: DiceAqueryNodesCache<'c>,
+    ctx: &'c DiceComputations,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
 ) -> anyhow::Result<ActionQueryNode> {
@@ -214,17 +208,15 @@ async fn get_action_node(
     Ok(node_cache
         .action_nodes
         .get_or_compute(key, move |key| {
-            ctx.temporary_spawn(move |ctx, _cancellation| {
-                compute_action_node(copied_node_cache, ctx, key, fs).boxed()
-            })
+            compute_action_node(copied_node_cache, ctx, key, fs)
         })
         .await?)
 }
 
 impl<'c> DiceAqueryDelegate<'c> {
-    pub(crate) async fn new<'a>(
-        base_delegate: DiceQueryDelegate<'a>,
-    ) -> anyhow::Result<DiceAqueryDelegate<'a>> {
+    pub(crate) async fn new(
+        base_delegate: DiceQueryDelegate<'c>,
+    ) -> anyhow::Result<DiceAqueryDelegate<'c>> {
         let artifact_fs = Arc::new(base_delegate.ctx().get_artifact_fs().await?);
         Ok(DiceAqueryDelegate {
             base_delegate,
