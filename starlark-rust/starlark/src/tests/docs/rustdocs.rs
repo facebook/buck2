@@ -68,10 +68,7 @@ fn globals(builder: &mut GlobalsBuilder) {
         unimplemented!()
     }
 
-    fn pos_named(
-        #[starlark(require = pos)] arg1: i32,
-        #[starlark(require = named)] arg2: i32,
-    ) -> anyhow::Result<i32> {
+    fn pos_named(arg1: i32, #[starlark(require = named)] arg2: i32) -> anyhow::Result<i32> {
         unimplemented!()
     }
 
