@@ -824,6 +824,8 @@ impl<'v> TypeCompiled<Value<'v>> {
             TypeCompiled::from_list(t, heap)
         } else if let Some(t) = DictRef::from_value(ty) {
             TypeCompiled::from_dict(t, heap)
+        } else if ty.request_value::<&dyn TypeCompiledImpl>().is_some() {
+            Ok(TypeCompiled(ty))
         } else {
             Err(invalid_type_annotation(ty, heap).into())
         }
@@ -973,6 +975,29 @@ def foo(f: int.type = None):
         assert::fail(
             "eval_type(int.type).check_matches([])",
             "Value of type `list` does not match type `int.type`: []",
+        );
+    }
+
+    #[test]
+    fn test_type_compiled_can_be_used_in_function_signature() {
+        assert::pass(
+            r#"
+ty = eval_type(int.type)
+def f(x: ty):
+    pass
+
+f(1)
+"#,
+        );
+        assert::fail(
+            r#"
+ty = eval_type(int.type)
+def f(x: ty):
+    pass
+
+f("x")
+"#,
+            "Value `x` of type `string` does not match the type annotation `int.type` for argument `x`",
         );
     }
 }
