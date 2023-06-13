@@ -255,13 +255,7 @@ pub struct TyUnion(Vec<Ty>);
 
 impl Display for TyUnion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut comma = commas();
-        write!(f, "[")?;
-        for x in &self.0 {
-            comma(f)?;
-            write!(f, "{}", x)?;
-        }
-        write!(f, "]")
+        display_container::fmt_container(f, "[", "]", &self.0)
     }
 }
 
@@ -741,21 +735,8 @@ impl Ty {
     }
 }
 
-// Returns a function that produces commas every time apart from the first
-pub(crate) fn commas() -> impl FnMut(&mut fmt::Formatter<'_>) -> fmt::Result {
-    let mut with_comma = false;
-    move |f: &mut fmt::Formatter<'_>| -> fmt::Result {
-        if with_comma {
-            write!(f, ", ")?;
-        }
-        with_comma = true;
-        Ok(())
-    }
-}
-
 impl Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut comma = commas();
         match self {
             Ty::Void => write!(f, "Void"),
             Ty::Any => write!(f, "\"\""),
@@ -765,29 +746,22 @@ impl Display for Ty {
             Ty::Iter(x) => write!(f, "iter({})", x),
             Ty::List(x) => write!(f, "[{}]", x),
             Ty::Tuple(xs) => {
-                write!(f, "(")?;
-                for x in xs {
-                    comma(f)?;
-                    write!(f, "{}", x)?;
-                }
                 if xs.len() == 1 {
-                    write!(f, ",")?;
+                    write!(f, "({},)", xs[0])
+                } else {
+                    display_container::fmt_container(f, "(", ")", xs)
                 }
-                write!(f, ")")
             }
             Ty::Dict(k_v) => write!(f, "{{{}: {}}}", k_v.0, k_v.1),
-            Ty::Struct { fields, extra } => {
-                write!(f, "struct(")?;
-                for (k, v) in fields {
-                    comma(f)?;
-                    write!(f, "{} = {}", k, v)?;
-                }
-                if *extra {
-                    comma(f)?;
-                    write!(f, "..")?;
-                }
-                write!(f, ")")
-            }
+            Ty::Struct { fields, extra } => display_container::fmt_container(
+                f,
+                "struct(",
+                ")",
+                display_container::iter_display_chain(
+                    fields.iter().map(|(k, v)| format!("{} = {}", k, v)),
+                    extra.then_some(".."),
+                ),
+            ),
             Ty::Function(TyFunction {
                 name,
                 params,
@@ -795,8 +769,12 @@ impl Display for Ty {
                 ..
             }) => {
                 write!(f, "def{}{}(", if name.is_empty() { "" } else { " " }, name)?;
+                let mut first = true;
                 for param in params {
-                    comma(f)?;
+                    if !first {
+                        write!(f, ", ")?;
+                        first = false;
+                    }
                     let opt = if param.optional { "=.." } else { "" };
                     match &param.mode {
                         ParamMode::PosOnly => write!(f, "#: {}{}", param.ty, opt)?,
