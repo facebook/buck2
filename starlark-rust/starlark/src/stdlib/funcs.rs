@@ -610,7 +610,9 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(dot_type = INT_TYPE, speculative_exec_safe, return_type = "int.type")]
     fn int<'v>(
-        #[starlark(require = pos)] a: Option<Value<'v>>,
+        #[starlark(require = pos, type = "[int.type, str.type, float.type, bool.type]")] a: Option<
+            Value<'v>,
+        >,
         base: Option<i32>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
@@ -683,8 +685,14 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
             Ok(a)
         } else if let Some(f) = StarlarkFloat::unpack_value(a) {
             Ok(heap.alloc(StarlarkInt::from_f64_exact(f.0.trunc())?))
+        } else if let Some(b) = a.unpack_bool() {
+            Ok(heap.alloc(b as i32))
         } else {
-            Ok(heap.alloc(a.to_int()?))
+            Err(ValueError::IncorrectParameterTypeWithExpected(
+                a.get_type().to_owned(),
+                "number".to_owned(),
+            )
+            .into())
         }
     }
 
