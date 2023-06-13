@@ -18,6 +18,7 @@ use std::time::UNIX_EPOCH;
 use anyhow::Context;
 use buck2_common::http;
 use buck2_common::http::counting_client::CountingHttpClient;
+use buck2_common::http::find_certs::find_tls_cert;
 use buck2_common::http::retries::http_retry;
 use buck2_common::http::retries::AsHttpError;
 use buck2_common::http::retries::HttpError;
@@ -31,8 +32,6 @@ use thiserror::Error;
 use tokio::io::AsyncRead;
 use tokio::process::Child;
 use tokio::process::Command;
-
-use crate::find_certs::find_tls_cert;
 
 #[derive(Debug, Error)]
 enum HttpWriteError {

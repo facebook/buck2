@@ -42,6 +42,7 @@ use tokio_rustls::TlsConnector;
 use tokio_util::io::StreamReader;
 
 pub mod counting_client;
+pub mod find_certs;
 mod proxy;
 mod redirect;
 pub mod retries;
