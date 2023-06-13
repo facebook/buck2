@@ -1420,7 +1420,11 @@ impl InstrNoFlowImpl for InstrDefImpl {
                         // Check the type of the default
                         let (_, _, ty_value, ty_compiled) = parameter_types.last().unwrap();
                         expr_throw(
-                            value.check_type_compiled(*ty_value, ty_compiled, Some(&n.name)),
+                            value.check_type_compiled(
+                                *ty_value,
+                                ty_compiled.to_value(),
+                                Some(&n.name),
+                            ),
                             x.span,
                             eval,
                         )

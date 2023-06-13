@@ -67,7 +67,7 @@ use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueTyped;
 
-const fn alloc_static<M, T>(mode: M, value: T) -> AValueRepr<AValueImpl<M, T>>
+pub(crate) const fn alloc_static<M, T>(mode: M, value: T) -> AValueRepr<AValueImpl<M, T>>
 where
     M: AValueMode,
     AValueImpl<M, T>: AValue<'static>,

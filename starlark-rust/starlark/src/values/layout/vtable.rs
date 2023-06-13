@@ -563,6 +563,11 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
+    pub(crate) fn type_matches_value(self, value: Value<'v>) -> bool {
+        (self.vtable.starlark_value.type_matches_value)(self.value, value, Private)
+    }
+
+    #[inline]
     pub(crate) fn as_display(self) -> &'v dyn Display {
         unsafe { &*(self.vtable.display)(self.value) }
     }

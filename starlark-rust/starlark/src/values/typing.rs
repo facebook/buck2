@@ -15,25 +15,35 @@
  * limitations under the License.
  */
 
-use std::fmt;
 use std::fmt::Debug;
 
 use allocative::Allocative;
-use starlark_derive::Freeze;
+use dupe::Dupe;
 use thiserror::Error;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
+use crate::private::Private;
 use crate::slice_vec_ext::SliceExt;
+use crate::starlark_type;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::Basic;
+use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::list::ListRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::types::tuple::value::TupleGen;
+use crate::values::Freeze;
+use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::NoSerialize;
+use crate::values::StarlarkValue;
 use crate::values::Trace;
-use crate::values::Tracer;
 use crate::values::Value;
+use crate::values::ValueLike;
 
 #[derive(Debug, Error)]
 enum TypingError {
@@ -49,132 +59,193 @@ enum TypingError {
     PerhapsYouMeant(String, String),
 }
 
-trait TypeCompiledImpl: Allocative + Send + Sync + 'static {
-    fn matches(&self, value: Value) -> bool;
+trait TypeCompiledImpl<'v>: Allocative + Debug + ProvidesStaticType + Sized + 'v {
+    fn matches(&self, value: Value<'v>) -> bool;
 }
 
-#[derive(Allocative, Freeze)]
-pub(crate) struct TypeCompiled(#[freeze(identity)] Box<dyn TypeCompiledImpl>);
+#[derive(
+    Debug,
+    Trace,
+    Freeze,
+    Allocative,
+    derive_more::Display,
+    ProvidesStaticType,
+    NoSerialize
+)]
+#[display(fmt = "type")]
+struct TypeCompiledImplAsStarlarkValue<T>(T);
 
-unsafe impl Coerce<TypeCompiled> for TypeCompiled {}
-
-unsafe impl<'v> Trace<'v> for TypeCompiled {
-    fn trace(&mut self, _tracer: &Tracer<'v>) {
-        // Nothing stored here
+impl<T> TypeCompiledImplAsStarlarkValue<T>
+where
+    TypeCompiledImplAsStarlarkValue<T>: StarlarkValue<'static>,
+{
+    const fn alloc_static(imp: T) -> AValueRepr<AValueImpl<Basic, Self>> {
+        alloc_static(Basic, TypeCompiledImplAsStarlarkValue(imp))
     }
 }
 
-impl Debug for TypeCompiled {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("TypeCompiled")
+impl<'v, T> StarlarkValue<'v> for TypeCompiledImplAsStarlarkValue<T>
+where
+    T: TypeCompiledImpl<'v>,
+    Self: ProvidesStaticType,
+{
+    starlark_type!("eval_type");
+
+    fn type_matches_value(&self, value: Value<'v>, _private: Private) -> bool {
+        self.0.matches(value)
+    }
+}
+
+#[derive(
+    Debug,
+    derive_more::Display,
+    Allocative,
+    Freeze,
+    Trace,
+    Clone,
+    Copy,
+    Dupe,
+    Coerce,
+    ProvidesStaticType
+)]
+#[repr(transparent)]
+pub(crate) struct TypeCompiled<V>(
+    /// `V` is a starlark value which implements `type_matches_value`.
+    /// Such values are not visible to the user.
+    V,
+);
+
+impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
+    fn matches(&self, value: Value<'v>) -> bool {
+        self.0.to_value().get_ref().type_matches_value(value)
+    }
+
+    pub(crate) fn to_value(self) -> TypeCompiled<Value<'v>> {
+        TypeCompiled(self.0.to_value())
     }
 }
 
 // These functions are small, but are deliberately out-of-line so we get better
 // information in profiling about the origin of these closures
-impl TypeCompiled {
-    #[inline]
-    pub(crate) fn matches(&self, value: Value) -> bool {
-        self.0.matches(value)
-    }
-
-    fn type_anything() -> TypeCompiled {
-        #[derive(Allocative)]
+impl<'v> TypeCompiled<Value<'v>> {
+    fn type_anything() -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, ProvidesStaticType)]
         struct Anything;
 
-        impl TypeCompiledImpl for Anything {
-            fn matches(&self, _value: Value) -> bool {
+        impl<'v> TypeCompiledImpl<'v> for Anything {
+            fn matches(&self, _value: Value<'v>) -> bool {
                 true
             }
         }
 
-        TypeCompiled(Box::new(Anything))
+        static ANYTHING: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<Anything>>> =
+            TypeCompiledImplAsStarlarkValue::alloc_static(Anything);
+
+        TypeCompiled(FrozenValue::new_repr(&ANYTHING).to_value())
     }
 
-    fn type_none() -> TypeCompiled {
-        #[derive(Allocative)]
+    fn type_none() -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, ProvidesStaticType)]
         struct IsNone;
 
-        impl TypeCompiledImpl for IsNone {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v> TypeCompiledImpl<'v> for IsNone {
+            fn matches(&self, value: Value<'v>) -> bool {
                 value.is_none()
             }
         }
 
-        TypeCompiled(Box::new(IsNone))
+        static IS_NONE: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsNone>>> =
+            TypeCompiledImplAsStarlarkValue::alloc_static(IsNone);
+
+        TypeCompiled(FrozenValue::new_repr(&IS_NONE).to_value())
     }
 
-    fn type_string() -> TypeCompiled {
-        #[derive(Allocative)]
+    fn type_string() -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, ProvidesStaticType)]
         struct IsString;
 
-        impl TypeCompiledImpl for IsString {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v> TypeCompiledImpl<'v> for IsString {
+            fn matches(&self, value: Value<'v>) -> bool {
                 value.unpack_str().is_some() || value.get_ref().matches_type("string")
             }
         }
 
-        TypeCompiled(Box::new(IsString))
+        static IS_STRING: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsString>>> =
+            TypeCompiledImplAsStarlarkValue::alloc_static(IsString);
+
+        TypeCompiled(FrozenValue::new_repr(&IS_STRING).to_value())
     }
 
-    fn type_int() -> TypeCompiled {
-        #[derive(Allocative)]
+    fn type_int() -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, ProvidesStaticType)]
         struct IsInt;
 
-        impl TypeCompiledImpl for IsInt {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v> TypeCompiledImpl<'v> for IsInt {
+            fn matches(&self, value: Value<'v>) -> bool {
                 value.unpack_inline_int().is_some() || value.get_ref().matches_type("int")
             }
         }
 
-        TypeCompiled(Box::new(IsInt))
+        static IS_INT: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsInt>>> =
+            TypeCompiledImplAsStarlarkValue::alloc_static(IsInt);
+
+        TypeCompiled(FrozenValue::new_repr(&IS_INT).to_value())
     }
 
-    fn type_bool() -> TypeCompiled {
-        #[derive(Allocative)]
+    fn type_bool() -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, ProvidesStaticType)]
         struct IsBool;
 
-        impl TypeCompiledImpl for IsBool {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v> TypeCompiledImpl<'v> for IsBool {
+            fn matches(&self, value: Value<'v>) -> bool {
                 value.unpack_bool().is_some() || value.get_ref().matches_type("bool")
             }
         }
 
-        TypeCompiled(Box::new(IsBool))
+        static IS_BOOL: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsBool>>> =
+            TypeCompiledImplAsStarlarkValue::alloc_static(IsBool);
+
+        TypeCompiled(FrozenValue::new_repr(&IS_BOOL).to_value())
     }
 
-    fn type_concrete(t: &str) -> TypeCompiled {
-        #[derive(Allocative)]
+    fn type_concrete(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsConcrete(String);
 
-        impl TypeCompiledImpl for IsConcrete {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v> TypeCompiledImpl<'v> for IsConcrete {
+            fn matches(&self, value: Value<'v>) -> bool {
                 value.get_ref().matches_type(&self.0)
             }
         }
 
-        TypeCompiled(Box::new(IsConcrete(t.to_owned())))
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsConcrete(t.to_owned()))))
     }
 
-    fn type_list() -> TypeCompiled {
-        #[derive(Allocative)]
+    fn type_list() -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, ProvidesStaticType)]
         struct IsList;
 
-        impl TypeCompiledImpl for IsList {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v> TypeCompiledImpl<'v> for IsList {
+            fn matches(&self, value: Value<'v>) -> bool {
                 ListRef::from_value(value).is_some()
             }
         }
 
-        TypeCompiled(Box::new(IsList))
+        static IS_LIST: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsList>>> =
+            TypeCompiledImplAsStarlarkValue::alloc_static(IsList);
+
+        TypeCompiled(FrozenValue::new_repr(&IS_LIST).to_value())
     }
 
-    fn type_list_of(t: TypeCompiled) -> TypeCompiled {
-        #[derive(Allocative)]
-        struct IsListOf(TypeCompiled);
+    fn type_list_of(t: TypeCompiled<Value<'v>>, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
+        struct IsListOf<V>(TypeCompiled<V>);
 
-        impl TypeCompiledImpl for IsListOf {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsListOf<V>
+        where
+            Self: ProvidesStaticType,
+        {
+            fn matches(&self, value: Value<'v>) -> bool {
                 match ListRef::from_value(value) {
                     None => false,
                     Some(list) => list.iter().all(|v| self.0.matches(v)),
@@ -182,54 +253,74 @@ impl TypeCompiled {
             }
         }
 
-        TypeCompiled(Box::new(IsListOf(t)))
+        TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsListOf(t))))
     }
 
-    fn type_any_of_two(t1: TypeCompiled, t2: TypeCompiled) -> TypeCompiled {
-        #[derive(Allocative)]
-        struct IsAnyOfTwo(TypeCompiled, TypeCompiled);
+    fn type_any_of_two(
+        t1: TypeCompiled<Value<'v>>,
+        t2: TypeCompiled<Value<'v>>,
+        heap: &'v Heap,
+    ) -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
+        struct IsAnyOfTwo<V>(TypeCompiled<V>, TypeCompiled<V>);
 
-        impl TypeCompiledImpl for IsAnyOfTwo {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsAnyOfTwo<V>
+        where
+            Self: ProvidesStaticType,
+        {
+            fn matches(&self, value: Value<'v>) -> bool {
                 self.0.matches(value) || self.1.matches(value)
             }
         }
 
-        TypeCompiled(Box::new(IsAnyOfTwo(t1, t2)))
+        TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsAnyOfTwo(t1, t2))))
     }
 
-    fn type_any_of(ts: Vec<TypeCompiled>) -> TypeCompiled {
-        #[derive(Allocative)]
-        struct IsAnyOf(Vec<TypeCompiled>);
+    fn type_any_of(ts: Vec<TypeCompiled<Value<'v>>>, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
+        struct IsAnyOf<V>(Vec<TypeCompiled<V>>);
 
-        impl TypeCompiledImpl for IsAnyOf {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsAnyOf<V>
+        where
+            Self: ProvidesStaticType,
+        {
+            fn matches(&self, value: Value<'v>) -> bool {
                 self.0.iter().any(|t| t.matches(value))
             }
         }
 
-        TypeCompiled(Box::new(IsAnyOf(ts)))
+        TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsAnyOf(ts))))
     }
 
-    fn type_dict() -> TypeCompiled {
-        #[derive(Allocative)]
+    fn type_dict() -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, ProvidesStaticType)]
         struct IsDict;
 
-        impl TypeCompiledImpl for IsDict {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v> TypeCompiledImpl<'v> for IsDict {
+            fn matches(&self, value: Value<'v>) -> bool {
                 DictRef::from_value(value).is_some()
             }
         }
 
-        TypeCompiled(Box::new(IsDict))
+        static IS_DICT: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsDict>>> =
+            TypeCompiledImplAsStarlarkValue::alloc_static(IsDict);
+
+        TypeCompiled(FrozenValue::new_repr(&IS_DICT).to_value())
     }
 
-    fn type_dict_of(kt: TypeCompiled, vt: TypeCompiled) -> TypeCompiled {
-        #[derive(Allocative)]
-        struct IsDictOf(TypeCompiled, TypeCompiled);
+    fn type_dict_of(
+        kt: TypeCompiled<Value<'v>>,
+        vt: TypeCompiled<Value<'v>>,
+        heap: &'v Heap,
+    ) -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
+        struct IsDictOf<V>(TypeCompiled<V>, TypeCompiled<V>);
 
-        impl TypeCompiledImpl for IsDictOf {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsDictOf<V>
+        where
+            Self: ProvidesStaticType,
+        {
+            fn matches(&self, value: Value<'v>) -> bool {
                 match DictRef::from_value(value) {
                     None => false,
                     Some(dict) => dict
@@ -239,15 +330,18 @@ impl TypeCompiled {
             }
         }
 
-        TypeCompiled(Box::new(IsDictOf(kt, vt)))
+        TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsDictOf(kt, vt))))
     }
 
-    fn type_tuple_of(ts: Vec<TypeCompiled>) -> TypeCompiled {
-        #[derive(Allocative)]
-        struct IsTupleOf(Vec<TypeCompiled>);
+    fn type_tuple_of(ts: Vec<TypeCompiled<Value<'v>>>, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
+        struct IsTupleOf<V>(Vec<TypeCompiled<V>>);
 
-        impl TypeCompiledImpl for IsTupleOf {
-            fn matches(&self, value: Value) -> bool {
+        impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsTupleOf<V>
+        where
+            Self: ProvidesStaticType,
+        {
+            fn matches(&self, value: Value<'v>) -> bool {
                 match Tuple::from_value(value) {
                     Some(v) if v.len() == self.0.len() => {
                         v.iter().zip(self.0.iter()).all(|(v, t)| t.matches(v))
@@ -257,11 +351,9 @@ impl TypeCompiled {
             }
         }
 
-        TypeCompiled(Box::new(IsTupleOf(ts)))
+        TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsTupleOf(ts))))
     }
-}
 
-impl TypeCompiled {
     /// Types that are `""` or start with `"_"` are wildcard - they match everything.
     fn is_wildcard(x: &str) -> bool {
         x == "" || x.starts_with('_')
@@ -272,7 +364,7 @@ impl TypeCompiled {
     }
 
     /// For `p: "xxx"`, parse that `"xxx"` as type.
-    fn from_str(t: &str) -> TypeCompiled {
+    fn from_str(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         if TypeCompiled::is_wildcard(t) {
             TypeCompiled::type_anything()
         } else {
@@ -280,18 +372,21 @@ impl TypeCompiled {
                 "string" => TypeCompiled::type_string(),
                 "int" => TypeCompiled::type_int(),
                 "bool" => TypeCompiled::type_bool(),
-                t => TypeCompiled::type_concrete(t),
+                t => TypeCompiled::type_concrete(t, heap),
             }
         }
     }
 
-    fn from_tuple<'v>(t: &TupleGen<Value<'v>>, heap: &'v Heap) -> anyhow::Result<TypeCompiled> {
+    fn from_tuple(
+        t: &TupleGen<Value<'v>>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<TypeCompiled<Value<'v>>> {
         let ts = t.content().try_map(|t| TypeCompiled::new(*t, heap))?;
-        Ok(TypeCompiled::type_tuple_of(ts))
+        Ok(TypeCompiled::type_tuple_of(ts, heap))
     }
 
     /// Parse `[t1, t2, ...]` as type.
-    fn from_list<'v>(t: &ListRef<'v>, heap: &'v Heap) -> anyhow::Result<TypeCompiled> {
+    fn from_list(t: &ListRef<'v>, heap: &'v Heap) -> anyhow::Result<TypeCompiled<Value<'v>>> {
         match t.len() {
             0 => Err(TypingError::InvalidTypeAnnotation(t.to_string()).into()),
             1 => {
@@ -302,24 +397,24 @@ impl TypeCompiled {
                     Ok(TypeCompiled::type_list())
                 } else {
                     let t = TypeCompiled::new(t, heap)?;
-                    Ok(TypeCompiled::type_list_of(t))
+                    Ok(TypeCompiled::type_list_of(t, heap))
                 }
             }
             2 => {
                 // A union type, can match either - special case of the arbitrary choice to go slightly faster
                 let t1 = TypeCompiled::new(t[0], heap)?;
                 let t2 = TypeCompiled::new(t[1], heap)?;
-                Ok(TypeCompiled::type_any_of_two(t1, t2))
+                Ok(TypeCompiled::type_any_of_two(t1, t2, heap))
             }
             _ => {
                 // A union type, can match any
                 let ts = t[..].try_map(|t| TypeCompiled::new(*t, heap))?;
-                Ok(TypeCompiled::type_any_of(ts))
+                Ok(TypeCompiled::type_any_of(ts, heap))
             }
         }
     }
 
-    fn from_dict<'v>(t: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<TypeCompiled> {
+    fn from_dict(t: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<TypeCompiled<Value<'v>>> {
         // Dictionary with a single element
         fn unpack_singleton_dictionary<'v>(x: &Dict<'v>) -> Option<(Value<'v>, Value<'v>)> {
             if x.len() == 1 { x.iter().next() } else { None }
@@ -332,7 +427,7 @@ impl TypeCompiled {
                 // Dict of the form {k: v} must all match the k/v types
                 let tk = TypeCompiled::new(tk, heap)?;
                 let tv = TypeCompiled::new(tv, heap)?;
-                Ok(TypeCompiled::type_dict_of(tk, tv))
+                Ok(TypeCompiled::type_dict_of(tk, tv, heap))
             }
         } else {
             // Dict type with zero or multiple fields is not allowed
@@ -340,9 +435,9 @@ impl TypeCompiled {
         }
     }
 
-    pub(crate) fn new<'v>(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+    pub(crate) fn new(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         if let Some(s) = ty.unpack_str() {
-            Ok(TypeCompiled::from_str(s))
+            Ok(TypeCompiled::from_str(s, heap))
         } else if ty.is_none() {
             Ok(TypeCompiled::type_none())
         } else if let Some(t) = Tuple::from_value(ty) {
@@ -406,7 +501,7 @@ impl<'v> Value<'v> {
     pub(crate) fn check_type_compiled(
         self,
         ty: Value<'v>,
-        ty_compiled: &TypeCompiled,
+        ty_compiled: TypeCompiled<Value<'v>>,
         arg_name: Option<&str>,
     ) -> anyhow::Result<()> {
         if ty_compiled.matches(self) {

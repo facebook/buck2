@@ -73,7 +73,6 @@ use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Arguments;
 use crate::slice_vec_ext::SliceExt;
-use crate::slice_vec_ext::VecExt;
 use crate::starlark_complex_values;
 use crate::starlark_type;
 use crate::syntax::ast::ParameterP;
@@ -488,8 +487,8 @@ pub(crate) struct DefGen<V> {
     parameter_captures: FrozenRef<'static, [LocalSlotId]>,
     // The types of the parameters.
     // (Sparse indexed array, (0, argm T) implies parameter 0 named arg must have type T).
-    parameter_types: Vec<(LocalSlotId, String, V, TypeCompiled)>,
-    pub(crate) return_type: Option<(V, TypeCompiled)>, // The return type annotation for the function
+    parameter_types: Vec<(LocalSlotId, String, V, TypeCompiled<V>)>,
+    pub(crate) return_type: Option<(V, TypeCompiled<V>)>, // The return type annotation for the function
     /// Data created during function compilation but before function instantiation.
     /// `DefInfo` can be shared by multiple `def` instances, for example,
     /// `lambda` functions can be instantiated multiple times.
@@ -525,8 +524,8 @@ starlark_complex_values!(Def);
 impl<'v> Def<'v> {
     pub(crate) fn new(
         parameters: ParametersSpec<Value<'v>>,
-        parameter_types: Vec<(LocalSlotId, String, Value<'v>, TypeCompiled)>,
-        return_type: Option<(Value<'v>, TypeCompiled)>,
+        parameter_types: Vec<(LocalSlotId, String, Value<'v>, TypeCompiled<Value<'v>>)>,
+        return_type: Option<(Value<'v>, TypeCompiled<Value<'v>>)>,
         stmt: FrozenRef<'static, DefInfo>,
         eval: &mut Evaluator<'v, '_>,
     ) -> Value<'v> {
@@ -584,9 +583,7 @@ impl<'v> Freeze for Def<'v> {
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let parameters = self.parameters.freeze(freezer)?;
-        let parameter_types = self
-            .parameter_types
-            .into_try_map(|(i, s, v, t)| anyhow::Ok((i, s, v.freeze(freezer)?, t)))?;
+        let parameter_types = self.parameter_types.freeze(freezer)?;
         let return_type = self.return_type.freeze(freezer)?;
         let captured = self.captured.try_map(|x| x.freeze(freezer))?;
         let module = AtomicFrozenRefOption::new(self.module.load_relaxed());
@@ -662,7 +659,7 @@ where
                 None => {
                     panic!("Not allowed optional unassigned with type annotations on them")
                 }
-                Some(v) => v.check_type_compiled(ty.to_value(), ty2, Some(arg_name))?,
+                Some(v) => v.check_type_compiled(ty.to_value(), ty2.to_value(), Some(arg_name))?,
             }
         }
         if let Some(start) = start {
@@ -677,7 +674,7 @@ where
         ret: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<()> {
-        let (return_type_value, return_type_ty): &(V, TypeCompiled) = self
+        let (return_type_value, return_type_ty): &(V, TypeCompiled<V>) = self
             .return_type
             .as_ref()
             .ok_or(DefError::CheckReturnTypeNoType)?;
@@ -686,7 +683,11 @@ where
         } else {
             None
         };
-        ret.check_type_compiled(return_type_value.to_value(), return_type_ty, None)?;
+        ret.check_type_compiled(
+            return_type_value.to_value(),
+            return_type_ty.to_value(),
+            None,
+        )?;
         if let Some(start) = start {
             eval.typecheck_profile
                 .add(self.def_info.name, start.elapsed());

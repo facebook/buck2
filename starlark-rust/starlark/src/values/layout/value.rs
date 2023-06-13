@@ -1065,7 +1065,9 @@ pub trait ValueLike<'v>:
     + CoerceKey<Value<'v>>
     + Freeze<Frozen = FrozenValue>
     + Allocative
+    + ProvidesStaticType
     + Sealed
+    + 'v
 {
     /// `StringValue` or `FrozenStringValue`.
     type String: StringValueLike<'v>;

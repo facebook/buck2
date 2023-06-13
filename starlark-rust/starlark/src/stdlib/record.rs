@@ -93,7 +93,7 @@ pub fn global(builder: &mut GlobalsBuilder) {
         // We compile the type even if we don't have a default to raise the error sooner
         let compiled = TypeCompiled::new(typ, heap)?;
         if let Some(d) = default {
-            d.check_type_compiled(typ, &compiled, Some("default"))?;
+            d.check_type_compiled(typ, compiled, Some("default"))?;
         }
         Ok(Field::new(typ, default))
     }

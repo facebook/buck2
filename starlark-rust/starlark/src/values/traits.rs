@@ -252,6 +252,12 @@ pub trait StarlarkValue<'v>:
         Self::TYPE == ty
     }
 
+    /// Function is implemented for types values.
+    #[doc(hidden)]
+    fn type_matches_value(&self, _value: Value<'v>, _private: Private) -> bool {
+        unreachable!("`type_matches_value` should only be called on special types")
+    }
+
     /// Get the members associated with this type, accessible via `this_type.x`.
     /// These members will have `dir`/`getattr`/`hasattr` properly implemented,
     /// so it is the preferred way to go if possible. See
