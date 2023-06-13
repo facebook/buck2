@@ -15,8 +15,20 @@ use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;
 use starlark::values::Value;
 
+use crate::attrs::coerce::attr_type::list::coerce_list;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::AttrTypeCoerce;
+use crate::interpreter::selector::StarlarkSelector;
+
+#[derive(Debug, thiserror::Error)]
+enum VisibilityAttrTypeCoerceError {
+    #[error("Visibility attribute is not configurable (internal error)")]
+    AttrTypeNotConfigurable,
+    #[error("Visibility must be a list of string, got `{0}`")]
+    WrongType(String),
+    #[error("Visibility attribute is not configurable (i.e. cannot use `select()`): `{0}`")]
+    NotConfigurable(String),
+}
 
 impl AttrTypeCoerce for VisibilityAttrType {
     fn coerce_item(
@@ -25,10 +37,10 @@ impl AttrTypeCoerce for VisibilityAttrType {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<CoercedAttr> {
-        // TODO(nga): unnecessary coercion step.
-        let coerced_list_of_strings =
-            VisibilityAttrType::pretend_attr_type().coerce_item(configurable, ctx, value)?;
-        let visibility = parse_visibility(ctx, &coerced_list_of_strings)?;
+        if configurable == AttrIsConfigurable::Yes {
+            return Err(VisibilityAttrTypeCoerceError::AttrTypeNotConfigurable.into());
+        }
+        let visibility = parse_visibility(ctx, value)?;
         Ok(CoercedAttr::Visibility(visibility))
     }
 
@@ -39,38 +51,41 @@ impl AttrTypeCoerce for VisibilityAttrType {
 
 fn parse_visibility(
     ctx: &dyn AttrCoercionContext,
-    attr: &CoercedAttr,
+    attr: Value,
 ) -> anyhow::Result<VisibilitySpecification> {
-    let visibility = match attr {
-        CoercedAttr::List(list) => &**list,
-        CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
-            unreachable!("coercion of visibility verified it's not configurable")
-        }
-        _ => {
-            unreachable!("coercion of visibility verified the type")
+    let list = match coerce_list(attr) {
+        Ok(list) => list,
+        Err(e) => {
+            if StarlarkSelector::from_value(attr).is_some() {
+                return Err(VisibilityAttrTypeCoerceError::NotConfigurable(attr.to_repr()).into());
+            }
+            return Err(e);
         }
     };
 
     let mut specs: Option<Vec<_>> = None;
-    for item in visibility.iter() {
-        let value = match item {
-            CoercedAttr::String(value) => value,
-            CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
-                unreachable!("coercion of visibility verified it's not configurable")
+    for item in list {
+        let Some(item) = item.unpack_str() else {
+            if StarlarkSelector::from_value(*item).is_some() {
+                return Err(VisibilityAttrTypeCoerceError::NotConfigurable(
+                    attr.to_repr(),
+                )
+                .into());
             }
-            _ => {
-                unreachable!("coercion of visibility verified the type")
-            }
+            return Err(VisibilityAttrTypeCoerceError::WrongType(
+                attr.to_repr(),
+            ).into());
         };
 
-        if value.as_str() == VisibilityPattern::PUBLIC {
+        if item == VisibilityPattern::PUBLIC {
             // TODO(cjhopman): We should probably enforce that this is the only entry.
+            // TODO(nga): validate the remaining patterns are correct.
             return Ok(VisibilitySpecification::Public);
         }
 
         specs
-            .get_or_insert_with(|| Vec::with_capacity(visibility.len()))
-            .push(VisibilityPattern(ctx.coerce_target_pattern(value)?));
+            .get_or_insert_with(|| Vec::with_capacity(list.len()))
+            .push(VisibilityPattern(ctx.coerce_target_pattern(item)?));
     }
     match specs {
         None => Ok(VisibilitySpecification::DEFAULT),

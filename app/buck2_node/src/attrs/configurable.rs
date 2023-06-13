@@ -10,7 +10,7 @@
 use dupe::Dupe;
 
 /// Can we use `select` with this attribute?
-#[derive(Copy, Clone, Dupe)]
+#[derive(Copy, Clone, Dupe, Eq, PartialEq)]
 pub enum AttrIsConfigurable {
     Yes,
     No,
