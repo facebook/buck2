@@ -138,5 +138,5 @@ def get_class_to_source_map_info(
 
 def get_classpath_subtarget(actions: "actions", packaging_info: "JavaPackagingInfo") -> {str.type: ["provider"]}:
     proj = packaging_info.packaging_deps.project_as_args("full_jar_args")
-    output = actions.write_json("classpath.json", {"jars": proj})
+    output = actions.write("classpath", proj)
     return {"classpath": [DefaultInfo(output, other_outputs = [proj])]}
