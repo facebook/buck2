@@ -35,6 +35,7 @@ pub(crate) mod parser;
 pub(crate) mod payload_map;
 #[cfg(test)]
 mod testcases;
+pub(crate) mod type_expr;
 pub(crate) mod uniplate;
 pub(crate) mod validate;
 

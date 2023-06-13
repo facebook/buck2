@@ -135,6 +135,13 @@ impl<T> Spanned<T> {
             span: self.span,
         }
     }
+
+    pub(crate) fn as_ref(&self) -> Spanned<&T> {
+        Spanned {
+            node: &self.node,
+            span: self.span,
+        }
+    }
 }
 
 impl<T> Deref for Spanned<T> {

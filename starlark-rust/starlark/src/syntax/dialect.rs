@@ -23,11 +23,11 @@ use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::EvalException;
-use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::TypeExpr;
 use crate::syntax::ast::TypeExprP;
 use crate::syntax::ast::Visibility;
+use crate::syntax::type_expr::TypeExprUnpackP;
 
 #[derive(Error, Debug)]
 pub(crate) enum DialectError {
@@ -41,14 +41,6 @@ pub(crate) enum DialectError {
     KeywordOnlyArguments,
     #[error("type annotations are not allowed in this dialect")]
     Types,
-    #[error("{0} expression is not allowed in type expression")]
-    InvalidType(&'static str),
-    #[error("Empty list is not allowed in type expression")]
-    EmptyListInType,
-    #[error("Only dict literal with single entry is allowed in type expression")]
-    DictNot1InType,
-    #[error("Only dot expression of form `ident.ident` is allowed in type expression")]
-    DotInType,
 }
 
 /// How to handle type annotations in Starlark.
@@ -174,75 +166,6 @@ impl Dialect {
         }
     }
 
-    fn check_expr_allowed_in_type(
-        codemap: &CodeMap,
-        x: &Spanned<Expr>,
-    ) -> Result<(), EvalException> {
-        match &x.node {
-            Expr::Tuple(..) => {}
-            Expr::Dot(object, _) => {
-                match &object.node {
-                    Expr::Identifier(..) => {}
-                    Expr::Dot(..) => {}
-                    _ => return err(codemap, x.span, DialectError::DotInType),
-                }
-                // We would also want to ban expressions like `x.y` where `x` is not `type`,
-                // or `x.y.z` but these are used now.
-                // Try `xbgs metalos.ProvisioningConfig`.
-                // That expression has type string which is the type name.
-            }
-            Expr::Call(..) => return err(codemap, x.span, DialectError::InvalidType("call")),
-            Expr::ArrayIndirection(..) => {
-                return err(
-                    codemap,
-                    x.span,
-                    DialectError::InvalidType("array indirection"),
-                );
-            }
-            Expr::Slice(..) => return err(codemap, x.span, DialectError::InvalidType("slice")),
-            Expr::Identifier(..) => {}
-            Expr::Lambda(..) => return err(codemap, x.span, DialectError::InvalidType("lambda")),
-            Expr::Literal(AstLiteral::String(..)) => {}
-            Expr::Literal(AstLiteral::Float(..)) => {
-                return err(codemap, x.span, DialectError::InvalidType("float literal"));
-            }
-            Expr::Literal(AstLiteral::Int(..)) => {
-                return err(codemap, x.span, DialectError::InvalidType("int literal"));
-            }
-            Expr::Not(..) => return err(codemap, x.span, DialectError::InvalidType("not")),
-            Expr::Minus(..) => return err(codemap, x.span, DialectError::InvalidType("minus")),
-            Expr::Plus(..) => return err(codemap, x.span, DialectError::InvalidType("plus")),
-            Expr::BitNot(..) => return err(codemap, x.span, DialectError::InvalidType("bit not")),
-            Expr::Op(..) => return err(codemap, x.span, DialectError::InvalidType("bin op")),
-            Expr::If(..) => return err(codemap, x.span, DialectError::InvalidType("if")),
-            Expr::List(list) => {
-                if list.is_empty() {
-                    return err(codemap, x.span, DialectError::EmptyListInType);
-                }
-            }
-            Expr::Dict(dict) => {
-                if dict.len() != 1 {
-                    return err(codemap, x.span, DialectError::DictNot1InType);
-                }
-            }
-            Expr::ListComprehension(..) => {
-                return err(
-                    codemap,
-                    x.span,
-                    DialectError::InvalidType("list comprehension"),
-                );
-            }
-            Expr::DictComprehension(..) => {
-                return err(
-                    codemap,
-                    x.span,
-                    DialectError::InvalidType("dict comprehension"),
-                );
-            }
-        }
-        x.visit_expr_err(|e| Self::check_expr_allowed_in_type(codemap, e))
-    }
-
     pub(crate) fn check_type(
         &self,
         codemap: &CodeMap,
@@ -253,7 +176,7 @@ impl Dialect {
             return err(codemap, x.span, DialectError::Types);
         }
 
-        Self::check_expr_allowed_in_type(codemap, &x)?;
+        TypeExprUnpackP::unpack(&x, codemap)?;
 
         Ok(x.into_map(|node| TypeExprP {
             expr: Spanned { span, node },
