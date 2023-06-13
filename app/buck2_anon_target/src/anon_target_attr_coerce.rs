@@ -17,6 +17,7 @@ use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithM
 use buck2_core::soft_error;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
+use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dict::DictAttrType;
 use buck2_node::attrs::attr_type::dict::DictLiteral;
 use buck2_node::attrs::attr_type::list::ListAttrType;
@@ -107,10 +108,12 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 Some(dep) => {
                     let label = dep.label().inner().clone();
 
-                    Ok(AnonTargetAttr::Dep(Box::new(DepAttr {
-                        attr_type: x.clone(),
-                        label,
-                    })))
+                    let attr_type = match x.transition {
+                        DepAttrTransition::Identity => x.clone(),
+                        _ => return Err(AnonTargetCoercionError::OnlyIdentityDepSupported.into()),
+                    };
+
+                    Ok(AnonTargetAttr::Dep(Box::new(DepAttr { attr_type, label })))
                 }
                 _ => Err(AnonTargetCoercionError::type_error("dependency", value).into()),
             },
@@ -154,6 +157,10 @@ pub(crate) enum AnonTargetCoercionError {
     AttrTypeNotSupported(String),
     #[error("Arg attribute must have `anon_target_compatible` set to `True`")]
     ArgNotAnonTargetCompatible,
+    #[error(
+        "`exec_dep`, `transition_dep`, and `toolchain_dep` are not supported. By design, anon targets do not support configurations/transitions."
+    )]
+    OnlyIdentityDepSupported,
 }
 
 impl AnonTargetCoercionError {
