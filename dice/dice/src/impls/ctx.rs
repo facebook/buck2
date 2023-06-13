@@ -79,9 +79,9 @@ impl Clone for BaseComputeCtx {
                 DiceComputationsImpl::Modern(ctx) => {
                     DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
                         ParentKey::None,
-                        ctx.data.async_evaluator.per_live_version_ctx.dupe(),
-                        ctx.data.async_evaluator.user_data.dupe(),
-                        ctx.data.async_evaluator.dice.dupe(),
+                        ctx.async_evaluator.per_live_version_ctx.dupe(),
+                        ctx.async_evaluator.user_data.dupe(),
+                        ctx.async_evaluator.dice.dupe(),
                         KeyComputingUserCycleDetectorData::Untracked,
                     )))
                 }
@@ -141,11 +141,6 @@ impl Deref for BaseComputeCtx {
 /// Context given to the `compute` function of a `Key`.
 #[derive(Allocative)]
 pub(crate) struct PerComputeCtx {
-    data: Arc<PerComputeCtxData>,
-}
-
-#[derive(Allocative)]
-pub(crate) struct PerComputeCtxData {
     async_evaluator: AsyncEvaluator,
     dep_trackers: Mutex<RecordingDepsTracker>, // If we make PerComputeCtx &mut, we can get rid of this mutex after some refactoring
     parent_key: ParentKey,
@@ -166,17 +161,15 @@ impl PerComputeCtx {
         cycles: KeyComputingUserCycleDetectorData,
     ) -> Self {
         Self {
-            data: Arc::new(PerComputeCtxData {
-                async_evaluator: AsyncEvaluator {
-                    per_live_version_ctx,
-                    user_data,
-                    dice,
-                },
-                dep_trackers: Mutex::new(RecordingDepsTracker::new()),
-                parent_key,
-                cycles,
-                evaluation_data: Mutex::new(EvaluationData::none()),
-            }),
+            async_evaluator: AsyncEvaluator {
+                per_live_version_ctx,
+                user_data,
+                dice,
+            },
+            dep_trackers: Mutex::new(RecordingDepsTracker::new()),
+            parent_key,
+            cycles,
+            evaluation_data: Mutex::new(EvaluationData::none()),
         }
     }
 
@@ -206,22 +199,19 @@ impl PerComputeCtx {
         K: Key,
     {
         let dice_key = self
-            .data
             .async_evaluator
             .dice
             .key_index
             .index(CowDiceKeyHashed::key_ref(key));
 
-        self.data
-            .async_evaluator
+        self.async_evaluator
             .per_live_version_ctx
             .compute_opaque(
                 dice_key,
-                self.data.parent_key,
-                &self.data.async_evaluator,
-                self.data
-                    .cycles
-                    .subrequest(dice_key, &self.data.async_evaluator.dice.key_index),
+                self.parent_key,
+                &self.async_evaluator,
+                self.cycles
+                    .subrequest(dice_key, &self.async_evaluator.dice.key_index),
             )
             .map(move |cancellable_result| {
                 let cancellable = cancellable_result.map(move |dice_value| {
@@ -243,28 +233,26 @@ impl PerComputeCtx {
         K: ProjectionKey,
     {
         let dice_key = self
-            .data
             .async_evaluator
             .dice
             .key_index
             .index(CowDiceKeyHashed::proj_ref(base_key, key));
 
         let r = self
-            .data
             .async_evaluator
             .per_live_version_ctx
             .compute_projection(
                 dice_key,
-                self.data.parent_key,
-                self.data.async_evaluator.dice.state_handle.dupe(),
+                self.parent_key,
+                self.async_evaluator.dice.state_handle.dupe(),
                 SyncEvaluator::new(
-                    self.data.async_evaluator.user_data.dupe(),
-                    self.data.async_evaluator.dice.dupe(),
+                    self.async_evaluator.user_data.dupe(),
+                    self.async_evaluator.dice.dupe(),
                     base,
                 ),
                 DiceEventDispatcher::new(
-                    self.data.async_evaluator.user_data.tracker.dupe(),
-                    self.data.async_evaluator.dice.dupe(),
+                    self.async_evaluator.user_data.tracker.dupe(),
+                    self.async_evaluator.dice.dupe(),
                 ),
             );
 
@@ -273,8 +261,7 @@ impl PerComputeCtx {
             Err(_cancelled) => return Err(DiceError::cancelled()),
         };
 
-        self.data
-            .dep_trackers
+        self.dep_trackers
             .lock()
             .record(dice_key, r.value().validity());
 
@@ -287,7 +274,7 @@ impl PerComputeCtx {
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub(crate) fn global_data(&self) -> &DiceData {
-        &self.data.async_evaluator.dice.global_data
+        &self.async_evaluator.dice.global_data
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
@@ -295,29 +282,29 @@ impl PerComputeCtx {
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
-        &self.data.async_evaluator.user_data
+        &self.async_evaluator.user_data
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        self.data.async_evaluator.per_live_version_ctx.get_version()
+        self.async_evaluator.per_live_version_ctx.get_version()
     }
 
     pub(crate) fn into_updater(self) -> TransactionUpdater {
         TransactionUpdater::new(
-            self.data.async_evaluator.dice.dupe(),
-            self.data.async_evaluator.user_data.dupe(),
+            self.async_evaluator.dice.dupe(),
+            self.async_evaluator.user_data.dupe(),
         )
     }
 
     pub(super) fn dep_trackers(&self) -> MutexGuard<'_, RecordingDepsTracker> {
-        self.data.dep_trackers.lock()
+        self.dep_trackers.lock()
     }
 
     pub(crate) fn store_evaluation_data<T: Send + Sync + 'static>(
         &self,
         value: T,
     ) -> DiceResult<()> {
-        let mut evaluation_data = self.data.evaluation_data.lock();
+        let mut evaluation_data = self.evaluation_data.lock();
         if evaluation_data.0.is_some() {
             return Err(DiceError::duplicate_activation_data());
         }
@@ -326,19 +313,14 @@ impl PerComputeCtx {
     }
 
     pub(crate) fn finalize(self) -> ((HashSet<DiceKey>, DiceValidity), EvaluationData) {
-        // TODO need to clean up these ctxs so we have less runtime errors from Arc references
-        let data = Arc::try_unwrap(self.data)
-            .map_err(|_| "Error: tried to finalize when there are more references")
-            .unwrap();
-
         (
-            data.dep_trackers.into_inner().collect_deps(),
-            data.evaluation_data.into_inner(),
+            self.dep_trackers.into_inner().collect_deps(),
+            self.evaluation_data.into_inner(),
         )
     }
 
     pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
-        self.data.cycles.cycle_guard()
+        self.cycles.cycle_guard()
     }
 }
 
