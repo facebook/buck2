@@ -921,6 +921,7 @@ pub(crate) enum ResolvedIdent {
 #[derive(Debug)]
 pub(crate) struct CstPayload;
 impl AstPayload for CstPayload {
+    type LoadPayload = ();
     /// Information about how identifier binding is resolved.
     ///
     /// This is `None` when CST is created.
@@ -943,6 +944,8 @@ impl AstPayload for CstPayload {
 
 pub(crate) struct CompilerAstMap<'a>(pub(crate) &'a mut ScopeData);
 impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_> {
+    fn map_load(&mut self, _import_path: &str, (): ()) {}
+
     fn map_ident(&mut self, (): ()) -> Option<ResolvedIdent> {
         None
     }

@@ -35,6 +35,7 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::ast::TypeExprP;
 
 pub(crate) trait AstPayloadFunction<A: AstPayload, B: AstPayload> {
+    fn map_load(&mut self, import_path: &str, a: A::LoadPayload) -> B::LoadPayload;
     fn map_ident(&mut self, a: A::IdentPayload) -> B::IdentPayload;
     fn map_ident_assign(&mut self, a: A::IdentAssignPayload) -> B::IdentAssignPayload;
     fn map_def(&mut self, a: A::DefPayload) -> B::DefPayload;
@@ -46,10 +47,16 @@ impl<A: AstPayload> LoadP<A> {
         self,
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> LoadP<B> {
-        let LoadP { module, args } = self;
+        let LoadP {
+            module,
+            args,
+            payload,
+        } = self;
+        let payload = f.map_load(&module.node, payload);
         LoadP {
             module,
             args: args.into_map(|(local, their)| (local.into_map_payload(f), their)),
+            payload,
         }
     }
 }

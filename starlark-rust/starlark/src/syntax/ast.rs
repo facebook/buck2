@@ -32,6 +32,7 @@ use crate::syntax::lexer::TokenInt;
 
 /// Payload types attached to AST nodes.
 pub(crate) trait AstPayload: Debug {
+    type LoadPayload: Debug;
     type IdentPayload: Debug;
     type IdentAssignPayload: Debug;
     type DefPayload: Debug;
@@ -43,6 +44,7 @@ pub(crate) trait AstPayload: Debug {
 #[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq)]
 pub(crate) struct AstNoPayload;
 impl AstPayload for AstNoPayload {
+    type LoadPayload = ();
     type IdentPayload = ();
     type IdentAssignPayload = ();
     type DefPayload = ();
@@ -209,8 +211,9 @@ pub(crate) struct IdentP<P: AstPayload>(pub String, pub P::IdentPayload);
 /// `load` statement.
 #[derive(Debug)]
 pub(crate) struct LoadP<P: AstPayload> {
-    pub module: AstString,
-    pub args: Vec<(AstAssignIdentP<P>, AstString)>,
+    pub(crate) module: AstString,
+    pub(crate) args: Vec<(AstAssignIdentP<P>, AstString)>,
+    pub(crate) payload: P::LoadPayload,
 }
 
 #[derive(Debug)]

@@ -190,6 +190,7 @@ LoadStmtInner: Load = "load" "(" <module:string> <args:("," <LoadStmtSyms>)+> ",
     Load {
         module,
         args,
+        payload: (),
     }
 };
 
