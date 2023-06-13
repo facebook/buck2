@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use buck2_data::StarlarkUserEvent;
 use buck2_data::StarlarkUserMetadataValue;
 use starlark::values::dict::DictRef;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use thiserror::Error;
 
@@ -30,7 +31,6 @@ enum StarlarkUserEventUnpack {
     InvalidValue(String, String),
 }
 
-#[allow(unused)] // TODO(wendyy)
 pub(crate) fn to_starlark_user_event<'v>(
     id: &str,
     metadata: Value<'v>,
@@ -77,6 +77,16 @@ pub(crate) fn to_starlark_user_event<'v>(
                     k,
                     StarlarkUserMetadataValue {
                         value: Some(buck2_data::starlark_user_metadata_value::Value::IntValue(v)),
+                    },
+                ))
+            // Let's also accept floats since `instant()` methods return floats, but cast them to ints
+            } else if let Some(v) = f64::unpack_value(v) {
+                Ok((
+                    k,
+                    StarlarkUserMetadataValue {
+                        value: Some(buck2_data::starlark_user_metadata_value::Value::IntValue(
+                            v as i32,
+                        )),
                     },
                 ))
             } else {
