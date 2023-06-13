@@ -227,25 +227,22 @@ impl<T> FutureAndCancellationHandle<T> {
 
 /// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
 /// does not cancel the future
-pub fn spawn_cancellable_with_preamble<F, T, P, S>(
+pub fn spawn_cancellable<F, T, S>(
     f: F,
-    preamble: P,
     spawner: &dyn Spawner<S>,
     ctx: &S,
     span: Span,
 ) -> FutureAndCancellationHandle<T>
 where
     for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
-    P: Future<Output = ()> + Send + 'static,
     T: Any + Send + 'static,
 {
     let (future, cancellation_handle) = make_cancellable_future(f);
 
     // For Ready<()> and BoxFuture<()> futures we get these sizes:
     // future alone: 196/320 bits
-    // future + no-op preamble via async block: 448/704 bits
-    // future + no-op preamble via FuturesExt::then: 256/384 bits
-    // future + no-op preamble + instrument: 512/640 bits
+    // future via async block: 448/704 bits
+    // future + instrument: 512/640 bits
 
     // As the spawner is going to take a boxed future and erase its concrete type,
     // we can have different future types for different scenarios in order to
@@ -254,7 +251,6 @@ where
     // While we could feasibly distinguish the no-op preamble case, one extra pointer
     // is an okay cost for the simpler api (for now).
     let future = future.map(|v| Box::new(v) as _);
-    let future = preamble.then(|_| future);
     let future = if span.is_disabled() {
         future.boxed()
     } else {
@@ -275,21 +271,6 @@ where
         future: CancellableJoinHandle(task),
         cancellation_handle,
     }
-}
-
-/// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
-/// does not cancel the future
-pub fn spawn_cancellable<F, T, S>(
-    f: F,
-    spawner: &dyn Spawner<S>,
-    ctx: &S,
-    span: Span,
-) -> FutureAndCancellationHandle<T>
-where
-    for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
-    T: Any + Send + 'static,
-{
-    spawn_cancellable_with_preamble(f, futures::future::ready(()), spawner, ctx, span)
 }
 
 #[pin_project]
@@ -415,7 +396,7 @@ mod tests {
         let FutureAndCancellationHandle {
             cancellation_handle,
             ..
-        } = spawn_cancellable_with_preamble(
+        } = spawn_cancellable(
             move |_| {
                 async move {
                     recv_release_task.await.unwrap();
@@ -423,7 +404,6 @@ mod tests {
                 }
                 .boxed()
             },
-            futures::future::ready(()),
             sp.as_ref(),
             &MockCtx::default(),
             tracing::debug_span!("test"),
@@ -450,7 +430,7 @@ mod tests {
         let FutureAndCancellationHandle {
             future: task,
             cancellation_handle,
-        } = spawn_cancellable_with_preamble(
+        } = spawn_cancellable(
             move |_| {
                 async move {
                     recv_release_task.await.unwrap();
@@ -458,7 +438,6 @@ mod tests {
                 }
                 .boxed()
             },
-            futures::future::ready(()),
             sp.as_ref(),
             &MockCtx::default(),
             tracing::debug_span!("test"),
@@ -481,9 +460,8 @@ mod tests {
         let sp = Arc::new(TokioSpawner::default());
         let fut = async { "Hello world!" }.boxed();
 
-        let FutureAndCancellationHandle { future: task, .. } = spawn_cancellable_with_preamble(
+        let FutureAndCancellationHandle { future: task, .. } = spawn_cancellable(
             |_| fut,
-            futures::future::ready(()),
             sp.as_ref(),
             &MockCtx::default(),
             tracing::debug_span!("test"),
@@ -501,9 +479,8 @@ mod tests {
         let FutureAndCancellationHandle {
             future: task,
             cancellation_handle,
-        } = spawn_cancellable_with_preamble(
+        } = spawn_cancellable(
             |_| fut,
-            futures::future::ready(()),
             sp.as_ref(),
             &MockCtx::default(),
             tracing::debug_span!("test"),
