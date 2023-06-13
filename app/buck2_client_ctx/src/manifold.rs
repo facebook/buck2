@@ -425,12 +425,14 @@ fn log_upload_url() -> Option<&'static str> {
 
 pub struct ManifoldClient {
     client: CountingHttpClient,
+    manifold_url: Option<String>,
 }
 
 impl ManifoldClient {
     pub fn new() -> anyhow::Result<Self> {
         Ok(Self {
             client: http::http_client(false)?,
+            manifold_url: log_upload_url().map(|s| s.to_owned()),
         })
     }
 
@@ -441,7 +443,7 @@ impl ManifoldClient {
         buf: bytes::Bytes,
         ttl: Option<Duration>,
     ) -> anyhow::Result<()> {
-        let manifold_url = match log_upload_url() {
+        let manifold_url = match &self.manifold_url {
             None => return Ok(()),
             Some(x) => x,
         };
@@ -487,7 +489,7 @@ impl ManifoldClient {
         buf: bytes::Bytes,
         offset: u64,
     ) -> anyhow::Result<()> {
-        let manifold_url = match log_upload_url() {
+        let manifold_url = match &self.manifold_url {
             None => return Ok(()),
             Some(x) => x,
         };
