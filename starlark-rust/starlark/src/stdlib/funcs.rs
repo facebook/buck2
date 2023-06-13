@@ -872,7 +872,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     fn range(
         #[starlark(require = pos)] a1: i32,
         #[starlark(require = pos)] a2: Option<i32>,
-        #[starlark(default = 1)] step: i32,
+        #[starlark(require = pos, default = 1)] step: i32,
     ) -> anyhow::Result<Range> {
         let start = match a2 {
             None => 0,
