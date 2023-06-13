@@ -39,15 +39,17 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::future::join_all;
-use futures::future::BoxFuture;
 use futures::future::Shared;
 use futures::join;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
+use more_futures::spawn::spawn_cancellable;
+use more_futures::spawn::DropCancelFuture;
 use os_str_bytes::OsStrBytes;
 use siphasher::sip128::Hasher128;
 use siphasher::sip128::SipHasher24;
+use tracing::trace_span;
 
 #[derive(Clone, Dupe, derive_more::Display)]
 #[display(fmt = "{:032x}", _0)]
@@ -260,7 +262,7 @@ impl TargetHashes {
         T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
     {
         struct Delegate<T: QueryTarget> {
-            hashes: HashMap<T::NodeRef, Shared<BoxFuture<'static, SharedResult<BuckTargetHash>>>>,
+            hashes: HashMap<T::NodeRef, Shared<DropCancelFuture<SharedResult<BuckTargetHash>>>>,
             file_hasher: Option<Arc<dyn FileHasher>>,
             use_fast_hash: bool,
             dice: DiceTransaction,
@@ -290,8 +292,8 @@ impl TargetHashes {
                 // this allows us to start the computations for dependents before finishing the computation for a node.
                 self.hashes.insert(
                     target.node_ref().clone(),
-                    async move {
-                        dice.temporary_spawn(move |_, _cancellation| {
+                    spawn_cancellable(
+                        |_| {
                             async move {
                                 let mut hasher = TargetHashes::new_hasher(use_fast_hash);
                                 TargetHashes::hash_node(&target, &mut *hasher);
@@ -317,10 +319,12 @@ impl TargetHashes {
                                 Ok(hasher.finish_u128())
                             }
                             .boxed()
-                        })
-                        .await
-                    }
-                    .boxed()
+                        },
+                        &*dice.per_transaction_data().spawner,
+                        dice.per_transaction_data(),
+                        trace_span!("node hasher"),
+                    )
+                    .into_drop_cancel()
                     .shared(),
                 );
 
