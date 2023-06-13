@@ -57,6 +57,7 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::impls::worker::DiceWorkerStateCheckingDeps;
 use crate::versions::testing::VersionRangesExt;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
@@ -165,6 +166,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
                 &cycles,
+                &DiceWorkerStateCheckingDeps::testing(DiceKey { index: 100 })
             )
             .await?
             .is_changed()
@@ -195,6 +197,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
                 &cycles,
+                &DiceWorkerStateCheckingDeps::testing(DiceKey { index: 100 })
             )
             .await?
             .is_changed()
@@ -228,6 +231,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 )]),
                 Arc::new(vec![DiceKey { index: 200 }]),
                 &cycles,
+                &DiceWorkerStateCheckingDeps::testing(DiceKey { index: 100 })
             )
             .await?
             .is_changed()

@@ -13,7 +13,7 @@ use std::any::Any;
 
 use dupe::Dupe;
 use futures::FutureExt;
-use more_futures::cancellable_future::DisableCancellationGuard;
+use more_futures::cancellation::CancellationContext;
 use tracing::Instrument;
 
 use crate::impls::evaluator::AsyncEvaluator;
@@ -28,6 +28,137 @@ use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
+
+/// Represents when we are in a spawned dice task worker and are currently waiting for the previous
+/// cancelled instance of this task to finish cancelling.
+pub(crate) struct DiceWorkerStateAwaitingPrevious<'a> {
+    internals: DiceTaskHandle<'a>,
+}
+
+impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
+    pub(crate) fn previously_finished(
+        self,
+        value: DiceComputedValue,
+    ) -> DiceWorkerStateFinishedAndCached {
+        self.internals.finished(value);
+
+        DiceWorkerStateFinishedAndCached {}
+    }
+
+    pub(crate) fn previously_cancelled(self) -> DiceWorkerStateLookupNode<'a> {
+        self.internals.report_initial_lookup();
+
+        DiceWorkerStateLookupNode {
+            internals: self.internals,
+        }
+    }
+
+    pub(crate) fn no_previous_task(self) -> DiceWorkerStateLookupNode<'a> {
+        self.internals.report_initial_lookup();
+
+        DiceWorkerStateLookupNode {
+            internals: self.internals,
+        }
+    }
+}
+
+/// Represents when we are currently looking up the current requested key from the core state, and
+/// are waiting for it to respond.
+pub(crate) struct DiceWorkerStateLookupNode<'a> {
+    internals: DiceTaskHandle<'a>,
+}
+
+impl<'a> DiceWorkerStateLookupNode<'a> {
+    pub(crate) fn checking_deps(self) -> DiceWorkerStateCheckingDeps<'a> {
+        self.internals.checking_deps();
+
+        DiceWorkerStateCheckingDeps {
+            internals: self.internals,
+        }
+    }
+
+    pub(crate) fn lookup_dirtied(self) -> DiceWorkerStateComputing<'a> {
+        self.internals.computing();
+
+        DiceWorkerStateComputing {
+            internals: self.internals,
+        }
+    }
+
+    pub(crate) fn lookup_matches(
+        self,
+        value: DiceComputedValue,
+    ) -> DiceWorkerStateFinishedAndCached {
+        self.internals.finished(value);
+
+        DiceWorkerStateFinishedAndCached {}
+    }
+}
+
+/// When the spawned dice task worker is checking if the dependencies have changed since the last
+/// time this node was verified, and are waiting for the results of the dependency re-computation.
+pub(crate) struct DiceWorkerStateCheckingDeps<'a> {
+    internals: DiceTaskHandle<'a>,
+}
+
+impl<'a> DiceWorkerStateCheckingDeps<'a> {
+    pub(crate) fn deps_not_match(self) -> DiceWorkerStateComputing<'a> {
+        self.internals.computing();
+
+        DiceWorkerStateComputing {
+            internals: self.internals,
+        }
+    }
+
+    pub(crate) fn deps_match(self) -> DiceWorkerStateFinished<'a> {
+        DiceWorkerStateFinished {
+            internals: self.internals,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn testing(k: DiceKey) -> Self {
+        DiceWorkerStateCheckingDeps {
+            internals: DiceTaskHandle::testing_new(k),
+        }
+    }
+}
+
+/// When the spawned dice worker is currently computing the requested Key.
+pub(crate) struct DiceWorkerStateComputing<'a> {
+    internals: DiceTaskHandle<'a>,
+}
+
+impl<'a> DiceWorkerStateComputing<'a> {
+    pub(crate) fn cancellation_ctx(&self) -> &CancellationContext {
+        self.internals.cancellation_ctx()
+    }
+
+    pub(crate) fn finished(self) -> DiceWorkerStateFinished<'a> {
+        DiceWorkerStateFinished {
+            internals: self.internals,
+        }
+    }
+}
+
+/// When the spawned dice worker is finished checking dependencies or finished computing the key.
+/// At this point, the value of the node is known. We are just waiting for core state to finish
+/// updating the caches and return the correct instance of the value.
+pub(crate) struct DiceWorkerStateFinished<'a> {
+    internals: DiceTaskHandle<'a>,
+}
+
+impl<'a> DiceWorkerStateFinished<'a> {
+    pub(crate) fn cached(self, value: DiceComputedValue) -> DiceWorkerStateFinishedAndCached {
+        self.internals.finished(value);
+
+        DiceWorkerStateFinishedAndCached {}
+    }
+}
+
+/// When the spawned dice worker is done computing and saving the value to core state cache.
+/// The final value is known.
+pub(crate) struct DiceWorkerStateFinishedAndCached {}
 
 /// The worker on the spawned dice task
 pub(crate) struct DiceTaskWorker {
@@ -64,8 +195,13 @@ impl DiceTaskWorker {
                         incremental,
                     );
 
-                    match worker.do_work(&handle).await {
-                        Ok((res, _guard)) => handle.finished(res),
+                    match worker
+                        .do_work(DiceWorkerStateAwaitingPrevious { internals: handle })
+                        .await
+                    {
+                        Ok(_res) => {
+                            // finished and cached.
+                        }
                         Err(Cancelled) => {
                             // we drop the current handle, leaving the original `DiceTask` as terminated
                             // state
@@ -100,9 +236,9 @@ impl DiceTaskWorker {
 
     pub(crate) async fn do_work(
         self,
-        handle: &DiceTaskHandle<'_>,
-    ) -> CancellableResult<(DiceComputedValue, Option<DisableCancellationGuard>)> {
-        if let Some(previous) = self.previously_cancelled_task {
+        state: DiceWorkerStateAwaitingPrevious<'_>,
+    ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
+        let state = if let Some(previous) = self.previously_cancelled_task {
             debug!(msg = "waiting for previously cancelled task");
             previous.previous.await_termination().await;
             // old task actually finished, so just use that result if it wasn't
@@ -116,13 +252,17 @@ impl DiceTaskWorker {
                 Ok(res) => {
                     debug!(msg = "previously cancelled task actually finished");
 
-                    return Ok((res, None));
+                    return Ok(state.previously_finished(res));
                 }
                 Err(Cancelled) => {
                     // actually was cancelled, so just continue re-evaluating
                 }
             }
-        }
+
+            state.previously_cancelled()
+        } else {
+            state.no_previous_task()
+        };
 
         let result = self
             .incremental
@@ -131,7 +271,7 @@ impl DiceTaskWorker {
                 self.eval,
                 self.cycles,
                 self.events_dispatcher,
-                handle,
+                state,
             )
             .await;
 

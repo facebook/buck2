@@ -51,6 +51,14 @@ impl<'a> DiceTaskHandle<'a> {
     pub(crate) fn cancellation_ctx(&self) -> &CancellationContext {
         &self.cancellations
     }
+
+    #[cfg(test)]
+    pub(crate) fn testing_new(k: crate::impls::key::DiceKey) -> Self {
+        Self {
+            internal: DiceTaskInternal::new(k),
+            cancellations: CancellationContext::testing(),
+        }
+    }
 }
 
 impl<'a> Drop for DiceTaskHandle<'a> {
