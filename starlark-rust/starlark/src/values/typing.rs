@@ -788,11 +788,7 @@ impl<'v> Value<'v> {
         heap: &'v Heap,
     ) -> anyhow::Result<()> {
         let ty = TypeCompiled::new(ty, heap)?;
-        if ty.matches(self) {
-            Ok(())
-        } else {
-            Self::check_type_error(self, ty, arg_name)
-        }
+        self.check_type_compiled(ty, arg_name)
     }
 
     pub(crate) fn check_type_compiled(
