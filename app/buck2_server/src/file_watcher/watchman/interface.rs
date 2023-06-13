@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
@@ -36,6 +37,7 @@ use crate::file_watcher::watchman::core::WatchmanEvent;
 use crate::file_watcher::watchman::core::WatchmanEventType;
 use crate::file_watcher::watchman::core::WatchmanKind;
 use crate::file_watcher::FileWatcher;
+use crate::file_watcher::Mergebase;
 
 struct WatchmanQueryProcessor {
     cells: CellResolver,
@@ -319,14 +321,20 @@ impl WatchmanFileWatcher {
 
 #[async_trait]
 impl FileWatcher for WatchmanFileWatcher {
-    async fn sync(&self, dice: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater> {
+    async fn sync(
+        &self,
+        dice: DiceTransactionUpdater,
+    ) -> anyhow::Result<(DiceTransactionUpdater, Mergebase)> {
         span_async(
             buck2_data::FileWatcherStart {
                 provider: buck2_data::FileWatcherProvider::Watchman as i32,
             },
             async {
                 let (stats, res) = match self.query.sync(dice).await {
-                    Ok((stats, dice)) => ((Some(stats)), Ok(dice)),
+                    Ok((stats, dice)) => {
+                        let mergebase = Mergebase(Arc::new(stats.branched_from_revision.clone()));
+                        ((Some(stats)), Ok((dice, mergebase)))
+                    }
                     Err(e) => (None, Err(e)),
                 };
                 (res, buck2_data::FileWatcherEnd { stats })

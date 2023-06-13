@@ -28,9 +28,14 @@ mod notify;
 mod stats;
 mod watchman;
 
+pub struct Mergebase(Arc<Option<String>>);
+
 #[async_trait]
 pub trait FileWatcher: Allocative + Send + Sync + 'static {
-    async fn sync(&self, dice: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater>;
+    async fn sync(
+        &self,
+        dice: DiceTransactionUpdater,
+    ) -> anyhow::Result<(DiceTransactionUpdater, Mergebase)>;
 }
 
 impl dyn FileWatcher {

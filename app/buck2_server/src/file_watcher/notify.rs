@@ -37,6 +37,7 @@ use tracing::info;
 
 use crate::file_watcher::stats::FileWatcherStats;
 use crate::file_watcher::FileWatcher;
+use crate::file_watcher::Mergebase;
 
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Hash, Allocative)]
 enum ChangeType {
@@ -217,14 +218,20 @@ impl NotifyFileWatcher {
 
 #[async_trait]
 impl FileWatcher for NotifyFileWatcher {
-    async fn sync(&self, dice: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater> {
+    async fn sync(
+        &self,
+        dice: DiceTransactionUpdater,
+    ) -> anyhow::Result<(DiceTransactionUpdater, Mergebase)> {
         span_async(
             buck2_data::FileWatcherStart {
                 provider: buck2_data::FileWatcherProvider::RustNotify as i32,
             },
             async {
                 let (stats, res) = match self.sync2(dice) {
-                    Ok((stats, dice)) => ((Some(stats)), Ok(dice)),
+                    Ok((stats, dice)) => {
+                        let mergebase = Mergebase(Arc::new(stats.branched_from_revision.clone()));
+                        ((Some(stats)), Ok((dice, mergebase)))
+                    }
                     Err(e) => (None, Err(e)),
                 };
                 (res, buck2_data::FileWatcherEnd { stats })

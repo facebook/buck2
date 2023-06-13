@@ -681,7 +681,7 @@ impl DiceUpdater for DiceCommandUpdater {
             None,
         )?;
 
-        let mut ctx = self.file_watcher.sync(ctx).await?;
+        let (mut ctx, _mergebase) = self.file_watcher.sync(ctx).await?;
 
         ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
 
