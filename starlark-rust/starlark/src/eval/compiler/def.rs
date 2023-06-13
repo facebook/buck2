@@ -654,12 +654,12 @@ where
         } else {
             None
         };
-        for (i, arg_name, ty, ty2) in &self.parameter_types {
+        for (i, arg_name, _ty, ty2) in &self.parameter_types {
             match eval.current_frame.get_slot(i.to_captured_or_not()) {
                 None => {
                     panic!("Not allowed optional unassigned with type annotations on them")
                 }
-                Some(v) => v.check_type_compiled(ty.to_value(), ty2.to_value(), Some(arg_name))?,
+                Some(v) => v.check_type_compiled(ty2.to_value(), Some(arg_name))?,
             }
         }
         if let Some(start) = start {
@@ -674,7 +674,7 @@ where
         ret: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<()> {
-        let (return_type_value, return_type_ty): &(V, TypeCompiled<V>) = self
+        let (_return_type_value, return_type_ty): &(V, TypeCompiled<V>) = self
             .return_type
             .as_ref()
             .ok_or(DefError::CheckReturnTypeNoType)?;
@@ -683,11 +683,7 @@ where
         } else {
             None
         };
-        ret.check_type_compiled(
-            return_type_value.to_value(),
-            return_type_ty.to_value(),
-            None,
-        )?;
+        ret.check_type_compiled(return_type_ty.to_value(), None)?;
         if let Some(start) = start {
             eval.typecheck_profile
                 .add(self.def_info.name, start.elapsed());

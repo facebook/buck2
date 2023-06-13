@@ -49,6 +49,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::none::NoneType;
 use crate::values::structs::AllocStruct;
+use crate::values::typing::TypeCompiled;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;
@@ -213,7 +214,7 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
     }
 
     fn is_type<'v>(v: Value<'v>, ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<bool> {
-        v.is_type(ty, heap)
+        Ok(TypeCompiled::new(ty, heap)?.matches(v))
     }
 
     /// Function which consumes arguments and that's it.

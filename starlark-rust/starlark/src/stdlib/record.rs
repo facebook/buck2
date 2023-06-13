@@ -93,7 +93,7 @@ pub fn global(builder: &mut GlobalsBuilder) {
         // We compile the type even if we don't have a default to raise the error sooner
         let compiled = TypeCompiled::new(typ, heap)?;
         if let Some(d) = default {
-            d.check_type_compiled(typ, compiled, Some("default"))?;
+            d.check_type_compiled(compiled, Some("default"))?;
         }
         Ok(Field::new(typ, default))
     }
@@ -123,7 +123,7 @@ assert_eq(dir(rec1), ["host", "port"])
 rec_type = record(host=str.type, port=int.type)
 rec_type(host=1, port=80)
 "#,
-            &["`1`", "`string`", "`host`"],
+            &["`1`", "`str.type`", "`host`"],
         );
         assert::fails(
             r#"

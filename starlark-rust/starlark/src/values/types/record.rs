@@ -296,7 +296,7 @@ where
                     let value = match field.0.default {
                         None => {
                             let v: Value = param_parser.next(name)?;
-                            v.check_type_compiled(field.0.typ, field.1.to_value(), Some(name))?;
+                            v.check_type_compiled(field.1.to_value(), Some(name))?;
                             v
                         }
                         Some(default) => {
@@ -304,11 +304,7 @@ where
                             match v {
                                 None => default,
                                 Some(v) => {
-                                    v.check_type_compiled(
-                                        field.0.typ,
-                                        field.1.to_value(),
-                                        Some(name),
-                                    )?;
+                                    v.check_type_compiled(field.1.to_value(), Some(name))?;
                                     v
                                 }
                             }
