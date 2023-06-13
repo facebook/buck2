@@ -121,9 +121,7 @@ impl AttrType {
             AttrTypeInner::SplitTransitionDep(_) => attr("split_transition_dep"),
             AttrTypeInner::String(_) => attr("string"),
             AttrTypeInner::Label(_) => attr("label"),
-            AttrTypeInner::Visibility(_) => {
-                VisibilityAttrType::pretend_attr_type().fmt_with_default(f, None)
-            }
+            AttrTypeInner::Visibility(_) => attr("visibility"),
         }
     }
 
