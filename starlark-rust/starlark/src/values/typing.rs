@@ -19,10 +19,13 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use allocative::Allocative;
 use anyhow::Context;
 use dupe::Dupe;
+use starlark_map::StarlarkHasher;
 use thiserror::Error;
 
 use crate as starlark;
@@ -95,7 +98,7 @@ where
 
 impl<'v, T> StarlarkValue<'v> for TypeCompiledImplAsStarlarkValue<T>
 where
-    T: TypeCompiledImpl<'v>,
+    T: TypeCompiledImpl<'v> + Hash + Eq,
     Self: ProvidesStaticType,
 {
     starlark_type!("eval_type");
@@ -106,6 +109,18 @@ where
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&'v dyn TypeCompiledImpl<'v>>(&self.0);
+    }
+
+    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+        Hash::hash(&self.0, hasher);
+        Ok(())
+    }
+
+    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
+        let Some(other) = other.downcast_ref::<Self>() else {
+            return Ok(false);
+        };
+        Ok(self.0 == other.0)
     }
 }
 
@@ -154,13 +169,55 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     pub(crate) fn to_value(self) -> TypeCompiled<Value<'v>> {
         TypeCompiled(self.0.to_value())
     }
+
+    pub(crate) fn write_hash(self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
+        self.to_value().0.write_hash(hasher)
+    }
+
+    pub(crate) fn equals(self, other: Self) -> anyhow::Result<bool> {
+        self.to_value().0.equals(other.to_value().0)
+    }
 }
+
+impl<'v, V: ValueLike<'v>> Hash for TypeCompiled<V> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self.0.to_value().get_hash() {
+            Ok(h) => h.hash(state),
+            Err(_) => {
+                // Unreachable, but we should not panic in `Hash`.
+            }
+        }
+    }
+}
+
+impl<'v, V: ValueLike<'v>> PartialEq for TypeCompiled<V> {
+    #[allow(clippy::manual_unwrap_or)]
+    fn eq(&self, other: &Self) -> bool {
+        match self.0.to_value().equals(other.0.to_value()) {
+            Ok(b) => b,
+            Err(_) => {
+                // Unreachable, but we should not panic in `PartialEq`.
+                false
+            }
+        }
+    }
+}
+
+impl<'v, V: ValueLike<'v>> Eq for TypeCompiled<V> {}
 
 // These functions are small, but are deliberately out-of-line so we get better
 // information in profiling about the origin of these closures
 impl<'v> TypeCompiled<Value<'v>> {
     fn type_anything() -> TypeCompiled<Value<'v>> {
-        #[derive(Allocative, Debug, derive_more::Display, ProvidesStaticType)]
+        #[derive(
+            Eq,
+            PartialEq,
+            Hash,
+            Allocative,
+            Debug,
+            derive_more::Display,
+            ProvidesStaticType
+        )]
         #[display(fmt = "\"\"")]
         struct Anything;
 
@@ -177,7 +234,15 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     fn type_none() -> TypeCompiled<Value<'v>> {
-        #[derive(Allocative, Debug, derive_more::Display, ProvidesStaticType)]
+        #[derive(
+            Eq,
+            PartialEq,
+            Hash,
+            Allocative,
+            Debug,
+            derive_more::Display,
+            ProvidesStaticType
+        )]
         #[display(fmt = "None")]
         struct IsNone;
 
@@ -194,7 +259,15 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     fn type_string() -> TypeCompiled<Value<'v>> {
-        #[derive(Allocative, Debug, derive_more::Display, ProvidesStaticType)]
+        #[derive(
+            Eq,
+            PartialEq,
+            Hash,
+            Allocative,
+            Debug,
+            derive_more::Display,
+            ProvidesStaticType
+        )]
         #[display(fmt = "str.type")]
         struct IsString;
 
@@ -211,7 +284,15 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     fn type_int() -> TypeCompiled<Value<'v>> {
-        #[derive(Allocative, Debug, derive_more::Display, ProvidesStaticType)]
+        #[derive(
+            Eq,
+            PartialEq,
+            Hash,
+            Allocative,
+            Debug,
+            derive_more::Display,
+            ProvidesStaticType
+        )]
         #[display(fmt = "int.type")]
         struct IsInt;
 
@@ -228,7 +309,15 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     fn type_bool() -> TypeCompiled<Value<'v>> {
-        #[derive(Allocative, Debug, derive_more::Display, ProvidesStaticType)]
+        #[derive(
+            Eq,
+            PartialEq,
+            Hash,
+            Allocative,
+            Debug,
+            derive_more::Display,
+            ProvidesStaticType
+        )]
         #[display(fmt = "bool.type")]
         struct IsBool;
 
@@ -246,6 +335,9 @@ impl<'v> TypeCompiled<Value<'v>> {
 
     fn type_concrete(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         #[derive(
+            Eq,
+            PartialEq,
+            Hash,
             Allocative,
             Debug,
             derive_more::Display,
@@ -266,7 +358,15 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     fn type_list() -> TypeCompiled<Value<'v>> {
-        #[derive(Allocative, Debug, derive_more::Display, ProvidesStaticType)]
+        #[derive(
+            Eq,
+            PartialEq,
+            Hash,
+            Allocative,
+            Debug,
+            derive_more::Display,
+            ProvidesStaticType
+        )]
         #[display(fmt = "[\"\"]")]
         struct IsList;
 
@@ -293,6 +393,26 @@ impl<'v> TypeCompiled<Value<'v>> {
         )]
         #[display(fmt = "[{}]", _0)]
         struct IsListOf<V>(TypeCompiled<V>);
+
+        impl<V> PartialEq for IsListOf<V>
+        where
+            TypeCompiled<V>: PartialEq,
+        {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.eq(&other.0)
+            }
+        }
+
+        impl<V> Eq for IsListOf<V> where TypeCompiled<V>: Eq {}
+
+        impl<V> Hash for IsListOf<V>
+        where
+            TypeCompiled<V>: Hash,
+        {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.0.hash(state)
+            }
+        }
 
         impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsListOf<V>
         where
@@ -325,6 +445,27 @@ impl<'v> TypeCompiled<Value<'v>> {
         #[display(fmt = "[{}, {}]", _0, _1)]
         struct IsAnyOfTwo<V>(TypeCompiled<V>, TypeCompiled<V>);
 
+        impl<V> Hash for IsAnyOfTwo<V>
+        where
+            TypeCompiled<V>: Hash,
+        {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.0.hash(state);
+                self.1.hash(state);
+            }
+        }
+
+        impl<V> PartialEq for IsAnyOfTwo<V>
+        where
+            TypeCompiled<V>: PartialEq,
+        {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.eq(&other.0) && self.1.eq(&other.1)
+            }
+        }
+
+        impl<V> Eq for IsAnyOfTwo<V> where TypeCompiled<V>: Eq {}
+
         impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsAnyOfTwo<V>
         where
             Self: ProvidesStaticType,
@@ -340,6 +481,26 @@ impl<'v> TypeCompiled<Value<'v>> {
     fn type_any_of(ts: Vec<TypeCompiled<Value<'v>>>, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsAnyOf<V>(Vec<TypeCompiled<V>>);
+
+        impl<V> Hash for IsAnyOf<V>
+        where
+            TypeCompiled<V>: Hash,
+        {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.0.hash(state);
+            }
+        }
+
+        impl<V> PartialEq for IsAnyOf<V>
+        where
+            TypeCompiled<V>: PartialEq,
+        {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.eq(&other.0)
+            }
+        }
+
+        impl<V> Eq for IsAnyOf<V> where TypeCompiled<V>: Eq {}
 
         impl<'v, V: ValueLike<'v>> Display for IsAnyOf<V> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -360,7 +521,15 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     fn type_dict() -> TypeCompiled<Value<'v>> {
-        #[derive(Allocative, Debug, derive_more::Display, ProvidesStaticType)]
+        #[derive(
+            Eq,
+            PartialEq,
+            Hash,
+            Allocative,
+            Debug,
+            derive_more::Display,
+            ProvidesStaticType
+        )]
         #[display(fmt = "{{\"\": \"\"}}")]
         struct IsDict;
 
@@ -392,6 +561,27 @@ impl<'v> TypeCompiled<Value<'v>> {
         #[display(fmt = "{{{}: {}}}", _0, _1)]
         struct IsDictOf<V>(TypeCompiled<V>, TypeCompiled<V>);
 
+        impl<V> Hash for IsDictOf<V>
+        where
+            TypeCompiled<V>: Hash,
+        {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.0.hash(state);
+                self.1.hash(state);
+            }
+        }
+
+        impl<V> PartialEq for IsDictOf<V>
+        where
+            TypeCompiled<V>: PartialEq,
+        {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.eq(&other.0) && self.1.eq(&other.1)
+            }
+        }
+
+        impl<V> Eq for IsDictOf<V> where TypeCompiled<V>: Eq {}
+
         impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsDictOf<V>
         where
             Self: ProvidesStaticType,
@@ -412,6 +602,26 @@ impl<'v> TypeCompiled<Value<'v>> {
     fn type_tuple_of(ts: Vec<TypeCompiled<Value<'v>>>, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsTupleOf<V>(Vec<TypeCompiled<V>>);
+
+        impl<V> Hash for IsTupleOf<V>
+        where
+            TypeCompiled<V>: Hash,
+        {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.0.hash(state);
+            }
+        }
+
+        impl<V> PartialEq for IsTupleOf<V>
+        where
+            TypeCompiled<V>: PartialEq,
+        {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.eq(&other.0)
+            }
+        }
+
+        impl<V> Eq for IsTupleOf<V> where TypeCompiled<V>: Eq {}
 
         impl<'v, V: ValueLike<'v>> Display for IsTupleOf<V> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -632,7 +842,7 @@ f(8) == False"#,
             r#"Foo = record(value=int.type)
 def f(v: bool.type) -> Foo:
     return Foo(value=1)"#,
-            &[r#"record(value=field("int"))"#, "Foo"],
+            &[r#"record(value=field(int.type))"#, "Foo"],
         );
         a.fails(
             r#"Bar = enum("bar")

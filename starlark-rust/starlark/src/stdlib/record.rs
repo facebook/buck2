@@ -66,11 +66,10 @@ pub fn global(builder: &mut GlobalsBuilder) {
         let mut mp = SmallMap::with_capacity(kwargs.len());
         for (k, v) in kwargs.into_iter_hashed() {
             let field = match Field::from_value(v) {
-                None => Field::new(v, None),
+                None => Field::new(TypeCompiled::new(v, heap)?, None),
                 Some(v) => v.dupe(),
             };
-            let compiled = TypeCompiled::new(field.typ, heap)?;
-            mp.insert_hashed(k, (field, compiled));
+            mp.insert_hashed(k, field);
         }
         Ok(RecordType::new(mp))
     }
@@ -95,7 +94,7 @@ pub fn global(builder: &mut GlobalsBuilder) {
         if let Some(d) = default {
             d.check_type_compiled(compiled, Some("default"))?;
         }
-        Ok(Field::new(typ, default))
+        Ok(Field::new(compiled, default))
     }
 }
 
