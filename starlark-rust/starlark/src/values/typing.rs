@@ -433,7 +433,10 @@ f(8) == False"#,
 
         // If the types are either malformed or runtime errors, it should fail
         a.fail("def f(i: made_up):\n pass", "Variable");
-        a.fail("def f(i: fail('bad')):\n pass", "bad");
+        a.fail(
+            "def f(i: fail('bad')):\n pass",
+            "call expression is not allowed in type expression",
+        );
 
         // Type errors should be caught in arguments
         a.fails(

@@ -23,6 +23,7 @@ use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::EvalException;
+use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::TypeExpr;
 use crate::syntax::ast::TypeExprP;
@@ -176,7 +177,32 @@ impl Dialect {
         x: &Spanned<Expr>,
     ) -> Result<(), EvalException> {
         match &x.node {
+            Expr::Tuple(..) => {}
+            Expr::Dot(..) => {}
+            Expr::Call(..) => return err(codemap, x.span, DialectError::InvalidType("call")),
+            Expr::ArrayIndirection(..) => {
+                return err(
+                    codemap,
+                    x.span,
+                    DialectError::InvalidType("array indirection"),
+                );
+            }
+            Expr::Slice(..) => return err(codemap, x.span, DialectError::InvalidType("slice")),
+            Expr::Identifier(..) => {}
             Expr::Lambda(..) => return err(codemap, x.span, DialectError::InvalidType("lambda")),
+            Expr::Literal(AstLiteral::String(..)) => {}
+            Expr::Literal(AstLiteral::Float(..)) => {
+                return err(codemap, x.span, DialectError::InvalidType("float literal"));
+            }
+            Expr::Literal(AstLiteral::Int(..)) => {
+                return err(codemap, x.span, DialectError::InvalidType("int literal"));
+            }
+            Expr::Not(..) => return err(codemap, x.span, DialectError::InvalidType("not")),
+            Expr::Minus(..) => return err(codemap, x.span, DialectError::InvalidType("minus")),
+            Expr::Plus(..) => return err(codemap, x.span, DialectError::InvalidType("plus")),
+            Expr::BitNot(..) => return err(codemap, x.span, DialectError::InvalidType("bit not")),
+            Expr::Op(..) => return err(codemap, x.span, DialectError::InvalidType("bin op")),
+            Expr::If(..) => return err(codemap, x.span, DialectError::InvalidType("if")),
             Expr::List(list) => {
                 if list.is_empty() {
                     return err(codemap, x.span, DialectError::EmptyListInType);
@@ -187,7 +213,20 @@ impl Dialect {
                     return err(codemap, x.span, DialectError::DictNot1InType);
                 }
             }
-            _ => {}
+            Expr::ListComprehension(..) => {
+                return err(
+                    codemap,
+                    x.span,
+                    DialectError::InvalidType("list comprehension"),
+                );
+            }
+            Expr::DictComprehension(..) => {
+                return err(
+                    codemap,
+                    x.span,
+                    DialectError::InvalidType("dict comprehension"),
+                );
+            }
         }
         x.visit_expr_err(|e| Self::check_expr_allowed_in_type(codemap, e))
     }

@@ -149,7 +149,8 @@ foo(rec_type(host="localhost", port=80))"#,
         assert::pass(
             r#"
 v = [record(host=str.type, port=int.type)]
-def foo(x: v[0].type) -> "record":
+v_0 = v[0]
+def foo(x: v_0.type) -> "record":
     return x
 foo(v[0](host="localhost", port=80))"#,
         );
