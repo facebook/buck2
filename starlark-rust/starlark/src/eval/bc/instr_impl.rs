@@ -1418,12 +1418,8 @@ impl InstrNoFlowImpl for InstrDefImpl {
                     if ty.is_some() {
                         // Check the type of the default
                         let (_, _, ty_compiled) = parameter_types.last().unwrap();
-                        expr_throw(
-                            value.check_type_compiled(ty_compiled.to_value(), Some(&n.name)),
-                            x.span,
-                            eval,
-                        )
-                        .map_err(EvalException::into_anyhow)?;
+                        expr_throw(ty_compiled.check_type(value, Some(&n.name)), x.span, eval)
+                            .map_err(EvalException::into_anyhow)?;
                     }
                     parameters.defaulted(&n.name, value);
                 }

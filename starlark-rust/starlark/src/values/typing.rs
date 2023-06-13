@@ -166,6 +166,29 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         self.0.to_value().get_ref().type_matches_value(value)
     }
 
+    #[cold]
+    #[inline(never)]
+    fn check_type_error(self, value: Value<'v>, arg_name: Option<&str>) -> anyhow::Result<()> {
+        Err(TypingError::TypeAnnotationMismatch(
+            value.to_str(),
+            value.get_type().to_owned(),
+            self.to_string(),
+            match arg_name {
+                None => "return type".to_owned(),
+                Some(x) => format!("argument `{}`", x),
+            },
+        )
+        .into())
+    }
+
+    pub(crate) fn check_type(self, value: Value<'v>, arg_name: Option<&str>) -> anyhow::Result<()> {
+        if self.matches(value) {
+            Ok(())
+        } else {
+            self.check_type_error(value, arg_name)
+        }
+    }
+
     pub(crate) fn to_value(self) -> TypeCompiled<Value<'v>> {
         TypeCompiled(self.0.to_value())
     }
@@ -762,25 +785,6 @@ fn invalid_type_annotation<'v>(ty: Value<'v>, heap: &'v Heap) -> TypingError {
 }
 
 impl<'v> Value<'v> {
-    #[cold]
-    #[inline(never)]
-    fn check_type_error(
-        value: Value,
-        ty: TypeCompiled<Value>,
-        arg_name: Option<&str>,
-    ) -> anyhow::Result<()> {
-        Err(TypingError::TypeAnnotationMismatch(
-            value.to_str(),
-            value.get_type().to_owned(),
-            ty.to_string(),
-            match arg_name {
-                None => "return type".to_owned(),
-                Some(x) => format!("argument `{}`", x),
-            },
-        )
-        .into())
-    }
-
     pub(crate) fn check_type(
         self,
         ty: Value<'v>,
@@ -788,19 +792,7 @@ impl<'v> Value<'v> {
         heap: &'v Heap,
     ) -> anyhow::Result<()> {
         let ty = TypeCompiled::new(ty, heap)?;
-        self.check_type_compiled(ty, arg_name)
-    }
-
-    pub(crate) fn check_type_compiled(
-        self,
-        ty: TypeCompiled<Value<'v>>,
-        arg_name: Option<&str>,
-    ) -> anyhow::Result<()> {
-        if ty.matches(self) {
-            Ok(())
-        } else {
-            Self::check_type_error(self, ty, arg_name)
-        }
+        ty.check_type(self, arg_name)
     }
 }
 

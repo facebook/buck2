@@ -659,7 +659,7 @@ where
                 None => {
                     panic!("Not allowed optional unassigned with type annotations on them")
                 }
-                Some(v) => v.check_type_compiled(ty.to_value(), Some(arg_name))?,
+                Some(v) => ty.check_type(v, Some(arg_name))?,
             }
         }
         if let Some(start) = start {
@@ -681,7 +681,7 @@ where
         } else {
             None
         };
-        ret.check_type_compiled(return_type_ty.to_value(), None)?;
+        return_type_ty.check_type(ret, None)?;
         if let Some(start) = start {
             eval.typecheck_profile
                 .add(self.def_info.name, start.elapsed());
