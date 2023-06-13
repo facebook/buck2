@@ -22,6 +22,7 @@ pub(crate) mod bc;
 pub(crate) mod compiler;
 pub(crate) mod runtime;
 
+use std::collections::HashMap;
 use std::mem;
 use std::time::Instant;
 
@@ -83,6 +84,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
         let mut statement = statement.into_map_payload(&mut CompilerAstMap {
             scope_data: &mut scope_data,
+            loads: &HashMap::new(),
         });
 
         if let Some(docstring) = DocString::extract_raw_starlark_docstring(&statement) {

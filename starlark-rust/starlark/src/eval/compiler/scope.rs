@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
+use std::collections::HashMap;
 use std::iter;
 use std::mem;
 
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use starlark_derive::VisitSpanMut;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
@@ -56,6 +58,7 @@ use crate::syntax::ast::Visibility;
 use crate::syntax::payload_map::AstPayloadFunction;
 use crate::syntax::uniplate::VisitMut;
 use crate::syntax::Dialect;
+use crate::typing::Interface;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -921,7 +924,7 @@ pub(crate) enum ResolvedIdent {
 #[derive(Debug)]
 pub(crate) struct CstPayload;
 impl AstPayload for CstPayload {
-    type LoadPayload = ();
+    type LoadPayload = Interface;
     /// Information about how identifier binding is resolved.
     ///
     /// This is `None` when CST is created.
@@ -944,10 +947,16 @@ impl AstPayload for CstPayload {
 
 pub(crate) struct CompilerAstMap<'a> {
     pub(crate) scope_data: &'a mut ScopeData,
+    pub(crate) loads: &'a HashMap<String, Interface>,
 }
 
 impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_> {
-    fn map_load(&mut self, _import_path: &str, (): ()) {}
+    fn map_load(&mut self, import_path: &str, (): ()) -> Interface {
+        self.loads
+            .get(import_path)
+            .duped()
+            .unwrap_or_else(Interface::empty)
+    }
 
     fn map_ident(&mut self, (): ()) -> Option<ResolvedIdent> {
         None
@@ -976,6 +985,7 @@ pub(crate) type CstLoad = AstLoadP<CstPayload>;
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::fmt::Write;
 
     use dupe::Dupe;
@@ -1008,6 +1018,7 @@ mod tests {
         let root_scope_id = scope_data.new_scope().0;
         let mut cst = ast.statement.into_map_payload(&mut CompilerAstMap {
             scope_data: &mut scope_data,
+            loads: &HashMap::new(),
         });
         let frozen_heap = FrozenHeap::new();
         let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap.dupe());

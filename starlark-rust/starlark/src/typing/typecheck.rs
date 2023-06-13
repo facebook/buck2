@@ -51,11 +51,13 @@ fn unique_identifiers<'f>(
     frozen_heap: &'f FrozenHeap,
     ast: AstModule,
     names: &'f MutableNames,
+    loads: &HashMap<String, Interface>,
 ) -> (CstStmt, Scope<'f>) {
     let mut scope_data = ScopeData::new();
     let root_scope_id = scope_data.new_scope().0;
     let mut cst = ast.statement.into_map_payload(&mut CompilerAstMap {
         scope_data: &mut scope_data,
+        loads,
     });
     let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap.dupe());
     let scope = Scope::enter_module(
@@ -173,8 +175,8 @@ impl AstModule {
         let codemap = self.codemap.dupe();
         let names = MutableNames::new();
         let frozen_heap = FrozenHeap::new();
-        let (cst, scope) = unique_identifiers(&frozen_heap, self, &names);
-        let bindings = Bindings::collect(&cst, loads);
+        let (cst, scope) = unique_identifiers(&frozen_heap, self, &names, loads);
+        let bindings = Bindings::collect(&cst);
         let descriptions = bindings.descriptions.clone();
         let mut approximations = bindings.approximations.clone();
         let (errors, types, solve_approximations) = solve_bindings(oracle, bindings, &codemap);

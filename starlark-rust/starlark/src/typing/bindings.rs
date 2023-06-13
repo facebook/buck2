@@ -101,11 +101,9 @@ impl Interface {
     }
 }
 
-pub type Loads = HashMap<String, Interface>;
-
 impl<'a> Bindings<'a> {
     /// Collect all the assignments to variables
-    pub(crate) fn collect(x: &'a CstStmt, loads: &'_ Loads) -> Self {
+    pub(crate) fn collect(x: &'a CstStmt) -> Self {
         fn assign<'a>(lhs: &'a CstAssign, rhs: BindExpr<'a>, bindings: &mut Bindings<'a>) {
             match &**lhs {
                 AssignP::Identifier(x) => {
@@ -148,12 +146,7 @@ impl<'a> Bindings<'a> {
             }
         }
 
-        fn visit<'a>(
-            x: Visit<'a, CstPayload>,
-            return_type: &Ty,
-            loads: &Loads,
-            bindings: &mut Bindings<'a>,
-        ) {
+        fn visit<'a>(x: Visit<'a, CstPayload>, return_type: &Ty, bindings: &mut Bindings<'a>) {
             match x {
                 Visit::Stmt(x) => match &**x {
                     StmtP::Assign(lhs, ty_rhs) => {
@@ -239,13 +232,12 @@ impl<'a> Bindings<'a> {
                         bindings
                             .types
                             .insert(name.1.unwrap(), Ty::function(params2, ret_ty.clone()));
-                        x.visit_children(|x| visit(x, &ret_ty, loads, bindings));
+                        x.visit_children(|x| visit(x, &ret_ty, bindings));
                         // We do our own visit_children, with a different return type
                         return;
                     }
                     StmtP::Load(x) => {
-                        let none = Interface::empty();
-                        let mp = loads.get(x.module.as_str()).unwrap_or(&none);
+                        let mp = &x.payload;
                         for (ident, _load) in &x.args {
                             let ty = mp.get(ident.0.as_str()).cloned().unwrap_or(Ty::Any);
                             bindings.descriptions.insert(ident.1.unwrap(), ident);
@@ -316,11 +308,11 @@ impl<'a> Bindings<'a> {
                     _ => {}
                 },
             }
-            x.visit_children(|x| visit(x, return_type, loads, bindings))
+            x.visit_children(|x| visit(x, return_type, bindings))
         }
 
         let mut res = Bindings::default();
-        visit(Visit::Stmt(x), &Ty::Any, loads, &mut res);
+        visit(Visit::Stmt(x), &Ty::Any, &mut res);
         res
     }
 }
