@@ -491,13 +491,17 @@ impl<'v> Value<'v> {
         }
     }
 
-    /// `int(x)`.
+    /// Conversion to an int that sees through `bool` and `int`.
     pub fn to_int(self) -> anyhow::Result<i32> {
         // Fast path for the common case
-        if let Some(x) = self.unpack_inline_int() {
-            Ok(x.to_i32())
+        if let Some(x) = self.unpack_i32() {
+            Ok(x)
+        } else if let Some(x) = self.unpack_bool() {
+            Ok(x as i32)
+        } else if let Some(NumRef::Int(_)) = self.unpack_num() {
+            Err(ValueError::IntegerOverflow.into())
         } else {
-            self.get_ref().to_int()
+            ValueError::unsupported_owned(self.get_type(), "int()", None)
         }
     }
 
