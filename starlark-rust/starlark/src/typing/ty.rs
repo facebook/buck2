@@ -30,6 +30,7 @@ use crate::docs::DocType;
 use crate::eval::compiler::scope::CstTypeExpr;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
+use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;
@@ -650,6 +651,12 @@ impl Ty {
                 Self::from_expr(&x[0].1, approximations),
             ),
             ExprP::Identifier(x) if x.node.0 == "None" => Ty::None,
+            ExprP::Call(fun, args) if args.len() == 1 => match (&fun.node, &args[0].node) {
+                (ExprP::Identifier(name), ArgumentP::Positional(arg)) if name.node.0 == "iter" => {
+                    Ty::iter(Ty::from_expr(arg, approximations))
+                }
+                _ => unknown(),
+            },
             _ => unknown(),
         }
     }
