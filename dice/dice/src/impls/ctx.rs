@@ -139,7 +139,7 @@ impl Deref for BaseComputeCtx {
 }
 
 /// Context given to the `compute` function of a `Key`.
-#[derive(Allocative, Dupe, Clone)]
+#[derive(Allocative)]
 pub(crate) struct PerComputeCtx {
     data: Arc<PerComputeCtxData>,
 }
