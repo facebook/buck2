@@ -294,10 +294,10 @@ message Concurrency {
 message CommonBuildOptions {
   reserved 5, 8, 12;
   enum ExecutionStrategy {
+    reserved 3;
     Default = 0;
     LocalOnly = 1;
     RemoteOnly = 2;
-    Hybrid = 3;
     HybridPreferLocal = 4;
     NoExecution = 5;
     HybridPreferRemote = 6;
