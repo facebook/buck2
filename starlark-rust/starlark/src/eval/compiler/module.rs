@@ -84,7 +84,7 @@ impl<'v> Compiler<'v, '_, '_> {
     /// Regular statement is a statement which is not `load` or a sequence of statements.
     fn eval_regular_top_level_stmt(
         &mut self,
-        stmt: CstStmt,
+        mut stmt: CstStmt,
         local_names: FrozenRef<'static, [FrozenStringValue]>,
     ) -> Result<Value<'v>, EvalException> {
         if matches!(stmt.node, StmtP::Statements(_) | StmtP::Load(_)) {
@@ -94,6 +94,8 @@ impl<'v> Compiler<'v, '_, '_> {
                 &self.codemap,
             ));
         }
+
+        self.populate_types_in_stmt(&mut stmt)?;
 
         let stmt = self.module_top_level_stmt(stmt);
         let bc = stmt.as_bc(

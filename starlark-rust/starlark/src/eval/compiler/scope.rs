@@ -1001,7 +1001,8 @@ impl AstPayload for CstPayload {
     /// When compilation starts, all payloads are `Some`.
     type IdentAssignPayload = Option<BindingId>;
     type DefPayload = ScopeId;
-    type TypeExprPayload = ();
+    /// Populated before evaluation of top level statements.
+    type TypeExprPayload = Option<FrozenValue>;
 }
 
 pub(crate) struct CompilerAstMap<'a, 'f> {
@@ -1029,7 +1030,9 @@ impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_, '_> {
         self.scope_data.new_scope().0
     }
 
-    fn map_type_expr(&mut self, (): ()) {}
+    fn map_type_expr(&mut self, (): ()) -> Option<FrozenValue> {
+        None
+    }
 }
 
 pub(crate) type CstExpr = AstExprP<CstPayload>;

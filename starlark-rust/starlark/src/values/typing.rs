@@ -814,7 +814,7 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     /// Types that are `""` or start with `"_"` are wildcard - they match everything.
-    fn is_wildcard(x: &str) -> bool {
+    pub(crate) fn is_wildcard(x: &str) -> bool {
         x == "" || x.starts_with('_')
     }
 
@@ -960,13 +960,13 @@ f(8) == False"#,
             r#"Foo = record(value=int.type)
 def f(v: bool.type) -> Foo:
     return Foo(value=1)"#,
-            &[r#"record(value=field(int.type))"#, "Foo"],
+            &[r#"record(value=field(int.type))"#],
         );
         a.fails(
             r#"Bar = enum("bar")
 def f(v: Bar):
   pass"#,
-            &[r#"enum("bar")"#, "Bar"],
+            &[r#"enum("bar")"#],
         );
         // Type errors should be caught in return positions
         a.fails(

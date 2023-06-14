@@ -169,6 +169,19 @@ impl<P: AstPayload> StmtP<P> {
         }
     }
 
+    pub(crate) fn visit_children_err_mut<'a, E>(
+        &'a mut self,
+        mut f: impl FnMut(VisitMut<'a, P>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let mut result = Ok(());
+        self.visit_children_mut(|x| {
+            if result.is_ok() {
+                result = f(x);
+            }
+        });
+        result
+    }
+
     pub(crate) fn visit_stmt<'a>(&'a self, mut f: impl FnMut(&'a AstStmtP<P>)) {
         self.visit_children(|x| match x {
             Visit::Stmt(x) => f(x),
@@ -327,6 +340,19 @@ impl<P: AstPayload> ExprP<P> {
                 f(&x.1);
             }
         }
+    }
+
+    pub(crate) fn visit_expr_err_mut<'a, E>(
+        &'a mut self,
+        mut f: impl FnMut(&'a mut AstExprP<P>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let mut ok = Ok(());
+        self.visit_expr_mut(|x| {
+            if ok.is_ok() {
+                ok = f(x);
+            }
+        });
+        ok
     }
 
     pub(crate) fn visit_expr_mut<'a>(&'a mut self, mut f: impl FnMut(&'a mut AstExprP<P>)) {
