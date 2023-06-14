@@ -21,7 +21,7 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::visibility::VisibilitySpecification;
+use buck2_node::visibility::VisibilityPatternList;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use starlark::values::dict::Dict;
@@ -201,9 +201,9 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             }
             ConfiguredAttr::None => Value::new_none(),
             ConfiguredAttr::OneOf(box l, _) => l.to_value(pkg, heap)?,
-            ConfiguredAttr::Visibility(specs) => match specs {
-                VisibilitySpecification::Public => heap.alloc(AllocList(["PUBLIC"])),
-                VisibilitySpecification::VisibleTo(specs) => {
+            ConfiguredAttr::Visibility(specs) => match &specs.0 {
+                VisibilityPatternList::Public => heap.alloc(AllocList(["PUBLIC"])),
+                VisibilityPatternList::List(specs) => {
                     heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
                 }
             },
