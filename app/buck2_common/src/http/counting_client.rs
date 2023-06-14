@@ -119,8 +119,8 @@ mod tests {
     use httptest::Expectation;
 
     use super::*;
+    use crate::http::secure_client::SecureHttpClient;
     use crate::http::tls_config_with_system_roots;
-    use crate::http::SecureHttpClient;
 
     #[tokio::test]
     async fn test_count_response_size() -> anyhow::Result<()> {
