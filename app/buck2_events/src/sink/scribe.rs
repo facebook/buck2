@@ -250,8 +250,25 @@ mod fbcode {
                             Self::truncate_target_patterns(
                                 &mut resolved_target_patterns.target_patterns,
                             );
-                        }
-                        if let Some(ref mut command_end) = invocation_record.command_end {
+
+                            // Clear `unresolved_traget_patterns` to save bandwidth. It has less information
+                            // than `resolved` one does, and will never be used if `resolved` one is available.
+                            if let Some(ref mut command_end) = invocation_record.command_end {
+                                use buck2_data::command_end::Data;
+                                match &mut command_end.data {
+                                    Some(Data::Build(ref mut build_command_end)) => {
+                                        build_command_end.unresolved_target_patterns.clear();
+                                    }
+                                    Some(Data::Test(ref mut test_command_end)) => {
+                                        test_command_end.unresolved_target_patterns.clear();
+                                    }
+                                    Some(Data::Install(ref mut install_command_end)) => {
+                                        install_command_end.unresolved_target_patterns.clear();
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        } else if let Some(ref mut command_end) = invocation_record.command_end {
                             use buck2_data::command_end::Data;
                             match &mut command_end.data {
                                 Some(Data::Build(ref mut build_command_end)) => {
@@ -380,6 +397,105 @@ mod fbcode {
                     None => false,
                 }
             }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn smart_truncate_resolved_target_patterns_clears_unresolved_one() {
+            let mut record = buck2_data::InvocationRecord::default();
+            let mut record_expected = record.clone();
+
+            let resolved_target_patterns = vec![buck2_data::TargetPattern {
+                value: "some_resolved_target".to_owned(),
+            }];
+            record.resolved_target_patterns = Some(buck2_data::ResolvedTargetPatterns {
+                target_patterns: resolved_target_patterns.clone(),
+            });
+            // resolved_target_patterns is expected to be unchanged.
+            record_expected.resolved_target_patterns = Some(buck2_data::ResolvedTargetPatterns {
+                target_patterns: resolved_target_patterns,
+            });
+
+            let unresolved_target_patterns = vec![buck2_data::TargetPattern {
+                value: "some_unresolved_target".to_owned(),
+            }];
+            record.command_end = Some(buck2_data::CommandEnd {
+                data: Some(buck2_data::command_end::Data::Build(
+                    buck2_data::BuildCommandEnd {
+                        unresolved_target_patterns,
+                    },
+                )),
+                ..Default::default()
+            });
+            // unresolved_target_patterns is expected to be empty.
+            record_expected.command_end = Some(buck2_data::CommandEnd {
+                data: Some(buck2_data::command_end::Data::Build(
+                    buck2_data::BuildCommandEnd {
+                        unresolved_target_patterns: vec![],
+                    },
+                )),
+                ..Default::default()
+            });
+
+            let mut event_data = buck2_data::buck_event::Data::Record(buck2_data::RecordEvent {
+                data: Some(buck2_data::record_event::Data::InvocationRecord(Box::new(
+                    record,
+                ))),
+            });
+            let event_data_expected =
+                buck2_data::buck_event::Data::Record(buck2_data::RecordEvent {
+                    data: Some(buck2_data::record_event::Data::InvocationRecord(Box::new(
+                        record_expected,
+                    ))),
+                });
+
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            assert_eq!(event_data, event_data_expected);
+        }
+
+        #[test]
+        fn smart_truncate_unresolved_target_used_when_resolved_one_unavailable() {
+            let mut record = buck2_data::InvocationRecord::default();
+            let mut record_expected = record.clone();
+
+            record.resolved_target_patterns = None;
+            record_expected.resolved_target_patterns = None;
+
+            let unresolved_target_patterns = vec![buck2_data::TargetPattern {
+                value: "some_unresolved_target".to_owned(),
+            }];
+            let command_end = buck2_data::CommandEnd {
+                data: Some(buck2_data::command_end::Data::Build(
+                    buck2_data::BuildCommandEnd {
+                        unresolved_target_patterns,
+                    },
+                )),
+                ..Default::default()
+            };
+            record.command_end = Some(command_end.clone());
+            // unresolved_target_patterns is expected to be unchanged.
+            record_expected.command_end = Some(command_end);
+
+            let mut event_data = buck2_data::buck_event::Data::Record(buck2_data::RecordEvent {
+                data: Some(buck2_data::record_event::Data::InvocationRecord(Box::new(
+                    record,
+                ))),
+            });
+            let event_data_expected =
+                buck2_data::buck_event::Data::Record(buck2_data::RecordEvent {
+                    data: Some(buck2_data::record_event::Data::InvocationRecord(Box::new(
+                        record_expected,
+                    ))),
+                });
+
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            assert_eq!(event_data, event_data_expected);
         }
     }
 }
