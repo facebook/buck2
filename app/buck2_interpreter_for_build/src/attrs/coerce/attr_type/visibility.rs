@@ -14,6 +14,7 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;
+use buck2_node::visibility::VisibilityWithinViewBuilder;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::list::coerce_list;
@@ -64,7 +65,7 @@ fn parse_visibility(
         }
     };
 
-    let mut specs: Option<Vec<_>> = None;
+    let mut builder = VisibilityWithinViewBuilder::with_capacity(list.len());
     for item in list {
         let Some(item) = item.unpack_str() else {
             if StarlarkSelector::from_value(*item).is_some() {
@@ -80,18 +81,10 @@ fn parse_visibility(
 
         if item == VisibilityPattern::PUBLIC {
             // TODO(cjhopman): We should probably enforce that this is the only entry.
-            // TODO(nga): validate the remaining patterns are correct.
-            return Ok(VisibilitySpecification::Public);
+            builder.add_public();
+        } else {
+            builder.add(VisibilityPattern(ctx.coerce_target_pattern(item)?));
         }
-
-        specs
-            .get_or_insert_with(|| Vec::with_capacity(list.len()))
-            .push(VisibilityPattern(ctx.coerce_target_pattern(item)?));
     }
-    match specs {
-        None => Ok(VisibilitySpecification::DEFAULT),
-        Some(specs) => Ok(VisibilitySpecification::VisibleTo(
-            specs.into_iter().collect(),
-        )),
-    }
+    Ok(builder.build_visibility())
 }

@@ -174,3 +174,54 @@ impl AnyMatches for VisibilitySpecification {
         }
     }
 }
+
+pub struct VisibilityWithinViewBuilder {
+    cap: usize,
+    seen_public: bool,
+    patterns: Option<Vec<VisibilityPattern>>,
+}
+
+impl VisibilityWithinViewBuilder {
+    pub fn with_capacity(cap: usize) -> VisibilityWithinViewBuilder {
+        VisibilityWithinViewBuilder {
+            cap,
+            seen_public: false,
+            patterns: None,
+        }
+    }
+
+    pub fn add_public(&mut self) {
+        self.seen_public = true;
+    }
+
+    pub fn add(&mut self, pattern: VisibilityPattern) {
+        if !self.seen_public {
+            self.patterns
+                .get_or_insert_with(|| Vec::with_capacity(self.cap))
+                .push(pattern);
+        }
+    }
+
+    pub fn build_visibility(self) -> VisibilitySpecification {
+        if self.seen_public {
+            VisibilitySpecification::Public
+        } else {
+            VisibilitySpecification::VisibleTo(ThinArcSlice::from_iter(
+                self.patterns.unwrap_or_default(),
+            ))
+        }
+    }
+
+    pub fn build_within_view(self) -> WithinViewSpecification {
+        if self.seen_public {
+            WithinViewSpecification::Public
+        } else {
+            match self.patterns {
+                None => WithinViewSpecification::Public,
+                Some(patterns) => {
+                    WithinViewSpecification::VisibleTo(ThinArcSlice::from_iter(patterns))
+                }
+            }
+        }
+    }
+}
