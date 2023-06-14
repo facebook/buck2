@@ -72,6 +72,8 @@ enum ScopeError {
     VariableNotFound(String),
     #[error("Variable `{0}` not found, did you mean `{1}`?")]
     VariableNotFoundDidYouMean(String, String),
+    #[error("Identifiers in type expressions can only refer globals or builtins: `{0}`")]
+    TypeExpressionGlobalOrBuiltin(String),
 }
 
 /// All scopes and bindings in a module.
@@ -212,6 +214,14 @@ pub(crate) enum Slot {
     Module(ModuleSlotId),
     /// Local scope, always mutable.
     Local(LocalSlotIdCapturedOrNot),
+}
+
+#[derive(Clone, Copy, Dupe)]
+enum ResolveIdentScope {
+    /// Resolving normal identifier.
+    Any,
+    /// Resolving identifier in type expression.
+    GlobalForTypeExpression,
 }
 
 impl<'f> ModuleScopes<'f> {
@@ -471,9 +481,9 @@ impl<'f> ModuleScopes<'f> {
         self.exit_def();
     }
 
-    fn resolve_idents_in_expr(&mut self, expr: &mut CstExpr) {
+    fn resolve_idents_in_expr_impl(&mut self, scope: ResolveIdentScope, expr: &mut CstExpr) {
         match &mut expr.node {
-            ExprP::Identifier(ident) => self.resolve_ident(ident),
+            ExprP::Identifier(ident) => self.resolve_ident(scope, ident),
             ExprP::Lambda(LambdaP {
                 params,
                 body,
@@ -486,14 +496,19 @@ impl<'f> ModuleScopes<'f> {
                 let (k, v) = &mut **k_v;
                 self.resolve_idents_in_compr(&mut [k, v], first_for, clauses)
             }
-            _ => expr.visit_expr_mut(|expr| self.resolve_idents_in_expr(expr)),
+            _ => expr.visit_expr_mut(|expr| self.resolve_idents_in_expr_impl(scope, expr)),
         }
     }
 
+    fn resolve_idents_in_expr(&mut self, expr: &mut CstExpr) {
+        self.resolve_idents_in_expr_impl(ResolveIdentScope::Any, expr);
+    }
+
     fn resolve_idents_in_type_expr(&mut self, expr: &mut CstTypeExpr) {
-        // Currently it resolves idents as regular expression.
-        // But it should also check that all idents are resolved to globals or builtins.
-        self.resolve_idents_in_expr(&mut expr.node.expr);
+        self.resolve_idents_in_expr_impl(
+            ResolveIdentScope::GlobalForTypeExpression,
+            &mut expr.node.expr,
+        );
     }
 
     fn current_scope_all_visible_names_for_did_you_mean(&self) -> Vec<FrozenStringValue> {
@@ -524,23 +539,37 @@ impl<'f> ModuleScopes<'f> {
         )
     }
 
-    fn resolve_ident(&mut self, ident: &mut CstIdent) {
+    fn resolve_ident(&mut self, scope: ResolveIdentScope, ident: &mut CstIdent) {
         assert!(ident.node.1.is_none());
-        ident.node.1 = Some(
-            match self.get_name(self.frozen_heap.alloc_str_intern(&ident.node.0)) {
-                None => {
-                    // Must be a global, since we know all variables
-                    match self.globals.get_frozen(&ident.node.0) {
-                        None => {
-                            self.errors.push(self.variable_not_found_err(ident));
-                            return;
-                        }
-                        Some(v) => ResolvedIdent::Global(v),
+        let resolved = match self.get_name(self.frozen_heap.alloc_str_intern(&ident.node.0)) {
+            None => {
+                // Must be a global, since we know all variables
+                match self.globals.get_frozen(&ident.node.0) {
+                    None => {
+                        self.errors.push(self.variable_not_found_err(ident));
+                        return;
                     }
+                    Some(v) => ResolvedIdent::Global(v),
                 }
-                Some(slot) => ResolvedIdent::Slot(slot),
+            }
+            Some(slot) => ResolvedIdent::Slot(slot),
+        };
+        match scope {
+            ResolveIdentScope::Any => {}
+            ResolveIdentScope::GlobalForTypeExpression => match resolved {
+                ResolvedIdent::Slot((Slot::Local(_), _)) => {
+                    self.errors.push(EvalException::new(
+                        ScopeError::TypeExpressionGlobalOrBuiltin(ident.node.0.clone()).into(),
+                        ident.span,
+                        &self.codemap,
+                    ));
+                    return;
+                }
+                ResolvedIdent::Slot((Slot::Module(_), _)) => {}
+                ResolvedIdent::Global(_) => {}
             },
-        );
+        }
+        ident.node.1 = Some(resolved);
     }
 
     fn resolve_idents_in_compr(
