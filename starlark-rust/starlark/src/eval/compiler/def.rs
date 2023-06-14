@@ -139,25 +139,21 @@ pub(crate) struct ParameterName {
 
 #[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) enum ParameterCompiled<T> {
-    Normal(ParameterName, Option<T>),
-    WithDefaultValue(ParameterName, Option<T>, T),
-    Args(ParameterName, Option<T>),
-    KwArgs(ParameterName, Option<T>),
+    Normal(ParameterName, Option<TypeCompiled<FrozenValue>>),
+    WithDefaultValue(ParameterName, Option<TypeCompiled<FrozenValue>>, T),
+    Args(ParameterName, Option<TypeCompiled<FrozenValue>>),
+    KwArgs(ParameterName, Option<TypeCompiled<FrozenValue>>),
 }
 
 impl<T> ParameterCompiled<T> {
     pub(crate) fn map_expr<U>(&self, mut f: impl FnMut(&T) -> U) -> ParameterCompiled<U> {
         match self {
-            ParameterCompiled::Normal(n, o) => {
-                ParameterCompiled::Normal(n.clone(), o.as_ref().map(f))
-            }
+            ParameterCompiled::Normal(n, o) => ParameterCompiled::Normal(n.clone(), *o),
             ParameterCompiled::WithDefaultValue(n, o, t) => {
-                ParameterCompiled::WithDefaultValue(n.clone(), o.as_ref().map(&mut f), f(t))
+                ParameterCompiled::WithDefaultValue(n.clone(), *o, f(t))
             }
-            ParameterCompiled::Args(n, o) => ParameterCompiled::Args(n.clone(), o.as_ref().map(f)),
-            ParameterCompiled::KwArgs(n, o) => {
-                ParameterCompiled::KwArgs(n.clone(), o.as_ref().map(f))
-            }
+            ParameterCompiled::Args(n, o) => ParameterCompiled::Args(n.clone(), *o),
+            ParameterCompiled::KwArgs(n, o) => ParameterCompiled::KwArgs(n.clone(), *o),
         }
     }
 
@@ -173,12 +169,12 @@ impl<T> ParameterCompiled<T> {
         self.name_ty().0.captured
     }
 
-    pub(crate) fn name_ty(&self) -> (&ParameterName, Option<&T>) {
+    pub(crate) fn name_ty(&self) -> (&ParameterName, Option<TypeCompiled<FrozenValue>>) {
         match self {
-            Self::Normal(n, t) => (n, t.as_ref()),
-            Self::WithDefaultValue(n, t, _) => (n, t.as_ref()),
-            Self::Args(n, t) => (n, t.as_ref()),
-            Self::KwArgs(n, t) => (n, t.as_ref()),
+            Self::Normal(n, t) => (n, *t),
+            Self::WithDefaultValue(n, t, _) => (n, *t),
+            Self::Args(n, t) => (n, *t),
+            Self::KwArgs(n, t) => (n, *t),
         }
     }
 
@@ -366,25 +362,21 @@ impl Compiler<'_, '_, '_> {
             node: match x.node {
                 ParameterP::Normal(x, t) => ParameterCompiled::Normal(
                     self.parameter_name(x),
-                    self.expr_for_type(t)
-                        .map(|t| t.map(|t| ExprCompiled::Value(t.value()))),
+                    self.expr_for_type(t).map(|t| t.node),
                 ),
                 ParameterP::WithDefaultValue(x, t, v) => ParameterCompiled::WithDefaultValue(
                     self.parameter_name(x),
-                    self.expr_for_type(t)
-                        .map(|t| t.map(|t| ExprCompiled::Value(t.value()))),
+                    self.expr_for_type(t).map(|t| t.node),
                     self.expr(*v),
                 ),
                 ParameterP::NoArgs => return None,
                 ParameterP::Args(x, t) => ParameterCompiled::Args(
                     self.parameter_name(x),
-                    self.expr_for_type(t)
-                        .map(|t| t.map(|t| ExprCompiled::Value(t.value()))),
+                    self.expr_for_type(t).map(|t| t.node),
                 ),
                 ParameterP::KwArgs(x, t) => ParameterCompiled::KwArgs(
                     self.parameter_name(x),
-                    self.expr_for_type(t)
-                        .map(|t| t.map(|t| ExprCompiled::Value(t.value()))),
+                    self.expr_for_type(t).map(|t| t.node),
                 ),
             },
         })
@@ -494,7 +486,7 @@ pub(crate) struct DefGen<V> {
     parameter_captures: FrozenRef<'static, [LocalSlotId]>,
     // The types of the parameters.
     // (Sparse indexed array, (0, argm T) implies parameter 0 named arg must have type T).
-    parameter_types: Vec<(LocalSlotId, String, TypeCompiled<V>)>,
+    parameter_types: Vec<(LocalSlotId, String, TypeCompiled<FrozenValue>)>,
     pub(crate) return_type: Option<TypeCompiled<FrozenValue>>, // The return type annotation for the function
     /// Data created during function compilation but before function instantiation.
     /// `DefInfo` can be shared by multiple `def` instances, for example,
@@ -531,7 +523,7 @@ starlark_complex_values!(Def);
 impl<'v> Def<'v> {
     pub(crate) fn new(
         parameters: ParametersSpec<Value<'v>>,
-        parameter_types: Vec<(LocalSlotId, String, TypeCompiled<Value<'v>>)>,
+        parameter_types: Vec<(LocalSlotId, String, TypeCompiled<FrozenValue>)>,
         return_type: Option<TypeCompiled<FrozenValue>>,
         stmt: FrozenRef<'static, DefInfo>,
         eval: &mut Evaluator<'v, '_>,

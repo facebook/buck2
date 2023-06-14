@@ -234,10 +234,6 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         self.downcast().unwrap().is_wildcard()
     }
 
-    pub(crate) fn value(self) -> V {
-        self.0
-    }
-
     #[cold]
     #[inline(never)]
     fn check_type_error(self, value: Value<'v>, arg_name: Option<&str>) -> anyhow::Result<()> {

@@ -1395,15 +1395,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
             }
 
             if let (name, Some(t)) = x.name_ty() {
-                assert!(*t == pop_index);
-                let v = pop[pop_index as usize];
-                pop_index += 1;
-                parameter_types.push((
-                    LocalSlotId(i),
-                    name.name.clone(),
-                    expr_throw(TypeCompiled::new(v, eval.heap()), x.span, eval)
-                        .map_err(EvalException::into_anyhow)?,
-                ));
+                parameter_types.push((LocalSlotId(i), name.name.clone(), t));
             }
 
             match &x.node {
