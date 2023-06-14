@@ -57,7 +57,6 @@ use crate::eval::compiler::expr::get_attr_hashed_raw;
 use crate::eval::compiler::expr::EvalError;
 use crate::eval::compiler::expr::MemberOrValue;
 use crate::eval::compiler::expr_throw;
-use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::add_assign;
 use crate::eval::compiler::stmt::bit_or_assign;
 use crate::eval::compiler::stmt::possible_gc;
@@ -1364,7 +1363,7 @@ pub(crate) type InstrDef = InstrNoFlow<InstrDefImpl>;
 pub(crate) struct InstrDefData {
     pub(crate) function_name: String,
     pub(crate) params: ParametersCompiled<u32>,
-    pub(crate) return_type: Option<IrSpanned<u32>>,
+    pub(crate) return_type: Option<TypeCompiled<FrozenValue>>,
     pub(crate) info: FrozenRef<'static, DefInfo>,
 }
 
@@ -1426,18 +1425,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
                 ParameterCompiled::KwArgs(_, _) => parameters.kwargs(),
             };
         }
-        let return_type = match &def_data.return_type {
-            None => None,
-            Some(v) => {
-                assert!(v.node == pop_index);
-                let value = pop[pop_index as usize];
-                pop_index += 1;
-                Some(
-                    expr_throw(TypeCompiled::new(value, eval.heap()), v.span, eval)
-                        .map_err(EvalException::into_anyhow)?,
-                )
-            }
-        };
+        let return_type = def_data.return_type;
         assert!(pop_index as usize == pop.len());
         let def = eval.heap().alloc(Def::new(
             parameters.finish(),

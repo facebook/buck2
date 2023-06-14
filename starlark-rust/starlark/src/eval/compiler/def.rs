@@ -341,7 +341,7 @@ impl DefInfo {
 pub(crate) struct DefCompiled {
     pub(crate) function_name: String,
     pub(crate) params: ParametersCompiled<IrSpanned<ExprCompiled>>,
-    pub(crate) return_type: Option<Box<IrSpanned<ExprCompiled>>>,
+    pub(crate) return_type: Option<TypeCompiled<FrozenValue>>,
     pub(crate) info: FrozenRef<'static, DefInfo>,
 }
 
@@ -424,7 +424,7 @@ impl Compiler<'_, '_, '_> {
             params,
             num_positional,
         };
-        let return_type = self.expr_for_type(return_type).map(Box::new);
+        let return_type = self.expr_for_type(return_type).map(|t| t.node);
 
         self.enter_scope(scope_id);
 
@@ -477,7 +477,7 @@ impl Compiler<'_, '_, '_> {
         ExprCompiled::Def(DefCompiled {
             function_name,
             params,
-            return_type: return_type.map(|t| Box::new(t.map(|t| ExprCompiled::Value(t.value())))),
+            return_type,
             info,
         })
     }
@@ -495,7 +495,7 @@ pub(crate) struct DefGen<V> {
     // The types of the parameters.
     // (Sparse indexed array, (0, argm T) implies parameter 0 named arg must have type T).
     parameter_types: Vec<(LocalSlotId, String, TypeCompiled<V>)>,
-    pub(crate) return_type: Option<TypeCompiled<V>>, // The return type annotation for the function
+    pub(crate) return_type: Option<TypeCompiled<FrozenValue>>, // The return type annotation for the function
     /// Data created during function compilation but before function instantiation.
     /// `DefInfo` can be shared by multiple `def` instances, for example,
     /// `lambda` functions can be instantiated multiple times.
@@ -532,7 +532,7 @@ impl<'v> Def<'v> {
     pub(crate) fn new(
         parameters: ParametersSpec<Value<'v>>,
         parameter_types: Vec<(LocalSlotId, String, TypeCompiled<Value<'v>>)>,
-        return_type: Option<TypeCompiled<Value<'v>>>,
+        return_type: Option<TypeCompiled<FrozenValue>>,
         stmt: FrozenRef<'static, DefInfo>,
         eval: &mut Evaluator<'v, '_>,
     ) -> Value<'v> {
@@ -681,7 +681,7 @@ where
         ret: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<()> {
-        let return_type_ty: TypeCompiled<V> =
+        let return_type_ty: TypeCompiled<FrozenValue> =
             self.return_type.ok_or(DefError::CheckReturnTypeNoType)?;
         let start = if eval.typecheck_profile.enabled {
             Some(Instant::now())
