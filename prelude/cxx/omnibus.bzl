@@ -263,7 +263,7 @@ def create_linkable_root(
             "omnibus/" + value_or(name, get_default_shared_library_name(linker_info, ctx.label)),
         )
 
-        shared_library, _, _ = cxx_link_shared_library(
+        link_result = cxx_link_shared_library(
             ctx,
             output,
             name = name,
@@ -271,6 +271,7 @@ def create_linkable_root(
             category_suffix = "omnibus_root",
             identifier = name or output.short_path,
         )
+        shared_library = link_result.linked_object
 
         return (
             SharedOmnibusRoot(
@@ -462,7 +463,7 @@ def _create_root(
     )))
 
     # link the rule
-    shared_library, _, _ = cxx_link_shared_library(
+    link_result = cxx_link_shared_library(
         ctx,
         output,
         name = root.name,
@@ -474,6 +475,7 @@ def _create_root(
         # their peak execution load is very high.
         link_execution_preference = LinkExecutionPreference("local"),
     )
+    shared_library = link_result.linked_object
 
     return OmnibusRootProduct(
         shared_library = shared_library,
@@ -726,7 +728,7 @@ def _create_omnibus(
 
     soname = _omnibus_soname(ctx)
 
-    result, _, _ = cxx_link_into_shared_library(
+    link_result = cxx_link_into_shared_library(
         ctx,
         soname,
         links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
@@ -743,7 +745,7 @@ def _create_omnibus(
         enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         identifier = soname,
     )
-    return result
+    return link_result.linked_object
 
 def _build_omnibus_spec(
         ctx: "context",

@@ -612,7 +612,7 @@ def _link_into_executable(
     )
     links = [LinkArgs(flags = extra_args)] + links
 
-    exe, linker_map_data, _ = cxx_link(
+    link_result = cxx_link(
         ctx,
         links,
         output,
@@ -627,10 +627,10 @@ def _link_into_executable(
     )
 
     return _CxxLinkExecutableResult(
-        exe = exe,
+        exe = link_result.linked_object,
         runtime_files = runtime_files,
         shared_libs_symlink_tree = shared_libs_symlink_tree,
-        linker_map_data = linker_map_data,
+        linker_map_data = link_result.linker_map_data,
     )
 
 def get_cxx_executable_product_name(ctx: "context") -> str.type:

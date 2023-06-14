@@ -1239,7 +1239,7 @@ def _shared_library(
         ),
         external_debug_info = external_debug_info,
     )
-    shlib, linker_map_data, link_execution_preference_info = cxx_link_into_shared_library(
+    link_result = cxx_link_into_shared_library(
         ctx,
         soname,
         [LinkArgs(infos = [link_info]), dep_infos],
@@ -1251,8 +1251,7 @@ def _shared_library(
         strip_args_factory = impl_params.strip_args_factory,
         link_execution_preference = link_execution_preference,
     )
-
-    exported_shlib = shlib.output
+    exported_shlib = link_result.linked_object.output
 
     # If shared library interfaces are enabled, link that and use it as
     # the shared lib that dependents will link against.
@@ -1293,12 +1292,12 @@ def _shared_library(
         exported_shlib = shlib_interface
 
     # Link against import library on Windows.
-    if shlib.import_library:
-        exported_shlib = shlib.import_library
+    if link_result.linked_object.import_library:
+        exported_shlib = link_result.linked_object.import_library
 
     return _CxxSharedLibraryResult(
         soname = soname,
-        shlib = shlib,
+        shlib = link_result.linked_object,
         objects_bitcode_bundle = local_bitcode_bundle.artifact if local_bitcode_bundle else None,
         info = LinkInfo(
             name = soname,
@@ -1306,8 +1305,8 @@ def _shared_library(
                 lib = exported_shlib,
             )],
         ),
-        linker_map_data = linker_map_data,
-        link_execution_preference_info = link_execution_preference_info,
+        linker_map_data = link_result.linker_map_data,
+        link_execution_preference_info = link_result.link_execution_preference_info,
     )
 
 def _attr_reexport_all_header_dependencies(ctx: "context") -> bool.type:
