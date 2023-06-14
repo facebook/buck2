@@ -20,8 +20,6 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::io::IoProvider;
-use buck2_common::result::SharedError;
-use buck2_common::result::SharedResult;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_interpreter::file_type::StarlarkFileType;
@@ -54,7 +52,7 @@ pub struct StarlarkLintCommand {
 /// The cache of names for a path, keyed by its CellName and its path type.
 struct Cache<'a> {
     dice: &'a DiceTransaction,
-    cached: HashMap<(CellName, StarlarkFileType), SharedResult<Arc<HashSet<String>>>>,
+    cached: HashMap<(CellName, StarlarkFileType), Arc<HashSet<String>>>,
 }
 
 impl<'a> Cache<'a> {
@@ -65,30 +63,19 @@ impl<'a> Cache<'a> {
         }
     }
 
-    async fn compute_names(
-        &self,
-        cell: CellName,
-        path: StarlarkFileType,
-    ) -> anyhow::Result<HashSet<String>> {
-        let env = Environment::new(cell, path, self.dice).await?;
-        env.get_names(path, self.dice).await
-    }
-
     pub(crate) async fn get_names(
         &mut self,
         path: &StarlarkPath<'_>,
-    ) -> SharedResult<Arc<HashSet<String>>> {
+    ) -> anyhow::Result<Arc<HashSet<String>>> {
         let path_type = path.file_type();
         let cell = path.cell();
         if let Some(res) = self.cached.get(&(cell, path_type)) {
-            return res.dupe();
+            return Ok(res.dupe());
         }
-        let res = match self.compute_names(cell, path_type).await {
-            Ok(v) => Ok(Arc::new(v)),
-            Err(e) => Err(SharedError::new(e)),
-        };
+        let env: Environment = Environment::new(cell, path_type, self.dice).await?;
+        let res = Arc::new(env.get_names(path_type, self.dice).await?);
         self.cached.insert((cell, path_type), res.dupe());
-        res
+        Ok(res)
     }
 }
 
