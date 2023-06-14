@@ -134,10 +134,6 @@ impl VisibilitySpecification {
     pub const DEFAULT: VisibilitySpecification =
         VisibilitySpecification(VisibilityPatternList::List(ThinArcSlice::empty()));
 
-    pub(crate) fn is_default(&self) -> bool {
-        self.0.is_empty()
-    }
-
     pub fn is_visible_to(&self, target: &TargetLabel) -> bool {
         match &self.0 {
             VisibilityPatternList::Public => true,
@@ -184,7 +180,6 @@ impl AnyMatches for VisibilitySpecification {
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         match &self.0 {
             VisibilityPatternList::Public => filter(VisibilityPattern::PUBLIC),
-            _ if self.is_default() => filter(":"),
             VisibilityPatternList::List(patterns) => {
                 for p in patterns {
                     if filter(&p.to_string())? {
