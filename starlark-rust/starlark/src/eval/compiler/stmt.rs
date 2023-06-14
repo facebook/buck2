@@ -62,6 +62,7 @@ use crate::values::dict::Dict;
 use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;
 use crate::values::types::list::value::ListData;
+use crate::values::typing::TypeCompiled;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -84,7 +85,7 @@ pub(crate) enum StmtCompiled {
     Expr(IrSpanned<ExprCompiled>),
     Assign(
         IrSpanned<AssignCompiledValue>,
-        Option<IrSpanned<ExprCompiled>>,
+        Option<IrSpanned<TypeCompiled<FrozenValue>>>,
         IrSpanned<ExprCompiled>,
     ),
     AssignModify(AssignModifyLhs, AssignOp, IrSpanned<ExprCompiled>),
@@ -145,11 +146,10 @@ impl IrSpanned<StmtCompiled> {
             }
             StmtCompiled::Assign(lhs, ty, rhs) => {
                 let lhs = lhs.optimize(ctx);
-                let ty = ty.as_ref().map(|x| x.optimize(ctx));
                 let rhs = rhs.optimize(ctx);
                 StmtsCompiled::one(IrSpanned {
                     span,
-                    node: StmtCompiled::Assign(lhs, ty, rhs),
+                    node: StmtCompiled::Assign(lhs, *ty, rhs),
                 })
             }
             StmtCompiled::If(cond_t_f) => {
@@ -772,9 +772,7 @@ impl Compiler<'_, '_, '_> {
             StmtP::Assign(lhs, ty_rhs) => {
                 let (ty, rhs) = *ty_rhs;
                 let rhs = self.expr(rhs);
-                let ty = self
-                    .expr_for_type(ty.map(Box::new))
-                    .map(|t| t.map(|t| ExprCompiled::Value(t.value())));
+                let ty = self.expr_for_type(ty.map(Box::new));
                 let lhs = self.assign(lhs);
                 StmtsCompiled::one(IrSpanned {
                     span,

@@ -52,6 +52,7 @@ use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 use crate::values::types::known_methods::KnownMethod;
+use crate::values::typing::TypeCompiled;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
@@ -312,6 +313,19 @@ impl BcInstrArg for FrozenValueNotSpecial {
         f: &mut dyn Write,
     ) -> fmt::Result {
         FrozenValue::fmt_append(&param.to_frozen_value(), ip, end_arg, f)
+    }
+
+    fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}
+}
+
+impl BcInstrArg for TypeCompiled<FrozenValue> {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        write!(f, " {}", param)
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}

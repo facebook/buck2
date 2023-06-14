@@ -1111,23 +1111,22 @@ pub(crate) struct InstrCheckTypeImpl;
 pub(crate) type InstrCheckType = InstrNoFlow<InstrCheckTypeImpl>;
 
 impl InstrNoFlowImpl for InstrCheckTypeImpl {
-    type Arg = (BcSlotIn, BcSlotIn);
+    type Arg = (BcSlotIn, TypeCompiled<FrozenValue>);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (expr, ty): &(BcSlotIn, BcSlotIn),
+        (expr, ty): &(BcSlotIn, TypeCompiled<FrozenValue>),
     ) -> anyhow::Result<()> {
         let expr = frame.get_bc_slot(*expr);
-        let ty = frame.get_bc_slot(*ty);
         let start = if eval.typecheck_profile.enabled {
             Some(Instant::now())
         } else {
             None
         };
-        let res = TypeCompiled::new(ty, eval.heap())?.check_type(expr, None);
+        let res = ty.check_type(expr, None);
         if let Some(start) = start {
             let name = const_frozen_string!("assignment");
             eval.typecheck_profile.add(name, start.elapsed());
