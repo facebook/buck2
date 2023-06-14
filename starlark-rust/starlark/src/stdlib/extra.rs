@@ -41,7 +41,7 @@ pub fn filter(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(return_type = "[\"\"]")]
     fn filter<'v>(
-        #[starlark(require = pos)] func: Value<'v>,
+        #[starlark(require = pos, type = "[\"function\", None]")] func: Value<'v>,
         #[starlark(require = pos, type = "iter(\"\")")] seq: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -72,7 +72,7 @@ pub fn map(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(return_type = "[\"\"]")]
     fn map<'v>(
-        #[starlark(require = pos)] func: Value<'v>,
+        #[starlark(require = pos, type = "\"function\"")] func: Value<'v>,
         #[starlark(require = pos, type = "iter(\"\")")] seq: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
