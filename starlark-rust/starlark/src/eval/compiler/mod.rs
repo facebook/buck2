@@ -111,7 +111,7 @@ pub(crate) fn expr_throw<'v, T>(
 
 pub(crate) struct Compiler<'v, 'a, 'e> {
     pub(crate) eval: &'e mut Evaluator<'v, 'a>,
-    pub(crate) scope_data: ModuleScopeData,
+    pub(crate) scope_data: ModuleScopeData<'v>,
     pub(crate) locals: Vec<ScopeId>,
     pub(crate) globals: FrozenRef<'static, Globals>,
     pub(crate) codemap: FrozenRef<'static, CodeMap>,

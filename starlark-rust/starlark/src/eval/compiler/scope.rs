@@ -17,6 +17,7 @@
 
 use std::collections::HashMap;
 use std::iter;
+use std::marker::PhantomData;
 use std::mem;
 
 use dupe::Dupe;
@@ -74,7 +75,7 @@ enum ScopeError {
 
 /// All scopes and bindings in a module.
 pub(crate) struct ModuleScopes<'a> {
-    pub(crate) scope_data: ModuleScopeData,
+    pub(crate) scope_data: ModuleScopeData<'a>,
     module: &'a MutableNames,
     frozen_heap: &'a FrozenHeap,
     pub(crate) module_bindings: SmallMap<FrozenStringValue, BindingId>,
@@ -102,7 +103,7 @@ struct UnscopeBinding {
 struct Unscope(SmallMap<FrozenStringValue, UnscopeBinding>);
 
 #[derive(Default, Debug)]
-pub(crate) struct ScopeNames {
+pub(crate) struct ScopeNames<'f> {
     /// `Some` when scope is initialized.
     /// For module scope, the value is zero.
     pub param_count: Option<u32>,
@@ -114,9 +115,11 @@ pub(crate) struct ScopeNames {
     /// Slots to copy from the parent.
     /// Module-level identifiers are not copied over, to avoid excess copying.
     pub parent: Vec<CopySlotFromParent>,
+    /// We store frozen strings.
+    _heap: PhantomData<&'f ()>,
 }
 
-impl ScopeNames {
+impl<'f> ScopeNames<'f> {
     fn set_param_count(&mut self, param_count: u32) {
         assert!(self.param_count.is_none());
         self.param_count = Some(param_count);
@@ -215,12 +218,12 @@ impl<'f> ModuleScopes<'f> {
         *self.locals.last().unwrap()
     }
 
-    fn scope_at_level(&self, level: usize) -> &ScopeNames {
+    fn scope_at_level(&self, level: usize) -> &ScopeNames<'f> {
         let scope_id = self.locals[level];
         self.scope_data.get_scope(scope_id)
     }
 
-    fn scope_at_level_mut(&mut self, level: usize) -> &mut ScopeNames {
+    fn scope_at_level_mut(&mut self, level: usize) -> &mut ScopeNames<'f> {
         let scope_id = self.locals[level];
         self.scope_data.mut_scope(scope_id)
     }
@@ -229,7 +232,7 @@ impl<'f> ModuleScopes<'f> {
         module: &'f MutableNames,
         frozen_heap: &'f FrozenHeap,
         scope_id: ScopeId,
-        mut scope_data: ModuleScopeData,
+        mut scope_data: ModuleScopeData<'f>,
         code: &mut CstStmt,
         globals: FrozenRef<'static, Globals>,
         codemap: FrozenRef<'static, CodeMap>,
@@ -285,7 +288,7 @@ impl<'f> ModuleScopes<'f> {
     }
 
     // Number of module slots I need, and a struct holding all scopes.
-    pub fn exit_module(mut self) -> (u32, ModuleScopeData) {
+    pub fn exit_module(mut self) -> (u32, ModuleScopeData<'f>) {
         assert!(self.locals.len() == 1);
         assert!(self.unscopes.is_empty());
         let scope_id = self.locals.pop().unwrap();
@@ -586,7 +589,7 @@ impl<'f> ModuleScopes<'f> {
     // Which slots to grab from the current scope to the parent scope, size of your
     // self scope Future state: Should return the slots to use from the parent
     // scope
-    pub fn exit_def(&mut self) -> &mut ScopeNames {
+    pub fn exit_def(&mut self) -> &mut ScopeNames<'f> {
         let scope_id = self.locals.pop().unwrap();
         self.scope_data.mut_scope(scope_id)
     }
@@ -801,11 +804,11 @@ impl Assign {
 
 /// Storage of objects referenced by AST.
 #[derive(Default)]
-pub(crate) struct ModuleScopeData {
+pub(crate) struct ModuleScopeData<'f> {
     /// Bindings by id.
     bindings: Vec<Binding>,
     /// Scopes by id.
-    scopes: Vec<ScopeNames>,
+    scopes: Vec<ScopeNames<'f>>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -866,8 +869,8 @@ impl ScopeId {
     }
 }
 
-impl ModuleScopeData {
-    pub(crate) fn new() -> ModuleScopeData {
+impl<'f> ModuleScopeData<'f> {
+    pub(crate) fn new() -> ModuleScopeData<'f> {
         ModuleScopeData::default()
     }
 
@@ -889,15 +892,15 @@ impl ModuleScopeData {
         (binding_id, self.bindings.last_mut().unwrap())
     }
 
-    pub(crate) fn get_scope(&self, ScopeId(id): ScopeId) -> &ScopeNames {
+    pub(crate) fn get_scope(&self, ScopeId(id): ScopeId) -> &ScopeNames<'f> {
         &self.scopes[id]
     }
 
-    pub(crate) fn mut_scope(&mut self, ScopeId(id): ScopeId) -> &mut ScopeNames {
+    pub(crate) fn mut_scope(&mut self, ScopeId(id): ScopeId) -> &mut ScopeNames<'f> {
         &mut self.scopes[id]
     }
 
-    pub(crate) fn new_scope(&mut self) -> (ScopeId, &mut ScopeNames) {
+    pub(crate) fn new_scope(&mut self) -> (ScopeId, &mut ScopeNames<'f>) {
         let scope_id = ScopeId(self.scopes.len());
         self.scopes.push(ScopeNames::default());
         (scope_id, self.scopes.last_mut().unwrap())
@@ -948,12 +951,12 @@ impl AstPayload for CstPayload {
     type TypeExprPayload = ();
 }
 
-pub(crate) struct CompilerAstMap<'a> {
-    pub(crate) scope_data: &'a mut ModuleScopeData,
+pub(crate) struct CompilerAstMap<'a, 'f> {
+    pub(crate) scope_data: &'a mut ModuleScopeData<'f>,
     pub(crate) loads: &'a HashMap<String, Interface>,
 }
 
-impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_> {
+impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_, '_> {
     fn map_load(&mut self, import_path: &str, (): ()) -> Interface {
         self.loads
             .get(import_path)
