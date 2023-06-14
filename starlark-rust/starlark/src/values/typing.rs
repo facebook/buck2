@@ -53,6 +53,7 @@ use crate::values::types::tuple::value::TupleGen;
 use crate::values::AllocValue;
 use crate::values::Demand;
 use crate::values::Freeze;
+use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::NoSerialize;
@@ -79,6 +80,7 @@ enum TypingError {
 
 trait TypeCompiledImpl<'v>: Allocative + Display + Debug + 'v {
     fn matches(&self, value: Value<'v>) -> bool;
+    fn to_frozen(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue>;
 }
 
 unsafe impl<'v> ProvidesStaticType for &'v dyn TypeCompiledImpl<'v> {
@@ -287,10 +289,8 @@ impl<'v, V: ValueLike<'v>> PartialEq for TypeCompiled<V> {
 
 impl<'v, V: ValueLike<'v>> Eq for TypeCompiled<V> {}
 
-// These functions are small, but are deliberately out-of-line so we get better
-// information in profiling about the origin of these closures
-impl<'v> TypeCompiled<Value<'v>> {
-    fn type_anything() -> TypeCompiled<Value<'v>> {
+impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
+    fn type_anything() -> TypeCompiled<V> {
         #[derive(
             Eq,
             PartialEq,
@@ -307,15 +307,19 @@ impl<'v> TypeCompiled<Value<'v>> {
             fn matches(&self, _value: Value<'v>) -> bool {
                 true
             }
+
+            fn to_frozen(&self, _heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled::type_anything()
+            }
         }
 
         static ANYTHING: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<Anything>>> =
             TypeCompiledImplAsStarlarkValue::alloc_static(Anything);
 
-        TypeCompiled(FrozenValue::new_repr(&ANYTHING).to_value())
+        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&ANYTHING)))
     }
 
-    fn type_none() -> TypeCompiled<Value<'v>> {
+    fn type_none() -> TypeCompiled<V> {
         #[derive(
             Eq,
             PartialEq,
@@ -332,15 +336,19 @@ impl<'v> TypeCompiled<Value<'v>> {
             fn matches(&self, value: Value<'v>) -> bool {
                 value.is_none()
             }
+
+            fn to_frozen(&self, _heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled::type_none()
+            }
         }
 
         static IS_NONE: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsNone>>> =
             TypeCompiledImplAsStarlarkValue::alloc_static(IsNone);
 
-        TypeCompiled(FrozenValue::new_repr(&IS_NONE).to_value())
+        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_NONE)))
     }
 
-    fn type_string() -> TypeCompiled<Value<'v>> {
+    fn type_string() -> TypeCompiled<V> {
         #[derive(
             Eq,
             PartialEq,
@@ -357,15 +365,19 @@ impl<'v> TypeCompiled<Value<'v>> {
             fn matches(&self, value: Value<'v>) -> bool {
                 value.unpack_str().is_some() || value.get_ref().matches_type("string")
             }
+
+            fn to_frozen(&self, _heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled::type_string()
+            }
         }
 
         static IS_STRING: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsString>>> =
             TypeCompiledImplAsStarlarkValue::alloc_static(IsString);
 
-        TypeCompiled(FrozenValue::new_repr(&IS_STRING).to_value())
+        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_STRING)))
     }
 
-    fn type_int() -> TypeCompiled<Value<'v>> {
+    fn type_int() -> TypeCompiled<V> {
         #[derive(
             Eq,
             PartialEq,
@@ -382,15 +394,19 @@ impl<'v> TypeCompiled<Value<'v>> {
             fn matches(&self, value: Value<'v>) -> bool {
                 value.unpack_inline_int().is_some() || value.get_ref().matches_type("int")
             }
+
+            fn to_frozen(&self, _heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled::type_int()
+            }
         }
 
         static IS_INT: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsInt>>> =
             TypeCompiledImplAsStarlarkValue::alloc_static(IsInt);
 
-        TypeCompiled(FrozenValue::new_repr(&IS_INT).to_value())
+        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_INT)))
     }
 
-    fn type_bool() -> TypeCompiled<Value<'v>> {
+    fn type_bool() -> TypeCompiled<V> {
         #[derive(
             Eq,
             PartialEq,
@@ -407,39 +423,19 @@ impl<'v> TypeCompiled<Value<'v>> {
             fn matches(&self, value: Value<'v>) -> bool {
                 value.unpack_bool().is_some() || value.get_ref().matches_type("bool")
             }
+
+            fn to_frozen(&self, _heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled::type_bool()
+            }
         }
 
         static IS_BOOL: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsBool>>> =
             TypeCompiledImplAsStarlarkValue::alloc_static(IsBool);
 
-        TypeCompiled(FrozenValue::new_repr(&IS_BOOL).to_value())
+        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_BOOL)))
     }
 
-    fn type_concrete(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        #[derive(
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            derive_more::Display,
-            Trace,
-            Freeze,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "\"{}\"", _0)]
-        struct IsConcrete(String);
-
-        impl<'v> TypeCompiledImpl<'v> for IsConcrete {
-            fn matches(&self, value: Value<'v>) -> bool {
-                value.get_ref().matches_type(&self.0)
-            }
-        }
-
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsConcrete(t.to_owned()))))
-    }
-
-    fn type_list() -> TypeCompiled<Value<'v>> {
+    fn type_list() -> TypeCompiled<V> {
         #[derive(
             Eq,
             PartialEq,
@@ -456,12 +452,88 @@ impl<'v> TypeCompiled<Value<'v>> {
             fn matches(&self, value: Value<'v>) -> bool {
                 ListRef::from_value(value).is_some()
             }
+
+            fn to_frozen(&self, _heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled::type_list()
+            }
         }
 
         static IS_LIST: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsList>>> =
             TypeCompiledImplAsStarlarkValue::alloc_static(IsList);
 
-        TypeCompiled(FrozenValue::new_repr(&IS_LIST).to_value())
+        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_LIST)))
+    }
+
+    fn type_dict() -> TypeCompiled<V> {
+        #[derive(
+            Eq,
+            PartialEq,
+            Hash,
+            Allocative,
+            Debug,
+            derive_more::Display,
+            ProvidesStaticType
+        )]
+        #[display(fmt = "{{\"\": \"\"}}")]
+        struct IsDict;
+
+        impl<'v> TypeCompiledImpl<'v> for IsDict {
+            fn matches(&self, value: Value<'v>) -> bool {
+                DictRef::from_value(value).is_some()
+            }
+
+            fn to_frozen(&self, _heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled::type_dict()
+            }
+        }
+
+        static IS_DICT: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsDict>>> =
+            TypeCompiledImplAsStarlarkValue::alloc_static(IsDict);
+
+        TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_DICT)))
+    }
+
+    pub(crate) fn to_frozen(self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+        if let Some(v) = self.0.to_value().unpack_frozen() {
+            TypeCompiled(v)
+        } else {
+            self.to_value().downcast().unwrap().to_frozen(heap)
+        }
+    }
+}
+
+// These functions are small, but are deliberately out-of-line so we get better
+// information in profiling about the origin of these closures
+impl<'v> TypeCompiled<Value<'v>> {
+    fn type_concrete(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        #[derive(
+            Eq,
+            PartialEq,
+            Hash,
+            Allocative,
+            Debug,
+            derive_more::Display,
+            Trace,
+            Freeze,
+            ProvidesStaticType,
+            Clone
+        )]
+        #[display(fmt = "\"{}\"", _0)]
+        struct IsConcrete(String);
+
+        impl<'v> TypeCompiledImpl<'v> for IsConcrete {
+            fn matches(&self, value: Value<'v>) -> bool {
+                value.get_ref().matches_type(&self.0)
+            }
+
+            fn to_frozen(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled(
+                    heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsConcrete::clone(self))),
+                )
+            }
+        }
+
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsConcrete(t.to_owned()))))
     }
 
     fn type_list_of(t: TypeCompiled<Value<'v>>, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
@@ -505,6 +577,12 @@ impl<'v> TypeCompiled<Value<'v>> {
                     None => false,
                     Some(list) => list.iter().all(|v| self.0.matches(v)),
                 }
+            }
+
+            fn to_frozen(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsListOf(
+                    self.0.to_frozen(heap),
+                ))))
             }
         }
 
@@ -555,6 +633,15 @@ impl<'v> TypeCompiled<Value<'v>> {
             fn matches(&self, value: Value<'v>) -> bool {
                 self.0.matches(value) || self.1.matches(value)
             }
+
+            fn to_frozen(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled(
+                    heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsAnyOfTwo(
+                        self.0.to_frozen(heap),
+                        self.1.to_frozen(heap),
+                    ))),
+                )
+            }
         }
 
         TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsAnyOfTwo(t1, t2))))
@@ -597,34 +684,15 @@ impl<'v> TypeCompiled<Value<'v>> {
             fn matches(&self, value: Value<'v>) -> bool {
                 self.0.iter().any(|t| t.matches(value))
             }
-        }
 
-        TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsAnyOf(ts))))
-    }
-
-    fn type_dict() -> TypeCompiled<Value<'v>> {
-        #[derive(
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            derive_more::Display,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "{{\"\": \"\"}}")]
-        struct IsDict;
-
-        impl<'v> TypeCompiledImpl<'v> for IsDict {
-            fn matches(&self, value: Value<'v>) -> bool {
-                DictRef::from_value(value).is_some()
+            fn to_frozen(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsAnyOf(
+                    self.0.iter().map(|t| t.to_frozen(heap)).collect(),
+                ))))
             }
         }
 
-        static IS_DICT: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsDict>>> =
-            TypeCompiledImplAsStarlarkValue::alloc_static(IsDict);
-
-        TypeCompiled(FrozenValue::new_repr(&IS_DICT).to_value())
+        TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsAnyOf(ts))))
     }
 
     fn type_dict_of(
@@ -676,6 +744,13 @@ impl<'v> TypeCompiled<Value<'v>> {
                         .all(|(k, v)| self.0.matches(k) && self.1.matches(v)),
                 }
             }
+
+            fn to_frozen(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsDictOf(
+                    self.0.to_frozen(heap),
+                    self.1.to_frozen(heap),
+                ))))
+            }
         }
 
         TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsDictOf(kt, vt))))
@@ -726,6 +801,12 @@ impl<'v> TypeCompiled<Value<'v>> {
                     }
                     _ => false,
                 }
+            }
+
+            fn to_frozen(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsTupleOf(
+                    self.0.iter().map(|t| t.to_frozen(heap)).collect(),
+                ))))
             }
         }
 
