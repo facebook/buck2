@@ -80,6 +80,9 @@ enum TypingError {
 
 trait TypeCompiledImpl<'v>: Allocative + Display + Debug + 'v {
     fn matches(&self, value: Value<'v>) -> bool;
+    fn is_wildcard(&self) -> bool {
+        false
+    }
     fn to_frozen(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue>;
 }
 
@@ -227,6 +230,14 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         self.0.to_value().get_ref().type_matches_value(value)
     }
 
+    pub(crate) fn type_is_wildcard(self) -> bool {
+        self.downcast().unwrap().is_wildcard()
+    }
+
+    pub(crate) fn value(self) -> V {
+        self.0
+    }
+
     #[cold]
     #[inline(never)]
     fn check_type_error(self, value: Value<'v>, arg_name: Option<&str>) -> anyhow::Result<()> {
@@ -305,6 +316,10 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 
         impl<'v> TypeCompiledImpl<'v> for Anything {
             fn matches(&self, _value: Value<'v>) -> bool {
+                true
+            }
+
+            fn is_wildcard(&self) -> bool {
                 true
             }
 
@@ -536,7 +551,10 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsConcrete(t.to_owned()))))
     }
 
-    fn type_list_of(t: TypeCompiled<Value<'v>>, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+    pub(crate) fn type_list_of(
+        t: TypeCompiled<Value<'v>>,
+        heap: &'v Heap,
+    ) -> TypeCompiled<Value<'v>> {
         #[derive(
             Allocative,
             Debug,
@@ -647,7 +665,10 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsAnyOfTwo(t1, t2))))
     }
 
-    fn type_any_of(ts: Vec<TypeCompiled<Value<'v>>>, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+    pub(crate) fn type_any_of(
+        ts: Vec<TypeCompiled<Value<'v>>>,
+        heap: &'v Heap,
+    ) -> TypeCompiled<Value<'v>> {
         #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsAnyOf<V>(Vec<TypeCompiled<V>>);
 
@@ -695,7 +716,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsAnyOf(ts))))
     }
 
-    fn type_dict_of(
+    pub(crate) fn type_dict_of(
         kt: TypeCompiled<Value<'v>>,
         vt: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
@@ -756,7 +777,10 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsDictOf(kt, vt))))
     }
 
-    fn type_tuple_of(ts: Vec<TypeCompiled<Value<'v>>>, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+    pub(crate) fn type_tuple_of(
+        ts: Vec<TypeCompiled<Value<'v>>>,
+        heap: &'v Heap,
+    ) -> TypeCompiled<Value<'v>> {
         #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsTupleOf<V>(Vec<TypeCompiled<V>>);
 
@@ -823,7 +847,7 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     /// For `p: "xxx"`, parse that `"xxx"` as type.
-    fn from_str(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+    pub(crate) fn from_str(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         if TypeCompiled::is_wildcard(t) {
             TypeCompiled::type_anything()
         } else {

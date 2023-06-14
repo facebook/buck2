@@ -61,6 +61,7 @@ use crate::syntax::payload_map::AstPayloadFunction;
 use crate::syntax::uniplate::VisitMut;
 use crate::syntax::Dialect;
 use crate::typing::Interface;
+use crate::values::typing::TypeCompiled;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -1002,7 +1003,7 @@ impl AstPayload for CstPayload {
     type IdentAssignPayload = Option<BindingId>;
     type DefPayload = ScopeId;
     /// Populated before evaluation of top level statements.
-    type TypeExprPayload = Option<FrozenValue>;
+    type TypeExprPayload = Option<TypeCompiled<FrozenValue>>;
 }
 
 pub(crate) struct CompilerAstMap<'a, 'f> {
@@ -1030,7 +1031,7 @@ impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_, '_> {
         self.scope_data.new_scope().0
     }
 
-    fn map_type_expr(&mut self, (): ()) -> Option<FrozenValue> {
+    fn map_type_expr(&mut self, (): ()) -> Option<TypeCompiled<FrozenValue>> {
         None
     }
 }
