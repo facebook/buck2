@@ -39,7 +39,7 @@ load(
     "@prelude//java:java_providers.bzl",
     "get_java_packaging_info",
 )
-load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "LinkExecutionPreferenceInfo", "get_link_execution_preference")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_link_execution_preference")
 load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLib",  # @unused Used as a type
@@ -137,6 +137,7 @@ load(
 )
 load(
     ":link.bzl",
+    "CxxLinkResult",  # @unused Used as a type
     "CxxLinkerMapData",
     "cxx_link_into_shared_library",
     "cxx_link_shared_library",
@@ -931,19 +932,19 @@ def _form_library_outputs(
                     link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
                     link_execution_preference = link_execution_preference,
                 )
-                shlib = result.shlib
+                shlib = result.link_result.linked_object
                 info = result.info
                 output = _CxxLibraryOutput(
                     default = shlib.output,
                     object_files = compiled_srcs.pic_objects,
                     external_debug_info = shlib.external_debug_info,
                     dwp = shlib.dwp,
-                    linker_map = result.linker_map_data,
+                    linker_map = result.link_result.linker_map_data,
                     pdb = shlib.pdb,
                 )
                 solibs[result.soname] = shlib
                 sub_targets[link_style] = extra_linker_outputs
-                providers.append(result.link_execution_preference_info)
+                providers.append(result.link_result.link_execution_preference_info)
 
         # you cannot link against header only libraries so create an empty link info
         info = info if info != None else LinkInfo()
@@ -1183,15 +1184,13 @@ def _bitcode_bundle(
     return make_bitcode_bundle(ctx, name, objects)
 
 _CxxSharedLibraryResult = record(
+    # Result from link, includes the shared lib, linker map data etc
+    link_result = CxxLinkResult.type,
     # Shared library name (e.g. SONAME)
     soname = str.type,
-    # Linking result, `LinkedObject` wrapping the shared library
-    shlib = LinkedObject.type,
     objects_bitcode_bundle = ["artifact", None],
     # `LinkInfo` used to link against the shared library.
     info = LinkInfo.type,
-    linker_map_data = [CxxLinkerMapData.type, None],
-    link_execution_preference_info = LinkExecutionPreferenceInfo.type,
 )
 
 def _shared_library(
@@ -1296,8 +1295,8 @@ def _shared_library(
         exported_shlib = link_result.linked_object.import_library
 
     return _CxxSharedLibraryResult(
+        link_result = link_result,
         soname = soname,
-        shlib = link_result.linked_object,
         objects_bitcode_bundle = local_bitcode_bundle.artifact if local_bitcode_bundle else None,
         info = LinkInfo(
             name = soname,
@@ -1305,8 +1304,6 @@ def _shared_library(
                 lib = exported_shlib,
             )],
         ),
-        linker_map_data = link_result.linker_map_data,
-        link_execution_preference_info = link_result.link_execution_preference_info,
     )
 
 def _attr_reexport_all_header_dependencies(ctx: "context") -> bool.type:
