@@ -36,7 +36,7 @@ use starlark::errors::Diagnostic;
 use starlark::errors::Lint;
 use starlark::syntax::AstModule;
 
-use crate::util::globals::Environment;
+use crate::util::environment::Environment;
 use crate::util::paths::starlark_files;
 use crate::StarlarkCommandCommonOptions;
 use crate::StarlarkOpaqueSubcommand;
