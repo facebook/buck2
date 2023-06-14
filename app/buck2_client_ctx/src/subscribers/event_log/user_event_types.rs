@@ -7,11 +7,15 @@
  * of this source tree.
  */
 
+use allocative::Allocative;
 use anyhow::Context;
+use buck2_common::convert::ProstDurationExt;
 use buck2_data::ActionKind;
 use buck2_data::ActionName;
 use buck2_data::BuckEvent;
+use buck2_data::SpanEndEvent;
 use buck2_data::StarlarkUserEvent;
+use serde::Deserialize;
 use serde::Serialize;
 
 use crate::stream_value::StreamValue;
@@ -20,11 +24,21 @@ use crate::stream_value::StreamValue;
 pub(crate) enum SerializeUserEventError {
     #[error("Internal error: Missing `data` in `{0}`")]
     MissingData(String),
+    #[error("Internal error: Missing `timestamp` in `BuckEvent`")]
+    MissingTimestamp,
+    #[error("Internal error: Missing `name` in `ActionExecutionEnd`")]
+    MissingName,
+}
+
+/// Event types that are allowed in the user event log.
+#[derive(Serialize)]
+pub enum UserEvent {
+    Invocation,
+    UserEvent(SimpleUserEvent),
 }
 
 /// BuckEvent types that are allowed in the user event log.
-#[allow(unused)] // TODO(wendyy) temporary
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Allocative, Clone)]
 #[serde(untagged)]
 pub enum SimpleUserEventData {
     StarlarkUserEvent(StarlarkUserEventSimple),
@@ -33,30 +47,27 @@ pub enum SimpleUserEventData {
 }
 
 /// Wrapper around allowed user events (simplified), and the timestamp for the original BuckEvent.
-#[allow(unused)] // TODO(wendyy) temporary
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Allocative, Clone)]
 pub struct SimpleUserEvent {
-    event: SimpleUserEventData,
+    data: SimpleUserEventData,
     epoch_millis: u64,
 }
 
-impl SimpleUserEvent {
+impl UserEvent {
     pub fn serialize_to_json(&self, buf: &mut Vec<u8>) -> anyhow::Result<()> {
         serde_json::to_writer(buf, &self).context("Failed to serialize event")
     }
 }
 
 /// Wrapper around StarlarkUserEvent so we discard the rest of BuckEvent fields.
-#[allow(unused)] // TODO(wendyy) temporary
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Allocative, Clone)]
 #[serde(transparent)]
 pub struct StarlarkUserEventSimple {
     data: StarlarkUserEvent,
 }
 
 /// Simplified version of ActionExecutionEnd.
-#[allow(unused)] // TODO(wendyy) temporary
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Allocative, Clone)]
 pub struct ActionExecutionEndSimple {
     kind: ActionKind,
     name: ActionName,
@@ -65,14 +76,54 @@ pub struct ActionExecutionEndSimple {
     // TODO(T155789058) - emit inputs materialization time
 }
 
-pub fn is_user_event_for_read(stream_value: &StreamValue) -> anyhow::Result<bool> {
-    match stream_value {
-        StreamValue::Event(buck_event) => is_user_event(buck_event.as_ref()),
-        _ => Ok(false),
+impl ActionExecutionEndSimple {
+    fn try_from(span_end_event: &SpanEndEvent) -> anyhow::Result<Option<Self>> {
+        match span_end_event
+            .data
+            .as_ref()
+            .context(SerializeUserEventError::MissingData(
+                "SpanEndEvent".to_owned(),
+            ))? {
+            buck2_data::span_end_event::Data::ActionExecution(action_execution) => {
+                let duration_millis = span_end_event
+                    .duration
+                    .as_ref()
+                    .context(SerializeUserEventError::MissingTimestamp)?
+                    .try_into_duration()?
+                    .as_millis() as u64;
+
+                Ok(Some(Self {
+                    kind: action_execution.kind(),
+                    name: action_execution
+                        .name
+                        .as_ref()
+                        .context(SerializeUserEventError::MissingName)?
+                        .clone(),
+                    duration_millis,
+                    output_size: action_execution.output_size,
+                }))
+            }
+            _ => Ok(None),
+        }
     }
 }
 
-pub(crate) fn is_user_event(buck_event: &BuckEvent) -> anyhow::Result<bool> {
+pub fn try_get_user_event_for_read(
+    stream_value: &StreamValue,
+) -> anyhow::Result<Option<UserEvent>> {
+    match stream_value {
+        StreamValue::Event(buck_event) => try_get_user_event(buck_event.as_ref()),
+        _ => Ok(None),
+    }
+}
+
+pub(crate) fn try_get_user_event(buck_event: &BuckEvent) -> anyhow::Result<Option<UserEvent>> {
+    let timestamp = buck_event
+        .timestamp
+        .as_ref()
+        .context(SerializeUserEventError::MissingTimestamp)?;
+    let epoch_millis = timestamp.seconds as u64 * 1000 + timestamp.nanos as u64 / 1_000_000;
+
     match buck_event
         .data
         .as_ref()
@@ -85,33 +136,32 @@ pub(crate) fn is_user_event(buck_event: &BuckEvent) -> anyhow::Result<bool> {
                 .context(SerializeUserEventError::MissingData(
                     "InstantEvent".to_owned(),
                 ))? {
-                buck2_data::instant_event::Data::StarlarkUserEvent(_) => Ok(true),
-                _ => Ok(false),
-            }
-        }
-        buck2_data::buck_event::Data::SpanStart(ref span_start_event) => {
-            match span_start_event
-                .data
-                .as_ref()
-                .context(SerializeUserEventError::MissingData(
-                    "SpanStartEvent".to_owned(),
-                ))? {
-                buck2_data::span_start_event::Data::ActionExecution(_) => Ok(true),
-                _ => Ok(false),
+                buck2_data::instant_event::Data::StarlarkUserEvent(event) => {
+                    let starlark_user_event = StarlarkUserEventSimple {
+                        data: event.clone(),
+                    };
+                    let simple_user_event = SimpleUserEvent {
+                        data: SimpleUserEventData::StarlarkUserEvent(starlark_user_event),
+                        epoch_millis,
+                    };
+                    Ok(Some(UserEvent::UserEvent(simple_user_event)))
+                }
+                _ => Ok(None),
             }
         }
         buck2_data::buck_event::Data::SpanEnd(ref span_end_event) => {
-            match span_end_event
-                .data
-                .as_ref()
-                .context(SerializeUserEventError::MissingData(
-                    "SpanEndEvent".to_owned(),
-                ))? {
-                buck2_data::span_end_event::Data::ActionExecution(_) => Ok(true),
-                _ => Ok(false),
+            match ActionExecutionEndSimple::try_from(span_end_event)? {
+                Some(action_execution_event) => {
+                    let simple_user_event = SimpleUserEvent {
+                        data: SimpleUserEventData::ActionExecutionEvent(action_execution_event),
+                        epoch_millis,
+                    };
+                    Ok(Some(UserEvent::UserEvent(simple_user_event)))
+                }
+                None => Ok(None),
             }
         }
-        _ => Ok(false),
+        _ => Ok(None),
     }
 }
 

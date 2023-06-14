@@ -63,7 +63,8 @@ mod counting_reader {
 
 use counting_reader::CountingReader;
 
-use super::user_event_types::is_user_event;
+use super::user_event_types::try_get_user_event;
+use super::user_event_types::UserEvent;
 use crate::argv::SanitizedArgv;
 
 impl<T> CountingReader<T> {
@@ -203,8 +204,16 @@ impl<'a> WriteEventLog<'a> {
                                 };
                             }
                             EventLogType::User => {
-                                if event.is_user_event()? {
-                                    event.serialize_to_json(&mut self.buf)?;
+                                if let Some(user_event) = event.try_get_user_event()? {
+                                    match user_event {
+                                        UserEvent::Invocation => {
+                                            event.serialize_to_json(&mut self.buf)?
+                                        }
+                                        UserEvent::UserEvent(_) => {
+                                            user_event.serialize_to_json(&mut self.buf)?
+                                        }
+                                    }
+
                                     self.buf.push(b'\n');
                                 }
                             }
@@ -505,7 +514,7 @@ impl<'a> WriteEventLog<'a> {
 pub(crate) trait SerializeForLog {
     fn serialize_to_json(&self, buf: &mut Vec<u8>) -> anyhow::Result<()>;
     fn serialize_to_protobuf_length_delimited(&self, buf: &mut Vec<u8>) -> anyhow::Result<()>;
-    fn is_user_event(&self) -> anyhow::Result<bool>;
+    fn try_get_user_event(&self) -> anyhow::Result<Option<UserEvent>>;
 }
 
 impl SerializeForLog for Invocation {
@@ -525,8 +534,8 @@ impl SerializeForLog for Invocation {
     }
 
     // Always log invocation record to user event log for `buck2 log show` compatibility
-    fn is_user_event(&self) -> anyhow::Result<bool> {
-        Ok(true)
+    fn try_get_user_event(&self) -> anyhow::Result<Option<UserEvent>> {
+        Ok(Some(UserEvent::Invocation))
     }
 }
 
@@ -558,10 +567,10 @@ impl<'a> SerializeForLog for StreamValueForWrite<'a> {
         Ok(())
     }
 
-    fn is_user_event(&self) -> anyhow::Result<bool> {
+    fn try_get_user_event(&self) -> anyhow::Result<Option<UserEvent>> {
         match self {
-            StreamValueForWrite::Event(event) => is_user_event(event),
-            _ => Ok(false),
+            StreamValueForWrite::Event(event) => try_get_user_event(event),
+            _ => Ok(None),
         }
     }
 }
