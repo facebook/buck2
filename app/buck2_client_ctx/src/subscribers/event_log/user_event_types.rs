@@ -8,19 +8,61 @@
  */
 
 use anyhow::Context;
-use buck2_data::ActionExecutionEnd;
-use buck2_data::ActionExecutionStart;
+use buck2_data::ActionKind;
+use buck2_data::ActionName;
 use buck2_data::BuckEvent;
 use buck2_data::StarlarkUserEvent;
-use thiserror::Error;
+use serde::Serialize;
 
-use super::write::StreamValueForWrite;
 use crate::stream_value::StreamValue;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum SerializeUserEventError {
     #[error("Internal error: Missing `data` in `{0}`")]
     MissingData(String),
+}
+
+/// BuckEvent types that are allowed in the user event log.
+#[allow(unused)] // TODO(wendyy) temporary
+#[derive(Serialize)]
+#[serde(untagged)]
+pub enum SimpleUserEventData {
+    StarlarkUserEvent(StarlarkUserEventSimple),
+    ActionExecutionEvent(ActionExecutionEndSimple),
+    // TODO(T155789092) - final artifact materialization
+}
+
+/// Wrapper around allowed user events (simplified), and the timestamp for the original BuckEvent.
+#[allow(unused)] // TODO(wendyy) temporary
+#[derive(Serialize)]
+pub struct SimpleUserEvent {
+    event: SimpleUserEventData,
+    epoch_millis: u64,
+}
+
+impl SimpleUserEvent {
+    pub fn serialize_to_json(&self, buf: &mut Vec<u8>) -> anyhow::Result<()> {
+        serde_json::to_writer(buf, &self).context("Failed to serialize event")
+    }
+}
+
+/// Wrapper around StarlarkUserEvent so we discard the rest of BuckEvent fields.
+#[allow(unused)] // TODO(wendyy) temporary
+#[derive(Serialize)]
+#[serde(transparent)]
+pub struct StarlarkUserEventSimple {
+    data: StarlarkUserEvent,
+}
+
+/// Simplified version of ActionExecutionEnd.
+#[allow(unused)] // TODO(wendyy) temporary
+#[derive(Serialize)]
+pub struct ActionExecutionEndSimple {
+    kind: ActionKind,
+    name: ActionName,
+    duration_millis: u64,
+    output_size: u64,
+    // TODO(T155789058) - emit inputs materialization time
 }
 
 pub fn is_user_event_for_read(stream_value: &StreamValue) -> anyhow::Result<bool> {
