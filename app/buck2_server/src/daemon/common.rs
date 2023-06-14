@@ -160,6 +160,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
         let remote_executor_new = |options: &RemoteExecutorOptions,
                                    re_use_case: &RemoteExecutorUseCase,
+                                   re_action_key: &Option<String>,
                                    remote_cache_enabled: bool| {
             // 30GB is the max RE can currently support.
             const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
@@ -170,7 +171,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 materializer: self.materializer.dupe(),
                 re_client: self.re_connection.get_client(),
                 re_use_case: *re_use_case,
-                re_action_key: options.re_action_key.clone(),
+                re_action_key: re_action_key.clone(),
                 re_max_input_files_bytes: options
                     .re_max_input_files_bytes
                     .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
@@ -197,6 +198,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 executor,
                 re_properties,
                 re_use_case,
+                re_action_key,
                 cache_upload_behavior,
                 remote_cache_enabled,
             } => {
@@ -208,6 +210,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         Some(Arc::new(remote_executor_new(
                             remote,
                             re_use_case,
+                            re_action_key,
                             *remote_cache_enabled,
                         )))
                     }
@@ -217,7 +220,12 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         level,
                     } if !self.strategy.ban_hybrid() => Some(Arc::new(HybridExecutor {
                         local: local_executor_new(local),
-                        remote: remote_executor_new(remote, re_use_case, *remote_cache_enabled),
+                        remote: remote_executor_new(
+                            remote,
+                            re_use_case,
+                            re_action_key,
+                            *remote_cache_enabled,
+                        ),
                         level: *level,
                         executor_preference: self.strategy.hybrid_preference(),
                         low_pass_filter: self.low_pass_filter.dupe(),
@@ -260,6 +268,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         re_client: self.re_connection.get_client(),
                         re_use_case: *re_use_case,
                         upload_all_actions: self.upload_all_actions,
+                        knobs: self.executor_global_knobs.dupe(),
                     }) as _;
                     (executor, cacher)
                 };
@@ -344,6 +353,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             },
             re_properties: get_default_re_properties(host_platform),
             re_use_case: RemoteExecutorUseCase::buck2_default(),
+            re_action_key: None,
             cache_upload_behavior: CacheUploadBehavior::Disabled,
             remote_cache_enabled: true,
         }

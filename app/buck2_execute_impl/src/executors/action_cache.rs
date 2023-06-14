@@ -20,6 +20,7 @@ use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;
 use buck2_execute::execute::result::CommandExecutionResult;
+use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use dupe::Dupe;
@@ -35,6 +36,7 @@ pub struct ActionCacheChecker {
     pub re_client: ManagedRemoteExecutionClient,
     pub re_use_case: RemoteExecutorUseCase,
     pub upload_all_actions: bool,
+    pub knobs: ExecutorGlobalKnobs,
 }
 
 #[async_trait]
