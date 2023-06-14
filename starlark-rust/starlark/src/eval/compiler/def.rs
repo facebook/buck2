@@ -364,21 +364,28 @@ impl Compiler<'_, '_, '_> {
         Some(IrSpanned {
             span,
             node: match x.node {
-                ParameterP::Normal(x, t) => {
-                    ParameterCompiled::Normal(self.parameter_name(x), self.expr_for_type(t))
-                }
+                ParameterP::Normal(x, t) => ParameterCompiled::Normal(
+                    self.parameter_name(x),
+                    self.expr_for_type(t)
+                        .map(|t| t.map(|t| ExprCompiled::Value(t.value()))),
+                ),
                 ParameterP::WithDefaultValue(x, t, v) => ParameterCompiled::WithDefaultValue(
                     self.parameter_name(x),
-                    self.expr_for_type(t),
+                    self.expr_for_type(t)
+                        .map(|t| t.map(|t| ExprCompiled::Value(t.value()))),
                     self.expr(*v),
                 ),
                 ParameterP::NoArgs => return None,
-                ParameterP::Args(x, t) => {
-                    ParameterCompiled::Args(self.parameter_name(x), self.expr_for_type(t))
-                }
-                ParameterP::KwArgs(x, t) => {
-                    ParameterCompiled::KwArgs(self.parameter_name(x), self.expr_for_type(t))
-                }
+                ParameterP::Args(x, t) => ParameterCompiled::Args(
+                    self.parameter_name(x),
+                    self.expr_for_type(t)
+                        .map(|t| t.map(|t| ExprCompiled::Value(t.value()))),
+                ),
+                ParameterP::KwArgs(x, t) => ParameterCompiled::KwArgs(
+                    self.parameter_name(x),
+                    self.expr_for_type(t)
+                        .map(|t| t.map(|t| ExprCompiled::Value(t.value()))),
+                ),
             },
         })
     }
@@ -470,7 +477,7 @@ impl Compiler<'_, '_, '_> {
         ExprCompiled::Def(DefCompiled {
             function_name,
             params,
-            return_type,
+            return_type: return_type.map(|t| Box::new(t.map(|t| ExprCompiled::Value(t.value())))),
             info,
         })
     }

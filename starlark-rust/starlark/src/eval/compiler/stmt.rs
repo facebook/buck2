@@ -772,7 +772,9 @@ impl Compiler<'_, '_, '_> {
             StmtP::Assign(lhs, ty_rhs) => {
                 let (ty, rhs) = *ty_rhs;
                 let rhs = self.expr(rhs);
-                let ty = self.expr_for_type(ty.map(Box::new));
+                let ty = self
+                    .expr_for_type(ty.map(Box::new))
+                    .map(|t| t.map(|t| ExprCompiled::Value(t.value())));
                 let lhs = self.assign(lhs);
                 StmtsCompiled::one(IrSpanned {
                     span,

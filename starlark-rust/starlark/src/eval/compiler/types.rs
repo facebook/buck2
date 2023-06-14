@@ -17,7 +17,6 @@
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::scope::CstExpr;
 use crate::eval::compiler::scope::CstIdent;
 use crate::eval::compiler::scope::CstParameter;
@@ -37,6 +36,7 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::syntax::uniplate::VisitMut;
 use crate::values::typing::TypeCompiled;
+use crate::values::FrozenValue;
 use crate::values::Value;
 
 #[derive(Debug, thiserror::Error)]
@@ -58,7 +58,7 @@ impl<'v> Compiler<'v, '_, '_> {
     pub(crate) fn expr_for_type(
         &mut self,
         expr: Option<Box<CstTypeExpr>>,
-    ) -> Option<IrSpanned<ExprCompiled>> {
+    ) -> Option<IrSpanned<TypeCompiled<FrozenValue>>> {
         if !self.check_types {
             return None;
         }
@@ -77,7 +77,7 @@ impl<'v> Compiler<'v, '_, '_> {
         }
         Some(IrSpanned {
             span,
-            node: ExprCompiled::Value(type_value.value()),
+            node: type_value,
         })
     }
 
