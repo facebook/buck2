@@ -182,7 +182,6 @@ impl AstModule {
         let frozen_heap = FrozenHeap::new();
         let (cst, scope) = unique_identifiers(&frozen_heap, self, &names, loads);
         let bindings = BindingsCollect::collect(&cst);
-        let descriptions = bindings.descriptions;
         let mut approximations = bindings.approximations;
         let (errors, types, solve_approximations) =
             solve_bindings(oracle, bindings.bindings, &codemap);
@@ -191,10 +190,9 @@ impl AstModule {
 
         let mut typemap = HashMap::with_capacity(types.len());
         for (id, ty) in &types {
-            let (name, span) = match descriptions.get(id) {
-                None => ("{unknown}".to_owned(), Span::default()),
-                Some(i) => (i.0.clone(), i.span),
-            };
+            let binding = scope.scope_data.get_binding(*id);
+            let name = binding.name.as_str().to_owned();
+            let span = binding.span.unwrap_or_default();
             typemap.insert(*id, (name, span, ty.clone()));
         }
         let typemap = TypeMap {

@@ -24,7 +24,6 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::CstAssign;
-use crate::eval::compiler::scope::CstAssignIdent;
 use crate::eval::compiler::scope::CstExpr;
 use crate::eval::compiler::scope::CstPayload;
 use crate::eval::compiler::scope::CstStmt;
@@ -102,7 +101,6 @@ impl Interface {
 #[derive(Default)]
 pub(crate) struct BindingsCollect<'a> {
     pub(crate) bindings: Bindings<'a>,
-    pub(crate) descriptions: HashMap<BindingId, &'a CstAssignIdent>,
     pub(crate) approximations: Vec<Approximation>,
 }
 
@@ -112,7 +110,6 @@ impl<'a> BindingsCollect<'a> {
         fn assign<'a>(lhs: &'a CstAssign, rhs: BindExpr<'a>, bindings: &mut BindingsCollect<'a>) {
             match &**lhs {
                 AssignP::Identifier(x) => {
-                    bindings.descriptions.insert(x.1.unwrap(), x);
                     bindings
                         .bindings
                         .expressions
@@ -190,7 +187,6 @@ impl<'a> BindingsCollect<'a> {
                         return_type,
                         ..
                     }) => {
-                        bindings.descriptions.insert(name.1.unwrap(), name);
                         let mut params2 = Vec::with_capacity(params.len());
                         let mut seen_no_args = false;
                         for p in params {
@@ -237,7 +233,6 @@ impl<'a> BindingsCollect<'a> {
                             };
                             if let Some((name, ty)) = name_ty {
                                 bindings.bindings.types.insert(name.1.unwrap(), ty);
-                                bindings.descriptions.insert(name.1.unwrap(), name);
                             }
                         }
                         let ret_ty =
@@ -254,7 +249,6 @@ impl<'a> BindingsCollect<'a> {
                         let mp = &x.payload;
                         for (ident, _load) in &x.args {
                             let ty = mp.get(ident.0.as_str()).cloned().unwrap_or(Ty::Any);
-                            bindings.descriptions.insert(ident.1.unwrap(), ident);
                             bindings.bindings.types.insert(ident.1.unwrap(), ty);
                         }
                     }

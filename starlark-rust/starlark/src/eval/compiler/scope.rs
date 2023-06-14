@@ -27,6 +27,7 @@ use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
 
 use crate::codemap::CodeMap;
+use crate::codemap::Span;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::ModuleSlotId;
 use crate::environment::Globals;
@@ -247,7 +248,8 @@ impl<'f> ModuleScopes<'f> {
 
         let existing_module_names_and_visibilites = module.all_names_and_visibilities();
         for (name, vis) in existing_module_names_and_visibilites.iter() {
-            let (binding_id, _binding) = scope_data.new_binding(*vis, AssignCount::AtMostOnce);
+            let (binding_id, _binding) =
+                scope_data.new_binding(*name, None, *vis, AssignCount::AtMostOnce);
             locals.insert_hashed(name.get_hashed(), binding_id);
         }
 
@@ -306,7 +308,7 @@ impl<'f> ModuleScopes<'f> {
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
     ) {
-        let params = params
+        let params: Vec<&mut AstAssignIdentP<_>> = params
             .iter_mut()
             .filter_map(|p| p.node.split_mut().0)
             .collect::<Vec<_>>();
@@ -315,14 +317,19 @@ impl<'f> ModuleScopes<'f> {
             .set_param_count(params.len().try_into().unwrap());
         let mut locals: SmallMap<FrozenStringValue, _> = SmallMap::new();
         for p in params {
+            let name = frozen_heap.alloc_str_intern(&p.0);
             // Subtle invariant: the slots for the params must be ordered and at the
             // beginning
             let binding_id = scope_data
-                .new_binding(Visibility::Public, AssignCount::AtMostOnce)
+                .new_binding(
+                    name,
+                    Some(p.span),
+                    Visibility::Public,
+                    AssignCount::AtMostOnce,
+                )
                 .0;
             p.1 = Some(binding_id);
-            let old_local =
-                locals.insert_hashed(frozen_heap.alloc_str_intern(&p.0).get_hashed(), binding_id);
+            let old_local = locals.insert_hashed(name.get_hashed(), binding_id);
             assert!(old_local.is_none());
         }
         if let Some(code) = body {
@@ -730,6 +737,7 @@ impl AssignIdent {
         // Helper function to untangle lifetimes: we read and modify `assign` fields.
         fn assign_ident_impl<'b>(
             name: FrozenStringValue,
+            span: Span,
             binding: &'b mut Option<BindingId>,
             in_loop: InLoop,
             mut vis: Visibility,
@@ -762,7 +770,8 @@ impl AssignIdent {
                         InLoop::Yes => AssignCount::Any,
                         InLoop::No => AssignCount::AtMostOnce,
                     };
-                    let (new_binding_id, _) = scope_data.new_binding(vis, assign_count);
+                    let (new_binding_id, _) =
+                        scope_data.new_binding(name, Some(span), vis, assign_count);
                     e.insert(new_binding_id);
                     *binding = Some(new_binding_id);
                 }
@@ -770,6 +779,7 @@ impl AssignIdent {
         }
         assign_ident_impl(
             frozen_heap.alloc_str_intern(&assign.node.0),
+            assign.span,
             &mut assign.node.1,
             in_loop,
             vis,
@@ -806,7 +816,7 @@ impl Assign {
 #[derive(Default)]
 pub(crate) struct ModuleScopeData<'f> {
     /// Bindings by id.
-    bindings: Vec<Binding>,
+    bindings: Vec<Binding<'f>>,
     /// Scopes by id.
     scopes: Vec<ScopeNames<'f>>,
 }
@@ -832,7 +842,9 @@ pub(crate) enum Captured {
 ///
 /// In code `x = 1; def f(): x = 2`, there are two bindings for name `x`.
 #[derive(Debug)]
-pub(crate) struct Binding {
+pub(crate) struct Binding<'f> {
+    pub(crate) name: FrozenStringValue,
+    pub(crate) span: Option<Span>,
     pub(crate) vis: Visibility,
     /// `slot` is `None` when it is not initialized yet.
     /// When analysis is completed, `slot` is always `Some`.
@@ -842,15 +854,24 @@ pub(crate) struct Binding {
     // (Comprehension scopes do not count, because they are considered
     // local by the runtime and do not allocate a frame).
     pub(crate) captured: Captured,
+    _marker: PhantomData<&'f ()>,
 }
 
-impl Binding {
-    fn new(vis: Visibility, assign_count: AssignCount) -> Binding {
+impl<'f> Binding<'f> {
+    fn new(
+        name: FrozenStringValue,
+        span: Option<Span>,
+        vis: Visibility,
+        assign_count: AssignCount,
+    ) -> Binding<'f> {
         Binding {
+            name,
+            span,
             vis,
             slot: None,
             assign_count,
             captured: Captured::No,
+            _marker: PhantomData,
         }
     }
 }
@@ -874,21 +895,24 @@ impl<'f> ModuleScopeData<'f> {
         ModuleScopeData::default()
     }
 
-    pub(crate) fn get_binding(&self, BindingId(id): BindingId) -> &Binding {
+    pub(crate) fn get_binding(&self, BindingId(id): BindingId) -> &Binding<'f> {
         &self.bindings[id]
     }
 
-    fn mut_binding(&mut self, BindingId(id): BindingId) -> &mut Binding {
+    fn mut_binding(&mut self, BindingId(id): BindingId) -> &mut Binding<'f> {
         &mut self.bindings[id]
     }
 
     fn new_binding(
         &mut self,
+        name: FrozenStringValue,
+        span: Option<Span>,
         vis: Visibility,
         assigned_count: AssignCount,
-    ) -> (BindingId, &mut Binding) {
+    ) -> (BindingId, &mut Binding<'f>) {
         let binding_id = BindingId(self.bindings.len());
-        self.bindings.push(Binding::new(vis, assigned_count));
+        self.bindings
+            .push(Binding::new(name, span, vis, assigned_count));
         (binding_id, self.bindings.last_mut().unwrap())
     }
 
