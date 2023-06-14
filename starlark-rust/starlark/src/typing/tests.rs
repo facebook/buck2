@@ -20,6 +20,8 @@ use std::fmt::Display;
 
 use once_cell::sync::Lazy;
 
+use crate::codemap::ResolvedFileSpan;
+use crate::eval::compiler::EvalException;
 use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
@@ -89,7 +91,7 @@ fn test_oracle() {
 
 #[derive(Default)]
 struct TypeCheck {
-    expect_errors: Vec<String>,
+    expect_errors: Vec<(String, ResolvedFileSpan)>,
     expect_approximations: Vec<String>,
     expect_interface: Vec<(String, Ty)>,
     loads: HashMap<String, Interface>,
@@ -100,8 +102,9 @@ impl TypeCheck {
         Self::default()
     }
 
-    fn error(mut self, x: &str) -> Self {
-        self.expect_errors.push(x.to_owned());
+    fn error(mut self, err: &str, loc: &str) -> Self {
+        self.expect_errors
+            .push((err.to_owned(), ResolvedFileSpan::testing_parse(loc)));
         self
     }
 
@@ -124,7 +127,20 @@ impl TypeCheck {
                 got.retain(|x| !x.contains(w));
                 good = good && before == got.len() + 1;
             }
-            assert!(good, "Wanted {want:?}, got {got:?}");
+            assert!(good, "Wanted:\n{want:?}\nGot:\n{got:?}");
+        }
+
+        fn assert_error_list(mut got: Vec<anyhow::Error>, want: &[(String, ResolvedFileSpan)]) {
+            let mut good = got.len() == want.len();
+            for (expect_err, expect_loc) in want {
+                let before = got.len();
+                got.retain(|x| {
+                    !(x.to_string().contains(expect_err)
+                        && EvalException::testing_loc(x) == *expect_loc)
+                });
+                good = good && before == got.len() + 1;
+            }
+            assert!(good, "Wanted:\n{want:?}\nGot:\n{got:?}");
         }
 
         let (errors, _, interface, approximations) =
@@ -132,7 +148,7 @@ impl TypeCheck {
                 .unwrap()
                 .typecheck(&mk_oracle(), &self.loads);
         assert_list(approximations, &self.expect_approximations);
-        assert_list(errors, &self.expect_errors);
+        assert_error_list(errors, &self.expect_errors);
         for (k, v) in &self.expect_interface {
             assert_eq!(interface.get(k), Some(v));
         }
@@ -154,7 +170,10 @@ y = hash(foo("magic"))
 #[test]
 fn test_failure() {
     TypeCheck::new()
-        .error(r#"Expected type `"string"` but got `"int"`, at filename:1:1-8"#)
+        .error(
+            r#"Expected type `"string"` but got `"int"`"#,
+            "filename:1:1-8",
+        )
         .check(r#"hash(1)"#);
 }
 
@@ -186,7 +205,10 @@ fn test_false_negative() {
 #[test]
 fn test_type_kwargs() {
     TypeCheck::new()
-        .error(r#"Expected type `{"string": ""}` but got `{"int": "string"}`, at filename:4:7-15"#)
+        .error(
+            r#"Expected type `{"string": ""}` but got `{"int": "string"}`"#,
+            "filename:4:7-15",
+        )
         .check(
             r#"
 def foo(**kwargs):
@@ -206,8 +228,14 @@ foo([1,2,3])
 "#,
     );
     TypeCheck::new()
-        .error(r#"Expected type `[""]` but got `"bool"`, at filename:4:1-10"#)
-        .error(r#"Expected type `[Void]` but got `"string"`, at filename:3:12-25"#)
+        .error(
+            r#"Expected type `[""]` but got `"bool"`"#,
+            "filename:4:1-10",
+        )
+        .error(
+            r#"Expected type `[Void]` but got `"string"`"#,
+            "filename:3:12-25",
+        )
         .check(
             r#"
 def foo(x: list.type) -> bool.type:

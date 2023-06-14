@@ -64,6 +64,17 @@ impl EvalException {
     pub(crate) fn new(error: anyhow::Error, span: Span, codemap: &CodeMap) -> EvalException {
         EvalException(Diagnostic::new(error, span, codemap))
     }
+
+    #[cfg(test)]
+    pub(crate) fn testing_loc(mut err: &anyhow::Error) -> crate::codemap::ResolvedFileSpan {
+        if let Some(eval_exc) = err.downcast_ref::<EvalException>() {
+            err = &eval_exc.0;
+        }
+        match err.downcast_ref::<Diagnostic>() {
+            Some(d) => d.span.as_ref().unwrap().resolve(),
+            None => panic!("Expected Diagnostic, got {:#?}", err),
+        }
+    }
 }
 
 #[cold]

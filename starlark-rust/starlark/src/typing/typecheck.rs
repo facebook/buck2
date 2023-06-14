@@ -32,6 +32,7 @@ use crate::eval::compiler::scope::CompilerAstMap;
 use crate::eval::compiler::scope::CstStmt;
 use crate::eval::compiler::scope::Scope;
 use crate::eval::compiler::scope::ScopeData;
+use crate::eval::compiler::EvalException;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::Visibility;
 use crate::syntax::AstModule;
@@ -40,7 +41,6 @@ use crate::typing::bindings::Bindings;
 use crate::typing::bindings::BindingsCollect;
 use crate::typing::bindings::Interface;
 use crate::typing::ctx::TypingContext;
-use crate::typing::ctx::TypingError;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
@@ -79,7 +79,11 @@ fn solve_bindings(
     oracle: &dyn TypingOracle,
     bindings: Bindings,
     codemap: &CodeMap,
-) -> (Vec<TypingError>, HashMap<BindingId, Ty>, Vec<Approximation>) {
+) -> (
+    Vec<EvalException>,
+    HashMap<BindingId, Ty>,
+    Vec<Approximation>,
+) {
     let mut types = bindings
         .expressions
         .keys()

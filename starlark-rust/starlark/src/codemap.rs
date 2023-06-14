@@ -408,6 +408,17 @@ pub(crate) struct LineCol {
     pub column: usize,
 }
 
+impl LineCol {
+    #[cfg(test)]
+    fn testing_parse(line_col: &str) -> LineCol {
+        let (line, col) = line_col.split_once(':').unwrap();
+        LineCol {
+            line: line.parse::<usize>().unwrap().checked_sub(1).unwrap(),
+            column: col.parse::<usize>().unwrap().checked_sub(1).unwrap(),
+        }
+    }
+}
+
 /// A file, and a line and column range within it.
 #[derive(Clone, Copy, Dupe, Eq, PartialEq, Debug)]
 pub struct FileSpanRef<'a> {
@@ -567,6 +578,32 @@ impl ResolvedSpan {
             end_column: end.column,
         }
     }
+
+    #[cfg(test)]
+    fn testing_parse(span: &str) -> ResolvedSpan {
+        match span.split_once('-') {
+            None => {
+                let line_col = LineCol::testing_parse(span);
+                ResolvedSpan::from_span(line_col, line_col)
+            }
+            Some((begin, end)) => {
+                let begin = LineCol::testing_parse(begin);
+                if end.contains(':') {
+                    let end = LineCol::testing_parse(end);
+                    ResolvedSpan::from_span(begin, end)
+                } else {
+                    let end_col = end.parse::<usize>().unwrap().checked_sub(1).unwrap();
+                    ResolvedSpan::from_span(
+                        begin,
+                        LineCol {
+                            line: begin.line,
+                            column: end_col,
+                        },
+                    )
+                }
+            }
+        }
+    }
 }
 
 /// File name and line and column pairs for a span.
@@ -576,6 +613,17 @@ pub struct ResolvedFileSpan {
     pub file: String,
     /// The span.
     pub span: ResolvedSpan,
+}
+
+impl ResolvedFileSpan {
+    #[cfg(test)]
+    pub(crate) fn testing_parse(span: &str) -> ResolvedFileSpan {
+        let (file, span) = span.split_once(':').unwrap();
+        ResolvedFileSpan {
+            file: file.to_owned(),
+            span: ResolvedSpan::testing_parse(span),
+        }
+    }
 }
 
 impl Display for ResolvedFileSpan {

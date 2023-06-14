@@ -22,13 +22,13 @@ use std::fmt::Debug;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;
-use crate::codemap::ResolvedFileSpan;
 use crate::codemap::Span;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::CstAssign;
 use crate::eval::compiler::scope::CstExpr;
 use crate::eval::compiler::scope::CstPayload;
 use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::EvalException;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
@@ -49,34 +49,22 @@ use crate::typing::ty::TyFunction;
 
 #[derive(Error, Debug)]
 pub(crate) enum TypingError {
-    #[error("The attribute `{attr}` is not available on the type `{typ}`, at {loc}")]
-    AttributeNotAvailable {
-        loc: ResolvedFileSpan,
-        typ: String,
-        attr: String,
-    },
-    #[error("The builtin `{name}` is not known, at {loc}")]
-    UnknownBuiltin { loc: ResolvedFileSpan, name: String },
-    #[error("The call to `{name}` is invalid because {reason}, at {loc}")]
-    InvalidBuiltinCall {
-        loc: ResolvedFileSpan,
-        name: String,
-        reason: String,
-    },
-    #[error("Expected type `{require}` but got `{got}`, at {loc}")]
-    IncompatibleType {
-        loc: ResolvedFileSpan,
-        got: String,
-        require: String,
-    },
-    #[error("Call to a non-callable type `{ty}`, at {loc}")]
-    CallToNonCallable { loc: ResolvedFileSpan, ty: String },
-    #[error("Missing required parameter `{name}`, at {loc}")]
-    MissingRequiredParameter { loc: ResolvedFileSpan, name: String },
-    #[error("Unexpected parameter named `{name}`, at {loc}")]
-    UnexpectedNamedArgument { loc: ResolvedFileSpan, name: String },
-    #[error("Too many positional arguments, at {loc}")]
-    TooManyPositionalArguments { loc: ResolvedFileSpan },
+    #[error("The attribute `{attr}` is not available on the type `{typ}`")]
+    AttributeNotAvailable { typ: String, attr: String },
+    #[error("The builtin `{name}` is not known")]
+    UnknownBuiltin { name: String },
+    #[error("The call to `{name}` is invalid because {reason}")]
+    InvalidBuiltinCall { name: String, reason: String },
+    #[error("Expected type `{require}` but got `{got}`")]
+    IncompatibleType { got: String, require: String },
+    #[error("Call to a non-callable type `{ty}`")]
+    CallToNonCallable { ty: String },
+    #[error("Missing required parameter `{name}`")]
+    MissingRequiredParameter { name: String },
+    #[error("Unexpected parameter named `{name}`")]
+    UnexpectedNamedArgument { name: String },
+    #[error("Too many positional arguments")]
+    TooManyPositionalArguments,
 }
 
 pub(crate) struct TypingContext<'a> {
@@ -84,14 +72,16 @@ pub(crate) struct TypingContext<'a> {
     pub(crate) oracle: &'a dyn TypingOracle,
     // We'd prefer this to be a &mut self,
     // but that makes writing the code more fiddly, so just RefCell the errors
-    pub(crate) errors: RefCell<Vec<TypingError>>,
+    pub(crate) errors: RefCell<Vec<EvalException>>,
     pub(crate) approximoations: RefCell<Vec<Approximation>>,
     pub(crate) types: HashMap<BindingId, Ty>,
 }
 
 impl TypingContext<'_> {
-    fn add_error(&self, err: TypingError) -> Ty {
-        self.errors.borrow_mut().push(err);
+    fn add_error(&self, span: Span, err: TypingError) -> Ty {
+        self.errors
+            .borrow_mut()
+            .push(EvalException::new(err.into(), span, &self.codemap));
         Ty::Void
     }
 
@@ -100,10 +90,6 @@ impl TypingContext<'_> {
             .borrow_mut()
             .push(Approximation::new(category, message));
         Ty::Any
-    }
-
-    fn resolve(&self, span: Span) -> ResolvedFileSpan {
-        self.codemap.file_span(span).resolve()
     }
 
     fn validate_args(&self, params: &[Param], args: &[Arg], span: Span) {
@@ -118,9 +104,7 @@ impl TypingContext<'_> {
                 Arg::Pos(ty) => loop {
                     match params.get(param_pos) {
                         None => {
-                            self.add_error(TypingError::TooManyPositionalArguments {
-                                loc: self.resolve(span),
-                            });
+                            self.add_error(span, TypingError::TooManyPositionalArguments);
                             return;
                         }
                         Some(param) => {
@@ -145,10 +129,10 @@ impl TypingContext<'_> {
                         }
                     }
                     if !success {
-                        self.add_error(TypingError::UnexpectedNamedArgument {
-                            loc: self.resolve(span),
-                            name: name.clone(),
-                        });
+                        self.add_error(
+                            span,
+                            TypingError::UnexpectedNamedArgument { name: name.clone() },
+                        );
                     }
                 }
                 Arg::Args(_) => {
@@ -168,10 +152,12 @@ impl TypingContext<'_> {
             if args.is_empty() {
                 // We assume that *args/**kwargs might have splatted things everywhere.
                 if !param.optional && !seen_vargs {
-                    self.add_error(TypingError::MissingRequiredParameter {
-                        loc: self.resolve(span),
-                        name: param.name().to_owned(),
-                    });
+                    self.add_error(
+                        span,
+                        TypingError::MissingRequiredParameter {
+                            name: param.name().to_owned(),
+                        },
+                    );
                 }
                 continue;
             }
@@ -219,10 +205,12 @@ impl TypingContext<'_> {
         }
         let funs: Vec<_> = fun.iter_union().filter_map(unpack_function).collect();
         if funs.is_empty() {
-            return self.add_error(TypingError::CallToNonCallable {
-                loc: self.resolve(span),
-                ty: fun.to_string(),
-            });
+            return self.add_error(
+                span,
+                TypingError::CallToNonCallable {
+                    ty: fun.to_string(),
+                },
+            );
         }
 
         // We call validate_args on each function, which will either
@@ -238,11 +226,13 @@ impl TypingContext<'_> {
             let return_type = if let Some(res) = self.oracle.builtin_call(&fun.name, args) {
                 match res {
                     Ok(t) => t,
-                    Err(reason) => self.add_error(TypingError::InvalidBuiltinCall {
-                        loc: self.resolve(span),
-                        name: fun.name.to_owned(),
-                        reason,
-                    }),
+                    Err(reason) => self.add_error(
+                        span,
+                        TypingError::InvalidBuiltinCall {
+                            name: fun.name.to_owned(),
+                            reason,
+                        },
+                    ),
                 }
             } else {
                 self.validate_args(&fun.params, args, span);
@@ -274,21 +264,25 @@ impl TypingContext<'_> {
 
     pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {
         if !got.intersects(require, Some(self)) {
-            self.add_error(TypingError::IncompatibleType {
-                loc: self.resolve(span),
-                got: got.to_string(),
-                require: require.to_string(),
-            });
+            self.add_error(
+                span,
+                TypingError::IncompatibleType {
+                    got: got.to_string(),
+                    require: require.to_string(),
+                },
+            );
         }
     }
 
     fn builtin(&self, name: &str, span: Span) -> Ty {
         match self.oracle.builtin(name) {
             Some(Ok(x)) => x,
-            Some(Err(())) => self.add_error(TypingError::UnknownBuiltin {
-                loc: self.resolve(span),
-                name: name.to_owned(),
-            }),
+            Some(Err(())) => self.add_error(
+                span,
+                TypingError::UnknownBuiltin {
+                    name: name.to_owned(),
+                },
+            ),
             None => self.approximation("oracle.builtin", name),
         }
     }
@@ -296,11 +290,13 @@ impl TypingContext<'_> {
     fn expression_attribute(&self, ty: &Ty, attr: &str, span: Span) -> Ty {
         match ty.attribute(attr, self) {
             Ok(x) => x,
-            Err(()) => self.add_error(TypingError::AttributeNotAvailable {
-                loc: self.resolve(span),
-                typ: ty.to_string(),
-                attr: attr.to_owned(),
-            }),
+            Err(()) => self.add_error(
+                span,
+                TypingError::AttributeNotAvailable {
+                    typ: ty.to_string(),
+                    attr: attr.to_owned(),
+                },
+            ),
         }
     }
 
