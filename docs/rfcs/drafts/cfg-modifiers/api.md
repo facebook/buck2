@@ -140,15 +140,18 @@ to use `buck2 build repo//foo:bar?asan` and `buck2 build repo//foo:bar?nosan` as
 are both valid.
 
 To specify modifiers to a list of target patterns on the command line,
-you can use the `--cfg=<comma separated list of modifiers>` flag.
+you can use the `--cfg=modifier` flag.
 For example, `buck2 build //foo:bar //foo:baz --cfg=asan`
 is equivalent to `buck2 build repo//foo:bar?asan //foo:baz?asan`.
 
-`--cfg` flag can be specified multiple times if you want to build
-the same target in multiple configurations.
-For example,
-`buck2 build repo//foo:bar --cfg=asan --cfg=nosan`
-would build `repo//foo:bar` twice, once with asan and once with nosan.
+`--cfg` flag can be specified multiple times to add multiple modifiers.
+For example, `buck2 build --cfg=release --cfg=windows repo//foo:bar`
+is equivalent to `buck2 build repo//foo:bar?release,windows`.
+This behavior is consistent with how flags are interpreted
+in other tools, and it is the most intuitive behavior, for example,
+* buckconfig `-c` flag adds to the one set of buckconfigs
+* build systems like CMake have flags like `-D` that can be specified
+  multiple times, and they are all added to one set of flags.
 
 If both `--cfg` and `?` are specified at the same time, modifiers
 from `--cfg`s are applied before modifiers from `?` are applied.
