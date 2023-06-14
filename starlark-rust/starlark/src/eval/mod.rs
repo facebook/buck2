@@ -44,8 +44,8 @@ use crate::docs::DocString;
 use crate::environment::Globals;
 use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::scope::CompilerAstMap;
-use crate::eval::compiler::scope::Scope;
-use crate::eval::compiler::scope::ScopeData;
+use crate::eval::compiler::scope::ModuleScopeData;
+use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::Compiler;
 use crate::eval::compiler::EvalException;
@@ -78,7 +78,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             .frozen_heap()
             .alloc_any_display_from_type_name(globals.dupe());
 
-        let mut scope_data = ScopeData::new();
+        let mut scope_data = ModuleScopeData::new();
 
         let root_scope_id = scope_data.new_scope().0;
 
@@ -91,7 +91,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             self.module_env.set_docstring(docstring)
         }
 
-        let mut scope = Scope::enter_module(
+        let mut scope = ModuleScopes::enter_module(
             self.module_env.mutable_names(),
             self.module_env.frozen_heap(),
             root_scope_id,

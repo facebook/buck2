@@ -72,8 +72,9 @@ enum ScopeError {
     VariableNotFoundDidYouMean(String, String),
 }
 
-pub(crate) struct Scope<'a> {
-    pub(crate) scope_data: ScopeData,
+/// All scopes and bindings in a module.
+pub(crate) struct ModuleScopes<'a> {
+    pub(crate) scope_data: ModuleScopeData,
     module: &'a MutableNames,
     frozen_heap: &'a FrozenHeap,
     pub(crate) module_bindings: SmallMap<FrozenStringValue, BindingId>,
@@ -209,7 +210,7 @@ pub(crate) enum Slot {
     Local(LocalSlotIdCapturedOrNot),
 }
 
-impl<'a> Scope<'a> {
+impl<'f> ModuleScopes<'f> {
     fn top_scope_id(&self) -> ScopeId {
         *self.locals.last().unwrap()
     }
@@ -225,10 +226,10 @@ impl<'a> Scope<'a> {
     }
 
     pub fn enter_module(
-        module: &'a MutableNames,
-        frozen_heap: &'a FrozenHeap,
+        module: &'f MutableNames,
+        frozen_heap: &'f FrozenHeap,
         scope_id: ScopeId,
-        mut scope_data: ScopeData,
+        mut scope_data: ModuleScopeData,
         code: &mut CstStmt,
         globals: FrozenRef<'static, Globals>,
         codemap: FrozenRef<'static, CodeMap>,
@@ -284,7 +285,7 @@ impl<'a> Scope<'a> {
     }
 
     // Number of module slots I need, and a struct holding all scopes.
-    pub fn exit_module(mut self) -> (u32, ScopeData) {
+    pub fn exit_module(mut self) -> (u32, ModuleScopeData) {
         assert!(self.locals.len() == 1);
         assert!(self.unscopes.is_empty());
         let scope_id = self.locals.pop().unwrap();
@@ -295,7 +296,7 @@ impl<'a> Scope<'a> {
     }
 
     fn collect_defines_in_def(
-        scope_data: &mut ScopeData,
+        scope_data: &mut ModuleScopeData,
         scope_id: ScopeId,
         params: &mut [CstParameter],
         body: Option<&mut CstStmt>,
@@ -340,7 +341,7 @@ impl<'a> Scope<'a> {
     }
 
     fn collect_defines_recursively(
-        scope_data: &mut ScopeData,
+        scope_data: &mut ModuleScopeData,
         code: &mut CstStmt,
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
@@ -376,7 +377,7 @@ impl<'a> Scope<'a> {
     }
 
     fn collect_defines_recursively_in_expr(
-        scope_data: &mut ScopeData,
+        scope_data: &mut ModuleScopeData,
         code: &mut CstExpr,
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
@@ -668,7 +669,7 @@ impl Stmt {
     fn collect_defines<'a>(
         stmt: &'a mut CstStmt,
         in_loop: InLoop,
-        scope_data: &mut ScopeData,
+        scope_data: &mut ModuleScopeData,
         frozen_heap: &FrozenHeap,
         result: &mut SmallMap<FrozenStringValue, BindingId>,
         dialect: &Dialect,
@@ -719,7 +720,7 @@ impl AssignIdent {
         assign: &'a mut CstAssignIdent,
         in_loop: InLoop,
         vis: Visibility,
-        scope_data: &mut ScopeData,
+        scope_data: &mut ModuleScopeData,
         frozen_heap: &FrozenHeap,
         result: &mut SmallMap<FrozenStringValue, BindingId>,
     ) {
@@ -729,7 +730,7 @@ impl AssignIdent {
             binding: &'b mut Option<BindingId>,
             in_loop: InLoop,
             mut vis: Visibility,
-            scope_data: &mut ScopeData,
+            scope_data: &mut ModuleScopeData,
             result: &mut SmallMap<FrozenStringValue, BindingId>,
         ) {
             assert!(
@@ -781,7 +782,7 @@ impl Assign {
     fn collect_defines_lvalue<'a>(
         expr: &'a mut CstAssign,
         in_loop: InLoop,
-        scope_data: &mut ScopeData,
+        scope_data: &mut ModuleScopeData,
         frozen_heap: &FrozenHeap,
         result: &mut SmallMap<FrozenStringValue, BindingId>,
     ) {
@@ -800,8 +801,10 @@ impl Assign {
 
 /// Storage of objects referenced by AST.
 #[derive(Default)]
-pub(crate) struct ScopeData {
+pub(crate) struct ModuleScopeData {
+    /// Bindings by id.
     bindings: Vec<Binding>,
+    /// Scopes by id.
     scopes: Vec<ScopeNames>,
 }
 
@@ -863,9 +866,9 @@ impl ScopeId {
     }
 }
 
-impl ScopeData {
-    pub(crate) fn new() -> ScopeData {
-        ScopeData::default()
+impl ModuleScopeData {
+    pub(crate) fn new() -> ModuleScopeData {
+        ModuleScopeData::default()
     }
 
     pub(crate) fn get_binding(&self, BindingId(id): BindingId) -> &Binding {
@@ -946,7 +949,7 @@ impl AstPayload for CstPayload {
 }
 
 pub(crate) struct CompilerAstMap<'a> {
-    pub(crate) scope_data: &'a mut ScopeData,
+    pub(crate) scope_data: &'a mut ModuleScopeData,
     pub(crate) loads: &'a HashMap<String, Interface>,
 }
 
@@ -999,9 +1002,9 @@ mod tests {
     use crate::eval::compiler::scope::CstAssignIdent;
     use crate::eval::compiler::scope::CstExpr;
     use crate::eval::compiler::scope::CstStmt;
+    use crate::eval::compiler::scope::ModuleScopeData;
+    use crate::eval::compiler::scope::ModuleScopes;
     use crate::eval::compiler::scope::ResolvedIdent;
-    use crate::eval::compiler::scope::Scope;
-    use crate::eval::compiler::scope::ScopeData;
     use crate::eval::compiler::scope::Slot;
     use crate::syntax::ast::DefP;
     use crate::syntax::ast::ExprP;
@@ -1014,7 +1017,7 @@ mod tests {
 
     fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
         let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::Extended).unwrap();
-        let mut scope_data = ScopeData::new();
+        let mut scope_data = ModuleScopeData::new();
         let root_scope_id = scope_data.new_scope().0;
         let mut cst = ast.statement.into_map_payload(&mut CompilerAstMap {
             scope_data: &mut scope_data,
@@ -1022,7 +1025,7 @@ mod tests {
         });
         let frozen_heap = FrozenHeap::new();
         let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap.dupe());
-        let scope = Scope::enter_module(
+        let scope = ModuleScopes::enter_module(
             module,
             &frozen_heap,
             root_scope_id,
