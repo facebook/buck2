@@ -38,12 +38,8 @@ pub struct InstallCommand {
     )]
     installer_debug: bool,
 
-    #[clap(
-        short,
-        long,
-        help = "Run an Android activity. Here for compatibility with buck1 - it is automatically forwarded to the installer"
-    )]
-    run: bool,
+    #[clap(flatten)]
+    android_install_opts: AndroidInstallOptions,
 
     #[clap(name = "TARGET", help = "Target to build and install")]
     patterns: Vec<String>,
@@ -56,6 +52,18 @@ pub struct InstallCommand {
     extra_run_args: Vec<String>,
 }
 
+/// Defines install options for Android that exist only for compatibility
+/// with buck1, and which are all automatically forwarded to the installer.
+#[derive(Debug, clap::Parser)]
+struct AndroidInstallOptions {
+    #[clap(
+        short,
+        long,
+        help = "Run an Android activity. Here for compatibility with buck1 - it is automatically forwarded to the installer"
+    )]
+    run: bool,
+}
+
 #[async_trait]
 impl StreamingCommand for InstallCommand {
     const COMMAND_NAME: &'static str = "install";
@@ -66,7 +74,7 @@ impl StreamingCommand for InstallCommand {
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let mut extra_run_args: Vec<String> = self.extra_run_args.clone();
-        if self.run {
+        if self.android_install_opts.run {
             extra_run_args.push("-r".to_owned());
         }
 
