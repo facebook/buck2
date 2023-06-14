@@ -291,6 +291,7 @@ impl WhatRanOutputWriter for LogCommandOutputFormat {
                     },
                     CommandReproducer::CacheHit(cache_hit) => JsonReproducer::Cache {
                         digest: &cache_hit.action_digest,
+                        action_key: cache_hit.action_key.as_deref(),
                     },
                     CommandReproducer::ReExecute(re_execute) => JsonReproducer::Re {
                         digest: &re_execute.action_digest,
@@ -391,6 +392,8 @@ mod json_reproducer {
         },
         Cache {
             digest: &'a str,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            action_key: Option<&'a str>,
         },
         Re {
             digest: &'a str,

@@ -267,6 +267,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         materializer: self.materializer.dupe(),
                         re_client: self.re_connection.get_client(),
                         re_use_case: *re_use_case,
+                        re_action_key: re_action_key.clone(),
                         upload_all_actions: self.upload_all_actions,
                         knobs: self.executor_global_knobs.dupe(),
                     }) as _;

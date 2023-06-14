@@ -1175,6 +1175,7 @@ message CacheQuery {
 
 message CacheHit {
   string action_digest = 1;
+  optional string action_key = 3;
 }
 
 message ReStage {
