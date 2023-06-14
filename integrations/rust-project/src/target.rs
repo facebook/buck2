@@ -154,7 +154,11 @@ impl TargetInfo {
             ]
         };
 
-        tracing::debug!(?self, ?root_candidates, "trying to discover a root module");
+        tracing::trace!(
+            ?self,
+            ?root_candidates,
+            "trying to discover a good root module"
+        );
         // for all normal sources, we need to reference the file on the fbcode tree so navigation works
         match self.srcs.iter().find(|src| {
             root_candidates

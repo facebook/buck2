@@ -73,7 +73,6 @@ pub fn to_json_project(
         // Include "test" cfg so rust-analyzer picks up #[cfg(test)] code.
         cfg.push("test".to_owned());
 
-        debug!(?target, "loading proc macro");
         // the mapping here is inverted, which means we need to search through the keys for the Target.
         // thankfully, most projects don't have to many proc macros, which means the size of this list
         // remains in the two digit space.
@@ -81,6 +80,9 @@ pub fn to_json_project(
             .values()
             .find(|macro_output| macro_output.actual == *target)
             .map(|macro_output| macro_output.dylib.clone());
+        if let Some(ref dylib) = proc_macro_dylib_path {
+            trace!(?target, ?dylib, "target is a proc macro");
+        }
 
         // We don't need to push the source folder as rust-analyzer by default will use the root-module parent().
         // info.root_module() will output either the fbcode source file or the symlinked one based on if it's a mapped source or not
@@ -523,7 +525,7 @@ where
             stderr,
             status,
         }) if status.success() => {
-            tracing::debug!("parsing command output");
+            tracing::debug!(?command, "parsing command output");
             serde_json::from_slice(&stdout)
                 .with_context(|| cmd_err(command, &stderr))
                 .context("failed to deserialize command output")
