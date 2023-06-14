@@ -110,6 +110,22 @@ impl Display for VisibilityPatternList {
     }
 }
 
+impl AnyMatches for VisibilityPatternList {
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+        match self {
+            VisibilityPatternList::Public => filter(VisibilityPattern::PUBLIC),
+            VisibilityPatternList::List(patterns) => {
+                for p in patterns {
+                    if filter(&p.to_string())? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+        }
+    }
+}
+
 /// Represents the visibility spec of a target. Note that targets in the same package will ignore the
 /// visibility spec of each other.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
@@ -178,17 +194,7 @@ impl WithinViewSpecification {
 
 impl AnyMatches for VisibilitySpecification {
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        match &self.0 {
-            VisibilityPatternList::Public => filter(VisibilityPattern::PUBLIC),
-            VisibilityPatternList::List(patterns) => {
-                for p in patterns {
-                    if filter(&p.to_string())? {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
-        }
+        self.0.any_matches(filter)
     }
 }
 
