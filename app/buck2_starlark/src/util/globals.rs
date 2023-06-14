@@ -7,12 +7,8 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Arc;
 
-use buck2_common::result::SharedError;
-use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
@@ -20,13 +16,11 @@ use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::import_paths::HasImportPaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
-use buck2_interpreter::path::StarlarkPath;
 use dice::DiceTransaction;
-use dupe::Dupe;
 use starlark::environment::Globals;
 
 /// The environment in which a Starlark file is evaluated.
-struct Environment {
+pub(crate) struct Environment {
     /// The globals that are driven from Rust.
     globals: Globals,
     /// The path to the prelude, if the prelude is loaded in this file.
@@ -37,7 +31,7 @@ struct Environment {
 }
 
 impl Environment {
-    async fn new(
+    pub(crate) async fn new(
         cell: CellName,
         path_type: StarlarkFileType,
         dice: &DiceTransaction,
@@ -74,7 +68,7 @@ impl Environment {
         })
     }
 
-    async fn get_names(
+    pub(crate) async fn get_names(
         &self,
         path_type: StarlarkFileType,
         dice: &DiceTransaction,
@@ -108,50 +102,5 @@ impl Environment {
         }
 
         Ok(names)
-    }
-}
-
-/// The "globals" for a path are defined by its CellName and its path type.
-///
-/// To compute the globals we need the Rust-level globals, the prelude, and
-/// any pre-imported paths. Figuring out the names in those requires evaluating
-/// Starlark code, which might fail.
-pub(crate) struct CachedGlobals<'a> {
-    dice: &'a DiceTransaction,
-    cached: HashMap<(CellName, StarlarkFileType), SharedResult<Arc<HashSet<String>>>>,
-}
-
-impl<'a> CachedGlobals<'a> {
-    pub(crate) fn new(dice: &'a DiceTransaction) -> CachedGlobals<'a> {
-        Self {
-            dice,
-            cached: HashMap::new(),
-        }
-    }
-
-    async fn compute_names(
-        &self,
-        cell: CellName,
-        path: StarlarkFileType,
-    ) -> anyhow::Result<HashSet<String>> {
-        let env = Environment::new(cell, path, self.dice).await?;
-        env.get_names(path, self.dice).await
-    }
-
-    pub(crate) async fn get_names(
-        &mut self,
-        path: &StarlarkPath<'_>,
-    ) -> SharedResult<Arc<HashSet<String>>> {
-        let path_type = path.file_type();
-        let cell = path.cell();
-        if let Some(res) = self.cached.get(&(cell, path_type)) {
-            return res.dupe();
-        }
-        let res = match self.compute_names(cell, path_type).await {
-            Ok(v) => Ok(Arc::new(v)),
-            Err(e) => Err(SharedError::new(e)),
-        };
-        self.cached.insert((cell, path_type), res.dupe());
-        res
     }
 }
