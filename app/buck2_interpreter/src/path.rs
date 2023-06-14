@@ -306,4 +306,11 @@ impl OwnedStarlarkModulePath {
             OwnedStarlarkModulePath::BxlFile(p) => p.path().as_ref(),
         }
     }
+
+    pub fn into_starlark_path(self) -> OwnedStarlarkPath {
+        match self {
+            OwnedStarlarkModulePath::LoadFile(l) => OwnedStarlarkPath::LoadFile(l),
+            OwnedStarlarkModulePath::BxlFile(b) => OwnedStarlarkPath::BxlFile(b),
+        }
+    }
 }
