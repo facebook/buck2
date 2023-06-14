@@ -65,9 +65,8 @@ pub struct BxlCommandOptions {
     /// Write user events to this log file. Both user and internal events are written to main event log.
     /// If this flag is specified, user events are additionally written to user event log.
     /// Log format is JSONL, uncompressed if no known extensions are detected, or you can explicitly specify
-    /// encoding/compression via the file extension (ex: `.json-lines.gz` would be JSONL formatted and gzip
-    /// compressed, `.pb.zst` would be protobuf encoded and zst compressed). For usage with `buck2 log show <PATH>`,
-    /// the file extension must be a known extension (ex: `.json-lines`, `.json-lines.zst`, etc).
+    /// the compression via the file extension (ex: `.json-lines.gz` would be gzip compressed, `.json-lines.zst`
+    /// would be zstd compressed). Resulting log is is compatible with `buck2 log show-user`.
     #[clap(value_name = "PATH", long = "--user-event-log")]
     pub user_event_log: Option<PathArg>,
 }
