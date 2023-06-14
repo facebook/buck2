@@ -4,6 +4,6 @@ buck-out
 /.direnv
 
 # symlinks
-/examples/prelude/prelude
-/examples/prelude/third-party/ocaml/opam
-/examples/prelude/third-party/ocaml/standard_library
+/examples/with_prelude/prelude
+/examples/with_prelude/third-party/ocaml/opam
+/examples/with_prelude/third-party/ocaml/standard_library
