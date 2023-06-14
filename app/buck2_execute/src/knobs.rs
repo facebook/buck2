@@ -13,4 +13,8 @@ use dupe::Dupe;
 #[derive(Clone, Dupe, Default)]
 pub struct ExecutorGlobalKnobs {
     pub enable_miniperf: bool,
+
+    /// Whether to emit action keys to execution logs (thos are pretty verbose and omitted by
+    /// default).
+    pub log_action_keys: bool,
 }

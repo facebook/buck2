@@ -70,6 +70,7 @@ use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::executor_stage_async;
 use crate::execute::manager::CommandExecutionManager;
+use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::metadata::RemoteExecutionMetadataExt;
@@ -317,6 +318,7 @@ impl RemoteExecutionClient {
         skip_cache_read: bool,
         skip_cache_write: bool,
         re_max_queue_time: Option<Duration>,
+        knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         self.data
             .executes
@@ -332,6 +334,7 @@ impl RemoteExecutionClient {
                     skip_cache_read,
                     skip_cache_write,
                     re_max_queue_time,
+                    knobs,
                 )
                 .map_err(|e| self.decorate_error(e)))
             .await
@@ -747,6 +750,7 @@ impl RemoteExecutionClientImpl {
         manager: &mut CommandExecutionManager,
         re_max_queue_time: Option<Duration>,
         platform: &remote_execution::Platform,
+        knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         use buck2_data::re_stage;
         use buck2_data::ReExecute;
@@ -755,8 +759,7 @@ impl RemoteExecutionClientImpl {
         use buck2_data::ReWorkerDownload;
         use buck2_data::ReWorkerUpload;
 
-        static LOG_ACTION_KEYS: EnvHelper<bool> = EnvHelper::new("BUCK2_LOG_ACTION_KEYS");
-        let action_key = if LOG_ACTION_KEYS.get_copied()?.unwrap_or_default() {
+        let action_key = if knobs.log_action_keys {
             metadata
                 .action_history_info
                 .as_ref()
@@ -924,6 +927,7 @@ impl RemoteExecutionClientImpl {
         skip_cache_read: bool,
         skip_cache_write: bool,
         re_max_queue_time: Option<Duration>,
+        knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         let metadata = RemoteExecutionMetadata {
             action_history_info: Some(ActionHistoryInfo {
@@ -962,6 +966,7 @@ impl RemoteExecutionClientImpl {
             manager,
             re_max_queue_time,
             platform,
+            knobs,
         )
         .await
         .with_context(|| format!("RE: execution with digest {}", &action_digest))

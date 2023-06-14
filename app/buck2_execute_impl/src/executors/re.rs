@@ -149,6 +149,7 @@ impl ReExecutor {
                 self.skip_cache_read,
                 self.skip_cache_write,
                 self.re_max_queue_time_ms.map(Duration::from_millis),
+                &self.knobs,
             )
             .await;
 

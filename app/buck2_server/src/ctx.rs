@@ -547,7 +547,15 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .unwrap_or_else(RolloutPercentage::always)
             .roll();
 
-        let executor_global_knobs = ExecutorGlobalKnobs { enable_miniperf };
+        let log_action_keys = root_config
+            .parse::<RolloutPercentage>("buck2", "log_action_keys")?
+            .unwrap_or_else(RolloutPercentage::always)
+            .roll();
+
+        let executor_global_knobs = ExecutorGlobalKnobs {
+            enable_miniperf,
+            log_action_keys,
+        };
 
         let host_sharing_broker =
             HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, concurrency);
