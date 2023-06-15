@@ -127,6 +127,8 @@ mod imp {
         critical_path_backend: Option<String>,
         instant_command_is_success: Option<bool>,
         bxl_ensure_artifacts_duration: Option<prost_types::Duration>,
+        initial_re_upload_bytes: Option<u64>,
+        initial_re_download_bytes: Option<u64>,
     }
 
     impl<'a> InvocationRecorder<'a> {
@@ -221,6 +223,8 @@ mod imp {
                 critical_path_backend: None,
                 instant_command_is_success: None,
                 bxl_ensure_artifacts_duration: None,
+                initial_re_upload_bytes: None,
+                initial_re_download_bytes: None,
             }
         }
 
@@ -254,6 +258,8 @@ mod imp {
             let mut sink_success_count = None;
             let mut sink_failure_count = None;
             let mut sink_dropped_count = None;
+            let mut re_upload_bytes = None;
+            let mut re_download_bytes = None;
             if let Some(snapshot) = &self.last_snapshot {
                 sink_success_count = calculate_diff_if_some(
                     &snapshot.sink_successes,
@@ -266,6 +272,14 @@ mod imp {
                 sink_dropped_count = calculate_diff_if_some(
                     &snapshot.sink_dropped,
                     &self.initial_sink_dropped_count,
+                );
+                re_upload_bytes = calculate_diff_if_some(
+                    &Some(snapshot.re_upload_bytes),
+                    &self.initial_re_upload_bytes,
+                );
+                re_download_bytes = calculate_diff_if_some(
+                    &Some(snapshot.re_download_bytes),
+                    &self.initial_re_download_bytes,
                 );
             }
 
@@ -363,6 +377,8 @@ mod imp {
                 critical_path_backend: self.critical_path_backend.take(),
                 instant_command_is_success: self.instant_command_is_success.take(),
                 bxl_ensure_artifacts_duration: self.bxl_ensure_artifacts_duration.take(),
+                re_upload_bytes,
+                re_download_bytes,
             };
 
             let event = BuckEvent::new(
@@ -761,6 +777,13 @@ mod imp {
             }
             self.sink_max_buffer_depth =
                 cmp::max(self.sink_max_buffer_depth, update.sink_buffer_depth());
+
+            if self.initial_re_upload_bytes.is_none() {
+                self.initial_re_upload_bytes = Some(update.re_upload_bytes);
+            }
+            if self.initial_re_download_bytes.is_none() {
+                self.initial_re_download_bytes = Some(update.re_download_bytes);
+            }
 
             Ok(())
         }

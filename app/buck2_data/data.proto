@@ -1598,6 +1598,8 @@ message InvocationRecord {
   optional bool instant_command_is_success = 69;
   // Optional - total time for final artifact materializations.
   google.protobuf.Duration bxl_ensure_artifacts_duration = 70;
+  optional uint64 re_upload_bytes = 71;
+  optional uint64 re_download_bytes = 72;
 }
 
 message CacheUploadStart {
