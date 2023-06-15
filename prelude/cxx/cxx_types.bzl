@@ -89,7 +89,7 @@ CxxAdditionalArgsfileParams = record(
 # Parameters to handle non-Clang sources, e.g Swift on Apple's platforms.
 CxxRuleAdditionalParams = record(
     srcs = field([CxxSrcWithFlags.type], []),
-    argsfiles = field([CxxAdditionalArgsfileParams.type], []),
+    argsfiles_deprecated = field([CxxAdditionalArgsfileParams.type], []),
     # External debug info to be used when generated static output
     static_external_debug_info = field(["transitive_set"], []),
     # External debug info to be used when generating shared objects

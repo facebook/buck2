@@ -247,7 +247,7 @@ def create_compile_cmds(
         src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index)
         src_compile_cmds.append(src_compile_command)
 
-    relative_argsfiles = _get_argsfile_output(ctx, argsfile_by_ext, impl_params.additional.argsfiles, "argsfiles")
+    relative_argsfiles = _get_argsfile_output(ctx, argsfile_by_ext, impl_params.additional.argsfiles_deprecated, "argsfiles")
 
     #TODO(chatatap): Handle additional absolute argsfiles (swift?)
     absolute_argsfiles = _get_argsfile_output(ctx, abs_argsfile_by_ext, [], "abs-argsfiles") if absolute_path_prefix else CxxCompileCommandArgsFiles()

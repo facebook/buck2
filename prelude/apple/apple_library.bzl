@@ -169,7 +169,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     else:
         swift_shared_external_debug_info = _get_swift_shared_external_debug_info(swift_dependency_info) if swift_dependency_info else []
 
-    swift_argsfile = swift_compile.swift_argsfile if swift_compile else None
+    swift_argsfile = swift_compile.swift_argsfile_deprecated if swift_compile else None
 
     modular_pre = CPreprocessor(
         uses_modules = ctx.attrs.uses_modules,
@@ -217,7 +217,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         srcs = cxx_srcs,
         additional = CxxRuleAdditionalParams(
             srcs = swift_srcs,
-            argsfiles = [swift_argsfile] if swift_argsfile else [],
+            argsfiles_deprecated = [swift_argsfile] if swift_argsfile else [],
             # We need to add any swift modules that we include in the link, as
             # these will end up as `N_AST` entries that `dsymutil` will need to
             # follow.

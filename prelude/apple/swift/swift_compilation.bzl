@@ -83,7 +83,7 @@ SwiftCompilationOutput = record(
     # Exported preprocessor info required for ObjC compilation of rdeps.
     exported_pre = field(CPreprocessor.type),
     # Argsfile to compile an object file which is used by some subtargets.
-    swift_argsfile = field(CxxAdditionalArgsfileParams.type),
+    swift_argsfile_deprecated = field(CxxAdditionalArgsfileParams.type),
 )
 
 REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
@@ -229,7 +229,7 @@ def compile_swift(
         dependency_info = get_swift_dependency_info(ctx, exported_pp_info, output_swiftmodule),
         pre = pre,
         exported_pre = exported_pp_info,
-        swift_argsfile = swift_argsfile,
+        swift_argsfile_deprecated = swift_argsfile,
     )
 
 # Swift headers are postprocessed to make them compatible with Objective-C
