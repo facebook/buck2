@@ -28,7 +28,6 @@ use crate::codemap::Span;
 use crate::environment::names::MutableNames;
 use crate::environment::Globals;
 use crate::eval::compiler::scope::BindingId;
-use crate::eval::compiler::scope::CstStmt;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::EvalException;
 use crate::slice_vec_ext::VecExt;
@@ -44,25 +43,6 @@ use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
-
-/// Give every identifier a unique name, using dotted names to note values in nested scopes
-fn unique_identifiers<'f>(
-    frozen_heap: &'f FrozenHeap,
-    ast: AstModule,
-    names: &'f MutableNames,
-    loads: &HashMap<String, Interface>,
-) -> (CstStmt, ModuleScopes<'f>) {
-    let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap.dupe());
-    ModuleScopes::enter_module(
-        names,
-        frozen_heap,
-        loads,
-        ast.statement,
-        FrozenRef::new(Globals::empty()),
-        codemap,
-        &Dialect::Extended,
-    )
-}
 
 // Things which are None in the map have type void - they are never constructed
 fn solve_bindings(
@@ -170,7 +150,15 @@ impl AstModule {
         let codemap = self.codemap.dupe();
         let names = MutableNames::new();
         let frozen_heap = FrozenHeap::new();
-        let (cst, scope) = unique_identifiers(&frozen_heap, self, &names, loads);
+        let (cst, scope) = ModuleScopes::enter_module(
+            &names,
+            &frozen_heap,
+            loads,
+            self.statement,
+            FrozenRef::new(Globals::empty()),
+            frozen_heap.alloc_any_display_from_debug(self.codemap.dupe()),
+            &Dialect::Extended,
+        );
         let bindings = BindingsCollect::collect(&cst);
         let mut approximations = bindings.approximations;
         let (errors, types, solve_approximations) =
