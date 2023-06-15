@@ -48,7 +48,6 @@ use remote_execution::HostResourceRequirements;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
-use remote_execution::NetworkStatisticsResponse;
 use remote_execution::REClient;
 use remote_execution::REClientBuilder;
 use remote_execution::REClientError;
@@ -149,11 +148,6 @@ pub enum ExecuteResponseOrCancelled {
 #[derive(Allocative)]
 struct RemoteExecutionClientData {
     client: RemoteExecutionClientImpl,
-    /// Network stats will increase throughout the lifetime of the RE client, so we're not
-    /// guaranteed that they'll start at zero (if we reuse the client). Accordingly, we track the
-    /// initial value so that we can provide a delta.
-    #[allocative(skip)]
-    initial_network_stats: NetworkStatisticsResponse,
     uploads: OpStats,
     downloads: OpStats,
     action_cache: OpStats,
@@ -180,15 +174,9 @@ impl RemoteExecutionClient {
         )
         .await?;
 
-        let initial_network_stats = client
-            .client()
-            .get_network_stats()
-            .context("Error getting initial network stats")?;
-
         Ok(Self {
             data: Arc::new(RemoteExecutionClientData {
                 client,
-                initial_network_stats,
                 uploads: OpStats::default(),
                 downloads: OpStats::default(),
                 action_cache: OpStats::default(),
@@ -443,16 +431,9 @@ impl RemoteExecutionClient {
             .get_network_stats()
             .context("Error getting updated network stats")?;
 
-        let uploaded = updated
-            .uploaded
-            .checked_sub(self.data.initial_network_stats.uploaded)
-            .and_then(|d| u64::try_from(d).ok())
-            .context("Overflow calculating uploaded bytes")?;
-        let downloaded = updated
-            .downloaded
-            .checked_sub(self.data.initial_network_stats.downloaded)
-            .and_then(|d| u64::try_from(d).ok())
-            .context("Overflow calculating downloaded bytes")?;
+        let uploaded = updated.uploaded as u64;
+        let downloaded = updated.downloaded as u64;
+
         Ok(RemoteExecutionClientStats {
             uploaded,
             downloaded,
