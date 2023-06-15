@@ -42,10 +42,12 @@
                     "BUILD",
                     "WORKSPACE",
                     "BUCK",
+                    "BUCK.v2",
                     "BUILD_DEFS",
                     "DEFS",
                     "TARGETS",
-                    "TARGETS.v2"
+                    "TARGETS.v2",
+                    "PACKAGE"
                 ],
                 "configuration": "./syntaxes/starlark.configuration.json"
             }
