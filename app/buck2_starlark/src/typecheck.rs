@@ -33,7 +33,7 @@ use dupe::Dupe;
 use starlark::typing::Interface;
 use starlark::typing::TypingOracle;
 
-use crate::oracle_buck::OracleBuck;
+use crate::oracle_buck::oracle_buck;
 use crate::util::environment::Environment;
 use crate::util::paths::starlark_files;
 use crate::StarlarkCommandCommonOptions;
@@ -77,7 +77,7 @@ impl<'a> Cache<'a> {
             Some(x) => Ok(x.dupe()),
             None => {
                 let globals = Environment::new(cell, path_type, self.dice).await?.globals;
-                let res = OracleBuck::new(globals);
+                let res = oracle_buck(globals);
                 self.oracle.insert((cell, path_type), res.dupe());
                 Ok(res)
             }

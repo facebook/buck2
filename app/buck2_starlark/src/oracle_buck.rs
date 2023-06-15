@@ -14,25 +14,22 @@ use starlark::environment::Globals;
 use starlark::environment::LibraryExtension;
 use starlark::typing::*;
 
-pub(crate) struct OracleBuck;
+pub(crate) fn oracle_buck(globals: Globals) -> Arc<dyn TypingOracle + Send + Sync> {
+    let mut docs = OracleDocs::new();
+    docs.add_module(&globals.documentation());
+    docs.add_docs(&get_registered_starlark_docs());
 
-impl OracleBuck {
-    #[allow(clippy::new_ret_no_self)]
-    pub(crate) fn new(globals: Globals) -> Arc<dyn TypingOracle + Send + Sync> {
-        let mut docs = OracleDocs::new();
-        docs.add_module(&globals.documentation());
-        docs.add_docs(&get_registered_starlark_docs());
-
-        Arc::new(vec![
-            Box::new(OracleStandard::new(LibraryExtension::all()))
-                as Box<dyn TypingOracle + Send + Sync>,
-            Box::new(OracleBuck),
-            Box::new(docs),
-        ])
-    }
+    Arc::new(vec![
+        Box::new(OracleStandard::new(LibraryExtension::all()))
+            as Box<dyn TypingOracle + Send + Sync>,
+        Box::new(CustomBuck),
+        Box::new(docs),
+    ])
 }
 
-impl TypingOracle for OracleBuck {
+struct CustomBuck;
+
+impl TypingOracle for CustomBuck {
     fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
         match name {
             // A provider can be used as an index and can be called.
