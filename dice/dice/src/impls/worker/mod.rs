@@ -71,11 +71,13 @@ impl DiceTaskWorker {
                 // notify the future as done.
                 match worker.do_work(&handle).await {
                     Ok(res) => {
+                        debug!("{:?} finished. Notifying result", k);
                         handle.finished(res.value);
                     }
                     Err(Cancelled) => {
                         // we drop the current handle, leaving the original `DiceTask` as terminated
                         // state
+                        debug!("{:?} cancelled. Notifying cancellation", k);
                         drop(handle)
                     }
                 }
