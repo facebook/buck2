@@ -29,9 +29,7 @@ def cxx_populate_xcode_attributes(
 
     data = {
         "argsfiles_by_ext": {
-            # Enum types cannot be encoded by our JSON API.
-            # Use the str representation.
-            repr(ext).replace('\"', ""): artifact
+            ext: artifact
             for ext, artifact in argsfiles_by_ext.items()
         },
         "headers": _get_artifacts_with_owners(ctx.attrs.headers),
