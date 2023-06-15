@@ -12,6 +12,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
@@ -62,6 +63,8 @@ pub enum AnonTargetAttr {
     Dep(Box<DepAttr<ConfiguredProvidersLabel>>),
     // Accepts any bound artifacts. Maps to `attr.source()`.
     Artifact(Artifact),
+    // Accepts unresolved promise artifacts. Maps to `attr.source()`.
+    PromiseArtifact(StarlarkPromiseArtifact),
     Arg(ConfiguredStringWithMacros),
 }
 
@@ -95,6 +98,7 @@ impl AttrDisplayWithContext for AnonTargetAttr {
             AnonTargetAttr::Dep(e) => write!(f, "\"{}\"", e),
             AnonTargetAttr::Artifact(e) => write!(f, "\"{}\"", e),
             AnonTargetAttr::Arg(e) => write!(f, "\"{}\"", e),
+            AnonTargetAttr::PromiseArtifact(e) => write!(f, "\"{}\"", e),
         }
     }
 }
@@ -119,6 +123,7 @@ impl ToJsonWithContext for AnonTargetAttr {
             AnonTargetAttr::Dep(e) => Ok(to_value(e.to_string())?),
             AnonTargetAttr::Artifact(e) => Ok(to_value(e.to_string())?),
             AnonTargetAttr::Arg(e) => Ok(to_value(e.to_string())?),
+            AnonTargetAttr::PromiseArtifact(e) => Ok(to_value(e.to_string())?),
         }
     }
 }
@@ -165,6 +170,7 @@ impl AnonTargetAttr {
             AnonTargetAttr::Dep(dep) => traversal.dep(&dep.label),
             AnonTargetAttr::Artifact(_) => Ok(()),
             AnonTargetAttr::Arg(e) => e.string_with_macros.traverse(traversal),
+            AnonTargetAttr::PromiseArtifact(..) => Ok(()),
         }
     }
 

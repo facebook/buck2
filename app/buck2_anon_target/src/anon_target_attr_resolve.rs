@@ -92,6 +92,7 @@ impl AnonTargetAttrExt for AnonTargetAttr {
             AnonTargetAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
             AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.clone()))),
             AnonTargetAttr::Arg(a) => a.resolve(ctx),
+            AnonTargetAttr::PromiseArtifact(artifact) => Ok(ctx.heap().alloc(artifact.clone())),
         }
     }
 }

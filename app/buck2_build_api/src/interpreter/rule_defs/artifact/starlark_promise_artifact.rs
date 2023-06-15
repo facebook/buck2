@@ -62,7 +62,18 @@ enum PromiseArtifactError {
 ///
 /// The `StarlarkPromiseArtifact` is created with `ctx.actions.promise_artifact()` and will
 /// not have been bound until promises are resolved at the end of analysis.
-#[derive(Debug, NoSerialize, ProvidesStaticType, Trace, Allocative, Clone)]
+#[derive(
+    Debug,
+    NoSerialize,
+    ProvidesStaticType,
+    Trace,
+    Allocative,
+    Clone,
+    Hash,
+    Eq,
+    PartialEq
+)]
+
 pub struct StarlarkPromiseArtifact {
     declaration_location: Option<FileSpan>,
     artifact: PromiseArtifact,
@@ -93,7 +104,7 @@ impl StarlarkPromiseArtifact {
         }
     }
 
-    fn as_artifact(&self) -> ArtifactGroup {
+    pub fn as_artifact(&self) -> ArtifactGroup {
         match self.artifact.get() {
             Some(artifact) => ArtifactGroup::Artifact(artifact.dupe()),
             None => ArtifactGroup::Promise(self.artifact.dupe()),
