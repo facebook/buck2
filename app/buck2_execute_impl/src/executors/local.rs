@@ -360,7 +360,6 @@ impl LocalExecutor {
                     StrOrOsStr::from(build_id),
                 )))
         };
-
         let liveliness_observer = manager.liveliness_observer.dupe().and(cancellation);
 
         let (worker, manager) = self.initialize_worker(request, manager).await?;
@@ -582,9 +581,12 @@ impl LocalExecutor {
             CommandExecutionManagerWithClaim,
         ),
     > {
-        if let (Some(worker_spec), Some(worker_pool), true) =
-            (request.worker(), self.worker_pool.dupe(), cfg!(unix))
-        {
+        if let (Some(worker_spec), Some(worker_pool), Some(forkserver), true) = (
+            request.worker(),
+            self.worker_pool.dupe(),
+            self.forkserver.dupe(),
+            cfg!(unix),
+        ) {
             match executor_stage_async(
                 {
                     let stage = buck2_data::InitializeWorker {
@@ -611,7 +613,7 @@ impl LocalExecutor {
                         .iter()
                         .map(|(k, v)| (OsString::from(k), OsString::from(v)));
                     worker_pool
-                        .get_or_create_worker(worker_spec, env, &self.root)
+                        .get_or_create_worker(worker_spec, env, &self.root, forkserver.clone())
                         .await
                 },
             )

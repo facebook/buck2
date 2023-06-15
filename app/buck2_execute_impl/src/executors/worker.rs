@@ -8,16 +8,14 @@
  */
 
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::ffi::OsString;
-use std::fs::File;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context;
 use buck2_common::client_utils::get_channel_uds;
 use buck2_common::client_utils::retrying;
-use buck2_common::client_utils::RetryError;
+use buck2_common::liveliness_observer::LivelinessGuard;
+use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
@@ -31,29 +29,23 @@ use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
-use buck2_forkserver::run::maybe_absolutize_exe;
-use buck2_forkserver::run::prepare_command;
-use buck2_forkserver::run::status_decoder::default_decode_exit_code;
+use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::GatherOutputStatus;
-use buck2_util::process::background_command;
 use buck2_worker_proto::execute_command::EnvironmentEntry;
 use buck2_worker_proto::worker_client::WorkerClient;
 use buck2_worker_proto::ExecuteCommand;
 use buck2_worker_proto::ExecuteResponse;
-use futures::future::FutureExt;
 use indexmap::IndexMap;
-use tokio::process::Child;
+use tokio::task::JoinHandle;
 use tonic::transport::Channel;
-
-use crate::executors::local::apply_local_execution_environment;
 
 #[derive(thiserror::Error, Debug)]
 pub enum WorkerInitError {
     #[error("Worker failed to spawn: {0}")]
-    SpawnFailed(anyhow::Error),
+    SpawnFailed(String),
     #[error("Worker exited before connecting")]
     EarlyExit {
-        exit_code: i32,
+        exit_code: Option<i32>,
         stdout: String,
         stderr: String,
     },
@@ -92,7 +84,7 @@ impl WorkerInitError {
                     execution_kind,
                     IndexMap::default(),
                     std_streams,
-                    Some(exit_code),
+                    exit_code,
                     CommandExecutionMetadata::default(),
                 )
             }
@@ -113,35 +105,59 @@ impl WorkerInitError {
     }
 }
 
-async fn exec_spawn(
-    exe: &str,
-    args: impl IntoIterator<Item = impl AsRef<OsStr> + Send> + Send,
-    env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
-    root: &AbsNormPathBuf,
+#[cfg(unix)]
+fn spawn_via_forkserver(
+    forkserver: ForkserverClient,
+    exe: OsString,
+    args: Vec<OsString>,
+    env: Vec<(OsString, OsString)>,
+    working_directory: AbsNormPathBuf,
+    liveliness_observer: impl LivelinessObserver + 'static,
     stdout_path: &AbsNormPathBuf,
     stderr_path: &AbsNormPathBuf,
-) -> Result<Child, WorkerInitError> {
-    // TODO(ctolliday) spawn using forkserver T153604128
-    let exe = maybe_absolutize_exe(exe, root).map_err(WorkerInitError::InternalError)?;
+) -> JoinHandle<anyhow::Result<GatherOutputStatus>> {
+    use std::os::unix::ffi::OsStrExt;
 
-    let mut cmd = background_command(exe.as_ref());
-    cmd.current_dir(root);
-    cmd.args(args);
-    apply_local_execution_environment(&mut cmd, root, env, None);
+    use crate::executors::local::apply_local_execution_environment;
 
-    let mut cmd: tokio::process::Command = prepare_command(cmd);
-    let stdout: File = File::create(stdout_path)
-        .with_context(|| format!("Failed to create worker log file at {}", stdout_path))
-        .map_err(WorkerInitError::InternalError)?;
-    let stderr: File = File::create(stderr_path)
-        .with_context(|| format!("Failed to create worker log file at {}", stderr_path))
-        .map_err(WorkerInitError::InternalError)?;
-    cmd.stdout(stdout);
-    cmd.stderr(stderr);
-    match cmd.spawn() {
-        Ok(child) => Ok(child),
-        Err(e) => Err(WorkerInitError::SpawnFailed(e.into())),
-    }
+    let stdout_path = stdout_path.clone();
+    let stderr_path = stderr_path.clone();
+
+    tokio::spawn(async move {
+        let mut req = buck2_forkserver_proto::CommandRequest {
+            exe: exe.as_bytes().into(),
+            argv: args.into_iter().map(|s| s.as_bytes().into()).collect(),
+            cwd: Some(buck2_forkserver_proto::WorkingDirectory {
+                path: working_directory.as_path().as_os_str().as_bytes().into(),
+            }),
+            env: vec![],
+            timeout: None,
+            enable_miniperf: false,
+            std_redirects: Some(buck2_forkserver_proto::command_request::StdRedirectPaths {
+                stdout: stdout_path.as_os_str().as_bytes().into(),
+                stderr: stderr_path.as_os_str().as_bytes().into(),
+            }),
+        };
+        apply_local_execution_environment(&mut req, &working_directory, env, None);
+        forkserver
+            .execute(req, async move { liveliness_observer.while_alive().await })
+            .await
+            .map(|(status, _, _)| status)
+    })
+}
+
+#[cfg(not(unix))]
+fn spawn_via_forkserver(
+    _forkserver: ForkserverClient,
+    _exe: OsString,
+    _args: Vec<OsString>,
+    _env: Vec<(OsString, OsString)>,
+    _working_directory: AbsNormPathBuf,
+    _liveliness_observer: impl LivelinessObserver + 'static,
+    _stdout_path: &AbsNormPathBuf,
+    _stderr_path: &AbsNormPathBuf,
+) -> JoinHandle<anyhow::Result<GatherOutputStatus>> {
+    unreachable!("workers should not be initialized off unix")
 }
 
 async fn spawn_worker(
@@ -149,6 +165,7 @@ async fn spawn_worker(
     env: impl IntoIterator<Item = (OsString, OsString)>,
     worker: &WorkerSpec,
     root: &AbsNormPathBuf,
+    forkserver: ForkserverClient,
 ) -> Result<(WorkerCommandHandle, WorkerCleanupHandle), WorkerInitError> {
     let dispatcher = get_dispatcher_opt().ok_or(WorkerInitError::InternalError(
         anyhow::anyhow!("No dispatcher"),
@@ -182,64 +199,68 @@ async fn spawn_worker(
         .map(|(k, v)| (OsString::from(k), OsString::from(v)));
     let env: Vec<(OsString, OsString)> = env.into_iter().chain(worker_env).collect();
 
-    let mut child = exec_spawn(&args[0], &args[1..], env, root, &stdout_path, &stderr_path).await?;
+    let (liveliness_observer, liveliness_guard) = LivelinessGuard::create();
+
+    let spawn_fut = spawn_via_forkserver(
+        forkserver,
+        OsString::from(args[0].clone()),
+        args[1..].iter().map(OsString::from).collect(),
+        env.clone(),
+        root.clone(),
+        liveliness_observer,
+        &stdout_path,
+        &stderr_path,
+    );
+
     let initial_delay = Duration::from_millis(50);
     let max_delay = Duration::from_millis(500);
     let timeout = Duration::from_secs(5);
     // TODO(ctolliday) add a span
     let channel = {
-        let child = &mut child;
         let stdout_path = &stdout_path;
         let stderr_path = &stderr_path;
         let socket_path = &socket_path;
 
-        let mut check_exit = move || -> Result<(), WorkerInitError> {
-            if let Some(exit_status) = child
-                .try_wait()
+        let connect = retrying(initial_delay, max_delay, timeout, move || {
+            // TODO(ctolliday) T153604304
+            // add handshake over grpc before returning a handle, to make sure the worker is responding
+            get_channel_uds(socket_path, false)
+        });
+
+        let check_exit = async move {
+            spawn_fut
+                .await
                 .map_err(|e| WorkerInitError::InternalError(e.into()))?
-            {
-                let stdout =
-                    fs_util::read_to_string(stdout_path).map_err(WorkerInitError::InternalError)?;
-                let stderr =
-                    fs_util::read_to_string(stderr_path).map_err(WorkerInitError::InternalError)?;
-                return Err(WorkerInitError::EarlyExit {
-                    exit_code: default_decode_exit_code(exit_status),
-                    stdout,
-                    stderr,
-                });
-            }
-
-            Ok(())
         };
+        futures::pin_mut!(connect);
+        futures::pin_mut!(check_exit);
 
-        let check_exit = &mut check_exit;
-
-        match retrying(initial_delay, max_delay, timeout, move || {
-            if let Err(e) = check_exit() {
-                futures::future::ready(Err(e)).left_future()
-            } else {
-                // TODO(ctolliday) T153604304
-                // add handshake over grpc before returning a handle, to make sure the worker is responding
-                async move {
-                    get_channel_uds(socket_path, false).await.map_err(|e| {
-                        WorkerInitError::ConnectionTimeout(timeout.as_secs_f64(), e.to_string())
-                    })
-                }
-                .right_future()
-            }
-        })
-        .await
-        {
-            Ok(channel) => Ok(channel),
-            Err(e) => {
-                if let RetryError::Failed { last_error, .. } = e {
-                    return Err(last_error);
-                }
-                Err(WorkerInitError::ConnectionTimeout(
+        match futures::future::select(connect, check_exit).await {
+            futures::future::Either::Left((connection_result, _)) => match connection_result {
+                Ok(channel) => Ok(channel),
+                Err(e) => Err(WorkerInitError::ConnectionTimeout(
                     timeout.as_secs_f64(),
-                    "Timed out without error.".to_owned(),
-                ))
-            }
+                    e.to_string(),
+                )),
+            },
+            futures::future::Either::Right((command_result, _)) => Err(match command_result {
+                Ok(GatherOutputStatus::SpawnFailed(e)) => WorkerInitError::SpawnFailed(e),
+                Ok(GatherOutputStatus::Finished { exit_code, .. }) => {
+                    let stdout = fs_util::read_to_string(stdout_path)
+                        .map_err(WorkerInitError::InternalError)?;
+                    let stderr = fs_util::read_to_string(stderr_path)
+                        .map_err(WorkerInitError::InternalError)?;
+                    WorkerInitError::EarlyExit {
+                        exit_code: Some(exit_code),
+                        stdout,
+                        stderr,
+                    }
+                }
+                Ok(GatherOutputStatus::Cancelled | GatherOutputStatus::TimedOut(_)) => {
+                    WorkerInitError::InternalError(anyhow::anyhow!("Worker cancelled by buck"))
+                }
+                Err(e) => WorkerInitError::InternalError(e),
+            }),
         }?
     };
 
@@ -251,7 +272,10 @@ async fn spawn_worker(
             stdout_path,
             stderr_path,
         },
-        WorkerCleanupHandle { child, socket_path },
+        WorkerCleanupHandle {
+            socket_path,
+            _liveliness_guard: liveliness_guard,
+        },
     ))
 }
 
@@ -263,16 +287,11 @@ pub struct WorkerPool {
 impl Drop for WorkerPool {
     fn drop(&mut self) {
         tracing::info!("Dropping WorkerPool");
+        // Liveliness guards in handles being dropped should trigger worker process to be killed.
         let cleanup_handles: Vec<WorkerCleanupHandle> = self.cleanup.lock().drain(..).collect();
         tokio::spawn({
             async move {
-                for WorkerCleanupHandle {
-                    mut child,
-                    socket_path,
-                } in cleanup_handles
-                {
-                    tracing::info!("Killing worker {:?} {}", child, socket_path);
-                    let _unused = child.kill().await;
+                for WorkerCleanupHandle { socket_path, .. } in cleanup_handles {
                     let _unused = fs_util::remove_file(&socket_path);
                 }
             }
@@ -294,6 +313,7 @@ impl WorkerPool {
         worker_spec: &WorkerSpec,
         env: impl IntoIterator<Item = (OsString, OsString)>,
         root: &AbsNormPathBuf,
+        forkserver: ForkserverClient,
     ) -> Result<Arc<WorkerCommandHandle>, WorkerInitError> {
         let mut workers = self.workers.lock().await;
         if let Some(worker_handle) = workers.get(&worker_spec.id) {
@@ -302,7 +322,7 @@ impl WorkerPool {
             // TODO(ctolliday) keep track of workers that fail to start and don't try to spawn them again
             // TODO(ctolliday) do not lock the entire workers map while spawning/connecting
             let (worker_handle, cleanup_handle) =
-                spawn_worker(&worker_spec.exe, env, worker_spec, root).await?;
+                spawn_worker(&worker_spec.exe, env, worker_spec, root, forkserver).await?;
             let worker_handle = Arc::new(worker_handle);
             workers.insert(worker_spec.id, worker_handle.clone());
             self.cleanup.lock().push(cleanup_handle);
@@ -318,8 +338,8 @@ pub struct WorkerCommandHandle {
 }
 
 pub struct WorkerCleanupHandle {
-    child: Child,
     socket_path: AbsNormPathBuf,
+    _liveliness_guard: LivelinessGuard,
 }
 
 #[cfg(unix)]
