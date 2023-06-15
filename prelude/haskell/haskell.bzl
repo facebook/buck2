@@ -337,6 +337,63 @@ def merge_haskell_link_infos(deps: [HaskellLinkInfo.type]) -> HaskellLinkInfo.ty
 
     return HaskellLinkInfo(info = merged)
 
+PackagesInfo = record(
+    exposed_package_args = "cmd_args",
+    packagedb_args = "cmd_args",
+    transitive_deps = field([HaskellLibraryInfo.type]),
+)
+
+def get_packages_info(
+        ctx: "context",
+        link_style: LinkStyle.type,
+        specify_pkg_version: bool.type) -> PackagesInfo.type:
+    # Collect library dependencies. Note that these don't need to be in a
+    # particular order and we really want to remove duplicates (there
+    # are a *lot* of duplicates).
+    libs = {}
+    transitive_deps = []
+    direct_deps_link_info = _attr_deps_haskell_link_infos(ctx)
+    for lib in merge_haskell_link_infos(direct_deps_link_info).info[link_style]:
+        libs[lib.db] = lib  # lib.db is a good enough unique key
+        transitive_deps.append(lib)
+
+    # base is special and gets exposed by default
+    exposed_package_args = cmd_args(["-expose-package", "base"])
+    packagedb_args = cmd_args()
+
+    for lib in libs.values():
+        exposed_package_args.hidden(lib.import_dirs)
+        exposed_package_args.hidden(lib.stub_dirs)
+
+        # libs of dependencies might be needed at compile time if
+        # we're using Template Haskell:
+        exposed_package_args.hidden(lib.libs)
+
+        packagedb_args.hidden(lib.import_dirs)
+        packagedb_args.hidden(lib.stub_dirs)
+        packagedb_args.hidden(lib.libs)
+
+    for lib in libs.values():
+        # These we need to add for all the packages/dependencies, i.e.
+        # direct and transitive (e.g. `fbcode-common-hs-util-hs-array`)
+        packagedb_args.add("-package-db", lib.db)
+
+    haskell_direct_deps_lib_infos = _attr_deps_haskell_lib_infos(ctx, link_style)
+
+    # Expose only the packages we depend on directly
+    for lib in haskell_direct_deps_lib_infos:
+        pkg_name = lib.name
+        if (specify_pkg_version):
+            pkg_name += "-{}".format(lib.version)
+
+        exposed_package_args.add("-expose-package", pkg_name)
+
+    return PackagesInfo(
+        exposed_package_args = exposed_package_args,
+        packagedb_args = packagedb_args,
+        transitive_deps = libs.values(),
+    )
+
 # The type of the return value of the `_compile()` function.
 CompileResultInfo = record(
     objects = field("artifact"),
@@ -420,28 +477,15 @@ def _compile(
     )
 
     # Add -package-db and -expose-package flags for each Haskell
-    # library dependency. Note that these don't need to be in a
-    # particular order and we really want to remove duplicates (there
-    # are a *lot* of duplicates).
-    libs = {}
-    for lib in merge_haskell_link_infos(_attr_deps_haskell_link_infos(ctx)).info[link_style]:
-        libs[lib.db] = lib  # lib.db is a good enough unique key
-    for lib in libs.values():
-        compile_args.hidden(lib.import_dirs)
-        compile_args.hidden(lib.stub_dirs)
+    # library dependency.
+    packages_info = get_packages_info(
+        ctx,
+        link_style,
+        specify_pkg_version = False,
+    )
 
-        # libs of dependencies might be needed at compile time if
-        # we're using Template Haskell:
-        compile_args.hidden(lib.libs)
-    for db in libs:
-        compile_args.add("-package-db", db)
-
-    # Expose only the packages we depend on directly
-    for lib in _attr_deps_haskell_lib_infos(ctx, link_style):
-        compile_args.add("-expose-package", lib.name)
-
-    # base is special and gets exposed by default
-    compile_args.add("-expose-package", "base")
+    compile_args.add(packages_info.exposed_package_args)
+    compile_args.add(packages_info.packagedb_args)
 
     # Add args from preprocess-able inputs.
     inherited_pre = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
