@@ -1,4 +1,4 @@
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//http_archive/exec_deps.bzl", "HttpArchiveExecDeps")
 load(":releases.bzl", "releases")
 
 ProtocReleaseInfo = provider(fields = [
@@ -50,16 +50,13 @@ def _download_protoc_distribution_impl(ctx: "context") -> "promise":
     protoc_filename = "bin/protoc" + ctx.attrs.exe_extension
 
     return ctx.actions.anon_target(native.http_archive, {
+        "exec_deps": ctx.attrs._http_archive_exec_deps,
         "sha256": ctx.attrs.sha256,
         "sub_targets": [
             protoc_filename,
             "include",
         ],
         "urls": [ctx.attrs.url],
-        # Anon target hacks.
-        "_create_exclusion_list": [],
-        "_exec_os_type": [],
-        "_override_exec_platform_name": ctx.attrs._exec_os_type[OsLookup].platform,
     }).map(lambda providers: _turn_http_archive_into_protoc_distribution(
         providers = providers,
         protoc_filename = protoc_filename,
@@ -71,7 +68,7 @@ download_protoc_distribution = rule(
         "exe_extension": attrs.string(),
         "sha256": attrs.string(),
         "url": attrs.string(),
-        "_exec_os_type": attrs.default_only(attrs.exec_dep(default = "prelude//os_lookup/targets:os_lookup")),
+        "_http_archive_exec_deps": attrs.default_only(attrs.dep(providers = [HttpArchiveExecDeps], default = "prelude//http_archive/tools:exec_deps")),
     },
 )
 
