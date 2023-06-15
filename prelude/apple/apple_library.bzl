@@ -19,7 +19,11 @@ load(
     "uses_explicit_modules",
 )
 load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
-load("@prelude//cxx:argsfiles.bzl", "CompileArgsfiles")
+load(
+    "@prelude//cxx:argsfiles.bzl",
+    "CompileArgsfile",  # @unused Used as a type
+    "CompileArgsfiles",
+)
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
@@ -237,7 +241,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         strip_executable = ctx.attrs.stripped,
         strip_args_factory = apple_strip_args,
         force_link_group_linking = params.force_link_group_linking,
-        cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, swift_argsfile = swift_argsfile, populate_xcode_attributes_func = params.populate_xcode_attributes_func, **kwargs),
+        cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, _swift_argsfile = swift_argsfile, populate_xcode_attributes_func = params.populate_xcode_attributes_func, **kwargs),
         generate_sub_targets = params.generate_sub_targets,
         generate_providers = params.generate_providers,
         # Some apple rules rely on `static` libs *not* following dependents.
@@ -315,12 +319,9 @@ def _get_linker_flags(ctx: "context") -> "cmd_args":
 def _xcode_populate_attributes(
         ctx,
         srcs: ["CxxSrcWithFlags"],
-        argsfiles_by_ext: {str.type: "artifact"},
-        swift_argsfile: [CxxAdditionalArgsfileParams.type, None],
+        argsfiles: {str.type: CompileArgsfile.type},
+        _swift_argsfile: [CxxAdditionalArgsfileParams.type, None],
         populate_xcode_attributes_func: "function",
         **_kwargs) -> {str.type: ""}:
-    if swift_argsfile:
-        argsfiles_by_ext[swift_argsfile.extension] = swift_argsfile.file
-
-    data = populate_xcode_attributes_func(ctx, srcs = srcs, argsfiles_by_ext = argsfiles_by_ext, product_name = ctx.attrs.name)
+    data = populate_xcode_attributes_func(ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     return data

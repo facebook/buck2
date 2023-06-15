@@ -10,6 +10,10 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 # @oss-disable: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "apple_test_re_capabilities") 
 load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets", "uses_explicit_modules")
 load(
+    "@prelude//cxx:argsfiles.bzl",
+    "CompileArgsfile",  # @unused Used as a type
+)
+load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
@@ -211,11 +215,11 @@ def _get_bundle_loader_flags(binary: ["cmd_args", None]) -> [""]:
 def _xcode_populate_attributes(
         ctx: "context",
         srcs: [CxxSrcWithFlags.type],
-        argsfiles_by_ext: {str.type: "artifact"},
+        argsfiles: {str.type: CompileArgsfile.type},
         xctest_bundle: "artifact",
         test_host_app_binary: ["cmd_args", None],
         **_kwargs) -> {str.type: ""}:
-    data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles_by_ext = argsfiles_by_ext, product_name = ctx.attrs.name)
+    data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     data["output"] = xctest_bundle
     if test_host_app_binary:
         data["test_host_app_binary"] = test_host_app_binary
