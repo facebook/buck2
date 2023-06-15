@@ -147,6 +147,10 @@ HaskellLibraryInfo = record(
     # at compile time.  The real library flags are propagated up the
     # dependency graph via MergedLinkInfo.
     libs = field(["artifact"], []),
+    # Package version, used to specify the full package when exposing it,
+    # e.g. filepath-1.4.2.1, deepseq-1.4.4.0.
+    # Internal packages default to 1.0.0, e.g. `fbcode-dsi-logger-hs-types-1.0.0`.
+    version = str.type,
 )
 
 # --
@@ -247,6 +251,7 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
             stub_dirs = [],
             id = ctx.attrs.id,
             libs = libs,
+            version = ctx.attrs.version,
         )
 
         def archive_linkable(lib):
@@ -660,6 +665,7 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
             import_dirs = [compiled.hi],
             stub_dirs = [compiled.stubs],
             libs = libs,
+            version = "1.0.0",
         )
         hlib_infos[link_style] = hlib
         hlink_infos[link_style] = [hlib]
