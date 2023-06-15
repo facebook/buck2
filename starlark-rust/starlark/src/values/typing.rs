@@ -86,7 +86,7 @@ trait TypeCompiledImpl<'v>: Allocative + Display + Debug + 'v {
     fn to_frozen(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue>;
 }
 
-unsafe impl<'v> ProvidesStaticType for &'v dyn TypeCompiledImpl<'v> {
+unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn TypeCompiledImpl<'v> {
     type StaticType = &'static dyn TypeCompiledImpl<'static>;
 }
 
@@ -105,7 +105,7 @@ where
 impl<'v, T> StarlarkValue<'v> for TypeCompiledImplAsStarlarkValue<T>
 where
     T: TypeCompiledImpl<'v> + Hash + Eq,
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("eval_type");
 
@@ -584,7 +584,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
         impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsListOf<V>
         where
-            Self: ProvidesStaticType,
+            Self: ProvidesStaticType<'v>,
         {
             fn matches(&self, value: Value<'v>) -> bool {
                 match ListRef::from_value(value) {
@@ -642,7 +642,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
         impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsAnyOfTwo<V>
         where
-            Self: ProvidesStaticType,
+            Self: ProvidesStaticType<'v>,
         {
             fn matches(&self, value: Value<'v>) -> bool {
                 self.0.matches(value) || self.1.matches(value)
@@ -696,7 +696,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
         impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsAnyOf<V>
         where
-            Self: ProvidesStaticType,
+            Self: ProvidesStaticType<'v>,
         {
             fn matches(&self, value: Value<'v>) -> bool {
                 self.0.iter().any(|t| t.matches(value))
@@ -751,7 +751,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
         impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsDictOf<V>
         where
-            Self: ProvidesStaticType,
+            Self: ProvidesStaticType<'v>,
         {
             fn matches(&self, value: Value<'v>) -> bool {
                 match DictRef::from_value(value) {
@@ -812,7 +812,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
         impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsTupleOf<V>
         where
-            Self: ProvidesStaticType,
+            Self: ProvidesStaticType<'v>,
         {
             fn matches(&self, value: Value<'v>) -> bool {
                 match Tuple::from_value(value) {

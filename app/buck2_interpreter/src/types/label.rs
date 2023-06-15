@@ -86,7 +86,7 @@ impl Label {
 
 impl<'v> StarlarkValue<'v> for Label
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("label");
 
@@ -207,7 +207,7 @@ impl StarlarkProvidersLabel {
 
 impl<'v> StarlarkValue<'v> for StarlarkProvidersLabel
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("providers_label");
 

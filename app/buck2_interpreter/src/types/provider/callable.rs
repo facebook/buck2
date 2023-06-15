@@ -137,7 +137,7 @@ pub trait ProviderCallableLike {
     }
 }
 
-unsafe impl<'v> ProvidesStaticType for &'v dyn ProviderCallableLike {
+unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn ProviderCallableLike {
     type StaticType = &'static dyn ProviderCallableLike;
 }
 

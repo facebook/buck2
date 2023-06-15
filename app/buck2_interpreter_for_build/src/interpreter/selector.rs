@@ -214,7 +214,7 @@ impl StarlarkSelectorBase<'_> for FrozenStarlarkSelector {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkSelectorGen<V>
 where
-    Self: ProvidesStaticType + StarlarkSelectorBase<'v, Item = V>,
+    Self: ProvidesStaticType<'v> + StarlarkSelectorBase<'v, Item = V>,
 {
     starlark_type!("selector");
 

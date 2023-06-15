@@ -67,7 +67,7 @@ starlark_complex_value!(pub TaggedValue);
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TaggedValueGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("tagged_value");
 }

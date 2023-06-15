@@ -84,7 +84,7 @@ use crate::values::ValueError;
 /// starlark_complex_value!(One);
 ///
 /// impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for OneGen<V>
-///     where Self: ProvidesStaticType
+///     where Self: ProvidesStaticType<'v>,
 /// {
 ///     starlark_type!("one");
 ///
@@ -209,7 +209,7 @@ where
 /// any implementations other than the default implementation will not be run.
 #[starlark_internal_vtable]
 pub trait StarlarkValue<'v>:
-    'v + ProvidesStaticType + Allocative + Debug + Display + Serialize + Sized
+    'v + ProvidesStaticType<'v> + Allocative + Debug + Display + Serialize + Sized
 {
     /// Return a string describing the type of self, as returned by the type()
     /// function.

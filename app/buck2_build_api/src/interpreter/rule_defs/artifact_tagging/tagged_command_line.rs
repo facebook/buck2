@@ -56,7 +56,7 @@ starlark_complex_value!(pub TaggedCommandLine);
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TaggedCommandLineGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("tagged_command_line");
 

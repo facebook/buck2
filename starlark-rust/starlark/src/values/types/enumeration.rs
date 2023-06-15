@@ -215,7 +215,7 @@ where
 
 impl<'v, Typ: Allocative + 'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for EnumTypeGen<V, Typ>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
     Typ: ExportedName,
     Value<'v>: Equivalent<V>,
 {
@@ -322,7 +322,7 @@ fn enum_type_methods(builder: &mut MethodsBuilder) {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for EnumValueGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!(EnumValue::TYPE);
 

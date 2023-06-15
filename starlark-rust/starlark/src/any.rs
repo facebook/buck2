@@ -32,7 +32,7 @@ pub use starlark_derive::ProvidesStaticType;
 /// (including lifetimes of parameters).
 ///
 /// This type is usually implemented with `#[derive(ProvidesStaticType)]`.
-pub unsafe trait ProvidesStaticType {
+pub unsafe trait ProvidesStaticType<'a> {
     /// Same type as `Self` but with lifetimes dropped to `'static`.
     ///
     /// The trait is unsafe because if this is implemented incorrectly,
@@ -45,7 +45,7 @@ pub unsafe trait ProvidesStaticType {
 /// Note `ProvidesStaticType` and `AnyLifetime` cannot be the same type,
 /// because `AnyLifetime` need to be object safe,
 /// and `ProvidesStaticType` has type member.
-unsafe impl<'a, T: ProvidesStaticType + 'a + ?Sized> AnyLifetime<'a> for T {
+unsafe impl<'a, T: ProvidesStaticType<'a> + 'a + ?Sized> AnyLifetime<'a> for T {
     fn static_type_id() -> TypeId
     where
         Self: Sized,
@@ -85,9 +85,9 @@ unsafe impl<'a, T: ProvidesStaticType + 'a + ?Sized> AnyLifetime<'a> for T {
 /// # use std::fmt::Display;
 /// struct Baz<T: Display>(T);
 /// # // TODO: `#[derive(ProvidesStaticType)]` should learn to handle this case too.
-/// unsafe impl<T> ProvidesStaticType for Baz<T>
+/// unsafe impl<'a, T> ProvidesStaticType<'a> for Baz<T>
 ///     where
-///         T: ProvidesStaticType + Display,
+///         T: ProvidesStaticType<'a> + Display,
 ///         T::StaticType: Display + Sized,
 /// {
 ///     type StaticType = Baz<T::StaticType>;
@@ -139,7 +139,7 @@ impl<'a> dyn AnyLifetime<'a> {
 
 macro_rules! any_lifetime {
     ( $t:ty ) => {
-        unsafe impl $crate::any::ProvidesStaticType for $t {
+        unsafe impl<'a> $crate::any::ProvidesStaticType<'a> for $t {
             type StaticType = $t;
         }
     };
@@ -167,80 +167,80 @@ any_lifetime!(f64);
 any_lifetime!(String);
 any_lifetime!(str);
 
-unsafe impl<'a, T: ProvidesStaticType + ?Sized> ProvidesStaticType for &'a T {
+unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for &'a T {
     type StaticType = &'static T::StaticType;
 }
-unsafe impl<'a, T: ProvidesStaticType + ?Sized> ProvidesStaticType for &'a mut T {
+unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for &'a mut T {
     type StaticType = &'static mut T::StaticType;
 }
-unsafe impl<T: ProvidesStaticType + ?Sized> ProvidesStaticType for *const T {
+unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for *const T {
     type StaticType = *const T::StaticType;
 }
-unsafe impl<T: ProvidesStaticType + ?Sized> ProvidesStaticType for *mut T {
+unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for *mut T {
     type StaticType = *mut T::StaticType;
 }
-unsafe impl<T> ProvidesStaticType for [T]
+unsafe impl<'a, T> ProvidesStaticType<'a> for [T]
 where
-    T: ProvidesStaticType,
+    T: ProvidesStaticType<'a>,
     T::StaticType: Sized,
 {
     type StaticType = [T::StaticType];
 }
-unsafe impl<T: ProvidesStaticType + ?Sized> ProvidesStaticType for Box<T> {
+unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for Box<T> {
     type StaticType = Box<T::StaticType>;
 }
-unsafe impl<T: ProvidesStaticType + ?Sized> ProvidesStaticType for Rc<T> {
+unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for Rc<T> {
     type StaticType = Rc<T::StaticType>;
 }
-unsafe impl<T: ProvidesStaticType + ?Sized> ProvidesStaticType for Arc<T> {
+unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for Arc<T> {
     type StaticType = Arc<T::StaticType>;
 }
-unsafe impl<T: ProvidesStaticType> ProvidesStaticType for Cell<T> {
+unsafe impl<'a, T: ProvidesStaticType<'a>> ProvidesStaticType<'a> for Cell<T> {
     type StaticType = Cell<T::StaticType>;
 }
-unsafe impl<T: ProvidesStaticType> ProvidesStaticType for UnsafeCell<T> {
+unsafe impl<'a, T: ProvidesStaticType<'a>> ProvidesStaticType<'a> for UnsafeCell<T> {
     type StaticType = UnsafeCell<T::StaticType>;
 }
-unsafe impl<T: ProvidesStaticType> ProvidesStaticType for RefCell<T> {
+unsafe impl<'a, T: ProvidesStaticType<'a>> ProvidesStaticType<'a> for RefCell<T> {
     type StaticType = RefCell<T::StaticType>;
 }
-unsafe impl<T> ProvidesStaticType for Option<T>
+unsafe impl<'a, T> ProvidesStaticType<'a> for Option<T>
 where
-    T: ProvidesStaticType,
+    T: ProvidesStaticType<'a>,
     T::StaticType: Sized,
 {
     type StaticType = Option<T::StaticType>;
 }
-unsafe impl<T, E> ProvidesStaticType for Result<T, E>
+unsafe impl<'a, T, E> ProvidesStaticType<'a> for Result<T, E>
 where
-    T: ProvidesStaticType,
+    T: ProvidesStaticType<'a>,
     T::StaticType: Sized,
-    E: ProvidesStaticType,
+    E: ProvidesStaticType<'a>,
     E::StaticType: Sized,
 {
     type StaticType = Result<T::StaticType, E::StaticType>;
 }
-unsafe impl<T> ProvidesStaticType for Vec<T>
+unsafe impl<'a, T> ProvidesStaticType<'a> for Vec<T>
 where
-    T: ProvidesStaticType,
+    T: ProvidesStaticType<'a>,
     T::StaticType: Sized,
 {
     type StaticType = Vec<T::StaticType>;
 }
-unsafe impl<K, V> ProvidesStaticType for HashMap<K, V>
+unsafe impl<'a, K, V> ProvidesStaticType<'a> for HashMap<K, V>
 where
-    K: ProvidesStaticType,
+    K: ProvidesStaticType<'a>,
     K::StaticType: Sized,
-    V: ProvidesStaticType,
+    V: ProvidesStaticType<'a>,
     V::StaticType: Sized,
 {
     type StaticType = HashMap<K::StaticType, V::StaticType>;
 }
-unsafe impl<K, V> ProvidesStaticType for BTreeMap<K, V>
+unsafe impl<'a, K, V> ProvidesStaticType<'a> for BTreeMap<K, V>
 where
-    K: ProvidesStaticType,
+    K: ProvidesStaticType<'a>,
     K::StaticType: Sized,
-    V: ProvidesStaticType,
+    V: ProvidesStaticType<'a>,
     V::StaticType: Sized,
 {
     type StaticType = BTreeMap<K::StaticType, V::StaticType>;
@@ -303,10 +303,6 @@ mod tests {
         test::<Bbb>(TypeId::of::<Bbb<'static>>());
 
         #[derive(ProvidesStaticType)]
-        struct Bbb2<'a, 'b>(&'a str, &'b str);
-        test::<Bbb2>(TypeId::of::<Bbb2<'static, 'static>>());
-
-        #[derive(ProvidesStaticType)]
         struct Ccc<X>(X);
         test::<Ccc<String>>(TypeId::of::<Ccc<String>>());
 
@@ -333,28 +329,5 @@ mod tests {
 
         #[derive(ProvidesStaticType)]
         struct FooBar<'x, P: My<'x>>(&'x P);
-    }
-
-    #[test]
-    fn test_any_lifetime_unsound() {
-        fn _use_after_free(s: &mut &str) {
-            let ss = (s as &mut dyn AnyLifetime).downcast_mut().unwrap();
-            // We allocate a string here, but do not store it anywhere, so it is dropped.
-            // But the pointer to it is available in `s` at call site.
-            // This is use after free.
-            *ss = &".".repeat(40);
-        }
-
-        fn extend_lifetime<'a>(s: &'a str) -> &'static str {
-            // All three of these are the exact same pointer
-            let r: &'_ &'a str = &s;
-            let r2: &'_ dyn AnyLifetime<'a> = r;
-            let r3: &'_ &'static str = r2.downcast_ref().unwrap();
-            #[allow(clippy::explicit_auto_deref)]
-            *r3
-        }
-
-        let s = ".".repeat(40);
-        assert!(std::ptr::eq(&s[..], extend_lifetime(&s)));
     }
 }

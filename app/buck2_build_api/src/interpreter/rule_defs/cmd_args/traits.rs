@@ -100,7 +100,7 @@ pub trait CommandLineArgLike {
     ) -> anyhow::Result<()>;
 }
 
-unsafe impl<'v> ProvidesStaticType for &'v dyn CommandLineArgLike {
+unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn CommandLineArgLike {
     type StaticType = &'static dyn CommandLineArgLike;
 }
 

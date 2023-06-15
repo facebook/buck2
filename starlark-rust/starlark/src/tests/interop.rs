@@ -75,7 +75,7 @@ fn test_export_as() {
 
     impl<'v, T: ExportedName> StarlarkValue<'v> for Exporter<T>
     where
-        Self: ProvidesStaticType,
+        Self: ProvidesStaticType<'v>,
     {
         starlark_type!("exporter");
 

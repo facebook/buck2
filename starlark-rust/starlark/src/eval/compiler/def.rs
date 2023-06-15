@@ -613,7 +613,7 @@ impl<'v> DefLike<'v> for DefGen<FrozenValue> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for DefGen<V>
 where
-    Self: ProvidesStaticType + DefLike<'v>,
+    Self: ProvidesStaticType<'v> + DefLike<'v>,
 {
     starlark_type!(FUNCTION_TYPE);
 

@@ -228,7 +228,7 @@ impl<'v, V: ValueLike<'v>> RecordGen<V> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for FieldGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("field");
 
@@ -255,8 +255,8 @@ impl<'v> Freeze for RecordType<'v> {
 
 impl<'v, Typ: Allocative + 'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for RecordTypeGen<V, Typ>
 where
-    Self: ProvidesStaticType,
-    FieldGen<V>: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
+    FieldGen<V>: ProvidesStaticType<'v>,
     Typ: ExportedName,
 {
     starlark_type!(FUNCTION_TYPE);
@@ -369,7 +369,7 @@ where
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for RecordGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!(Record::TYPE);
 

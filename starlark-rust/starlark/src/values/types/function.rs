@@ -387,7 +387,7 @@ impl<'v, V: ValueLike<'v>> BoundMethodGen<V> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for BoundMethodGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!(FUNCTION_TYPE);
 

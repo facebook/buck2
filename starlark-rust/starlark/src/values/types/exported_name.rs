@@ -87,7 +87,7 @@ impl<'a> Eq for BorrowedExportedName<'a> {}
 /// but it is completely optional when implementing
 /// [`StarlarkValue::export_as`](crate::values::StarlarkValue::export_as).
 pub trait ExportedName:
-    Debug + Display + Freeze<Frozen = FrozenExportedName> + Allocative + ProvidesStaticType + 'static
+    Debug + Display + Freeze<Frozen = FrozenExportedName> + Allocative + 'static
 {
     /// Borrow the name.
     fn borrow(&self) -> Option<BorrowedExportedName>;

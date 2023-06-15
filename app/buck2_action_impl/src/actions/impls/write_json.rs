@@ -244,7 +244,7 @@ starlark_complex_value!(pub(crate) WriteJsonCommandLineArg);
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for WriteJsonCommandLineArgGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("write_json_cli_args");
 

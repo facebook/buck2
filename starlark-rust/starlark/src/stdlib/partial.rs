@@ -138,7 +138,7 @@ impl<'v> Freeze for Partial<'v> {
 
 impl<'v, V: ValueLike<'v> + 'v, S: StringValueLike<'v> + 'v> StarlarkValue<'v> for PartialGen<V, S>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!(FUNCTION_TYPE);
 

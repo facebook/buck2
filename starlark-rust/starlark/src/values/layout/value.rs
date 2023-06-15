@@ -1065,7 +1065,7 @@ pub trait ValueLike<'v>:
     + CoerceKey<Value<'v>>
     + Freeze<Frozen = FrozenValue>
     + Allocative
-    + ProvidesStaticType
+    + ProvidesStaticType<'v>
     + Sealed
     + 'v
 {

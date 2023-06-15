@@ -180,7 +180,7 @@ starlark_complex_value!(pub TransitiveSetArgsProjection);
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetArgsProjectionGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("transitive_set_args_projection");
 

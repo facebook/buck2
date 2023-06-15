@@ -276,7 +276,7 @@ fn provider_collection_methods(builder: &mut MethodsBuilder) {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for ProviderCollectionGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("provider_collection");
 

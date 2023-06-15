@@ -148,7 +148,7 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
 where
-    Self: ProvidesStaticType + Display + CommandLineArgLike,
+    Self: ProvidesStaticType<'v> + Display + CommandLineArgLike,
 {
     starlark_type!("output_artifact");
 

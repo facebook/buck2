@@ -376,7 +376,7 @@ pub(crate) fn dict_methods() -> Option<&'static Methods> {
 
 impl<'v, T: DictLike<'v> + 'v> StarlarkValue<'v> for DictGen<T>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!(Dict::TYPE);
 

@@ -137,7 +137,7 @@ impl<'v, V: ValueLike<'v>> TupleGen<V> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TupleGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!(Tuple::TYPE);
 

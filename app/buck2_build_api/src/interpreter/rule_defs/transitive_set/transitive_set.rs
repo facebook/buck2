@@ -289,7 +289,7 @@ starlark_complex_value!(pub TransitiveSet);
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetGen<V>
 where
-    Self: ProvidesStaticType + TransitiveSetLike<'v>,
+    Self: ProvidesStaticType<'v> + TransitiveSetLike<'v>,
 {
     starlark_type!("transitive_set");
 

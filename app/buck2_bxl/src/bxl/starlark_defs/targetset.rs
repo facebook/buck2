@@ -37,7 +37,8 @@ pub trait NodeLike = QueryTarget + std::fmt::Debug + Eq + Dupe + AllocNode + All
 /// The StarlarkValue implementation for TargetSet to expose it to starlark.
 pub struct StarlarkTargetSet<Node: QueryTarget>(pub TargetSet<Node>);
 
-unsafe impl<Node: QueryTarget> ProvidesStaticType for StarlarkTargetSet<Node> {
+// TODO(nga): derive it.
+unsafe impl<'a, Node: QueryTarget + 'static> ProvidesStaticType<'a> for StarlarkTargetSet<Node> {
     type StaticType = Self;
 }
 

@@ -297,7 +297,7 @@ impl ProviderCodegen {
             impl<'v, V: starlark::values::ValueLike<'v> + 'v> starlark::values::StarlarkValue<'v>
                 for #gen_name<V>
             where
-                Self: starlark::any::ProvidesStaticType,
+                Self: starlark::any::ProvidesStaticType<'v>,
             {
                 starlark::starlark_type!(#name_str);
 

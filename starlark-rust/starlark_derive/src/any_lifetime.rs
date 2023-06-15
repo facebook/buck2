@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use proc_macro2::TokenStream;
 use quote::quote;
 use syn::punctuated::Punctuated;
 use syn::DeriveInput;
@@ -121,6 +122,28 @@ pub(crate) fn derive_provides_static_type(
     }
 }
 
+/// Single lifetime parameter for `ProvidesStaticType`
+fn pst_lifetime<'a>(
+    params: impl Iterator<Item = &'a syn::GenericParam>,
+) -> syn::Result<TokenStream> {
+    let mut lifetime = None;
+    for param in params {
+        if let syn::GenericParam::Lifetime(param) = param {
+            if lifetime.is_some() {
+                return Err(syn::Error::new_spanned(
+                    param,
+                    "only one lifetime parameter is supported",
+                ));
+            }
+            lifetime = Some(param);
+        }
+    }
+    Ok(match lifetime {
+        Some(lifetime) => quote! { #lifetime },
+        None => quote! { 'pst },
+    })
+}
+
 fn derive_provides_static_type_impl(
     input: proc_macro::TokenStream,
 ) -> syn::Result<proc_macro::TokenStream> {
@@ -128,6 +151,8 @@ fn derive_provides_static_type_impl(
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+    let lifetime = pst_lifetime(input.generics.params.iter())?;
 
     let mut lifetimes = Vec::new();
     let mut static_lifetimes = Vec::new();
@@ -169,7 +194,7 @@ fn derive_provides_static_type_impl(
                     static_type_params.push(quote! { #param_name});
                 } else {
                     type_param_bounds.push(quote! {
-                        #param_name : #(#param_bounds+)* starlark::any::ProvidesStaticType + Sized
+                        #param_name : #(#param_bounds+)* starlark::any::ProvidesStaticType<#lifetime> + Sized
                     });
                     let param_bounds = param
                         .bounds
@@ -192,17 +217,17 @@ fn derive_provides_static_type_impl(
 
     let gen = if input.generics.lt_token.is_none() {
         quote! {
-            unsafe impl #impl_generics starlark::any::ProvidesStaticType for #name #ty_generics #where_clause {
+            unsafe impl<#lifetime> #impl_generics starlark::any::ProvidesStaticType<#lifetime> for #name #ty_generics #where_clause {
                 type StaticType = #name #ty_generics;
             }
         }
     } else {
         quote! {
             unsafe impl <
-                #(#lifetimes,)*
+                #lifetime,
                 #(#type_param_bounds,)*
                 #(#const_params,)*
-                    > starlark::any::ProvidesStaticType
+                    > starlark::any::ProvidesStaticType<#lifetime>
             for #name <
                 #(#lifetimes,)*
                 #(#type_param_names,)*

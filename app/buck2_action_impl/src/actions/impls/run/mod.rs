@@ -210,7 +210,7 @@ pub(crate) struct StarlarkRunActionValuesGen<V> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkRunActionValuesGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("run_action_values");
 }

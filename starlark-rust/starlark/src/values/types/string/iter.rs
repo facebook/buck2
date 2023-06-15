@@ -68,7 +68,7 @@ pub(crate) fn iterate_codepoints<'v>(string: StringValue<'v>, heap: &'v Heap) ->
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StringIterableGen<'v, V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("iterator");
 

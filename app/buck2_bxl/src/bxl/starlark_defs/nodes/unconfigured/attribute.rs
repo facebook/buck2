@@ -64,7 +64,7 @@ starlark_complex_value!(pub StarlarkTargetNodeCoercedAttributes);
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkTargetNodeCoercedAttributesGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("starlark_attributes");
 
