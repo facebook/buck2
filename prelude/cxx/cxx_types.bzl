@@ -18,6 +18,7 @@ load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",  # @unused Used as a type
 )
+load(":argsfiles.bzl", "CompileArgsfiles")
 load(
     ":compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
@@ -89,6 +90,8 @@ CxxAdditionalArgsfileParams = record(
 # Parameters to handle non-Clang sources, e.g Swift on Apple's platforms.
 CxxRuleAdditionalParams = record(
     srcs = field([CxxSrcWithFlags.type], []),
+    # Additional argsfiles to include for this rule.
+    argsfiles = field(CompileArgsfiles.type, CompileArgsfiles()),
     argsfiles_deprecated = field([CxxAdditionalArgsfileParams.type], []),
     # External debug info to be used when generated static output
     static_external_debug_info = field(["transitive_set"], []),
