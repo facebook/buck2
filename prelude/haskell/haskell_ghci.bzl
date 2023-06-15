@@ -8,6 +8,19 @@
 load("@prelude//haskell:haskell.bzl", "HaskellLibraryProvider")
 load("@prelude//utils:utils.bzl", "flatten")
 
+# Symlink the ghci binary that will be used, e.g. the internal fork in Haxlsh
+def _symlink_ghci_binary(ctx, ghci_bin: "artifact"):
+    # TODO(T155760998): set ghci_ghc_path as a dependency instead of string
+    ghci_bin_dep = ctx.attrs.ghci_bin_dep
+    if not ghci_bin_dep:
+        fail("GHC binary path not specified")
+
+    # NOTE: In the buck1 version we'd symlink the binary only if a custom one
+    # was provided, but in buck2 we're always setting `ghci_bin_dep` (i.e.
+    # to default one if custom wasn't provided).
+    src = ghci_bin_dep[DefaultInfo].default_outputs[0]
+    ctx.actions.symlink_file(ghci_bin.as_output(), src)
+
 def _first_order_haskell_deps(ctx: "context") -> ["HaskellLibraryInfo"]:
     return dedupe(
         flatten(
@@ -64,8 +77,13 @@ def haskell_ghci_impl(ctx: "context") -> ["provider"]:
     start_ghci_file = ctx.actions.declare_output("start.ghci")
     _write_start_ghci(ctx, start_ghci_file)
 
+    ghci_bin = ctx.actions.declare_output(ctx.attrs.name + ".bin/ghci")
+
+    _symlink_ghci_binary(ctx, ghci_bin)
+
     outputs = [
         start_ghci_file,
+        ghci_bin,
     ]
 
     return [

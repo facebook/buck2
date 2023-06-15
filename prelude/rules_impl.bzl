@@ -447,6 +447,11 @@ inlined_extra_attributes = {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_haskell_toolchain": toolchains_common.haskell(),
     },
+    "haskell_ghci": {
+        "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
+        "_cxx_toolchain": toolchains_common.cxx(),
+        "_haskell_toolchain": toolchains_common.haskell(),
+    },
     "haskell_ide": {
         "include_projects": attrs.list(attrs.dep(), default = []),
         "_haskell_toolchain": toolchains_common.haskell(),
