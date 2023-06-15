@@ -5,6 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+ARGSFILES_SUBTARGET = "argsfiles"
+ABS_ARGSFILES_SUBTARGET = "abs-argsfiles"
+
 # Information on argsfiles created for compilation.
 CompileArgsfile = record(
     # The generated argsfile (does not contain dependent inputs).

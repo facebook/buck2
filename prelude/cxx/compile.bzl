@@ -11,7 +11,7 @@ load(
     "@prelude//utils:utils.bzl",
     "flatten",
 )
-load(":argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles", "get_argsfiles_output")
+load(":argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load(":attr_selection.bzl", "cxx_by_language_ext")
 load(
     ":compiler.bzl",
@@ -248,10 +248,10 @@ def create_compile_cmds(
         src_compile_cmds.append(src_compile_command)
 
     argsfile_by_ext.update(impl_params.additional.argsfiles.relative)
-    relative_argsfiles = _get_argsfile_output(ctx, argsfile_by_ext, "argsfiles")
+    relative_argsfiles = _get_argsfile_output(argsfile_by_ext)
 
     abs_argsfile_by_ext.update(impl_params.additional.argsfiles.absolute)
-    absolute_argsfiles = _get_argsfile_output(ctx, abs_argsfile_by_ext, "abs-argsfiles") if absolute_path_prefix else CxxCompileCommandArgsFiles()
+    absolute_argsfiles = _get_argsfile_output(abs_argsfile_by_ext) if absolute_path_prefix else CxxCompileCommandArgsFiles()
 
     if header_only:
         return CxxCompileCommandOutput(comp_db_compile_cmds = src_compile_cmds)
@@ -267,11 +267,10 @@ def create_compile_cmds(
             comp_db_compile_cmds = src_compile_cmds,
         )
 
-def _get_argsfile_output(ctx: "context", argsfile_by_ext: {str.type: CompileArgsfile.type}, summary_name: str.type) -> CxxCompileCommandArgsFiles.type:
+def _get_argsfile_output(argsfile_by_ext: {str.type: CompileArgsfile.type}) -> CxxCompileCommandArgsFiles.type:
     argsfile_artifacts_by_ext = {ext: argsfile.file for ext, argsfile in argsfile_by_ext.items()}
-
     return CxxCompileCommandArgsFiles(
-        info = get_argsfiles_output(ctx, argsfile_by_ext, summary_name),
+        info = DefaultInfo(),
         by_ext = argsfile_artifacts_by_ext,
     )
 

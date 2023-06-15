@@ -67,6 +67,12 @@ load(
     "map_val",
 )
 load(
+    ":argsfiles.bzl",
+    "ABS_ARGSFILES_SUBTARGET",
+    "ARGSFILES_SUBTARGET",
+    "get_argsfiles_output",
+)
+load(
     ":comp_db.bzl",
     "CxxCompilationDbInfo",  # @unused Used as a type
     "create_compilation_database",
@@ -80,8 +86,6 @@ load(
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
-    "ABS_ARGSFILES_SUBTARGET",
-    "ARGSFILES_SUBTARGET",
     "OBJECTS_SUBTARGET",
     "cxx_attr_deps",
     "cxx_attr_link_style",
@@ -184,9 +188,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         absolute_path_prefix,
     )
     cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_style != LinkStyle("static"))
-    sub_targets[ARGSFILES_SUBTARGET] = [compile_cmd_output.relative_argsfiles.info]
+
+    sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, "argsfiles")]
     if absolute_path_prefix:
-        sub_targets[ABS_ARGSFILES_SUBTARGET] = [compile_cmd_output.absolute_argsfiles.info]
+        sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.absolute, "abs-argsfiles")]
     sub_targets[OBJECTS_SUBTARGET] = cxx_objects_sub_target(cxx_outs)
 
     # Compilation DB.
