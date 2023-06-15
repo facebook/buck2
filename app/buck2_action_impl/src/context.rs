@@ -933,7 +933,10 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this: &'v AnalysisActions<'v>,
         #[starlark(require = named)] dynamic: Vec<StarlarkArtifact>,
         #[starlark(require = named)] inputs: Vec<StarlarkArtifact>,
-        #[starlark(require = named)] outputs: Vec<StarlarkOutputArtifact>,
+        // Allow `artifact` because the Unpack of StarlarkOutputArtifact will convert a declared artifact automatically.
+        #[starlark(require = named, type = "[[\"artifact\", \"output_artifact\"]]")] outputs: Vec<
+            StarlarkOutputArtifact,
+        >,
         #[starlark(require = named)] f: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
