@@ -8,10 +8,10 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::DeferredBuildSignals;
+use buck2_build_signals::NodeDuration;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_events::span::SpanId;
 use buck2_util::late_binding::LateBinding;
@@ -46,31 +46,6 @@ pub trait BuildSignals: Send + Sync + 'static {
         duration: NodeDuration,
         span_id: Option<SpanId>,
     );
-}
-
-#[derive(Copy, Clone, Dupe)]
-pub struct NodeDuration {
-    /// The amount of time for this node that corresponds to something the user might be able to
-    /// improve. We should better break this down.
-    pub user: Duration,
-    /// The total duration for this node.
-    pub total: Duration,
-}
-
-impl NodeDuration {
-    /// Returns the duration we are using in our critical path calculation. This doesn't really
-    /// *need* to be a function but right now we use user and want to switch to total so it's
-    /// easier to do that if this is in a single function.
-    pub fn critical_path_duration(&self) -> Duration {
-        self.total
-    }
-
-    pub fn zero() -> Self {
-        Self {
-            user: Duration::from_secs(0),
-            total: Duration::from_secs(0),
-        }
-    }
 }
 
 pub trait SetBuildSignals {

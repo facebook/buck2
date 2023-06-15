@@ -16,6 +16,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_signals::NodeDuration;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
@@ -45,7 +46,6 @@ use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::actions::key::ActionKeyExt;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
-use crate::build_signals::NodeDuration;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::keep_going;
 

@@ -8,6 +8,7 @@
  */
 
 use std::str::FromStr;
+use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context as _;
@@ -17,6 +18,31 @@ use buck2_events::dispatch::EventDispatcher;
 use dice::UserComputationData;
 use dupe::Dupe;
 use futures::future::Future;
+
+#[derive(Copy, Clone, Dupe)]
+pub struct NodeDuration {
+    /// The amount of time for this node that corresponds to something the user might be able to
+    /// improve. We should better break this down.
+    pub user: Duration,
+    /// The total duration for this node.
+    pub total: Duration,
+}
+
+impl NodeDuration {
+    /// Returns the duration we are using in our critical path calculation. This doesn't really
+    /// *need* to be a function but right now we use user and want to switch to total so it's
+    /// easier to do that if this is in a single function.
+    pub fn critical_path_duration(&self) -> Duration {
+        self.total
+    }
+
+    pub fn zero() -> Self {
+        Self {
+            user: Duration::from_secs(0),
+            total: Duration::from_secs(0),
+        }
+    }
+}
 
 #[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
 pub enum CriticalPathBackendName {
