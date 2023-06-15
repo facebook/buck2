@@ -78,21 +78,11 @@ CxxRuleProviderParams = record(
     preprocessor_for_tests = field(bool.type, True),
 )
 
-# Params to handle an argsfile for non-Clang sources which may present in Apple rules.
-CxxAdditionalArgsfileParams = record(
-    file = field("artifact"),
-    # Input args necessary for the argsfile to reference.
-    input_args = field([["artifacts", "cmd_args"]]),
-    # An extension of a file for which this argsfile is generated.
-    extension = field(str.type),
-)
-
 # Parameters to handle non-Clang sources, e.g Swift on Apple's platforms.
 CxxRuleAdditionalParams = record(
     srcs = field([CxxSrcWithFlags.type], []),
     # Additional argsfiles to include for this rule.
     argsfiles = field(CompileArgsfiles.type, CompileArgsfiles()),
-    argsfiles_deprecated = field([CxxAdditionalArgsfileParams.type], []),
     # External debug info to be used when generated static output
     static_external_debug_info = field(["transitive_set"], []),
     # External debug info to be used when generating shared objects

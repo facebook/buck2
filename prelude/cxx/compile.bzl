@@ -102,26 +102,12 @@ CxxSrcCompileCommand = record(
     args = field(["_arg"]),
 )
 
-CxxCompileCommandArgsFiles = record(
-    # Argsfiles used to compile these source files.
-    info = field(DefaultInfo.type, default = DefaultInfo()),
-    # Each argsfile by the file extension for which it is used.
-    by_ext = field({str.type: "artifact"}, default = {}),
-)
-
 # Output of creating compile commands for Cxx source files.
 CxxCompileCommandOutput = record(
     # List of compile commands for each source file.
     src_compile_cmds = field([CxxSrcCompileCommand.type], default = []),
     # Argsfiles generated for compiling these source files.
     argsfiles = field(CompileArgsfiles.type, default = CompileArgsfiles()),
-
-    # TODO(chatatap): Remove these
-    # Argsfiles used for build actions
-    relative_argsfiles = field(CxxCompileCommandArgsFiles.type, CxxCompileCommandArgsFiles()),
-    # Argsfiles with absolute paths used for extra outputs.
-    absolute_argsfiles = field(CxxCompileCommandArgsFiles.type, CxxCompileCommandArgsFiles()),
-
     # List of compile commands for use in compilation database generation.
     comp_db_compile_cmds = field([CxxSrcCompileCommand.type], default = []),
 )
@@ -248,10 +234,7 @@ def create_compile_cmds(
         src_compile_cmds.append(src_compile_command)
 
     argsfile_by_ext.update(impl_params.additional.argsfiles.relative)
-    relative_argsfiles = _get_argsfile_output(argsfile_by_ext)
-
     abs_argsfile_by_ext.update(impl_params.additional.argsfiles.absolute)
-    absolute_argsfiles = _get_argsfile_output(abs_argsfile_by_ext) if absolute_path_prefix else CxxCompileCommandArgsFiles()
 
     if header_only:
         return CxxCompileCommandOutput(comp_db_compile_cmds = src_compile_cmds)
@@ -262,17 +245,8 @@ def create_compile_cmds(
                 relative = argsfile_by_ext,
                 absolute = abs_argsfile_by_ext,
             ),
-            relative_argsfiles = relative_argsfiles,
-            absolute_argsfiles = absolute_argsfiles,
             comp_db_compile_cmds = src_compile_cmds,
         )
-
-def _get_argsfile_output(argsfile_by_ext: {str.type: CompileArgsfile.type}) -> CxxCompileCommandArgsFiles.type:
-    argsfile_artifacts_by_ext = {ext: argsfile.file for ext, argsfile in argsfile_by_ext.items()}
-    return CxxCompileCommandArgsFiles(
-        info = DefaultInfo(),
-        by_ext = argsfile_artifacts_by_ext,
-    )
 
 def compile_cxx(
         ctx: "context",
