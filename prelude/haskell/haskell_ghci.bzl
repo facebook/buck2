@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//haskell:haskell.bzl", "HaskellLibraryProvider", "HaskellToolchainInfo")
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -21,6 +22,47 @@ GHCiPreloadDepsInfo = record(
     preload_symlinks = {str.type: "artifact"},
     preload_deps_root = "artifact",
 )
+
+def _write_iserv_script(
+        ctx: "context",
+        preload_deps_info: GHCiPreloadDepsInfo.type,
+        haskell_toolchain: HaskellToolchainInfo.type) -> "artifact":
+    iserv_script_cmd = cmd_args(SCRIPT_HEADER.format("GHCi iserv script"))
+
+    preload_libs = ":".join(
+        [paths.join(
+            "${DIR}",
+            preload_deps_info.preload_deps_root.short_path,
+            so,
+        ) for so in sorted(preload_deps_info.preload_symlinks)],
+    )
+
+    if ctx.attrs.enable_profiling:
+        ghci_iserv_path = haskell_toolchain.ghci_iserv_prof_path
+    else:
+        ghci_iserv_path = haskell_toolchain.ghci_iserv_path
+
+    run_ghci = "LD_PRELOAD=\"$LD_PRELOAD\":{preload_libs} \
+        PATH={binutils_path}:\"$PATH\" {ghci_iserv_path} \"$@\"".format(
+        binutils_path = haskell_toolchain.ghci_binutils_path,
+        ghci_iserv_path = ghci_iserv_path,
+        preload_libs = preload_libs,
+    )
+    iserv_script_cmd.add(
+        run_ghci,
+    )
+
+    iserv_script_name = "iserv"
+    if ctx.attrs.enable_profiling:
+        iserv_script_name += "-prof"
+
+    iserv_script = ctx.actions.write(
+        iserv_script_name,
+        iserv_script_cmd,
+        is_executable = True,
+    )
+
+    return iserv_script
 
 def _build_preload_deps_root(
         ctx: "context",
@@ -156,12 +198,26 @@ def haskell_ghci_impl(ctx: "context") -> ["provider"]:
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
     preload_deps_info = _build_preload_deps_root(ctx, haskell_toolchain)
 
+    iserv_script = _write_iserv_script(ctx, preload_deps_info, haskell_toolchain)
+
     outputs = [
         start_ghci_file,
         ghci_bin,
         preload_deps_info.preload_deps_root,
+        iserv_script,
     ]
 
     return [
         DefaultInfo(default_outputs = outputs),
     ]
+
+# TODO(gustavoavena): parameterize header to print correct error msg
+# @lint-ignore-every LICENSELINT
+SCRIPT_HEADER = """\
+#!/bin/bash
+
+DIR="$(dirname "$(readlink -f "${{BASH_SOURCE[0]}}")")"
+if ! test -d "$DIR"; then
+  echo Cannot locate directory containing {}; exit 1
+fi
+"""
