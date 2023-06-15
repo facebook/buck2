@@ -158,7 +158,7 @@ impl IncrementalEngine {
     pub(crate) async fn eval_entry_versioned(
         &self,
         k: DiceKey,
-        eval: AsyncEvaluator,
+        eval: &AsyncEvaluator,
         cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
         task_state: DiceWorkerStateLookupNode<'_>,
@@ -258,7 +258,7 @@ impl IncrementalEngine {
     async fn compute(
         &self,
         k: DiceKey,
-        eval: AsyncEvaluator,
+        eval: &AsyncEvaluator,
         cycles: KeyComputingUserCycleDetectorData,
         event_dispatcher: &DiceEventDispatcher,
         task_state: DiceWorkerStateComputing<'_>,

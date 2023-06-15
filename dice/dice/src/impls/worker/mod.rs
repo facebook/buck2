@@ -134,7 +134,7 @@ impl DiceTaskWorker {
         self.incremental
             .eval_entry_versioned(
                 self.k,
-                self.eval,
+                &self.eval,
                 self.cycles,
                 self.events_dispatcher,
                 state,
