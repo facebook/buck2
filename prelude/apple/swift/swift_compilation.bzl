@@ -280,7 +280,7 @@ def _compile_swiftmodule(
         "-emit-objc-header-path",
         output_header.as_output(),
     ])
-    return _compile_with_argsfile(ctx, "swiftmodule_compile", argfile_cmd, srcs, cmd, toolchain)
+    return _compile_with_argsfile(ctx, "swiftmodule_compile", SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain)
 
 def _compile_object(
         ctx: "context",
@@ -303,17 +303,18 @@ def _compile_object(
     if embed_bitcode:
         cmd.add("--embed-bitcode")
 
-    return _compile_with_argsfile(ctx, "swift_compile", shared_flags, srcs, cmd, toolchain)
+    return _compile_with_argsfile(ctx, "swift_compile", SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain)
 
 def _compile_with_argsfile(
         ctx: "context",
-        name: str.type,
+        category_prefix: str.type,
+        extension: str.type,
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
         additional_flags: "cmd_args",
         toolchain: "SwiftToolchainInfo") -> CxxAdditionalArgsfileParams.type:
     shell_quoted_cmd = cmd_args(shared_flags, quote = "shell")
-    argfile, _ = ctx.actions.write(name + ".argsfile", shell_quoted_cmd, allow_args = True)
+    argfile, _ = ctx.actions.write(extension + ".argsfile", shell_quoted_cmd, allow_args = True)
 
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
@@ -333,7 +334,7 @@ def _compile_with_argsfile(
     explicit_modules_enabled = uses_explicit_modules(ctx)
 
     # Make it easier to debug whether Swift actions get compiled with explicit modules or not
-    category = name + ("_with_explicit_mods" if explicit_modules_enabled else "")
+    category = category_prefix + ("_with_explicit_mods" if explicit_modules_enabled else "")
     ctx.actions.run(
         cmd,
         env = get_explicit_modules_env_var(explicit_modules_enabled),
@@ -342,7 +343,7 @@ def _compile_with_argsfile(
         allow_cache_upload = prefer_local,
     )
 
-    return CxxAdditionalArgsfileParams(file = argfile, input_args = [shared_flags], extension = SWIFT_EXTENSION)
+    return CxxAdditionalArgsfileParams(file = argfile, input_args = [shared_flags], extension = extension)
 
 def _get_shared_flags(
         ctx: "context",
