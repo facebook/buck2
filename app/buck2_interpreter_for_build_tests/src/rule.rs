@@ -176,6 +176,7 @@ fn udr_is_recorded() -> SharedResult<()> {
             "target_compatible_with": [],
             "tests": [],
             "visibility": [],
+            "within_view": ["PUBLIC"],
         },
         "target2": {
             "name": "target2",
@@ -191,6 +192,7 @@ fn udr_is_recorded() -> SharedResult<()> {
             "target_compatible_with": [],
             "tests": [],
             "visibility": [],
+            "within_view": ["PUBLIC"],
         },
     });
     let actual = targets_to_json(

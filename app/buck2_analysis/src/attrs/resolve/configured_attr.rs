@@ -22,6 +22,8 @@ use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::visibility::VisibilityPatternList;
+use buck2_node::visibility::VisibilitySpecification;
+use buck2_node::visibility::WithinViewSpecification;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use starlark::values::dict::Dict;
@@ -120,7 +122,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             }
             ConfiguredAttr::None => Ok(Value::new_none()),
             ConfiguredAttr::OneOf(box l, _) => l.resolve_single(pkg, ctx),
-            a @ ConfiguredAttr::Visibility(_) => {
+            a @ (ConfiguredAttr::Visibility(_) | ConfiguredAttr::WithinView(_)) => {
                 // TODO(nga): rule implementations should not need visibility attribute.
                 //   But adding it here to preserve existing behavior.
                 a.to_value(pkg, ctx.heap())
@@ -161,6 +163,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::None => Ok(NoneType::TYPE),
             ConfiguredAttr::OneOf(box l, _) => l.starlark_type(),
             ConfiguredAttr::Visibility(..) => Ok(ListRef::TYPE),
+            ConfiguredAttr::WithinView(..) => Ok(ListRef::TYPE),
             ConfiguredAttr::ExplicitConfiguredDep(_) => {
                 Ok(DependencyGen::<FrozenValue>::get_type_value_static().as_str())
             }
@@ -201,7 +204,8 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             }
             ConfiguredAttr::None => Value::new_none(),
             ConfiguredAttr::OneOf(box l, _) => l.to_value(pkg, heap)?,
-            ConfiguredAttr::Visibility(specs) => match &specs.0 {
+            ConfiguredAttr::Visibility(VisibilitySpecification(specs))
+            | ConfiguredAttr::WithinView(WithinViewSpecification(specs)) => match specs {
                 VisibilityPatternList::Public => heap.alloc(AllocList(["PUBLIC"])),
                 VisibilityPatternList::List(specs) => {
                     heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))

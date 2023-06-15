@@ -427,6 +427,7 @@ fn test_package_import() -> anyhow::Result<()> {
                     "target_compatible_with": [],
                     "tests": [],
                     "visibility": [],
+                    "within_view": ["PUBLIC"],
                 },
         }),
         targets_to_json(

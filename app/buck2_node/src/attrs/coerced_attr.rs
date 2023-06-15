@@ -57,6 +57,7 @@ use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::visibility::VisibilitySpecification;
+use crate::visibility::WithinViewSpecification;
 
 #[derive(thiserror::Error, Debug)]
 enum SelectError {
@@ -193,6 +194,7 @@ pub enum CoercedAttr {
         u32,
     ),
     Visibility(VisibilitySpecification),
+    WithinView(WithinViewSpecification),
     ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
     SplitTransitionDep(ProvidersLabel),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
@@ -251,6 +253,7 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::None => write!(f, "None"),
             CoercedAttr::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             CoercedAttr::Visibility(v) => Display::fmt(v, f),
+            CoercedAttr::WithinView(v) => Display::fmt(v, f),
             CoercedAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             CoercedAttr::SplitTransitionDep(e) => Display::fmt(e, f),
             CoercedAttr::ConfiguredDep(e) => write!(f, "\"{}\"", e),
@@ -329,6 +332,7 @@ impl CoercedAttr {
             CoercedAttr::None => Ok(serde_json::Value::Null),
             CoercedAttr::OneOf(box l, _) => l.to_json(ctx),
             CoercedAttr::Visibility(v) => Ok(v.to_json()),
+            CoercedAttr::WithinView(v) => Ok(v.to_json()),
             CoercedAttr::ExplicitConfiguredDep(e) => e.to_json(),
             CoercedAttr::SplitTransitionDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::ConfiguredDep(e) => Ok(to_value(e.to_string())?),
@@ -435,6 +439,7 @@ impl CoercedAttr {
                 l.traverse(item_type, pkg, traversal)
             }
             CoercedAttrWithType::Visibility(..) => Ok(()),
+            CoercedAttrWithType::WithinView(..) => Ok(()),
             CoercedAttrWithType::ExplicitConfiguredDep(dep, _t) => dep.traverse(traversal),
             CoercedAttrWithType::SplitTransitionDep(dep, t) => {
                 traversal.split_transition_dep(dep.target(), &t.transition)
@@ -578,6 +583,7 @@ impl CoercedAttr {
                 ConfiguredAttr::OneOf(Box::new(configured), i)
             }
             CoercedAttrWithType::Visibility(v, _) => ConfiguredAttr::Visibility(v.clone()),
+            CoercedAttrWithType::WithinView(v, _) => ConfiguredAttr::WithinView(v.clone()),
             CoercedAttrWithType::ExplicitConfiguredDep(dep, _) => {
                 ExplicitConfiguredDepAttrType::configure(ctx, dep)?
             }
@@ -633,6 +639,7 @@ impl CoercedAttr {
             CoercedAttr::Int(i) => filter(&i.to_string()),
             CoercedAttr::OneOf(l, _) => l.any_matches(filter),
             CoercedAttr::Visibility(v) => v.any_matches(filter),
+            CoercedAttr::WithinView(v) => v.any_matches(filter),
             CoercedAttr::ExplicitConfiguredDep(e) => e.any_matches(filter),
             CoercedAttr::SplitTransitionDep(e) => filter(&e.to_string()),
             CoercedAttr::ConfiguredDep(e) => filter(&e.to_string()),

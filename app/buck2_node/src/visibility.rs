@@ -138,7 +138,7 @@ impl Default for VisibilitySpecification {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
-pub struct WithinViewSpecification(VisibilityPatternList);
+pub struct WithinViewSpecification(pub VisibilityPatternList);
 
 impl Default for WithinViewSpecification {
     fn default() -> Self {
@@ -190,9 +190,25 @@ impl WithinViewSpecification {
     pub fn extend_with(&self, other: &WithinViewSpecification) -> WithinViewSpecification {
         WithinViewSpecification(self.0.extend_with(&other.0))
     }
+
+    pub fn to_json(&self) -> serde_json::Value {
+        self.0.to_json()
+    }
+}
+
+impl Display for WithinViewSpecification {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
 }
 
 impl AnyMatches for VisibilitySpecification {
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+        self.0.any_matches(filter)
+    }
+}
+
+impl AnyMatches for WithinViewSpecification {
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         self.0.any_matches(filter)
     }

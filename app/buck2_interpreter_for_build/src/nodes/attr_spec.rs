@@ -17,6 +17,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::internal::attr_is_configurable;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::values::AttrValues;
 use buck2_node::visibility::VisibilitySpecification;
@@ -82,6 +83,7 @@ impl AttributeSpecExt for AttributeSpec {
             };
 
             let is_visibility = attr_name == VISIBILITY_ATTRIBUTE_FIELD;
+            let is_with_view = attr_name == WITHIN_VIEW_ATTRIBUTE_FIELD;
             if let Some(v) = user_value {
                 let mut coerced = attribute
                     .coerce(
@@ -103,6 +105,12 @@ impl AttributeSpecExt for AttributeSpec {
                     if coerced == CoercedValue::Default {
                         coerced = CoercedValue::Custom(CoercedAttr::Visibility(
                             internals.super_package.visibility().dupe(),
+                        ));
+                    }
+                } else if is_with_view {
+                    if coerced == CoercedValue::Default {
+                        coerced = CoercedValue::Custom(CoercedAttr::WithinView(
+                            internals.super_package.within_view().dupe(),
                         ));
                     }
                 }

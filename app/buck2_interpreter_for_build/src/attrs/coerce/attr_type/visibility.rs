@@ -13,7 +13,6 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::visibility::VisibilityPattern;
-use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::VisibilityWithinViewBuilder;
 use starlark::values::Value;
 
@@ -42,8 +41,9 @@ impl AttrTypeCoerce for VisibilityAttrType {
         if configurable == AttrIsConfigurable::Yes {
             return Err(VisibilityAttrTypeCoerceError::AttrTypeNotConfigurable.into());
         }
-        let visibility = parse_visibility(ctx, value)?;
-        Ok(CoercedAttr::Visibility(visibility))
+        Ok(CoercedAttr::Visibility(
+            parse_visibility_with_view(ctx, value)?.build_visibility(),
+        ))
     }
 
     fn starlark_type(&self) -> String {
@@ -51,10 +51,10 @@ impl AttrTypeCoerce for VisibilityAttrType {
     }
 }
 
-fn parse_visibility(
+pub(crate) fn parse_visibility_with_view(
     ctx: &dyn AttrCoercionContext,
     attr: Value,
-) -> anyhow::Result<VisibilitySpecification> {
+) -> anyhow::Result<VisibilityWithinViewBuilder> {
     let list = match coerce_list(attr) {
         Ok(list) => list,
         Err(e) => {
@@ -86,5 +86,5 @@ fn parse_visibility(
             builder.add(VisibilityPattern(ctx.coerce_target_pattern(item)?));
         }
     }
-    Ok(builder.build_visibility())
+    Ok(builder)
 }

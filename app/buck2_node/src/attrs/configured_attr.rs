@@ -43,6 +43,7 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::visibility::VisibilitySpecification;
+use crate::visibility::WithinViewSpecification;
 
 #[derive(Debug, thiserror::Error)]
 enum ConfiguredAttrError {
@@ -94,6 +95,7 @@ pub enum ConfiguredAttr {
         u32,
     ),
     Visibility(VisibilitySpecification),
+    WithinView(WithinViewSpecification),
     ExplicitConfiguredDep(Box<ConfiguredExplicitConfiguredDep>),
     SplitTransitionDep(Box<ConfiguredSplitTransitionDep>),
     ConfigurationDep(Box<TargetLabel>),
@@ -135,6 +137,7 @@ impl AttrDisplayWithContext for ConfiguredAttr {
             ConfiguredAttr::None => write!(f, "None"),
             ConfiguredAttr::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             ConfiguredAttr::Visibility(v) => Display::fmt(v, f),
+            ConfiguredAttr::WithinView(v) => Display::fmt(v, f),
             ConfiguredAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             ConfiguredAttr::SplitTransitionDep(e) => Display::fmt(e, f),
             ConfiguredAttr::ConfigurationDep(e) => write!(f, "\"{}\"", e),
@@ -182,6 +185,7 @@ impl ConfiguredAttr {
             ConfiguredAttr::None => Ok(()),
             ConfiguredAttr::OneOf(l, _) => l.traverse(pkg, traversal),
             ConfiguredAttr::Visibility(..) => Ok(()),
+            ConfiguredAttr::WithinView(..) => Ok(()),
             ConfiguredAttr::ExplicitConfiguredDep(dep) => dep.as_ref().traverse(traversal),
             ConfiguredAttr::SplitTransitionDep(deps) => {
                 for target in deps.deps.values() {

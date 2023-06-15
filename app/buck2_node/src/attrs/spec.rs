@@ -20,6 +20,7 @@ use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::internal_attrs;
 use crate::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use crate::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
+use crate::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
 use crate::attrs::values::AttrValues;
 
 /// AttributeSpec holds the specification for a rules attributes as defined in the rule() call. This
@@ -104,6 +105,11 @@ impl AttributeSpec {
                 }
                 small_map::Entry::Occupied(e) => {
                     let name = e.key();
+                    if name == WITHIN_VIEW_ATTRIBUTE_FIELD {
+                        // TODO(nga): land D46747292, then remove `within_view` from rules,
+                        //   and then remove this check.
+                        continue;
+                    }
                     if internal_attrs.contains_key(name.as_str()) {
                         return Err(anyhow::anyhow!(
                             AttributeSpecError::InternalAttributeRedefined(name.to_owned())
