@@ -15,15 +15,20 @@ use starlark::environment::LibraryExtension;
 use starlark::typing::*;
 
 pub(crate) fn oracle_buck(globals: Globals) -> Arc<dyn TypingOracle + Send + Sync> {
+    let registered_docs = get_registered_starlark_docs();
     let mut docs = OracleDocs::new();
     docs.add_module(&globals.documentation());
-    docs.add_docs(&get_registered_starlark_docs());
+    docs.add_docs(&registered_docs);
+
+    let mut docs2 = OracleDocs::new();
+    docs2.add_docs(&registered_docs);
 
     Arc::new(vec![
         Box::new(OracleStandard::new(LibraryExtension::all()))
             as Box<dyn TypingOracle + Send + Sync>,
         Box::new(CustomBuck),
         Box::new(docs),
+        Box::new(AddErrors(docs2)),
     ])
 }
 
@@ -79,6 +84,18 @@ impl TypingOracle for CustomBuck {
         match require.as_str() {
             "provider" => got.as_str().ends_with("Info"),
             _ => false,
+        }
+    }
+}
+
+struct AddErrors(OracleDocs);
+
+impl TypingOracle for AddErrors {
+    fn attribute(&self, ty: &Ty, _attr: &str) -> Option<Result<Ty, ()>> {
+        if self.0.known_object(ty.as_name()?) {
+            Some(Err(()))
+        } else {
+            None
         }
     }
 }
