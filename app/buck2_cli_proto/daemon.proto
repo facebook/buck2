@@ -74,6 +74,7 @@ message StatusResponse {
   string project_root = 9;
   string isolation_dir = 10;
   optional uint32 forkserver_pid = 11;
+  optional bool supports_vpnless = 12;
 }
 
 message PingRequest {

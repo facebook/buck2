@@ -52,6 +52,10 @@ impl CountingHttpClient {
             downloaded_bytes: self.bytes_downloaded.load(Ordering::Relaxed),
         }
     }
+
+    pub fn supports_vpnless(&self) -> bool {
+        self.inner.supports_vpnless()
+    }
 }
 
 #[pin_project]
@@ -105,7 +109,7 @@ impl HttpClient for CountingHttpClient {
     }
 
     fn supports_vpnless(&self) -> bool {
-        self.inner.supports_vpnless()
+        CountingHttpClient::supports_vpnless(self)
     }
 }
 

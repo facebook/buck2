@@ -893,6 +893,11 @@ impl DaemonApi for BuckdServer {
                     .as_ref()
                     .ok()
                     .and_then(|state| state.forkserver.as_ref().map(|f| f.pid())),
+                supports_vpnless: daemon_state
+                    .data()
+                    .as_ref()
+                    .ok()
+                    .map(|state| state.http_client.supports_vpnless()),
                 ..Default::default()
             };
             Ok(base)

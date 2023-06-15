@@ -139,6 +139,7 @@ fn process_status(status: StatusResponse) -> anyhow::Result<serde_json::Value> {
         "project_root": status.project_root,
         "isolation_dir": status.isolation_dir,
         "forkserver_pid": serde_json::to_value(status.forkserver_pid)?,
+        "supports_vpnless": status.supports_vpnless.unwrap_or_default(),
     }))
 }
 
