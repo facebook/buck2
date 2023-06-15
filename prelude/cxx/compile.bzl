@@ -72,10 +72,10 @@ _CxxCompileArgsfile = record(
     cmd_form = field("cmd_args"),
     # The args that was written to the argsfile
     argfile_args = field("cmd_args"),
-    # The args in their prisitine form without shell quoting
-    args = field("cmd_args"),
     # Input args necessary for the argsfile to reference.
     input_args = field([["artifacts", "cmd_args"]]),
+    # Args aggregated for the argsfile excluding file prefix args (excludes shell quoting).
+    args_without_file_prefix_args = field("cmd_args"),
 )
 
 _HeadersDepFiles = record(
@@ -525,7 +525,7 @@ def _mk_argsfile(ctx: "context", compiler_info: "_compiler_info", preprocessor: 
 
     cmd_form = cmd_args(argsfile, format = "@{}").hidden(input_args)
 
-    return _CxxCompileArgsfile(file = argsfile, cmd_form = cmd_form, argfile_args = shell_quoted_args, args = args, input_args = input_args)
+    return _CxxCompileArgsfile(file = argsfile, cmd_form = cmd_form, argfile_args = shell_quoted_args, input_args = input_args, args_without_file_prefix_args = args)
 
 def _attr_compiler_flags(ctx: "context", ext: str.type) -> [""]:
     return (
