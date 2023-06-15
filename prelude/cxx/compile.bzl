@@ -11,7 +11,7 @@ load(
     "@prelude//utils:utils.bzl",
     "flatten",
 )
-load(":argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
+load(":argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles", "get_argsfiles_output")
 load(":attr_selection.bzl", "cxx_by_language_ext")
 load(
     ":compiler.bzl",
@@ -268,20 +268,10 @@ def create_compile_cmds(
         )
 
 def _get_argsfile_output(ctx: "context", argsfile_by_ext: {str.type: CompileArgsfile.type}, summary_name: str.type) -> CxxCompileCommandArgsFiles.type:
-    argsfiles = []
-    argsfile_names = cmd_args()
-    dependent_outputs = []
-    argsfile_artifacts_by_ext = {}
-    for ext, argsfile in argsfile_by_ext.items():
-        argsfiles.append(argsfile.file)
-        argsfile_names.add(cmd_args(argsfile.file).ignore_artifacts())
-        dependent_outputs.extend(argsfile.input_args)
-        argsfile_artifacts_by_ext[ext] = argsfile.file
-
-    argsfiles_summary = ctx.actions.write(summary_name, argsfile_names)
+    argsfile_artifacts_by_ext = {ext: argsfile.file for ext, argsfile in argsfile_by_ext.items()}
 
     return CxxCompileCommandArgsFiles(
-        info = DefaultInfo(default_outputs = [argsfiles_summary] + argsfiles, other_outputs = dependent_outputs),
+        info = get_argsfiles_output(ctx, argsfile_by_ext, summary_name),
         by_ext = argsfile_artifacts_by_ext,
     )
 

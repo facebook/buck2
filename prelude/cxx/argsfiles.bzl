@@ -25,3 +25,16 @@ CompileArgsfiles = record(
     # Absolute path argsfiles used for extra outputs, mapped by extension.
     absolute = field({str.type: CompileArgsfile.type}, default = {}),
 )
+
+def get_argsfiles_output(ctx: "context", argsfile_by_ext: {str.type: CompileArgsfile.type}, summary_name: str.type) -> DefaultInfo.type:
+    argsfiles = []
+    argsfile_names = cmd_args()
+    dependent_outputs = []
+    for _, argsfile in argsfile_by_ext.items():
+        argsfiles.append(argsfile.file)
+        argsfile_names.add(cmd_args(argsfile.file).ignore_artifacts())
+        dependent_outputs.extend(argsfile.input_args)
+
+    argsfiles_summary = ctx.actions.write(summary_name, argsfile_names)
+
+    return DefaultInfo(default_outputs = [argsfiles_summary] + argsfiles, other_outputs = dependent_outputs)
