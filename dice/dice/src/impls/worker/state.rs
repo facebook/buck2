@@ -88,6 +88,8 @@ pub(crate) struct DiceWorkerStateLookupNode<'a> {
 
 impl<'a> DiceWorkerStateLookupNode<'a> {
     pub(crate) fn checking_deps(self, eval: &AsyncEvaluator) -> DiceWorkerStateCheckingDeps<'a> {
+        debug!(msg = "found existing entry with mismatching version. checking if deps changed.",);
+
         self.internals.checking_deps();
 
         let cycles = self.cycles.start_computing_key(
@@ -103,6 +105,8 @@ impl<'a> DiceWorkerStateLookupNode<'a> {
     }
 
     pub(crate) fn lookup_dirtied(self, eval: &AsyncEvaluator) -> DiceWorkerStateComputing<'a> {
+        debug!(msg = "lookup requires recompute.");
+
         self.internals.computing();
 
         let cycles = self.cycles.start_computing_key(
