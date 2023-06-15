@@ -163,7 +163,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(1)
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
-                &DiceWorkerStateCheckingDeps::testing(DiceKey { index: 100 })
+                &DiceWorkerStateCheckingDeps::testing()
             )
             .await?
             .is_changed()
@@ -193,7 +193,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(2)
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
-                &DiceWorkerStateCheckingDeps::testing(DiceKey { index: 100 })
+                &DiceWorkerStateCheckingDeps::testing()
             )
             .await?
             .is_changed()
@@ -226,7 +226,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(2)
                 )]),
                 Arc::new(vec![DiceKey { index: 200 }]),
-                &DiceWorkerStateCheckingDeps::testing(DiceKey { index: 100 })
+                &DiceWorkerStateCheckingDeps::testing()
             )
             .await?
             .is_changed()

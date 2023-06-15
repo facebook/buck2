@@ -26,15 +26,15 @@ use crate::result::Cancelled;
 /// cancelled instance of this task to finish cancelling.
 pub(crate) struct DiceWorkerStateAwaitingPrevious<'a> {
     k: DiceKey,
-    internals: DiceTaskHandle<'a>,
     cycles: UserCycleDetectorData,
+    internals: &'a DiceTaskHandle<'a>,
 }
 
 impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
     pub(crate) fn new(
         k: DiceKey,
         cycles: UserCycleDetectorData,
-        handle: DiceTaskHandle<'a>,
+        handle: &'a DiceTaskHandle<'a>,
     ) -> Self {
         debug!(msg = "Task started. Waiting for previously cancelled task if any");
         Self {
@@ -50,9 +50,7 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
     ) -> DiceWorkerStateFinishedAndCached {
         debug!(msg = "previously cancelled task actually finished");
 
-        self.internals.finished(value);
-
-        DiceWorkerStateFinishedAndCached {}
+        DiceWorkerStateFinishedAndCached { value }
     }
 
     pub(crate) fn previously_cancelled(self) -> DiceWorkerStateLookupNode<'a> {
@@ -84,8 +82,8 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
 /// are waiting for it to respond.
 pub(crate) struct DiceWorkerStateLookupNode<'a> {
     k: DiceKey,
-    internals: DiceTaskHandle<'a>,
     cycles: UserCycleDetectorData,
+    internals: &'a DiceTaskHandle<'a>,
 }
 
 impl<'a> DiceWorkerStateLookupNode<'a> {
@@ -125,9 +123,7 @@ impl<'a> DiceWorkerStateLookupNode<'a> {
     ) -> DiceWorkerStateFinishedAndCached {
         debug!(msg = "found existing entry with matching version in cache. reusing result.",);
 
-        self.internals.finished(value);
-
-        DiceWorkerStateFinishedAndCached {}
+        DiceWorkerStateFinishedAndCached { value }
     }
 }
 
@@ -135,7 +131,7 @@ impl<'a> DiceWorkerStateLookupNode<'a> {
 /// time this node was verified, and are waiting for the results of the dependency re-computation.
 pub(crate) struct DiceWorkerStateCheckingDeps<'a> {
     cycles: KeyComputingUserCycleDetectorData,
-    internals: DiceTaskHandle<'a>,
+    internals: &'a DiceTaskHandle<'a>,
 }
 
 impl<'a> DiceWorkerStateCheckingDeps<'a> {
@@ -157,7 +153,7 @@ impl<'a> DiceWorkerStateCheckingDeps<'a> {
         }
     }
 
-    pub(crate) fn deps_match(self) -> CancellableResult<DiceWorkerStateFinished<'a>> {
+    pub(crate) fn deps_match(self) -> CancellableResult<DiceWorkerStateFinished> {
         debug!(msg = "reusing previous value because deps didn't change. Updating caches");
 
         let guard = match self
@@ -173,16 +169,15 @@ impl<'a> DiceWorkerStateCheckingDeps<'a> {
         };
 
         Ok(DiceWorkerStateFinished {
-            internals: self.internals,
             _prevent_cancellation: guard,
         })
     }
 
     #[cfg(test)]
-    pub(crate) fn testing(k: crate::impls::key::DiceKey) -> Self {
+    pub(crate) fn testing() -> Self {
         DiceWorkerStateCheckingDeps {
             cycles: KeyComputingUserCycleDetectorData::Untracked,
-            internals: DiceTaskHandle::testing_new(k),
+            internals: DiceTaskHandle::testing_new(),
         }
     }
 }
@@ -190,7 +185,7 @@ impl<'a> DiceWorkerStateCheckingDeps<'a> {
 /// When the spawned dice worker is currently computing the requested Key.
 pub(crate) struct DiceWorkerStateComputing<'a> {
     cycles: KeyComputingUserCycleDetectorData,
-    internals: DiceTaskHandle<'a>,
+    internals: &'a DiceTaskHandle<'a>,
 }
 
 impl<'a> DiceWorkerStateComputing<'a> {
@@ -211,7 +206,7 @@ impl<'a> DiceWorkerStateComputing<'a> {
 
 /// When the spawned dice worker is currently actively evaluating the `Key::compute` function
 pub(crate) struct DiceWorkerStateEvaluating<'a> {
-    internals: DiceTaskHandle<'a>,
+    internals: &'a DiceTaskHandle<'a>,
 }
 
 impl<'a> DiceWorkerStateEvaluating<'a> {
@@ -223,7 +218,7 @@ impl<'a> DiceWorkerStateEvaluating<'a> {
         self,
         cycles: KeyComputingUserCycleDetectorData,
         result: KeyEvaluationResult,
-    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a>> {
+    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating> {
         debug!(msg = "evaluation finished. updating caches");
 
         let guard = match self
@@ -242,7 +237,6 @@ impl<'a> DiceWorkerStateEvaluating<'a> {
 
         Ok(DiceWorkerStateFinishedEvaluating {
             state: DiceWorkerStateFinished {
-                internals: self.internals,
                 _prevent_cancellation: guard,
             },
             result,
@@ -251,29 +245,28 @@ impl<'a> DiceWorkerStateEvaluating<'a> {
 }
 
 /// When the spawned dice worker has just finished evaluating the `Key::compute` function
-pub(crate) struct DiceWorkerStateFinishedEvaluating<'a> {
-    pub(crate) state: DiceWorkerStateFinished<'a>,
+pub(crate) struct DiceWorkerStateFinishedEvaluating {
+    pub(crate) state: DiceWorkerStateFinished,
     pub(crate) result: KeyEvaluationResult,
 }
 
 /// When the spawned dice worker is finished checking dependencies or finished computing the key.
 /// At this point, the value of the node is known. We are just waiting for core state to finish
 /// updating the caches and return the correct instance of the value.
-pub(crate) struct DiceWorkerStateFinished<'a> {
-    internals: DiceTaskHandle<'a>,
+pub(crate) struct DiceWorkerStateFinished {
     _prevent_cancellation: DisableCancellationGuard,
 }
 
-impl<'a> DiceWorkerStateFinished<'a> {
+impl DiceWorkerStateFinished {
     pub(crate) fn cached(self, value: DiceComputedValue) -> DiceWorkerStateFinishedAndCached {
         debug!(msg = "Update caches complete");
 
-        self.internals.finished(value);
-
-        DiceWorkerStateFinishedAndCached {}
+        DiceWorkerStateFinishedAndCached { value }
     }
 }
 
 /// When the spawned dice worker is done computing and saving the value to core state cache.
 /// The final value is known.
-pub(crate) struct DiceWorkerStateFinishedAndCached {}
+pub(crate) struct DiceWorkerStateFinishedAndCached {
+    pub(crate) value: DiceComputedValue,
+}

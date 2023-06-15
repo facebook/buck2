@@ -51,7 +51,7 @@ impl AsyncEvaluator {
         &'a self,
         key: DiceKey,
         state: DiceWorkerStateComputing<'a>,
-    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a>> {
+    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating> {
         let key_erased = self.dice.key_index.get(key);
 
         let (cycles, state) = state.evaluating();

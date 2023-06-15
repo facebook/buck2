@@ -53,11 +53,14 @@ impl<'a> DiceTaskHandle<'a> {
     }
 
     #[cfg(test)]
-    pub(crate) fn testing_new(k: crate::impls::key::DiceKey) -> Self {
-        Self {
-            internal: DiceTaskInternal::new(k),
-            cancellations: CancellationContext::testing(),
-        }
+    pub(crate) fn testing_new() -> &'static DiceTaskHandle<'static> {
+        static TEST: once_cell::sync::Lazy<DiceTaskHandle> =
+            once_cell::sync::Lazy::new(|| DiceTaskHandle::<'static> {
+                internal: DiceTaskInternal::new(crate::impls::key::DiceKey { index: 99999 }),
+                cancellations: CancellationContext::testing(),
+            });
+
+        &TEST
     }
 }
 

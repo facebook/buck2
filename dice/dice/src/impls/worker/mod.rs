@@ -32,17 +32,16 @@ use crate::result::Cancelled;
 pub(crate) mod state;
 
 /// The worker on the spawned dice task
-pub(crate) struct DiceTaskWorker<'a> {
+pub(crate) struct DiceTaskWorker {
     k: DiceKey,
     eval: AsyncEvaluator,
     cycles: UserCycleDetectorData,
     events_dispatcher: DiceEventDispatcher,
     previously_cancelled_task: Option<PreviouslyCancelledTask>,
     incremental: IncrementalEngine,
-    handle: DiceTaskHandle<'a>,
 }
 
-impl<'a> DiceTaskWorker<'a> {
+impl DiceTaskWorker {
     pub(crate) fn spawn(
         k: DiceKey,
         eval: AsyncEvaluator,
@@ -52,38 +51,40 @@ impl<'a> DiceTaskWorker<'a> {
         incremental: IncrementalEngine,
     ) -> DiceTask {
         let span = debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.per_live_version_ctx.get_version(), v_epoch = %incremental.version_epoch);
-        spawn_dice_task(
+
+        let spawner = eval.user_data.spawner.dupe();
+        let spawner_ctx = eval.user_data.dupe();
+
+        let worker = DiceTaskWorker::new(
             k,
-            &*eval.user_data.spawner.dupe(),
-            &eval.user_data.dupe(),
-            move |handle| {
-                async move {
-                    let worker = DiceTaskWorker::new(
-                        k,
-                        eval,
-                        cycles,
-                        events_dispatcher,
-                        previously_cancelled_task,
-                        incremental,
-                        handle,
-                    );
+            eval,
+            cycles,
+            events_dispatcher,
+            previously_cancelled_task,
+            incremental,
+        );
 
-                    match worker.do_work().await {
-                        Ok(_res) => {
-                            // finished and cached.
-                        }
-                        Err(Cancelled) => {
-                            // we drop the current handle, leaving the original `DiceTask` as terminated
-                            // state
-                        }
+        spawn_dice_task(k, &*spawner, &spawner_ctx, move |handle| {
+            async move {
+                // we hold onto the handle and drop it last after consuming the `worker`. This
+                // ensures any data being held for the actual evaluation is dropped before we
+                // notify the future as done.
+                match worker.do_work(&handle).await {
+                    Ok(res) => {
+                        handle.finished(res.value);
                     }
-
-                    Box::new(()) as Box<dyn Any + Send + 'static>
+                    Err(Cancelled) => {
+                        // we drop the current handle, leaving the original `DiceTask` as terminated
+                        // state
+                        drop(handle)
+                    }
                 }
-                .instrument(span)
-                .boxed()
-            },
-        )
+
+                Box::new(()) as Box<dyn Any + Send + 'static>
+            }
+            .instrument(span)
+            .boxed()
+        })
     }
 
     fn new(
@@ -93,7 +94,6 @@ impl<'a> DiceTaskWorker<'a> {
         events_dispatcher: DiceEventDispatcher,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
         incremental: IncrementalEngine,
-        handle: DiceTaskHandle<'a>,
     ) -> Self {
         Self {
             k,
@@ -102,12 +102,14 @@ impl<'a> DiceTaskWorker<'a> {
             events_dispatcher,
             previously_cancelled_task,
             incremental,
-            handle,
         }
     }
 
-    pub(crate) async fn do_work(self) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
-        let state = DiceWorkerStateAwaitingPrevious::new(self.k, self.cycles, self.handle);
+    pub(crate) async fn do_work<'a>(
+        self,
+        handle: &'a DiceTaskHandle<'a>,
+    ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
+        let state = DiceWorkerStateAwaitingPrevious::new(self.k, self.cycles, handle);
 
         let state = if let Some(previous) = self.previously_cancelled_task {
             previous.previous.await_termination().await;
