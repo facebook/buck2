@@ -78,6 +78,13 @@ _CxxCompileArgsfile = record(
     args_without_file_prefix_args = field("cmd_args"),
 )
 
+_CxxCompileArgsfiles = record(
+    # Relative path argsfiles used for build actions, mapped by extension.
+    relative = field({str.type: _CxxCompileArgsfile.type}, default = {}),
+    # Absolute path argsfiles used for extra outputs, mapped by extension.
+    absolute = field({str.type: _CxxCompileArgsfile.type}, default = {}),
+)
+
 _HeadersDepFiles = record(
     # An executable to wrap the actual command with for post-processing of dep
     # files into the format that Buck2 recognizes (i.e. one artifact per line).
@@ -126,10 +133,15 @@ CxxCompileCommandArgsFiles = record(
 CxxCompileCommandOutput = record(
     # List of compile commands for each source file.
     src_compile_cmds = field([CxxSrcCompileCommand.type], default = []),
+    # Argsfiles generated for compiling these source files.
+    argsfiles = field(_CxxCompileArgsfiles.type, default = _CxxCompileArgsfiles()),
+
+    # TODO(chatatap): Remove these
     # Argsfiles used for build actions
     relative_argsfiles = field(CxxCompileCommandArgsFiles.type, CxxCompileCommandArgsFiles()),
     # Argsfiles with absolute paths used for extra outputs.
     absolute_argsfiles = field(CxxCompileCommandArgsFiles.type, CxxCompileCommandArgsFiles()),
+
     # List of compile commands for use in compilation database generation.
     comp_db_compile_cmds = field([CxxSrcCompileCommand.type], default = []),
 )
@@ -265,6 +277,10 @@ def create_compile_cmds(
     else:
         return CxxCompileCommandOutput(
             src_compile_cmds = src_compile_cmds,
+            argsfiles = _CxxCompileArgsfiles(
+                relative = argsfile_by_ext,
+                absolute = abs_argsfile_by_ext,
+            ),
             relative_argsfiles = relative_argsfiles,
             absolute_argsfiles = absolute_argsfiles,
             comp_db_compile_cmds = src_compile_cmds,
