@@ -106,7 +106,12 @@ def _create_fat_jar(
     fat_jar_cmd = cmd_args(args)
     fat_jar_cmd.hidden(jars, [native_lib.lib.output for native_lib in native_libs.values()])
 
-    ctx.actions.run(fat_jar_cmd, local_only = local_only, category = "fat_jar")
+    ctx.actions.run(
+        fat_jar_cmd,
+        local_only = local_only,
+        category = "fat_jar",
+        allow_cache_upload = True,
+    )
 
     if generate_wrapper == False:
         expect(
