@@ -247,10 +247,11 @@ def create_compile_cmds(
         src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index)
         src_compile_cmds.append(src_compile_command)
 
-    relative_argsfiles = _get_argsfile_output(ctx, argsfile_by_ext, impl_params.additional.argsfiles_deprecated, "argsfiles")
+    argsfile_by_ext.update(impl_params.additional.argsfiles.relative)
+    relative_argsfiles = _get_argsfile_output(ctx, argsfile_by_ext, "argsfiles")
 
-    #TODO(chatatap): Handle additional absolute argsfiles (swift?)
-    absolute_argsfiles = _get_argsfile_output(ctx, abs_argsfile_by_ext, [], "abs-argsfiles") if absolute_path_prefix else CxxCompileCommandArgsFiles()
+    abs_argsfile_by_ext.update(impl_params.additional.argsfiles.absolute)
+    absolute_argsfiles = _get_argsfile_output(ctx, abs_argsfile_by_ext, "abs-argsfiles") if absolute_path_prefix else CxxCompileCommandArgsFiles()
 
     if header_only:
         return CxxCompileCommandOutput(comp_db_compile_cmds = src_compile_cmds)
@@ -266,7 +267,7 @@ def create_compile_cmds(
             comp_db_compile_cmds = src_compile_cmds,
         )
 
-def _get_argsfile_output(ctx: "context", argsfile_by_ext: {str.type: CompileArgsfile.type}, additional_argsfiles: ["CxxAdditionalArgsfileParams"], summary_name: str.type) -> CxxCompileCommandArgsFiles.type:
+def _get_argsfile_output(ctx: "context", argsfile_by_ext: {str.type: CompileArgsfile.type}, summary_name: str.type) -> CxxCompileCommandArgsFiles.type:
     argsfiles = []
     argsfile_names = cmd_args()
     dependent_outputs = []
@@ -276,12 +277,6 @@ def _get_argsfile_output(ctx: "context", argsfile_by_ext: {str.type: CompileArgs
         argsfile_names.add(cmd_args(argsfile.file).ignore_artifacts())
         dependent_outputs.extend(argsfile.input_args)
         argsfile_artifacts_by_ext[ext] = argsfile.file
-
-    for argsfile in additional_argsfiles:
-        argsfiles.append(argsfile.file)
-        argsfile_names.add(cmd_args(argsfile.file).ignore_artifacts())
-        dependent_outputs.extend(argsfile.input_args)
-        argsfile_artifacts_by_ext[argsfile.extension] = argsfile.file
 
     argsfiles_summary = ctx.actions.write(summary_name, argsfile_names)
 
