@@ -19,6 +19,7 @@ load(
     "uses_explicit_modules",
 )
 load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
+load("@prelude//cxx:argsfiles.bzl", "CompileArgsfiles")
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
@@ -217,6 +218,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         srcs = cxx_srcs,
         additional = CxxRuleAdditionalParams(
             srcs = swift_srcs,
+            argsfiles = swift_compile.argsfiles if swift_compile else CompileArgsfiles(),
             argsfiles_deprecated = [swift_argsfile] if swift_argsfile else [],
             # We need to add any swift modules that we include in the link, as
             # these will end up as `N_AST` entries that `dsymutil` will need to

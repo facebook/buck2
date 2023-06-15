@@ -10,6 +10,7 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleTo
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_explicit_modules_env_var", "get_module_name", "get_versioned_target_triple")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION")
+load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
@@ -82,7 +83,8 @@ SwiftCompilationOutput = record(
     pre = field(CPreprocessor.type),
     # Exported preprocessor info required for ObjC compilation of rdeps.
     exported_pre = field(CPreprocessor.type),
-    # Argsfile to compile an object file which is used by some subtargets.
+    # Argsfiles used to compile object files.
+    argsfiles = field(CompileArgsfiles.type),
     swift_argsfile_deprecated = field(CxxAdditionalArgsfileParams.type),
 )
 
@@ -195,7 +197,7 @@ def compile_swift(
         _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, unprocessed_header)
         _perform_swift_postprocessing(ctx, module_name, unprocessed_header, output_header)
 
-    swift_argsfile = _compile_object(ctx, toolchain, shared_flags, srcs, output_object)
+    swift_argsfile_deprecated, argsfiles = _compile_object(ctx, toolchain, shared_flags, srcs, output_object)
 
     # Swift libraries extend the ObjC modulemaps to include the -Swift.h header
     modulemap_pp_info = preprocessor_info_for_modulemap(ctx, "swift-extended", exported_headers, output_header)
@@ -229,7 +231,8 @@ def compile_swift(
         dependency_info = get_swift_dependency_info(ctx, exported_pp_info, output_swiftmodule),
         pre = pre,
         exported_pre = exported_pp_info,
-        swift_argsfile_deprecated = swift_argsfile,
+        argsfiles = argsfiles,
+        swift_argsfile_deprecated = swift_argsfile_deprecated,
     )
 
 # Swift headers are postprocessed to make them compatible with Objective-C
@@ -266,7 +269,7 @@ def _compile_swiftmodule(
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
         output_swiftmodule: "artifact",
-        output_header: "artifact") -> CxxAdditionalArgsfileParams.type:
+        output_header: "artifact") -> (CxxAdditionalArgsfileParams.type, CompileArgsfiles.type):
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-Xfrontend",
@@ -287,7 +290,7 @@ def _compile_object(
         toolchain: "SwiftToolchainInfo",
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
-        output_object: "artifact") -> CxxAdditionalArgsfileParams.type:
+        output_object: "artifact") -> (CxxAdditionalArgsfileParams.type, CompileArgsfiles.type):
     object_format = toolchain.object_format.value
     embed_bitcode = False
     if toolchain.object_format == SwiftObjectFormat("object-embed-bitcode"):
@@ -312,22 +315,21 @@ def _compile_with_argsfile(
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
         additional_flags: "cmd_args",
-        toolchain: "SwiftToolchainInfo") -> CxxAdditionalArgsfileParams.type:
-    shell_quoted_cmd = cmd_args(shared_flags, quote = "shell")
-    argfile, _ = ctx.actions.write(extension + ".argsfile", shell_quoted_cmd, allow_args = True)
+        toolchain: "SwiftToolchainInfo") -> (CxxAdditionalArgsfileParams.type, CompileArgsfiles.type):
+    shell_quoted_args = cmd_args(shared_flags, quote = "shell")
+    argsfile, _ = ctx.actions.write(extension + ".argsfile", shell_quoted_args, allow_args = True)
+    input_args = [shared_flags]
+    cmd_form = cmd_args(argsfile, format = "@{}", delimiter = "").hidden(input_args)
 
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
-    cmd.add(cmd_args(["@", argfile], delimiter = ""))
+    cmd.add(cmd_form)
 
     cmd.add([s.file for s in srcs])
 
     # Swift compilation on RE without explicit modules is impractically expensive
     # because there's no shared module cache across different libraries.
     prefer_local = not uses_explicit_modules(ctx)
-
-    # Argsfile should also depend on all artifacts in it, otherwise they won't be materialised.
-    cmd.hidden([shared_flags])
 
     # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
     # so that CI builds populate caches used by developer machines.
@@ -343,7 +345,16 @@ def _compile_with_argsfile(
         allow_cache_upload = prefer_local,
     )
 
-    return CxxAdditionalArgsfileParams(file = argfile, input_args = [shared_flags], extension = extension)
+    relative_argsfile = CompileArgsfile(
+        file = argsfile,
+        cmd_form = cmd_form,
+        input_args = input_args,
+        args = shell_quoted_args,
+        args_without_file_prefix_args = shared_flags,
+    )
+
+    # Swift correctly handles relative paths and we can utilize the relative argsfile for the absolute argsfile.
+    return (CxxAdditionalArgsfileParams(file = relative_argsfile.file, input_args = relative_argsfile.input_args, extension = extension), CompileArgsfiles(relative = {extension: relative_argsfile}, absolute = {extension: relative_argsfile}))
 
 def _get_shared_flags(
         ctx: "context",
