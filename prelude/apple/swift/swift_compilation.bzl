@@ -350,8 +350,7 @@ def _compile_with_argsfile(
         allow_cache_upload = prefer_local,
     )
 
-    hidden_args = [shared_flags]
-    return CxxAdditionalArgsfileParams(file = argfile, format = cxx_output_format, hidden_args = hidden_args, extension = ".swift")
+    return CxxAdditionalArgsfileParams(file = argfile, format = cxx_output_format, input_args = [shared_flags], extension = ".swift")
 
 def _get_shared_flags(
         ctx: "context",

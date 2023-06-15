@@ -66,16 +66,16 @@ DepFileType = enum(
 
 # Information on argsfiles created for Cxx compilation.
 _CxxCompileArgsfile = record(
-    # The generated argsfile
+    # The generated argsfile (does not contain dependent inputs).
     file = field("artifact"),
-    # This argfile as a command form that would use the argfile
+    # This argsfile as a command form that would use the argsfile (includes dependent inputs).
     cmd_form = field("cmd_args"),
-    # The args that was written to the argfile
+    # The args that was written to the argsfile
     argfile_args = field("cmd_args"),
     # The args in their prisitine form without shell quoting
     args = field("cmd_args"),
-    # Hidden args necessary for the argsfile to reference
-    hidden_args = field([["artifacts", "cmd_args"]]),
+    # Input args necessary for the argsfile to reference.
+    input_args = field([["artifacts", "cmd_args"]]),
 )
 
 _HeadersDepFiles = record(
@@ -278,13 +278,13 @@ def _get_argsfile_output(ctx: "context", argsfile_by_ext: {str.type: _CxxCompile
     for ext, argsfile in argsfile_by_ext.items():
         argsfiles.append(argsfile.file)
         argsfile_names.add(cmd_args(argsfile.file).ignore_artifacts())
-        dependent_outputs.extend(argsfile.hidden_args)
+        dependent_outputs.extend(argsfile.input_args)
         argsfile_artifacts_by_ext[ext] = argsfile.file
 
     for argsfile in additional_argsfiles:
         argsfiles.append(argsfile.file)
         argsfile_names.add(cmd_args(argsfile.file).ignore_artifacts())
-        dependent_outputs.extend(argsfile.hidden_args)
+        dependent_outputs.extend(argsfile.input_args)
         argsfile_artifacts_by_ext[argsfile.extension] = argsfile.file
 
     argsfiles_summary = ctx.actions.write(summary_name, argsfile_names)
@@ -519,13 +519,13 @@ def _mk_argsfile(ctx: "context", compiler_info: "_compiler_info", preprocessor: 
         shell_quoted_args.add(cmd_args(preprocessor.set.project_as_args("file_prefix_args")))
 
     file_name = ext.value + ("-abs.argsfile" if absolute_path_prefix else ".argsfile")
-    argfile, _ = ctx.actions.write(file_name, shell_quoted_args, allow_args = True)
+    argsfile, _ = ctx.actions.write(file_name, shell_quoted_args, allow_args = True)
 
-    hidden_args = [args]
+    input_args = [args]
 
-    cmd_form = cmd_args(argfile, format = "@{}").hidden(hidden_args)
+    cmd_form = cmd_args(argsfile, format = "@{}").hidden(input_args)
 
-    return _CxxCompileArgsfile(file = argfile, cmd_form = cmd_form, argfile_args = shell_quoted_args, args = args, hidden_args = hidden_args)
+    return _CxxCompileArgsfile(file = argsfile, cmd_form = cmd_form, argfile_args = shell_quoted_args, args = args, input_args = input_args)
 
 def _attr_compiler_flags(ctx: "context", ext: str.type) -> [""]:
     return (
