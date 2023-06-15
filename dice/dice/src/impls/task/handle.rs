@@ -67,6 +67,8 @@ impl<'a> DiceTaskHandle<'a> {
 impl<'a> Drop for DiceTaskHandle<'a> {
     fn drop(&mut self) {
         if self.internal.read_value().is_none() {
+            debug!("task is terminated");
+
             // This is only owned by the main worker task. If this was dropped, and no result was
             // ever recorded, then we must have been terminated.
             self.internal.report_terminated()
