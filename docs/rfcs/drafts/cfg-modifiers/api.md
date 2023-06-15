@@ -153,12 +153,11 @@ in other tools, and it is the most intuitive behavior, for example,
 * build systems like CMake have flags like `-D` that can be specified
   multiple times, and they are all added to one set of flags.
 
-If both `--cfg` and `?` are specified at the same time, modifiers
-from `--cfg`s are applied before modifiers from `?` are applied.
-So
-`buck2 build repo//foo:bar?config//build_mode/constraints:split-dwarf --cfg=asan --cfg=nosan`
-is equivalent to
-`buck2 build repo//foo:bar?asan,split-dwarf repo//foo:bar?nosan,split-dwarf`.
+It is prohibited to specify both `--cfg` flag and `?` in target pattern.
+`--cfg` flag exists for convenience, and to specify
+complex configuration setups (in scripts or in CI),
+users can always specify `?`.
+This restriction can be lifted in the future if there is a need.
 
 When specifying a subtarget and modifier with `?`,
 subtarget should go before modifier,
