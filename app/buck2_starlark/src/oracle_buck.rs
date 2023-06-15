@@ -30,6 +30,19 @@ pub(crate) fn oracle_buck(globals: Globals) -> Arc<dyn TypingOracle + Send + Syn
 struct CustomBuck;
 
 impl TypingOracle for CustomBuck {
+    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+        match ty.as_name()? {
+            "dependency" => match attr {
+                // We can index by providers, which either appear as functions (for builtin providers)
+                // or as Any (for user providers)
+                "__index__" => Some(Ok(Ty::function(vec![Param::pos_only(Ty::Any)], Ty::Any))),
+                "__in__" => Some(Ok(Ty::function(vec![Param::pos_only(Ty::Any)], Ty::bool()))),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
         match name {
             // A provider can be used as an index and can be called.
