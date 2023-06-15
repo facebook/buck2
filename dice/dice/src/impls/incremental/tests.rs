@@ -20,12 +20,15 @@ use std::hash::Hasher;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::task::Poll;
 
 use allocative::Allocative;
 use assert_matches::assert_matches;
 use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
+use futures::pin_mut;
+use futures::poll;
 use more_futures::cancellation::CancellationContext;
 use sorted_vector_map::sorted_vector_set;
 
@@ -48,6 +51,7 @@ use crate::impls::incremental::testing::DidDepsChangeExt;
 use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
+use crate::impls::task::sync_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
@@ -773,4 +777,79 @@ async fn mismatch_epoch_results_in_cancelled_result() {
             .await,
         Err(_) => {}
     );
+}
+
+#[tokio::test]
+async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Result<()> {
+    let dice = DiceModern::new(DiceData::new());
+
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+
+    let k = dice.key_index.index_key(Finish);
+
+    let extra = std::sync::Arc::new(UserComputationData::new());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: shared_ctx.dupe(),
+        user_data: extra.dupe(),
+        dice: dice.dupe(),
+    };
+    let cycles = UserCycleDetectorData::testing_new();
+    let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
+
+    let first_task = unsafe { sync_dice_task(DiceKey { index: 0 }) };
+    let first_promise = first_task
+        .depended_on_by(ParentKey::None)
+        .not_cancelled()
+        .unwrap();
+
+    let second_task = IncrementalEngine::spawn_for_key(
+        k,
+        VersionEpoch::testing_new(0),
+        eval.dupe(),
+        cycles,
+        events_dispatcher.dupe(),
+        Some(PreviouslyCancelledTask {
+            previous: first_task,
+        }),
+    );
+
+    second_task.cancel();
+
+    let cycles = UserCycleDetectorData::testing_new();
+    let third_task = IncrementalEngine::spawn_for_key(
+        k,
+        VersionEpoch::testing_new(0),
+        eval,
+        cycles,
+        events_dispatcher,
+        Some(PreviouslyCancelledTask {
+            previous: second_task,
+        }),
+    );
+
+    let promise = third_task
+        .depended_on_by(ParentKey::None)
+        .not_cancelled()
+        .unwrap();
+
+    pin_mut!(promise);
+
+    assert_matches!(poll!(&mut promise), Poll::Pending);
+    assert_matches!(poll!(&mut promise), Poll::Pending);
+    assert_matches!(poll!(&mut promise), Poll::Pending);
+    assert_matches!(poll!(&mut promise), Poll::Pending);
+    assert_matches!(poll!(&mut promise), Poll::Pending);
+
+    first_promise.get_or_complete(|| {
+        DiceComputedValue::new(
+            MaybeValidDiceValue::valid(DiceValidValue::testing_new(
+                DiceKeyValue::<Finish>::new(()),
+            )),
+            Arc::new(CellHistory::empty()),
+        )
+    })?;
+
+    let _ignored = promise.await?;
+
+    Ok(())
 }

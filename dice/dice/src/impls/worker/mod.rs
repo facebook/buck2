@@ -114,7 +114,11 @@ impl DiceTaskWorker {
         let state = DiceWorkerStateAwaitingPrevious::new(self.k, self.cycles, handle);
 
         let state = if let Some(previous) = self.previously_cancelled_task {
-            previous.previous.await_termination().await;
+            handle
+                .cancellation_ctx()
+                .critical_section(|| previous.previous.await_termination())
+                .await;
+
             // old task actually finished, so just use that result if it wasn't
             // cancelled
 
