@@ -79,7 +79,7 @@ impl OracleDocs {
     }
 
     /// Is information known about this object.
-    pub(crate) fn known_object(&self, name: &str) -> bool {
+    pub fn known_object(&self, name: &str) -> bool {
         self.objects.contains_key(name)
     }
 }
