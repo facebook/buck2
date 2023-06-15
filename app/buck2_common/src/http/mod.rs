@@ -165,9 +165,7 @@ impl SetHttpClient for UserComputationData {
 /// Whether the machine buck is running on supports vpnless operation.
 fn supports_vpnless() -> bool {
     #[cfg(fbcode_build)]
-    return cpe::x2p::is_edge_enabled()
-        && cpe::user::is_gk_enabled("cpe_x2p_edgeterm_remote_execution")
-        && cpe::user::is_gk_enabled("cpe_x2p_edgeterm_dotslash");
+    return cpe::x2p::supports_vpnless();
 
     #[cfg(not(fbcode_build))]
     return false;
