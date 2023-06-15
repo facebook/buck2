@@ -5,8 +5,81 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//haskell:haskell.bzl", "HaskellLibraryProvider")
+load("@prelude//haskell:haskell.bzl", "HaskellLibraryProvider", "HaskellToolchainInfo")
+load(
+    "@prelude//linking:linkable_graph.bzl",
+    "LinkableRootInfo",
+)
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+    "traverse_shared_library_info",
+)
 load("@prelude//utils:utils.bzl", "flatten")
+
+GHCiPreloadDepsInfo = record(
+    preload_symlinks = {str.type: "artifact"},
+    preload_deps_root = "artifact",
+)
+
+def _build_preload_deps_root(
+        ctx: "context",
+        haskell_toolchain: HaskellToolchainInfo.type) -> GHCiPreloadDepsInfo.type:
+    preload_deps = ctx.attrs.preload_deps
+
+    preload_symlinks = {}
+    preload_libs_root = ctx.label.name + ".preload-symlinks"
+
+    for preload_dep in preload_deps:
+        if SharedLibraryInfo in preload_dep:
+            slib_info = preload_dep[SharedLibraryInfo]
+
+            shlib = traverse_shared_library_info(slib_info).items()
+
+            for shlib_name, shared_lib in shlib:
+                preload_symlinks[shlib_name] = shared_lib.lib.output
+
+        # TODO(T150785851): build or get SO for direct preload_deps
+        # TODO(T150785851): find out why the only SOs missing are the ones from
+        # the preload_deps themselves, even though the ones from their deps are
+        # already there.
+        if LinkableRootInfo in preload_dep:
+            linkable_root_info = preload_dep[LinkableRootInfo]
+            preload_so_name = linkable_root_info.name
+
+            linkables = map(lambda x: x.objects, linkable_root_info.link_infos.default.linkables)
+
+            object_file = flatten(linkables)[0]
+
+            preload_so = ctx.actions.declare_output(preload_so_name)
+            link = cmd_args(haskell_toolchain.linker)
+            link.add(haskell_toolchain.linker_flags)
+            link.add(ctx.attrs.linker_flags)
+            link.add("-o", preload_so.as_output())
+
+            link.add(
+                "-shared",
+                "-dynamic",
+                "-optl",
+                "-Wl,-soname",
+                "-optl",
+                "-Wl," + preload_so_name,
+            )
+            link.add(object_file)
+
+            ctx.actions.run(
+                link,
+                category = "haskell_ghci_link",
+                identifier = preload_so_name,
+            )
+
+            preload_symlinks[preload_so_name] = preload_so
+
+    preload_deps_root = ctx.actions.symlinked_dir(preload_libs_root, preload_symlinks)
+    return GHCiPreloadDepsInfo(
+        preload_deps_root = preload_deps_root,
+        preload_symlinks = preload_symlinks,
+    )
 
 # Symlink the ghci binary that will be used, e.g. the internal fork in Haxlsh
 def _symlink_ghci_binary(ctx, ghci_bin: "artifact"):
@@ -78,12 +151,15 @@ def haskell_ghci_impl(ctx: "context") -> ["provider"]:
     _write_start_ghci(ctx, start_ghci_file)
 
     ghci_bin = ctx.actions.declare_output(ctx.attrs.name + ".bin/ghci")
-
     _symlink_ghci_binary(ctx, ghci_bin)
+
+    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
+    preload_deps_info = _build_preload_deps_root(ctx, haskell_toolchain)
 
     outputs = [
         start_ghci_file,
         ghci_bin,
+        preload_deps_info.preload_deps_root,
     ]
 
     return [
