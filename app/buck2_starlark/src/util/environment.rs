@@ -22,7 +22,7 @@ use starlark::environment::Globals;
 /// The environment in which a Starlark file is evaluated.
 pub(crate) struct Environment {
     /// The globals that are driven from Rust.
-    globals: Globals,
+    pub(crate) globals: Globals,
     /// The path to the prelude, if the prelude is loaded in this file.
     /// Note that in a BUCK file the `native` value is also exploded into the top-level.
     prelude: Option<ImportPath>,

@@ -7,9 +7,25 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
+use starlark::environment::Globals;
+use starlark::environment::LibraryExtension;
 use starlark::typing::*;
 
 pub(crate) struct OracleBuck;
+
+impl OracleBuck {
+    #[allow(clippy::new_ret_no_self)]
+    pub(crate) fn new(globals: Globals) -> Arc<dyn TypingOracle + Send + Sync> {
+        let _unused = globals;
+        Arc::new(vec![
+            Box::new(OracleStandard::new(LibraryExtension::all()))
+                as Box<dyn TypingOracle + Send + Sync>,
+            Box::new(OracleBuck),
+        ])
+    }
+}
 
 impl TypingOracle for OracleBuck {
     fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {

@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::io::Write;
+use std::sync::Arc;
 
 use anyhow::Context;
 use async_recursion::async_recursion;
@@ -19,7 +20,9 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::io::IoProvider;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::path::OwnedStarlarkPath;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -27,12 +30,11 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use starlark::environment::LibraryExtension;
 use starlark::typing::Interface;
-use starlark::typing::OracleStandard;
 use starlark::typing::TypingOracle;
 
 use crate::oracle_buck::OracleBuck;
+use crate::util::environment::Environment;
 use crate::util::paths::starlark_files;
 use crate::StarlarkCommandCommonOptions;
 use crate::StarlarkOpaqueSubcommand;
@@ -56,6 +58,7 @@ struct Cache<'a> {
     stdout: &'a mut (dyn Write + Send + Sync),
     stderr: &'a mut (dyn Write + Send + Sync),
     // Our accumulated state
+    oracle: HashMap<(CellName, StarlarkFileType), Arc<dyn TypingOracle + Send + Sync>>,
     cache: HashMap<OwnedStarlarkPath, Interface>,
 }
 
@@ -63,6 +66,22 @@ impl<'a> Cache<'a> {
     async fn typecheck(&mut self, path: OwnedStarlarkPath) -> anyhow::Result<()> {
         self.run(path).await?;
         Ok(())
+    }
+
+    async fn get_oracle(
+        &mut self,
+        cell: CellName,
+        path_type: StarlarkFileType,
+    ) -> anyhow::Result<Arc<dyn TypingOracle>> {
+        match self.oracle.get(&(cell, path_type)) {
+            Some(x) => Ok(x.dupe()),
+            None => {
+                let globals = Environment::new(cell, path_type, self.dice).await?.globals;
+                let res = OracleBuck::new(globals);
+                self.oracle.insert((cell, path_type), res.dupe());
+                Ok(res)
+            }
+        }
     }
 
     async fn get(&mut self, path: OwnedStarlarkPath) -> anyhow::Result<Interface> {
@@ -102,13 +121,10 @@ impl<'a> Cache<'a> {
             let interface = self.get(y.into_starlark_path()).await?;
             loads.insert(x.module_id.to_owned(), interface);
         }
-        let (errors, bindings, interface, approxiomations) = ast.typecheck(
-            &vec![
-                &OracleStandard::new(LibraryExtension::all()) as &dyn TypingOracle,
-                &OracleBuck,
-            ],
-            &loads,
-        );
+        let oracle = self
+            .get_oracle(path_ref.cell(), path_ref.file_type())
+            .await?;
+        let (errors, bindings, interface, approxiomations) = ast.typecheck(&*oracle, &loads);
 
         if !approxiomations.is_empty() {
             writeln!(self.stderr, "\n\nAPPROXIMATIONS:")?;
@@ -156,6 +172,7 @@ impl StarlarkOpaqueSubcommand for StarlarkTypecheckCommand {
                     cell_resolver: &cell_resolver,
                     stdout: &mut stdout,
                     stderr: &mut stderr,
+                    oracle: HashMap::new(),
                     cache: HashMap::new(),
                 };
                 for file in files {
