@@ -20,6 +20,7 @@ use crate::impls::events::DiceEventDispatcher;
 use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
+use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::UserCycleDetectorData;
@@ -31,16 +32,17 @@ use crate::result::Cancelled;
 pub(crate) mod state;
 
 /// The worker on the spawned dice task
-pub(crate) struct DiceTaskWorker {
+pub(crate) struct DiceTaskWorker<'a> {
     k: DiceKey,
     eval: AsyncEvaluator,
     cycles: UserCycleDetectorData,
     events_dispatcher: DiceEventDispatcher,
     previously_cancelled_task: Option<PreviouslyCancelledTask>,
     incremental: IncrementalEngine,
+    handle: DiceTaskHandle<'a>,
 }
 
-impl DiceTaskWorker {
+impl<'a> DiceTaskWorker<'a> {
     pub(crate) fn spawn(
         k: DiceKey,
         eval: AsyncEvaluator,
@@ -63,12 +65,10 @@ impl DiceTaskWorker {
                         events_dispatcher,
                         previously_cancelled_task,
                         incremental,
+                        handle,
                     );
 
-                    match worker
-                        .do_work(DiceWorkerStateAwaitingPrevious::new(handle))
-                        .await
-                    {
+                    match worker.do_work().await {
                         Ok(_res) => {
                             // finished and cached.
                         }
@@ -93,6 +93,7 @@ impl DiceTaskWorker {
         events_dispatcher: DiceEventDispatcher,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
         incremental: IncrementalEngine,
+        handle: DiceTaskHandle<'a>,
     ) -> Self {
         Self {
             k,
@@ -101,13 +102,13 @@ impl DiceTaskWorker {
             events_dispatcher,
             previously_cancelled_task,
             incremental,
+            handle,
         }
     }
 
-    pub(crate) async fn do_work(
-        self,
-        state: DiceWorkerStateAwaitingPrevious<'_>,
-    ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
+    pub(crate) async fn do_work(self) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
+        let state = DiceWorkerStateAwaitingPrevious::new(self.k, self.cycles, self.handle);
+
         let state = if let Some(previous) = self.previously_cancelled_task {
             previous.previous.await_termination().await;
             // old task actually finished, so just use that result if it wasn't
@@ -132,13 +133,7 @@ impl DiceTaskWorker {
         };
 
         self.incremental
-            .eval_entry_versioned(
-                self.k,
-                &self.eval,
-                self.cycles,
-                self.events_dispatcher,
-                state,
-            )
+            .eval_entry_versioned(self.k, &self.eval, self.events_dispatcher, state)
             .await
     }
 }

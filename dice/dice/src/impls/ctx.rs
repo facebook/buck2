@@ -311,10 +311,17 @@ impl PerComputeCtx {
         Ok(())
     }
 
-    pub(crate) fn finalize(self) -> ((HashSet<DiceKey>, DiceValidity), EvaluationData) {
+    pub(crate) fn finalize(
+        self,
+    ) -> (
+        (HashSet<DiceKey>, DiceValidity),
+        EvaluationData,
+        KeyComputingUserCycleDetectorData,
+    ) {
         (
             self.dep_trackers.into_inner().collect_deps(),
             self.evaluation_data.into_inner(),
+            self.cycles,
         )
     }
 

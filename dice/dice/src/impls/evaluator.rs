@@ -24,9 +24,9 @@ use crate::impls::dice::DiceModern;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
-use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::impls::worker::state::DiceWorkerStateComputing;
+use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::result::CancellableResult;
 use crate::HashSet;
 
@@ -47,13 +47,15 @@ impl AsyncEvaluator {
         }
     }
 
-    pub(crate) async fn evaluate<'b>(
-        &self,
+    pub(crate) async fn evaluate<'a>(
+        &'a self,
         key: DiceKey,
-        cycles: KeyComputingUserCycleDetectorData,
-        state: &DiceWorkerStateComputing<'_>,
-    ) -> CancellableResult<KeyEvaluationResult> {
+        state: DiceWorkerStateComputing<'a>,
+    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a>> {
         let key_erased = self.dice.key_index.get(key);
+
+        let (cycles, state) = state.evaluating();
+
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {
                 let new_ctx = DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
@@ -65,19 +67,22 @@ impl AsyncEvaluator {
                 )));
 
                 let value = key_dyn.compute(&new_ctx, state.cancellation_ctx()).await;
-                let ((deps, dep_validity), evaluation_data) = match new_ctx.0 {
+                let ((deps, dep_validity), evaluation_data, cycles) = match new_ctx.0 {
                     DiceComputationsImpl::Legacy(_) => {
                         unreachable!("modern dice created above")
                     }
                     DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize(),
                 };
 
-                CancellableResult::Ok(KeyEvaluationResult {
-                    value: MaybeValidDiceValue::new(value, dep_validity),
-                    deps,
-                    storage: key_dyn.storage_type(),
-                    evaluation_data,
-                })
+                state.finished(
+                    cycles,
+                    KeyEvaluationResult {
+                        value: MaybeValidDiceValue::new(value, dep_validity),
+                        deps,
+                        storage: key_dyn.storage_type(),
+                        evaluation_data,
+                    },
+                )
             }
             DiceKeyErased::Projection(proj) => {
                 let base = self
@@ -97,12 +102,15 @@ impl AsyncEvaluator {
 
                 let value = proj.proj().compute(base.value(), &ctx);
 
-                CancellableResult::Ok(KeyEvaluationResult {
-                    value: MaybeValidDiceValue::new(value, base.value().validity()),
-                    deps: [proj.base()].into_iter().collect(),
-                    storage: proj.proj().storage_type(),
-                    evaluation_data: EvaluationData::none(), // Projection keys can't set this.
-                })
+                state.finished(
+                    cycles,
+                    KeyEvaluationResult {
+                        value: MaybeValidDiceValue::new(value, base.value().validity()),
+                        deps: [proj.base()].into_iter().collect(),
+                        storage: proj.proj().storage_type(),
+                        evaluation_data: EvaluationData::none(), // Projection keys can't set this.
+                    },
+                )
             }
         }
     }

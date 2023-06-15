@@ -51,7 +51,6 @@ use crate::impls::key::ParentKey;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
-use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
@@ -139,7 +138,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let engine = IncrementalEngine::new(dice.state_handle.dupe(), VersionEpoch::testing_new(0));
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
-    let cycles = KeyComputingUserCycleDetectorData::Untracked;
 
     let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
     ctx.inject(
@@ -165,7 +163,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(1)
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
-                &cycles,
                 &DiceWorkerStateCheckingDeps::testing(DiceKey { index: 100 })
             )
             .await?
@@ -196,7 +193,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(2)
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
-                &cycles,
                 &DiceWorkerStateCheckingDeps::testing(DiceKey { index: 100 })
             )
             .await?
@@ -230,7 +226,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(2)
                 )]),
                 Arc::new(vec![DiceKey { index: 200 }]),
-                &cycles,
                 &DiceWorkerStateCheckingDeps::testing(DiceKey { index: 100 })
             )
             .await?
