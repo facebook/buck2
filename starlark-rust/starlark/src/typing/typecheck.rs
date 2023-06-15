@@ -28,9 +28,7 @@ use crate::codemap::Span;
 use crate::environment::names::MutableNames;
 use crate::environment::Globals;
 use crate::eval::compiler::scope::BindingId;
-use crate::eval::compiler::scope::CompilerAstMap;
 use crate::eval::compiler::scope::CstStmt;
-use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::EvalException;
 use crate::slice_vec_ext::VecExt;
@@ -54,24 +52,16 @@ fn unique_identifiers<'f>(
     names: &'f MutableNames,
     loads: &HashMap<String, Interface>,
 ) -> (CstStmt, ModuleScopes<'f>) {
-    let mut scope_data = ModuleScopeData::new();
-    let root_scope_id = scope_data.new_scope().0;
-    let mut cst = ast.statement.into_map_payload(&mut CompilerAstMap {
-        scope_data: &mut scope_data,
-        loads,
-    });
     let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap.dupe());
-    let scope = ModuleScopes::enter_module(
+    ModuleScopes::enter_module(
         names,
         frozen_heap,
-        root_scope_id,
-        scope_data,
-        &mut cst,
+        loads,
+        ast.statement,
         FrozenRef::new(Globals::empty()),
         codemap,
         &Dialect::Extended,
-    );
-    (cst, scope)
+    )
 }
 
 // Things which are None in the map have type void - they are never constructed

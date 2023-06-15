@@ -47,6 +47,7 @@ use crate::syntax::ast::AstLoadP;
 use crate::syntax::ast::AstNoPayload;
 use crate::syntax::ast::AstParameterP;
 use crate::syntax::ast::AstPayload;
+use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ClauseP;
@@ -243,13 +244,19 @@ impl<'f> ModuleScopes<'f> {
     pub fn enter_module(
         module: &'f MutableNames,
         frozen_heap: &'f FrozenHeap,
-        scope_id: ScopeId,
-        mut scope_data: ModuleScopeData<'f>,
-        code: &mut CstStmt,
+        loads: &HashMap<String, Interface>,
+        stmt: AstStmt,
         globals: FrozenRef<'static, Globals>,
         codemap: FrozenRef<'static, CodeMap>,
         dialect: &Dialect,
-    ) -> Self {
+    ) -> (CstStmt, Self) {
+        let mut scope_data = ModuleScopeData::new();
+        let scope_id = scope_data.new_scope().0;
+        let mut cst = stmt.into_map_payload(&mut CompilerAstMap {
+            scope_data: &mut scope_data,
+            loads,
+        });
+
         // Not really important, sanity check
         assert_eq!(scope_id, ScopeId::module());
 
@@ -265,7 +272,7 @@ impl<'f> ModuleScopes<'f> {
         }
 
         Stmt::collect_defines(
-            code,
+            &mut cst,
             InLoop::No,
             &mut scope_data,
             frozen_heap,
@@ -284,7 +291,7 @@ impl<'f> ModuleScopes<'f> {
         }
 
         // Here we traverse the AST second time to collect scopes of defs
-        Self::collect_defines_recursively(&mut scope_data, code, frozen_heap, dialect);
+        Self::collect_defines_recursively(&mut scope_data, &mut cst, frozen_heap, dialect);
         let mut scope = Self {
             scope_data,
             frozen_heap,
@@ -296,8 +303,8 @@ impl<'f> ModuleScopes<'f> {
             globals,
             errors: Vec::new(),
         };
-        scope.resolve_idents(code);
-        scope
+        scope.resolve_idents(&mut cst);
+        (cst, scope)
     }
 
     // Number of module slots I need, and a struct holding all scopes.
@@ -1057,12 +1064,10 @@ mod tests {
     use crate::environment::Globals;
     use crate::eval::compiler::scope::AssignCount;
     use crate::eval::compiler::scope::Captured;
-    use crate::eval::compiler::scope::CompilerAstMap;
     use crate::eval::compiler::scope::CstAssign;
     use crate::eval::compiler::scope::CstAssignIdent;
     use crate::eval::compiler::scope::CstExpr;
     use crate::eval::compiler::scope::CstStmt;
-    use crate::eval::compiler::scope::ModuleScopeData;
     use crate::eval::compiler::scope::ModuleScopes;
     use crate::eval::compiler::scope::ResolvedIdent;
     use crate::eval::compiler::scope::Slot;
@@ -1077,20 +1082,13 @@ mod tests {
 
     fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
         let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::Extended).unwrap();
-        let mut scope_data = ModuleScopeData::new();
-        let root_scope_id = scope_data.new_scope().0;
-        let mut cst = ast.statement.into_map_payload(&mut CompilerAstMap {
-            scope_data: &mut scope_data,
-            loads: &HashMap::new(),
-        });
         let frozen_heap = FrozenHeap::new();
         let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap.dupe());
-        let scope = ModuleScopes::enter_module(
+        let (cst, scope) = ModuleScopes::enter_module(
             module,
             &frozen_heap,
-            root_scope_id,
-            scope_data,
-            &mut cst,
+            &HashMap::new(),
+            ast.statement,
             FrozenRef::new(Globals::empty()),
             codemap,
             &Dialect::Extended,

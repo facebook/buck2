@@ -43,8 +43,6 @@ use crate::collections::symbol_map::Symbol;
 use crate::docs::DocString;
 use crate::environment::Globals;
 use crate::eval::compiler::def::DefInfo;
-use crate::eval::compiler::scope::CompilerAstMap;
-use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::Compiler;
@@ -78,25 +76,15 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             .frozen_heap()
             .alloc_any_display_from_type_name(globals.dupe());
 
-        let mut scope_data = ModuleScopeData::new();
-
-        let root_scope_id = scope_data.new_scope().0;
-
-        let mut statement = statement.into_map_payload(&mut CompilerAstMap {
-            scope_data: &mut scope_data,
-            loads: &HashMap::new(),
-        });
-
         if let Some(docstring) = DocString::extract_raw_starlark_docstring(&statement) {
             self.module_env.set_docstring(docstring)
         }
 
-        let mut scope = ModuleScopes::enter_module(
+        let (statement, mut scope) = ModuleScopes::enter_module(
             self.module_env.mutable_names(),
             self.module_env.frozen_heap(),
-            root_scope_id,
-            scope_data,
-            &mut statement,
+            &HashMap::new(),
+            statement,
             globals,
             codemap,
             &dialect,
