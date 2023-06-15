@@ -31,9 +31,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 enum StarlarkFilesError {
-    #[error("File not found for linting, `{0}`")]
+    #[error("File not found, `{0}`")]
     FileNotFound(ProjectRelativePathBuf),
-    #[error("Symlinks and other esoteric files are not supported for linting, `{0}`")]
+    #[error("Symlinks and other esoteric files are not supported, `{0}`")]
     UnsupportedFileType(ProjectRelativePathBuf),
 }
 
