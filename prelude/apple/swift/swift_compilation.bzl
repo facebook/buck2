@@ -9,6 +9,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_explicit_modules_env_var", "get_module_name", "get_versioned_target_triple")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
+load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION")
 load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
@@ -175,7 +176,7 @@ def compile_swift(
     module_name = get_module_name(ctx)
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
     output_object = ctx.actions.declare_output(module_name + ".o")
-    output_swiftmodule = ctx.actions.declare_output(module_name + ".swiftmodule")
+    output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
 
     shared_flags = _get_shared_flags(
         ctx,
@@ -341,7 +342,7 @@ def _compile_with_argsfile(
         allow_cache_upload = prefer_local,
     )
 
-    return CxxAdditionalArgsfileParams(file = argfile, input_args = [shared_flags], extension = ".swift")
+    return CxxAdditionalArgsfileParams(file = argfile, input_args = [shared_flags], extension = SWIFT_EXTENSION)
 
 def _get_shared_flags(
         ctx: "context",

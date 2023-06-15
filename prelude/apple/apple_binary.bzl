@@ -14,6 +14,7 @@ load(
     "get_swift_anonymous_targets",
     "uses_explicit_modules",
 )
+load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
@@ -140,7 +141,7 @@ def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlag
     cxx_srcs = []
     swift_srcs = []
     for s in get_srcs_with_flags(ctx):
-        if s.file.extension == ".swift":
+        if s.file.extension == SWIFT_EXTENSION:
             swift_srcs.append(s)
         else:
             cxx_srcs.append(s)

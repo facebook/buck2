@@ -18,6 +18,7 @@ load(
     "get_swiftmodule_linkable",
     "uses_explicit_modules",
 )
+load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
@@ -252,7 +253,7 @@ def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlag
     cxx_srcs = []
     swift_srcs = []
     for s in get_srcs_with_flags(ctx):
-        if s.file.extension == ".swift":
+        if s.file.extension == SWIFT_EXTENSION:
             swift_srcs.append(s)
         else:
             cxx_srcs.append(s)
