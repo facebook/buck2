@@ -14,6 +14,7 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
 
@@ -500,12 +501,16 @@ pub fn utf8_output(output: io::Result<Output>, command: &Command) -> Result<Stri
             status,
         }) if status.success() => String::from_utf8(stdout)
             .or_else(|err| {
-                let context = cmd_err(command, &stderr);
+                let context = cmd_err(command, status, &stderr);
                 Err(err).context(context)
             })
             .context("command returned non-utf8 output"),
-        Ok(output) => Err(cmd_err(command, &output.stderr))
-            .with_context(|| format!("command ended with {}", output.status)),
+        Ok(Output {
+            stdout: _,
+            stderr,
+            status,
+        }) => Err(cmd_err(command, status, &stderr))
+            .with_context(|| format!("command ended with {}", status)),
         Err(err) => Err(err)
             .with_context(|| format!("command `{:?}`", command))
             .context("failed to execute command"),
@@ -524,24 +529,23 @@ where
             stdout,
             stderr,
             status,
-        }) if status.success() => {
+        }) => {
             tracing::debug!(?command, "parsing command output");
             serde_json::from_slice(&stdout)
-                .with_context(|| cmd_err(command, &stderr))
+                .with_context(|| cmd_err(command, status, &stderr))
                 .context("failed to deserialize command output")
         }
-        Ok(output) => Err(cmd_err(command, &output.stderr))
-            .with_context(|| format!("command ended with {}", output.status)),
         Err(err) => Err(err)
             .with_context(|| format!("command `{:?}`", command))
             .context("failed to execute command"),
     }
 }
 
-fn cmd_err(command: &Command, stderr: &[u8]) -> anyhow::Error {
+fn cmd_err(command: &Command, status: ExitStatus, stderr: &[u8]) -> anyhow::Error {
     anyhow::anyhow!(
-        "command `{:?}`\nstderr:\n{}",
+        "command `{:?}` (exit code: {})\nstderr:\n{}",
         command,
+        status,
         String::from_utf8_lossy(stderr),
     )
 }
