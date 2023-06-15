@@ -475,7 +475,13 @@ def _add_compiler_info_flags(compiler_info: "_compiler_info", ext: CxxExtension.
         # Clang's asm compiler doesn't support colorful output, so we skip this there.
         cmd.add(get_flags_for_colorful_output(compiler_info.compiler_type))
 
-def _mk_argsfile(ctx: "context", compiler_info: "_compiler_info", preprocessor: CPreprocessorInfo.type, ext: CxxExtension.type, headers_tag: "artifact_tag", absolute_path_prefix: [str.type, None]) -> _CxxCompileArgsfile.type:
+def _mk_argsfile(
+        ctx: "context",
+        compiler_info: "_compiler_info",
+        preprocessor: CPreprocessorInfo.type,
+        ext: CxxExtension.type,
+        headers_tag: "artifact_tag",
+        absolute_path_prefix: [str.type, None]) -> _CxxCompileArgsfile.type:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
@@ -509,14 +515,17 @@ def _mk_argsfile(ctx: "context", compiler_info: "_compiler_info", preprocessor: 
     if absolute_path_prefix:
         args.replace_regex("\\./", absolute_path_prefix + "/")
 
-    shell_quoted_args = cmd_args(args, quote = "shell")
+    # Create a copy of the args so that we can continue to modify it later.
+    args_without_file_prefix_args = cmd_args(args)
 
     # Put file_prefix_args in argsfile directly, make sure they do not appear when evaluating $(cxxppflags)
     # to avoid "argument too long" errors
     if absolute_path_prefix:
-        shell_quoted_args.add(cmd_args(preprocessor.set.project_as_args("abs_file_prefix_args")))
+        args.add(cmd_args(preprocessor.set.project_as_args("abs_file_prefix_args")))
     else:
-        shell_quoted_args.add(cmd_args(preprocessor.set.project_as_args("file_prefix_args")))
+        args.add(cmd_args(preprocessor.set.project_as_args("file_prefix_args")))
+
+    shell_quoted_args = cmd_args(args, quote = "shell")
 
     file_name = ext.value + ("-abs.argsfile" if absolute_path_prefix else ".argsfile")
     argsfile, _ = ctx.actions.write(file_name, shell_quoted_args, allow_args = True)
@@ -525,7 +534,13 @@ def _mk_argsfile(ctx: "context", compiler_info: "_compiler_info", preprocessor: 
 
     cmd_form = cmd_args(argsfile, format = "@{}").hidden(input_args)
 
-    return _CxxCompileArgsfile(file = argsfile, cmd_form = cmd_form, input_args = input_args, args = shell_quoted_args, args_without_file_prefix_args = args)
+    return _CxxCompileArgsfile(
+        file = argsfile,
+        cmd_form = cmd_form,
+        input_args = input_args,
+        args = shell_quoted_args,
+        args_without_file_prefix_args = args_without_file_prefix_args,
+    )
 
 def _attr_compiler_flags(ctx: "context", ext: str.type) -> [""]:
     return (
