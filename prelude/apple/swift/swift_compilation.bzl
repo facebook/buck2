@@ -13,7 +13,6 @@ load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxObjectFormat")
 load("@prelude//cxx:cxx_types.bzl", "CxxAdditionalArgsfileParams")
 load(
     "@prelude//cxx:debug.bzl",
@@ -280,7 +279,7 @@ def _compile_swiftmodule(
         "-emit-objc-header-path",
         output_header.as_output(),
     ])
-    return _compile_with_argsfile(ctx, "swiftmodule_compile", argfile_cmd, srcs, cmd, toolchain, CxxObjectFormat("swift"))
+    return _compile_with_argsfile(ctx, "swiftmodule_compile", argfile_cmd, srcs, cmd, toolchain)
 
 def _compile_object(
         ctx: "context",
@@ -290,16 +289,9 @@ def _compile_object(
         output_object: "artifact") -> CxxAdditionalArgsfileParams.type:
     object_format = toolchain.object_format.value
     embed_bitcode = False
-    if toolchain.object_format == SwiftObjectFormat("object"):
-        cxx_format = CxxObjectFormat("native")
-    elif toolchain.object_format in [SwiftObjectFormat("bc"), SwiftObjectFormat("ir"), SwiftObjectFormat("irgen")]:
-        cxx_format = CxxObjectFormat("bitcode")
-    elif toolchain.object_format == SwiftObjectFormat("object-embed-bitcode"):
+    if toolchain.object_format == SwiftObjectFormat("object-embed-bitcode"):
         object_format = "object"
         embed_bitcode = True
-        cxx_format = CxxObjectFormat("embedded-bitcode")
-    else:
-        cxx_format = CxxObjectFormat("native")
 
     cmd = cmd_args([
         "-emit-{}".format(object_format),
@@ -310,7 +302,7 @@ def _compile_object(
     if embed_bitcode:
         cmd.add("--embed-bitcode")
 
-    return _compile_with_argsfile(ctx, "swift_compile", shared_flags, srcs, cmd, toolchain, cxx_output_format = cxx_format)
+    return _compile_with_argsfile(ctx, "swift_compile", shared_flags, srcs, cmd, toolchain)
 
 def _compile_with_argsfile(
         ctx: "context",
@@ -318,8 +310,7 @@ def _compile_with_argsfile(
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
         additional_flags: "cmd_args",
-        toolchain: "SwiftToolchainInfo",
-        cxx_output_format: CxxObjectFormat.type) -> CxxAdditionalArgsfileParams.type:
+        toolchain: "SwiftToolchainInfo") -> CxxAdditionalArgsfileParams.type:
     shell_quoted_cmd = cmd_args(shared_flags, quote = "shell")
     argfile, _ = ctx.actions.write(name + ".argsfile", shell_quoted_cmd, allow_args = True)
 
@@ -350,7 +341,7 @@ def _compile_with_argsfile(
         allow_cache_upload = prefer_local,
     )
 
-    return CxxAdditionalArgsfileParams(file = argfile, format = cxx_output_format, input_args = [shared_flags], extension = ".swift")
+    return CxxAdditionalArgsfileParams(file = argfile, input_args = [shared_flags], extension = ".swift")
 
 def _get_shared_flags(
         ctx: "context",
