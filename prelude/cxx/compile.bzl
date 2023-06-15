@@ -11,6 +11,7 @@ load(
     "@prelude//utils:utils.bzl",
     "flatten",
 )
+load(":argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load(":attr_selection.bzl", "cxx_by_language_ext")
 load(
     ":compiler.bzl",
@@ -64,27 +65,6 @@ DepFileType = enum(
     "asm",
 )
 
-# Information on argsfiles created for Cxx compilation.
-_CxxCompileArgsfile = record(
-    # The generated argsfile (does not contain dependent inputs).
-    file = field("artifact"),
-    # This argsfile as a command form that would use the argsfile (includes dependent inputs).
-    cmd_form = field("cmd_args"),
-    # Input args necessary for the argsfile to reference.
-    input_args = field([["artifacts", "cmd_args"]]),
-    # Args as written to the argsfile (with shell quoting applied).
-    args = field("cmd_args"),
-    # Args aggregated for the argsfile excluding file prefix args (excludes shell quoting).
-    args_without_file_prefix_args = field("cmd_args"),
-)
-
-_CxxCompileArgsfiles = record(
-    # Relative path argsfiles used for build actions, mapped by extension.
-    relative = field({str.type: _CxxCompileArgsfile.type}, default = {}),
-    # Absolute path argsfiles used for extra outputs, mapped by extension.
-    absolute = field({str.type: _CxxCompileArgsfile.type}, default = {}),
-)
-
 _HeadersDepFiles = record(
     # An executable to wrap the actual command with for post-processing of dep
     # files into the format that Buck2 recognizes (i.e. one artifact per line).
@@ -104,7 +84,7 @@ _CxxCompileCommand = record(
     # The compiler and any args which are independent of the rule.
     base_compile_cmd = field("cmd_args"),
     # The argsfile of arguments from the rule and it's dependencies.
-    argsfile = field(_CxxCompileArgsfile.type),
+    argsfile = field(CompileArgsfile.type),
     headers_dep_files = field([_HeadersDepFiles.type, None]),
     compiler_type = field(str.type),
 )
@@ -134,7 +114,7 @@ CxxCompileCommandOutput = record(
     # List of compile commands for each source file.
     src_compile_cmds = field([CxxSrcCompileCommand.type], default = []),
     # Argsfiles generated for compiling these source files.
-    argsfiles = field(_CxxCompileArgsfiles.type, default = _CxxCompileArgsfiles()),
+    argsfiles = field(CompileArgsfiles.type, default = CompileArgsfiles()),
 
     # TODO(chatatap): Remove these
     # Argsfiles used for build actions
@@ -277,7 +257,7 @@ def create_compile_cmds(
     else:
         return CxxCompileCommandOutput(
             src_compile_cmds = src_compile_cmds,
-            argsfiles = _CxxCompileArgsfiles(
+            argsfiles = CompileArgsfiles(
                 relative = argsfile_by_ext,
                 absolute = abs_argsfile_by_ext,
             ),
@@ -286,7 +266,7 @@ def create_compile_cmds(
             comp_db_compile_cmds = src_compile_cmds,
         )
 
-def _get_argsfile_output(ctx: "context", argsfile_by_ext: {str.type: _CxxCompileArgsfile.type}, additional_argsfiles: ["CxxAdditionalArgsfileParams"], summary_name: str.type) -> CxxCompileCommandArgsFiles.type:
+def _get_argsfile_output(ctx: "context", argsfile_by_ext: {str.type: CompileArgsfile.type}, additional_argsfiles: ["CxxAdditionalArgsfileParams"], summary_name: str.type) -> CxxCompileCommandArgsFiles.type:
     argsfiles = []
     argsfile_names = cmd_args()
     dependent_outputs = []
@@ -497,7 +477,7 @@ def _mk_argsfile(
         preprocessor: CPreprocessorInfo.type,
         ext: CxxExtension.type,
         headers_tag: "artifact_tag",
-        absolute_path_prefix: [str.type, None]) -> _CxxCompileArgsfile.type:
+        absolute_path_prefix: [str.type, None]) -> CompileArgsfile.type:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
@@ -550,7 +530,7 @@ def _mk_argsfile(
 
     cmd_form = cmd_args(argsfile, format = "@{}").hidden(input_args)
 
-    return _CxxCompileArgsfile(
+    return CompileArgsfile(
         file = argsfile,
         cmd_form = cmd_form,
         input_args = input_args,
