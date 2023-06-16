@@ -92,7 +92,7 @@ def erlang_tests_macro(
         if prop_target:
             property_tests = [prop_target]
 
-    common_attributes["labels"] = common_attributes.get("labels", []) + ["tpx-enable-artifact-reporting"]
+    common_attributes["labels"] = common_attributes.get("labels", []) + ["tpx-enable-artifact-reporting", "test-framework=39:erlang_common_test"]
 
     for suite in suites:
         # forward resources and deps fields and generate erlang_test target
