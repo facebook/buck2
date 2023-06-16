@@ -156,54 +156,10 @@ mod fbcode {
 
                     match &mut s.data {
                         Some(Data::ActionExecution(ref mut action_execution)) => {
-                            // truncate(...) can panic if asked to truncate too short.
-                            const MIN_CMD_TRUNCATION: usize = 20;
-                            let per_command_size_budget = ((500 * 1024)
-                                / action_execution.commands.len().max(1))
-                            .max(MIN_CMD_TRUNCATION);
-
-                            let truncate_cmd =
-                                |cmd: &mut buck2_data::CommandExecution, truncate_all: bool| {
-                                    if let Some(details) = &mut cmd.details {
-                                        details.stderr = if truncate_all {
-                                            "<<omitted>>".to_owned()
-                                        } else {
-                                            truncate(&details.stderr, per_command_size_budget)
-                                        };
-                                    }
-                                };
-
-                            if let Some((last_command, retries)) =
-                                action_execution.commands.split_last_mut()
-                            {
-                                for retried in retries {
-                                    truncate_cmd(retried, false);
-                                }
-                                // Current Scribe tailers don't read stderr of successful actions.
-                                // Save some bytes.
-                                truncate_cmd(last_command, !action_execution.failed);
-                            }
+                            Self::truncate_action_execution_end(action_execution);
                         }
                         Some(Data::Command(ref mut command_end)) => {
-                            use buck2_data::command_end::Data;
-                            match &mut command_end.data {
-                                Some(Data::Build(ref mut build_command_end)) => {
-                                    Self::truncate_target_patterns(
-                                        &mut build_command_end.unresolved_target_patterns,
-                                    );
-                                }
-                                Some(Data::Test(ref mut test_command_end)) => {
-                                    Self::truncate_target_patterns(
-                                        &mut test_command_end.unresolved_target_patterns,
-                                    );
-                                }
-                                Some(Data::Install(ref mut install_command_end)) => {
-                                    Self::truncate_target_patterns(
-                                        &mut install_command_end.unresolved_target_patterns,
-                                    );
-                                }
-                                _ => {}
-                            }
+                            Self::truncate_command_end(command_end, false);
                         }
                         _ => {}
                     };
@@ -212,9 +168,7 @@ mod fbcode {
                     use buck2_data::instant_event::Data;
                     match &mut inst.data {
                         Some(Data::TestResult(ref mut test_result)) => {
-                            const TRUNCATED_DETAILS_LENGTH: usize = 512 * 1024; // 512Kb
-                            test_result.details =
-                                truncate(&test_result.details, TRUNCATED_DETAILS_LENGTH);
+                            Self::truncate_test_result(test_result);
                         }
                         Some(Data::TargetPatterns(ref mut target_patterns)) => {
                             Self::truncate_target_patterns(&mut target_patterns.target_patterns);
@@ -230,19 +184,7 @@ mod fbcode {
                         if let Some(ref mut file_watcher_stats) =
                             invocation_record.file_watcher_stats
                         {
-                            const MAX_FILE_CHANGE_BYTES: usize = 100 * 1024;
-                            let mut bytes: usize = 0;
-                            for (index, ev) in file_watcher_stats.events.iter().enumerate() {
-                                bytes += ev.path.len();
-                                if bytes > MAX_FILE_CHANGE_BYTES {
-                                    file_watcher_stats.events.truncate(index);
-                                    file_watcher_stats.incomplete_events_reason = Some(format!(
-                                        "Too long file change records ({} bytes, max {} bytes)",
-                                        bytes, MAX_FILE_CHANGE_BYTES
-                                    ));
-                                    break;
-                                }
-                            }
+                            Self::truncate_file_watcher_stats(file_watcher_stats);
                         }
                         if let Some(ref mut resolved_target_patterns) =
                             invocation_record.resolved_target_patterns
@@ -250,49 +192,93 @@ mod fbcode {
                             Self::truncate_target_patterns(
                                 &mut resolved_target_patterns.target_patterns,
                             );
-
                             // Clear `unresolved_traget_patterns` to save bandwidth. It has less information
                             // than `resolved` one does, and will never be used if `resolved` one is available.
                             if let Some(ref mut command_end) = invocation_record.command_end {
-                                use buck2_data::command_end::Data;
-                                match &mut command_end.data {
-                                    Some(Data::Build(ref mut build_command_end)) => {
-                                        build_command_end.unresolved_target_patterns.clear();
-                                    }
-                                    Some(Data::Test(ref mut test_command_end)) => {
-                                        test_command_end.unresolved_target_patterns.clear();
-                                    }
-                                    Some(Data::Install(ref mut install_command_end)) => {
-                                        install_command_end.unresolved_target_patterns.clear();
-                                    }
-                                    _ => {}
-                                }
+                                Self::truncate_command_end(command_end, true);
                             }
                         } else if let Some(ref mut command_end) = invocation_record.command_end {
-                            use buck2_data::command_end::Data;
-                            match &mut command_end.data {
-                                Some(Data::Build(ref mut build_command_end)) => {
-                                    Self::truncate_target_patterns(
-                                        &mut build_command_end.unresolved_target_patterns,
-                                    );
-                                }
-                                Some(Data::Test(ref mut test_command_end)) => {
-                                    Self::truncate_target_patterns(
-                                        &mut test_command_end.unresolved_target_patterns,
-                                    );
-                                }
-                                Some(Data::Install(ref mut install_command_end)) => {
-                                    Self::truncate_target_patterns(
-                                        &mut install_command_end.unresolved_target_patterns,
-                                    );
-                                }
-                                _ => {}
-                            }
+                            Self::truncate_command_end(command_end, false);
                         }
                     }
                 }
                 _ => {}
             };
+        }
+
+        fn truncate_action_execution_end(
+            action_execution_end: &mut buck2_data::ActionExecutionEnd,
+        ) {
+            // truncate(...) can panic if asked to truncate too short.
+            const MIN_CMD_TRUNCATION: usize = 20;
+            let per_command_size_budget =
+                ((500 * 1024) / action_execution_end.commands.len().max(1)).max(MIN_CMD_TRUNCATION);
+
+            let truncate_cmd = |cmd: &mut buck2_data::CommandExecution, truncate_all: bool| {
+                if let Some(details) = &mut cmd.details {
+                    details.stderr = if truncate_all {
+                        "<<omitted>>".to_owned()
+                    } else {
+                        truncate(&details.stderr, per_command_size_budget)
+                    };
+                }
+            };
+
+            if let Some((last_command, retries)) = action_execution_end.commands.split_last_mut() {
+                for retried in retries {
+                    truncate_cmd(retried, false);
+                }
+                // Current Scribe tailers don't read stderr of successful actions.
+                // Save some bytes.
+                truncate_cmd(last_command, !action_execution_end.failed);
+            }
+        }
+
+        fn truncate_command_end(
+            command_end: &mut buck2_data::CommandEnd,
+            clear_target_patterns: bool,
+        ) {
+            use buck2_data::command_end::Data;
+
+            if let Some(ref mut target_patterns) = match &mut command_end.data {
+                Some(Data::Build(build_command_end)) => {
+                    Some(&mut build_command_end.unresolved_target_patterns)
+                }
+                Some(Data::Test(test_command_end)) => {
+                    Some(&mut test_command_end.unresolved_target_patterns)
+                }
+                Some(Data::Install(install_command_end)) => {
+                    Some(&mut install_command_end.unresolved_target_patterns)
+                }
+                _ => None,
+            } {
+                if clear_target_patterns {
+                    target_patterns.clear();
+                } else {
+                    Self::truncate_target_patterns(target_patterns);
+                }
+            }
+        }
+
+        fn truncate_file_watcher_stats(file_watcher_stats: &mut buck2_data::FileWatcherStats) {
+            const MAX_FILE_CHANGE_BYTES: usize = 100 * 1024;
+            let mut bytes: usize = 0;
+            for (index, ev) in file_watcher_stats.events.iter().enumerate() {
+                bytes += ev.path.len();
+                if bytes > MAX_FILE_CHANGE_BYTES {
+                    file_watcher_stats.events.truncate(index);
+                    file_watcher_stats.incomplete_events_reason = Some(format!(
+                        "Too long file change records ({} bytes, max {} bytes)",
+                        bytes, MAX_FILE_CHANGE_BYTES
+                    ));
+                    break;
+                }
+            }
+        }
+
+        fn truncate_test_result(test_result: &mut buck2_data::TestResult) {
+            const TRUNCATED_DETAILS_LENGTH: usize = 512 * 1024; // 512Kb
+            test_result.details = truncate(&test_result.details, TRUNCATED_DETAILS_LENGTH);
         }
 
         fn truncate_target_patterns(target_patterns: &mut Vec<buck2_data::TargetPattern>) {
