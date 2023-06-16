@@ -9,9 +9,11 @@
 
 mod critical_path;
 pub(crate) mod debug_last_log;
+pub(crate) mod debug_replay;
 pub(crate) mod debug_what_ran;
 pub(crate) mod options;
 pub(crate) mod path_log;
+mod replay;
 mod show_log;
 mod what_cmd;
 mod what_failed;
@@ -58,6 +60,7 @@ pub enum LogCommand {
     WhatMaterialized(what_materialized::WhatMaterializedCommand),
     WhatUploaded(what_uploaded::WhatUploadedCommand),
     CriticalPath(critical_path::CriticalPathCommand),
+    Replay(replay::ReplayCommand),
 }
 
 impl LogCommand {
@@ -72,6 +75,7 @@ impl LogCommand {
             Self::WhatMaterialized(cmd) => cmd.exec(matches, ctx),
             Self::WhatUploaded(cmd) => cmd.exec(matches, ctx),
             Self::CriticalPath(cmd) => cmd.exec(matches, ctx),
+            Self::Replay(cmd) => cmd.exec(matches, ctx),
         }
     }
 

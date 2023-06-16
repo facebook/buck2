@@ -18,6 +18,9 @@ use buck2_client_ctx::subscribers::get::get_console_with_root;
 
 use crate::commands::log::options::EventLogOptions;
 
+/// Replay an event log.
+///
+/// This command allows visualizing an existing event log in a Superconsole.
 #[derive(Debug, clap::Parser)]
 #[clap(
     setting = clap::AppSettings::TrailingVarArg
