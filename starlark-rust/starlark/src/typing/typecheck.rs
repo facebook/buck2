@@ -159,6 +159,8 @@ impl AstModule {
             frozen_heap.alloc_any_display_from_debug(self.codemap.dupe()),
             &Dialect::Extended,
         );
+        // TODO(nga): we drop `scope.errors` here.
+        //   Known errors are missing globals, we pass empty globals to `enter_module`.
         let bindings = BindingsCollect::collect(&cst);
         let mut approximations = bindings.approximations;
         let (errors, types, solve_approximations) =
