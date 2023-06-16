@@ -404,6 +404,57 @@ mod fbcode {
     mod tests {
         use super::*;
 
+        fn make_invocation_record(
+            data: buck2_data::InvocationRecord,
+        ) -> buck2_data::buck_event::Data {
+            buck2_data::buck_event::Data::Record(buck2_data::RecordEvent {
+                data: Some(buck2_data::record_event::Data::InvocationRecord(Box::new(
+                    data,
+                ))),
+            })
+        }
+
+        fn make_action_execution_end(
+            data: buck2_data::ActionExecutionEnd,
+        ) -> buck2_data::buck_event::Data {
+            buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
+                data: Some(buck2_data::span_end_event::Data::ActionExecution(Box::new(
+                    data,
+                ))),
+                ..Default::default()
+            })
+        }
+
+        fn make_command_end(data: buck2_data::CommandEnd) -> buck2_data::buck_event::Data {
+            buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
+                data: Some(buck2_data::span_end_event::Data::Command(data)),
+                ..Default::default()
+            })
+        }
+
+        fn make_build_command_end(
+            unresolved_target_patterns: Vec<buck2_data::TargetPattern>,
+        ) -> buck2_data::CommandEnd {
+            buck2_data::CommandEnd {
+                data: Some(buck2_data::command_end::Data::Build(
+                    buck2_data::BuildCommandEnd {
+                        unresolved_target_patterns,
+                    },
+                )),
+                ..Default::default()
+            }
+        }
+
+        fn make_command_execution_with_stderr(stderr: String) -> buck2_data::CommandExecution {
+            buck2_data::CommandExecution {
+                details: Some(buck2_data::CommandExecutionDetails {
+                    stderr,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }
+        }
+
         #[test]
         fn smart_truncate_resolved_target_patterns_clears_unresolved_one() {
             let mut record = buck2_data::InvocationRecord::default();
@@ -423,35 +474,13 @@ mod fbcode {
             let unresolved_target_patterns = vec![buck2_data::TargetPattern {
                 value: "some_unresolved_target".to_owned(),
             }];
-            record.command_end = Some(buck2_data::CommandEnd {
-                data: Some(buck2_data::command_end::Data::Build(
-                    buck2_data::BuildCommandEnd {
-                        unresolved_target_patterns,
-                    },
-                )),
-                ..Default::default()
-            });
-            // unresolved_target_patterns is expected to be empty.
-            record_expected.command_end = Some(buck2_data::CommandEnd {
-                data: Some(buck2_data::command_end::Data::Build(
-                    buck2_data::BuildCommandEnd {
-                        unresolved_target_patterns: vec![],
-                    },
-                )),
-                ..Default::default()
-            });
+            record.command_end = Some(make_build_command_end(unresolved_target_patterns));
 
-            let mut event_data = buck2_data::buck_event::Data::Record(buck2_data::RecordEvent {
-                data: Some(buck2_data::record_event::Data::InvocationRecord(Box::new(
-                    record,
-                ))),
-            });
-            let event_data_expected =
-                buck2_data::buck_event::Data::Record(buck2_data::RecordEvent {
-                    data: Some(buck2_data::record_event::Data::InvocationRecord(Box::new(
-                        record_expected,
-                    ))),
-                });
+            // unresolved_target_patterns is expected to be empty.
+            record_expected.command_end = Some(make_build_command_end(vec![]));
+
+            let mut event_data = make_invocation_record(record);
+            let event_data_expected = make_invocation_record(record_expected);
 
             ThriftScribeSink::smart_truncate_event(&mut event_data);
 
@@ -469,29 +498,212 @@ mod fbcode {
             let unresolved_target_patterns = vec![buck2_data::TargetPattern {
                 value: "some_unresolved_target".to_owned(),
             }];
-            let command_end = buck2_data::CommandEnd {
-                data: Some(buck2_data::command_end::Data::Build(
-                    buck2_data::BuildCommandEnd {
-                        unresolved_target_patterns,
-                    },
-                )),
-                ..Default::default()
-            };
+            let command_end = make_build_command_end(unresolved_target_patterns);
+
             record.command_end = Some(command_end.clone());
             // unresolved_target_patterns is expected to be unchanged.
             record_expected.command_end = Some(command_end);
 
-            let mut event_data = buck2_data::buck_event::Data::Record(buck2_data::RecordEvent {
-                data: Some(buck2_data::record_event::Data::InvocationRecord(Box::new(
-                    record,
-                ))),
-            });
+            let mut event_data = make_invocation_record(record);
+            let event_data_expected = make_invocation_record(record_expected);
+
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            assert_eq!(event_data, event_data_expected);
+        }
+
+        #[test]
+        fn smart_truncate_action_execution_end_one_last_command_truncated() {
+            let command_execution_with_stderr =
+                make_command_execution_with_stderr("this is a test".to_owned());
+            let command_execution_stderr_omitted =
+                make_command_execution_with_stderr("<<omitted>>".to_owned());
+
+            let action_execution_end_with_stderrs = buck2_data::ActionExecutionEnd {
+                commands: vec![command_execution_with_stderr],
+                ..Default::default()
+            };
+            let action_execution_end_last_stderr_omitted = buck2_data::ActionExecutionEnd {
+                commands: vec![command_execution_stderr_omitted],
+                ..Default::default()
+            };
+            let mut event_data = make_action_execution_end(action_execution_end_with_stderrs);
             let event_data_expected =
-                buck2_data::buck_event::Data::Record(buck2_data::RecordEvent {
-                    data: Some(buck2_data::record_event::Data::InvocationRecord(Box::new(
-                        record_expected,
-                    ))),
-                });
+                make_action_execution_end(action_execution_end_last_stderr_omitted);
+
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            assert_eq!(event_data, event_data_expected);
+        }
+
+        #[test]
+        fn smart_truncate_action_execution_end_long_stderr_command_truncated() {
+            let command_execution_with_stderr =
+                make_command_execution_with_stderr("this is a test".to_owned());
+            let mut over_sized_str = "0123456789".repeat(10 * 1024);
+            over_sized_str.push_str("0123456789"); // 100k + 10; 10-byte over
+            let command_execution_with_long_stderr =
+                make_command_execution_with_stderr(over_sized_str);
+            let mut omitted_str = "0123456789".repeat(10 * 1024);
+            omitted_str.replace_range((50 * 1024 - 6)..(50 * 1024 + 6), "<<omitted>>");
+            let command_execution_stderr_partially_omitted =
+                make_command_execution_with_stderr(omitted_str);
+            let command_execution_stderr_all_omitted =
+                make_command_execution_with_stderr("<<omitted>>".to_owned());
+
+            let action_execution_end_with_stderrs = buck2_data::ActionExecutionEnd {
+                commands: vec![
+                    command_execution_with_stderr.clone(),
+                    command_execution_with_long_stderr.clone(),
+                    command_execution_with_stderr.clone(),
+                    command_execution_with_long_stderr,
+                    command_execution_with_stderr.clone(),
+                ],
+                ..Default::default()
+            };
+            let action_execution_end_last_stderr_omitted = buck2_data::ActionExecutionEnd {
+                commands: vec![
+                    command_execution_with_stderr.clone(),
+                    command_execution_stderr_partially_omitted.clone(),
+                    command_execution_with_stderr,
+                    command_execution_stderr_partially_omitted,
+                    command_execution_stderr_all_omitted,
+                ],
+                ..Default::default()
+            };
+            let mut event_data = make_action_execution_end(action_execution_end_with_stderrs);
+            let event_data_expected =
+                make_action_execution_end(action_execution_end_last_stderr_omitted);
+
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            assert_eq!(event_data, event_data_expected);
+        }
+
+        #[test]
+        fn smart_truncate_build_command_end_short_target_patterns_not_truncated() {
+            let unresolved_target_patterns = vec![
+                buck2_data::TargetPattern {
+                    value: "hello".to_owned(),
+                },
+                buck2_data::TargetPattern {
+                    value: "world".to_owned(),
+                },
+                buck2_data::TargetPattern {
+                    value: "!\n".to_owned(),
+                },
+            ];
+            let command_end = make_build_command_end(unresolved_target_patterns);
+
+            let mut event_data = make_command_end(command_end);
+            let event_data_expected = event_data.clone();
+
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            assert_eq!(event_data, event_data_expected);
+        }
+
+        #[test]
+        fn smart_truncate_build_command_end_long_target_patterns_truncated() {
+            let unresolved_target_patterns = vec![
+                buck2_data::TargetPattern {
+                    value: "0123456789".repeat(20 * 1024),
+                },
+                buck2_data::TargetPattern {
+                    value: "0123456789".repeat(20 * 1024),
+                },
+                buck2_data::TargetPattern {
+                    value: "0123456789".repeat(20 * 1024), // 600k in total; 88k-byte over
+                },
+            ];
+            let command_end = make_build_command_end(unresolved_target_patterns);
+
+            let unresolved_target_patterns_truncated = vec![
+                buck2_data::TargetPattern {
+                    value: "0123456789".repeat(20 * 1024),
+                },
+                buck2_data::TargetPattern {
+                    value: "0123456789".repeat(20 * 1024),
+                },
+                buck2_data::TargetPattern {
+                    value: "<<Truncated (reported 2 / 3)>>".to_owned(),
+                },
+            ];
+            let command_end_truncated =
+                make_build_command_end(unresolved_target_patterns_truncated);
+
+            let mut event_data = make_command_end(command_end);
+            let event_data_expected = make_command_end(command_end_truncated);
+
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            assert_eq!(event_data, event_data_expected);
+        }
+
+        #[test]
+        fn smart_truncate_long_file_watcher_stats_truncated() {
+            let file_watcher_event = buck2_data::FileWatcherEvent {
+                path: "0123456789".repeat(3 * 1024),
+                ..Default::default()
+            };
+            let file_watcher_stats = buck2_data::FileWatcherStats {
+                events: vec![
+                    file_watcher_event.clone(),
+                    file_watcher_event.clone(),
+                    file_watcher_event.clone(),
+                    file_watcher_event.clone(), // 120k in total; 20k-byte over
+                ],
+                ..Default::default()
+            };
+            let file_watcher_stats_truncated = buck2_data::FileWatcherStats {
+                events: vec![
+                    file_watcher_event.clone(),
+                    file_watcher_event.clone(),
+                    file_watcher_event,
+                ],
+                incomplete_events_reason: Some(format!(
+                    "Too long file change records ({} bytes, max {} bytes)",
+                    120 * 1024,
+                    100 * 1024
+                )),
+                ..Default::default()
+            };
+            let record = buck2_data::InvocationRecord {
+                file_watcher_stats: Some(file_watcher_stats),
+                ..Default::default()
+            };
+            let record_truncated = buck2_data::InvocationRecord {
+                file_watcher_stats: Some(file_watcher_stats_truncated),
+                ..Default::default()
+            };
+            let mut event_data = make_invocation_record(record);
+            let event_data_expected = make_invocation_record(record_truncated);
+
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            assert_eq!(event_data, event_data_expected);
+        }
+
+        #[test]
+        fn smart_truncate_short_file_watcher_stats_not_truncated() {
+            let file_watcher_event = buck2_data::FileWatcherEvent {
+                path: "this is a test".to_owned(),
+                ..Default::default()
+            };
+            let file_watcher_stats = buck2_data::FileWatcherStats {
+                events: vec![
+                    file_watcher_event.clone(),
+                    file_watcher_event.clone(),
+                    file_watcher_event,
+                ],
+                ..Default::default()
+            };
+            let record = buck2_data::InvocationRecord {
+                file_watcher_stats: Some(file_watcher_stats),
+                ..Default::default()
+            };
+            let mut event_data = make_invocation_record(record);
+            let event_data_expected = event_data.clone();
 
             ThriftScribeSink::smart_truncate_event(&mut event_data);
 
