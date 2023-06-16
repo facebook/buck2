@@ -18,6 +18,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
+use maplit::btreemap;
 use once_cell::sync::Lazy;
 
 use crate::codemap::ResolvedFileSpan;
@@ -241,6 +242,37 @@ foo([1,2,3])
 def foo(x: list.type) -> bool.type:
     return type(x) == []
 foo(True)
+"#,
+        );
+}
+
+#[test]
+fn test_special_function_zip() {
+    TypeCheck::new()
+        .ty(
+            "x",
+            Ty::list(Ty::Tuple(vec![Ty::int(), Ty::bool(), Ty::string()])),
+        )
+        .check(
+            r#"
+x = zip([1,2], [True, False], ["a", "b"])
+"#,
+        );
+}
+
+#[test]
+fn test_special_function_struct() {
+    TypeCheck::new()
+        .ty(
+            "x",
+            Ty::Struct {
+                fields: btreemap! {"a".to_owned() => Ty::int(), "b".to_owned() => Ty::string()},
+                extra: false,
+            },
+        )
+        .check(
+            r#"
+x = struct(a = 1, b = "test")
 "#,
         );
 }
