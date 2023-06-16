@@ -155,6 +155,10 @@ message StarlarkUserEvent {
   map<string, StarlarkUserMetadataValue> metadata = 2;
 }
 
+message CommandOptions {
+  uint64 concurrency = 1;
+}
+
 // An event that represents a single point in time.
 message InstantEvent {
   reserved 8, 9, 13, 22;
@@ -227,6 +231,9 @@ message InstantEvent {
 
     // For user-defined instant events. Currently only used in BXL.
     StarlarkUserEvent starlark_user_event = 30;
+
+    // Log options that are command-level and processed by the daemon.
+    CommandOptions comand_options = 31;
   }
 
   reserved 12; // Log

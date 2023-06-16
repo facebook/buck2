@@ -640,6 +640,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
         ];
         self.events.instant_event(buck2_data::TagEvent { tags });
 
+        self.events.instant_event(buck2_data::CommandOptions {
+            concurrency: concurrency as _,
+        });
+
         Ok(data)
     }
 }
