@@ -78,18 +78,11 @@ pub struct ExecuteRequest {
     pub action_digest: TDigest,
     pub skip_cache_lookup: bool,
     pub execution_policy: Option<TExecutionPolicy>,
-    pub results_cache_policy: Option<TResultsCachePolicy>,
     pub _dot_dot: (),
 }
 
 #[derive(Clone, Default)]
 pub struct TExecutionPolicy {
-    pub priority: i32,
-    pub _dot_dot: (),
-}
-
-#[derive(Clone, Default)]
-pub struct TResultsCachePolicy {
     pub priority: i32,
     pub _dot_dot: (),
 }

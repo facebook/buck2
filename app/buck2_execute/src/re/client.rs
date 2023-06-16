@@ -54,7 +54,6 @@ use remote_execution::TActionResult2;
 use remote_execution::TCode;
 use remote_execution::TDigest;
 use remote_execution::TExecutionPolicy;
-use remote_execution::TResultsCachePolicy;
 use remote_execution::UploadRequest;
 use remote_execution::WriteActionResultRequest;
 use tokio::sync::Semaphore;
@@ -875,11 +874,6 @@ impl RemoteExecutionClientImpl {
         let request = ExecuteRequest {
             skip_cache_lookup: self.skip_remote_cache || skip_cache_read,
             execution_policy: Some(TExecutionPolicy::default()),
-            // Cache for as long as we can
-            results_cache_policy: Some(TResultsCachePolicy {
-                priority: if self.skip_remote_cache { 0 } else { i32::MAX },
-                ..Default::default()
-            }),
             action_digest: action_digest.to_re(),
             ..Default::default()
         };
