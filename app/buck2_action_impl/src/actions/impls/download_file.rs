@@ -27,6 +27,7 @@ use buck2_common::cas_digest::RawDigest;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::http::Authorization;
 use buck2_common::http::HttpClient;
 use buck2_common::http::HttpError;
 use buck2_common::io::trace::TracingIoProvider;
@@ -60,6 +61,7 @@ enum DownloadFileActionError {
 pub(crate) struct UnregisteredDownloadFileAction {
     checksum: Checksum,
     url: Arc<str>,
+    authorization: Arc<Authorization>,
     vpnless_url: Option<Arc<str>>,
     is_executable: bool,
     is_deferrable: bool,
@@ -69,6 +71,7 @@ impl UnregisteredDownloadFileAction {
     pub(crate) fn new(
         checksum: Checksum,
         url: Arc<str>,
+        authorization: Arc<Authorization>,
         vpnless_url: Option<Arc<str>>,
         is_executable: bool,
         is_deferrable: bool,
@@ -76,6 +79,7 @@ impl UnregisteredDownloadFileAction {
         Self {
             checksum,
             url,
+            authorization,
             vpnless_url,
             is_executable,
             is_deferrable,
@@ -142,6 +146,10 @@ impl DownloadFileAction {
         }
     }
 
+    fn authorization(&self) -> &Arc<Authorization> {
+        &self.inner.authorization
+    }
+
     /// Try to produce a FileMetadata without downloading the file.
     async fn declared_metadata(
         &self,
@@ -172,7 +180,8 @@ impl DownloadFileAction {
         };
 
         let url = self.url(client)?;
-        let head = http_head(client, url).await?;
+
+        let head = http_head(client, url, &self.authorization()).await?;
 
         let content_length = head
             .headers()
@@ -290,6 +299,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
                             rel_path,
                             HttpDownloadInfo {
                                 url: url.dupe(),
+                                authorization: self.authorization().dupe(),
                                 checksum: self.inner.checksum.dupe(),
                                 metadata: metadata.dupe(),
                                 owner: ctx.target().owner().dupe(),
@@ -314,6 +324,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
                         ctx.digest_config(),
                         &rel_path,
                         url,
+                        self.authorization(),
                         &self.inner.checksum,
                         self.inner.is_executable,
                     )

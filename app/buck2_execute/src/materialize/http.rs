@@ -17,6 +17,7 @@ use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::DigestAlgorithmKind;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::http::Authorization;
 use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::retries::http_retry;
 use buck2_common::http::retries::AsHttpError;
@@ -99,11 +100,14 @@ impl AsHttpError for HttpDownloadError {
     }
 }
 
-pub async fn http_head(client: &dyn HttpClient, url: &str) -> anyhow::Result<Response<()>> {
+pub async fn http_head(client: &dyn HttpClient,
+                       url: &str,
+                       authorization: &Authorization,
+) -> anyhow::Result<Response<()>> {
     let response = http_retry(
         || async {
             client
-                .head(url)
+                .head(url, authorization)
                 .await
                 .map_err(|e| HttpHeadError::Client(HttpError::Client(e)))
         },
@@ -119,6 +123,7 @@ pub async fn http_download(
     digest_config: DigestConfig,
     path: &ProjectRelativePath,
     url: &str,
+    authorization: &Authorization,
     checksum: &Checksum,
     executable: bool,
 ) -> anyhow::Result<TrackedFileDigest> {
@@ -130,9 +135,8 @@ pub async fn http_download(
     Ok(http_retry(
         || async {
             let file = fs_util::create_file(&abs_path).map_err(HttpDownloadError::IoError)?;
-
             let stream = client
-                .get(url)
+                .get(url, authorization)
                 .await
                 .map_err(|e| HttpDownloadError::Client(HttpError::Client(e)))?
                 .into_body();

@@ -14,6 +14,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileMetadata;
+use buck2_common::http::Authorization;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::directory::DirectoryEntry;
@@ -523,6 +524,9 @@ impl CasDownloadInfo {
 pub struct HttpDownloadInfo {
     /// URL to download the file from.
     pub url: Arc<str>,
+
+    /// HTTP authentication
+    pub authorization: Arc<Authorization>,
 
     /// Size, whether the file is executable. Also contains a digest, which is a bit of a shame
     /// since it's duplicative of checksum.

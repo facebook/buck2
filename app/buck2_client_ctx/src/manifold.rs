@@ -17,6 +17,7 @@ use std::time::UNIX_EPOCH;
 
 use anyhow::Context;
 use buck2_common::http;
+use buck2_common::http::Authorization;
 use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::find_certs::find_tls_cert;
 use buck2_common::http::retries::http_retry;
@@ -469,7 +470,7 @@ impl ManifoldClient {
         let res = http_retry(
             || async {
                 self.client
-                    .put(&url, buf.clone(), headers.clone())
+                    .put(&url, &Authorization::None, buf.clone(), headers.clone())
                     .await
                     .map_err(|e| HttpWriteError::Client(HttpError::Client(e)))
             },
@@ -501,7 +502,7 @@ impl ManifoldClient {
         let res = http_retry(
             || async {
                 self.client
-                    .post(&url, buf.clone(), vec![])
+                    .post(&url, &Authorization::None, buf.clone(), vec![])
                     .await
                     .map_err(|e| HttpAppendError::Client(HttpError::Client(e)))
             },

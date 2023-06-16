@@ -37,6 +37,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info:
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::executor_config::RemoteExecutorUseCase;
+use buck2_common::http::Authorization;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::execute::request::OutputType;
@@ -135,6 +136,18 @@ enum RunActionError {
         "Recursion limit exceeded when visiting artifacts: do you have a cycle in your inputs or outputs?"
     )]
     ArtifactVisitRecursionLimitExceeded,
+
+    #[error("missing `auth_username` or `auth_password` for `basic` authorization")]
+    MissingUsernameOrPasswordForBasicAuth,
+
+    #[error("missing `auth_token` for `bearer` authorization")]
+    MissingTokenForBearerAuth,
+
+    #[error("missing `auth_key` for `x-api-key` authorization")]
+    MissingKeyForXApiKeyAuth,
+
+    #[error("unsupported HTTP authorization type. Only `none`, `basic`, `bearer` and `x_api_key` are supported options")]
+    InvalidAuthorizationType,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -802,6 +815,11 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] is_deferrable: bool,
+        #[starlark(require = named, default = "none")] authorization: &str,
+        #[starlark(require = named, default = NoneOr::None)] auth_username: NoneOr<&str>,
+        #[starlark(require = named, default = NoneOr::None)] auth_password: NoneOr<&str>,
+        #[starlark(require = named, default = NoneOr::None)] auth_token: NoneOr<&str>,
+        #[starlark(require = named, default = NoneOr::None)] auth_key: NoneOr<&str>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
@@ -817,13 +835,39 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             (Some(sha1), Some(sha256)) => Checksum::Both { sha1, sha256 },
             (None, None) => return Err(DownloadFileError::MissingChecksum.into()),
         };
-
+        let auth = match authorization {
+            "none" => Ok(Authorization::None),
+            "basic" => if let (Some(username), Some(password)) = (auth_username.into_option(), auth_password.into_option()) {
+                Ok(Authorization::Basic {
+                    username: username.to_owned(),
+                    password: password.to_owned(),
+                })
+            } else {
+                Err(RunActionError::MissingUsernameOrPasswordForBasicAuth)
+            },
+            "bearer" => if let Some(token) = auth_token.into_option() {
+                Ok(Authorization::Bearer {
+                    token: token.to_owned(),
+                })
+            } else {
+                Err(RunActionError::MissingTokenForBearerAuth)
+            },
+            "x_api_key" => if let Some(key) = auth_key.into_option() {
+                Ok(Authorization::XApiKey {
+                    key: key.to_owned(),
+                })
+            } else {
+                Err(RunActionError::MissingKeyForXApiKeyAuth)
+            },
+            _ => Err(RunActionError::InvalidAuthorizationType),
+        }?;
         this.register_action(
             IndexSet::new(),
             indexset![output_artifact],
             UnregisteredDownloadFileAction::new(
                 checksum,
                 Arc::from(url),
+                Arc::from(auth),
                 vpnless_url.into_option().map(Arc::from),
                 is_executable,
                 is_deferrable,

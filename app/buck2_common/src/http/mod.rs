@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
+use base64;
 use buck2_core::is_open_source;
 use bytes::Bytes;
 use dice::UserComputationData;
@@ -21,6 +22,7 @@ use dupe::Dupe;
 use futures::stream::BoxStream;
 use gazebo::prelude::VecExt;
 use http::Method;
+use http::request::Builder;
 use hyper::client::connect::Connect;
 use hyper::client::ResponseFuture;
 use hyper::Body;
@@ -279,26 +281,52 @@ pub enum HttpError {
     Test,
 }
 
+#[derive(Debug, Clone, Allocative)]
+pub enum Authorization {
+    None,
+    Basic {
+        username: String,
+        password: String,
+    },
+    Bearer {
+        token: String,
+    },
+    XApiKey {
+        key: String,
+    },
+}
+
+fn create_auth_header(req: Builder, authorization: &Authorization) -> Builder {
+    match authorization {
+        Authorization::Basic { username, password } => req.header("Authorization", format!("Basic {}", base64::encode(format!("{}:{}", username, password)))),
+        Authorization::Bearer { token }  => req.header("Authorization", format!("Bearer {}", token)),
+        Authorization::XApiKey { key  }  => req.header("X-API-Key", key),
+        Authorization::None => req,
+    }
+}
+
 /// Trait describe http client that can perform simple HEAD and GET requests.
 #[async_trait::async_trait]
 pub trait HttpClient: Allocative + Send + Sync {
     /// Send a HEAD request. Assumes no body will be returned. If one is returned, it will be ignored.
-    async fn head(&self, uri: &str) -> Result<Response<()>, HttpError> {
+    async fn head(&self, uri: &str, authorization: &Authorization) -> Result<Response<()>, HttpError> {
         let req = Request::builder()
             .uri(uri)
             .method(Method::HEAD)
-            .header(http::header::USER_AGENT, BUCK2_USER_AGENT)
+            .header(http::header::USER_AGENT, BUCK2_USER_AGENT);
+        let req = create_auth_header(req, authorization)
             .body(Bytes::new())
             .map_err(HttpError::BuildRequest)?;
         self.request(req).await.map(|resp| resp.map(|_| ()))
     }
 
     /// Send a GET request.
-    async fn get(&self, uri: &str) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
+    async fn get(&self, uri: &str, authorization: &Authorization) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         let req = Request::builder()
             .uri(uri)
             .method(Method::GET)
-            .header(http::header::USER_AGENT, BUCK2_USER_AGENT)
+            .header(http::header::USER_AGENT, BUCK2_USER_AGENT);
+        let req = create_auth_header(req, authorization)
             .body(Bytes::new())
             .map_err(HttpError::BuildRequest)?;
         self.request(req).await
@@ -307,6 +335,7 @@ pub trait HttpClient: Allocative + Send + Sync {
     async fn post(
         &self,
         uri: &str,
+        authorization: &Authorization,
         body: Bytes,
         headers: Vec<(String, String)>,
     ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
@@ -317,13 +346,15 @@ pub trait HttpClient: Allocative + Send + Sync {
         for (name, value) in headers {
             req = req.header(name, value);
         }
-        let req = req.body(body).map_err(HttpError::BuildRequest)?;
+        let req = create_auth_header(req, authorization)
+            .body(body).map_err(HttpError::BuildRequest)?;
         self.request(req).await
     }
 
     async fn put(
         &self,
         uri: &str,
+        authorization: &Authorization,
         body: Bytes,
         headers: Vec<(String, String)>,
     ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
@@ -334,7 +365,8 @@ pub trait HttpClient: Allocative + Send + Sync {
         for (name, value) in headers {
             req = req.header(name, value);
         }
-        let req = req.body(body).map_err(HttpError::BuildRequest)?;
+        let req = create_auth_header(req, authorization)
+            .body(body).map_err(HttpError::BuildRequest)?;
         self.request(req).await
     }
 

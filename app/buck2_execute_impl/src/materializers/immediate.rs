@@ -217,6 +217,7 @@ impl Materializer for ImmediateMaterializer {
             self.digest_config,
             &path,
             &info.url,
+            &info.authorization,
             &info.checksum,
             info.metadata.is_executable,
         )
