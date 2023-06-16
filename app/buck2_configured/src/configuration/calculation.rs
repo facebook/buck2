@@ -520,10 +520,9 @@ impl ConfigurationCalculation for DiceComputations {
                 ctx: &DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                let config_futures: Vec<_> = self.configuration_deps.map(|d| async move {
-                    ctx.get_configuration_node(&self.target_cfg, self.target_cell, d)
-                        .await
-                });
+                let config_futures: Vec<_> = self
+                    .configuration_deps
+                    .map(|d| ctx.get_configuration_node(&self.target_cfg, self.target_cell, d));
                 let config_nodes = futures::future::join_all(config_futures).await;
 
                 let mut resolved_settings = UnorderedMap::with_capacity(config_nodes.len());
