@@ -10,9 +10,7 @@
 use buck2_client_ctx::argv::Argv;
 use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 use buck2_wrapper_common::is_buck2::WhoIsAsking;
 
 #[derive(Debug, clap::Parser)]
@@ -21,24 +19,13 @@ pub struct KillallCommand {}
 
 impl KillallCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let mut recorder = try_get_invocation_recorder(
-            &ctx,
-            CommonDaemonCommandOptions::default_ref(),
-            "killall",
-            std::env::args().collect(),
-            None,
-        )?;
-
-        let ok = buck2_wrapper_common::killall(WhoIsAsking::Buck2, |s| {
-            let _ignored = buck2_client_ctx::eprintln!("{}", s);
-        });
-
-        recorder.instant_command_outcome(ok);
-        if ok {
-            ExitResult::success()
-        } else {
-            ExitResult::failure()
-        }
+        ctx.instant_command("killall", async move |_ctx| {
+            buck2_wrapper_common::killall(WhoIsAsking::Buck2, |s| {
+                let _ignored = buck2_client_ctx::eprintln!("{}", s);
+            })
+            .then_some(())
+            .ok_or(anyhow::anyhow!("Killall command failed"))
+        })
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {

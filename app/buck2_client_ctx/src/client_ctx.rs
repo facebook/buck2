@@ -25,13 +25,16 @@ use tokio::runtime::Runtime;
 use crate::argv::SanitizedArgv;
 use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::common::CommonBuildConfigurationOptions;
+use crate::common::CommonDaemonCommandOptions;
 use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::ExitResult;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
 use crate::stdin::Stdin;
+use crate::subscribers::recorder::try_get_invocation_recorder;
 
 pub struct ClientCommandContext<'a> {
     pub init: fbinit::FacebookInit,
@@ -71,6 +74,25 @@ impl<'a> ClientCommandContext<'a> {
         F: FnOnce(ClientCommandContext<'a>) -> Fut,
     {
         self.runtime.block_on(func(self))
+    }
+
+    pub fn instant_command<Fut, F>(self, command_name: &'static str, func: F) -> ExitResult
+    where
+        Fut: Future<Output = anyhow::Result<()>> + 'a,
+        F: FnOnce(ClientCommandContext<'a>) -> Fut,
+    {
+        let mut recorder = try_get_invocation_recorder(
+            &self,
+            CommonDaemonCommandOptions::default_ref(),
+            command_name,
+            std::env::args().collect(),
+            None,
+        )?;
+
+        let result = self.runtime.block_on(func(self));
+
+        recorder.instant_command_outcome(result.is_ok());
+        result.into()
     }
 
     pub fn stdin(&mut self) -> &mut Stdin {

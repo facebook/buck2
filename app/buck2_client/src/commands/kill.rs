@@ -10,10 +10,8 @@
 use buck2_client_ctx::argv::Argv;
 use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 
 /// Kill the buck daemon.
 ///
@@ -27,37 +25,24 @@ pub struct KillCommand {}
 
 impl KillCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let mut recorder = try_get_invocation_recorder(
-            &ctx,
-            CommonDaemonCommandOptions::default_ref(),
-            "kill",
-            std::env::args().collect(),
-            None,
-        )?;
-
-        let result: anyhow::Result<()> = try {
-            ctx.with_runtime(async move |ctx| {
-                match ctx
-                    .connect_buckd(BuckdConnectOptions::existing_only_no_console())
-                    .await
-                {
-                    Err(_) => {
-                        buck2_client_ctx::eprintln!("no buckd server running")?;
-                    }
-                    Ok(mut client) => {
-                        buck2_client_ctx::eprintln!("killing buckd server")?;
-                        client
-                            .with_flushing()
-                            .kill("`buck kill` was invoked")
-                            .await?;
-                    }
+        ctx.instant_command("kill", async move |ctx| {
+            match ctx
+                .connect_buckd(BuckdConnectOptions::existing_only_no_console())
+                .await
+            {
+                Err(_) => {
+                    buck2_client_ctx::eprintln!("no buckd server running")?;
                 }
-                Ok::<(), anyhow::Error>(())
-            })?
-        };
-
-        recorder.instant_command_outcome(result.is_ok());
-        result.into()
+                Ok(mut client) => {
+                    buck2_client_ctx::eprintln!("killing buckd server")?;
+                    client
+                        .with_flushing()
+                        .kill("`buck kill` was invoked")
+                        .await?;
+                }
+            }
+            Ok(())
+        })
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
