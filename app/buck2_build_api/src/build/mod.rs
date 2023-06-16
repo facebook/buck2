@@ -285,15 +285,11 @@ pub async fn build_configured_label<'a>(
         .into_iter()
         .enumerate()
         .map({
-            // The closure gets its copy.
-            let ctx = ctx.dupe();
             let materialization_context = materialization_context.dupe();
             move |(index, (output, provider_type))| {
-                // And each future we create gets one too.
-                let ctx = ctx.dupe();
                 let materialization_context = materialization_context.dupe();
                 async move {
-                    let res = materialize_artifact_group(&ctx, &output, &materialization_context)
+                    let res = materialize_artifact_group(ctx, &output, &materialization_context)
                         .await
                         .shared_error()
                         .map(|values| ProviderArtifacts {
