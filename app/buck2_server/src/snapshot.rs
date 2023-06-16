@@ -19,6 +19,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_util::process_stats::process_stats;
+use buck2_util::system_stats::UnixSystemStats;
 use dice::Dice;
 use dupe::Dupe;
 
@@ -231,5 +232,18 @@ fn add_system_metrics(snapshot: &mut buck2_data::Snapshot, daemon_start_time: In
     if let Some(alloc_stats) = allocator_stats {
         snapshot.malloc_bytes_active = alloc_stats.bytes_active;
         snapshot.malloc_bytes_allocated = alloc_stats.bytes_allocated;
+    }
+
+    if let Some(UnixSystemStats {
+        load1,
+        load5,
+        load15,
+    }) = UnixSystemStats::get()
+    {
+        snapshot.unix_system_stats = Some(buck2_data::UnixSystemStats {
+            load1,
+            load5,
+            load15,
+        });
     }
 }

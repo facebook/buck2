@@ -552,6 +552,8 @@ message Snapshot {
   uint64 deferred_materializer_declares = 200;
   uint64 deferred_materializer_declares_reused = 201;
 
+  optional UnixSystemStats unix_system_stats = 300;
+
   // Client side metrics.
 
   // Delay between time snapshot is created and time it is received
@@ -559,6 +561,12 @@ message Snapshot {
   optional int64 this_event_client_delay_ms = 2001;
   // Client average user + system CPU time since last snapshot processed.
   optional uint32 client_cpu_percents = 2002;
+}
+
+message UnixSystemStats {
+  double load1 = 1;
+  double load5 = 2;
+  double load15 = 3;
 }
 
 enum TestStatus {
