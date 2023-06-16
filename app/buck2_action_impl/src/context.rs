@@ -19,7 +19,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArt
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkOutputOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -933,10 +933,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this: &'v AnalysisActions<'v>,
         #[starlark(require = named)] dynamic: Vec<StarlarkArtifact>,
         #[starlark(require = named)] inputs: Vec<StarlarkArtifact>,
-        // Allow `artifact` because the Unpack of StarlarkOutputArtifact will convert a declared artifact automatically.
-        #[starlark(require = named, type = "[[\"artifact\", \"output_artifact\"]]")] outputs: Vec<
-            StarlarkOutputArtifact,
-        >,
+        #[starlark(require = named)] outputs: Vec<StarlarkOutputOrDeclaredArtifact>,
         #[starlark(require = named)] f: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
@@ -955,7 +952,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         // Conversion
         let dynamic = dynamic.iter().map(|x| x.artifact()).collect();
         let inputs = inputs.iter().map(|x| x.artifact()).collect();
-        let outputs = outputs.iter().map(|x| x.artifact()).collect();
+        let outputs = outputs.iter().map(|x| x.0.artifact()).collect();
 
         // Registration
         let attributes_lambda = heap.alloc((this.attributes, f));
