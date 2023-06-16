@@ -12,6 +12,7 @@ use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
+use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 
 /// Kill the buck daemon.
@@ -25,11 +26,7 @@ use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 pub struct KillCommand {}
 
 impl KillCommand {
-    pub fn exec(
-        self,
-        _matches: &clap::ArgMatches,
-        ctx: ClientCommandContext<'_>,
-    ) -> anyhow::Result<()> {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let mut recorder = try_get_invocation_recorder(
             &ctx,
             CommonDaemonCommandOptions::default_ref(),
@@ -60,7 +57,7 @@ impl KillCommand {
         };
 
         recorder.instant_command_outcome(result.is_ok());
-        result
+        result.into()
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
