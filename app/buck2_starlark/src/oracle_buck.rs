@@ -14,7 +14,7 @@ use starlark::environment::Globals;
 use starlark::environment::LibraryExtension;
 use starlark::typing::*;
 
-pub(crate) fn oracle_buck(globals: Globals) -> Arc<dyn TypingOracle + Send + Sync> {
+pub(crate) fn oracle_buck(globals: &Globals) -> Arc<dyn TypingOracle + Send + Sync> {
     let registered_docs = get_registered_starlark_docs();
     let mut docs = OracleDocs::new();
     docs.add_module(&globals.documentation());

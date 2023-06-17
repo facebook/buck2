@@ -77,7 +77,7 @@ impl<'a> Cache<'a> {
             Some(x) => Ok(x.dupe()),
             None => {
                 let globals = Environment::new(cell, path_type, self.dice).await?.globals;
-                let res = oracle_buck(globals);
+                let res = oracle_buck(&globals);
                 self.oracle.insert((cell, path_type), res.dupe());
                 Ok(res)
             }
