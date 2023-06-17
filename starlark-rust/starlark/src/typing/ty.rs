@@ -197,6 +197,21 @@ pub enum Ty {
     /// Type that contain anything
     Any,
     /// A series of alternative types.
+    ///
+    /// When typechecking, we try all alternatives, and if at least one of them
+    /// succeeds, then the whole expression is considered to be a success.
+    ///
+    /// For example, when typechecking:
+    ///
+    /// ```python
+    /// x = ... # string or int
+    /// y = ... # string
+    /// x + y   # `int + string` fails, but `string + string` succeeds,
+    ///         # so the whole expression is typechecked successfully as `string`
+    /// ```
+    ///
+    /// This is different handling of union types than in TypeScript for example,
+    /// TypeScript would consider such expression to be an error.
     Union(TyUnion),
     /// A name, represented by `"name"` in the Starlark type.
     /// Will never be a type that can be represented by another operation,
