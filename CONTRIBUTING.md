@@ -1,10 +1,19 @@
 # Contributing to Buck2
 
-We want to make contributing to this project as easy and transparent as possible.
+We want to make contributing to this project as easy and transparent as
+possible.
 
 ## Our Development Process
 
-Buck2 is currently developed in Meta's internal repositories. Code that is developed internally gets reviewed, sent through CI, committed, and then automatically mirrored out to GitHub every 15 minutes. Code that arrives through a PR is reviewed by a Meta developer on GitHub, then once accepted, moved into our internal workflow where it is reviewed, sent through CI, committed and added to the repo. We maintain both external CI (the results of which are visible on GitHub) and a more thorough internal CI (building internal projects etc). Alas, our full test suite is not yet mirrored to the open source repo, but we hope to fix that in due course.
+Buck2 is currently developed in Meta's internal repositories. Code that is
+developed internally gets reviewed, sent through CI, committed, and then
+automatically mirrored out to GitHub every 15 minutes. Code that arrives through
+a PR is reviewed by a Meta developer on GitHub, then once accepted, moved into
+our internal workflow where it is reviewed, sent through CI, committed and added
+to the repo. We maintain both external CI (the results of which are visible on
+GitHub) and a more thorough internal CI (building internal projects etc). Alas,
+our full test suite is not yet mirrored to the open source repo, but we hope to
+fix that in due course.
 
 ## Pull Requests
 
@@ -33,12 +42,12 @@ Meta has a [bounty program](https://www.facebook.com/whitehat/) for the safe
 disclosure of security bugs. In those cases, please go through the process
 outlined on that page and do not file a public issue.
 
-## Coding Style
+## Coding Style, Compiling, and Hacking Pro-tips
 
-Follow the automatic `rust fmt` configuration.
+See [HACKING.md](./HACKING.md) for the nitty gritty on how to contribute.
 
 ## License
 
-By contributing to Buck2, you agree that your contributions will be
-licensed under both the [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE)
+By contributing to Buck2, you agree that your contributions will be licensed
+under both the [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE)
 files in the root directory of this source tree.
