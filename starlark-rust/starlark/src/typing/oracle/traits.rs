@@ -80,22 +80,28 @@ impl TypingOracle for OracleNoAttributes {
     }
 }
 
-impl<T: TypingOracle> TypingOracle for [T] {
+/// Sequence of oracles, first one that returns [`Some`] wins.
+pub struct OracleSeq<T>(pub Vec<T>)
+where
+    T: TypingOracle;
+
+impl<T: TypingOracle> TypingOracle for OracleSeq<T> {
     fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
-        self.iter().find_map(|oracle| oracle.attribute(ty, attr))
+        self.0.iter().find_map(|oracle| oracle.attribute(ty, attr))
     }
 
     fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
-        self.iter().find_map(|oracle| oracle.builtin(name))
+        self.0.iter().find_map(|oracle| oracle.builtin(name))
     }
 
     fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
-        self.iter()
+        self.0
+            .iter()
             .find_map(|oracle| oracle.builtin_call(name, args))
     }
 
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
-        self.iter().any(|oracle| oracle.subtype(require, got))
+        self.0.iter().any(|oracle| oracle.subtype(require, got))
     }
 }
 
@@ -128,20 +134,5 @@ impl<T: TypingOracle + ?Sized> TypingOracle for Box<T> {
     }
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
         self.as_ref().subtype(require, got)
-    }
-}
-
-impl<T: TypingOracle> TypingOracle for Vec<T> {
-    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
-        self.as_slice().attribute(ty, attr)
-    }
-    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
-        self.as_slice().builtin(name)
-    }
-    fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
-        self.as_slice().builtin_call(name, args)
-    }
-    fn subtype(&self, require: &TyName, got: &TyName) -> bool {
-        self.as_slice().subtype(require, got)
     }
 }

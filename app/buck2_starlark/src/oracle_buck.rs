@@ -23,13 +23,13 @@ pub(crate) fn oracle_buck(globals: &Globals) -> Arc<dyn TypingOracle + Send + Sy
     let mut docs2 = OracleDocs::new();
     docs2.add_docs(&registered_docs);
 
-    Arc::new(vec![
+    Arc::new(OracleSeq(vec![
         Box::new(OracleStandard::new(LibraryExtension::all()))
             as Box<dyn TypingOracle + Send + Sync>,
         Box::new(CustomBuck),
         Box::new(docs),
         Box::new(AddErrors(docs2)),
-    ])
+    ]))
 }
 
 struct CustomBuck;

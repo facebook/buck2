@@ -38,6 +38,7 @@ pub use oracle::standard::OracleStandard;
 pub use oracle::traits::OracleNoAttributes;
 pub use oracle::traits::OracleNoBuiltins;
 pub use oracle::traits::OracleNone;
+pub use oracle::traits::OracleSeq;
 pub use oracle::traits::TypingOracle;
 pub use ty::Approximation;
 pub use ty::Arg;
