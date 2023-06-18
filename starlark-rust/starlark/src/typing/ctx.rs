@@ -440,12 +440,24 @@ impl TypingContext<'_> {
                 self.expression_attribute(&self.expression_type(x), "__slice__", span)
             }
             ExprP::Identifier(x) => {
-                if let Some(ResolvedIdent::Slot((_, i))) = &x.node.1 {
-                    if let Some(ty) = self.types.get(i) {
-                        return ty.clone();
+                match &x.node.1 {
+                    Some(ResolvedIdent::Slot((_, i))) => {
+                        if let Some(ty) = self.types.get(i) {
+                            ty.clone()
+                        } else {
+                            // All types must be resolved to this point,
+                            // this code is unreachable.
+                            Ty::Any
+                        }
+                    }
+                    Some(ResolvedIdent::Global(_)) => self.builtin(&x.node.0, x.span),
+                    None => {
+                        // All identifiers must be resolved at this point,
+                        // but we don't stop after scope resolution error,
+                        // so this code is reachable.
+                        Ty::Any
                     }
                 }
-                self.builtin(&x.node.0, x.span)
             }
             ExprP::Lambda(_) => {
                 self.approximation("We don't type check lambdas", ());
