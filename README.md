@@ -5,11 +5,11 @@ This repo contains the code for the Buck2 build system - the successor to the or
 * To understand why Buck2 might be interesting, see [this explainer](https://buck2.build/docs/why/) or [our introductory blog post](https://engineering.fb.com/2023/04/06/open-source/buck2-open-source-large-scale-build-system).
 * For our user-facing documentation see [https://buck2.build/](https://buck2.build/).
 
-We're keen for you to give Buck2 a go and [let us know](https://github.com/facebook/buck2/issues) any problems you run into.
+We're keen for you to give Buck2 a go and [let us know](https://github.com/facebook/buck2/issues) of any problems you run into.
 
 ## Getting started
 
-You can either download the [latest](https://github.com/facebook/buck2/releases/tag/latest) `buck2` binary, or build from source.
+You can either download the [latest](https://github.com/facebook/buck2/releases/tag/latest) `buck2` binary or build from source.
 
 Buck2 is written in Rust, which requires [rustup](https://rustup.rs/) to compile.
 
@@ -21,7 +21,7 @@ cd buck2/
 cargo install --path=app/buck2
 ```
 
-Or alternatively install it directly from GitHub:
+Or, alternatively install it directly from GitHub:
 
 ```sh
 rustup install nightly-2023-04-23
@@ -30,7 +30,7 @@ cargo +nightly-2023-04-23 install --git https://github.com/facebook/buck2.git bu
 
 Build uses prebuilt `protoc` binary from
 [protoc-bin-vendored](https://crates.io/crates/protoc-bin-vendored) crate.
-If these binaries to do not work on your machine (for example, when building for NixOS),
+If these binaries do not work on your machine (for example, when building for NixOS),
 path to `protoc` binary and protobuf include path can be specified via
 `BUCK2_BUILD_PROTOC` and `BUCK2_BUILD_PROTOC_INCLUDE` environment variables.
 
@@ -38,7 +38,7 @@ To build a project with `buck2`, go to the [getting started guide](https://buck2
 
 ## Terminology conventions
 
-Frequently used terms and their definitions can be found in the [glossary page](https://buck2.build/docs/concepts/glossary/).
+Frequently used terms and their definitions can be found on the [glossary page](https://buck2.build/docs/concepts/glossary/).
 
 ## Coding conventions
 
