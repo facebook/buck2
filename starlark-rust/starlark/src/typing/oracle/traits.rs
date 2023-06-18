@@ -21,6 +21,7 @@
 use crate::typing::ty::Arg;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
+use crate::typing::TyFunction;
 
 /// Callbacks which provide types when typechecking a module.
 ///
@@ -32,6 +33,11 @@ pub trait TypingOracle {
     /// Return [`Err`] to indicate we _know_ this isn't a valid attribute.
     /// Return [`None`] if we aren't sure.
     fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+        None
+    }
+
+    /// If type is callable, return it as function signature.
+    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
         None
     }
 
@@ -89,6 +95,10 @@ impl<T: TypingOracle> TypingOracle for OracleSeq<T> {
         self.0.iter().find_map(|oracle| oracle.attribute(ty, attr))
     }
 
+    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
+        self.0.iter().find_map(|oracle| oracle.as_function(ty))
+    }
+
     fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
         self.0.iter().find_map(|oracle| oracle.builtin(name))
     }
@@ -110,6 +120,9 @@ impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
     fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
         (*self).attribute(ty, attr)
     }
+    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
+        (*self).as_function(ty)
+    }
     fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
         (*self).builtin(name)
     }
@@ -124,6 +137,9 @@ impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
 impl<T: TypingOracle + ?Sized> TypingOracle for Box<T> {
     fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
         self.as_ref().attribute(ty, attr)
+    }
+    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
+        self.as_ref().as_function(ty)
     }
     fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
         self.as_ref().builtin(name)

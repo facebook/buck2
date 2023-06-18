@@ -49,34 +49,21 @@ impl TypingOracle for CustomBuck {
         }
     }
 
-    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
-        match name {
-            // A provider can be used as an index and can be called.
-            // Our type checker only supports calling Ty::function, so we erase the result
-            // and return Ty::Any so it doesn't get upset.
-            "provider" => Some(Ok(Ty::function(
-                vec![
-                    Param::name_only("doc", Ty::string()).optional(),
-                    Param::name_only(
-                        "fields",
-                        Ty::union2(Ty::list(Ty::string()), Ty::dict(Ty::string(), Ty::string())),
-                    ),
-                ],
-                Ty::Any,
-            ))),
-            // Again, we can't call a rule, so make it return a Any.
-            // We can't return just a function because some people do give it types.
-            "rule" => Some(Ok(Ty::function(
-                vec![
-                    Param::name_only("impl", Ty::Any),
-                    Param::name_only("attrs", Ty::dict(Ty::string(), Ty::name("attribute"))),
-                    Param::name_only("cfg", Ty::Any).optional(),
-                    Param::name_only("doc", Ty::string()).optional(),
-                    Param::name_only("is_configuration_rule", Ty::bool()).optional(),
-                    Param::name_only("is_toolchain_rule", Ty::bool()).optional(),
-                ],
-                Ty::Any,
-            ))),
+    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
+        match ty.as_str() {
+            "provider_callable" => Some(Ok(TyFunction {
+                name: "provider_callable".to_owned(),
+                type_attr: "".to_owned(),
+                params: vec![Param::kwargs(Ty::Any)],
+                // TODO(nga): this should be more precise.
+                result: Box::new(Ty::Any),
+            })),
+            "rule" => Some(Ok(TyFunction {
+                name: "rule".to_owned(),
+                type_attr: "".to_owned(),
+                params: vec![Param::kwargs(Ty::Any)],
+                result: Box::new(Ty::None),
+            })),
             _ => None,
         }
     }
@@ -98,5 +85,8 @@ impl TypingOracle for AddErrors {
         } else {
             None
         }
+    }
+    fn as_function(&self, _ty: &TyName) -> Option<Result<TyFunction, ()>> {
+        Some(Err(()))
     }
 }

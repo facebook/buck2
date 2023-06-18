@@ -193,21 +193,22 @@ impl TypingContext<'_> {
         }
     }
 
-    fn validate_call(&self, fun: &Ty, args: &[Arg], span: Span) -> Ty {
-        fn unpack_function(x: &Ty) -> Option<&TyFunction> {
-            match x {
-                Ty::Function(x) => Some(x),
-                _ => None,
-            }
+    fn unpack_function(&self, x: &Ty) -> Option<TyFunction> {
+        match x {
+            Ty::Function(x) => Some(x.clone()),
+            Ty::Name(n) => self.oracle.as_function(n).and_then(|x| x.ok()),
+            _ => None,
         }
+    }
 
+    fn validate_call(&self, fun: &Ty, args: &[Arg], span: Span) -> Ty {
         if fun.is_any() || fun.is_void() {
             return fun.clone(); // Everything is valid
         }
         let funs: Vec<_> = fun
             .iter_union()
             .iter()
-            .filter_map(unpack_function)
+            .filter_map(|f| self.unpack_function(f))
             .collect();
         if funs.is_empty() {
             return self.add_error(
