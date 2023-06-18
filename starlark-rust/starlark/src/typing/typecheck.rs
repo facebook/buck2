@@ -30,7 +30,6 @@ use crate::environment::Globals;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::EvalException;
-use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::Visibility;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
@@ -42,7 +41,6 @@ use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::values::FrozenHeap;
-use crate::values::FrozenRef;
 
 // Things which are None in the map have type void - they are never constructed
 fn solve_bindings(
@@ -145,6 +143,7 @@ impl AstModule {
     pub fn typecheck(
         self,
         oracle: &dyn TypingOracle,
+        globals: &Globals,
         loads: &HashMap<String, Interface>,
     ) -> (Vec<anyhow::Error>, TypeMap, Interface, Vec<Approximation>) {
         let codemap = self.codemap.dupe();
@@ -155,15 +154,13 @@ impl AstModule {
             &frozen_heap,
             loads,
             self.statement,
-            FrozenRef::new(Globals::empty()),
+            frozen_heap.alloc_any_display_from_debug(globals.dupe()),
             frozen_heap.alloc_any_display_from_debug(self.codemap.dupe()),
             &Dialect::Extended,
         );
-        // TODO(nga): we drop `scope.errors` here.
-        //   Known errors are missing globals, we pass empty globals to `enter_module`.
         let bindings = BindingsCollect::collect(&cst);
         let mut approximations = bindings.approximations;
-        let (errors, types, solve_approximations) =
+        let (solve_errors, types, solve_approximations) =
             solve_bindings(oracle, bindings.bindings, &codemap);
 
         approximations.extend(solve_approximations);
@@ -180,7 +177,12 @@ impl AstModule {
             codemap: codemap.dupe(),
         };
 
-        let errors = errors.into_map(|x| anyhow::anyhow!(x));
+        let errors = scope
+            .errors
+            .into_iter()
+            .chain(solve_errors)
+            .map(EvalException::into_anyhow)
+            .collect();
 
         let mut res = HashMap::new();
         for (name, vis) in names.all_names_and_visibilities() {

@@ -30,6 +30,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use starlark::environment::Globals;
 use starlark::typing::Interface;
 use starlark::typing::TypingOracle;
 
@@ -58,7 +59,7 @@ struct Cache<'a> {
     stdout: &'a mut (dyn Write + Send + Sync),
     stderr: &'a mut (dyn Write + Send + Sync),
     // Our accumulated state
-    oracle: HashMap<(CellName, StarlarkFileType), Arc<dyn TypingOracle + Send + Sync>>,
+    oracle: HashMap<(CellName, StarlarkFileType), (Arc<dyn TypingOracle + Send + Sync>, Globals)>,
     cache: HashMap<OwnedStarlarkPath, Interface>,
 }
 
@@ -72,14 +73,15 @@ impl<'a> Cache<'a> {
         &mut self,
         cell: CellName,
         path_type: StarlarkFileType,
-    ) -> anyhow::Result<Arc<dyn TypingOracle>> {
+    ) -> anyhow::Result<(Arc<dyn TypingOracle + Send + Sync>, Globals)> {
         match self.oracle.get(&(cell, path_type)) {
-            Some(x) => Ok(x.dupe()),
+            Some((o, g)) => Ok((o.dupe(), g.dupe())),
             None => {
                 let globals = Environment::new(cell, path_type, self.dice).await?.globals;
                 let res = oracle_buck(&globals);
-                self.oracle.insert((cell, path_type), res.dupe());
-                Ok(res)
+                self.oracle
+                    .insert((cell, path_type), (res.dupe(), globals.dupe()));
+                Ok((res, globals))
             }
         }
     }
@@ -121,10 +123,11 @@ impl<'a> Cache<'a> {
             let interface = self.get(y.into_starlark_path()).await?;
             loads.insert(x.module_id.to_owned(), interface);
         }
-        let oracle = self
+        let (oracle, globals) = self
             .get_oracle(path_ref.cell(), path_ref.file_type())
             .await?;
-        let (errors, bindings, interface, approxiomations) = ast.typecheck(&*oracle, &loads);
+        let (errors, bindings, interface, approxiomations) =
+            ast.typecheck(&*oracle, &globals, &loads);
 
         if !approxiomations.is_empty() {
             writeln!(self.stderr, "\n\nAPPROXIMATIONS:")?;

@@ -22,6 +22,7 @@ use maplit::btreemap;
 use once_cell::sync::Lazy;
 
 use crate::codemap::ResolvedFileSpan;
+use crate::environment::Globals;
 use crate::eval::compiler::EvalException;
 use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
@@ -149,7 +150,7 @@ impl TypeCheck {
         let (errors, _, interface, approximations) =
             AstModule::parse("filename", code.to_owned(), &Dialect::Extended)
                 .unwrap()
-                .typecheck(&mk_oracle(), &self.loads);
+                .typecheck(&mk_oracle(), &Globals::extended(), &self.loads);
         assert_list(approximations, &self.expect_approximations);
         assert_error_list(errors, &self.expect_errors);
         for (k, v) in &self.expect_interface {
