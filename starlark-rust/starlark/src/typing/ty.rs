@@ -19,6 +19,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::slice;
 
 use either::Either;
 
@@ -490,11 +491,11 @@ impl Ty {
     }
 
     /// Iterate over the types within a union, pretending the type is a singleton union if not a union.
-    pub(crate) fn iter_union(&self) -> impl Iterator<Item = &Self> {
+    pub(crate) fn iter_union(&self) -> &[Self] {
         match self {
-            Self::Union(xs) => Either::Left(xs.0.iter()),
-            Self::Void => Either::Left([].iter()),
-            _ => Either::Right(std::iter::once(self)),
+            Self::Union(xs) => &xs.0,
+            Self::Void => &[],
+            _ => slice::from_ref(self),
         }
     }
 

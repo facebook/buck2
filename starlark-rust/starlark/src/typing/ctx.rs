@@ -176,6 +176,7 @@ impl TypingContext<'_> {
                     let val_types: Vec<_> = param
                         .ty
                         .iter_union()
+                        .iter()
                         .filter_map(|x| match x {
                             Ty::Dict(k_v) => Some(k_v.1.clone()),
                             _ => None,
@@ -203,7 +204,11 @@ impl TypingContext<'_> {
         if fun.is_any() || fun.is_void() {
             return fun.clone(); // Everything is valid
         }
-        let funs: Vec<_> = fun.iter_union().filter_map(unpack_function).collect();
+        let funs: Vec<_> = fun
+            .iter_union()
+            .iter()
+            .filter_map(unpack_function)
+            .collect();
         if funs.is_empty() {
             return self.add_error(
                 span,
