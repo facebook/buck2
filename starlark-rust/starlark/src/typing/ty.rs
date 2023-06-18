@@ -19,6 +19,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::fmt::Formatter;
 use std::slice;
 
 use either::Either;
@@ -294,6 +295,34 @@ pub struct TyFunction {
     pub params: Vec<Param>,
     /// The result type of the function.
     pub result: Box<Ty>,
+}
+
+impl Display for TyFunction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let TyFunction {
+            name,
+            params,
+            result,
+            ..
+        } = self;
+        write!(f, "def{}{}(", if name.is_empty() { "" } else { " " }, name)?;
+        let mut first = true;
+        for param in params {
+            if !first {
+                write!(f, ", ")?;
+                first = false;
+            }
+            let opt = if param.optional { "=.." } else { "" };
+            match &param.mode {
+                ParamMode::PosOnly => write!(f, "#: {}{}", param.ty, opt)?,
+                ParamMode::PosOrName(name) => write!(f, "#{}: {}{}", name, param.ty, opt)?,
+                ParamMode::NameOnly(name) => write!(f, "{}: {}{}", name, param.ty, opt)?,
+                ParamMode::Args => write!(f, "*args: {}", param.ty)?,
+                ParamMode::Kwargs => write!(f, "**kwargs: {}", param.ty)?,
+            }
+        }
+        write!(f, ") -> {}", result)
+    }
 }
 
 fn merge_adjacent<T>(xs: Vec<T>, f: impl Fn(T, T) -> Either<T, (T, T)>) -> Vec<T> {
@@ -778,30 +807,7 @@ impl Display for Ty {
                     extra.then_some(".."),
                 ),
             ),
-            Ty::Function(TyFunction {
-                name,
-                params,
-                result,
-                ..
-            }) => {
-                write!(f, "def{}{}(", if name.is_empty() { "" } else { " " }, name)?;
-                let mut first = true;
-                for param in params {
-                    if !first {
-                        write!(f, ", ")?;
-                        first = false;
-                    }
-                    let opt = if param.optional { "=.." } else { "" };
-                    match &param.mode {
-                        ParamMode::PosOnly => write!(f, "#: {}{}", param.ty, opt)?,
-                        ParamMode::PosOrName(name) => write!(f, "#{}: {}{}", name, param.ty, opt)?,
-                        ParamMode::NameOnly(name) => write!(f, "{}: {}{}", name, param.ty, opt)?,
-                        ParamMode::Args => write!(f, "*args: {}", param.ty)?,
-                        ParamMode::Kwargs => write!(f, "**kwargs: {}", param.ty)?,
-                    }
-                }
-                write!(f, ") -> {}", result)
-            }
+            Ty::Function(fun) => Display::fmt(fun, f),
         }
     }
 }
