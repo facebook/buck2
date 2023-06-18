@@ -503,8 +503,8 @@ impl Ty {
     pub(crate) fn into_iter_union(self) -> impl Iterator<Item = Self> {
         match self {
             Self::Union(xs) => Either::Left(xs.0.into_iter()),
-            Self::Void => Either::Right(Either::Left(std::iter::empty())),
-            _ => Either::Right(Either::Right(std::iter::once(self))),
+            Self::Void => Either::Left(Vec::new().into_iter()),
+            _ => Either::Right(std::iter::once(self)),
         }
     }
 
