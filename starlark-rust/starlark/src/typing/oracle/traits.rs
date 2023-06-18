@@ -57,14 +57,11 @@ pub trait TypingOracle {
     }
 }
 
-/// Returns no information for everything.
-pub struct OracleNone;
-
-impl TypingOracle for OracleNone {}
-
 /// Declare that there are no builtins, usually used at the end of a [`Vec`].
-pub struct OracleNoBuiltins;
+#[cfg(test)]
+pub(crate) struct OracleNoBuiltins;
 
+#[cfg(test)]
 impl TypingOracle for OracleNoBuiltins {
     fn builtin(&self, _name: &str) -> Option<Result<Ty, ()>> {
         Some(Err(()))
@@ -72,8 +69,10 @@ impl TypingOracle for OracleNoBuiltins {
 }
 
 /// Declare that there are no attributes, usually used at the end of a [`Vec`].
-pub struct OracleNoAttributes;
+#[cfg(test)]
+pub(crate) struct OracleNoAttributes;
 
+#[cfg(test)]
 impl TypingOracle for OracleNoAttributes {
     fn attribute(&self, _ty: &Ty, _attr: &str) -> Option<Result<Ty, ()>> {
         Some(Err(()))
