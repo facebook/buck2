@@ -1028,3 +1028,14 @@ fn test_fuzzer_59371() {
     // The panic actually only happens when we format the result
     format!("{:?}", res);
 }
+
+#[test]
+fn test_fuzzer_59839() {
+    // From https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=59839
+    let src = "\"{20000000000000000396}\".format()";
+    let ast = AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard).unwrap();
+    let globals: Globals = Globals::standard();
+    let module: Module = Module::new();
+    let mut eval: Evaluator = Evaluator::new(&module);
+    assert!(eval.eval_module(ast, &globals).is_err());
+}

@@ -18,6 +18,8 @@
 use std::mem;
 use std::str::FromStr;
 
+use anyhow::Context as _;
+
 use crate::collections::string_pool::StringPool;
 use crate::values::dict::Dict;
 use crate::values::Heap;
@@ -262,7 +264,8 @@ fn format_capture<'v, T: Iterator<Item = Value<'v>>>(
         conv(args.next_ordered()?, result);
         Ok(())
     } else if n.chars().all(|c| c.is_ascii_digit()) {
-        let i = usize::from_str(n).unwrap();
+        let i = usize::from_str(n)
+            .with_context(|| format!("Error parsing `{n}` as a format string index"))?;
         conv(args.by_index(i)?, result);
         Ok(())
     } else {
