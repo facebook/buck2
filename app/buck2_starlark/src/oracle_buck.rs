@@ -24,6 +24,7 @@ pub(crate) fn oracle_buck(globals: &Globals) -> Arc<dyn TypingOracle + Send + Sy
     docs2.add_docs(&registered_docs);
 
     Arc::new(OracleSeq(vec![
+        // TODO(nga): this should only accept globals from enabled extensions, not all extensions.
         Box::new(OracleStandard::new(LibraryExtension::all()))
             as Box<dyn TypingOracle + Send + Sync>,
         Box::new(CustomBuck),
