@@ -13,19 +13,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use futures::future::BoxFuture;
-use futures::future::Either;
 use futures::FutureExt;
-use more_futures::cancellation::CancellationContext;
-use more_futures::spawn::spawn_cancellable;
-use more_futures::spawn::spawn_dropcancel;
-use more_futures::spawn::DropCancelAndTerminationObserver;
-use more_futures::spawn::StrongJoinHandle;
-use more_futures::spawn::WeakFutureError;
 use parking_lot::Mutex;
 
 use crate::api::activation_tracker::ActivationData;
-use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
 use crate::api::error::DiceErrorImpl;
@@ -34,7 +25,6 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::api::user_data::UserCycleDetectorGuard;
-use crate::ctx::DiceComputationsImpl;
 use crate::legacy::cycles::CycleDetector;
 use crate::legacy::incremental::dep_trackers::BothDepTrackers;
 use crate::legacy::incremental::dep_trackers::BothDeps;
@@ -52,7 +42,6 @@ use crate::legacy::projection::ProjectionKeyProperties;
 use crate::legacy::DiceLegacy;
 use crate::versions::VersionNumber;
 use crate::DiceError;
-use crate::WhichSpawner;
 
 /// A context for the duration of a top-level compute request.
 ///
@@ -197,10 +186,10 @@ impl DiceComputationsImplLegacy {
         (this.dep_trackers.collect_deps(), this.extra)
     }
 
-    pub(crate) fn compute_opaque<'b, 'a: 'b, K>(
+    pub(crate) fn compute_opaque<'a, K>(
         self: &'a Arc<Self>,
-        key: &'b K,
-    ) -> impl Future<Output = DiceResult<OpaqueValueImplLegacy<'a, K>>> + 'b
+        key: &K,
+    ) -> impl Future<Output = DiceResult<OpaqueValueImplLegacy<'a, K>>> + 'a
     where
         K: Key,
     {
@@ -332,58 +321,6 @@ impl DiceComputationsImplLegacy {
             user_cycle_detector_guard: None,
             evaluation_data: Mutex::new(None),
         })
-    }
-
-    /// temporarily here while we figure out why dice isn't paralleling computations so that we can
-    /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
-    /// the Arc, which makes lifetimes weird.
-    pub(crate) fn temporary_spawn<F, R>(
-        self: &Arc<Self>,
-        f: F,
-    ) -> Either<
-        StrongJoinHandle<BoxFuture<'static, Result<R, WeakFutureError>>>,
-        DropCancelAndTerminationObserver<R>,
-    >
-    where
-        F: for<'a> FnOnce(&'a DiceComputations, &'a CancellationContext) -> BoxFuture<'a, R>
-            + Send
-            + 'static,
-        R: Send + 'static,
-    {
-        let duped = self.dupe();
-
-        match self.dice.which_spawner {
-            WhichSpawner::DropCancel => spawn_dropcancel(
-                async move {
-                    f(
-                        &DiceComputations(DiceComputationsImpl::Legacy(duped)),
-                        &CancellationContext::todo(),
-                    )
-                    .await
-                },
-                self.extra.user_data.spawner.as_ref(),
-                &self.extra.user_data,
-                debug_span!(parent: None, "spawned_task",),
-            )
-            .left_future(),
-            WhichSpawner::ExplicitCancel => spawn_cancellable(
-                |cancellations| {
-                    async move {
-                        f(
-                            &DiceComputations(DiceComputationsImpl::Legacy(duped)),
-                            cancellations,
-                        )
-                        .await
-                    }
-                    .boxed()
-                },
-                self.extra.user_data.spawner.as_ref(),
-                &self.extra.user_data,
-                debug_span!(parent: None, "spawned_task",),
-            )
-            .into_drop_cancel()
-            .right_future(),
-        }
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {

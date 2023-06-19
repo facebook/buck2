@@ -11,7 +11,6 @@ use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::env_helper::EnvHelper;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Either;
@@ -30,14 +29,13 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::gen_error_exit_code;
 use crate::exit_result::ExitResult;
 use crate::exit_result::FailureExitCode;
+use crate::path_arg::PathArg;
 use crate::subscribers::get::get_console_with_root;
 use crate::subscribers::get::try_get_build_id_writer;
 use crate::subscribers::get::try_get_event_log_subscriber;
 use crate::subscribers::get::try_get_re_log_subscriber;
 use crate::subscribers::recorder::try_get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
-
-static USE_STREAMING_UPLOADS: EnvHelper<bool> = EnvHelper::new("BUCK2_USE_STREAMING_UPLOADS");
 
 fn default_subscribers<'a, T: StreamingCommand>(
     cmd: &T,
@@ -63,13 +61,12 @@ fn default_subscribers<'a, T: StreamingCommand>(
     )? {
         subscribers.push(v)
     }
-    let use_streaming_upload = streaming_uploads()?;
     if let Some(event_log) = try_get_event_log_subscriber(
         cmd.event_log_opts(),
         ctx.sanitized_argv.clone(),
         ctx,
         log_size_counter_bytes.clone(),
-        use_streaming_upload,
+        cmd.user_event_log(),
     )? {
         subscribers.push(event_log)
     }
@@ -79,27 +76,19 @@ fn default_subscribers<'a, T: StreamingCommand>(
     if let Some(build_id_writer) = try_get_build_id_writer(cmd.event_log_opts(), ctx)? {
         subscribers.push(build_id_writer)
     }
-    if let Some(recorder) = try_get_invocation_recorder(
+    let recorder = try_get_invocation_recorder(
         ctx,
         cmd.event_log_opts(),
         T::COMMAND_NAME,
         ctx.sanitized_argv.argv.clone(),
         log_size_counter_bytes,
-        use_streaming_upload,
-    )? {
-        subscribers.push(recorder);
-    }
+    )?;
+    subscribers.push(recorder);
+
     subscribers.extend(cmd.extra_subscribers());
     Ok(subscribers)
 }
 
-fn streaming_uploads() -> anyhow::Result<bool> {
-    if cfg!(windows) {
-        // TODO T149151673: support windows streaming upload
-        return Ok(false);
-    };
-    Ok(USE_STREAMING_UPLOADS.get_copied()?.unwrap_or(true))
-}
 /// Trait to generalize the behavior of executable buck2 commands that rely on a server.
 /// This trait is most helpful when the command wants a superconsole, to stream events, etc.
 /// However, this is the most robustly tested of our code paths, and there is little cost to defaulting to it.
@@ -145,6 +134,11 @@ pub trait StreamingCommand: Sized + Send + Sync {
     /// Whether to show a "Waiting for daemon..." message in simple console during long waiting periods.
     fn should_show_waiting_message(&self) -> bool {
         true
+    }
+
+    /// Currently only for BxlCommand.
+    fn user_event_log(&self) -> &Option<PathArg> {
+        &None
     }
 }
 

@@ -6,6 +6,10 @@
 # of this source tree.
 
 load(
+    "@prelude//cxx:argsfiles.bzl",
+    "CompileArgsfile",  # @unused Used as a type
+)
+load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
@@ -13,7 +17,7 @@ load(
 def cxx_populate_xcode_attributes(
         ctx,
         srcs: [CxxSrcWithFlags.type],
-        argsfiles_by_ext: {str.type: "artifact"},
+        argsfiles: {str.type: CompileArgsfile.type},
         product_name: str.type) -> {str.type: ""}:
     converted_srcs = {}
     for src in srcs:
@@ -29,10 +33,8 @@ def cxx_populate_xcode_attributes(
 
     data = {
         "argsfiles_by_ext": {
-            # Enum types cannot be encoded by our JSON API.
-            # Use the str representation.
-            repr(ext).replace('\"', ""): artifact
-            for ext, artifact in argsfiles_by_ext.items()
+            ext: argsfile.file
+            for ext, argsfile in argsfiles.items()
         },
         "headers": _get_artifacts_with_owners(ctx.attrs.headers),
         "product_name": product_name,

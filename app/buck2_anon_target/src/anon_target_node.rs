@@ -16,7 +16,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
-use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -27,6 +26,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
 use buck2_node::rule_type::StarlarkRuleType;
+use buck2_util::collections::sorted_map::SortedMap;
 use gazebo::cmp::PartialEqAny;
 
 use crate::anon_target_attr::AnonTargetAttr;

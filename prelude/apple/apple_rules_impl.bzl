@@ -35,6 +35,7 @@ load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
 load(":apple_toolchain_types.bzl", "AppleToolsInfo")
 load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
+load(":scene_kit_assets.bzl", "scene_kit_assets_impl")
 load(":xcode_postbuild_script.bzl", "xcode_postbuild_script_impl")
 load(":xcode_prebuild_script.bzl", "xcode_prebuild_script_impl")
 
@@ -49,6 +50,7 @@ implemented_rules = {
     "apple_toolchain": apple_toolchain_impl,
     "core_data_model": apple_core_data_impl,
     "prebuilt_apple_framework": prebuilt_apple_framework_impl,
+    "scene_kit_assets": scene_kit_assets_impl,
     "swift_toolchain": swift_toolchain_impl,
     "xcode_postbuild_script": xcode_postbuild_script_impl,
     "xcode_prebuild_script": xcode_prebuild_script_impl,
@@ -121,6 +123,7 @@ extra_attributes = {
         "codesign_identities_command": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         # Controls invocations of `ibtool`, `actool` and `momc`
         "compile_resources_locally": attrs.bool(default = False),
+        "copy_scene_kit_assets": attrs.exec_dep(providers = [RunInfo]),
         "cxx_toolchain": attrs.toolchain_dep(),
         "dsymutil": attrs.exec_dep(providers = [RunInfo]),
         "dwarfdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),

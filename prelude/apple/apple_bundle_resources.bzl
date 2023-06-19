@@ -40,6 +40,11 @@ load(
     "get_resource_graph_node_map_func",
     "get_resource_group_info",
 )
+load(":scene_kit_assets.bzl", "compile_scene_kit_assets")
+load(
+    ":scene_kit_assets_types.bzl",
+    "SceneKitAssetsSpec",  # @unused Used as a type
+)
 
 AppleBundleResourcePartListOutput = record(
     # Resource parts to be copied into an Apple bundle, *excluding* binaries
@@ -53,7 +58,7 @@ def get_apple_bundle_resource_part_list(ctx: "context") -> AppleBundleResourcePa
 
     parts.extend(_create_pkg_info_if_needed(ctx))
 
-    (resource_specs, asset_catalog_specs, core_data_specs) = _select_resources(ctx)
+    (resource_specs, asset_catalog_specs, core_data_specs, scene_kit_assets_spec) = _select_resources(ctx)
 
     # If we've pulled in native/C++ resources from deps, inline them into the
     # bundle under the `CxxResources` namespace.
@@ -99,6 +104,16 @@ def get_apple_bundle_resource_part_list(ctx: "context") -> AppleBundleResourcePa
         )
         parts.append(core_data_part)
 
+    scene_kit_assets_result = compile_scene_kit_assets(ctx, scene_kit_assets_spec)
+    if scene_kit_assets_result != None:
+        scene_kit_assets_part = AppleBundlePart(
+            source = scene_kit_assets_result,
+            destination = AppleBundleDestination("resources"),
+            # We only interested in directory contents
+            new_name = "",
+        )
+        parts.append(scene_kit_assets_part)
+
     parts.extend(_copy_resources(ctx, resource_specs))
     parts.extend(_copy_first_level_bundles(ctx))
 
@@ -115,7 +130,7 @@ def _create_pkg_info_if_needed(ctx: "context") -> [AppleBundlePart.type]:
     artifact = ctx.actions.write("PkgInfo", "APPLWRUN\n")
     return [AppleBundlePart(source = artifact, destination = AppleBundleDestination("metadata"))]
 
-def _select_resources(ctx: "context") -> (([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type])):
+def _select_resources(ctx: "context") -> (([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type], [SceneKitAssetsSpec.type])):
     resource_group_info = get_resource_group_info(ctx)
     if resource_group_info:
         resource_groups_deps = resource_group_info.implicit_deps

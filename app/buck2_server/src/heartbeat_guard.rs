@@ -35,6 +35,7 @@ impl HeartbeatGuard {
             ctx.dice_manager.unsafe_dice().dupe(),
             ctx.materializer.dupe(),
             Some(ctx.events.sink().dupe()),
+            ctx.http_client.dupe(),
         );
 
         // NOTE: This doesn't use the ambient dispatcher wrappers because we want to control the

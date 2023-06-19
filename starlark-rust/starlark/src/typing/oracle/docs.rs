@@ -17,13 +17,10 @@
 
 use std::collections::HashMap;
 
-use starlark_map::small_map::SmallMap;
-
 use crate::docs::Doc;
 use crate::docs::DocItem;
-use crate::docs::DocMember;
 use crate::docs::DocModule;
-use crate::docs::DocObject;
+use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
 
@@ -36,29 +33,31 @@ pub struct OracleDocs {
 }
 
 impl OracleDocs {
-    /// Create a new [`OracleDocs`], usually given the output of
-    /// [`get_registered_starlark_docs`](crate::docs::get_registered_starlark_docs).
-    pub fn new(docs: &[Doc]) -> Self {
-        let mut res = Self::default();
-        for doc in docs {
-            res.add_doc(doc);
-        }
-        res
+    /// Create a new [`OracleDocs`] with no information.
+    /// You can then call the various methods to populate it with data.
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Like [`Self::new`], but adding to an existing oracle (overwriting any duplicates).
-    pub fn add_doc(&mut self, doc: &Doc) {
-        fn add_members(me: &mut OracleDocs, doc: &Doc, members: &SmallMap<String, DocMember>) {
-            let mut items = HashMap::with_capacity(members.len());
-            for (name, member) in members {
-                items.insert(name.clone(), Ty::from_docs_member(member));
-            }
-            me.objects.insert(doc.id.name.clone(), items);
+    /// Add multiple entries to the documentation, usually given the results of
+    /// [`get_registered_starlark_docs`](crate::docs::get_registered_starlark_docs).
+    pub fn add_docs(&mut self, docs: &[Doc]) {
+        for doc in docs {
+            self.add_doc(doc);
         }
+    }
 
+    /// Add information from a [`Doc`] to the documentation, overwriting existing items.
+    pub fn add_doc(&mut self, doc: &Doc) {
         match &doc.item {
-            DocItem::Module(modu) => add_members(self, doc, &modu.members),
-            DocItem::Object(obj) => add_members(self, doc, &obj.members),
+            DocItem::Module(modu) => self.add_module(modu),
+            DocItem::Object(obj) => {
+                let mut items = HashMap::with_capacity(obj.members.len());
+                for (name, member) in &obj.members {
+                    items.insert(name.clone(), Ty::from_docs_member(member));
+                }
+                self.objects.insert(doc.id.name.clone(), items);
+            }
             DocItem::Property(x) => {
                 self.functions
                     .insert(doc.id.name.clone(), Ty::from_docs_property(x));
@@ -70,47 +69,33 @@ impl OracleDocs {
         }
     }
 
-    /// Create a new [`OracleDocs`] given the documentation, usually from
-    /// [`Globals::documentation`](crate::environment::Globals::documentation).
-    /// Only produces interesting content if the result is an [`Object`](crate::docs::DocObject) (which it is for those two).
-    pub fn new_object(docs: &DocItem) -> Self {
-        let mut res = Self::default();
-        res.add_object(docs);
-        res
+    /// Add documentation usually from
+    /// [`Globals::documentation`](crate::environment::Globals::documentation),
+    /// overwriting any duplicates.
+    pub fn add_module(&mut self, docs: &DocModule) {
+        for (name, member) in &docs.members {
+            self.functions
+                .insert(name.clone(), Ty::from_docs_member(member));
+        }
     }
 
-    /// Like [`Self::new_object`], but adding to an existing oracle (overwriting any duplicates).
-    pub fn add_object(&mut self, docs: &DocItem) {
-        match docs {
-            DocItem::Object(DocObject { members, .. })
-            | DocItem::Module(DocModule { members, .. }) => {
-                for (name, member) in members {
-                    self.functions
-                        .insert(name.clone(), Ty::from_docs_member(member));
-                }
-            }
-            _ => {}
-        }
+    /// Is information known about this object.
+    pub fn known_object(&self, name: &str) -> bool {
+        self.objects.contains_key(name)
     }
 }
 
 impl TypingOracle for OracleDocs {
-    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
-        if attr.starts_with("__") && attr.ends_with("__") {
-            // We don't record operator info in the docs, so it is always missing
-            return None;
-        }
-        let name = match ty {
-            Ty::Name(x) => x.as_str(),
-            Ty::List(_) => "list",
-            Ty::Tuple(_) => "tuple",
-            Ty::Dict(_) => "dict",
-            Ty::Struct { .. } => "struct",
-            _ => return None,
-        };
-        match self.objects.get(name)?.get(attr) {
-            None => Some(Err(())),
-            Some(res) => Some(Ok(res.clone())),
+    fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+        match attr {
+            TypingAttr::Regular(attr) => match self.objects.get(ty.as_name()?)?.get(attr) {
+                None => Some(Err(())),
+                Some(res) => Some(Ok(res.clone())),
+            },
+            _ => {
+                // We don't record operator info in the docs, so it is always missing
+                return None;
+            }
         }
     }
 

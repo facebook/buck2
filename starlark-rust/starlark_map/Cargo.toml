@@ -1,7 +1,7 @@
 [package]
 name = "starlark_map"
 edition = "2021"
-version = "0.9.0-pre"
+version = "0.9.0"
 license = "Apache-2.0"
 description = "Map implementation with starlark-rust specific optimizations"
 documentation = "https://docs.rs/starlark_map"
@@ -12,7 +12,7 @@ authors = [
 
 [dependencies]
 dupe = { workspace = true }
-allocative = { workspace = true }
+allocative = { workspace = true, features = ["hashbrown"] }
 
 fnv = "1.0.7"
 hashbrown = { version = "0.12.3", features = ["raw"] }

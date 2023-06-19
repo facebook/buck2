@@ -12,6 +12,7 @@ use std::time::Instant;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_signals::NodeDuration;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::current_span;
@@ -21,9 +22,8 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceComputations;
 use dupe::Dupe;
 
+use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::build_signals::HasBuildSignals;
-use crate::build_signals::NodeDuration;
-use crate::calculation::Calculation;
 
 #[async_trait]
 pub trait ArtifactMaterializer {

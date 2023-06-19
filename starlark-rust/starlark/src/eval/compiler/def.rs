@@ -53,9 +53,9 @@ use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::Captured;
 use crate::eval::compiler::scope::CstAssignIdent;
-use crate::eval::compiler::scope::CstExpr;
 use crate::eval::compiler::scope::CstParameter;
 use crate::eval::compiler::scope::CstStmt;
+use crate::eval::compiler::scope::CstTypeExpr;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
@@ -73,7 +73,6 @@ use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Arguments;
 use crate::slice_vec_ext::SliceExt;
-use crate::slice_vec_ext::VecExt;
 use crate::starlark_complex_values;
 use crate::starlark_type;
 use crate::syntax::ast::ParameterP;
@@ -140,25 +139,21 @@ pub(crate) struct ParameterName {
 
 #[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) enum ParameterCompiled<T> {
-    Normal(ParameterName, Option<T>),
-    WithDefaultValue(ParameterName, Option<T>, T),
-    Args(ParameterName, Option<T>),
-    KwArgs(ParameterName, Option<T>),
+    Normal(ParameterName, Option<TypeCompiled<FrozenValue>>),
+    WithDefaultValue(ParameterName, Option<TypeCompiled<FrozenValue>>, T),
+    Args(ParameterName, Option<TypeCompiled<FrozenValue>>),
+    KwArgs(ParameterName, Option<TypeCompiled<FrozenValue>>),
 }
 
 impl<T> ParameterCompiled<T> {
     pub(crate) fn map_expr<U>(&self, mut f: impl FnMut(&T) -> U) -> ParameterCompiled<U> {
         match self {
-            ParameterCompiled::Normal(n, o) => {
-                ParameterCompiled::Normal(n.clone(), o.as_ref().map(f))
-            }
+            ParameterCompiled::Normal(n, o) => ParameterCompiled::Normal(n.clone(), *o),
             ParameterCompiled::WithDefaultValue(n, o, t) => {
-                ParameterCompiled::WithDefaultValue(n.clone(), o.as_ref().map(&mut f), f(t))
+                ParameterCompiled::WithDefaultValue(n.clone(), *o, f(t))
             }
-            ParameterCompiled::Args(n, o) => ParameterCompiled::Args(n.clone(), o.as_ref().map(f)),
-            ParameterCompiled::KwArgs(n, o) => {
-                ParameterCompiled::KwArgs(n.clone(), o.as_ref().map(f))
-            }
+            ParameterCompiled::Args(n, o) => ParameterCompiled::Args(n.clone(), *o),
+            ParameterCompiled::KwArgs(n, o) => ParameterCompiled::KwArgs(n.clone(), *o),
         }
     }
 
@@ -174,12 +169,12 @@ impl<T> ParameterCompiled<T> {
         self.name_ty().0.captured
     }
 
-    pub(crate) fn name_ty(&self) -> (&ParameterName, Option<&T>) {
+    pub(crate) fn name_ty(&self) -> (&ParameterName, Option<TypeCompiled<FrozenValue>>) {
         match self {
-            Self::Normal(n, t) => (n, t.as_ref()),
-            Self::WithDefaultValue(n, t, _) => (n, t.as_ref()),
-            Self::Args(n, t) => (n, t.as_ref()),
-            Self::KwArgs(n, t) => (n, t.as_ref()),
+            Self::Normal(n, t) => (n, *t),
+            Self::WithDefaultValue(n, t, _) => (n, *t),
+            Self::Args(n, t) => (n, *t),
+            Self::KwArgs(n, t) => (n, *t),
         }
     }
 
@@ -342,7 +337,7 @@ impl DefInfo {
 pub(crate) struct DefCompiled {
     pub(crate) function_name: String,
     pub(crate) params: ParametersCompiled<IrSpanned<ExprCompiled>>,
-    pub(crate) return_type: Option<Box<IrSpanned<ExprCompiled>>>,
+    pub(crate) return_type: Option<TypeCompiled<FrozenValue>>,
     pub(crate) info: FrozenRef<'static, DefInfo>,
 }
 
@@ -356,24 +351,6 @@ impl Compiler<'_, '_, '_> {
         }
     }
 
-    /// Compile expression when it is expected to be interpreted as type.
-    pub(crate) fn expr_for_type(
-        &mut self,
-        expr: Option<Box<CstExpr>>,
-    ) -> Option<IrSpanned<ExprCompiled>> {
-        if !self.check_types {
-            return None;
-        }
-        let expr = self.expr_opt(expr)?;
-        if let Some(value) = expr.as_value() {
-            if TypeCompiled::is_wildcard_value(value.to_value()) {
-                // When type is anything, skip type check.
-                return None;
-            }
-        }
-        Some(expr)
-    }
-
     /// Compile a parameter. Return `None` for `*` pseudo parameter.
     fn parameter(
         &mut self,
@@ -383,21 +360,24 @@ impl Compiler<'_, '_, '_> {
         Some(IrSpanned {
             span,
             node: match x.node {
-                ParameterP::Normal(x, t) => {
-                    ParameterCompiled::Normal(self.parameter_name(x), self.expr_for_type(t))
-                }
+                ParameterP::Normal(x, t) => ParameterCompiled::Normal(
+                    self.parameter_name(x),
+                    self.expr_for_type(t).map(|t| t.node),
+                ),
                 ParameterP::WithDefaultValue(x, t, v) => ParameterCompiled::WithDefaultValue(
                     self.parameter_name(x),
-                    self.expr_opt(t),
+                    self.expr_for_type(t).map(|t| t.node),
                     self.expr(*v),
                 ),
                 ParameterP::NoArgs => return None,
-                ParameterP::Args(x, t) => {
-                    ParameterCompiled::Args(self.parameter_name(x), self.expr_for_type(t))
-                }
-                ParameterP::KwArgs(x, t) => {
-                    ParameterCompiled::KwArgs(self.parameter_name(x), self.expr_for_type(t))
-                }
+                ParameterP::Args(x, t) => ParameterCompiled::Args(
+                    self.parameter_name(x),
+                    self.expr_for_type(t).map(|t| t.node),
+                ),
+                ParameterP::KwArgs(x, t) => ParameterCompiled::KwArgs(
+                    self.parameter_name(x),
+                    self.expr_for_type(t).map(|t| t.node),
+                ),
             },
         })
     }
@@ -408,7 +388,7 @@ impl Compiler<'_, '_, '_> {
         signature_span: FrozenFileSpan,
         scope_id: ScopeId,
         params: Vec<CstParameter>,
-        return_type: Option<Box<CstExpr>>,
+        return_type: Option<Box<CstTypeExpr>>,
         suite: CstStmt,
     ) -> ExprCompiled {
         let file = self.codemap.file_span(suite.span);
@@ -436,7 +416,7 @@ impl Compiler<'_, '_, '_> {
             params,
             num_positional,
         };
-        let return_type = self.expr_for_type(return_type).map(Box::new);
+        let return_type = self.expr_for_type(return_type).map(|t| t.node);
 
         self.enter_scope(scope_id);
 
@@ -506,8 +486,8 @@ pub(crate) struct DefGen<V> {
     parameter_captures: FrozenRef<'static, [LocalSlotId]>,
     // The types of the parameters.
     // (Sparse indexed array, (0, argm T) implies parameter 0 named arg must have type T).
-    parameter_types: Vec<(LocalSlotId, String, V, TypeCompiled)>,
-    pub(crate) return_type: Option<(V, TypeCompiled)>, // The return type annotation for the function
+    parameter_types: Vec<(LocalSlotId, String, TypeCompiled<FrozenValue>)>,
+    pub(crate) return_type: Option<TypeCompiled<FrozenValue>>, // The return type annotation for the function
     /// Data created during function compilation but before function instantiation.
     /// `DefInfo` can be shared by multiple `def` instances, for example,
     /// `lambda` functions can be instantiated multiple times.
@@ -543,8 +523,8 @@ starlark_complex_values!(Def);
 impl<'v> Def<'v> {
     pub(crate) fn new(
         parameters: ParametersSpec<Value<'v>>,
-        parameter_types: Vec<(LocalSlotId, String, Value<'v>, TypeCompiled)>,
-        return_type: Option<(Value<'v>, TypeCompiled)>,
+        parameter_types: Vec<(LocalSlotId, String, TypeCompiled<FrozenValue>)>,
+        return_type: Option<TypeCompiled<FrozenValue>>,
         stmt: FrozenRef<'static, DefInfo>,
         eval: &mut Evaluator<'v, '_>,
     ) -> Value<'v> {
@@ -570,18 +550,18 @@ impl<'v, T1: ValueLike<'v>> DefGen<T1> {
         let parameter_types: HashMap<usize, DocType> = self
             .parameter_types
             .iter()
-            .map(|(idx, _, v, _)| {
+            .map(|(idx, _, ty)| {
                 (
                     idx.0 as usize,
                     DocType {
-                        raw_type: v.to_value().to_repr(),
+                        raw_type: TypeCompiled::to_string(ty),
                     },
                 )
             })
             .collect();
 
-        let return_type = self.return_type.as_ref().map(|r| DocType {
-            raw_type: r.0.to_value().to_repr(),
+        let return_type = self.return_type.map(|r| DocType {
+            raw_type: TypeCompiled::to_string(&r),
         });
 
         let function_docs = DocFunction::from_docstring(
@@ -590,6 +570,7 @@ impl<'v, T1: ValueLike<'v>> DefGen<T1> {
                 .documentation(parameter_types, HashMap::new()),
             return_type,
             self.def_info.docstring.as_ref().map(String::as_ref),
+            None,
         );
 
         Some(DocItem::Function(function_docs))
@@ -601,9 +582,7 @@ impl<'v> Freeze for Def<'v> {
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let parameters = self.parameters.freeze(freezer)?;
-        let parameter_types = self
-            .parameter_types
-            .into_try_map(|(i, s, v, t)| anyhow::Ok((i, s, v.freeze(freezer)?, t)))?;
+        let parameter_types = self.parameter_types.freeze(freezer)?;
         let return_type = self.return_type.freeze(freezer)?;
         let captured = self.captured.try_map(|x| x.freeze(freezer))?;
         let module = AtomicFrozenRefOption::new(self.module.load_relaxed());
@@ -634,7 +613,7 @@ impl<'v> DefLike<'v> for DefGen<FrozenValue> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for DefGen<V>
 where
-    Self: ProvidesStaticType + DefLike<'v>,
+    Self: ProvidesStaticType<'v> + DefLike<'v>,
 {
     starlark_type!(FUNCTION_TYPE);
 
@@ -644,11 +623,11 @@ where
 
     fn invoke(
         &self,
-        _me: Value<'v>,
+        me: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        self.invoke_impl(&args.0, eval)
+        self.invoke_impl(me, &args.0, eval)
     }
 
     fn documentation(&self) -> Option<DocItem> {
@@ -674,12 +653,12 @@ where
         } else {
             None
         };
-        for (i, arg_name, ty, ty2) in &self.parameter_types {
+        for (i, arg_name, ty) in &self.parameter_types {
             match eval.current_frame.get_slot(i.to_captured_or_not()) {
                 None => {
                     panic!("Not allowed optional unassigned with type annotations on them")
                 }
-                Some(v) => v.check_type_compiled(ty.to_value(), ty2, Some(arg_name))?,
+                Some(v) => ty.check_type(v, Some(arg_name))?,
             }
         }
         if let Some(start) = start {
@@ -694,16 +673,14 @@ where
         ret: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<()> {
-        let (return_type_value, return_type_ty): &(V, TypeCompiled) = self
-            .return_type
-            .as_ref()
-            .ok_or(DefError::CheckReturnTypeNoType)?;
+        let return_type_ty: TypeCompiled<FrozenValue> =
+            self.return_type.ok_or(DefError::CheckReturnTypeNoType)?;
         let start = if eval.typecheck_profile.enabled {
             Some(Instant::now())
         } else {
             None
         };
-        ret.check_type_compiled(return_type_value.to_value(), return_type_ty, None)?;
+        return_type_ty.check_type(ret, None)?;
         if let Some(start) = start {
             eval.typecheck_profile
                 .add(self.def_info.name, start.elapsed());
@@ -714,6 +691,7 @@ where
     #[inline(always)]
     fn invoke_impl<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
+        me: Value<'v>,
         args: &A,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>>
@@ -729,13 +707,14 @@ where
             |eval| {
                 let slots = eval.current_frame.locals();
                 self.parameters.collect_inline(args, slots, eval.heap())?;
-                self.invoke_raw(eval)
+                self.invoke_raw(me, eval)
             },
         )
     }
 
     pub(crate) fn invoke_with_args<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
+        me: Value<'v>,
         args: &A,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>>
@@ -745,14 +724,14 @@ where
         // This is trivial function which delegates to `invoke_impl`.
         // `invoke_impl` is called from two places,
         // giving this function different name makes this function easier to see in profiler.
-        self.invoke_impl(args, eval)
+        self.invoke_impl(me, args, eval)
     }
 
     /// Invoke the function, assuming that:
     /// * the frame has been allocated and stored in `eval.current_frame`
     /// * the arguments have been collected into the frame
     #[inline(always)]
-    fn invoke_raw(&self, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Value<'v>> {
+    fn invoke_raw(&self, me: Value<'v>, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Value<'v>> {
         // println!("invoking {}", self.def.stmt.name.node);
 
         if !self.parameter_types.is_empty() {
@@ -778,8 +757,7 @@ where
         if Self::FROZEN {
             debug_assert!(self.module.load_relaxed().is_some());
         }
-        let res =
-            eval.with_function_context(self.module.load_relaxed(), |eval| eval.eval_bc(self.bc()));
+        let res = eval.with_function_context(me, self.module.load_relaxed(), self.bc());
 
         res.map_err(|EvalException(e)| e)
     }

@@ -17,7 +17,6 @@
 
 use std::collections::HashMap;
 
-use num_bigint::BigInt;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
@@ -30,9 +29,10 @@ use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
-use crate::syntax::lexer::TokenInt;
 use crate::syntax::AstModule;
-use crate::values::num::Num;
+use crate::values::num::NumRef;
+use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::types::int_or_big::StarlarkInt;
 
 #[derive(Error, Debug)]
 pub(crate) enum Dubious {
@@ -62,7 +62,7 @@ fn duplicate_dictionary_key(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
     #[derive(PartialEq, Eq, Hash)]
     enum Key<'a> {
         Int(i32),
-        BigInt(&'a BigInt),
+        BigInt(&'a StarlarkBigInt),
         Float(u64),
         String(&'a str),
         Identifier(&'a str),
@@ -71,12 +71,12 @@ fn duplicate_dictionary_key(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
     fn to_key<'a>(x: &'a AstExpr) -> Option<(Key<'a>, Span)> {
         match &**x {
             Expr::Literal(x) => match x {
-                AstLiteral::Int(x) => match &x.node {
-                    TokenInt::I32(i) => Some((Key::Int(*i), x.span)),
-                    TokenInt::BigInt(i) => Some((Key::BigInt(i), x.span)),
+                AstLiteral::Int(x) => match &x.node.0 {
+                    StarlarkInt::Small(i) => Some((Key::Int(i.to_i32()), x.span)),
+                    StarlarkInt::Big(i) => Some((Key::BigInt(i), x.span)),
                 },
                 AstLiteral::Float(x) => {
-                    let n = Num::from(x.node);
+                    let n = NumRef::from(x.node);
                     if let Some(i) = n.as_int() {
                         // make an integer float always collide with other ints
                         Some((Key::Int(i), x.span))
@@ -89,7 +89,7 @@ fn duplicate_dictionary_key(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
                 }
                 AstLiteral::String(x) => Some((Key::String(&x.node), x.span)),
             },
-            Expr::Identifier(x, ()) => Some((Key::Identifier(&x.node), x.span)),
+            Expr::Identifier(x) => Some((Key::Identifier(&x.node.0), x.span)),
             _ => None,
         }
     }
@@ -124,10 +124,10 @@ fn identifier_as_statement(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
     fn stmt<'a>(x: &'a AstStmt, codemap: &CodeMap, res: &mut Vec<LintT<Dubious>>) {
         match &**x {
             Stmt::Expression(x) => match &**x {
-                Expr::Identifier(x, _) => res.push(LintT::new(
+                Expr::Identifier(x) => res.push(LintT::new(
                     codemap,
                     x.span,
-                    Dubious::IdentifierAsStatement(x.node.clone()),
+                    Dubious::IdentifierAsStatement(x.node.0.clone()),
                 )),
                 _ => {}
             },

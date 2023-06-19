@@ -14,8 +14,10 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use dupe::Dupe;
+use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Coerce;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -78,13 +80,23 @@ impl Display for FrozenStarlarkOutputArtifact {
     }
 }
 
-impl<'v> UnpackValue<'v> for StarlarkOutputArtifact<'v> {
+/// A wrapper for `UnpackValue` that accepts either an output artifact,
+/// or an artifact declared in the same rule.
+pub struct StarlarkOutputOrDeclaredArtifact<'v>(pub StarlarkOutputArtifact<'v>);
+
+impl<'v> StarlarkTypeRepr for StarlarkOutputOrDeclaredArtifact<'v> {
+    fn starlark_type_repr() -> String {
+        Either::<StarlarkOutputArtifact, StarlarkDeclaredArtifact>::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for StarlarkOutputOrDeclaredArtifact<'v> {
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         #[allow(clippy::manual_map)]
         if let Some(x) = value.downcast_ref::<StarlarkOutputArtifact>() {
-            Some(x.dupe())
+            Some(Self(x.dupe()))
         } else if let Some(x) = ValueTyped::<StarlarkDeclaredArtifact>::new(value) {
-            Some(StarlarkOutputArtifact::new(x))
+            Some(Self(StarlarkOutputArtifact::new(x)))
         } else {
             None
         }
@@ -148,7 +160,7 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
 where
-    Self: ProvidesStaticType + Display + CommandLineArgLike,
+    Self: ProvidesStaticType<'v> + Display + CommandLineArgLike,
 {
     starlark_type!("output_artifact");
 

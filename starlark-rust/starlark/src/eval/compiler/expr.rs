@@ -39,6 +39,7 @@ use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::AssignCount;
 use crate::eval::compiler::scope::Captured;
 use crate::eval::compiler::scope::CstExpr;
+use crate::eval::compiler::scope::CstIdent;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::span::IrSpanned;
@@ -52,21 +53,19 @@ use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstPayload;
-use crate::syntax::ast::AstString;
 use crate::syntax::ast::BinOp;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::StmtP;
-use crate::syntax::lexer::TokenInt;
 use crate::values::function::BoundMethodGen;
 use crate::values::function::FrozenBoundMethod;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 use crate::values::list::ListRef;
 use crate::values::string::interpolation::parse_percent_s_one;
-use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::bool::StarlarkBool;
 use crate::values::types::dict::Dict;
 use crate::values::types::float::StarlarkFloat;
+use crate::values::types::inline_int::InlineInt;
 use crate::values::types::list::value::FrozenListData;
 use crate::values::types::list::value::ListData;
 use crate::values::types::range::Range;
@@ -145,7 +144,7 @@ impl Builtin1 {
         match self {
             Builtin1::Minus => v.to_value().minus(ctx.heap()).ok(),
             Builtin1::Plus => v.to_value().plus(ctx.heap()).ok(),
-            Builtin1::BitNot => Some(Value::new_int(!v.to_value().to_int().ok()?)),
+            Builtin1::BitNot => v.to_value().bit_not(ctx.heap()).ok(),
             Builtin1::Not => Some(Value::new_bool(!v.to_value().to_bool())),
             Builtin1::TypeIs(t) => Some(Value::new_bool(v.to_value().get_type_value() == *t)),
             Builtin1::FormatOne(before, after) => {
@@ -779,7 +778,7 @@ impl ExprCompiled {
                 None
             }
         } else if let Some(v) = v.downcast_ref::<StarlarkFloat>() {
-            Some(ExprCompiled::Value(heap.alloc_float(*v)))
+            Some(ExprCompiled::Value(heap.alloc(*v)))
         } else if let Some(v) = v.downcast_ref::<Range>() {
             Some(ExprCompiled::Value(heap.alloc(*v)))
         } else if let Some(v) = ListRef::from_value(v) {
@@ -947,7 +946,9 @@ impl ExprCompiled {
     pub(crate) fn len(span: FrameSpan, arg: IrSpanned<ExprCompiled>) -> ExprCompiled {
         if let Some(arg) = arg.as_value() {
             if let Ok(len) = arg.to_value().length() {
-                return ExprCompiled::Value(FrozenValue::new_int(len));
+                if let Ok(len) = InlineInt::try_from(len) {
+                    return ExprCompiled::Value(FrozenValue::new_int(len));
+                }
             }
         }
         ExprCompiled::Call(Box::new(IrSpanned {
@@ -992,10 +993,7 @@ fn try_eval_type_is(
 impl AstLiteral {
     fn compile(&self, heap: &FrozenHeap) -> FrozenValue {
         match self {
-            AstLiteral::Int(i) => match &i.node {
-                TokenInt::I32(i) => FrozenValue::new_int(*i),
-                TokenInt::BigInt(i) => StarlarkBigInt::alloc_bigint_frozen(i.clone(), heap),
-            },
+            AstLiteral::Int(i) => heap.alloc(i.node.0.clone()),
             AstLiteral::Float(f) => heap.alloc(f.node),
             AstLiteral::String(x) => heap.alloc(x.node.as_str()),
         }
@@ -1119,17 +1117,11 @@ pub(crate) fn get_attr_hashed_bind<'v>(
 }
 
 impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
-    pub fn expr_opt(&mut self, expr: Option<Box<CstExpr>>) -> Option<IrSpanned<ExprCompiled>> {
-        expr.map(|v| self.expr(*v))
-    }
-
-    fn expr_ident(
-        &mut self,
-        ident: AstString,
-        resolved_ident: Option<ResolvedIdent>,
-    ) -> ExprCompiled {
-        let resolved_ident =
-            resolved_ident.unwrap_or_else(|| panic!("variable not resolved: `{}`", ident.node));
+    fn expr_ident(&mut self, ident: CstIdent) -> ExprCompiled {
+        let resolved_ident = ident
+            .node
+            .1
+            .unwrap_or_else(|| panic!("variable not resolved: `{}`", ident.node.0));
         match resolved_ident {
             ResolvedIdent::Slot((Slot::Local(slot), binding_id)) => {
                 let binding = self.scope_data.get_binding(binding_id);
@@ -1171,7 +1163,7 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
         // println!("compile {}", expr.node);
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let expr = match expr.node {
-            ExprP::Identifier(ident, resolved_ident) => self.expr_ident(ident, resolved_ident),
+            ExprP::Identifier(ident) => self.expr_ident(ident),
             ExprP::Lambda(l) => {
                 let signature_span = l.signature_span();
                 let signature_span = FrozenFileSpan::new(self.codemap, signature_span);

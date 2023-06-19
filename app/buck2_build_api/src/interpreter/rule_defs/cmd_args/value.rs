@@ -88,7 +88,7 @@ pub struct FrozenCommandLineArg(FrozenValue);
 unsafe impl<'v> Coerce<CommandLineArg<'v>> for FrozenCommandLineArg {}
 
 impl FrozenCommandLineArg {
-    pub(crate) fn new(value: FrozenValue) -> anyhow::Result<FrozenCommandLineArg> {
+    pub fn new(value: FrozenValue) -> anyhow::Result<FrozenCommandLineArg> {
         value.to_value().as_command_line_err()?;
         Ok(FrozenCommandLineArg(value))
     }

@@ -99,7 +99,7 @@ impl OwnedFrozenValue {
 
     /// Unpack the int contained in the underlying value, or [`None`] if it is not an int.
     pub fn unpack_int(&self) -> Option<i32> {
-        self.value.unpack_int()
+        self.value.unpack_i32()
     }
 
     /// Unpack the string contained in the underlying value, or [`None`] if it is not an string.
@@ -250,19 +250,6 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
         f: impl FnOnce(FrozenValueTyped<T>) -> FrozenValueTyped<U>,
     ) -> OwnedFrozenValueTyped<U> {
         OwnedFrozenValueTyped {
-            owner: self.owner.dupe(),
-            value: f(self.value),
-        }
-    }
-
-    /// Operate on the [`FrozenValue`] stored inside.
-    /// Safe provided you don't store the argument [`FrozenValue`] after the closure has returned.
-    /// Using this function is discouraged when possible.
-    pub fn map_untyped(
-        &self,
-        f: impl FnOnce(FrozenValueTyped<T>) -> FrozenValue,
-    ) -> OwnedFrozenValue {
-        OwnedFrozenValue {
             owner: self.owner.dupe(),
             value: f(self.value),
         }

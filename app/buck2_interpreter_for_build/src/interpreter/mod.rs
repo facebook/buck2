@@ -7,17 +7,22 @@
  * of this source tree.
  */
 
+pub mod buckconfig;
 pub mod build_context;
 pub mod build_defs;
 pub mod calculation;
+pub(crate) mod cell_info;
 pub mod configuror;
 pub mod context;
 pub mod cycles;
 pub mod dice_calculation_delegate;
 pub mod functions;
 pub mod global_interpreter_state;
+pub mod globals;
+pub mod globspec;
 pub mod interpreter_for_cell;
 pub mod interpreter_setup;
 pub mod module_internals;
 pub mod natives;
+pub mod selector;
 pub mod testing;

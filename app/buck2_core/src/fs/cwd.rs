@@ -8,29 +8,47 @@
  */
 
 use std::path::Path;
-use std::path::PathBuf;
 
 use anyhow::Context as _;
 use once_cell::sync::OnceCell;
 
-static CWD: OnceCell<PathBuf> = OnceCell::new();
+use crate::fs::paths::abs_path::AbsPathBuf;
+
+#[derive(Debug, thiserror::Error)]
+enum CwdError {
+    #[error("cwd is already set to `{}`", _0.display())]
+    CwdAlreadySet(AbsPathBuf),
+}
+
+static CWD: OnceCell<AbsPathBuf> = OnceCell::new();
 
 /// Promise the cwd will not change going forward. This should only be called once.
 pub fn cwd_will_not_change() -> anyhow::Result<()> {
     let cwd = std::env::current_dir().context("Failed to get cwd")?;
+    let cwd = AbsPathBuf::new(cwd).context("Cwd is not absolute")?;
     CWD.set(cwd)
         .ok()
         .context("cwd_will_not_change was called twice")?;
     Ok(())
 }
 
-pub fn maybe_relativize(path: &Path) -> &Path {
+pub(crate) fn assert_cwd_is_not_set() -> anyhow::Result<()> {
+    if let Some(cwd) = CWD.get() {
+        return Err(CwdError::CwdAlreadySet(cwd.clone()).into());
+    }
+    Ok(())
+}
+
+pub(crate) fn maybe_relativize(path: &Path) -> &Path {
     maybe_relativize_impl(path, &CWD)
 }
 
-fn maybe_relativize_impl<'a>(path: &'a Path, cell: &'_ OnceCell<PathBuf>) -> &'a Path {
+fn maybe_relativize_impl<'a>(path: &'a Path, cell: &'_ OnceCell<AbsPathBuf>) -> &'a Path {
     if let Some(cwd) = cell.get() {
         if let Ok(path) = path.strip_prefix(cwd) {
+            if path == Path::new("") {
+                return Path::new(".");
+            }
             return path;
         }
     }
@@ -38,19 +56,13 @@ fn maybe_relativize_impl<'a>(path: &'a Path, cell: &'_ OnceCell<PathBuf>) -> &'a
     path
 }
 
-pub fn maybe_relativize_str(path: &str) -> &str {
+pub(crate) fn maybe_relativize_str(path: &str) -> &str {
     maybe_relativize_str_impl(path, &CWD)
 }
 
-pub fn maybe_relativize_str_impl<'a>(path: &'a str, cell: &'_ OnceCell<PathBuf>) -> &'a str {
-    if let Some(cwd) = cell.get() {
-        if let Some(path) = Path::new(path)
-            .strip_prefix(cwd)
-            .ok()
-            .and_then(|path| path.to_str())
-        {
-            return path;
-        }
+fn maybe_relativize_str_impl<'a>(path: &'a str, cell: &'_ OnceCell<AbsPathBuf>) -> &'a str {
+    if let Some(path) = maybe_relativize_impl(Path::new(path), cell).to_str() {
+        return path;
     }
 
     path
@@ -60,21 +72,34 @@ pub fn maybe_relativize_str_impl<'a>(path: &'a str, cell: &'_ OnceCell<PathBuf>)
 mod tests {
     use super::*;
 
+    fn foo_bar() -> AbsPathBuf {
+        if cfg!(windows) {
+            AbsPathBuf::new("C:\\foo\\bar").unwrap()
+        } else {
+            AbsPathBuf::new("/foo/bar").unwrap()
+        }
+    }
+
     #[test]
     fn test_maybe_relativize() {
         let cell = OnceCell::new();
-        let path = Path::new("/foo/bar/baz");
-        assert_eq!(maybe_relativize_impl(path, &cell), path);
-        cell.set(Path::new("/foo/bar").to_owned()).unwrap();
-        assert_eq!(maybe_relativize_impl(path, &cell), Path::new("baz"));
+        let path = foo_bar().join("baz").into_path_buf();
+        assert_eq!(maybe_relativize_impl(&path, &cell), path);
+        cell.set(foo_bar()).unwrap();
+        assert_eq!(maybe_relativize_impl(&path, &cell), Path::new("baz"));
+        assert_eq!(maybe_relativize_impl(&foo_bar(), &cell), Path::new("."));
     }
 
     #[test]
     fn test_maybe_relativize_str() {
         let cell = OnceCell::new();
-        let path = "/foo/bar/baz";
-        assert_eq!(maybe_relativize_str_impl(path, &cell), path);
-        cell.set(Path::new("/foo/bar").to_owned()).unwrap();
-        assert_eq!(maybe_relativize_str_impl(path, &cell), "baz");
+        let path = foo_bar().join("baz").to_str().unwrap().to_owned();
+        assert_eq!(maybe_relativize_str_impl(&path, &cell), path);
+        cell.set(foo_bar()).unwrap();
+        assert_eq!(maybe_relativize_str_impl(&path, &cell), "baz");
+        assert_eq!(
+            maybe_relativize_str_impl(foo_bar().to_str().unwrap(), &cell),
+            "."
+        );
     }
 }

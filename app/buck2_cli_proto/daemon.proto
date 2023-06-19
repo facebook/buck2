@@ -73,6 +73,8 @@ message StatusResponse {
   DaemonConstraints daemon_constraints = 8;
   string project_root = 9;
   string isolation_dir = 10;
+  optional uint32 forkserver_pid = 11;
+  optional bool supports_vpnless = 12;
 }
 
 message PingRequest {
@@ -293,10 +295,10 @@ message Concurrency {
 message CommonBuildOptions {
   reserved 5, 8, 12;
   enum ExecutionStrategy {
+    reserved 3;
     Default = 0;
     LocalOnly = 1;
     RemoteOnly = 2;
-    Hybrid = 3;
     HybridPreferLocal = 4;
     NoExecution = 5;
     HybridPreferRemote = 6;
@@ -771,6 +773,8 @@ message FileStatusRequest {
   ClientContext context = 1;
   // The paths we want to learn about
   repeated string paths = 2;
+  // Show hashes of files passed in.
+  bool verbose = 3;
 }
 
 message FlushDepFilesRequest {}

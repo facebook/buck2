@@ -11,8 +11,8 @@
 
 use std::sync::Arc;
 
-use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::provider::id::ProviderId;
+use buck2_util::collections::ordered_map::OrderedMap;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 
@@ -23,6 +23,7 @@ use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::provider_id_set::ProviderIdSet;
 use crate::visibility::VisibilitySpecification;
+use crate::visibility::WithinViewSpecification;
 
 // TODO(cjhopman): figure out something better for these default attributes that we need to interpret
 // internally. There's currently a lot of awkwardness involved: accessing the value, needing to create
@@ -42,6 +43,7 @@ pub const LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "compatible_with
 pub const EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "exec_compatible_with";
 
 pub const VISIBILITY_ATTRIBUTE_FIELD: &str = "visibility";
+pub const WITHIN_VIEW_ATTRIBUTE_FIELD: &str = "within_view";
 
 pub const TESTS_ATTRIBUTE_FIELD: &str = "tests";
 
@@ -98,6 +100,16 @@ fn visibility_attribute() -> Attribute {
     )
 }
 
+fn within_view_attribute() -> Attribute {
+    Attribute::new(
+        Some(Arc::new(CoercedAttr::WithinView(
+            WithinViewSpecification::PUBLIC,
+        ))),
+        "a list of visibility patterns restricting what this target can depend on",
+        AttrType::within_view(),
+    )
+}
+
 fn tests_attribute() -> Attribute {
     let entry_type = AttrType::label();
     Attribute::new(
@@ -128,6 +140,7 @@ pub fn internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
                 exec_compatible_with_attribute(),
             ),
             (VISIBILITY_ATTRIBUTE_FIELD, visibility_attribute()),
+            (WITHIN_VIEW_ATTRIBUTE_FIELD, within_view_attribute()),
             (TESTS_ATTRIBUTE_FIELD, tests_attribute()),
         ])
     });
@@ -141,6 +154,7 @@ pub fn attr_is_configurable(name: &str) -> AttrIsConfigurable {
         || name == DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD
         // visibility attributes aren't configurable so that we can cache them on targetnodes.
         || name == VISIBILITY_ATTRIBUTE_FIELD
+        || name == WITHIN_VIEW_ATTRIBUTE_FIELD
     {
         AttrIsConfigurable::No
     } else {

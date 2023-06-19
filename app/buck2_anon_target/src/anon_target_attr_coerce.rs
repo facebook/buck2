@@ -12,10 +12,13 @@ use std::fmt::Debug;
 use std::iter;
 
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
+use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 use buck2_core::soft_error;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
+use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dict::DictAttrType;
 use buck2_node::attrs::attr_type::dict::DictLiteral;
 use buck2_node::attrs::attr_type::list::ListAttrType;
@@ -64,7 +67,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                     "bool", value
                 ))),
             },
-            AttrTypeInner::Int(_) => match value.unpack_int() {
+            AttrTypeInner::Int(_) => match value.unpack_i32() {
                 Some(x) => Ok(AnonTargetAttr::Int(x)),
                 None => Err(anyhow::anyhow!(AnonTargetCoercionError::type_error(
                     "int", value
@@ -106,19 +109,33 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 Some(dep) => {
                     let label = dep.label().inner().clone();
 
-                    Ok(AnonTargetAttr::Dep(Box::new(DepAttr {
-                        attr_type: x.clone(),
-                        label,
-                    })))
+                    let attr_type = match x.transition {
+                        DepAttrTransition::Identity => x.clone(),
+                        _ => return Err(AnonTargetCoercionError::OnlyIdentityDepSupported.into()),
+                    };
+
+                    Ok(AnonTargetAttr::Dep(Box::new(DepAttr { attr_type, label })))
                 }
                 _ => Err(AnonTargetCoercionError::type_error("dependency", value).into()),
             },
-            AttrTypeInner::Source(_) => match value.as_artifact() {
-                Some(artifact_like) => {
+            AttrTypeInner::Source(_) => {
+                // Check if this is a StarlarkPromiseArtifact first before checking other artifact types to
+                // allow anon targets to accept unresolved promise artifacts.
+                if let Some(promise_artifact) = StarlarkPromiseArtifact::from_value(value) {
+                    Ok(AnonTargetAttr::PromiseArtifact(promise_artifact.clone()))
+                } else if let Some(artifact_like) = value.as_artifact() {
                     let artifact = artifact_like.get_bound_artifact()?;
                     Ok(AnonTargetAttr::Artifact(artifact))
+                } else {
+                    Err(AnonTargetCoercionError::type_error("artifact", value).into())
                 }
-                None => Err(AnonTargetCoercionError::type_error("artifact", value).into()),
+            }
+            AttrTypeInner::Arg(_) => match ResolvedStringWithMacros::from_value(value) {
+                Some(resolved_macro) => match resolved_macro.configured_macros() {
+                    Some(configured_macros) => Ok(AnonTargetAttr::Arg(configured_macros.clone())),
+                    None => Err(AnonTargetCoercionError::ArgNotAnonTargetCompatible.into()),
+                },
+                None => Err(AnonTargetCoercionError::type_error("resolved_macro", value).into()),
             },
             _ => {
                 return Err(AnonTargetCoercionError::AttrTypeNotSupported(
@@ -144,6 +161,12 @@ pub(crate) enum AnonTargetCoercionError {
     CannotCoerceToAny(&'static str, String),
     #[error("Attr value of type `{0}` not supported")]
     AttrTypeNotSupported(String),
+    #[error("Arg attribute must have `anon_target_compatible` set to `True`")]
+    ArgNotAnonTargetCompatible,
+    #[error(
+        "`exec_dep`, `transition_dep`, and `toolchain_dep` are not supported. By design, anon targets do not support configurations/transitions."
+    )]
+    OnlyIdentityDepSupported,
 }
 
 impl AnonTargetCoercionError {
@@ -174,7 +197,7 @@ fn to_anon_target_any(
         Ok(AnonTargetAttr::None)
     } else if let Some(x) = value.unpack_bool() {
         Ok(AnonTargetAttr::Bool(BoolLiteral(x)))
-    } else if let Some(x) = value.unpack_int() {
+    } else if let Some(x) = value.unpack_i32() {
         Ok(AnonTargetAttr::Int(x))
     } else if let Some(x) = DictRef::from_value(value) {
         Ok(AnonTargetAttr::Dict(

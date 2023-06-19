@@ -14,14 +14,17 @@ mod attr;
 mod functions;
 pub mod interpreter;
 mod rule;
+pub mod select;
 mod super_package;
 mod tests;
 mod uncategorized;
+mod uncategorized_2;
 
 #[test]
 fn init_late_bindings_for_test() {
     #[ctor::ctor]
     fn init() {
         buck2_interpreter_for_build::init_late_bindings();
+        buck2_build_api::init_late_bindings();
     }
 }

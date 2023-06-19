@@ -56,7 +56,7 @@ pub async fn upload_materializer_state(
         CommandOutcome::Failure(..) => return Err(anyhow::anyhow!("Command failed")),
     }
 
-    let manifold_bucket = manifold::Bucket::RageDumps;
+    let manifold_bucket = manifold::Bucket::RAGE_DUMPS;
     let manifold_filename = format!("{}_materializer_state", manifold_id);
     manifold::Upload::new(manifold_bucket, &manifold_filename)
         .with_default_ttl()
@@ -67,8 +67,7 @@ pub async fn upload_materializer_state(
 
     Ok(format!(
         "{}/flat/{}",
-        manifold_bucket.info().name,
-        manifold_filename
+        manifold_bucket.name, manifold_filename
     ))
 }
 

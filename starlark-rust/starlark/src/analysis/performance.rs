@@ -57,7 +57,7 @@ fn match_dict_copy(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<LintT<Performan
     // If we see `dict(**x)` suggest `dict(x)`
     match &**x {
         Expr::Call(fun, args) if args.len() == 1 => match (&***fun, &*args[0]) {
-            (Expr::Identifier(f, _), Argument::KwArgs(arg)) if f.node == "dict" => {
+            (Expr::Identifier(f), Argument::KwArgs(arg)) if f.node.0 == "dict" => {
                 res.push(LintT::new(
                     codemap,
                     x.span,
@@ -73,8 +73,8 @@ fn match_dict_copy(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<LintT<Performan
 fn match_inefficient_bool_check(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<LintT<Performance>>) {
     match &**x {
         Expr::Call(fun, args) if args.len() == 1 => match (&***fun, &*args[0]) {
-            (Expr::Identifier(f, _), Argument::Positional(arg))
-                if f.node == "any" || f.node == "all" =>
+            (Expr::Identifier(f), Argument::Positional(arg))
+                if f.node.0 == "any" || f.node.0 == "all" =>
             {
                 match &**arg {
                     // any([blah for blah in blahs])
@@ -82,19 +82,19 @@ fn match_inefficient_bool_check(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<Li
                         .push(LintT::new(
                             codemap,
                             x.span,
-                            Performance::EagerAndInefficientBoolCheck(f.node.clone()),
+                            Performance::EagerAndInefficientBoolCheck(f.node.0.clone()),
                         )),
                     // any(list(_get_some_dict()))
                     Expr::Call(any_call, _) => match &***any_call {
-                        Expr::Identifier(any_id, _)
-                            if any_id.node == "dict" || any_id.node == "list" =>
+                        Expr::Identifier(any_id)
+                            if any_id.node.0 == "dict" || any_id.node.0 == "list" =>
                         {
                             res.push(LintT::new(
                                 codemap,
                                 x.span,
                                 Performance::InefficientBoolCheck(
                                     x.to_string(),
-                                    any_id.node.clone(),
+                                    any_id.node.0.clone(),
                                 ),
                             ))
                         }

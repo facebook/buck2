@@ -11,7 +11,7 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_audit::classpath::AuditClasspathCommand;
-use buck2_build_api::calculation::Calculation;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_build_api::query::analysis::CLASSPATH_FOR_TARGETS;
 use buck2_cli_proto::ClientContext;

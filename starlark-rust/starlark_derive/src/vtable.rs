@@ -48,7 +48,7 @@ impl Gen {
             match param {
                 FnArg::Receiver(_) => {
                     field_fn_param_types.push(quote_spanned! {method.sig.span()=>
-                        crate::values::layout::vtable::StarlarkValueRawPtr<'a, 'v>
+                        crate::values::layout::vtable::StarlarkValueRawPtr
                     });
                     field_params_names.push(quote_spanned! {method.sig.span()=>
                         this

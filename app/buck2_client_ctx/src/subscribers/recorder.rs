@@ -15,7 +15,6 @@ use dupe::Dupe;
 use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
 use crate::common::CommonDaemonCommandOptions;
-use crate::subscribers::subscriber::EventSubscriber;
 
 mod imp {
     use std::cmp;
@@ -78,6 +77,7 @@ mod imp {
         run_action_cache_count: u64,
         run_skipped_count: u64,
         run_fallback_count: u64,
+        local_actions_executed_via_worker: u64,
         first_snapshot: Option<buck2_data::Snapshot>,
         last_snapshot: Option<buck2_data::Snapshot>,
         min_build_count_since_rebase: u64,
@@ -124,8 +124,11 @@ mod imp {
         has_command_result: bool,
         has_end_of_stream: bool,
         compressed_event_log_size_bytes: Option<Arc<AtomicU64>>,
-        use_streaming_upload: bool,
         critical_path_backend: Option<String>,
+        instant_command_is_success: Option<bool>,
+        bxl_ensure_artifacts_duration: Option<prost_types::Duration>,
+        initial_re_upload_bytes: Option<u64>,
+        initial_re_download_bytes: Option<u64>,
     }
 
     impl<'a> InvocationRecorder<'a> {
@@ -141,7 +144,6 @@ mod imp {
             invocation_root_path: AbsNormPathBuf,
             restarted_trace_id: Option<TraceId>,
             log_size_counter_bytes: Option<Arc<AtomicU64>>,
-            use_streaming_upload: bool,
         ) -> Self {
             // FIXME: Figure out if we can replace this. We used to log this this way in Ingress :/
             if command_name == "uquery" {
@@ -172,6 +174,7 @@ mod imp {
                 run_action_cache_count: 0,
                 run_skipped_count: 0,
                 run_fallback_count: 0,
+                local_actions_executed_via_worker: 0,
                 first_snapshot: None,
                 last_snapshot: None,
                 min_build_count_since_rebase: 0,
@@ -217,9 +220,16 @@ mod imp {
                 has_command_result: false,
                 has_end_of_stream: false,
                 compressed_event_log_size_bytes: log_size_counter_bytes,
-                use_streaming_upload,
                 critical_path_backend: None,
+                instant_command_is_success: None,
+                bxl_ensure_artifacts_duration: None,
+                initial_re_upload_bytes: None,
+                initial_re_download_bytes: None,
             }
+        }
+
+        pub fn instant_command_outcome(&mut self, is_success: bool) {
+            self.instant_command_is_success = Some(is_success);
         }
 
         async fn build_count(
@@ -248,6 +258,8 @@ mod imp {
             let mut sink_success_count = None;
             let mut sink_failure_count = None;
             let mut sink_dropped_count = None;
+            let mut re_upload_bytes = None;
+            let mut re_download_bytes = None;
             if let Some(snapshot) = &self.last_snapshot {
                 sink_success_count = calculate_diff_if_some(
                     &snapshot.sink_successes,
@@ -260,6 +272,14 @@ mod imp {
                 sink_dropped_count = calculate_diff_if_some(
                     &snapshot.sink_dropped,
                     &self.initial_sink_dropped_count,
+                );
+                re_upload_bytes = calculate_diff_if_some(
+                    &Some(snapshot.re_upload_bytes),
+                    &self.initial_re_upload_bytes,
+                );
+                re_download_bytes = calculate_diff_if_some(
+                    &Some(snapshot.re_download_bytes),
+                    &self.initial_re_download_bytes,
                 );
             }
 
@@ -285,6 +305,7 @@ mod imp {
                 run_action_cache_count: self.run_action_cache_count,
                 run_skipped_count: self.run_skipped_count,
                 run_fallback_count: Some(self.run_fallback_count),
+                local_actions_executed_via_worker: Some(self.local_actions_executed_via_worker),
                 first_snapshot: self.first_snapshot.take(),
                 last_snapshot: self.last_snapshot.take(),
                 min_build_count_since_rebase: self.min_build_count_since_rebase,
@@ -353,8 +374,11 @@ mod imp {
                         .map(|x| x.load(Ordering::Relaxed))
                         .unwrap_or_default(),
                 ),
-                use_streaming_upload: self.use_streaming_upload,
                 critical_path_backend: self.critical_path_backend.take(),
+                instant_command_is_success: self.instant_command_is_success.take(),
+                bxl_ensure_artifacts_duration: self.bxl_ensure_artifacts_duration.take(),
+                re_upload_bytes,
+                re_download_bytes,
             };
 
             let event = BuckEvent::new(
@@ -511,9 +535,14 @@ mod imp {
                 if action_stats::was_fallback_action(action) {
                     self.run_fallback_count += 1;
                 }
+
                 match last_command_execution_kind::get_last_command_execution_kind(action) {
                     LastCommandExecutionKind::Local => {
                         self.run_local_count += 1;
+                    }
+                    LastCommandExecutionKind::LocalWorker => {
+                        self.run_local_count += 1;
+                        self.local_actions_executed_via_worker += 1;
                     }
                     LastCommandExecutionKind::Cached => {
                         self.run_action_cache_count += 1;
@@ -634,6 +663,24 @@ mod imp {
             Ok(())
         }
 
+        fn handle_bxl_ensure_artifacts_end(
+            &mut self,
+            _bxl_ensure_artifacts_end: &buck2_data::BxlEnsureArtifactsEnd,
+            event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            let bxl_ensure_artifacts_end = match event.data() {
+                buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "handle_bxl_ensure_artifacts_end was passed a BxlEnsureArtifacts not contained in a SpanEndEvent"
+                    ));
+                }
+            };
+
+            self.bxl_ensure_artifacts_duration = bxl_ensure_artifacts_end.duration;
+            Ok(())
+        }
+
         fn handle_test_discovery(
             &mut self,
             test_info: &buck2_data::TestDiscovery,
@@ -730,6 +777,13 @@ mod imp {
             }
             self.sink_max_buffer_depth =
                 cmp::max(self.sink_max_buffer_depth, update.sink_buffer_depth());
+
+            if self.initial_re_upload_bytes.is_none() {
+                self.initial_re_upload_bytes = Some(update.re_upload_bytes);
+            }
+            if self.initial_re_download_bytes.is_none() {
+                self.initial_re_download_bytes = Some(update.re_download_bytes);
+            }
 
             Ok(())
         }
@@ -862,6 +916,9 @@ mod imp {
                             block_concurrent_command,
                             event,
                         ),
+                        buck2_data::span_end_event::Data::BxlEnsureArtifacts(
+                            _bxl_ensure_artifacts,
+                        ) => self.handle_bxl_ensure_artifacts_end(_bxl_ensure_artifacts, event),
                         _ => Ok(()),
                     }
                 }
@@ -1011,8 +1068,7 @@ pub fn try_get_invocation_recorder<'a>(
     command_name: &'static str,
     sanitized_argv: Vec<String>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    use_streaming_upload: bool,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+) -> anyhow::Result<Box<imp::InvocationRecorder<'a>>> {
     let write_to_path = opts
         .unstable_write_invocation_record
         .as_ref()
@@ -1030,9 +1086,8 @@ pub fn try_get_invocation_recorder<'a>(
         ctx.paths()?.project_root().root().to_buf(),
         ctx.restarted_trace_id.dupe(),
         log_size_counter_bytes,
-        use_streaming_upload,
     );
-    Ok(Some(Box::new(recorder) as _))
+    Ok(Box::new(recorder))
 }
 
 fn system_memory_stats() -> u64 {

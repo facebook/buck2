@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load(
     "@prelude//linking:link_info.bzl",
@@ -16,7 +17,7 @@ load(
 
 def create_swift_runtime_linkable(ctx: "context") -> [SwiftRuntimeLinkable.type, None]:
     for s in get_srcs_with_flags(ctx):
-        if s.file.extension == ".swift":
+        if s.file.extension == SWIFT_EXTENSION:
             return SwiftRuntimeLinkable(runtime_required = True)
     return None
 

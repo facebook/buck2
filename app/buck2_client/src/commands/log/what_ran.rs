@@ -291,6 +291,7 @@ impl WhatRanOutputWriter for LogCommandOutputFormat {
                     },
                     CommandReproducer::CacheHit(cache_hit) => JsonReproducer::Cache {
                         digest: &cache_hit.action_digest,
+                        action_key: cache_hit.action_key.as_deref(),
                     },
                     CommandReproducer::ReExecute(re_execute) => JsonReproducer::Re {
                         digest: &re_execute.action_digest,
@@ -303,6 +304,19 @@ impl WhatRanOutputWriter for LogCommandOutputFormat {
                             |command| Cow::Borrowed(command.argv.as_ref()),
                         ),
                         env: local_execute
+                            .command
+                            .as_ref()
+                            .into_iter()
+                            .flat_map(|command| command.env.iter())
+                            .map(|entry| (entry.key.as_ref(), entry.value.as_ref()))
+                            .collect(),
+                    },
+                    CommandReproducer::WorkerExecute(worker_execute) => JsonReproducer::Local {
+                        command: worker_execute.command.as_ref().map_or_else(
+                            || Cow::Owned(Vec::new()),
+                            |command| Cow::Borrowed(command.argv.as_ref()),
+                        ),
+                        env: worker_execute
                             .command
                             .as_ref()
                             .into_iter()
@@ -378,6 +392,8 @@ mod json_reproducer {
         },
         Cache {
             digest: &'a str,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            action_key: Option<&'a str>,
         },
         Re {
             digest: &'a str,

@@ -16,14 +16,12 @@ use buck2_client_ctx::argv::Argv;
 use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonCommandOptions;
-use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_client_ctx::streaming::BuckSubcommand;
-use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -80,16 +78,7 @@ impl CleanCommand {
             return cmd.exec(matches, ctx);
         }
 
-        let _log_on_drop = try_get_invocation_recorder(
-            &ctx,
-            CommonDaemonCommandOptions::default_ref(),
-            "clean",
-            std::env::args().collect(),
-            None,
-            false,
-        )?;
-
-        ctx.with_runtime(async move |ctx| {
+        ctx.instant_command("clean", async move |ctx| {
             let buck_out_dir = ctx.paths()?.buck_out_path();
             let daemon_dir = ctx.paths()?.daemon_dir()?;
             let console = &self.common_opts.console_opts.final_console();
@@ -116,8 +105,7 @@ impl CleanCommand {
                     .await?;
             }
             clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
-        })?;
-        ExitResult::success()
+        })
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {

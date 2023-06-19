@@ -85,13 +85,16 @@ impl<'v> AnalysisActions<'v> {
         &self,
         dice: &DiceComputations,
         eval: &mut Evaluator<'v, '_>,
+        description: String,
     ) -> anyhow::Result<()> {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
         // We keep going until there are no promises left.
         loop {
             let promises = self.state().take_promises();
             if let Some(promises) = promises {
-                promises.run_promises(dice, eval).await?;
+                promises
+                    .run_promises(dice, eval, description.clone())
+                    .await?;
             } else {
                 break;
             }

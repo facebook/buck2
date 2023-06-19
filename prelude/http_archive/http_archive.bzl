@@ -7,6 +7,7 @@
 
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "expect", "value_or")
+load(":exec_deps.bzl", "HttpArchiveExecDeps")
 
 # Flags to apply to decompress the various types of archives.
 _TAR_FLAGS = {
@@ -105,7 +106,8 @@ def _tar_strip_prefix_flags(strip_prefix: [str.type, None]) -> [str.type]:
     return []
 
 def http_archive_impl(ctx: "context") -> ["provider"]:
-    expect(len(ctx.attrs.urls) == 1, "multiple `urls` not support: {}".format(ctx.attrs.urls))
+    expect(len(ctx.attrs.urls) == 1, "multiple `urls` not supported: {}".format(ctx.attrs.urls))
+    expect(len(ctx.attrs.vpnless_urls) < 2, "multiple `vpnless_urls` not supported: {}".format(ctx.attrs.vpnless_urls))
 
     # The HTTP download is local so it makes little sense to run actions
     # remotely, unless we can defer them.
@@ -113,24 +115,27 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
 
     ext_type = _type(ctx)
 
-    if ctx.attrs._override_exec_platform_name:
-        exec_platform_name = ctx.attrs._override_exec_platform_name
-    else:
-        exec_platform_name = ctx.attrs._exec_os_type[0][OsLookup].platform
+    exec_deps = ctx.attrs.exec_deps[HttpArchiveExecDeps]
+    exec_platform_name = exec_deps.exec_os_type[OsLookup].platform
     exec_is_windows = exec_platform_name == "windows"
 
     # Download archive.
     archive = ctx.actions.declare_output("archive." + ext_type)
     url = ctx.attrs.urls[0]
-    ctx.actions.download_file(archive.as_output(), url, sha1 = ctx.attrs.sha1, sha256 = ctx.attrs.sha256, is_deferrable = True)
+    vpnless_url = None if len(ctx.attrs.vpnless_urls) == 0 else ctx.attrs.vpnless_urls[0]
+    ctx.actions.download_file(
+        archive.as_output(),
+        url,
+        vpnless_url = vpnless_url,
+        sha1 = ctx.attrs.sha1,
+        sha256 = ctx.attrs.sha256,
+        is_deferrable = True,
+    )
 
     # Unpack archive to output directory.
     exclude_flags = []
     exclude_hidden = []
     if ctx.attrs.excludes:
-        if not ctx.attrs._create_exclusion_list:
-            fail("`excludes` attribute is not supported when using `http_archive` from anon target")
-
         tar_flags = _TAR_FLAGS.get(ext_type)
         expect(tar_flags != None, "excludes not supported for non-tar archives")
 
@@ -139,7 +144,7 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         # that just has strings.
         exclusions = ctx.actions.declare_output("exclusions")
         create_exclusion_list = [
-            ctx.attrs._create_exclusion_list[0][RunInfo],
+            exec_deps.create_exclusion_list[RunInfo],
             "--tar-archive",
             archive,
             cmd_args(tar_flags, format = "--tar-flag={}"),

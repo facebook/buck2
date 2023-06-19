@@ -65,3 +65,15 @@ xs[0] : int.type = 4
     assert::fail("a = 1\na : '' += 1", "not allowed on augmented assignments");
     assert::fail("a : str.type = 1", "does not match the type annotation");
 }
+
+#[test]
+fn test_only_globals_or_bultins_allowed() {
+    assert::fail(
+        r#"
+def f():
+    x = "str"
+    def g(p: x): pass
+"#,
+        "Identifiers in type expressions can only refer globals or builtins: `x`",
+    );
+}

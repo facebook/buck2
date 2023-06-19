@@ -17,6 +17,10 @@ use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::DigestAlgorithmKind;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::http::counting_client::CountingHttpClient;
+use buck2_common::http::retries::http_retry;
+use buck2_common::http::retries::AsHttpError;
+use buck2_common::http::retries::HttpError;
 use buck2_common::http::HttpClient;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
@@ -24,10 +28,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use bytes::Bytes;
 use digest::DynDigest;
 use dupe::Dupe;
-use futures::future::Future;
 use futures::stream::Stream;
 use futures::StreamExt;
-use http::StatusCode;
 use hyper::Response;
 use sha1::Digest;
 use sha1::Sha1;
@@ -63,35 +65,6 @@ impl Checksum {
 }
 
 #[derive(Debug, Error)]
-pub enum HttpError {
-    #[error("HTTP Client error: {0}")]
-    Client(#[from] buck2_common::http::HttpError),
-
-    #[error("HTTP Transfer Error when querying URL: {}. Failed after {} bytes", .url, .received)]
-    Transfer {
-        received: u64,
-        url: String,
-        #[source]
-        source: hyper::Error,
-    },
-}
-
-impl HttpError {
-    fn is_retryable(&self) -> bool {
-        match self {
-            Self::Client(client_error) => match client_error {
-                buck2_common::http::HttpError::Status { status, .. } => {
-                    status.is_server_error() || *status == StatusCode::TOO_MANY_REQUESTS
-                }
-                buck2_common::http::HttpError::SendRequest(err) => !err.is_connect(),
-                _ => false,
-            },
-            Self::Transfer { source, .. } => !source.is_connect(),
-        }
-    }
-}
-
-#[derive(Debug, Error)]
 enum HttpHeadError {
     #[error("Error performing http_head request")]
     Client(#[from] HttpError),
@@ -107,10 +80,6 @@ enum HttpDownloadError {
 
     #[error(transparent)]
     IoError(anyhow::Error),
-}
-
-trait AsHttpError {
-    fn as_http_error(&self) -> Option<&HttpError>;
 }
 
 impl AsHttpError for HttpHeadError {
@@ -131,18 +100,21 @@ impl AsHttpError for HttpDownloadError {
 }
 
 pub async fn http_head(client: &dyn HttpClient, url: &str) -> anyhow::Result<Response<()>> {
-    let response = http_retry(|| async {
-        client
-            .head(url)
-            .await
-            .map_err(|e| HttpHeadError::Client(HttpError::Client(e)))
-    })
+    let response = http_retry(
+        || async {
+            client
+                .head(url)
+                .await
+                .map_err(|e| HttpHeadError::Client(HttpError::Client(e)))
+        },
+        vec![2, 4, 8].into_iter().map(Duration::from_secs).collect(),
+    )
     .await?;
     Ok(response)
 }
 
 pub async fn http_download(
-    client: &dyn HttpClient,
+    client: &CountingHttpClient,
     fs: &ProjectRoot,
     digest_config: DigestConfig,
     path: &ProjectRelativePath,
@@ -155,36 +127,39 @@ pub async fn http_download(
         fs_util::create_dir_all(fs.resolve(dir))?;
     }
 
-    Ok(http_retry(|| async {
-        let file = fs_util::create_file(&abs_path).map_err(HttpDownloadError::IoError)?;
+    Ok(http_retry(
+        || async {
+            let file = fs_util::create_file(&abs_path).map_err(HttpDownloadError::IoError)?;
 
-        let stream = client
-            .get(url)
-            .await
-            .map_err(|e| HttpDownloadError::Client(HttpError::Client(e)))?
-            .into_body();
-        let buf_writer = std::io::BufWriter::new(file);
+            let stream = client
+                .get(url)
+                .await
+                .map_err(|e| HttpDownloadError::Client(HttpError::Client(e)))?
+                .into_body();
+            let buf_writer = std::io::BufWriter::new(file);
 
-        let digest = copy_and_hash(
-            url,
-            &abs_path,
-            stream,
-            buf_writer,
-            digest_config.cas_digest_config(),
-            checksum,
-        )
-        .await?;
+            let digest = copy_and_hash(
+                url,
+                &abs_path,
+                stream,
+                buf_writer,
+                digest_config.cas_digest_config(),
+                checksum,
+            )
+            .await?;
 
-        if executable {
-            fs.set_executable(path)
-                .map_err(HttpDownloadError::IoError)?;
-        }
+            if executable {
+                fs.set_executable(path)
+                    .map_err(HttpDownloadError::IoError)?;
+            }
 
-        Result::<_, HttpDownloadError>::Ok(TrackedFileDigest::new(
-            digest,
-            digest_config.cas_digest_config(),
-        ))
-    })
+            Result::<_, HttpDownloadError>::Ok(TrackedFileDigest::new(
+                digest,
+                digest_config.cas_digest_config(),
+            ))
+        },
+        vec![2, 4, 8].into_iter().map(Duration::from_secs).collect(),
+    )
     .await?)
 }
 
@@ -272,40 +247,6 @@ async fn copy_and_hash(
     }
 
     Ok(digest)
-}
-
-async fn http_retry<Exec, F, T, E>(exec: Exec) -> Result<T, E>
-where
-    Exec: Fn() -> F,
-    E: AsHttpError + std::fmt::Display,
-    F: Future<Output = Result<T, E>>,
-{
-    let mut backoff = [0, 2, 4, 8].into_iter().peekable();
-
-    while let Some(duration) = backoff.next() {
-        tokio::time::sleep(Duration::from_secs(duration)).await;
-
-        let res = exec().await;
-
-        let http_error = res.as_ref().err().and_then(|err| err.as_http_error());
-
-        if let Some(http_error) = http_error {
-            if http_error.is_retryable() {
-                if let Some(b) = backoff.peek() {
-                    tracing::warn!(
-                        "Retrying a HTTP error after {} seconds: {:#}",
-                        b,
-                        http_error
-                    );
-                    continue;
-                }
-            }
-        }
-
-        return res;
-    }
-
-    unreachable!("The loop above will exit before we get to the end")
 }
 
 #[cfg(test)]

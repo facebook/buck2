@@ -16,6 +16,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_signals::NodeDuration;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
@@ -45,7 +46,6 @@ use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::actions::key::ActionKeyExt;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
-use crate::build_signals::NodeDuration;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::keep_going;
 
@@ -386,7 +386,7 @@ pub async fn command_details(
                     argv: command.to_owned(),
                     env: env
                         .iter()
-                        .map(|(key, value)| buck2_data::local_command::EnvironmentEntry {
+                        .map(|(key, value)| buck2_data::EnvironmentEntry {
                             key: key.clone(),
                             value: value.clone(),
                         })
@@ -405,6 +405,35 @@ pub async fn command_details(
             action_digest: digest.to_string(),
             cache_hit: true,
             queue_time: command.timing.re_queue_time.and_then(|d| d.try_into().ok()),
+        }
+        .into(),
+        CommandExecutionKind::LocalWorkerInit { command, env } => buck2_data::WorkerInitCommand {
+            argv: command.to_owned(),
+            env: env
+                .iter()
+                .map(|(key, value)| buck2_data::EnvironmentEntry {
+                    key: key.clone(),
+                    value: value.clone(),
+                })
+                .collect(),
+        }
+        .into(),
+        CommandExecutionKind::LocalWorker {
+            command,
+            env,
+            digest,
+            fallback_exe,
+        } => buck2_data::WorkerCommand {
+            action_digest: digest.to_string(),
+            argv: command.to_owned(),
+            env: env
+                .iter()
+                .map(|(key, value)| buck2_data::EnvironmentEntry {
+                    key: key.clone(),
+                    value: value.clone(),
+                })
+                .collect(),
+            fallback_exe: fallback_exe.to_owned(),
         }
         .into(),
     });

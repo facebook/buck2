@@ -10,16 +10,37 @@
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::ctx::DiceComputationsImpl;
 use crate::impls::ctx::BaseComputeCtx;
 use crate::versions::VersionNumber;
 use crate::DiceComputations;
 use crate::DiceTransactionUpdater;
 
-#[derive(Allocative, Dupe, Clone)]
+#[derive(Allocative)]
 pub(crate) enum DiceTransactionImpl {
     Legacy(DiceComputations),
     Modern(BaseComputeCtx),
 }
+
+impl Clone for DiceTransactionImpl {
+    fn clone(&self) -> Self {
+        match self {
+            DiceTransactionImpl::Legacy(ctx) => match &ctx.0 {
+                // since 'DiceComputations' should not be clone or dupe, we manually implement
+                // clone and dupe for the 'DiceTransaction'
+                DiceComputationsImpl::Legacy(ctx) => DiceTransactionImpl::Legacy(DiceComputations(
+                    DiceComputationsImpl::Legacy(ctx.dupe()),
+                )),
+                DiceComputationsImpl::Modern(_) => {
+                    unreachable!("wrong dice")
+                }
+            },
+            DiceTransactionImpl::Modern(ctx) => DiceTransactionImpl::Modern(ctx.clone()),
+        }
+    }
+}
+
+impl Dupe for DiceTransactionImpl {}
 
 impl DiceTransactionImpl {
     pub(crate) fn get_version(&self) -> VersionNumber {

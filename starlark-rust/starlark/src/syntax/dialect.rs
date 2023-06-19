@@ -22,8 +22,12 @@ use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::errors::Diagnostic;
+use crate::eval::compiler::EvalException;
+use crate::syntax::ast::Expr;
+use crate::syntax::ast::TypeExpr;
+use crate::syntax::ast::TypeExprP;
 use crate::syntax::ast::Visibility;
+use crate::syntax::type_expr::TypeExprUnpackP;
 
 #[derive(Error, Debug)]
 pub(crate) enum DialectError {
@@ -118,8 +122,8 @@ impl Dialect {
     };
 }
 
-fn err<T>(codemap: &CodeMap, span: Span, err: DialectError) -> anyhow::Result<T> {
-    Err(Diagnostic::new(err, span, codemap))
+fn err<T>(codemap: &CodeMap, span: Span, err: DialectError) -> Result<T, EvalException> {
+    Err(EvalException::new(err.into(), span, codemap))
 }
 
 impl Dialect {
@@ -127,7 +131,7 @@ impl Dialect {
         &self,
         codemap: &CodeMap,
         x: Spanned<T>,
-    ) -> anyhow::Result<Spanned<T>> {
+    ) -> Result<Spanned<T>, EvalException> {
         if self.enable_lambda {
             Ok(x)
         } else {
@@ -139,7 +143,7 @@ impl Dialect {
         &self,
         codemap: &CodeMap,
         x: Spanned<T>,
-    ) -> anyhow::Result<Spanned<T>> {
+    ) -> Result<Spanned<T>, EvalException> {
         if self.enable_def {
             Ok(x)
         } else {
@@ -153,7 +157,7 @@ impl Dialect {
         begin: usize,
         end: usize,
         x: T,
-    ) -> anyhow::Result<T> {
+    ) -> Result<T, EvalException> {
         let span = Span::new(Pos::new(begin as u32), Pos::new(end as u32));
         if self.enable_keyword_only_arguments {
             Ok(x)
@@ -162,16 +166,22 @@ impl Dialect {
         }
     }
 
-    pub(crate) fn check_type<T>(
+    pub(crate) fn check_type(
         &self,
         codemap: &CodeMap,
-        x: Spanned<T>,
-    ) -> anyhow::Result<Spanned<T>> {
-        if self.enable_types != DialectTypes::Disable {
-            Ok(x)
-        } else {
-            err(codemap, x.span, DialectError::Types)
+        x: Spanned<Expr>,
+    ) -> Result<Spanned<TypeExpr>, EvalException> {
+        let span = x.span;
+        if self.enable_types == DialectTypes::Disable {
+            return err(codemap, x.span, DialectError::Types);
         }
+
+        TypeExprUnpackP::unpack(&x, codemap)?;
+
+        Ok(x.into_map(|node| TypeExprP {
+            expr: Spanned { span, node },
+            payload: (),
+        }))
     }
 
     pub(crate) fn load_visibility(&self) -> Visibility {

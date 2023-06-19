@@ -45,12 +45,13 @@ use crate::directory::ActionImmutableDirectory;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::manager::CommandExecutionManager;
+use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::client::ExecuteResponseOrCancelled;
 use crate::re::client::RemoteExecutionClient;
-use crate::re::client::RemoteExecutionClientStats;
 use crate::re::re_get_session_id::ReGetSessionId;
+use crate::re::stats::RemoteExecutionClientStats;
 use crate::re::uploader::UploadStats;
 
 /// Lifetime management of the Remote Execution connection (i.e. the RemoteExecutionClient).
@@ -372,6 +373,7 @@ impl ManagedRemoteExecutionClient {
         skip_cache_read: bool,
         skip_cache_write: bool,
         re_max_queue_time: Option<Duration>,
+        knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         self.lock()?
             .get()
@@ -385,6 +387,7 @@ impl ManagedRemoteExecutionClient {
                 skip_cache_read,
                 skip_cache_write,
                 re_max_queue_time,
+                knobs,
             )
             .await
     }

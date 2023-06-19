@@ -9,8 +9,10 @@
 
 use std::borrow::Cow;
 use std::fmt::Display;
+use std::ops::ControlFlow;
 
 use allocative::Allocative;
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
@@ -69,10 +71,12 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::ValueIdentity;
 use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 use thiserror::Error;
 
+use self::dep_files::DeclaredDepFiles;
+use self::dep_files::PartitionedInputs;
 use crate::actions::impls::run::dep_files::match_or_clear_dep_file;
 use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::dep_files::CommandDigests;
@@ -84,6 +88,13 @@ use crate::actions::impls::run::metadata::metadata_content;
 pub(crate) mod audit_dep_files;
 pub mod dep_files;
 mod metadata;
+
+type DepFileLookUpKey = (
+    DepFilesKey,
+    CommandDigests,
+    PartitionedInputs<Vec<ArtifactGroup>>,
+    DeclaredDepFiles,
+);
 
 #[derive(Debug, Error)]
 enum RunActionValidationError {
@@ -170,7 +181,8 @@ impl UnregisteredAction for UnregisteredRunAction {
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
-        let starlark_values = starlark_data.expect("module data to be present");
+        let starlark_values =
+            starlark_data.context("module data to be present (internal error)")?;
         let run_action = RunAction::new(*self, starlark_values, outputs)?;
         Ok(Box::new(run_action))
     }
@@ -188,27 +200,34 @@ impl UnregisteredAction for UnregisteredRunAction {
 )]
 #[display(fmt = "run_action_values")]
 #[repr(C)]
-pub struct StarlarkRunActionValuesGen<V> {
-    pub exe: V,
-    pub args: V,
-    pub env: V,
-    pub worker: V,
+pub(crate) struct StarlarkRunActionValuesGen<V> {
+    pub(crate) exe: V,
+    pub(crate) args: V,
+    pub(crate) env: V,
+    /// `WorkerInfo` or `None`.
+    pub(crate) worker: V,
 }
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkRunActionValuesGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("run_action_values");
 }
 
-starlark_complex_value!(pub StarlarkRunActionValues);
+starlark_complex_value!(pub(crate) StarlarkRunActionValues);
+
+impl<'v, V: ValueLike<'v>> StarlarkRunActionValuesGen<V> {
+    pub(crate) fn worker(&self) -> anyhow::Result<ValueOf<'v, NoneOr<&'v WorkerInfo<'v>>>> {
+        ValueOf::unpack_value_err(self.worker.to_value())
+    }
+}
 
 struct UnpackedRunActionValues<'v> {
     exe: &'v dyn CommandLineArgLike,
     args: &'v dyn CommandLineArgLike,
     env: Vec<(&'v str, &'v dyn CommandLineArgLike)>,
-    worker: Option<&'v dyn CommandLineArgLike>,
+    worker: Option<(&'v dyn CommandLineArgLike, WorkerId)>,
 }
 
 #[derive(Debug, Allocative)]
@@ -219,39 +238,35 @@ pub(crate) struct RunAction {
 }
 
 impl RunAction {
-    fn unpack_worker_id(val: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>) -> WorkerId {
-        let worker = val.map_untyped(|f| f.worker);
-        // safe since the pointer is never dereferenced, it's only used as an id for running workers
-        let frozen_worker = unsafe { worker.unchecked_frozen_value() };
-        let identity: ValueIdentity<'static> = frozen_worker.to_value().identity();
-        WorkerId(identity)
-    }
-
     fn unpack(
         values: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
-    ) -> Option<UnpackedRunActionValues> {
-        let exe = values.exe.to_value().as_command_line()?;
-        let args = values.args.to_value().as_command_line()?;
+    ) -> anyhow::Result<UnpackedRunActionValues> {
+        let exe = values.exe.to_value().as_command_line_err()?;
+        let args = values.args.to_value().as_command_line_err()?;
         let env = if values.env.is_none() {
             Vec::new()
         } else {
-            let d = DictRef::from_value(values.env.to_value())?;
+            let d = DictRef::from_value(values.env.to_value()).context("expecting dict")?;
             let mut res = Vec::with_capacity(d.len());
             for (k, v) in d.iter() {
-                res.push((k.unpack_str()?, v.as_command_line()?));
+                res.push((
+                    k.unpack_str().context("expecting string")?,
+                    v.as_command_line_err()?,
+                ));
             }
             res
         };
-        let worker: NoneOr<&WorkerInfo> = NoneOr::unpack_value(values.worker.to_value())?;
+        let worker: NoneOr<&WorkerInfo> = values.worker()?.typed;
 
         let worker = if let Some(worker) = worker.into_option() {
             let worker_exe = worker.exe_command_line();
-            Some(worker_exe)
+            let worker_id = WorkerId(worker.id);
+            Some((worker_exe, worker_id))
         } else {
             None
         };
 
-        Some(UnpackedRunActionValues {
+        Ok(UnpackedRunActionValues {
             exe,
             args,
             env,
@@ -266,7 +281,7 @@ impl RunAction {
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
     ) -> anyhow::Result<(ExpandedCommandLine, Option<WorkerSpec>)> {
         let mut ctx = DefaultCommandLineContext::new(fs);
-        let values = Self::unpack(&self.starlark_values).unwrap();
+        let values = Self::unpack(&self.starlark_values)?;
 
         let mut exe_rendered = Vec::<String>::new();
         values
@@ -274,12 +289,12 @@ impl RunAction {
             .add_to_command_line(&mut exe_rendered, &mut ctx)?;
         values.exe.visit_artifacts(artifact_visitor)?;
 
-        let worker = if let Some(worker_exe) = values.worker {
+        let worker = if let Some((worker_exe, worker_id)) = values.worker {
             let mut worker_rendered = Vec::<String>::new();
             worker_exe.add_to_command_line(&mut worker_rendered, &mut ctx)?;
             worker_exe.visit_artifacts(artifact_visitor)?;
             Some(WorkerSpec {
-                id: Self::unpack_worker_id(&self.starlark_values),
+                id: worker_id,
                 exe: worker_rendered,
             })
         } else {
@@ -320,22 +335,23 @@ impl RunAction {
         starlark_values: OwnedFrozenValue,
         outputs: IndexSet<BuildArtifact>,
     ) -> anyhow::Result<Self> {
-        let starlark_values = starlark_values.downcast().and_then(|values| {
-            Self::unpack(&values).ok_or(values.to_owned_frozen_value())?;
-            Ok(values)
-        });
-        match starlark_values {
-            Ok(starlark_values) => Ok(RunAction {
-                inner,
-                starlark_values,
-                outputs: BoxSliceSet::from(outputs),
-            }),
-            Err(starlark_values) => Err(anyhow::anyhow!(
-                RunActionValidationError::ContentsNotCommandLineValue(
-                    starlark_values.value().to_repr()
+        let starlark_values = match starlark_values.downcast() {
+            Ok(starlark_values) => starlark_values,
+            Err(starlark_values) => {
+                return Err(RunActionValidationError::ContentsNotCommandLineValue(
+                    starlark_values.value().to_repr(),
                 )
-            )),
-        }
+                .into());
+            }
+        };
+
+        Self::unpack(&starlark_values)?;
+
+        Ok(RunAction {
+            inner,
+            starlark_values,
+            outputs: BoxSliceSet::from(outputs),
+        })
     }
 
     fn prepare(
@@ -397,6 +413,68 @@ impl RunAction {
             worker,
         })
     }
+
+    fn make_dep_file_lookup_key(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+        visitor: DepFilesCommandLineVisitor<'_>,
+        prepared_action: &PreparedRunAction,
+    ) -> DepFileLookUpKey {
+        let digests = CommandDigests {
+            cli: prepared_action.expanded.fingerprint(),
+            directory: prepared_action
+                .paths
+                .input_directory()
+                .fingerprint()
+                .data()
+                .dupe(),
+        };
+        let dep_files_key = DepFilesKey::from_action_execution_target(ctx.target());
+
+        let DepFilesCommandLineVisitor {
+            inputs: declared_inputs,
+            outputs: declared_dep_files,
+            ..
+        } = visitor;
+        (dep_files_key, digests, declared_inputs, declared_dep_files)
+    }
+
+    async fn check_dep_files(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+        dep_files: &DepFileLookUpKey,
+    ) -> anyhow::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
+        let (dep_files_key, digests, declared_inputs, declared_dep_files) = dep_files;
+
+        let matching_result = span_async(buck2_data::MatchDepFilesStart {}, async {
+            let res: anyhow::Result<_> = try {
+                match_or_clear_dep_file(
+                    dep_files_key,
+                    digests,
+                    declared_inputs,
+                    self.outputs.as_slice(),
+                    declared_dep_files,
+                    ctx,
+                )
+                .await?
+            };
+
+            (res, buck2_data::MatchDepFilesEnd {})
+        })
+        .await?;
+
+        if let Some(matching_result) = matching_result {
+            Ok(Some((
+                matching_result,
+                ActionExecutionMetadata {
+                    execution_kind: ActionExecutionKind::LocalDepFile,
+                    timing: Default::default(),
+                },
+            )))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 struct PreparedRunAction {
@@ -454,12 +532,12 @@ impl Action for RunAction {
     }
 
     fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
-        let values = Self::unpack(&self.starlark_values).unwrap();
+        let values = Self::unpack(&self.starlark_values)?;
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         values.args.visit_artifacts(&mut artifact_visitor)?;
         values.exe.visit_artifacts(&mut artifact_visitor)?;
-        if let Some(worker) = values.worker {
-            worker.visit_artifacts(&mut artifact_visitor)?;
+        if let Some((worker_exe, _)) = values.worker {
+            worker_exe.visit_artifacts(&mut artifact_visitor)?;
         }
         for (_, v) in values.env.iter() {
             v.visit_artifacts(&mut artifact_visitor)?;
@@ -523,70 +601,22 @@ impl IncrementalActionExecutable for RunAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let knobs = ctx.run_action_knobs();
         let process_dep_files = !self.inner.dep_files.labels.is_empty() || knobs.hash_all_commands;
-
-        let (prepared, dep_files) = if !process_dep_files {
+        let (prepared_run_action, dep_files) = if !process_dep_files {
             (
                 self.prepare(&mut SimpleCommandLineArtifactVisitor::new(), ctx)?,
                 None,
             )
         } else {
-            let (matching_result, prepared, dep_files) =
-                span_async(buck2_data::MatchDepFilesStart {}, async {
-                    let res: anyhow::Result<_> = try {
-                        let dep_files_key = DepFilesKey::from_action_execution_target(ctx.target());
-
-                        let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
-                        let prepared = self.prepare(&mut visitor, ctx)?;
-
-                        let DepFilesCommandLineVisitor {
-                            inputs: declared_inputs,
-                            outputs: declared_dep_files,
-                            ..
-                        } = visitor;
-
-                        let digests = CommandDigests {
-                            cli: prepared.expanded.fingerprint(),
-                            directory: prepared.paths.input_directory().fingerprint().data().dupe(),
-                        };
-
-                        let matching_result = match_or_clear_dep_file(
-                            &dep_files_key,
-                            &digests,
-                            &declared_inputs,
-                            self.outputs.as_slice(),
-                            &declared_dep_files,
-                            ctx,
-                        )
-                        .await?;
-
-                        (
-                            matching_result,
-                            prepared,
-                            (dep_files_key, digests, declared_inputs, declared_dep_files),
-                        )
-                    };
-
-                    (res, buck2_data::MatchDepFilesEnd {})
-                })
-                .await?;
-
-            if let Some(matching_result) = matching_result {
-                return Ok((
-                    matching_result,
-                    ActionExecutionMetadata {
-                        execution_kind: ActionExecutionKind::Skipped,
-                        timing: Default::default(),
-                    },
-                ));
-            }
-
+            let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
+            let prepared = self.prepare(&mut visitor, ctx)?;
+            let dep_files = self.make_dep_file_lookup_key(ctx, visitor, &prepared);
             (prepared, Some(dep_files))
         };
 
         // Run actions are assumed to be shared
         let host_sharing_requirements = HostSharingRequirements::Shared(self.inner.weight);
 
-        let req = prepared
+        let req = prepared_run_action
             .into_command_execution_request()
             .with_prefetch_lossy_stderr(true)
             .with_executor_preference(self.inner.executor_preference)
@@ -597,9 +627,31 @@ impl IncrementalActionExecutable for RunAction {
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
             .with_custom_tmpdir(ctx.target().custom_tmpdir());
 
+        // First prepare the action, check the action cache, check dep_files if needed, and execute the command
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
-        let (outputs, meta) = ctx.exec_cmd(manager, &req, &prepared_action).await?;
+        let ((outputs, meta), dep_files) =
+            match ctx.action_cache(manager, &req, &prepared_action).await {
+                ControlFlow::Break(res) => (res?, dep_files),
+                ControlFlow::Continue(manager) => {
+                    let dep_files = if let Some(dep_files) = dep_files {
+                        match self.check_dep_files(ctx, &dep_files).await? {
+                            Some(m) => {
+                                // We have a dep_file based match, return early
+                                return Ok(m);
+                            }
+                            None => Some(dep_files),
+                        }
+                    } else {
+                        None
+                    };
+
+                    (
+                        ctx.exec_cmd(manager, &req, &prepared_action).await?,
+                        dep_files,
+                    )
+                }
+            };
 
         let outputs = ActionOutputs::new(outputs);
 

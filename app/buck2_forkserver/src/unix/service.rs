@@ -8,9 +8,11 @@
  */
 
 use std::ffi::OsStr;
+use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -19,6 +21,7 @@ use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
@@ -40,6 +43,7 @@ use tonic::Status;
 use tonic::Streaming;
 
 use crate::convert::encode_event_stream;
+use crate::run::maybe_absolutize_exe;
 use crate::run::prepare_command;
 use crate::run::status_decoder::DefaultStatusDecoder;
 use crate::run::status_decoder::MiniperfStatusDecoder;
@@ -109,30 +113,32 @@ impl Forkserver for UnixForkserverService {
                 cwd,
                 timeout,
                 enable_miniperf,
+                std_redirects,
             } = msg;
 
             let exe = OsStr::from_bytes(&exe);
-            let cwd = cwd.as_ref().map(|c| OsStr::from_bytes(&c.path));
+            let cwd = OsStr::from_bytes(&cwd.as_ref().context("Missing cwd")?.path);
+            let cwd = AbsPath::new(Path::new(cwd)).context("Inalid cwd")?;
             let argv = argv.iter().map(|a| OsStr::from_bytes(a));
             let timeout = timeout
                 .map(|t| t.try_into_duration())
                 .transpose()
                 .context("Invalid timeout")?;
 
+            let exe = maybe_absolutize_exe(exe, cwd)?;
+
             let (mut cmd, miniperf_output) = match (enable_miniperf, &self.miniperf) {
                 (true, Some(miniperf)) => {
                     let mut cmd = background_command(miniperf.miniperf.as_path());
                     let output_path = miniperf.allocate_output_path();
                     cmd.arg(output_path.as_path());
-                    cmd.arg(exe);
+                    cmd.arg(exe.as_ref());
                     (cmd, Some(output_path))
                 }
-                _ => (background_command(exe), None),
+                _ => (background_command(exe.as_ref()), None),
             };
 
-            if let Some(cwd) = cwd {
-                cmd.current_dir(cwd);
-            }
+            cmd.current_dir(cwd);
             cmd.args(argv);
 
             {
@@ -154,6 +160,11 @@ impl Forkserver for UnixForkserverService {
             }
 
             let mut cmd = prepare_command(cmd);
+            let stream_stdio = std_redirects.is_none();
+            if let Some(std_redirects) = std_redirects {
+                cmd.stdout(File::create(OsStr::from_bytes(&std_redirects.stdout))?);
+                cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
+            }
             let child = cmd.spawn();
 
             let timeout = timeout_into_cancellation(timeout);
@@ -166,6 +177,7 @@ impl Forkserver for UnixForkserverService {
                     cancellation,
                     MiniperfStatusDecoder::new(out),
                     DefaultKillProcess,
+                    stream_stdio,
                 )?
                 .left_stream(),
                 None => stream_command_events(
@@ -173,6 +185,7 @@ impl Forkserver for UnixForkserverService {
                     cancellation,
                     DefaultStatusDecoder,
                     DefaultKillProcess,
+                    stream_stdio,
                 )?
                 .right_stream(),
             };

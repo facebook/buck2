@@ -10,7 +10,9 @@
 mod interruptible_async_read;
 pub mod status_decoder;
 
+use std::borrow::Cow;
 use std::io;
+use std::path::Path;
 use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
@@ -20,6 +22,8 @@ use std::task::Poll;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use bytes::Bytes;
 use futures::future::Future;
 use futures::future::FutureExt;
@@ -171,6 +175,7 @@ pub fn stream_command_events<T>(
     cancellation: T,
     decoder: impl StatusDecoder,
     kill_process: impl KillProcess,
+    stream_stdio: bool,
 ) -> anyhow::Result<impl Stream<Item = anyhow::Result<CommandEvent>>>
 where
     T: Future<Output = anyhow::Result<GatherOutputStatus>> + Send,
@@ -185,19 +190,29 @@ where
         }
     };
 
-    let stdout = child.stdout.take().context("Child stdout is not piped")?;
-    let stderr = child.stderr.take().context("Child stderr is not piped")?;
+    let stdio = if stream_stdio {
+        let stdout = child.stdout.take().context("Child stdout is not piped")?;
+        let stderr = child.stderr.take().context("Child stderr is not piped")?;
 
-    #[cfg(unix)]
-    type Drainer<R> = self::interruptible_async_read::UnixNonBlockingDrainer<R>;
+        #[cfg(unix)]
+        type Drainer<R> = self::interruptible_async_read::UnixNonBlockingDrainer<R>;
 
-    // On Windows, for the time being we just give ourselves a timeout to finish reading.
-    // Ideally this would perform a non-blocking read on self instead like we do on Unix.
-    #[cfg(not(unix))]
-    type Drainer<R> = self::interruptible_async_read::TimeoutDrainer<R>;
+        // On Windows, for the time being we just give ourselves a timeout to finish reading.
+        // Ideally this would perform a non-blocking read on self instead like we do on Unix.
+        #[cfg(not(unix))]
+        type Drainer<R> = self::interruptible_async_read::TimeoutDrainer<R>;
 
-    let stdout = InterruptibleAsyncRead::<_, Drainer<_>>::new(stdout);
-    let stderr = InterruptibleAsyncRead::<_, Drainer<_>>::new(stderr);
+        let stdout = InterruptibleAsyncRead::<_, Drainer<_>>::new(stdout);
+        let stderr = InterruptibleAsyncRead::<_, Drainer<_>>::new(stderr);
+        let stdout = FramedRead::new(stdout, BytesCodec::new())
+            .map(|data| anyhow::Ok(StdioEvent::Stdout(data?.freeze())));
+        let stderr = FramedRead::new(stderr, BytesCodec::new())
+            .map(|data| anyhow::Ok(StdioEvent::Stderr(data?.freeze())));
+
+        futures::stream::select(stdout, stderr).left_stream()
+    } else {
+        futures::stream::empty().right_stream()
+    };
 
     let status = async move {
         enum Outcome {
@@ -222,7 +237,7 @@ where
             Outcome::Finished(status) => decoder.decode_status(status).await?.into(),
             Outcome::Cancelled(res) => {
                 kill_process
-                    .kill(&child)
+                    .kill(&mut child)
                     .context("Failed to terminate child after timeout")?;
 
                 decoder
@@ -241,13 +256,6 @@ where
             }
         })
     };
-
-    let stdout = FramedRead::new(stdout, BytesCodec::new())
-        .map(|data| anyhow::Ok(StdioEvent::Stdout(data?.freeze())));
-    let stderr = FramedRead::new(stderr, BytesCodec::new())
-        .map(|data| anyhow::Ok(StdioEvent::Stderr(data?.freeze())));
-
-    let stdio = futures::stream::select(stdout, stderr);
 
     Ok(CommandEventStream::new(status, stdio).right_stream())
 }
@@ -291,19 +299,20 @@ where
         cancellation,
         DefaultStatusDecoder,
         DefaultKillProcess,
+        true,
     )?;
     decode_command_event_stream(stream).await
 }
 
 /// Dependency injection for kill. We use this in testing.
 pub trait KillProcess {
-    fn kill(self, child: &Child) -> anyhow::Result<()>;
+    fn kill(self, child: &mut Child) -> anyhow::Result<()>;
 }
 
 pub struct DefaultKillProcess;
 
 impl KillProcess for DefaultKillProcess {
-    fn kill(self, child: &Child) -> anyhow::Result<()> {
+    fn kill(self, child: &mut Child) -> anyhow::Result<()> {
         let pid = match child.id() {
             Some(pid) => pid,
             None => {
@@ -321,7 +330,11 @@ impl KillProcess for DefaultKillProcess {
                 return kill_process_impl(pid);
             }
         }
-        buck2_wrapper_common::kill::kill(pid)
+        // `start_kill` is just `std::process::Child::kill` on Windows.
+        // Ignore the error because `kill` fails on Windows if the process has been terminated
+        // even if we did not wait for it.
+        let _ignore = child.start_kill();
+        Ok(())
     }
 }
 
@@ -335,6 +348,26 @@ fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
 
     signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
         .with_context(|| format!("Failed to kill process {}", pid))
+}
+
+/// Unify the the behavior of using a relative path for the executable between Unix and Windows. On
+/// UNIX, the path is understood to be relative to the cwd of the *spawned process*, whereas on
+/// Windows, it's relative ot the cwd of the *spawning* process.
+///
+/// Here, we unify the two behaviors since we always run our subprocesses with a known cwd: we
+/// check if the executable actually exists relative to said cwd, and if it does, we use that.
+pub fn maybe_absolutize_exe<'a>(
+    exe: &'a (impl AsRef<Path> + ?Sized),
+    spawned_process_cwd: &'_ AbsPath,
+) -> anyhow::Result<Cow<'a, Path>> {
+    let exe = exe.as_ref();
+
+    let abs = spawned_process_cwd.join(exe);
+    if fs_util::try_exists(&abs).context("Error absolute-izing executable")? {
+        return Ok(abs.into_path_buf().into());
+    }
+
+    Ok(exe.into())
 }
 
 pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {
@@ -571,6 +604,7 @@ mod tests {
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess,
+            true,
         )?
         .boxed();
         assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
@@ -602,7 +636,7 @@ mod tests {
         }
 
         impl KillProcess for Kill {
-            fn kill(self, child: &Child) -> anyhow::Result<()> {
+            fn kill(self, child: &mut Child) -> anyhow::Result<()> {
                 *self.killed.lock().unwrap() = true;
 
                 // We still need to kill the process. On Windows in particular our test will hang
@@ -652,6 +686,7 @@ mod tests {
             Kill {
                 killed: killed.dupe(),
             },
+            true,
         )?;
 
         let (status, _stdout, _stderr) = decode_command_event_stream(stream).await?;
@@ -659,6 +694,34 @@ mod tests {
 
         assert!(*killed.lock().unwrap());
         assert!(*cancelled.lock().unwrap());
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_no_stdio_stream_command_events() -> anyhow::Result<()> {
+        let mut cmd = background_command("sh");
+        cmd.args(["-c", "echo hello"]);
+
+        let mut cmd = prepare_command(cmd);
+        let tempdir = tempfile::tempdir()?;
+        let stdout = tempdir.path().join("stdout");
+        cmd.stdout(std::fs::File::create(stdout.clone())?);
+
+        let child = cmd.spawn();
+        let mut events = stream_command_events(
+            child,
+            futures::future::pending(),
+            DefaultStatusDecoder,
+            DefaultKillProcess,
+            false,
+        )?
+        .boxed();
+        assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
+        assert_matches!(futures::poll!(events.next()), Poll::Ready(None));
+
+        assert_matches!(tokio::fs::read_to_string(stdout).await?.as_str(), "hello\n");
 
         Ok(())
     }

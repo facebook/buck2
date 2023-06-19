@@ -14,10 +14,10 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_common::result::SharedResult;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use derive_more::Display;
@@ -26,6 +26,7 @@ use dice::Key;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
+use futures::FutureExt;
 use indexmap::IndexMap;
 use more_futures::cancellation::CancellationContext;
 
@@ -81,10 +82,9 @@ impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQuer
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let (targets, label_to_artifact) = futures::future::try_join(
-                    futures::future::try_join_all(self.targets.iter().map(|target| async move {
+                    futures::future::try_join_all(self.targets.iter().map(|target| {
                         ctx.get_configured_target_node(target)
-                            .await?
-                            .require_compatible()
+                            .map(|res| res?.require_compatible())
                     })),
                     get_from_template_placeholder_info(
                         ctx,

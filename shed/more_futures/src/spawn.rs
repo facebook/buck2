@@ -31,7 +31,6 @@ use crate::cancellable_future::StrongRefCount;
 use crate::cancellable_future::WeakRefCount;
 use crate::cancellation::future::make_cancellable_future;
 use crate::cancellation::future::CancellationHandle;
-use crate::cancellation::future::TerminationObserver;
 use crate::cancellation::CancellationContext;
 use crate::instrumented_shared::SharedEvents;
 use crate::instrumented_shared::SharedEventsFuture;
@@ -221,47 +220,27 @@ pub struct FutureAndCancellationHandle<T> {
 }
 
 impl<T> FutureAndCancellationHandle<T> {
-    pub fn into_drop_cancel(self) -> DropCancelAndTerminationObserver<T> {
+    pub fn into_drop_cancel(self) -> DropCancelFuture<T> {
         self.future.into_drop_cancel(self.cancellation_handle)
-    }
-}
-
-#[pin_project]
-pub struct DropCancelAndTerminationObserver<T> {
-    #[pin]
-    pub future: DropCancelFuture<T>,
-    pub termination: TerminationObserver,
-}
-
-impl<T> Future for DropCancelAndTerminationObserver<T> {
-    type Output = T;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.project().future.poll(cx)
     }
 }
 
 /// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
 /// does not cancel the future
-pub fn spawn_cancellable_with_preamble<F, T, P, S>(
+pub fn spawn_cancellable<F, T, S>(
     f: F,
-    preamble: P,
     spawner: &dyn Spawner<S>,
     ctx: &S,
-    span: Span,
 ) -> FutureAndCancellationHandle<T>
 where
     for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
-    P: Future<Output = ()> + Send + 'static,
     T: Any + Send + 'static,
 {
     let (future, cancellation_handle) = make_cancellable_future(f);
 
     // For Ready<()> and BoxFuture<()> futures we get these sizes:
     // future alone: 196/320 bits
-    // future + no-op preamble via async block: 448/704 bits
-    // future + no-op preamble via FuturesExt::then: 256/384 bits
-    // future + no-op preamble + instrument: 512/640 bits
+    // future via async block: 448/704 bits
 
     // As the spawner is going to take a boxed future and erase its concrete type,
     // we can have different future types for different scenarios in order to
@@ -270,12 +249,6 @@ where
     // While we could feasibly distinguish the no-op preamble case, one extra pointer
     // is an okay cost for the simpler api (for now).
     let future = future.map(|v| Box::new(v) as _);
-    let future = preamble.then(|_| future);
-    let future = if span.is_disabled() {
-        future.boxed()
-    } else {
-        future.instrument(span).boxed()
-    };
 
     let task = spawner.spawn(ctx, future.boxed());
     let task = task
@@ -291,21 +264,6 @@ where
         future: CancellableJoinHandle(task),
         cancellation_handle,
     }
-}
-
-/// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
-/// does not cancel the future
-pub fn spawn_cancellable<F, T, S>(
-    f: F,
-    spawner: &dyn Spawner<S>,
-    ctx: &S,
-    span: Span,
-) -> FutureAndCancellationHandle<T>
-where
-    for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
-    T: Any + Send + 'static,
-{
-    spawn_cancellable_with_preamble(f, futures::future::ready(()), spawner, ctx, span)
 }
 
 #[pin_project]
@@ -355,33 +313,21 @@ impl<T> PinnedDrop for DropCancelFuture<T> {
 }
 
 impl<T> CancellableJoinHandle<T> {
-    fn into_drop_cancel(
-        self,
-        cancellation_handle: CancellationHandle,
-    ) -> DropCancelAndTerminationObserver<T> {
-        let termination_observer = cancellation_handle.termination_observer();
-
-        let fut = DropCancelFuture {
+    fn into_drop_cancel(self, cancellation_handle: CancellationHandle) -> DropCancelFuture<T> {
+        DropCancelFuture {
             fut: self.0,
             cancellation_handle: Some(cancellation_handle),
-        };
-
-        DropCancelAndTerminationObserver {
-            future: fut,
-            termination: termination_observer,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches::assert_matches;
     use std::sync::Arc;
 
     use tokio::sync::oneshot;
 
     use super::*;
-    use crate::cancellation::future::TerminationStatus;
     use crate::spawner::TokioSpawner;
 
     #[derive(Default)]
@@ -443,7 +389,7 @@ mod tests {
         let FutureAndCancellationHandle {
             cancellation_handle,
             ..
-        } = spawn_cancellable_with_preamble(
+        } = spawn_cancellable(
             move |_| {
                 async move {
                     recv_release_task.await.unwrap();
@@ -451,19 +397,15 @@ mod tests {
                 }
                 .boxed()
             },
-            futures::future::ready(()),
             sp.as_ref(),
             &MockCtx::default(),
-            tracing::debug_span!("test"),
         );
 
         // Trigger cancellation
-        let cancelled = cancellation_handle.cancel();
+        cancellation_handle.cancel();
 
         // Now, release the task. In all likelihood it will have already exited, but
         let _ignored = release_task.send(());
-
-        assert_eq!(cancelled.await, TerminationStatus::Cancelled);
 
         // The task should never get to sending in notify_success since cancellation was trigger,
         // but it *should* drop the channel itself.
@@ -480,7 +422,7 @@ mod tests {
         let FutureAndCancellationHandle {
             future: task,
             cancellation_handle,
-        } = spawn_cancellable_with_preamble(
+        } = spawn_cancellable(
             move |_| {
                 async move {
                     recv_release_task.await.unwrap();
@@ -488,23 +430,16 @@ mod tests {
                 }
                 .boxed()
             },
-            futures::future::ready(()),
             sp.as_ref(),
             &MockCtx::default(),
-            tracing::debug_span!("test"),
         );
 
-        let DropCancelAndTerminationObserver {
-            future: drop_cancel,
-            termination,
-        } = task.into_drop_cancel(cancellation_handle);
+        let future = task.into_drop_cancel(cancellation_handle);
 
-        drop(drop_cancel);
+        drop(future);
 
         // Now, release the task. In all likelihood it will have already exited, but
         let _ignored = release_task.send(());
-
-        assert_eq!(termination.await, TerminationStatus::Cancelled);
 
         // The task should never get to sending in notify_success since all its referenced had been
         // dropped at that point, but it *should* drop the channel itself.
@@ -516,13 +451,8 @@ mod tests {
         let sp = Arc::new(TokioSpawner::default());
         let fut = async { "Hello world!" }.boxed();
 
-        let FutureAndCancellationHandle { future: task, .. } = spawn_cancellable_with_preamble(
-            |_| fut,
-            futures::future::ready(()),
-            sp.as_ref(),
-            &MockCtx::default(),
-            tracing::debug_span!("test"),
-        );
+        let FutureAndCancellationHandle { future: task, .. } =
+            spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx::default());
 
         let res = task.await;
         assert_eq!(res, Ok("Hello world!"));
@@ -536,28 +466,11 @@ mod tests {
         let FutureAndCancellationHandle {
             future: task,
             cancellation_handle,
-        } = spawn_cancellable_with_preamble(
-            |_| fut,
-            futures::future::ready(()),
-            sp.as_ref(),
-            &MockCtx::default(),
-            tracing::debug_span!("test"),
-        );
+        } = spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx::default());
 
-        let DropCancelAndTerminationObserver {
-            future,
-            termination,
-        } = task.into_drop_cancel(cancellation_handle);
-
-        futures::pin_mut!(termination);
-        assert_matches!(futures::poll!(&mut termination), Poll::Pending);
+        let future = task.into_drop_cancel(cancellation_handle);
 
         let res = future.await;
         assert_eq!(res, "Hello world!");
-
-        assert_matches!(
-            futures::poll!(&mut termination),
-            Poll::Ready(TerminationStatus::Finished)
-        );
     }
 }

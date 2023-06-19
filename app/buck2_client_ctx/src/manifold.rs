@@ -16,12 +16,50 @@ use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
 use anyhow::Context;
+use buck2_common::http;
+use buck2_common::http::counting_client::CountingHttpClient;
+use buck2_common::http::find_certs::find_tls_cert;
+use buck2_common::http::retries::http_retry;
+use buck2_common::http::retries::AsHttpError;
+use buck2_common::http::retries::HttpError;
+use buck2_common::http::HttpClient;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use bytes::Bytes;
+use futures::stream::BoxStream;
+use futures::stream::StreamExt;
+use hyper::Response;
+use thiserror::Error;
 use tokio::io::AsyncRead;
 use tokio::process::Child;
 use tokio::process::Command;
 
-use crate::find_certs::find_tls_cert;
+#[derive(Debug, Error)]
+enum HttpWriteError {
+    #[error("Error performing write request")]
+    Client(#[from] HttpError),
+}
+
+#[derive(Debug, Error)]
+enum HttpAppendError {
+    #[error("Error performing append request")]
+    Client(#[from] HttpError),
+}
+
+impl AsHttpError for HttpWriteError {
+    fn as_http_error(&self) -> Option<&HttpError> {
+        match self {
+            Self::Client(e) => Some(e),
+        }
+    }
+}
+
+impl AsHttpError for HttpAppendError {
+    fn as_http_error(&self) -> Option<&HttpError> {
+        match self {
+            Self::Client(e) => Some(e),
+        }
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum UploadError {
@@ -54,41 +92,33 @@ impl From<io::Error> for UploadError {
 }
 
 #[derive(Clone, Copy)]
-pub enum Bucket {
-    EventLogs,
-    RageDumps,
-    ReLogs,
-}
-
-pub struct BucketInfo<'a> {
-    pub name: &'a str,
-    key: &'a str,
+pub struct Bucket {
+    pub name: &'static str,
+    key: &'static str,
 }
 
 impl Bucket {
-    pub fn info(self) -> BucketInfo<'static> {
-        match self {
-            Bucket::EventLogs => BucketInfo {
-                name: "buck2_logs",
-                key: "buck2_logs-key",
-            },
-            Bucket::RageDumps => BucketInfo {
-                name: "buck2_rage_dumps",
-                key: "buck2_rage_dumps-key",
-            },
-            Bucket::ReLogs => BucketInfo {
-                name: "buck2_re_logs",
-                key: "buck2_re_logs-key",
-            },
-        }
-    }
+    pub const EVENT_LOGS: Bucket = Bucket {
+        name: "buck2_logs",
+        key: "buck2_logs-key",
+    };
+
+    pub const RAGE_DUMPS: Bucket = Bucket {
+        name: "buck2_rage_dumps",
+        key: "buck2_rage_dumps-key",
+    };
+
+    pub const RE_LOGS: Bucket = Bucket {
+        name: "buck2_re_logs",
+        key: "buck2_re_logs-key",
+    };
 }
 
 pub struct Upload<'a> {
     bucket: Bucket,
     filename: &'a str,
     timeout_s: Option<u64>,
-    ttl_s: Option<u64>,
+    ttl: Option<Duration>,
 }
 
 impl<'a> Upload<'a> {
@@ -97,7 +127,7 @@ impl<'a> Upload<'a> {
             bucket,
             filename,
             timeout_s: None,
-            ttl_s: None,
+            ttl: None,
         }
     }
     pub fn with_timeout(mut self, timeout_s: u64) -> Self {
@@ -105,7 +135,7 @@ impl<'a> Upload<'a> {
         self
     }
     pub fn with_default_ttl(mut self) -> Self {
-        self.ttl_s = Some(164 * 86_400); // 164 days, equals scuba buck2_builds retention
+        self.ttl = Some(Duration::from_secs(164 * 86_400)); // 164 days, equals scuba buck2_builds retention
         self
     }
     pub fn from_file(self, filepath: &'a AbsPath) -> Result<FileUploader<'a>, UploadError> {
@@ -131,7 +161,7 @@ impl<'a> Upload<'a> {
     }
 
     pub(super) fn upload_command(&self) -> Result<Command, UploadError> {
-        let bucket = self.bucket.info();
+        let bucket = self.bucket;
         // we use manifold CLI as it works cross-platform
         let manifold_cli_path = get_cli_path();
         let bucket_path = &format!("flat/{}", self.filename);
@@ -141,7 +171,7 @@ impl<'a> Upload<'a> {
                 if cfg!(windows) {
                     Ok(None) // We do not have `curl` on Windows.
                 } else if let Some(cert) = find_tls_cert()? {
-                    curl_write_command(bucket, bucket_path, self.ttl_s, &cert)
+                    curl_write_command(bucket, bucket_path, self.ttl, &cert)
                 } else {
                     Ok(None)
                 }
@@ -150,7 +180,7 @@ impl<'a> Upload<'a> {
                 cli_path,
                 &format!("{}/{}", bucket.name, bucket_path),
                 bucket.key,
-                self.ttl_s,
+                self.ttl,
             ))),
         }?
         .ok_or(UploadError::CommandNotFound)
@@ -247,7 +277,7 @@ impl<'a> FileUploader<'a> {
     }
 }
 
-pub async fn wait_for_command<F>(
+async fn wait_for_command<F>(
     timeout_s: Option<u64>,
     child: Child,
     error: F,
@@ -275,10 +305,10 @@ where
     Ok(())
 }
 
-pub fn curl_write_command(
-    bucket: BucketInfo,
+fn curl_write_command(
+    bucket: Bucket,
     manifold_bucket_path: &str,
-    ttl_s: Option<u64>,
+    ttl: Option<Duration>,
     cert: &OsString,
 ) -> anyhow::Result<Option<Command>> {
     let manifold_url = match log_upload_url() {
@@ -309,56 +339,15 @@ pub fn curl_write_command(
         "-H",
         "X-Manifold-Obj-Predicate:NoPredicate", // Do not check existence
     ]);
-    if let Some(ttl_s) = ttl_s {
+    if let Some(ttl) = ttl {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         upload.arg("-H");
         upload.arg(format!(
             "X-Manifold-Obj-ExpiresAt:{}",
-            now.as_secs() + ttl_s
+            now.as_secs() + ttl.as_secs()
         ));
     }
     upload.args([
-        "--data-binary",
-        "@-", // stdin
-        &url,
-        "-E",
-    ]);
-    upload.arg(cert);
-    Ok(Some(upload))
-}
-
-pub fn curl_append_command(
-    bucket: BucketInfo,
-    manifold_bucket_path: &str,
-    offset: u64,
-    cert: &OsString,
-) -> anyhow::Result<Option<Command>> {
-    if cfg!(windows) {
-        // We do not have `curl` on Windows.
-        return Ok(None);
-    }
-    let manifold_url = match log_upload_url() {
-        None => return Ok(None),
-        Some(x) => x,
-    };
-    let url = format!(
-        "{}/v0/append/{}?bucketName={}&apiKey={}&timeoutMsec=20000&writeOffset={}",
-        manifold_url, manifold_bucket_path, bucket.name, bucket.key, offset
-    );
-    tracing::debug!(
-        "Appending to event log to `{}` using certificate `{}`",
-        url,
-        cert.to_string_lossy(),
-    );
-    let mut upload = buck2_util::process::async_background_command("curl");
-    upload.args([
-        "--silent",
-        "--show-error",
-        "--retry",
-        "2",
-        "--fail",
-        "-X",
-        "POST",
         "--data-binary",
         "@-", // stdin
         &url,
@@ -372,7 +361,7 @@ fn cli_upload_command(
     cli_path: OsString,
     manifold_bucket_path: &String,
     bucket_key: &str,
-    ttl_s: Option<u64>,
+    ttl: Option<Duration>,
 ) -> Command {
     let mut upload = buck2_util::process::async_background_command(cli_path);
 
@@ -397,8 +386,8 @@ fn cli_upload_command(
         manifold_bucket_path,
         "--ignoreExisting",
     ]);
-    if let Some(ttl_s) = ttl_s {
-        upload.args(["--ttl", &ttl_s.to_string()]);
+    if let Some(ttl) = ttl {
+        upload.args(["--ttl", &ttl.as_secs().to_string()]);
     }
     upload
 }
@@ -432,4 +421,101 @@ fn log_upload_url() -> Option<&'static str> {
 
         None
     }
+}
+
+pub struct ManifoldClient {
+    client: CountingHttpClient,
+    manifold_url: Option<String>,
+}
+
+impl ManifoldClient {
+    pub fn new() -> anyhow::Result<Self> {
+        Ok(Self {
+            client: http::http_client(false)?,
+            manifold_url: log_upload_url().map(|s| s.to_owned()),
+        })
+    }
+
+    pub async fn write(
+        &self,
+        bucket: Bucket,
+        manifold_bucket_path: &str,
+        buf: bytes::Bytes,
+        ttl: Option<Duration>,
+    ) -> anyhow::Result<()> {
+        let manifold_url = match &self.manifold_url {
+            None => return Ok(()),
+            Some(x) => x,
+        };
+        let url = format!(
+            "{}/v0/write/{}?bucketName={}&apiKey={}&timeoutMsec=20000",
+            manifold_url, manifold_bucket_path, bucket.name, bucket.key
+        );
+
+        let mut headers = vec![(
+            "X-Manifold-Obj-Predicate".to_owned(),
+            "NoPredicate".to_owned(),
+        )];
+
+        if let Some(ttl) = ttl {
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+            let expiration = now.as_secs() + ttl.as_secs();
+            headers.push((
+                "X-Manifold-Obj-ExpiresAt".to_owned(),
+                expiration.to_string(),
+            ));
+        }
+
+        let res = http_retry(
+            || async {
+                self.client
+                    .put(&url, buf.clone(), headers.clone())
+                    .await
+                    .map_err(|e| HttpWriteError::Client(HttpError::Client(e)))
+            },
+            vec![Duration::from_secs(1), Duration::from_secs(2)],
+        )
+        .await?;
+
+        consume_response(res).await;
+
+        Ok(())
+    }
+
+    pub async fn append(
+        &self,
+        bucket: Bucket,
+        manifold_bucket_path: &str,
+        buf: bytes::Bytes,
+        offset: u64,
+    ) -> anyhow::Result<()> {
+        let manifold_url = match &self.manifold_url {
+            None => return Ok(()),
+            Some(x) => x,
+        };
+        let url = format!(
+            "{}/v0/append/{}?bucketName={}&apiKey={}&timeoutMsec=20000&writeOffset={}",
+            manifold_url, manifold_bucket_path, bucket.name, bucket.key, offset
+        );
+
+        let res = http_retry(
+            || async {
+                self.client
+                    .post(&url, buf.clone(), vec![])
+                    .await
+                    .map_err(|e| HttpAppendError::Client(HttpError::Client(e)))
+            },
+            vec![Duration::from_secs(1), Duration::from_secs(2)],
+        )
+        .await?;
+
+        consume_response(res).await;
+
+        Ok(())
+    }
+}
+
+async fn consume_response<'a>(mut res: Response<BoxStream<'a, hyper::Result<Bytes>>>) {
+    // HTTP/1: Allow reusing the connection by consuming entire response
+    while let Some(_chunk) = res.body_mut().next().await {}
 }

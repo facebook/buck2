@@ -28,15 +28,15 @@ use crate::cast;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
-use crate::values::layout::value_size::ValueSize;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
+use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
 #[derive(Clone)]
-#[repr(transparent)]
+#[repr(C)]
 pub(crate) struct AValueHeader(pub(crate) &'static AValueVTable);
 
 impl Hash for AValueHeader {
@@ -57,9 +57,12 @@ impl Eq for AValueHeader {}
 impl Dupe for AValueHeader {}
 
 /// How object is represented in arena.
-#[repr(C)]
+#[repr(C, align(8))]
 pub(crate) struct AValueRepr<T> {
     pub(crate) header: AValueHeader,
+    /// Payload of the object, i.e. `StarlarkValue`.
+    /// Note that `T` may have larger alignment that `AValueHeader`,
+    /// so we cannot add fixed offset to `self` to get to the payload.
     pub(crate) payload: T,
 }
 
@@ -102,12 +105,12 @@ impl ForwardPtr {
 pub(crate) struct AValueForward {
     /// Moved object pointer with lowest bit set.
     forward_ptr: usize,
-    /// Size of `<T>`. Does not include [`AValueHeader`].
-    object_size: ValueSize,
+    /// Size of `AValueRepr<T>` including extra.
+    object_size: ValueAllocSize,
 }
 
 impl AValueForward {
-    pub(crate) fn new(forward_ptr: ForwardPtr, object_size: ValueSize) -> AValueForward {
+    pub(crate) fn new(forward_ptr: ForwardPtr, object_size: ValueAllocSize) -> AValueForward {
         AValueForward {
             forward_ptr: forward_ptr.0 | 1,
             object_size,
@@ -171,14 +174,13 @@ impl AValueOrForward {
     /// Size of allocation for this object:
     /// following object is allocated at `self + alloc_size + align up`.
     pub(crate) fn alloc_size(&self) -> ValueAllocSize {
-        let n = match self.unpack() {
+        match self.unpack() {
             Either::Left(ptr) => ptr.unpack().memory_size(),
             Either::Right(forward) => {
                 // Overwritten, so the next word will be the size of the memory
                 forward.object_size
             }
-        };
-        n.add_header()
+        }
     }
 }
 
@@ -189,8 +191,10 @@ impl AValueForward {
 }
 
 impl AValueHeader {
-    /// Alignment of values in Starlark heap.
-    pub(crate) const ALIGN: usize = mem::align_of::<AValueHeader>();
+    /// Alignment of objects in Starlark heap.
+    /// We must use 8 byte alignment because we use three lowest bits for tags.
+    /// Note the alignment of `AValueHeader` may be smaller than this.
+    pub(crate) const ALIGN: usize = 8;
 
     pub(crate) fn new<'v, T: AValue<'v>>() -> AValueHeader {
         let header = AValueHeader::new_const::<T>();
@@ -207,14 +211,13 @@ impl AValueHeader {
     }
 
     #[inline]
-    pub(crate) fn payload_ptr(&self) -> *const () {
-        let self_repr = self as *const AValueHeader as *const AValueRepr<()>;
-        unsafe { &(*self_repr).payload }
+    pub(crate) fn payload_ptr(&self) -> StarlarkValueRawPtr {
+        StarlarkValueRawPtr::new_header(self)
     }
 
     pub(crate) unsafe fn payload<'v, T: StarlarkValue<'v>>(&self) -> &T {
         debug_assert_eq!(self.unpack().static_type_of_value(), T::static_type_id());
-        &*(self.payload_ptr() as *const T)
+        &*self.payload_ptr().value_ptr::<T>()
     }
 
     pub(crate) unsafe fn unpack_value<'v>(&'v self, heap_kind: HeapKind) -> Value<'v> {
@@ -237,12 +240,7 @@ impl AValueHeader {
                 "value is a forward pointer; value cannot be unpacked during GC or freeze"
             );
         }
-        unsafe {
-            AValueDyn {
-                value: &*self.payload_ptr(),
-                vtable: self.0,
-            }
-        }
+        unsafe { AValueDyn::new(self.payload_ptr(), self.0) }
     }
 
     /// After performing the overwrite any existing pointers to this value
@@ -263,11 +261,13 @@ impl AValueHeader {
     /// Cast header pointer to repr pointer.
     #[inline]
     pub(crate) unsafe fn as_repr<'v, A: AValue<'v>>(&self) -> &AValueRepr<A> {
-        debug_assert_eq!(
-            A::StarlarkValue::static_type_id(),
-            self.unpack().static_type_of_value()
-        );
-        &*(self as *const AValueHeader as *const AValueRepr<A>)
+        &*(self.as_repr_v::<A::StarlarkValue>() as *const _ as *const _)
+    }
+
+    #[inline]
+    pub(crate) unsafe fn as_repr_v<'v, T: StarlarkValue<'v>>(&self) -> &AValueRepr<T> {
+        debug_assert_eq!(T::static_type_id(), self.unpack().static_type_of_value());
+        &*(self as *const AValueHeader as *const AValueRepr<T>)
     }
 
     fn as_avalue_or_header(&self) -> &AValueOrForward {
@@ -281,6 +281,10 @@ impl AValueHeader {
 }
 
 impl<T> AValueRepr<T> {
+    const _ASSERTIONS: () = {
+        assert!(mem::align_of::<Self>() == AValueHeader::ALIGN);
+    };
+
     pub(crate) const fn with_metadata(
         metadata: &'static AValueVTable,
         payload: T,
@@ -291,10 +295,14 @@ impl<T> AValueRepr<T> {
         }
     }
 
-    fn assert_no_padding_between_header_and_payload() {
-        // We can make it work when there's padding, but we don't need to,
-        // and for now just make an assertion.
-        assert!(memoffset::offset_of!(Self, payload) == mem::size_of::<AValueHeader>());
+    pub(crate) fn offset_of_payload() -> usize {
+        memoffset::offset_of!(Self, payload)
+    }
+
+    /// Padding between header and payload.
+    /// Non-zero when alignment of payload is larger than alignment of pointer.
+    pub(crate) fn padding_after_header() -> usize {
+        Self::offset_of_payload() - mem::size_of::<AValueHeader>()
     }
 
     /// Offset of value extra content relative to `AValueRepr` start.
@@ -302,14 +310,12 @@ impl<T> AValueRepr<T> {
     where
         T: AValue<'v>,
     {
-        Self::assert_no_padding_between_header_and_payload();
-
-        mem::size_of::<AValueHeader>() + T::offset_of_extra()
+        Self::offset_of_payload() + T::offset_of_extra()
     }
 
     pub(crate) fn from_payload_ptr_mut(payload_ptr: *mut T) -> *mut AValueRepr<T> {
         let payload_ptr = payload_ptr as usize;
-        let header_ptr = payload_ptr - mem::size_of::<AValueHeader>();
+        let header_ptr = payload_ptr - Self::offset_of_payload();
         header_ptr as *mut AValueRepr<T>
     }
 }

@@ -17,7 +17,6 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
-use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -25,6 +24,7 @@ use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
+use buck2_util::collections::ordered_map::OrderedMap;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
 

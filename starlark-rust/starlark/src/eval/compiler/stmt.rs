@@ -23,6 +23,8 @@
 //! Bazel's .bzl files) or the BUILD file dialect (i.e. used to interpret
 //! Bazel's BUILD file). The BUILD dialect does not allow `def` statements.
 
+use std::cmp;
+
 use starlark_derive::VisitSpanMut;
 use thiserror::Error;
 
@@ -60,6 +62,7 @@ use crate::values::dict::Dict;
 use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;
 use crate::values::types::list::value::ListData;
+use crate::values::typing::TypeCompiled;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -82,7 +85,7 @@ pub(crate) enum StmtCompiled {
     Expr(IrSpanned<ExprCompiled>),
     Assign(
         IrSpanned<AssignCompiledValue>,
-        Option<IrSpanned<ExprCompiled>>,
+        Option<IrSpanned<TypeCompiled<FrozenValue>>>,
         IrSpanned<ExprCompiled>,
     ),
     AssignModify(AssignModifyLhs, AssignOp, IrSpanned<ExprCompiled>),
@@ -102,8 +105,6 @@ pub(crate) enum StmtCompiled {
 pub(crate) struct StmtCompileContext {
     /// Current function has return type.
     pub(crate) has_return_type: bool,
-    /// `RecordCallEnter`/`RecordCallExit` instructions for heap or flame profile.
-    pub(crate) record_call_enter_exit: bool,
 }
 
 pub(crate) struct OptimizeOnFreezeContext<'v, 'a> {
@@ -145,11 +146,10 @@ impl IrSpanned<StmtCompiled> {
             }
             StmtCompiled::Assign(lhs, ty, rhs) => {
                 let lhs = lhs.optimize(ctx);
-                let ty = ty.as_ref().map(|x| x.optimize(ctx));
                 let rhs = rhs.optimize(ctx);
                 StmtsCompiled::one(IrSpanned {
                     span,
-                    node: StmtCompiled::Assign(lhs, ty, rhs),
+                    node: StmtCompiled::Assign(lhs, *ty, rhs),
                 })
             }
             StmtCompiled::If(cond_t_f) => {
@@ -548,7 +548,7 @@ pub(crate) fn possible_gc(eval: &mut Evaluator) {
         // references to all values, so walking covers everything and the unsafe
         // is satisfied.
         unsafe { eval.garbage_collect() }
-        eval.next_gc_level = eval.heap().allocated_bytes() + GC_THRESHOLD;
+        eval.next_gc_level = cmp::max(eval.heap().allocated_bytes() * 2, GC_THRESHOLD);
     }
 }
 
@@ -595,7 +595,7 @@ pub(crate) fn add_assign<'v>(
     // Checking whether a value is an integer or a string is cheap (no virtual call),
     // and `Value::add` has optimizations for these types, so check them first
     // and delegate to `Value::add`.
-    if lhs.unpack_int().is_some() || lhs.is_str() {
+    if lhs.unpack_inline_int().is_some() || lhs.is_str() {
         return lhs.add(rhs, heap);
     }
 
@@ -629,10 +629,7 @@ pub(crate) fn add_assign<'v>(
 
 impl Compiler<'_, '_, '_> {
     pub(crate) fn compile_context(&self, has_return_type: bool) -> StmtCompileContext {
-        StmtCompileContext {
-            has_return_type,
-            record_call_enter_exit: self.eval.heap_or_flame_profile,
-        }
+        StmtCompileContext { has_return_type }
     }
 
     pub(crate) fn stmt(&mut self, stmt: CstStmt, allow_gc: bool) -> StmtsCompiled {

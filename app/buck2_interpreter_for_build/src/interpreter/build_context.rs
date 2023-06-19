@@ -12,10 +12,10 @@ use std::fmt::Debug;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
+use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
-use buck2_interpreter::extra::buckconfig::LegacyBuckConfigForStarlark;
-use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::path::BxlFilePath;
 use buck2_interpreter::path::PackageFilePath;
@@ -26,6 +26,8 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use thiserror::Error;
 
+use crate::interpreter::buckconfig::LegacyBuckConfigForStarlark;
+use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
@@ -139,9 +141,9 @@ pub struct BuildContext<'a> {
     cell_info: &'a InterpreterCellInfo,
 
     /// Current cell file buckconfig.
-    pub buckconfig: LegacyBuckConfigForStarlark<'a>,
+    pub(crate) buckconfig: LegacyBuckConfigForStarlark<'a>,
     /// Buckconfig of the root cell.
-    pub root_buckconfig: LegacyBuckConfigForStarlark<'a>,
+    pub(crate) root_buckconfig: LegacyBuckConfigForStarlark<'a>,
 
     pub host_info: &'a HostInfo,
 
@@ -184,8 +186,16 @@ impl<'a> BuildContext<'a> {
         }
     }
 
-    pub fn cell_info(&self) -> &InterpreterCellInfo {
+    pub(crate) fn cell_info(&self) -> &InterpreterCellInfo {
         self.cell_info
+    }
+
+    pub fn build_file_cell(&self) -> BuildFileCell {
+        self.cell_info.name()
+    }
+
+    pub fn cell_resolver(&self) -> &CellResolver {
+        self.cell_info.cell_resolver()
     }
 
     pub fn require_package(&self) -> anyhow::Result<PackageLabel> {

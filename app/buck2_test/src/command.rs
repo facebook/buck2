@@ -17,11 +17,9 @@ use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
-use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TestRequest;
 use buck2_cli_proto::TestResponse;
@@ -46,14 +44,15 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::provider::label::ProvidersName;
 use buck2_core::tag_result;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
+use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -76,7 +75,6 @@ use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use indexmap::indexset;
-use indexmap::IndexMap;
 use indexmap::IndexSet;
 use more_futures::cancellation::CancellationContext;
 use serde::Serialize;
@@ -452,6 +450,15 @@ async fn test_targets(
 
                     let server_handle = make_server(orchestrator, BuckTestDownwardApi);
 
+                    let resolve_tests_platform_independently = ctx
+                        .parse_legacy_config_property(
+                            cell_resolver.root_cell(),
+                            "buck2",
+                            "independent_tests_platform_resolution",
+                        )
+                        .await?
+                        .unwrap_or(false);
+
                     let mut driver = TestDriver::new(TestDriverState {
                         ctx: &ctx,
                         label_filtering: &label_filtering,
@@ -460,6 +467,7 @@ async fn test_targets(
                         test_executor: &test_executor,
                         cell_resolver: &cell_resolver,
                         working_dir_cell,
+                        resolve_tests_platform_independently,
                     });
 
                     driver.push_pattern(pattern.convert_pattern().context(
@@ -569,6 +577,7 @@ pub(crate) struct TestDriverState<'a, 'e> {
     test_executor: &'a Arc<dyn TestExecutor + 'e>,
     cell_resolver: &'a CellResolver,
     working_dir_cell: CellName,
+    resolve_tests_platform_independently: bool,
 }
 
 /// Maintains the state of an ongoing test execution.
@@ -655,7 +664,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             async move {
                 let label = state
                     .ctx
-                    .get_configured_target(&label, state.global_target_platform.as_ref())
+                    .get_configured_provider_label(&label, state.global_target_platform.as_ref())
                     .await?;
 
                 let node = state.ctx.get_configured_target_node(label.target()).await?;
@@ -672,13 +681,31 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     MaybeCompatible::Compatible(node) => node,
                 };
 
+                // If this node is a forward, it'll get flattened when we do analysis and run the
+                // test later, but its `tests` attribute here will not be, and that means we'll
+                // just ignore it (since we don't traverse `tests` recursively). So ... just
+                // flatten it?
+                let node = node.forward_target().unwrap_or(&node);
+
                 // Test this, it's compatible.
                 let mut labels = vec![label];
 
-                // Look up `tests` in the the target we're testing, and if we find any tests them, add them to the
-                // test backlog.
-                for test in node.tests() {
-                    labels.push(test);
+                // Look up `tests` in the the target we're testing, and if we find any tests, add them to the test backlog.
+                if state.resolve_tests_platform_independently {
+                    for test in node.unconfigured_tests() {
+                        let label = state
+                            .ctx
+                            .get_configured_provider_label(
+                                test,
+                                state.global_target_platform.as_ref(),
+                            )
+                            .await?;
+                        labels.push(label);
+                    }
+                } else {
+                    for test in node.tests() {
+                        labels.push(test);
+                    }
                 }
 
                 anyhow::Ok(TestDriverTask::TestTargets { labels })
@@ -726,36 +753,17 @@ fn spec_to_targets(
     spec: PackageSpec<ProvidersPatternExtra>,
     res: Arc<EvaluationResult>,
 ) -> anyhow::Result<SpecTargets> {
-    let available_targets = res.targets();
+    let skippable = matches!(spec, PackageSpec::All);
 
-    match spec {
-        PackageSpec::All => {
-            let labels = available_targets
-                .keys()
-                .map(|target| {
-                    (
-                        target.to_owned(),
-                        ProvidersPatternExtra {
-                            providers: ProvidersName::Default,
-                        },
-                    )
-                })
-                .collect();
-            Ok(SpecTargets {
-                labels,
-                skippable: true,
-            })
-        }
-        PackageSpec::Targets(labels) => {
-            for (target_name, _) in &labels {
-                res.resolve_target(target_name)?;
-            }
-            Ok(SpecTargets {
-                labels,
-                skippable: false,
-            })
-        }
+    let (targets, missing_targets) = res.apply_spec(spec);
+    if let Some(missing_targets) = missing_targets {
+        return Err(missing_targets.into_error());
     }
+
+    Ok(SpecTargets {
+        labels: targets.into_keys().collect(),
+        skippable,
+    })
 }
 
 async fn test_target(
@@ -843,14 +851,12 @@ async fn build_artifacts(
     }
     let artifacts_to_build = get_artifacts_to_build(label_filtering, providers)?;
     // build the test target first
-    let _ignored = future::join_all(
+    future::try_join_all(
         artifacts_to_build
-            .into_iter()
-            .map(|input| async { ctx.ensure_artifact_group(&input).await.map(|v| (input, v)) }),
+            .iter()
+            .map(|input| ctx.ensure_artifact_group(input)),
     )
-    .await
-    .into_iter()
-    .collect::<Result<IndexMap<_, _>, _>>()?;
+    .await?;
     Ok(())
 }
 

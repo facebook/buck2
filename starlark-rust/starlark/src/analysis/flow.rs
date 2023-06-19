@@ -26,6 +26,7 @@ use crate::codemap::Spanned;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::AstTypeExpr;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
@@ -89,7 +90,7 @@ fn returns(x: &AstStmt) -> Vec<(Span, Option<&AstExpr>)> {
 fn is_fail(x: &AstExpr) -> bool {
     match &**x {
         Expr::Call(x, _) => match &***x {
-            Expr::Identifier(name, _) => name.node == "fail",
+            Expr::Identifier(name) => name.node.0 == "fail",
             _ => false,
         },
         _ => false,
@@ -128,11 +129,11 @@ fn final_return(x: &AstStmt) -> bool {
     }
 }
 
-fn require_return_expression(ret_type: &Option<Box<AstExpr>>) -> Option<Span> {
+fn require_return_expression(ret_type: &Option<Box<AstTypeExpr>>) -> Option<Span> {
     match ret_type {
         None => None,
-        Some(x) => match &***x {
-            Expr::Identifier(x, _) if x.node == "None" => None,
+        Some(x) => match &x.node.expr.node {
+            Expr::Identifier(x) if x.node.0 == "None" => None,
             _ => Some(x.span),
         },
     }

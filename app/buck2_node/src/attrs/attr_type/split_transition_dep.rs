@@ -12,10 +12,10 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_util::collections::sorted_map::SortedMap;
 use dupe::Dupe;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;

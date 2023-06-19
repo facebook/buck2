@@ -7,10 +7,6 @@
  * of this source tree.
  */
 
-use buck2_interpreter::functions::dedupe::dedupe;
-use buck2_interpreter::functions::sha256::register_sha256;
-use buck2_interpreter::globspec::GlobSpec;
-use buck2_interpreter::selector::register_select;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::LibraryExtension;
 use starlark::eval::Evaluator;
@@ -19,7 +15,11 @@ use starlark::values::list::AllocList;
 use starlark::values::Value;
 
 use crate::interpreter::build_context::BuildContext;
+use crate::interpreter::functions::dedupe::register_dedupe;
+use crate::interpreter::functions::sha256::register_sha256;
+use crate::interpreter::globspec::GlobSpec;
 use crate::interpreter::module_internals::ModuleInternals;
+use crate::interpreter::selector::register_select;
 
 #[starlark_module]
 pub fn native_module(builder: &mut GlobalsBuilder) {
@@ -137,10 +137,11 @@ pub fn configure_base_globals(
         LibraryExtension::RecordType,
         LibraryExtension::ExperimentalRegex,
         LibraryExtension::StructType,
+        LibraryExtension::Typing,
     ];
     let mut global_env = GlobalsBuilder::extended_by(&starlark_extensions)
         .with(register_base_natives)
-        .with(dedupe);
+        .with(register_dedupe);
     global_env.struct_("__internal__", |x| {
         register_base_natives(x);
         // If `native.` symbols need to be added to the global env, they should be done

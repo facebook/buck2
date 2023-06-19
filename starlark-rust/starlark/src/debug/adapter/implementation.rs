@@ -287,7 +287,7 @@ impl DapAdapter for DapAdapterImpl {
                 res.push(convert_frame(i, x.name.clone(), next));
                 next = x.location.dupe();
             }
-            res.push(convert_frame(10000, "Root".to_owned(), next));
+            res.push(convert_frame(frames.len(), "Root".to_owned(), next));
             Ok(StackTraceResponseBody {
                 total_frames: Some(res.len() as i64),
                 stack_frames: res,

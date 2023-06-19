@@ -12,8 +12,10 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dict::DictLiteral;
@@ -24,6 +26,7 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr_with_type::CoercedAttrWithType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::json::ToJsonWithContext;
@@ -60,6 +63,9 @@ pub enum AnonTargetAttr {
     Dep(Box<DepAttr<ConfiguredProvidersLabel>>),
     // Accepts any bound artifacts. Maps to `attr.source()`.
     Artifact(Artifact),
+    // Accepts unresolved promise artifacts. Maps to `attr.source()`.
+    PromiseArtifact(StarlarkPromiseArtifact),
+    Arg(ConfiguredStringWithMacros),
 }
 
 impl AttrSerializeWithContext for AnonTargetAttr {
@@ -91,6 +97,8 @@ impl AttrDisplayWithContext for AnonTargetAttr {
             AnonTargetAttr::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             AnonTargetAttr::Dep(e) => write!(f, "\"{}\"", e),
             AnonTargetAttr::Artifact(e) => write!(f, "\"{}\"", e),
+            AnonTargetAttr::Arg(e) => write!(f, "\"{}\"", e),
+            AnonTargetAttr::PromiseArtifact(e) => write!(f, "\"{}\"", e),
         }
     }
 }
@@ -114,6 +122,8 @@ impl ToJsonWithContext for AnonTargetAttr {
             AnonTargetAttr::OneOf(box l, _) => l.to_json(ctx),
             AnonTargetAttr::Dep(e) => Ok(to_value(e.to_string())?),
             AnonTargetAttr::Artifact(e) => Ok(to_value(e.to_string())?),
+            AnonTargetAttr::Arg(e) => Ok(to_value(e.to_string())?),
+            AnonTargetAttr::PromiseArtifact(e) => Ok(to_value(e.to_string())?),
         }
     }
 }
@@ -124,16 +134,12 @@ pub(crate) enum AnonTargetFromCoercedAttrError {
     DefaultAttrTypeNotSupported(String),
 }
 
-pub trait AnonTargetAttrTraversal {
-    fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()>;
-}
-
 impl AnonTargetAttr {
     /// Traverses the anon target attribute and calls the traverse for every encountered target label (in deps, sources, or other places).
     pub fn traverse<'a>(
         &'a self,
         pkg: PackageLabel,
-        traversal: &mut dyn AnonTargetAttrTraversal,
+        traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         match self {
             AnonTargetAttr::Bool(_) => Ok(()),
@@ -163,6 +169,8 @@ impl AnonTargetAttr {
             AnonTargetAttr::OneOf(l, _) => l.traverse(pkg, traversal),
             AnonTargetAttr::Dep(dep) => traversal.dep(&dep.label),
             AnonTargetAttr::Artifact(_) => Ok(()),
+            AnonTargetAttr::Arg(e) => e.string_with_macros.traverse(traversal),
+            AnonTargetAttr::PromiseArtifact(..) => Ok(()),
         }
     }
 

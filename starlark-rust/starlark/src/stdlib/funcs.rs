@@ -20,7 +20,6 @@
 
 use std::char;
 use std::cmp::Ordering;
-use std::fmt::Display;
 use std::num::NonZeroI32;
 
 use starlark_derive::starlark_module;
@@ -38,16 +37,18 @@ use crate::values::int::INT_TYPE;
 use crate::values::list::AllocList;
 use crate::values::list::ListRef;
 use crate::values::none::NoneType;
-use crate::values::num::Num;
 use crate::values::range::Range;
 use crate::values::string::STRING_TYPE;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;
+use crate::values::types::int_or_big::StarlarkInt;
+use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
 use crate::values::Heap;
 use crate::values::StringValue;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
@@ -147,6 +148,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// fail("oops", 1, False)  # fail: oops 1 False
     /// # "#, "oops 1 False");
     /// ```
+    #[starlark(return_type = "\"never\"")]
     fn fail(#[starlark(args)] args: Vec<Value>) -> anyhow::Result<NoneType> {
         let mut s = String::new();
         for x in args {
@@ -263,19 +265,9 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn chr(
-        #[starlark(require = pos, type = "[int.type, bool.type]")] i: Value,
-    ) -> anyhow::Result<char> {
-        let i = i.to_int()?;
-        let cp = match u32::try_from(i) {
-            Ok(cp) => cp,
-            Err(_) => {
-                return Err(anyhow::anyhow!(
-                    "chr() parameter value negative integer {}",
-                    i
-                ));
-            }
-        };
+    fn chr(#[starlark(require = pos)] i: i32) -> anyhow::Result<char> {
+        let cp = u32::try_from(i)
+            .map_err(|_| anyhow::anyhow!("chr() parameter value negative integer {i}"))?;
         match char::from_u32(cp) {
             Some(x) => Ok(x),
             None => Err(anyhow::anyhow!(
@@ -597,32 +589,28 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// int(2e9) == 2000000000
     /// # "#);
     /// # starlark::assert::fail(r#"
-    /// int("hello")   # error: not a valid number
-    /// # "#, "not a valid number");
+    /// int("hello")   # error: Cannot parse
+    /// # "#, "Cannot parse");
     /// # starlark::assert::fail(r#"
-    /// int(1e100)   # error: overflow
-    /// # "#, "cannot convert float to integer");
+    /// int(float("nan"))   # error: cannot be represented as exact integer
+    /// # "#, "cannot be represented as exact integer");
     /// # starlark::assert::fail(r#"
-    /// int(float("nan"))   # error: cannot convert NaN to int
-    /// # "#, "cannot convert float to integer");
-    /// # starlark::assert::fail(r#"
-    /// int(float("inf"))   # error: cannot convert infinity to int
-    /// # "#, "cannot convert float to integer");
+    /// int(float("inf"))   # error: cannot be represented as exact integer
+    /// # "#, "cannot be represented as exact integer");
     /// ```
     #[starlark(dot_type = INT_TYPE, speculative_exec_safe, return_type = "int.type")]
     fn int<'v>(
-        #[starlark(require = pos)] a: Option<Value<'v>>,
-        #[starlark(type = "[int.type, bool.type]")] base: Option<Value<'v>>,
+        #[starlark(require = pos, type = "[int.type, str.type, float.type, bool.type]")] a: Option<
+            Value<'v>,
+        >,
+        base: Option<i32>,
+        heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
-        if a.is_none() {
-            return Ok(Value::new_int(0));
-        }
-        let a = a.unwrap();
+        let Some(a) = a else {
+            return Ok(heap.alloc(0));
+        };
         if let Some(s) = a.unpack_str() {
-            let base = match base {
-                Some(base) => base.to_int()?,
-                None => 0,
-            };
+            let base = base.unwrap_or(0);
             if base == 1 || base < 0 || base > 36 {
                 return Err(anyhow::anyhow!(
                     "{} is not a valid base, int() base must be >= 2 and <= 36",
@@ -670,45 +658,31 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
                 }
                 _ => s,
             };
-            fn err(a: Value, base: u32, error: impl Display) -> anyhow::Error {
-                anyhow::anyhow!(
-                    "{} is not a valid number in base {}: {}",
-                    a.to_repr(),
-                    base,
-                    error,
-                )
+            // We already handled the sign above, so we are not trying to parse another sign.
+            if s.starts_with('-') || s.starts_with('+') {
+                return Err(anyhow::anyhow!("Cannot parse `{}` as an integer", s,));
             }
-            match (u32::from_str_radix(s, base), negate) {
-                (Ok(i), false) => i32::try_from(i)
-                    .map(Value::new_int)
-                    .map_err(|_| err(a, base, "overflow")),
-                (Ok(i), true) => {
-                    if i > 0x80000000 {
-                        Err(err(a, base, "overflow"))
-                    } else {
-                        Ok(Value::new_int(0u32.wrapping_sub(i) as i32))
-                    }
-                }
-                (Err(x), _) => Err(err(a, base, x)),
-            }
+
+            let x = StarlarkInt::from_str_radix(s, base)?;
+            let x = if negate { -x } else { x };
+            Ok(heap.alloc(x))
         } else if let Some(base) = base {
             Err(anyhow::anyhow!(
                 "int() cannot convert non-string with explicit base '{}'",
-                base.to_repr()
+                base
             ))
-        } else if let Some(num) = a.unpack_num() {
-            match num {
-                Num::Float(f) => match Num::from(f.trunc()).as_int() {
-                    Some(i) => Ok(Value::new_int(i)),
-                    None => Err(anyhow::anyhow!(
-                        "int() cannot convert float to integer: {}",
-                        a.to_repr()
-                    )),
-                },
-                Num::Int(..) | Num::BigInt(..) => Ok(a),
-            }
+        } else if StarlarkIntRef::unpack_value(a).is_some() {
+            Ok(a)
+        } else if let Some(f) = StarlarkFloat::unpack_value(a) {
+            Ok(heap.alloc(StarlarkInt::from_f64_exact(f.0.trunc())?))
+        } else if let Some(b) = a.unpack_bool() {
+            Ok(heap.alloc(b as i32))
         } else {
-            Ok(Value::new_int(a.to_int()?))
+            Err(ValueError::IncorrectParameterTypeWithExpected(
+                a.get_type().to_owned(),
+                "number".to_owned(),
+            )
+            .into())
         }
     }
 
@@ -896,7 +870,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     fn range(
         #[starlark(require = pos)] a1: i32,
         #[starlark(require = pos)] a2: Option<i32>,
-        #[starlark(default = 1)] step: i32,
+        #[starlark(require = pos, default = 1)] step: i32,
     ) -> anyhow::Result<Range> {
         let start = match a2 {
             None => 0,
@@ -1075,7 +1049,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// tuple([1,2,3]) == (1, 2, 3)
     /// # "#);
     /// ```
-    #[starlark(dot_type = Tuple::TYPE, speculative_exec_safe)]
+    #[starlark(dot_type = Tuple::TYPE, speculative_exec_safe, return_type = "tuple.type")]
     fn tuple<'v>(
         #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
         heap: &'v Heap,
@@ -1209,8 +1183,12 @@ hash(foo)
         assert::eq("-2147483647 - 1", "int('-2147483648')");
         assert::eq("0", "int('0')");
         assert::eq("0", "int('-0')");
-        assert::fail("int('2147483648')", "overflow");
-        assert::fail("int('-2147483649')", "overflow");
+        assert::eq(
+            "999999999999999945322333868247445125709646570021247924665841614848",
+            "int(1e66)",
+        );
+        assert::eq("2147483648", "int('2147483648')");
+        assert::eq("-2147483649", "int('-2147483649')");
     }
 
     #[test]

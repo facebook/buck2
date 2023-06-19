@@ -45,6 +45,7 @@ use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
 use crate::values::FrozenHeap;
+use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
@@ -137,6 +138,7 @@ pub struct NativeCallableRawDocs {
     pub signature: ParametersSpec<FrozenValue>,
     pub parameter_types: HashMap<usize, DocType>,
     pub return_type: Option<DocType>,
+    pub dot_type: Option<&'static str>,
 }
 
 #[doc(hidden)]
@@ -148,6 +150,7 @@ impl NativeCallableRawDocs {
                 .documentation(self.parameter_types.clone(), HashMap::new()),
             self.return_type.clone(),
             self.rust_docstring,
+            self.dot_type.map(ToOwned::to_owned),
         )
     }
 }
@@ -163,7 +166,8 @@ pub struct NativeFunction {
     #[allocative(skip)]
     pub(crate) function: Box<dyn NativeFunc>,
     pub(crate) name: String,
-    pub(crate) typ: Option<FrozenValue>,
+    /// `.type` attribute.
+    pub(crate) typ: Option<FrozenStringValue>,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
@@ -213,11 +217,6 @@ impl NativeFunction {
             },
             name,
         )
-    }
-
-    /// A `.type` value, if one exists. Specified using `#[starlark(type = "the_type")]`.
-    pub fn set_type(&mut self, typ: FrozenValue) {
-        self.typ = Some(typ)
     }
 }
 
@@ -385,7 +384,7 @@ impl<'v, V: ValueLike<'v>> BoundMethodGen<V> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for BoundMethodGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!(FUNCTION_TYPE);
 
@@ -402,5 +401,9 @@ where
             eval,
             Private,
         )
+    }
+
+    fn documentation(&self) -> Option<DocItem> {
+        self.method.documentation()
     }
 }

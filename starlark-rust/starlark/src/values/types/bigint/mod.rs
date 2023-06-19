@@ -21,26 +21,28 @@ mod convert;
 
 use std::cmp::Ordering;
 use std::hash::Hash;
-use std::ops::Not;
 
 use allocative::Allocative;
 use num_bigint::BigInt;
 use num_bigint::Sign;
 use num_traits::cast::ToPrimitive;
-use num_traits::Signed;
-use num_traits::Zero;
 use serde::Serialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
 use crate::starlark_type;
-use crate::values::float::StarlarkFloat;
-use crate::values::num::Num;
+use crate::values::num::NumRef;
+use crate::values::types::inline_int::InlineInt;
+use crate::values::types::int_or_big::StarlarkInt;
+use crate::values::types::int_or_big::StarlarkIntRef;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 
@@ -55,6 +57,7 @@ use crate::values::ValueError;
     PartialOrd,
     Eq,
     PartialEq,
+    Hash,
     Allocative
 )]
 #[display(fmt = "{}", value)]
@@ -68,19 +71,12 @@ pub struct StarlarkBigInt {
 }
 
 impl StarlarkBigInt {
-    fn unchecked_new(value: BigInt) -> Self {
+    pub(crate) fn unchecked_new(value: BigInt) -> Self {
         debug_assert!(
-            value.to_i32().is_none(),
-            "BigInt must be outside of i32 range"
+            InlineInt::try_from(&value).is_err(),
+            "BigInt must be outside of `InlineInt` range"
         );
         Self { value }
-    }
-
-    pub(crate) fn try_from_bigint(value: BigInt) -> Result<StarlarkBigInt, i32> {
-        match value.to_i32() {
-            Some(i) => Err(i),
-            None => Ok(StarlarkBigInt::unchecked_new(value)),
-        }
     }
 
     pub(crate) fn get(&self) -> &BigInt {
@@ -92,21 +88,20 @@ impl StarlarkBigInt {
         self.value.to_f64().unwrap()
     }
 
-    pub(crate) fn alloc_bigint<'v>(value: BigInt, heap: &'v Heap) -> Value<'v> {
-        match Self::try_from_bigint(value) {
-            Ok(bigint) => heap.alloc_simple(bigint),
-            Err(i) => Value::new_int(i),
+    pub(crate) fn to_i32(&self) -> Option<i32> {
+        // Avoid calling `to_i32` if the value is known to be out of range.
+        if InlineInt::smaller_than_i32() {
+            let v = self.value.to_i32();
+            if let Some(v) = v {
+                debug_assert!(InlineInt::try_from(v).is_err());
+            }
+            v
+        } else {
+            None
         }
     }
 
-    pub(crate) fn alloc_bigint_frozen(value: BigInt, heap: &FrozenHeap) -> FrozenValue {
-        match Self::try_from_bigint(value) {
-            Ok(bigint) => heap.alloc_simple(bigint),
-            Err(i) => FrozenValue::new_int(i),
-        }
-    }
-
-    pub(crate) fn cmp_small_big(a: i32, b: &StarlarkBigInt) -> Ordering {
+    pub(crate) fn cmp_small_big(a: InlineInt, b: &StarlarkBigInt) -> Ordering {
         let a_sign = a.signum();
         let b_sign = match b.value.sign() {
             Sign::Plus => 2,
@@ -117,53 +112,8 @@ impl StarlarkBigInt {
         a_sign.cmp(&b_sign)
     }
 
-    pub(crate) fn cmp_big_small(a: &StarlarkBigInt, b: i32) -> Ordering {
+    pub(crate) fn cmp_big_small(a: &StarlarkBigInt, b: InlineInt) -> Ordering {
         Self::cmp_small_big(b, a).reverse()
-    }
-
-    fn signum(b: &BigInt) -> i32 {
-        match b.sign() {
-            Sign::Plus => 1,
-            Sign::Minus => -1,
-            Sign::NoSign => 0,
-        }
-    }
-
-    pub(crate) fn floor_div_big<'v>(
-        a: &BigInt,
-        b: &BigInt,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        if b.is_zero() {
-            return Err(ValueError::DivisionByZero.into());
-        }
-        let sig = Self::signum(b) * Self::signum(a);
-        // TODO(nga): optimize.
-        let offset = if sig < 0 && (a % b).is_zero().not() {
-            1
-        } else {
-            0
-        };
-        Ok(StarlarkBigInt::alloc_bigint((a / b) - offset, heap))
-    }
-
-    pub(crate) fn percent_big<'v>(
-        a: &BigInt,
-        b: &BigInt,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        if b.is_zero() {
-            return Err(ValueError::DivisionByZero.into());
-        }
-        let r = a % b;
-        if r.is_zero() {
-            Ok(Value::new_int(0))
-        } else {
-            Ok(StarlarkBigInt::alloc_bigint(
-                if b.sign() != r.sign() { r + b } else { r },
-                heap,
-            ))
-        }
     }
 
     pub(crate) fn unpack_integer<'v, I: TryFrom<&'v BigInt>>(&'v self) -> Option<I> {
@@ -186,6 +136,18 @@ impl Serialize for StarlarkBigInt {
     }
 }
 
+impl<'v> AllocValue<'v> for StarlarkBigInt {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_simple(self)
+    }
+}
+
+impl AllocFrozenValue for StarlarkBigInt {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        heap.alloc_simple(self)
+    }
+}
+
 impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     starlark_type!("int");
 
@@ -195,209 +157,114 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn minus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(StarlarkBigInt::alloc_bigint(-&self.value, heap))
+        Ok(heap.alloc(StarlarkInt::from(-&self.value)))
     }
 
     fn plus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         // This unnecessarily allocates, could return `self`.
         // But practically people rarely write `+NNN` except in constants,
         // and in constants we fold `+NNN` into `NNN`.
-        Ok(StarlarkBigInt::alloc_bigint(self.value.clone(), heap))
+        Ok(heap.alloc(StarlarkInt::from(self.value.clone())))
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        match other.unpack_num() {
-            None => Ok(false),
-            Some(Num::Int(_)) => {
-                // `StarlarkBigInt` is out of range of `i32`.
-                Ok(false)
-            }
-            Some(Num::BigInt(other)) => Ok(self == other),
-            Some(Num::Float(f)) => Ok(self.to_f64() == f),
-        }
+        Ok(Some(NumRef::Int(StarlarkIntRef::Big(self))) == other.unpack_num())
     }
 
     fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "compare", other),
-            Some(Num::BigInt(b)) => Ok(self.value.cmp(&b.value)),
-            Some(Num::Int(i)) => Ok(StarlarkBigInt::cmp_big_small(self, i)),
-            Some(Num::Float(f)) => Ok(StarlarkFloat::compare_impl(self.to_f64(), f)),
+            Some(other) => Ok(NumRef::Int(StarlarkIntRef::Big(self)).cmp(&other)),
         }
     }
 
     fn add(&self, rhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
-        match rhs.unpack_num()? {
-            Num::Int(i) => Some(Ok(StarlarkBigInt::alloc_bigint(&self.value + i, heap))),
-            Num::BigInt(b) => Some(Ok(StarlarkBigInt::alloc_bigint(
-                &self.value + &b.value,
-                heap,
-            ))),
-            Num::Float(f) => Some(Ok(heap.alloc_float(StarlarkFloat(self.to_f64() + f)))),
-        }
+        Some(Ok(heap.alloc(
+            NumRef::Int(StarlarkIntRef::Big(self)) + rhs.unpack_num()?,
+        )))
     }
 
     fn sub(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_num() {
-            Some(rhs) => rhs,
-            None => return ValueError::unsupported_with(self, "-", other),
-        };
-        match rhs {
-            Num::Int(i) => Ok(StarlarkBigInt::alloc_bigint(&self.value - i, heap)),
-            Num::BigInt(b) => Ok(StarlarkBigInt::alloc_bigint(&self.value - &b.value, heap)),
-            Num::Float(f) => Ok(heap.alloc_float(StarlarkFloat(self.to_f64() - f))),
+        match other.unpack_num() {
+            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)) - other)),
+            None => ValueError::unsupported_with(self, "-", other),
         }
     }
 
     fn mul(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_num() {
-            Some(rhs) => rhs,
-            None => return ValueError::unsupported_with(self, "*", other),
-        };
-        match rhs {
-            Num::Int(i) => Ok(StarlarkBigInt::alloc_bigint(&self.value * i, heap)),
-            Num::BigInt(b) => Ok(StarlarkBigInt::alloc_bigint(&self.value * &b.value, heap)),
-            Num::Float(f) => Ok(heap.alloc_float(StarlarkFloat(self.to_f64() * f))),
+        match other.unpack_num() {
+            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)) * other)),
+            None => ValueError::unsupported_with(self, "*", other),
         }
     }
 
     fn div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        if other.unpack_num().is_some() {
-            StarlarkFloat(self.to_f64()).div(other, heap)
-        } else {
-            ValueError::unsupported_with(self, "/", other)
+        match other.unpack_num() {
+            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).div(other)?)),
+            None => ValueError::unsupported_with(self, "/", other),
         }
     }
 
     fn floor_div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_num() {
-            Some(rhs) => rhs,
-            None => return ValueError::unsupported_with(self, "//", other),
-        };
-        let b;
-        let b = match rhs {
-            Num::Float(f) => {
-                return Ok(
-                    heap.alloc_float(StarlarkFloat(StarlarkFloat::floor_div_impl(
-                        self.to_f64(),
-                        f,
-                    )?)),
-                );
-            }
-            Num::Int(i) => {
-                if i == 0 {
-                    return Err(ValueError::DivisionByZero.into());
-                }
-                // TODO(nga): do not allocate
-                b = BigInt::from(i);
-                &b
-            }
-            Num::BigInt(b) => &b.value,
-        };
-        StarlarkBigInt::floor_div_big(&self.value, b, heap)
+        match other.unpack_num() {
+            Some(rhs) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).floor_div(rhs)?)),
+            None => ValueError::unsupported_with(self, "//", other),
+        }
     }
 
     fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_num() {
-            Some(rhs) => rhs,
-            None => return ValueError::unsupported_with(self, "%", other),
-        };
-        let b;
-        let b = match rhs {
-            Num::Float(f) => {
-                return Ok(heap.alloc_float(StarlarkFloat(StarlarkFloat::percent_impl(
-                    self.to_f64(),
-                    f,
-                )?)));
-            }
-            Num::Int(i) => {
-                // TODO(nga): do not allocate.
-                b = BigInt::from(i);
-                &b
-            }
-            Num::BigInt(b) => &b.value,
-        };
-        StarlarkBigInt::percent_big(&self.value, b, heap)
-    }
-
-    fn to_int(&self) -> anyhow::Result<i32> {
-        Err(ValueError::IntegerOverflow.into())
+        match other.unpack_num() {
+            Some(rhs) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).percent(rhs)?)),
+            None => ValueError::unsupported_with(self, "%", other),
+        }
     }
 
     fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_int_or_big() {
+        let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
             None => return ValueError::unsupported_with(self, "&", other),
         };
-        Ok(StarlarkBigInt::alloc_bigint(&self.value & &*rhs, heap))
+        Ok(heap.alloc(StarlarkIntRef::Big(self) & rhs))
     }
 
     fn bit_xor(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_int_or_big() {
-            None => return ValueError::unsupported_with(self, "^", other),
+        let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
+            None => return ValueError::unsupported_with(self, "^", other),
         };
-        Ok(StarlarkBigInt::alloc_bigint(&self.value ^ &*rhs, heap))
+        Ok(heap.alloc(StarlarkIntRef::Big(self) ^ rhs))
     }
 
     fn bit_or(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_int_or_big() {
-            None => return ValueError::unsupported_with(self, "|", other),
+        let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
+            None => return ValueError::unsupported_with(self, "|", other),
         };
-        Ok(StarlarkBigInt::alloc_bigint(&self.value | &*rhs, heap))
+        Ok(heap.alloc(StarlarkIntRef::Big(self) | rhs))
     }
 
     fn bit_not(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(StarlarkBigInt::alloc_bigint(!&self.value, heap))
+        Ok(heap.alloc(!StarlarkIntRef::Big(self)))
     }
 
     fn left_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            None | Some(Num::Float(_)) => ValueError::unsupported_with(self, "<<", other),
-            Some(Num::Int(i)) => {
-                if i < 0 {
-                    Err(ValueError::NegativeShiftCount.into())
-                } else {
-                    Ok(StarlarkBigInt::alloc_bigint(&self.value << i, heap))
-                }
-            }
-            Some(Num::BigInt(b)) => {
-                if b.value.is_negative() {
-                    Err(ValueError::NegativeShiftCount.into())
-                } else {
-                    Err(ValueError::IntegerOverflow.into())
-                }
-            }
+        match StarlarkIntRef::unpack_value(other) {
+            None => ValueError::unsupported_with(self, "<<", other),
+            Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).left_shift(other)?)),
         }
     }
 
     fn right_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            None | Some(Num::Float(_)) => ValueError::unsupported_with(self, ">>", other),
-            Some(Num::Int(i)) => {
-                if i < 0 {
-                    Err(ValueError::NegativeShiftCount.into())
-                } else {
-                    Ok(StarlarkBigInt::alloc_bigint(&self.value >> i, heap))
-                }
-            }
-            Some(Num::BigInt(b)) => {
-                if b.value.is_negative() {
-                    Err(ValueError::NegativeShiftCount.into())
-                } else {
-                    if self.value.is_negative() {
-                        Ok(Value::new_int(-1))
-                    } else {
-                        Ok(Value::new_int(0))
-                    }
-                }
-            }
+        match StarlarkIntRef::unpack_value(other) {
+            None => ValueError::unsupported_with(self, ">>", other),
+            Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).right_shift(other)?)),
         }
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        Num::BigInt(self).get_hash_64().hash(hasher);
+        NumRef::Int(StarlarkIntRef::Big(self))
+            .get_hash_64()
+            .hash(hasher);
         Ok(())
     }
 }
@@ -687,7 +554,7 @@ mod tests {
         );
         assert::fail(
             "0x10000000000000000000000000000000 << -0x10000000000000000000000000000000",
-            "Negative shift count",
+            "Negative left shift",
         );
     }
 
@@ -699,7 +566,7 @@ mod tests {
         );
         assert::fail(
             "0x10000000000000000000000000000000 << -1",
-            "Negative shift count",
+            "Negative left shift",
         );
         assert::fail(
             "1 << 0x10000000000000000000000000000000",
@@ -707,7 +574,7 @@ mod tests {
         );
         assert::fail(
             "1 << -0x10000000000000000000000000000000",
-            "Negative shift count",
+            "Negative left shift",
         );
         assert::eq("0", "0 << 0x10000000000000000000000000000000");
         assert::eq("1267650600228229401496703205376", "1 << 100");
@@ -732,7 +599,7 @@ mod tests {
         );
         assert::fail(
             "0x20000000000000000000000000000000 >> -0x20000000000000000000000000000000",
-            "Negative shift count",
+            "Negative right shift",
         );
     }
 
@@ -744,13 +611,13 @@ mod tests {
         );
         assert::fail(
             "0x20000000000000000000000000000000 >> -1",
-            "Negative shift count",
+            "Negative right shift",
         );
         assert::eq("0", "1 >> 0x20000000000000000000000000000000");
         assert::eq("-1", "-1 >> 0x20000000000000000000000000000000");
         assert::fail(
             "1 >> -0x10000000000000000000000000000000",
-            "Negative shift count",
+            "Negative right shift",
         );
     }
 

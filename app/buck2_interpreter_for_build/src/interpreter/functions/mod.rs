@@ -7,6 +7,11 @@
  * of this source tree.
  */
 
+pub(crate) mod dedupe;
 pub mod host_info;
-pub(crate) mod more;
+pub mod load_symbols;
 pub mod read_config;
+pub(crate) mod regex;
+pub mod sha256;
+pub mod soft_error;
+pub mod warning;

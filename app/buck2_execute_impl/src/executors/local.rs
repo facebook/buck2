@@ -9,8 +9,8 @@
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
+use std::ffi::OsString;
 use std::ops::ControlFlow;
-use std::path::Path;
 use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,6 +26,7 @@ use buck2_common::local_resource_state::LocalResourceHolder;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::tag_error;
 use buck2_core::tag_result;
@@ -60,6 +61,7 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::gather_output;
+use buck2_forkserver::run::maybe_absolutize_exe;
 use buck2_forkserver::run::timeout_into_cancellation;
 use buck2_forkserver::run::GatherOutputStatus;
 use buck2_util::process::background_command;
@@ -77,6 +79,7 @@ use more_futures::cancellation::CancellationContext;
 use thiserror::Error;
 use tracing::info;
 
+use crate::executors::worker::WorkerCommandHandle;
 use crate::executors::worker::WorkerPool;
 
 #[derive(Debug, Error)]
@@ -148,8 +151,6 @@ impl LocalExecutor {
                 None => Cow::Borrowed(&self.root),
             };
 
-            let working_directory: &Path = working_directory.as_ref();
-
             match &self.forkserver {
                 Some(forkserver) => {
                     #[cfg(unix)]
@@ -159,7 +160,7 @@ impl LocalExecutor {
                             exe,
                             args,
                             env,
-                            working_directory,
+                            &working_directory,
                             timeout,
                             env_inheritance,
                             liveliness_observer,
@@ -176,12 +177,13 @@ impl LocalExecutor {
                 }
 
                 None => {
-                    let mut cmd = background_command(exe);
-                    cmd.current_dir(working_directory);
+                    let exe = maybe_absolutize_exe(exe, &working_directory)?;
+                    let mut cmd = background_command(exe.as_ref());
+                    cmd.current_dir(working_directory.as_path());
                     cmd.args(args);
                     apply_local_execution_environment(
                         &mut cmd,
-                        working_directory,
+                        &working_directory,
                         env,
                         env_inheritance,
                     );
@@ -358,47 +360,64 @@ impl LocalExecutor {
                     StrOrOsStr::from(build_id),
                 )))
         };
-
         let liveliness_observer = manager.liveliness_observer.dupe().and(cancellation);
+
+        let (worker, manager) = self.initialize_worker(request, manager).await?;
+
+        let execution_kind = match worker {
+            None => CommandExecutionKind::Local {
+                digest: action_digest.dupe(),
+                command: args.to_vec(),
+                env: request.env().clone(),
+            },
+            Some(_) => CommandExecutionKind::LocalWorker {
+                digest: action_digest.dupe(),
+                command: request.args().to_vec(),
+                env: request.env().clone(),
+                fallback_exe: request.exe().to_vec(),
+            },
+        };
 
         let (mut timing, res) = executor_stage_async(
             {
                 let env = iter_env()
-                    .map(|(k, v)| buck2_data::local_command::EnvironmentEntry {
+                    .map(|(k, v)| buck2_data::EnvironmentEntry {
                         key: k.to_owned(),
                         value: v.into_string_lossy(),
                     })
                     .collect();
-                let stage = buck2_data::LocalExecute {
-                    command: Some(buck2_data::LocalCommand {
-                        action_digest: action_digest.to_string(),
-                        argv: args.to_vec(),
-                        env,
-                    }),
+                let stage = match worker {
+                    None => buck2_data::LocalExecute {
+                        command: Some(buck2_data::LocalCommand {
+                            action_digest: action_digest.to_string(),
+                            argv: args.to_vec(),
+                            env,
+                        }),
+                    }
+                    .into(),
+                    Some(_) => buck2_data::WorkerExecute {
+                        command: Some(buck2_data::WorkerCommand {
+                            action_digest: action_digest.to_string(),
+                            argv: request.args().to_vec(),
+                            env,
+                            fallback_exe: request.exe().to_vec(),
+                        }),
+                    }
+                    .into(),
                 };
-                buck2_data::LocalStage {
-                    stage: Some(stage.into()),
-                }
+                buck2_data::LocalStage { stage: Some(stage) }
             },
             async move {
                 let execution_start = Instant::now();
                 let start_time = SystemTime::now();
 
-                let worker = request.worker();
-                #[cfg(unix)]
-                let worker_pool = self.worker_pool.dupe();
-                #[cfg(not(unix))]
-                let worker_pool: Option<Arc<WorkerPool>> = None;
-
                 let env = iter_env().map(|(k, v)| (k, v.into_os_str()));
-                #[allow(unused)]
-                let r = if let (Some(worker), Some(worker_pool)) = (worker, worker_pool) {
-                    #[cfg(not(unix))]
-                    unreachable!("Workers should be disabled off unix");
-                    // TODO(ctolliday) spawn workers the same way test resources are acquired
-                    #[cfg(unix)]
-                    unix::exec_via_worker(worker_pool, worker, request.args(), env, &self.root)
-                        .await
+                let r = if let Some(worker) = worker {
+                    let env: Vec<(OsString, OsString)> = env
+                        .into_iter()
+                        .map(|(k, v)| (OsString::from(k), v.to_owned()))
+                        .collect();
+                    Ok(worker.exec_cmd(request.args(), env).await)
                 } else {
                     self.exec(
                         &args[0],
@@ -427,12 +446,6 @@ impl LocalExecutor {
             },
         )
         .await;
-
-        let execution_kind = CommandExecutionKind::Local {
-            digest: action_digest.dupe(),
-            command: args.to_vec(),
-            env: request.env().clone(),
-        };
 
         let (status, stdout, stderr) = match res {
             Ok(res) => res,
@@ -555,6 +568,76 @@ impl LocalExecutor {
         self.materializer.declare_existing(to_declare).await?;
 
         Ok(mapped_outputs)
+    }
+
+    async fn initialize_worker(
+        &self,
+        request: &CommandExecutionRequest,
+        manager: CommandExecutionManagerWithClaim,
+    ) -> ControlFlow<
+        CommandExecutionResult,
+        (
+            Option<Arc<WorkerCommandHandle>>,
+            CommandExecutionManagerWithClaim,
+        ),
+    > {
+        if let (Some(worker_spec), Some(worker_pool), Some(forkserver), true) = (
+            request.worker(),
+            self.worker_pool.dupe(),
+            self.forkserver.dupe(),
+            cfg!(unix),
+        ) {
+            match executor_stage_async(
+                {
+                    let stage = buck2_data::InitializeWorker {
+                        command: Some(buck2_data::WorkerInitCommand {
+                            argv: worker_spec.exe.clone(),
+                            env: request
+                                .env()
+                                .iter()
+                                .map(|(k, v)| buck2_data::EnvironmentEntry {
+                                    key: k.to_owned(),
+                                    value: v.to_owned(),
+                                })
+                                .collect(),
+                        }),
+                    };
+                    buck2_data::LocalStage {
+                        stage: Some(stage.into()),
+                    }
+                },
+                async move {
+                    // TODO(ctolliday - T155351378) set worker specific env via WorkerInfo, not from the action
+                    let env = request
+                        .env()
+                        .iter()
+                        .map(|(k, v)| (OsString::from(k), OsString::from(v)));
+                    worker_pool
+                        .get_or_create_worker(worker_spec, env, &self.root, forkserver.clone())
+                        .await
+                },
+            )
+            .await
+            {
+                Ok(worker) => ControlFlow::Continue((Some(worker), manager)),
+                Err(e) => {
+                    let res = {
+                        let manager = check_inputs(
+                            manager,
+                            &self.artifact_fs,
+                            self.blocking_executor.as_ref(),
+                            request,
+                        )
+                        .await?;
+
+                        e.to_command_execution_result(request, manager)
+                    };
+                    ControlFlow::Break(res)
+                }
+            }
+        } else {
+            ControlFlow::Continue((None, manager))
+        }
     }
 }
 
@@ -834,7 +917,7 @@ pub async fn create_output_dirs(
 
 pub fn apply_local_execution_environment(
     builder: &mut impl EnvironmentBuilder,
-    working_directory: &Path,
+    working_directory: &AbsPath,
     env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
     env_inheritance: Option<&EnvironmentInheritance>,
 ) {
@@ -854,7 +937,7 @@ pub fn apply_local_execution_environment(
     for (key, val) in env {
         builder.set(key, val);
     }
-    builder.set("PWD", working_directory);
+    builder.set("PWD", working_directory.as_path());
 }
 
 pub trait EnvironmentBuilder {
@@ -893,11 +976,9 @@ impl EnvironmentBuilder for Command {
 
 #[cfg(unix)]
 mod unix {
-    use std::ffi::OsString;
     use std::os::unix::ffi::OsStrExt;
 
     use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
-    use buck2_execute::execute::request::WorkerSpec;
 
     use super::*;
 
@@ -906,7 +987,7 @@ mod unix {
         exe: impl AsRef<OsStr>,
         args: impl IntoIterator<Item = impl AsRef<OsStr>>,
         env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
-        working_directory: &Path,
+        working_directory: &AbsPath,
         command_timeout: Option<Duration>,
         env_inheritance: Option<&EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
@@ -921,11 +1002,12 @@ mod unix {
                 .map(|s| s.as_ref().as_bytes().to_vec())
                 .collect(),
             cwd: Some(buck2_forkserver_proto::WorkingDirectory {
-                path: working_directory.as_os_str().as_bytes().to_vec(),
+                path: working_directory.as_path().as_os_str().as_bytes().to_vec(),
             }),
             env: vec![],
             timeout: command_timeout.try_map(|d| d.try_into())?,
             enable_miniperf,
+            std_redirects: None,
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver
@@ -975,23 +1057,6 @@ mod unix {
             })
         }
     }
-
-    pub async fn exec_via_worker(
-        worker_pool: Arc<WorkerPool>,
-        worker: &WorkerSpec,
-        args: &[String],
-        env: impl IntoIterator<Item = (impl AsRef<OsStr> + Clone, impl AsRef<OsStr> + Clone)>,
-        root: &AbsNormPathBuf,
-    ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
-        let env: Vec<(OsString, OsString)> = env
-            .into_iter()
-            .map(|(k, v)| (k.as_ref().to_owned(), v.as_ref().to_owned()))
-            .collect();
-        let worker = worker_pool
-            .get_or_create_worker(worker, env.clone(), root)
-            .await?;
-        Ok(worker.exec_cmd(args, env).await)
-    }
 }
 
 #[cfg(test)]
@@ -1002,7 +1067,6 @@ mod tests {
     use std::time::Instant;
 
     use buck2_common::liveliness_observer::NoopLivelinessObserver;
-    use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellResolver;
@@ -1100,10 +1164,10 @@ mod tests {
 
     fn artifact_fs(project_fs: ProjectRoot) -> ArtifactFs {
         ArtifactFs::new(
-            BuckPathResolver::new(CellResolver::testing_with_name_and_path(
+            CellResolver::testing_with_name_and_path(
                 CellName::testing_new("cell"),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-            )),
+            ),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out/v2".into())),
             project_fs,
         )

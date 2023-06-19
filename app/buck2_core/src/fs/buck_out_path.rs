@@ -252,7 +252,6 @@ mod tests {
 
     use crate::base_deferred_key::BaseDeferredKey;
     use crate::buck_path::path::BuckPath;
-    use crate::buck_path::resolver::BuckPathResolver;
     use crate::category::Category;
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
@@ -275,9 +274,8 @@ mod tests {
             CellName::testing_new("foo"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar-cell".into())),
         );
-        let path_resolver = BuckPathResolver::new(cell_resolver);
 
-        let resolved = path_resolver.resolve(
+        let resolved = cell_resolver.resolve_buck_path(
             BuckPath::testing_new(
                 PackageLabel::new(
                     CellName::testing_new("foo"),
@@ -294,8 +292,8 @@ mod tests {
         );
 
         assert_eq!(
-            path_resolver
-                .resolve(
+            cell_resolver
+                .resolve_buck_path(
                     BuckPath::testing_new(
                         PackageLabel::new(
                             CellName::testing_new("none_existent"),

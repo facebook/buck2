@@ -12,12 +12,12 @@ use std::sync::atomic::Ordering;
 use std::task::Poll;
 
 use allocative::Allocative;
+use assert_matches::assert_matches;
 use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::poll;
 use futures::FutureExt;
-use more_futures::cancellation::future::TerminationStatus;
 use more_futures::cancellation::CancellationContext;
 use more_futures::spawner::TokioSpawner;
 use tokio::sync::Barrier;
@@ -65,7 +65,7 @@ async fn simple_task() -> anyhow::Result<()> {
     let lock_dupe = lock.dupe();
     let locked = lock_dupe.lock().await;
 
-    let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    let task = spawn_dice_task(DiceKey { index: 10 }, &TokioSpawner, &(), |handle| {
         async move {
             // wait for the lock too
             let _lock = lock.lock().await;
@@ -122,7 +122,7 @@ async fn simple_task() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
-    let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    let task = spawn_dice_task(DiceKey { index: 500 }, &TokioSpawner, &(), |handle| {
         async move {
             let _handle = handle;
             // never report ready
@@ -154,7 +154,7 @@ async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn multiple_promises_all_completes() -> anyhow::Result<()> {
-    let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    let task = spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |handle| {
         async move {
             // wait for the lock too
             handle.finished(DiceComputedValue::new(
@@ -229,7 +229,7 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
 async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
     let task = unsafe {
         // SAFETY: completed below later
-        sync_dice_task()
+        sync_dice_task(DiceKey { index: 100 })
     };
 
     let mut promise_before = task
@@ -287,7 +287,7 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
 async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
     let task = unsafe {
         // SAFETY: completed below later
-        sync_dice_task()
+        sync_dice_task(DiceKey { index: 88 })
     };
 
     let mut promise1 = task
@@ -380,7 +380,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     let g = lock.lock().await;
 
-    let task = spawn_dice_task(&TokioSpawner, &(), {
+    let task = spawn_dice_task(DiceKey { index: 88 }, &TokioSpawner, &(), {
         let lock = lock.dupe();
         |handle| {
             async move {
@@ -454,7 +454,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
     let sem = Arc::new(Semaphore::new(0));
 
-    let task = spawn_dice_task(&TokioSpawner, &(), {
+    let task = spawn_dice_task(DiceKey { index: 44 }, &TokioSpawner, &(), {
         let sem = sem.dupe();
         |handle| {
             async move {
@@ -530,7 +530,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 async fn dropping_all_waiters_cancels_task() {
     let barrier = Arc::new(Barrier::new(2));
 
-    let task = spawn_dice_task(&TokioSpawner, &(), {
+    let task = spawn_dice_task(DiceKey { index: 600 }, &TokioSpawner, &(), {
         let barrier = barrier.dupe();
         |handle| {
             async move {
@@ -545,9 +545,13 @@ async fn dropping_all_waiters_cancels_task() {
 
     barrier.wait().await;
 
+    let await_termination = task.await_termination();
+    futures::pin_mut!(await_termination);
+
     assert!(!task.internal.state.is_ready(Ordering::SeqCst));
     assert!(!task.internal.state.is_terminated(Ordering::SeqCst));
     assert!(task.is_pending());
+    assert_matches!(futures::poll!(&mut await_termination), Poll::Pending);
 
     let promise1 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
@@ -555,6 +559,7 @@ async fn dropping_all_waiters_cancels_task() {
         .unwrap();
 
     assert!(task.is_pending());
+    assert_matches!(futures::poll!(&mut await_termination), Poll::Pending);
 
     let promise2 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
@@ -562,10 +567,12 @@ async fn dropping_all_waiters_cancels_task() {
         .unwrap();
 
     assert!(task.is_pending());
+    assert_matches!(futures::poll!(&mut await_termination), Poll::Pending);
 
     drop(promise1);
 
     assert!(task.is_pending());
+    assert_matches!(futures::poll!(&mut await_termination), Poll::Pending);
 
     let promise3 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
@@ -579,10 +586,10 @@ async fn dropping_all_waiters_cancels_task() {
         MaybeCancelled::Ok(_) => {
             panic!("should be cancelled")
         }
-        MaybeCancelled::Cancelled(termination) => {
-            assert_eq!(termination.unwrap().await, TerminationStatus::Cancelled);
-        }
+        MaybeCancelled::Cancelled => {}
     }
+
+    task.await_termination().await;
 
     assert!(!task.internal.state.is_ready(Ordering::SeqCst));
     assert!(task.internal.state.is_terminated(Ordering::SeqCst));
@@ -591,21 +598,17 @@ async fn dropping_all_waiters_cancels_task() {
 
 #[tokio::test]
 async fn task_that_already_cancelled_returns_cancelled() {
-    let task = spawn_dice_task(&TokioSpawner, &(), {
+    let task = spawn_dice_task(DiceKey { index: 777 }, &TokioSpawner, &(), {
         |_handle| async move { futures::future::pending().await }.boxed()
     });
 
-    assert_eq!(
-        task.cancel().expect("should be cancellable").await,
-        TerminationStatus::Cancelled
-    );
+    task.cancel();
+    task.await_termination().await;
 
     match task.depended_on_by(ParentKey::None) {
         MaybeCancelled::Ok(_) => {
             panic!("should be cancelled")
         }
-        MaybeCancelled::Cancelled(termination) => {
-            assert!(termination.is_none());
-        }
+        MaybeCancelled::Cancelled => {}
     }
 }

@@ -20,6 +20,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkOrdering",
+    "LinkableType",
     "LinkedObject",
     "unpack_external_debug_info",
     "unpack_link_args",
@@ -27,6 +28,7 @@ load(
 load("@prelude//linking:lto.bzl", "darwin_lto_linker_flags")
 load("@prelude//linking:strip.bzl", "strip_shared_library")
 load("@prelude//utils:utils.bzl", "map_val", "value_or")
+load(":bitcode.bzl", "make_bitcode_bundle")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_link_utility.bzl",
@@ -54,6 +56,13 @@ CxxLinkerMapData = record(
     binary = field("artifact"),
 )
 
+CxxLinkResult = record(
+    # The resulting artifact from the link
+    linked_object = LinkedObject.type,
+    linker_map_data = [CxxLinkerMapData.type, None],
+    link_execution_preference_info = LinkExecutionPreferenceInfo.type,
+)
+
 # Actually perform a link into the supplied output.
 def cxx_link(
         ctx: "context",
@@ -74,7 +83,7 @@ def cxx_link(
         # A function/lambda which will generate the strip args using the ctx.
         strip_args_factory = None,
         allow_bolt_optimization_and_dwp_generation: bool.type = True,
-        import_library: ["artifact", None] = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None], LinkExecutionPreferenceInfo.type):
+        import_library: ["artifact", None] = None) -> CxxLinkResult.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
@@ -104,7 +113,11 @@ def cxx_link(
             should_generate_dwp,
             is_result_executable,
         )
-        return (exe, linker_map_data, LinkExecutionPreferenceInfo(preference = link_execution_preference))
+        return CxxLinkResult(
+            linked_object = exe,
+            linker_map_data = linker_map_data,
+            link_execution_preference_info = LinkExecutionPreferenceInfo(preference = link_execution_preference),
+        )
 
     if linker_info.generate_linker_maps:
         links_with_linker_map = links + [linker_map_args(ctx, linker_map.as_output())]
@@ -138,6 +151,21 @@ def cxx_link(
 
     if pdb_artifact != None:
         external_debug_artifacts.append(pdb_artifact)
+
+    bitcode_linkables = []
+    for link_item in links:
+        if link_item.infos == None:
+            continue
+        for link_info in link_item.infos:
+            for linkable in link_info.linkables:
+                if linkable._type == LinkableType("archive") or linkable._type == LinkableType("objects"):
+                    if linkable.bitcode_bundle != None:
+                        bitcode_linkables.append(linkable.bitcode_bundle)
+
+    if len(bitcode_linkables) > 0:
+        bitcode_artifact = make_bitcode_bundle(ctx, output.short_path + ".bc", bitcode_linkables)
+    else:
+        bitcode_artifact = None
 
     # If we're not stripping the output linked object, than add-in an externally
     # referenced debug info that the linked object may reference (and which may
@@ -223,6 +251,7 @@ def cxx_link(
 
     linked_object = LinkedObject(
         output = final_output,
+        bitcode_bundle = bitcode_artifact.artifact if bitcode_artifact else None,
         prebolt_output = output,
         dwp = dwp_artifact,
         external_debug_info = external_debug_info,
@@ -230,7 +259,11 @@ def cxx_link(
         import_library = import_library,
         pdb = pdb_artifact,
     )
-    return (linked_object, linker_map_data, link_execution_preference_info)
+    return CxxLinkResult(
+        linked_object = linked_object,
+        linker_map_data = linker_map_data,
+        link_execution_preference_info = link_execution_preference_info,
+    )
 
 def cxx_link_shared_library(
         ctx: "context",
@@ -251,7 +284,7 @@ def cxx_link_shared_library(
         # Overrides the default flags used to specify building shared libraries
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
         strip: bool.type = False,
-        strip_args_factory = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None], LinkExecutionPreferenceInfo.type):
+        strip_args_factory = None) -> CxxLinkResult.type:
     """
     Link a shared library into the supplied output.
     """
@@ -274,7 +307,7 @@ def cxx_link_shared_library(
 
     links_with_extra_args = [LinkArgs(flags = extra_args)] + links + [LinkArgs(flags = import_library_args)]
 
-    exe, linker_map_data, preference_info = cxx_link(
+    return cxx_link(
         ctx,
         links_with_extra_args,
         output,
@@ -289,8 +322,6 @@ def cxx_link_shared_library(
         link_weight = link_weight,
         link_execution_preference = link_execution_preference,
     )
-
-    return (exe, linker_map_data, preference_info)
 
 def cxx_link_into_shared_library(
         ctx: "context",
@@ -310,7 +341,7 @@ def cxx_link_into_shared_library(
         # Overrides the default flags used to specify building shared libraries
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
         strip: bool.type = False,
-        strip_args_factory = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None], LinkExecutionPreferenceInfo.type):
+        strip_args_factory = None) -> CxxLinkResult.type:
     output = ctx.actions.declare_output(name)
     return cxx_link_shared_library(
         ctx,

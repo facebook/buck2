@@ -59,9 +59,9 @@ def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], output_short_path
     def adjust_flag(flag: "_arglike") -> "_arglike":
         if "HACK-OUTPUT-DWO-DIR" in repr(flag):
             expect(output_short_path != None)
-            expect(dwo_dir[0] == None)
-            dwo_dir_name = output_short_path + ".dwo.d"
-            dwo_dir[0] = ctx.actions.declare_output(dwo_dir_name)
+            if dwo_dir[0] == None:
+                dwo_dir_name = output_short_path + ".dwo.d"
+                dwo_dir[0] = ctx.actions.declare_output(dwo_dir_name)
             return cmd_args(dwo_dir[0].as_output(), format = "dwo_dir={}")
         else:
             return flag

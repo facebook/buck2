@@ -48,10 +48,8 @@ impl TwoSnapshots {
         }
     }
 
-    fn re_upload_download_rate_bytes_per_second(
-        &self,
-        field: impl Fn(&buck2_data::Snapshot) -> u64,
-    ) -> Option<u64> {
+    /// Measure bytes-per-second rate between two snapshots for some field.
+    fn bytes_per_second(&self, field: impl Fn(&buck2_data::Snapshot) -> u64) -> Option<u64> {
         let (_, penultimate_snapshot) = self.penultimate.as_ref()?;
         let (_, last_snapshot) = self.last.as_ref()?;
         let duration = self.non_zero_duration()?;
@@ -62,11 +60,15 @@ impl TwoSnapshots {
     }
 
     pub fn re_download_bytes_per_second(&self) -> Option<u64> {
-        self.re_upload_download_rate_bytes_per_second(|snapshot| snapshot.re_download_bytes)
+        self.bytes_per_second(|snapshot| snapshot.re_download_bytes)
     }
 
     pub fn re_upload_bytes_per_second(&self) -> Option<u64> {
-        self.re_upload_download_rate_bytes_per_second(|snapshot| snapshot.re_upload_bytes)
+        self.bytes_per_second(|snapshot| snapshot.re_upload_bytes)
+    }
+
+    pub fn http_download_bytes_per_second(&self) -> Option<u64> {
+        self.bytes_per_second(|snapshot| snapshot.http_download_bytes)
     }
 }
 
@@ -106,7 +108,7 @@ mod tests {
     }
 
     #[test]
-    fn test_re_download_bytes_per_second() {
+    fn test_bytes_per_second() {
         let t0 = SystemTime::UNIX_EPOCH.add(Duration::from_secs(100000));
 
         let mut two_snapshots = TwoSnapshots::default();

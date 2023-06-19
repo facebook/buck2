@@ -103,31 +103,14 @@ def get_android_binary_resources_info(
             android_toolchain.zipalign[RunInfo],
         ]), category = "write_exo_resources")
 
-        third_party_jars = ctx.actions.write("third_party_jars", prebuilt_jars)
-        third_party_jar_resources = ctx.actions.declare_output("third_party_jars.resources")
-        third_party_jar_resources_hash = ctx.actions.declare_output("third_party_jars.resources.hash")
-        ctx.actions.run(cmd_args([
-            android_toolchain.merge_third_party_jar_resources[RunInfo],
-            "--output",
-            third_party_jar_resources.as_output(),
-            "--output-hash",
-            third_party_jar_resources_hash.as_output(),
-            "--third-party-jars",
-            third_party_jars,
-        ]).hidden(prebuilt_jars), category = "merge_third_party_jar_resources")
-
         exopackage_info = ExopackageResourcesInfo(
             assets = exopackaged_assets,
             assets_hash = exopackaged_assets_hash,
             res = exo_resources,
             res_hash = exo_resources_hash,
-            third_party_jar_resources = third_party_jar_resources,
-            third_party_jar_resources_hash = third_party_jar_resources_hash,
         )
-        jar_files_that_may_contain_resources = []
     else:
         exopackage_info = None
-        jar_files_that_may_contain_resources = prebuilt_jars
         r_dot_txt = aapt2_link_info.r_dot_txt
 
     override_symbols_paths = [override_symbols] if override_symbols else []
@@ -180,7 +163,7 @@ def get_android_binary_resources_info(
         r_dot_javas = r_dot_javas,
         string_source_map = string_source_map,
         voltron_string_source_map = voltron_string_source_map,
-        jar_files_that_may_contain_resources = jar_files_that_may_contain_resources,
+        jar_files_that_may_contain_resources = prebuilt_jars,
         unfiltered_resource_infos = unfiltered_resource_infos,
     )
 

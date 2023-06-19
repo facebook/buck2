@@ -17,7 +17,10 @@ use anyhow::bail;
 use tracing::info;
 
 use crate::buck;
+use crate::buck::relative_to;
+use crate::buck::rust_sysroot;
 use crate::buck::to_json_project;
+use crate::json_project::Sysroot;
 use crate::target::Target;
 use crate::target::TargetInfo;
 
@@ -26,6 +29,7 @@ pub struct Develop {
     pub out: Output,
     pub sysroot: Option<PathBuf>,
     pub pretty: bool,
+    pub relative_paths: bool,
 }
 
 impl From<crate::Command> for Develop {
@@ -37,6 +41,7 @@ impl From<crate::Command> for Develop {
             stdout,
             sysroot,
             pretty,
+            relative_paths,
         } = command
         {
             let input = if !targets.is_empty() {
@@ -56,6 +61,7 @@ impl From<crate::Command> for Develop {
                 out,
                 sysroot,
                 pretty,
+                relative_paths,
             };
         }
 
@@ -81,8 +87,10 @@ impl Develop {
             out,
             sysroot,
             pretty,
+            relative_paths,
         } = self;
         let buck = buck::Buck;
+        let project_root = buck.resolve_project_root()?;
 
         let targets = match input {
             Input::Targets(targets) => targets.iter().map(Target::new).collect::<Vec<Target>>(),
@@ -94,27 +102,38 @@ impl Develop {
             bail!("No targets can be inferred for the provided file.");
         }
 
-        tracing::info!("expanding targets");
         let targets = buck.expand_targets(&targets)?;
 
-        if targets.len() <= 10 {
-            // printing out 10 targets is pretty reasonable information for the user
-            tracing::info!(target_arg = ?targets, targets_num = targets.len(), ?targets, "resolving dependencies");
-        } else {
-            // after 10 targets, however, things tend to get a bit unwieldy.
-            info!(target_arg = ?targets, targets_num = targets.len(), "resolving dependencies")
-        }
         let target_map: BTreeMap<Target, TargetInfo> = buck.resolve_deps(&targets)?;
         let aliased_libraries = buck.query_aliased_libraries(&targets)?;
         let proc_macros = buck.query_proc_macros(&targets)?;
 
         let sysroot = match &sysroot {
-            Some(s) => Some(expand_tilde(s)?.canonicalize()?),
-            None => None,
+            Some(s) => {
+                let mut sysroot_path = expand_tilde(s)?.canonicalize()?;
+                if relative_paths {
+                    sysroot_path = relative_to(&sysroot_path, &project_root);
+                }
+
+                Sysroot {
+                    sysroot: sysroot_path,
+                    sysroot_src: None,
+                }
+            }
+            None => {
+                let project_root = buck.resolve_project_root()?;
+                rust_sysroot(&project_root, relative_paths)?
+            }
         };
-        info!("Converting buck info to rust-project.json");
-        let rust_project =
-            to_json_project(sysroot, targets, target_map, aliased_libraries, proc_macros)?;
+        info!("converting buck info to rust-project.json");
+        let rust_project = to_json_project(
+            sysroot,
+            targets,
+            target_map,
+            aliased_libraries,
+            proc_macros,
+            relative_paths,
+        )?;
 
         let mut writer: BufWriter<Box<dyn Write>> = match out {
             Output::Path(ref p) => {

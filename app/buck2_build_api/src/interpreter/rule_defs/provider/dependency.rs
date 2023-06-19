@@ -47,7 +47,8 @@ enum DependencyError {
     Freeze,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    StarlarkDocs
 )]
 #[repr(C)]
 pub struct DependencyGen<V> {
@@ -89,7 +90,7 @@ impl<'v> Dependency<'v> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for DependencyGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("dependency");
 

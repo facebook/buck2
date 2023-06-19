@@ -11,7 +11,9 @@ use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use buck2_common::pattern::package_roots::find_package_roots_stream;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::pattern::package_roots::collect_package_roots;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -72,13 +74,8 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
             // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
             self.load_package_futs.push(
                 self.ctx
-                    .temporary_spawn(move |ctx, _cancellation| {
-                        async move {
-                            let res = ctx.get_interpreter_results(package.dupe()).await;
-                            (package, res)
-                        }
-                        .boxed()
-                    })
+                    .get_interpreter_results(package.dupe())
+                    .map(|res| (package, res))
                     .boxed(),
             )
         }
@@ -100,12 +97,16 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
         }
     }
 
-    let mut recursive_pattern_packages = find_package_roots_stream(ctx, recursive_packages);
-    while let Some(res) = recursive_pattern_packages.next().await {
-        let package = res?;
+    let file_ops = ctx.file_ops();
+    let cell_resolver = ctx.get_cell_resolver().await?;
+
+    collect_package_roots(&file_ops, &cell_resolver, recursive_packages, |package| {
+        let package = package?;
         spec.add_package(package.dupe());
         builder.load_package(package);
-    }
+        anyhow::Ok(())
+    })
+    .await?;
 
     Ok((spec, builder.load_package_futs))
 }

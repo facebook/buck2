@@ -35,6 +35,7 @@ use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::string::StringAttrType;
 use crate::attrs::attr_type::tuple::TupleAttrType;
 use crate::attrs::attr_type::visibility::VisibilityAttrType;
+use crate::attrs::attr_type::within_view::WithinViewAttrType;
 use crate::provider_id_set::ProviderIdSet;
 
 pub mod any;
@@ -60,6 +61,7 @@ pub mod split_transition_dep;
 pub mod string;
 pub mod tuple;
 pub mod visibility;
+pub mod within_view;
 
 #[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Allocative)]
 pub struct AttrType(pub Arc<AttrTypeInner>);
@@ -85,6 +87,7 @@ pub enum AttrTypeInner {
     Enum(EnumAttrType),
     Label(LabelAttrType),
     Visibility(VisibilityAttrType),
+    WithinView(WithinViewAttrType),
 }
 
 impl AttrType {
@@ -121,9 +124,8 @@ impl AttrType {
             AttrTypeInner::SplitTransitionDep(_) => attr("split_transition_dep"),
             AttrTypeInner::String(_) => attr("string"),
             AttrTypeInner::Label(_) => attr("label"),
-            AttrTypeInner::Visibility(_) => {
-                VisibilityAttrType::pretend_attr_type().fmt_with_default(f, None)
-            }
+            AttrTypeInner::Visibility(_) => attr("visibility"),
+            AttrTypeInner::WithinView(_) => attr("within_view"),
         }
     }
 
@@ -135,8 +137,14 @@ impl AttrType {
     /// for string parameter macros and make variables. Command line
     /// builders used in rule implementations use args (and so an arg attribute
     /// can be directly added to them).
-    pub fn arg() -> Self {
-        Self(Arc::new(AttrTypeInner::Arg(ArgAttrType)))
+    ///
+    /// Takes in an anon_target_compatible flag, which indicates whether the arg
+    /// can be passed into anon targets. There is a slight memory hit when using
+    /// this flag.
+    pub fn arg(anon_target_compatible: bool) -> Self {
+        Self(Arc::new(AttrTypeInner::Arg(ArgAttrType {
+            anon_target_compatible,
+        })))
     }
 
     pub fn enumeration(variants: Vec<String>) -> anyhow::Result<Self> {
@@ -272,6 +280,10 @@ impl AttrType {
         Self(Arc::new(AttrTypeInner::Visibility(VisibilityAttrType)))
     }
 
+    pub(crate) fn within_view() -> Self {
+        Self(Arc::new(AttrTypeInner::WithinView(WithinViewAttrType)))
+    }
+
     /// Used when we first detect that concatenation is going to happen for an attr
     /// while loading a build file. Returning false here will make us provide an error
     /// during the loading phase at the point that the concatenation happens.
@@ -291,7 +303,8 @@ impl AttrType {
             | AttrTypeInner::SplitTransitionDep(_)
             | AttrTypeInner::Label(_)
             | AttrTypeInner::Enum(_)
-            | AttrTypeInner::Visibility(_) => false,
+            | AttrTypeInner::Visibility(_)
+            | AttrTypeInner::WithinView(_) => false,
             AttrTypeInner::Any(_)
             | AttrTypeInner::Arg(_)
             | AttrTypeInner::Dict(_)

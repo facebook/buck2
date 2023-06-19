@@ -252,6 +252,23 @@ where
     }
 }
 
+impl<T> InterruptNotifiable for futures::stream::Empty<T> {
+    fn notify_interrupt(self: Pin<&mut Self>) {}
+}
+
+impl<L, R> InterruptNotifiable for futures::future::Either<L, R>
+where
+    L: InterruptNotifiable,
+    R: InterruptNotifiable,
+{
+    fn notify_interrupt(self: Pin<&mut Self>) {
+        match self.as_pin_mut() {
+            futures::future::Either::Left(s) => s.notify_interrupt(),
+            futures::future::Either::Right(s) => s.notify_interrupt(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

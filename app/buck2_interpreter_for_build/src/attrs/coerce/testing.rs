@@ -19,7 +19,6 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
-use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -34,6 +33,7 @@ use starlark::values::Value;
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
+use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
 
 pub fn coercion_ctx() -> impl AttrCoercionContext {
@@ -79,7 +79,6 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     .unwrap_or_else(|err| panic!("Failed parsing `{}`. Error: `{}`", content, err));
     let cell_info = InterpreterCellInfo::new(
         BuildFileCell::new(CellName::testing_new("root")),
-        &LegacyBuckConfig::empty(),
         cell_resolver(),
     )
     .unwrap();

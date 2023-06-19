@@ -9,7 +9,6 @@
 
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 
-use std::env;
 use std::fs::File;
 use std::path::PathBuf;
 use std::process;
@@ -559,7 +558,7 @@ impl DaemonCommand {
         //   `--no-buckd` should capture correct directories earlier.
         //   Or even better, client should set current directory to project root,
         //   and resolve all paths relative to original cwd.
-        env::set_current_dir(project_root.root())?;
+        fs_util::set_current_dir(project_root.root())?;
 
         self.run(
             init,

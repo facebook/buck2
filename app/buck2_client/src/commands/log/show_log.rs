@@ -31,9 +31,11 @@ impl ShowLogCommand {
             let (invocation, mut events) = log_path.unpack_stream().await?;
 
             let mut buf = Vec::new();
+
             serde_json::to_writer(&mut buf, &invocation)?;
             stdio::print_bytes(&buf)?;
             stdio::print_bytes(b"\n")?;
+
             while let Some(event) = events.try_next().await? {
                 buf.clear();
                 serde_json::to_writer(&mut buf, &event)?;

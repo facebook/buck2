@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::targets_show_outputs_response::TargetPaths;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TargetsRequest;
@@ -32,6 +32,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
+use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -155,22 +156,20 @@ async fn retrieve_artifacts_for_targets(
         .into_iter()
         .map(|(package, spec)| {
             let global_target_platform = global_target_platform.dupe();
-            ctx.temporary_spawn(move |ctx, _cancellation| {
-                async move {
-                    {
-                        let res = ctx.get_interpreter_results(package.dupe()).await?;
-                        retrieve_artifacts_for_spec(
-                            &ctx,
-                            package.dupe(),
-                            spec,
-                            global_target_platform,
-                            res,
-                        )
-                        .await
-                    }
+            async move {
+                {
+                    let res = ctx.get_interpreter_results(package.dupe()).await?;
+                    retrieve_artifacts_for_spec(
+                        ctx,
+                        package.dupe(),
+                        spec,
+                        global_target_platform,
+                        res,
+                    )
+                    .await
                 }
-                .boxed()
-            })
+            }
+            .boxed()
         })
         .collect();
 
@@ -219,14 +218,7 @@ async fn retrieve_artifacts_for_spec(
     let mut futs: FuturesUnordered<_> = todo_targets
         .into_iter()
         .map(|(providers_label, target_platform)| {
-            // TODO(cjhopman): Figure out why we need these explicit spawns to get actual multithreading.
-            ctx.temporary_spawn(move |ctx, _cancellation| {
-                async move {
-                    retrieve_artifacts_for_provider_label(&ctx, providers_label, target_platform)
-                        .await
-                }
-                .boxed()
-            })
+            retrieve_artifacts_for_provider_label(ctx, providers_label, target_platform)
         })
         .collect();
 
@@ -244,7 +236,7 @@ async fn retrieve_artifacts_for_provider_label(
     target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<TargetsArtifacts> {
     let providers_label = ctx
-        .get_configured_target(&providers_label, target_platform.as_ref())
+        .get_configured_provider_label(&providers_label, target_platform.as_ref())
         .await?;
 
     let providers = ctx

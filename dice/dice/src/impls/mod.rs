@@ -25,3 +25,4 @@ mod tests;
 pub(crate) mod transaction;
 pub(crate) mod user_cycle;
 pub(crate) mod value;
+pub(crate) mod worker;

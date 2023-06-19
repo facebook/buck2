@@ -15,7 +15,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::collections::sorted_map::SortedMap;
+use buck2_util::collections::sorted_map::SortedMap;
 use derive_more::Display;
 use dupe::Dupe;
 use internment_tweaks::Intern;
@@ -59,7 +59,6 @@ impl Hash for RemoteExecutorUseCase {
 
 #[derive(Debug, Default, Eq, PartialEq, Clone, Hash, Allocative)]
 pub struct RemoteExecutorOptions {
-    pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: Option<u64>,
     pub re_max_queue_time_ms: Option<u64>,
 }
@@ -92,6 +91,7 @@ pub enum Executor {
         executor: RemoteEnabledExecutor,
         re_properties: SortedMap<String, String>,
         re_use_case: RemoteExecutorUseCase,
+        re_action_key: Option<String>,
         cache_upload_behavior: CacheUploadBehavior,
         remote_cache_enabled: bool,
     },
@@ -111,6 +111,7 @@ impl Display for Executor {
                 executor,
                 re_properties: _,
                 re_use_case: _,
+                re_action_key: _,
                 cache_upload_behavior,
                 remote_cache_enabled,
             } => {

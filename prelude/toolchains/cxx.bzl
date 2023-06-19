@@ -48,6 +48,8 @@ def _system_cxx_toolchain_impl(ctx):
         linker = _windows_linker_wrapper(ctx)
         linker_type = "windows"
         supports_pic = False
+    elif ctx.attrs.linker == "g++" or ctx.attrs.cxx_compiler == "g++":
+        pass
     else:
         additional_linker_flags = ["-fuse-ld=lld"]
 

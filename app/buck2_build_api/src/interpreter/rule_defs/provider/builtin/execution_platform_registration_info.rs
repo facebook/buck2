@@ -11,6 +11,7 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
+use buck2_node::configuration::execution_platforms::ExecutionPlatformFallback;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -21,7 +22,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use thiserror::Error;
 
-use crate::configuration::ExecutionPlatformFallback;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::ExecutionPlatformInfo;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::FrozenExecutionPlatformInfo;
 
@@ -41,7 +41,7 @@ enum ExecutionPlatformRegistrationTypeError {
 #[internal_provider(info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub(crate) struct ExecutionPlatformRegistrationInfoGen<V> {
+pub struct ExecutionPlatformRegistrationInfoGen<V> {
     #[provider(field_type = "Vec<FrozenExecutionPlatformInfo>")]
     platforms: V,
     // OneOf<ExecutionPlatformInfo, \"error\", \"unspecified\", None>

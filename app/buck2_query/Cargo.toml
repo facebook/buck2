@@ -31,6 +31,7 @@ starlark_map = { workspace = true }
 buck2_core = { workspace = true }
 buck2_query_parser = { workspace = true }
 buck2_query_derive = { workspace = true }
+buck2_util = { workspace = true }
 
 [lib]
 

@@ -34,6 +34,7 @@ impl CleanOutputPaths {
     }
 }
 
+#[tracing::instrument(level = "debug", skip(fs), fields(path = %path))]
 pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Result<()> {
     // This will remove the path if it exists.
     fs.remove_path_recursive(path)?;
@@ -60,9 +61,11 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Res
             Ok(Some(m)) => {
                 if m.is_dir() {
                     // It's a dir, no need to go further, and no need to delete.
+                    tracing::trace!(path = %path, "skip (is dir)");
                 } else {
                     // There was a file or a symlink, so it's safe to delete and then we can exit
                     // because we'll be able to create a dir here.
+                    tracing::trace!(path = %path, "remove_file");
                     fs_util::remove_file(path)?;
                 }
                 return Ok(());
@@ -76,11 +79,16 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Res
                 // until we find the first dir (or file to delete) is fine. There will
                 // eventually be *a* directory (at buck-out, then another one at the empty
                 // directory, which is our cwd, and should exist by now).
+                tracing::trace!(path = %path, "skip (ENOENT)");
                 return Ok(());
             }
-            _ => {
+            Ok(None) => {
+                tracing::trace!(path = %path, "continue (ENOENT)");
+            }
+            Err(e) => {
                 // Continue going up. Eventually we should reach the output directory, which should
                 // exist.
+                tracing::trace!(path = %path, "continue (error: {:#})", e);
             }
         }
     }

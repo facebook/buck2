@@ -30,7 +30,6 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::starlark_type;
-use crate::values::basic::StarlarkValueBasic;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -89,12 +88,10 @@ impl<'v> StarlarkValue<'v> for NoneType {
         hasher.write_u64(9_223_380_832_852_120_682);
         Ok(())
     }
-}
 
-impl<'v> StarlarkValueBasic<'v> for NoneType {
-    fn get_hash(&self) -> StarlarkHashValue {
+    fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
         // Just a random number.
-        StarlarkHashValue::new_unchecked(0xf9c2263d)
+        Ok(StarlarkHashValue::new_unchecked(0xf9c2263d))
     }
 }
 

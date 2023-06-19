@@ -17,13 +17,11 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::interpreter::rule_defs::cmd_args::register_cmd_args;
-use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
-use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
-use buck2_interpreter::bxl::CONFIGURE_BXL_FILE_GLOBALS;
-use buck2_interpreter::functions::more::MORE_FUNCTIONS;
+use buck2_interpreter::bxl::BxlFunctions;
+use buck2_interpreter::bxl::BXL_FUNCTIONS;
 use buck2_interpreter::path::BxlFilePath;
+use buck2_util::collections::ordered_map::OrderedMap;
 use cli_args::CliArgs;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
@@ -61,6 +59,7 @@ pub mod build_result;
 pub mod cli_args;
 pub mod context;
 pub mod cquery;
+pub mod event;
 pub mod file_expr;
 pub mod file_set;
 pub mod functions;
@@ -114,27 +113,16 @@ pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
     }
 }
 
-fn register_bxl_defs(globals: &mut GlobalsBuilder) {
-    globals.struct_("cli_args", cli_args::register_cli_args_module);
-    register_bxl_function(globals);
-    register_artifact_function(globals);
-    register_label_function(globals);
-    register_target_function(globals);
-    (MORE_FUNCTIONS.get().unwrap().register_read_config)(globals);
-    (MORE_FUNCTIONS.get().unwrap().register_host_info)(globals);
-    register_instant_function(globals);
-    register_error_handling_function(globals);
-}
-
-pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
-    (MORE_FUNCTIONS.get().unwrap().register_base_natives)(globals_builder);
-    register_cmd_args(globals_builder);
-    register_bxl_defs(globals_builder);
-    register_builtin_providers(globals_builder);
-}
-
-pub(crate) fn init_configure_bxl_file_globals() {
-    CONFIGURE_BXL_FILE_GLOBALS.init(configure_bxl_file_globals);
+pub(crate) fn init_bxl_functions() {
+    BXL_FUNCTIONS.init(BxlFunctions {
+        register_cli_args_struct: |g| g.struct_("cli_args", cli_args::register_cli_args_module),
+        register_bxl_function,
+        register_artifact_function,
+        register_label_function,
+        register_target_function,
+        register_instant_function,
+        register_error_handling_function,
+    });
 }
 
 /// Errors around rule declaration, instantiation, validation, etc

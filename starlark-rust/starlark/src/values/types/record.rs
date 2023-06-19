@@ -96,17 +96,17 @@ use crate::values::ValueLike;
 )]
 #[starlark_docs(builtin = "extension")]
 pub struct FieldGen<V> {
-    pub(crate) typ: V,
+    pub(crate) typ: TypeCompiled<V>,
     default: Option<V>,
 }
 
-impl<V: Display> Display for FieldGen<V> {
+impl<'v, V: ValueLike<'v>> Display for FieldGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "field(")?;
-        self.typ.fmt(f)?;
+        Display::fmt(&self.typ, f)?;
         if let Some(d) = &self.default {
             write!(f, ", ")?;
-            d.fmt(f)?;
+            Display::fmt(d, f)?;
         }
         write!(f, ")")
     }
@@ -128,21 +128,15 @@ unsafe impl<From: Coerce<To>, To> Coerce<FieldGen<To>> for FieldGen<From> {}
 pub struct RecordTypeGen<V, Typ: ExportedName> {
     typ: Typ,
     /// The V is the type the field must satisfy (e.g. `"string"`)
-    fields: SmallMap<String, (FieldGen<V>, TypeCompiled)>,
+    fields: SmallMap<String, FieldGen<V>>,
     /// Creating these on every invoke is pretty expensive (profiling shows)
     /// so compute them in advance and cache.
     parameter_spec: ParametersSpec<FrozenValue>,
 }
 
-impl<V: Display, Typ: ExportedName> Display for RecordTypeGen<V, Typ> {
+impl<'v, V: ValueLike<'v>, Typ: ExportedName> Display for RecordTypeGen<V, Typ> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_keyed_container(
-            f,
-            "record(",
-            ")",
-            "=",
-            self.fields.iter().map(|(name, typ)| (name, &typ.0)),
-        )
+        fmt_keyed_container(f, "record(", ")", "=", &self.fields)
     }
 }
 
@@ -170,19 +164,19 @@ starlark_complex_values!(RecordType);
 starlark_complex_value!(pub Record);
 
 impl<V> FieldGen<V> {
-    pub(crate) fn new(typ: V, default: Option<V>) -> Self {
+    pub(crate) fn new(typ: TypeCompiled<V>, default: Option<V>) -> Self {
         Self { typ, default }
     }
 }
 
 fn record_fields<'v>(
     x: Either<&'v RecordType<'v>, &'v FrozenRecordType>,
-) -> &'v SmallMap<String, (FieldGen<Value<'v>>, TypeCompiled)> {
+) -> &'v SmallMap<String, FieldGen<Value<'v>>> {
     x.either(|x| &x.fields, |x| coerce(&x.fields))
 }
 
 impl<'v> RecordType<'v> {
-    pub(crate) fn new(fields: SmallMap<String, (FieldGen<Value<'v>>, TypeCompiled)>) -> Self {
+    pub(crate) fn new(fields: SmallMap<String, FieldGen<Value<'v>>>) -> Self {
         let parameter_spec = Self::make_parameter_spec(&fields);
         Self {
             typ: MutableExportedName::default(),
@@ -192,12 +186,12 @@ impl<'v> RecordType<'v> {
     }
 
     fn make_parameter_spec(
-        fields: &SmallMap<String, (FieldGen<Value<'v>>, TypeCompiled)>,
+        fields: &SmallMap<String, FieldGen<Value<'v>>>,
     ) -> ParametersSpec<FrozenValue> {
         let mut parameters = ParametersSpec::with_capacity("record".to_owned(), fields.len());
         parameters.no_more_positional_args();
         for (name, field) in fields {
-            if field.0.default.is_some() {
+            if field.default.is_some() {
                 parameters.optional(name);
             } else {
                 parameters.required(name);
@@ -216,7 +210,7 @@ impl<'v, V: ValueLike<'v>> RecordGen<V> {
         RecordType::from_value(self.typ.to_value()).unwrap()
     }
 
-    fn get_record_fields(&self) -> &'v SmallMap<String, (FieldGen<Value<'v>>, TypeCompiled)> {
+    fn get_record_fields(&self) -> &'v SmallMap<String, FieldGen<Value<'v>>> {
         record_fields(self.get_record_type())
     }
 
@@ -234,7 +228,7 @@ impl<'v, V: ValueLike<'v>> RecordGen<V> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for FieldGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("field");
 
@@ -251,13 +245,9 @@ where
 impl<'v> Freeze for RecordType<'v> {
     type Frozen = FrozenRecordType;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        let mut fields = SmallMap::with_capacity(self.fields.len());
-        for (k, t) in self.fields.into_iter_hashed() {
-            fields.insert_hashed(k, (t.0.freeze(freezer)?, t.1));
-        }
         Ok(FrozenRecordType {
             typ: self.typ.freeze(freezer)?,
-            fields,
+            fields: self.fields.freeze(freezer)?,
             parameter_spec: self.parameter_spec,
         })
     }
@@ -265,8 +255,8 @@ impl<'v> Freeze for RecordType<'v> {
 
 impl<'v, Typ: Allocative + 'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for RecordTypeGen<V, Typ>
 where
-    Self: ProvidesStaticType,
-    FieldGen<V>: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
+    FieldGen<V>: ProvidesStaticType<'v>,
     Typ: ExportedName,
 {
     starlark_type!(FUNCTION_TYPE);
@@ -275,7 +265,7 @@ where
         for (name, typ) in &self.fields {
             name.hash(hasher);
             // No need to hash typ.1, since it was computed from typ.0
-            typ.0.write_hash(hasher)?;
+            typ.write_hash(hasher)?;
         }
         Ok(())
     }
@@ -293,10 +283,10 @@ where
                 let fields = record_fields(RecordType::from_value(this).unwrap());
                 let mut values = Vec::with_capacity(fields.len());
                 for (name, field) in fields.iter() {
-                    let value = match field.0.default {
+                    let value = match field.default {
                         None => {
                             let v: Value = param_parser.next(name)?;
-                            v.check_type_compiled(field.0.typ, &field.1, Some(name))?;
+                            field.typ.check_type(v, Some(name))?;
                             v
                         }
                         Some(default) => {
@@ -304,7 +294,7 @@ where
                             match v {
                                 None => default,
                                 Some(v) => {
-                                    v.check_type_compiled(field.0.typ, &field.1, Some(name))?;
+                                    field.typ.check_type(v, Some(name))?;
                                     v
                                 }
                             }
@@ -356,9 +346,8 @@ where
             for ((k1, t1), (k2, t2)) in a.fields.iter().zip(b.fields.iter()) {
                 // We require that the types and defaults are both equal.
                 if k1 != k2
-                    || !t1.0.typ.equals(t2.0.typ.to_value())?
-                    || t1.0.default.map(ValueLike::to_value)
-                        != t2.0.default.map(ValueLike::to_value)
+                    || !t1.typ.to_value().equals(t2.typ.to_value())?
+                    || t1.default.map(ValueLike::to_value) != t2.default.map(ValueLike::to_value)
                 {
                     return Ok(false);
                 }
@@ -380,7 +369,7 @@ where
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for RecordGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!(Record::TYPE);
 

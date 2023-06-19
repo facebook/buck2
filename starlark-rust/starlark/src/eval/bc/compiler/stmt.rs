@@ -33,6 +33,7 @@ use crate::eval::compiler::stmt::StmtCompileContext;
 use crate::eval::compiler::stmt::StmtCompiled;
 use crate::eval::compiler::stmt::StmtsCompiled;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::values::typing::TypeCompiled;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -214,14 +215,12 @@ impl IrSpanned<StmtCompiled> {
             }
             StmtCompiled::Assign(lhs, ty, rhs) => {
                 fn check_type(
-                    ty: &Option<IrSpanned<ExprCompiled>>,
+                    ty: &Option<IrSpanned<TypeCompiled<FrozenValue>>>,
                     slot_expr: BcSlotIn,
                     bc: &mut BcWriter,
                 ) {
                     if let Some(ty) = ty {
-                        ty.write_bc_cb(bc, |slot_ty, bc| {
-                            bc.write_instr::<InstrCheckType>(ty.span, (slot_expr, slot_ty))
-                        })
+                        bc.write_instr::<InstrCheckType>(ty.span, (slot_expr, ty.node))
                     }
                 }
 
@@ -265,12 +264,7 @@ impl StmtsCompiled {
         param_count: u32,
         heap: &FrozenHeap,
     ) -> Bc {
-        let mut bc = BcWriter::new(
-            compiler.record_call_enter_exit,
-            local_names,
-            param_count,
-            heap,
-        );
+        let mut bc = BcWriter::new(local_names, param_count, heap);
         self.write_bc(compiler, &mut bc);
 
         // Small optimization: if the last statement is return,

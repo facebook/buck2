@@ -22,6 +22,8 @@
 #[macro_use]
 extern crate starlark;
 
+use std::sync::Once;
+
 pub mod actions;
 pub mod analysis;
 pub mod artifact_groups;
@@ -31,8 +33,6 @@ pub mod audit_output;
 pub mod build;
 pub mod build_signals;
 pub mod bxl;
-pub mod calculation;
-pub mod configuration;
 pub mod configure_dice;
 pub mod configure_targets;
 pub mod context;
@@ -40,6 +40,13 @@ pub mod deferred;
 pub mod dynamic;
 pub mod interpreter;
 pub mod keep_going;
-pub mod nodes;
 pub mod query;
 pub mod spawner;
+pub mod transition;
+
+pub fn init_late_bindings() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        interpreter::more::init_more_functions();
+    });
+}

@@ -66,11 +66,10 @@ pub fn global(builder: &mut GlobalsBuilder) {
         let mut mp = SmallMap::with_capacity(kwargs.len());
         for (k, v) in kwargs.into_iter_hashed() {
             let field = match Field::from_value(v) {
-                None => Field::new(v, None),
+                None => Field::new(TypeCompiled::new(v, heap)?, None),
                 Some(v) => v.dupe(),
             };
-            let compiled = TypeCompiled::new(field.typ, heap)?;
-            mp.insert_hashed(k, (field, compiled));
+            mp.insert_hashed(k, field);
         }
         Ok(RecordType::new(mp))
     }
@@ -93,9 +92,9 @@ pub fn global(builder: &mut GlobalsBuilder) {
         // We compile the type even if we don't have a default to raise the error sooner
         let compiled = TypeCompiled::new(typ, heap)?;
         if let Some(d) = default {
-            d.check_type_compiled(typ, &compiled, Some("default"))?;
+            compiled.check_type(d, Some("default"))?;
         }
-        Ok(Field::new(typ, default))
+        Ok(Field::new(compiled, default))
     }
 }
 
@@ -123,7 +122,7 @@ assert_eq(dir(rec1), ["host", "port"])
 rec_type = record(host=str.type, port=int.type)
 rec_type(host=1, port=80)
 "#,
-            &["`1`", "`string`", "`host`"],
+            &["`1`", "`str.type`", "`host`"],
         );
         assert::fails(
             r#"
@@ -149,7 +148,8 @@ foo(rec_type(host="localhost", port=80))"#,
         assert::pass(
             r#"
 v = [record(host=str.type, port=int.type)]
-def foo(x: v[0].type) -> "record":
+v_0 = v[0]
+def foo(x: v_0.type) -> "record":
     return x
 foo(v[0](host="localhost", port=80))"#,
         );

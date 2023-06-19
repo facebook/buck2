@@ -8,4 +8,3 @@
  */
 
 pub mod path;
-pub mod resolver;

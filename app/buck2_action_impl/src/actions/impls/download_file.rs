@@ -28,6 +28,7 @@ use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::http::HttpClient;
+use buck2_common::http::HttpError;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::Category;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -36,7 +37,6 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::http::http_head;
 use buck2_execute::materialize::http::Checksum;
-use buck2_execute::materialize::http::HttpError;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use dupe::Dupe;
 use indexmap::IndexSet;
@@ -276,13 +276,10 @@ impl IncrementalActionExecutable for DownloadFileAction {
         }
 
         let client = ctx.http_client();
-        let url = self.url(&*client)?;
+        let url = self.url(&client)?;
 
         let (value, execution_kind) = {
-            match self
-                .declared_metadata(&*client, ctx.digest_config())
-                .await?
-            {
+            match self.declared_metadata(&client, ctx.digest_config()).await? {
                 Some(metadata) => {
                     let artifact_fs = ctx.fs();
                     let rel_path = artifact_fs.resolve_build(self.output().get_path());
@@ -312,7 +309,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
 
                     // Slow path: download now.
                     let digest = http_download(
-                        &*client,
+                        &client,
                         project_fs,
                         ctx.digest_config(),
                         &rel_path,

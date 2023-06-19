@@ -14,7 +14,6 @@ use bytes::Bytes;
 use http::HeaderMap;
 use http::Method;
 use http::Uri;
-use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
@@ -88,18 +87,18 @@ impl PendingRequest {
 /// as well as the [`follow-redirects`](https://github.com/srijs/rust-follow-redirects) crate.
 /// Unfortunately, the latter is abandoned; until and unless it's maintained by someone
 /// (preferably the hyper folks), let's roll our own.
-pub(super) struct RedirectEngine {
+pub(super) struct RedirectEngine<B> {
     processed_redirects: usize,
     max_redirects: usize,
     pending_request: PendingRequest,
-    response: Response<Body>,
+    response: Response<B>,
 }
 
-impl RedirectEngine {
+impl<B> RedirectEngine<B> {
     pub(super) fn new(
         max_redirects: usize,
         pending_request: PendingRequest,
-        response: Response<Body>,
+        response: Response<B>,
     ) -> Self {
         Self {
             processed_redirects: 0,
@@ -114,9 +113,9 @@ impl RedirectEngine {
     pub(super) async fn handle_redirects<S, F>(
         mut self,
         sender_func: S,
-    ) -> Result<Response<Body>, HttpError>
+    ) -> Result<Response<B>, HttpError>
     where
-        F: Future<Output = Result<Response<Body>, HttpError>>,
+        F: Future<Output = Result<Response<B>, HttpError>>,
         S: Fn(Request<Bytes>) -> F,
     {
         let initial_uri = self.pending_request.uri.clone();
@@ -220,5 +219,163 @@ impl RedirectEngine {
             .headers()
             .get(hyper::header::LOCATION)
             .and_then(|location| Uri::try_from(location.as_bytes()).ok())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use httptest::matchers::*;
+    use httptest::responders;
+    use httptest::Expectation;
+
+    use super::*;
+    use crate::http::secure_client::SecureHttpClient;
+    use crate::http::tls_config_with_system_roots;
+    use crate::http::HttpClient;
+
+    #[tokio::test]
+    async fn test_follows_redirects() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        // Chain of two redirects /foo -> /bar -> /baz.
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/foo"))
+                .times(1)
+                .respond_with(
+                    responders::status_code(302).append_header(http::header::LOCATION, "/bar"),
+                ),
+        );
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/bar"))
+                .times(1)
+                .respond_with(
+                    responders::status_code(302).append_header(http::header::LOCATION, "/baz"),
+                ),
+        );
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/baz"))
+                .times(1)
+                .respond_with(responders::status_code(200)),
+        );
+
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 10);
+        let resp = client.get(&test_server.url_str("/foo")).await?;
+        assert_eq!(200, resp.status().as_u16());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_head_changes_to_get_on_redirect() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        // Chain of two redirects /foo -> /bar -> /baz.
+        test_server.expect(
+            Expectation::matching(request::method_path("HEAD", "/foo"))
+                .times(1)
+                .respond_with(
+                    responders::status_code(302).append_header(http::header::LOCATION, "/bar"),
+                ),
+        );
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/bar"))
+                .times(1)
+                .respond_with(responders::status_code(200)),
+        );
+
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 10);
+        let resp = client.head(&test_server.url_str("/foo")).await?;
+        assert_eq!(200, resp.status().as_u16());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_post_gets_redirected() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        // Redirect /foo -> /bar
+        test_server.expect(
+            Expectation::matching(all_of![
+                request::method_path("POST", "/foo"),
+                request::body("Hello, world!"),
+            ])
+            .times(1)
+            .respond_with(
+                responders::status_code(307).append_header(http::header::LOCATION, "/bar"),
+            ),
+        );
+        test_server.expect(
+            Expectation::matching(all_of![
+                request::method_path("POST", "/bar"),
+                request::body("Hello, world!"),
+                request::headers(not(contains(key(hyper::header::ORIGIN.as_str())))),
+                request::headers(not(contains(key(hyper::header::AUTHORIZATION.as_str())))),
+                request::headers(not(contains(key(hyper::header::WWW_AUTHENTICATE.as_str())))),
+                request::headers(not(contains(key(hyper::header::COOKIE.as_str())))),
+                request::headers(not(contains(key(
+                    hyper::header::PROXY_AUTHORIZATION.as_str()
+                )))),
+            ])
+            .times(1)
+            .respond_with(responders::status_code(200)),
+        );
+
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 10);
+        let bytes = Bytes::from_static(b"Hello, world!");
+        let resp = client
+            .post(
+                &test_server.url_str("/foo"),
+                bytes,
+                vec![("key".to_owned(), "value".to_owned())],
+            )
+            .await?;
+        assert_eq!(200, resp.status().as_u16());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_too_many_redirects_fails() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        // Chain of three redirects /foo -> /bar -> /baz -> /boo.
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/foo"))
+                .times(1)
+                .respond_with(
+                    responders::status_code(302).append_header(http::header::LOCATION, "/bar"),
+                ),
+        );
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/bar"))
+                .times(1)
+                .respond_with(
+                    responders::status_code(302).append_header(http::header::LOCATION, "/baz"),
+                ),
+        );
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/baz"))
+                .times(1)
+                .respond_with(
+                    responders::status_code(302).append_header(http::header::LOCATION, "/boo"),
+                ),
+        );
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/boo"))
+                .times(0)
+                .respond_with(responders::status_code(200)),
+        );
+
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 1);
+        let url = test_server.url_str("/foo");
+        let result = client.get(&url).await;
+        if let HttpError::TooManyRedirects { uri, max_redirects } = result.as_ref().err().unwrap() {
+            assert_eq!(url.to_owned(), *uri);
+            assert_eq!(1, *max_redirects);
+        } else {
+            unreachable!(
+                "Expected HttpError::TooManyRedirects, got {:?}",
+                result.err().unwrap()
+            );
+        }
+
+        Ok(())
     }
 }

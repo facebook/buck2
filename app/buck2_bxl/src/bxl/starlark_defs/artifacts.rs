@@ -144,7 +144,7 @@ impl<'v> EnsuredArtifactGroup<'v> {
 
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroup<'v>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("ensured_artifact_group");
 
@@ -162,7 +162,7 @@ where
 
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroupInner
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("ensured_artifact_group_inner");
 
@@ -344,7 +344,7 @@ impl Serialize for EnsuredArtifactGroupInner {
 
 impl<'v> StarlarkValue<'v> for EnsuredArtifact
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("ensured_artifact");
 

@@ -30,8 +30,8 @@ use crate::codemap::FileSpanRef;
 use crate::codemap::ResolvedFileSpan;
 use crate::collections::alloca::Alloca;
 use crate::collections::string_pool::StringPool;
+use crate::const_frozen_string;
 use crate::environment::slots::ModuleSlotId;
-use crate::environment::EnvironmentError;
 use crate::environment::FrozenModuleData;
 use crate::environment::Module;
 use crate::errors::Diagnostic;
@@ -58,9 +58,10 @@ use crate::eval::runtime::profile::heap::HeapProfileFormat;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::eval::runtime::profile::or_instrumentation::ProfileOrInstrumentationMode;
 use crate::eval::runtime::profile::stmt::StmtProfile;
-use crate::eval::runtime::profile::time_flame::FlameProfile;
+use crate::eval::runtime::profile::time_flame::TimeFlameProfile;
 use crate::eval::runtime::profile::typecheck::TypecheckProfile;
 use crate::eval::runtime::profile::ProfileMode;
+use crate::eval::runtime::rust_loc::rust_loc;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::CallStack;
@@ -82,15 +83,13 @@ use crate::values::Value;
 use crate::values::ValueLike;
 
 #[derive(Error, Debug)]
-pub(crate) enum EvaluatorError {
+enum EvaluatorError {
     #[error("Profiling was not enabled")]
     ProfilingNotEnabled,
     #[error("Profile data already collected")]
     ProfileDataAlreadyCollected,
     #[error("Retained memory profiling can be only obtained from `FrozenModule`")]
     RetainedMemoryProfilingCannotBeObtainedFromEvaluator,
-    #[error("Can't call `write_bc_profile` unless you first call `enable_bc_profile`.")]
-    BcProfilingNotEnabled,
     #[error("Profile or instrumentation already enabled")]
     ProfileOrInstrumentationAlreadyEnabled,
     #[error("Top frame is not def (internal error)")]
@@ -101,6 +100,8 @@ pub(crate) enum EvaluatorError {
     CoverageNotImplemented,
     #[error("Coverage not enabled")]
     CoverageNotEnabled,
+    #[error("Local variable `{0}` referenced before assignment")]
+    LocalVariableReferencedBeforeAssignment(String),
 }
 
 /// Number of bytes to allocate between GC's.
@@ -124,9 +125,7 @@ pub struct Evaluator<'v, 'a> {
     // Should we enable heap profiling or not
     pub(crate) heap_profile: HeapProfile,
     // Should we enable flame profiling or not
-    pub(crate) flame_profile: FlameProfile<'v>,
-    // Is either heap or flame profiling enabled, or instrumentation for these profiles enabled.
-    pub(crate) heap_or_flame_profile: bool,
+    pub(crate) time_flame_profile: TimeFlameProfile<'v>,
     // Is GC disabled for some reason
     pub(crate) disable_gc: bool,
     // If true, the interpreter prints to stderr on GC.
@@ -166,6 +165,7 @@ struct EvaluationInstrumentation<'a> {
     bc_profile: BcProfile,
     // Extra functions to run on each statement, usually empty
     before_stmt: BeforeStmt<'a>,
+    heap_or_flame_profile: bool,
     // Whether we need to instrument evaluation or not, should be set if before_stmt or bc_profile are enabled.
     enabled: bool,
 }
@@ -175,13 +175,19 @@ impl<'a> EvaluationInstrumentation<'a> {
         Self {
             bc_profile: BcProfile::new(),
             before_stmt: BeforeStmt::default(),
+            heap_or_flame_profile: false,
             enabled: false,
         }
     }
 
+    fn enable_heap_or_flame_profile(&mut self) {
+        self.heap_or_flame_profile = true;
+    }
+
     fn change<F: FnOnce(&mut EvaluationInstrumentation<'a>)>(&mut self, f: F) {
         f(self);
-        self.enabled = self.bc_profile.enabled() || self.before_stmt.enabled();
+        self.enabled =
+            self.bc_profile.enabled() || self.before_stmt.enabled() || self.heap_or_flame_profile;
     }
 }
 
@@ -211,8 +217,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             heap_profile: HeapProfile::new(),
             stmt_profile: StmtProfile::new(),
             typecheck_profile: TypecheckProfile::default(),
-            flame_profile: FlameProfile::new(),
-            heap_or_flame_profile: false,
+            time_flame_profile: TimeFlameProfile::new(),
             eval_instrumentation: EvaluationInstrumentation::new(),
             module_def_info: DefInfo::empty(), // Will be replaced before it is used
             string_pool: StringPool::default(),
@@ -257,7 +262,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             | ProfileMode::HeapSummaryRetained
             | ProfileMode::HeapFlameRetained => {
                 self.heap_profile.enable();
-                self.heap_or_flame_profile = true;
+
                 match mode {
                     ProfileMode::HeapFlameRetained => self
                         .module_env
@@ -268,6 +273,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                     _ => {}
                 }
 
+                self.eval_instrumentation
+                    .change(|v| v.enable_heap_or_flame_profile());
+
                 // Disable GC because otherwise why lose the profile records, as we use the heap
                 // to store a complete list of what happened in linear order.
                 self.disable_gc = true;
@@ -277,8 +285,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 self.before_stmt_fn(&|span, eval| eval.stmt_profile.before_stmt(span));
             }
             ProfileMode::TimeFlame => {
-                self.flame_profile.enable();
-                self.heap_or_flame_profile = true;
+                self.time_flame_profile.enable();
+                self.eval_instrumentation
+                    .change(|v| v.enable_heap_or_flame_profile());
             }
             ProfileMode::Bytecode => {
                 self.eval_instrumentation
@@ -328,7 +337,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             ProfileMode::Coverage => Err(EvaluatorError::CoverageNotImplemented.into()),
             ProfileMode::Bytecode => self.gen_bc_profile(),
             ProfileMode::BytecodePairs => self.gen_bc_pairs_profile(),
-            ProfileMode::TimeFlame => self.flame_profile.gen(),
+            ProfileMode::TimeFlame => self.time_flame_profile.gen(),
             ProfileMode::Typecheck => self.typecheck_profile.gen(),
         }
     }
@@ -431,16 +440,17 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// Called to change the local variables, from the callee.
     /// Only called for user written functions.
     #[inline(always)] // There is only one caller
-    pub(crate) fn with_function_context<R>(
+    pub(crate) fn with_function_context(
         &mut self,
+        def: Value<'v>,
         module: Option<FrozenRef<'static, FrozenModuleData>>, // None == use module_env
-        within: impl FnOnce(&mut Self) -> R,
-    ) -> R {
+        bc: &Bc,
+    ) -> Result<Value<'v>, EvalException> {
         // Set up for the new function call
         let old_module_variables = mem::replace(&mut self.module_variables, module);
 
         // Run the computation
-        let res = within(self);
+        let res = self.eval_bc(def, bc);
 
         // Restore them all back
         self.module_variables = old_module_variables;
@@ -480,7 +490,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 Some(e) => e.get_slot_name(slot).map(|s| s.as_str().to_owned()),
             }
             .unwrap_or_else(|| "<unknown>".to_owned());
-            EnvironmentError::LocalVariableReferencedBeforeAssignment(name).into()
+            EvaluatorError::LocalVariableReferencedBeforeAssignment(name).into()
         }
 
         match &self.module_variables {
@@ -503,7 +513,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         };
         let names = &def_info.used;
         let name = names[slot.0 as usize].as_str().to_owned();
-        EnvironmentError::LocalVariableReferencedBeforeAssignment(name).into()
+        EvaluatorError::LocalVariableReferencedBeforeAssignment(name).into()
     }
 
     #[inline(always)]
@@ -671,7 +681,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.module_env.trace(tracer);
         self.current_frame.trace(tracer);
         self.call_stack.trace(tracer);
-        self.flame_profile.trace(tracer);
+        self.time_flame_profile.trace(tracer);
     }
 
     /// Perform a garbage collection.
@@ -685,7 +695,17 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 self.heap().allocated_bytes()
             );
         }
+
+        self.stmt_profile
+            .before_stmt(rust_loc!().span.file_span_ref());
+
+        self.time_flame_profile
+            .record_call_enter(const_frozen_string!("GC").to_value());
+
         self.heap().garbage_collect(|tracer| self.trace(tracer));
+
+        self.time_flame_profile.record_call_exit();
+
         if self.verbose_gc {
             eprintln!(
                 "Starlark: GC complete. Allocated bytes: {}.",
@@ -737,22 +757,36 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     #[cold]
     #[inline(never)]
-    fn eval_bc_with_callbacks(&mut self, bc: &Bc) -> Result<Value<'v>, EvalException> {
-        bc.run(
-            self,
-            &mut EvalCallbacksEnabled {
-                bc_profile: self.eval_instrumentation.bc_profile.enabled(),
-                before_stmt: self.eval_instrumentation.before_stmt.enabled(),
-                stmt_locs: &bc.instrs.stmt_locs,
-                bc_start_ptr: bc.instrs.start_ptr(),
-            },
-        )
+    fn eval_bc_with_callbacks(
+        &mut self,
+        def: Value<'v>,
+        bc: &Bc,
+    ) -> Result<Value<'v>, EvalException> {
+        debug_assert!(self.eval_instrumentation.enabled);
+        if self.eval_instrumentation.heap_or_flame_profile {
+            self.heap_profile.record_call_enter(def, self.heap());
+            self.time_flame_profile.record_call_enter(def);
+            let res = bc.run(self, &mut EvalCallbacksDisabled);
+            self.heap_profile.record_call_exit(self.heap());
+            self.time_flame_profile.record_call_exit();
+            res
+        } else {
+            bc.run(
+                self,
+                &mut EvalCallbacksEnabled {
+                    bc_profile: self.eval_instrumentation.bc_profile.enabled(),
+                    before_stmt: self.eval_instrumentation.before_stmt.enabled(),
+                    stmt_locs: &bc.instrs.stmt_locs,
+                    bc_start_ptr: bc.instrs.start_ptr(),
+                },
+            )
+        }
     }
 
     #[inline(always)]
-    pub(crate) fn eval_bc(&mut self, bc: &Bc) -> Result<Value<'v>, EvalException> {
+    pub(crate) fn eval_bc(&mut self, def: Value<'v>, bc: &Bc) -> Result<Value<'v>, EvalException> {
         if self.eval_instrumentation.enabled {
-            self.eval_bc_with_callbacks(bc)
+            self.eval_bc_with_callbacks(def, bc)
         } else {
             bc.run(self, &mut EvalCallbacksDisabled)
         }

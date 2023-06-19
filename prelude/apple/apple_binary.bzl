@@ -14,6 +14,7 @@ load(
     "get_swift_anonymous_targets",
     "uses_explicit_modules",
 )
+load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
@@ -32,6 +33,7 @@ load(
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorArgs",
 )
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
@@ -62,7 +64,7 @@ def apple_binary_impl(ctx: "context") -> [["provider"], "promise"]:
         extra_link_flags = get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx) + extra_linker_output_flags
 
         framework_search_path_pre = CPreprocessor(
-            args = [get_framework_search_path_flags(ctx)],
+            relative_args = CPreprocessorArgs(args = [get_framework_search_path_flags(ctx)]),
         )
         constructor_params = CxxRuleConstructorParams(
             rule_type = "apple_binary",
@@ -139,7 +141,7 @@ def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlag
     cxx_srcs = []
     swift_srcs = []
     for s in get_srcs_with_flags(ctx):
-        if s.file.extension == ".swift":
+        if s.file.extension == SWIFT_EXTENSION:
             swift_srcs.append(s)
         else:
             cxx_srcs.append(s)
@@ -159,7 +161,8 @@ def _get_bridging_header_flags(ctx: "context") -> ["_arglike"]:
         header_map = {paths.join(h.namespace, h.name): h.artifact for h in headers}
 
         # We need to expose private headers to swift-compile action, in case something is imported to bridging header.
-        header_root = prepare_headers(ctx, header_map, "apple-binary-private-headers")
+        # TODO(chatatap): Handle absolute paths here.
+        header_root = prepare_headers(ctx, header_map, "apple-binary-private-headers", None)
         if header_root != None:
             private_headers_args = [cmd_args("-I"), header_root.include_path]
         else:

@@ -31,7 +31,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use crate::attrs::resolve::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -39,6 +38,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
+use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 
 /// Provider that signals that a rule can be tested using an external runner. This is the
 /// Buck1-compatible API for tests.

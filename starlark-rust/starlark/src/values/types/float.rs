@@ -27,13 +27,14 @@ use allocative::Allocative;
 use dupe::Dupe;
 use serde::Serialize;
 use starlark_derive::StarlarkDocs;
+use starlark_map::StarlarkHashValue;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::starlark_type;
-use crate::values::num::Num;
+use crate::values::num::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -212,15 +213,27 @@ impl StarlarkTypeRepr for f64 {
     }
 }
 
+impl<'v> AllocValue<'v> for StarlarkFloat {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_simple(self)
+    }
+}
+
+impl AllocFrozenValue for StarlarkFloat {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        heap.alloc_simple(self)
+    }
+}
+
 impl<'v> AllocValue<'v> for f64 {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_float(StarlarkFloat(self))
+        heap.alloc(StarlarkFloat(self))
     }
 }
 
 impl AllocFrozenValue for f64 {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        heap.alloc_float(StarlarkFloat(self))
+        heap.alloc(StarlarkFloat(self))
     }
 }
 
@@ -238,23 +251,6 @@ impl<'v> UnpackValue<'v> for f64 {
     }
 }
 
-fn f64_arith_bin_op<'v, F>(
-    left: f64,
-    right: Value,
-    heap: &'v Heap,
-    op: &'static str,
-    f: F,
-) -> anyhow::Result<Value<'v>>
-where
-    F: FnOnce(f64, f64) -> anyhow::Result<f64>,
-{
-    if let Some(right) = right.unpack_num().map(|n| n.as_float()) {
-        Ok(heap.alloc_float(StarlarkFloat(f(left, right)?)))
-    } else {
-        ValueError::unsupported_with(&StarlarkFloat(left), op, right)
-    }
-}
-
 impl Display for StarlarkFloat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write_compact(f, self.0, 'e')
@@ -268,19 +264,8 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
         "float.type".to_owned()
     }
 
-    fn is_special(_: Private) -> bool
-    where
-        Self: Sized,
-    {
-        true
-    }
-
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
-        if other.unpack_num().is_some() {
-            Ok(self.compare(other)? == Ordering::Equal)
-        } else {
-            Ok(false)
-        }
+        Ok(Some(NumRef::Float(self.0)) == other.unpack_num())
     }
 
     fn collect_repr(&self, s: &mut String) {
@@ -292,59 +277,65 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        hasher.write_u64(Num::from(self.0).get_hash_64());
+        hasher.write_u64(NumRef::from(self.0).get_hash_64());
         Ok(())
     }
 
+    fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
+        Ok(NumRef::Float(self.0).get_hash())
+    }
+
     fn plus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc_float(*self))
+        Ok(heap.alloc(*self))
     }
 
     fn minus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc_float(StarlarkFloat(-self.0)))
+        Ok(heap.alloc(StarlarkFloat(-self.0)))
     }
 
     fn add(&self, other: Value, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
-        other
-            .unpack_num()
-            .map(|n| Ok(heap.alloc_float(StarlarkFloat(self.0 + n.as_float()))))
+        Some(Ok(heap.alloc(NumRef::Float(self.0) + other.unpack_num()?)))
     }
 
     fn sub(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        f64_arith_bin_op(self.0, other, heap, "-", |l, r| Ok(l - r))
+        match other.unpack_num() {
+            None => ValueError::unsupported_with(self, "-", other),
+            Some(other) => Ok(heap.alloc(NumRef::Float(self.0) - other)),
+        }
     }
 
     fn mul(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        f64_arith_bin_op(self.0, other, heap, "*", |l, r| Ok(l * r))
+        match other.unpack_num() {
+            Some(other) => Ok(heap.alloc(NumRef::Float(self.0) * other)),
+            None => ValueError::unsupported_with(self, "*", other),
+        }
     }
 
     fn div(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        f64_arith_bin_op(self.0, other, heap, "/", |l, r| {
-            if r == 0.0 {
-                Err(ValueError::DivisionByZero.into())
-            } else {
-                Ok(l / r)
-            }
-        })
+        match other.unpack_num() {
+            None => ValueError::unsupported_with(self, "/", other),
+            Some(other) => Ok(heap.alloc(NumRef::Float(self.0).div(other)?)),
+        }
     }
 
     fn percent(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        f64_arith_bin_op(self.0, other, heap, "%", |a, b| {
-            StarlarkFloat::percent_impl(a, b)
-        })
+        match other.unpack_num() {
+            Some(other) => Ok(heap.alloc(NumRef::Float(self.0).percent(other)?)),
+            None => ValueError::unsupported_with(self, "%", other),
+        }
     }
 
     fn floor_div(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        f64_arith_bin_op(self.0, other, heap, "//", |l, r| {
-            StarlarkFloat::floor_div_impl(l, r)
-        })
+        match other.unpack_num() {
+            None => ValueError::unsupported_with(self, "//", other),
+            Some(other) => Ok(heap.alloc(NumRef::Float(self.0).floor_div(other)?)),
+        }
     }
 
     fn compare(&self, other: Value) -> anyhow::Result<Ordering> {
-        if let Some(other_float) = other.unpack_num().map(|n| n.as_float()) {
-            Ok(StarlarkFloat::compare_impl(self.0, other_float))
-        } else {
-            ValueError::unsupported_with(self, "==", other)
+        match other.unpack_num() {
+            None => ValueError::unsupported_with(self, "compare", other),
+            Some(other) => Ok(NumRef::Float(self.0).cmp(&other)),
         }
     }
 }

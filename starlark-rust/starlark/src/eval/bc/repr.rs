@@ -17,15 +17,15 @@
 
 //! Instruction representation in memory.
 
+use std::any;
 use std::mem;
 
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::bc::opcode::BcOpcodeHandler;
-use crate::values::FrozenValue;
 
-/// All instructions must be word aligned.
-pub(crate) const BC_INSTR_ALIGN: usize = mem::align_of::<FrozenValue>();
+/// Instructions are be aligned to store `u64` even on 32-bit machines.
+pub(crate) const BC_INSTR_ALIGN: usize = 8;
 
 /// Instruction header.
 #[derive(Clone, Copy)]
@@ -46,12 +46,12 @@ impl BcInstrHeader {
 }
 
 /// How instructions are stored in memory.
-#[repr(C)]
+#[repr(C, align(8))]
 pub(crate) struct BcInstrRepr<I: BcInstr> {
     pub(crate) header: BcInstrHeader,
     pub(crate) arg: I::Arg,
     // Align all instructions to make IP increment simple.
-    pub(crate) _align: [FrozenValue; 0],
+    pub(crate) _align: [u64; 0],
 }
 
 impl<I: BcInstr> BcInstrRepr<I> {
@@ -64,13 +64,23 @@ impl<I: BcInstr> BcInstrRepr<I> {
         }
     }
 
-    pub(crate) const fn assert_align() {
+    pub(crate) fn assert_align() {
         // If alignment is different, we do not compute addresses properly.
         // Practically everything has `usize` alignment.
         // This would break if we had some types like `__m128` in instruction arguments,
         // but we don't.
-        assert!(mem::align_of::<BcInstrRepr<I>>() == BC_INSTR_ALIGN);
-        assert!(mem::size_of::<BcInstrRepr<I>>() % BC_INSTR_ALIGN == 0);
+        assert!(
+            mem::align_of::<BcInstrRepr<I>>() == BC_INSTR_ALIGN,
+            "align: {}, required align: {}, type: {}",
+            mem::align_of::<BcInstrRepr<I>>(),
+            BC_INSTR_ALIGN,
+            any::type_name::<BcInstrRepr<I>>()
+        );
+        assert!(
+            mem::size_of::<BcInstrRepr<I>>() % BC_INSTR_ALIGN == 0,
+            "{}",
+            any::type_name::<BcInstrRepr<I>>()
+        );
     }
 }
 

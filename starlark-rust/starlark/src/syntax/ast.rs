@@ -23,36 +23,39 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
-use derivative::Derivative;
 use dupe::Dupe;
 
-use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::syntax::lexer::TokenInt;
-use crate::syntax::Dialect;
 
 /// Payload types attached to AST nodes.
 pub(crate) trait AstPayload: Debug {
+    type LoadPayload: Debug;
     type IdentPayload: Debug;
     type IdentAssignPayload: Debug;
     type DefPayload: Debug;
+    type TypeExprPayload: Debug;
 }
 
 /// Default implementation of payload, which attaches `()` to nodes.
 /// This payload is returned with AST by parser.
-#[derive(Debug, Copy, Clone, Dupe)]
+#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq)]
 pub(crate) struct AstNoPayload;
 impl AstPayload for AstNoPayload {
+    type LoadPayload = ();
     type IdentPayload = ();
     type IdentAssignPayload = ();
     type DefPayload = ();
+    type TypeExprPayload = ();
 }
 
 pub(crate) type Expr = ExprP<AstNoPayload>;
+pub(crate) type TypeExpr = TypeExprP<AstNoPayload>;
 pub(crate) type Assign = AssignP<AstNoPayload>;
 pub(crate) type AssignIdent = AssignIdentP<AstNoPayload>;
+pub(crate) type Ident = IdentP<AstNoPayload>;
 pub(crate) type Clause = ClauseP<AstNoPayload>;
 pub(crate) type ForClause = ForClauseP<AstNoPayload>;
 pub(crate) type Argument = ArgumentP<AstNoPayload>;
@@ -63,58 +66,26 @@ pub(crate) type Stmt = StmtP<AstNoPayload>;
 // Boxed types used for storing information from the parsing will be used
 // especially for the location of the AST item
 pub(crate) type AstExprP<P> = Spanned<ExprP<P>>;
+pub(crate) type AstTypeExprP<P> = Spanned<TypeExprP<P>>;
 pub(crate) type AstAssignP<P> = Spanned<AssignP<P>>;
 pub(crate) type AstAssignIdentP<P> = Spanned<AssignIdentP<P>>;
+pub(crate) type AstIdentP<P> = Spanned<IdentP<P>>;
 pub(crate) type AstArgumentP<P> = Spanned<ArgumentP<P>>;
 pub(crate) type AstParameterP<P> = Spanned<ParameterP<P>>;
 pub(crate) type AstLoadP<P> = Spanned<LoadP<P>>;
 pub(crate) type AstStmtP<P> = Spanned<StmtP<P>>;
 
 pub(crate) type AstExpr = AstExprP<AstNoPayload>;
+pub(crate) type AstTypeExpr = AstTypeExprP<AstNoPayload>;
 pub(crate) type AstAssign = AstAssignP<AstNoPayload>;
 pub(crate) type AstAssignIdent = AstAssignIdentP<AstNoPayload>;
+pub(crate) type AstIdent = AstIdentP<AstNoPayload>;
 pub(crate) type AstArgument = AstArgumentP<AstNoPayload>;
 pub(crate) type AstString = Spanned<String>;
 pub(crate) type AstParameter = AstParameterP<AstNoPayload>;
 pub(crate) type AstInt = Spanned<TokenInt>;
 pub(crate) type AstFloat = Spanned<f64>;
 pub(crate) type AstStmt = AstStmtP<AstNoPayload>;
-
-/// A representation of a Starlark module abstract syntax tree.
-///
-/// Created with either [`parse`](AstModule::parse) or [`parse_file`](AstModule::parse_file),
-/// and evaluated with [`eval_module`](crate::eval::Evaluator::eval_module).
-///
-/// The internal details (statements/expressions) are deliberately omitted, as they change
-/// more regularly. A few methods to obtain information about the AST are provided.
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct AstModule {
-    #[derivative(Debug = "ignore")]
-    pub(crate) codemap: CodeMap,
-    pub(crate) statement: AstStmt,
-    pub(crate) dialect: Dialect,
-}
-
-impl AstModule {
-    /// List the top-level statements in the AST.
-    pub(crate) fn top_level_statements(&self) -> Vec<&AstStmt> {
-        fn f<'a>(ast: &'a AstStmt, res: &mut Vec<&'a AstStmt>) {
-            match &**ast {
-                StmtP::Statements(xs) => {
-                    for x in xs {
-                        f(x, res);
-                    }
-                }
-                _ => res.push(ast),
-            }
-        }
-
-        let mut res = Vec::new();
-        f(&self.statement, &mut res);
-        res
-    }
-}
 
 // A trait rather than a function to allow .ast() chaining in the parser.
 pub(crate) trait ToAst: Sized {
@@ -138,15 +109,15 @@ pub(crate) enum ArgumentP<P: AstPayload> {
 
 #[derive(Debug)]
 pub(crate) enum ParameterP<P: AstPayload> {
-    Normal(AstAssignIdentP<P>, Option<Box<AstExprP<P>>>),
+    Normal(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
     WithDefaultValue(
         AstAssignIdentP<P>,
-        Option<Box<AstExprP<P>>>,
+        Option<Box<AstTypeExprP<P>>>,
         Box<AstExprP<P>>,
     ),
     NoArgs,
-    Args(AstAssignIdentP<P>, Option<Box<AstExprP<P>>>),
-    KwArgs(AstAssignIdentP<P>, Option<Box<AstExprP<P>>>),
+    Args(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
+    KwArgs(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
 }
 
 #[derive(Debug, Clone)]
@@ -188,7 +159,7 @@ pub(crate) enum ExprP<P: AstPayload> {
         Option<Box<AstExprP<P>>>,
         Option<Box<AstExprP<P>>>,
     ),
-    Identifier(AstString, P::IdentPayload),
+    Identifier(AstIdentP<P>),
     Lambda(LambdaP<P>),
     Literal(AstLiteral),
     Not(Box<AstExprP<P>>),
@@ -207,6 +178,16 @@ pub(crate) enum ExprP<P: AstPayload> {
     ),
 }
 
+/// Restricted expression at type position.
+#[derive(Debug)]
+pub(crate) struct TypeExprP<P: AstPayload> {
+    /// Currently it is an expr.
+    /// Planning to restrict it.
+    /// [Context](https://fb.workplace.com/groups/buck2eng/posts/3196541547309990).
+    pub(crate) expr: AstExprP<P>,
+    pub(crate) payload: P::TypeExprPayload,
+}
+
 /// In some places e.g. AssignModify, the Tuple case is not allowed.
 #[derive(Debug)]
 pub(crate) enum AssignP<P: AstPayload> {
@@ -222,11 +203,17 @@ pub(crate) enum AssignP<P: AstPayload> {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub(crate) struct AssignIdentP<P: AstPayload>(pub String, pub P::IdentAssignPayload);
 
+/// Identifier in read position, e. g. `foo` in `[foo.bar]`.
+/// `foo` in `foo = 1` or `bar.foo` are **not** represented by this type.
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub(crate) struct IdentP<P: AstPayload>(pub String, pub P::IdentPayload);
+
 /// `load` statement.
 #[derive(Debug)]
 pub(crate) struct LoadP<P: AstPayload> {
-    pub module: AstString,
-    pub args: Vec<(AstAssignIdentP<P>, AstString)>,
+    pub(crate) module: AstString,
+    pub(crate) args: Vec<(AstAssignIdentP<P>, AstString)>,
+    pub(crate) payload: P::LoadPayload,
 }
 
 #[derive(Debug)]
@@ -291,7 +278,7 @@ pub enum Visibility {
 pub(crate) struct DefP<P: AstPayload> {
     pub(crate) name: AstAssignIdentP<P>,
     pub(crate) params: Vec<AstParameterP<P>>,
-    pub(crate) return_type: Option<Box<AstExprP<P>>>,
+    pub(crate) return_type: Option<Box<AstTypeExprP<P>>>,
     pub(crate) body: Box<AstStmtP<P>>,
     pub(crate) payload: P::DefPayload,
 }
@@ -317,14 +304,13 @@ pub(crate) enum StmtP<P: AstPayload> {
     Return(Option<AstExprP<P>>),
     Expression(AstExprP<P>),
     // LHS : TYPE = RHS for the fields
-    Assign(AstAssignP<P>, Box<(Option<AstExprP<P>>, AstExprP<P>)>),
+    Assign(AstAssignP<P>, Box<(Option<AstTypeExprP<P>>, AstExprP<P>)>),
     AssignModify(AstAssignP<P>, AssignOp, Box<AstExprP<P>>),
     Statements(Vec<AstStmtP<P>>),
     If(AstExprP<P>, Box<AstStmtP<P>>),
     IfElse(AstExprP<P>, Box<(AstStmtP<P>, AstStmtP<P>)>),
     For(AstAssignP<P>, Box<(AstExprP<P>, AstStmtP<P>)>),
     Def(DefP<P>),
-    // The Visibility of a Load is implicit from the Dialect, not written by a user
     Load(LoadP<P>),
 }
 
@@ -499,7 +485,7 @@ impl Display for Expr {
                 }
                 Ok(())
             }
-            Expr::Identifier(s, _) => write!(f, "{}", s.node),
+            Expr::Identifier(s) => Display::fmt(&s.node, f),
             Expr::Not(e) => write!(f, "(not {})", e.node),
             Expr::Minus(e) => write!(f, "-{}", e.node),
             Expr::Plus(e) => write!(f, "+{}", e.node),
@@ -541,6 +527,12 @@ impl Display for Expr {
     }
 }
 
+impl Display for TypeExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.expr.node, f)
+    }
+}
+
 impl Display for Assign {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -560,6 +552,12 @@ impl Display for Assign {
 }
 
 impl Display for AssignIdent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Display for Ident {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }

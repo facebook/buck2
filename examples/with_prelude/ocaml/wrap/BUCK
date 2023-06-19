@@ -1,0 +1,58 @@
+# @lint-ignore-every BUCKFORMAT
+
+load("//test_utils.bzl", "assert_output")
+
+export_file(
+    name= "mylib.mli",
+    src = "mylib.mli",
+    visibility = [ ":mylib__", ":mylib" ],
+)
+
+# buildifier: disable=no-effect
+ocaml_library(
+    name = "mylib__",
+    compiler_flags = [
+        "-no-alias-deps",
+        "-w", "-49",
+    ],
+    srcs = [
+        ":mylib.mli",
+        "mylib.ml",
+    ],
+    visibility = [ ':mylib' ],
+) if not host_info().os.is_windows else None
+
+# buildifier: disable=no-effect
+ocaml_library(
+    name = "mylib",
+    ocamldep_flags = [
+        "-open", "Mylib",
+        "-map", "$(location :mylib.mli)"
+    ],
+    compiler_flags = [
+        "-no-alias-deps",
+        "-w", "-49",
+        "-open", "Mylib"
+    ],
+    srcs = [
+        "mylib__A.ml",
+        "mylib__B.ml",
+    ],
+    deps = [ ":mylib__" ],
+    visibility = [ "PUBLIC" ],
+) if not host_info().os.is_windows else None
+
+# buildifier: disable=no-effect
+ocaml_binary(
+    name = "test-Mylib",
+    srcs = [ "test_Mylib.ml" ] ,
+    deps = [ ":mylib" ],
+    visibility = [ "PUBLIC" ],
+) if not host_info().os.is_windows else None
+
+# buildifier: disable=no-effect
+assert_output(
+    name = "test-Mylib-check",
+    command = "$(exe_target :test-Mylib)",
+    output = "Hello world!",
+) if not host_info().os.is_windows else None

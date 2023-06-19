@@ -16,9 +16,14 @@ def _from_mvn_url(url: str.type) -> str.type:
     """
 
     count = url.count(":")
+    mod = ""
 
     if count == 4:
         mvn, group, id, typ, version = url.split(":")
+        repo = _ROOT
+    elif count == 5:
+        mvn, group, id, typ, mod, version = url.split(":")
+        mod = "-" + mod
         repo = _ROOT
     elif count == 6:
         mvn, repo_protocol, repo_host, group, id, typ, version = url.split(":")
@@ -35,12 +40,13 @@ def _from_mvn_url(url: str.type) -> str.type:
     else:
         ext = "." + typ
 
-    return "{repo}/{group}/{id}/{version}/{id}-{version}{ext}".format(
+    return "{repo}/{group}/{id}/{version}/{id}-{version}{mod}{ext}".format(
         repo = repo,
         group = group,
         id = id,
         version = version,
         ext = ext,
+        mod = mod,
     )
 
 # Implementation of the `remote_file` build rule.
@@ -52,6 +58,7 @@ def remote_file_impl(ctx: "context") -> ["provider"]:
         ctx.actions,
         name = value_or(ctx.attrs.out, ctx.label.name),
         url = url,
+        vpnless_url = ctx.attrs.vpnless_url,
         is_executable = ctx.attrs.type == "executable",
         is_exploded_zip = ctx.attrs.type == "exploded_zip",
         unzip_tool = ctx.attrs._unzip_tool[RunInfo],

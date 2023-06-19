@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::testing::TestConfigParserFileOps;
@@ -21,10 +22,12 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::path::OwnedStarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
+use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
 use buck2_interpreter_for_build::interpreter::testing::run_simple_starlark_test;
 use buck2_interpreter_for_build::interpreter::testing::CellsData;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::rule::register_rule_function;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::unconfigured::testing::targets_to_json;
 use dupe::Dupe;
@@ -100,7 +103,9 @@ fn test_load() {
 #[test]
 fn test_eval_build_file() {
     let mut tester = Tester::new().unwrap();
-    tester.additional_globals(register_rule_defs);
+    tester.additional_globals(register_rule_function);
+    tester.additional_globals(register_attrs);
+    tester.additional_globals(register_builtin_providers);
 
     tester
         .add_import(
@@ -271,7 +276,9 @@ fn test_root_import() {
     )
     .unwrap();
 
-    tester.additional_globals(register_rule_defs);
+    tester.additional_globals(register_builtin_providers);
+    tester.additional_globals(register_rule_function);
+    tester.additional_globals(register_attrs);
 
     let import_path = ImportPath::testing_new("root//:include.bzl");
     tester
@@ -378,7 +385,7 @@ fn test_package_import() -> anyhow::Result<()> {
         "#
         )),
     )?)?;
-    tester.additional_globals(register_rule_defs);
+    tester.additional_globals(register_rule_function);
     tester.additional_globals(register_module_natives);
 
     let import_path = ImportPath::testing_new("root//:include.bzl");
@@ -420,6 +427,7 @@ fn test_package_import() -> anyhow::Result<()> {
                     "target_compatible_with": [],
                     "tests": [],
                     "visibility": [],
+                    "within_view": ["PUBLIC"],
                 },
         }),
         targets_to_json(
@@ -435,7 +443,7 @@ fn test_package_import() -> anyhow::Result<()> {
 fn eval() -> anyhow::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(register_module_natives);
-    tester.additional_globals(register_rule_defs);
+    tester.additional_globals(register_rule_function);
     let content = indoc!(
         r#"
             def _impl(ctx):
@@ -481,6 +489,7 @@ fn test_oncall() -> anyhow::Result<()> {
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_module_natives);
     tester.additional_globals(register_rule_defs);
+    tester.additional_globals(register_rule_function);
     tester.run_starlark_test(indoc!(
         r#"
             def _impl(ctx):

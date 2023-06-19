@@ -17,6 +17,7 @@ load(
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
@@ -61,6 +62,15 @@ load(
 )
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 load("@prelude//utils:utils.bzl", "flatten")
+
+_HASKELL_EXTENSIONS = [
+    ".hs",
+    ".lhs",
+    ".hsc",
+    ".chs",
+    ".x",
+    ".y",
+]
 
 HaskellPlatformInfo = provider(fields = [
     "name",
@@ -137,6 +147,10 @@ HaskellLibraryInfo = record(
     # at compile time.  The real library flags are propagated up the
     # dependency graph via MergedLinkInfo.
     libs = field(["artifact"], []),
+    # Package version, used to specify the full package when exposing it,
+    # e.g. filepath-1.4.2.1, deepseq-1.4.4.0.
+    # Internal packages default to 1.0.0, e.g. `fbcode-dsi-logger-hs-types-1.0.0`.
+    version = str.type,
 )
 
 # --
@@ -186,9 +200,9 @@ def _attr_preferred_linkage(ctx: "context") -> Linkage.type:
 
 # --
 
-def _is_boot_src(x: str.type) -> bool.type:
+def _is_haskell_src(x: str.type) -> bool.type:
     _, ext = paths.split_extension(x)
-    return ext == ".hs-boot"
+    return ext in _HASKELL_EXTENSIONS
 
 def _src_to_module_name(x: str.type) -> str.type:
     base, _ext = paths.split_extension(x)
@@ -237,6 +251,7 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
             stub_dirs = [],
             id = ctx.attrs.id,
             libs = libs,
+            version = ctx.attrs.version,
         )
 
         def archive_linkable(lib):
@@ -293,7 +308,7 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
 
     inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
     own_pp_info = CPreprocessor(
-        args = flatten([["-isystem", d] for d in ctx.attrs.cxx_header_dirs]),
+        relative_args = CPreprocessorArgs(args = flatten([["-isystem", d] for d in ctx.attrs.cxx_header_dirs])),
     )
 
     return [
@@ -321,6 +336,63 @@ def merge_haskell_link_infos(deps: [HaskellLinkInfo.type]) -> HaskellLinkInfo.ty
         merged[link_style] = dedupe(children)
 
     return HaskellLinkInfo(info = merged)
+
+PackagesInfo = record(
+    exposed_package_args = "cmd_args",
+    packagedb_args = "cmd_args",
+    transitive_deps = field([HaskellLibraryInfo.type]),
+)
+
+def get_packages_info(
+        ctx: "context",
+        link_style: LinkStyle.type,
+        specify_pkg_version: bool.type) -> PackagesInfo.type:
+    # Collect library dependencies. Note that these don't need to be in a
+    # particular order and we really want to remove duplicates (there
+    # are a *lot* of duplicates).
+    libs = {}
+    transitive_deps = []
+    direct_deps_link_info = _attr_deps_haskell_link_infos(ctx)
+    for lib in merge_haskell_link_infos(direct_deps_link_info).info[link_style]:
+        libs[lib.db] = lib  # lib.db is a good enough unique key
+        transitive_deps.append(lib)
+
+    # base is special and gets exposed by default
+    exposed_package_args = cmd_args(["-expose-package", "base"])
+    packagedb_args = cmd_args()
+
+    for lib in libs.values():
+        exposed_package_args.hidden(lib.import_dirs)
+        exposed_package_args.hidden(lib.stub_dirs)
+
+        # libs of dependencies might be needed at compile time if
+        # we're using Template Haskell:
+        exposed_package_args.hidden(lib.libs)
+
+        packagedb_args.hidden(lib.import_dirs)
+        packagedb_args.hidden(lib.stub_dirs)
+        packagedb_args.hidden(lib.libs)
+
+    for lib in libs.values():
+        # These we need to add for all the packages/dependencies, i.e.
+        # direct and transitive (e.g. `fbcode-common-hs-util-hs-array`)
+        packagedb_args.add("-package-db", lib.db)
+
+    haskell_direct_deps_lib_infos = _attr_deps_haskell_lib_infos(ctx, link_style)
+
+    # Expose only the packages we depend on directly
+    for lib in haskell_direct_deps_lib_infos:
+        pkg_name = lib.name
+        if (specify_pkg_version):
+            pkg_name += "-{}".format(lib.version)
+
+        exposed_package_args.add("-expose-package", pkg_name)
+
+    return PackagesInfo(
+        exposed_package_args = exposed_package_args,
+        packagedb_args = packagedb_args,
+        transitive_deps = libs.values(),
+    )
 
 # The type of the return value of the `_compile()` function.
 CompileResultInfo = record(
@@ -355,7 +427,7 @@ def _srcs_to_objfiles(
     objfiles = cmd_args()
     for src in ctx.attrs.srcs:
         # Don't link boot sources, as they're only meant to be used for compiling.
-        if not _is_boot_src(src):
+        if _is_haskell_src(src):
             objfiles.add(cmd_args([odir, "/", paths.replace_extension(src, "." + osuf)], delimiter = ""))
     return objfiles
 
@@ -405,28 +477,15 @@ def _compile(
     )
 
     # Add -package-db and -expose-package flags for each Haskell
-    # library dependency. Note that these don't need to be in a
-    # particular order and we really want to remove duplicates (there
-    # are a *lot* of duplicates).
-    libs = {}
-    for lib in merge_haskell_link_infos(_attr_deps_haskell_link_infos(ctx)).info[link_style]:
-        libs[lib.db] = lib  # lib.db is a good enough unique key
-    for lib in libs.values():
-        compile_args.hidden(lib.import_dirs)
-        compile_args.hidden(lib.stub_dirs)
+    # library dependency.
+    packages_info = get_packages_info(
+        ctx,
+        link_style,
+        specify_pkg_version = False,
+    )
 
-        # libs of dependencies might be needed at compile time if
-        # we're using Template Haskell:
-        compile_args.hidden(lib.libs)
-    for db in libs:
-        compile_args.add("-package-db", db)
-
-    # Expose only the packages we depend on directly
-    for lib in _attr_deps_haskell_lib_infos(ctx, link_style):
-        compile_args.add("-expose-package", lib.name)
-
-    # base is special and gets exposed by default
-    compile_args.add("-expose-package", "base")
+    compile_args.add(packages_info.exposed_package_args)
+    compile_args.add(packages_info.packagedb_args)
 
     # Add args from preprocess-able inputs.
     inherited_pre = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
@@ -439,10 +498,10 @@ def _compile(
     for (path, src) in ctx.attrs.srcs.items():
         # hs-boot files aren't expected to be an argument to compiler but does need
         # to be included in the directory of the associated src file
-        if _is_boot_src(path):
-            compile_args.hidden(src)
-        else:
+        if _is_haskell_src(path):
             compile_args.add(src)
+        else:
+            compile_args.hidden(src)
 
     argsfile = ctx.actions.declare_output("haskell_compile_" + link_style.value + ".argsfile")
     ctx.actions.write(argsfile.as_output(), compile_args, allow_args = True)
@@ -500,7 +559,7 @@ def _make_package(
         hi: "artifact",
         lib: "artifact") -> "artifact":
     # Don't expose boot sources, as they're only meant to be used for compiling.
-    modules = [_src_to_module_name(x) for x in ctx.attrs.srcs if not _is_boot_src(x)]
+    modules = [_src_to_module_name(x) for x in ctx.attrs.srcs if _is_haskell_src(x)]
 
     uniq_hlis = {}
     for x in hlis:
@@ -564,7 +623,6 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
     hlis = []
     nlis = []
     shared_library_infos = []
-
     for lib in _attr_deps(ctx):
         li = lib.get(HaskellLinkInfo)
         if li != None:
@@ -651,6 +709,7 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
             import_dirs = [compiled.hi],
             stub_dirs = [compiled.stubs],
             libs = libs,
+            version = "1.0.0",
         )
         hlib_infos[link_style] = hlib
         hlink_infos[link_style] = [hlib]

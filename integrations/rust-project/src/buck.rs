@@ -10,11 +10,14 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::process::ExitStatus;
+use std::process::Output;
+use std::process::Stdio;
 
-use anyhow::bail;
 use anyhow::Context;
 use serde::Deserialize;
 use tracing::debug;
@@ -27,6 +30,7 @@ use tracing::Level;
 
 use crate::json_project::Edition;
 use crate::json_project::JsonProject;
+use crate::json_project::Sysroot;
 use crate::target::AliasedTargetInfo;
 use crate::target::Kind;
 use crate::target::MacroOutput;
@@ -37,14 +41,16 @@ use crate::Crate;
 use crate::Dep;
 
 pub fn to_json_project(
-    sysroot: Option<PathBuf>,
+    sysroot: Sysroot,
     targets: Vec<Target>,
     target_map: BTreeMap<Target, TargetInfo>,
     aliases: BTreeMap<Target, AliasedTargetInfo>,
     proc_macros: BTreeMap<Target, MacroOutput>,
+    relative_paths: bool,
 ) -> Result<JsonProject, anyhow::Error> {
     let targets: BTreeSet<_> = targets.into_iter().collect();
     let target_index = merge_unit_test_targets(target_map);
+    let project_root = Buck.resolve_project_root()?;
 
     let mut crates: Vec<Crate> = Vec::with_capacity(target_index.len());
     for (target, TargetInfoEntry { info, index: _ }) in &target_index {
@@ -68,18 +74,25 @@ pub fn to_json_project(
         // Include "test" cfg so rust-analyzer picks up #[cfg(test)] code.
         cfg.push("test".to_owned());
 
-        debug!(?target, "loading proc macro");
         // the mapping here is inverted, which means we need to search through the keys for the Target.
         // thankfully, most projects don't have to many proc macros, which means the size of this list
         // remains in the two digit space.
-        let proc_macro_dylib_path = proc_macros
+        let mut proc_macro_dylib_path = proc_macros
             .values()
             .find(|macro_output| macro_output.actual == *target)
             .map(|macro_output| macro_output.dylib.clone());
+        if let Some(ref dylib) = proc_macro_dylib_path {
+            trace!(?target, ?dylib, "target is a proc macro");
+        }
 
         // We don't need to push the source folder as rust-analyzer by default will use the root-module parent().
         // info.root_module() will output either the fbcode source file or the symlinked one based on if it's a mapped source or not
-        let root_module = info.root_module();
+        let mut root_module = info.root_module();
+
+        if relative_paths {
+            proc_macro_dylib_path = proc_macro_dylib_path.map(|p| relative_to(&p, &project_root));
+            root_module = relative_to(&root_module, &project_root);
+        }
 
         let crate_info = Crate {
             display_name: Some(info.name.clone()),
@@ -97,14 +110,8 @@ pub fn to_json_project(
         crates.push(crate_info);
     }
 
-    let (sysroot, sysroot_src) = match sysroot {
-        Some(s) => (Some(s), None),
-        None => rust_sysroot(&Buck.get_project_root()?)?,
-    };
-
     let jp = JsonProject {
         sysroot,
-        sysroot_src,
         crates,
         // needed to ignore the generated `rust-project.json` in diffs, but including the actual
         // string will mark this file as generated
@@ -112,6 +119,15 @@ pub fn to_json_project(
     };
 
     Ok(jp)
+}
+
+/// If `path` starts with `base`, drop the prefix.
+pub fn relative_to(path: &Path, base: &Path) -> PathBuf {
+    match path.strip_prefix(base) {
+        Ok(rel_path) => rel_path,
+        Err(_) => path,
+    }
+    .to_owned()
 }
 
 fn resolve_dependencies_aliases(
@@ -225,43 +241,80 @@ fn merge_unit_test_targets(
     target_index
 }
 
-// Choose sysroot and sysroot_src based on platform.
-// sysroot is expected to contain libexec helpers such as rust-analyzer-proc-macro-srv.
-// Non-linux platforms use fbsource/xplat/rust/toolchain/sysroot/library for
-// sysroot_src since their sysroot bundled with rustc doesn't ship source. Once it
-// does, dispense with sysroot_src completely.
-fn rust_sysroot(fbsource: &Path) -> Result<(Option<PathBuf>, Option<PathBuf>), anyhow::Error> {
+/// Choose sysroot and sysroot_src based on platform.
+///
+/// `sysroot` is the directory that contains std crates:
+/// <https://doc.rust-lang.org/rustc/command-line-arguments.html#--sysroot-override-the-system-root>
+/// and also contains libexec helpers such as rust-analyzer-proc-macro-srv.
+///
+/// `sysroot_src` is the directory that contains the source to std crates:
+/// <https://rust-analyzer.github.io/manual.html#non-cargo-based-projects>
+#[instrument(ret)]
+pub fn rust_sysroot(project_root: &Path, relative_paths: bool) -> Result<Sysroot, anyhow::Error> {
+    let buck = Buck;
+
     if cfg!(target_os = "linux") {
-        return Ok((
-            Some(fbsource.join("fbcode/third-party-buck/platform010/build/rust")),
-            None,
-        ));
+        let base: PathBuf = if relative_paths {
+            PathBuf::from("")
+        } else {
+            project_root.into()
+        };
+
+        let sysroot_src = buck.resolve_sysroot_src()?;
+        let sysroot_src = if relative_paths {
+            sysroot_src
+        } else {
+            project_root.join(sysroot_src)
+        };
+
+        let sysroot = Sysroot {
+            sysroot: base.join("fbcode/third-party-buck/platform010/build/rust"),
+            sysroot_src: Some(sysroot_src),
+        };
+
+        return Ok(sysroot);
     }
-
-    let sysroot_src = fbsource.join("xplat/rust/toolchain/sysroot/library/");
-    let fbsource_rustc = fbsource.join("xplat/rust/toolchain/current/rustc");
-
-    let mut cmd = if cfg!(target_os = "macos") {
-        // Even on M1, all Mac buck builds at meta currently target x86, so we always want the x86
-        // sysroot to avoid mixing architectures.
-        let mut arch_cmd = Command::new("arch");
-        arch_cmd.args(["-x86_64", &fbsource_rustc.to_string_lossy()]);
-        arch_cmd
+    // Spawn both `rustc` and `buck audit config` in parallel without blocking.
+    let fbsource_rustc = project_root.join("xplat/rust/toolchain/current/rustc");
+    let mut sysroot_cmd = if cfg!(target_os = "macos") {
+        // On Apple silicon, buck builds at Meta run under Rosetta.
+        // So we force an x86-64 sysroot to avoid mixing architectures.
+        let mut cmd = Command::new("arch");
+        cmd.arg("-x86_64").arg(fbsource_rustc);
+        cmd
     } else {
         Command::new(fbsource_rustc)
     };
+    sysroot_cmd
+        .arg("--print=sysroot")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let sysroot_child = sysroot_cmd.spawn()?;
 
-    cmd.args(["--print", "sysroot"]);
+    let sysroot_src = buck.resolve_sysroot_src()?;
+    let sysroot_src = if relative_paths {
+        sysroot_src
+    } else {
+        project_root.join(sysroot_src)
+    };
 
-    let sysroot = String::from_utf8(
-        cmd.output()
-            .context("error asking rustc for sysroot")?
-            .stdout,
-    )?
-    .trim()
-    .to_owned();
+    // Now block while we wait for both processes.
+    let mut sysroot = utf8_output(sysroot_child.wait_with_output(), &sysroot_cmd)
+        .context("error asking rustc for sysroot")?;
+    truncate_line_ending(&mut sysroot);
 
-    Ok((Some(sysroot.into()), Some(sysroot_src)))
+    let mut sysroot: PathBuf = sysroot.into();
+    if relative_paths {
+        sysroot = relative_to(&sysroot, project_root);
+    }
+
+    let sysroot = Sysroot {
+        sysroot,
+        sysroot_src: Some(sysroot_src),
+    };
+
+    Ok(sysroot)
 }
 
 #[derive(Debug)]
@@ -272,32 +325,50 @@ impl Buck {
         Command::new("buck2")
     }
 
-    /// Resolve the root of the current buck tree all-up
-    pub fn get_project_root(&self) -> Result<PathBuf, anyhow::Error> {
+    /// Return the absolute path of the current Buck project root.
+    pub fn resolve_project_root(&self) -> Result<PathBuf, anyhow::Error> {
         let mut command = self.command();
         command.args(["root", "--kind=project"]);
 
-        let out = command.output()?;
-        if !out.status.success() {
-            bail!(
-                "failed to execute, logs: \nstdout:\n{}\nstderr\n{}",
-                String::from_utf8_lossy(&out.stdout),
-                String::from_utf8_lossy(&out.stderr)
-            )
-        }
+        let mut stdout = utf8_output(command.output(), &command)?;
+        truncate_line_ending(&mut stdout);
 
-        let raw = String::from_utf8(out.stdout)?;
         if enabled!(Level::TRACE) {
-            trace!(%raw, "Got root from buck");
+            trace!(%stdout, "got root from buck");
         }
 
-        Ok(PathBuf::from(raw.trim()))
+        Ok(stdout.into())
+    }
+
+    fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
+        let mut command = self.command();
+        command.args(["audit", "config", "--json", "--", "rust.sysroot_src_path"]);
+        command
+            .stderr(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        // the `spawn()` here is load-bearing to allow spawning
+        // this command concurrently with rustc.
+        let child = command.spawn().context("Unable to spawn command")?;
+
+        #[derive(Deserialize)]
+        struct BuckConfig {
+            #[serde(rename = "rust.sysroot_src_path")]
+            sysroot_src_path: PathBuf,
+        }
+        let cfg: BuckConfig = deserialize_output(child.wait_with_output(), &command)?;
+        // the `library` path component needs to be appended to the `sysroot_src_path`
+        // so that rust-analyzer will be able to find standard library sources.
+        let cfg = cfg.sysroot_src_path.join("library");
+        Ok(cfg)
     }
 
     /// Expands a Buck target expression.
     ///
     /// Since `rust-project` accepts Buck target experssions like '//common/rust/tools/rust-project/...',
     /// it is necessary to expand the target expression to query the *actual* targets.
+    #[instrument(skip_all)]
     pub fn expand_targets(&self, targets: &[Target]) -> Result<Vec<Target>, anyhow::Error> {
         let mut command = self.command();
         command.args([
@@ -307,7 +378,8 @@ impl Buck {
             "--targets",
         ]);
         command.args(targets);
-        let raw = utf8_command(&mut command)?;
+        tracing::info!(?targets);
+        let raw = deserialize_output(command.output(), &command)?;
         if enabled!(Level::TRACE) {
             for target in &raw {
                 trace!(%target, "Expanded target from buck");
@@ -329,16 +401,30 @@ impl Buck {
             "--targets",
         ]);
         command.args(targets);
-        let raw = utf8_command(&mut command)?;
+
+        if targets.len() <= 10 {
+            // printing out 10 targets is pretty reasonable information for the user
+            info!(
+                targets_num = targets.len(),
+                ?targets,
+                "resolving dependencies"
+            );
+        } else {
+            // after 10 targets, however, things tend to get a bit unwieldy.
+            info!(targets_num = targets.len(), "resolving dependencies");
+            debug!(?targets);
+        }
+        let raw = deserialize_output(command.output(), &command)?;
 
         if enabled!(Level::TRACE) {
             for (target, info) in &raw {
-                trace!(%target, ?info, "Parsed target from buck");
+                trace!(%target, ?info, "parsed target from buck");
             }
         }
         Ok(raw)
     }
 
+    #[instrument(skip_all)]
     pub fn query_proc_macros(
         &self,
         targets: &[Target],
@@ -353,8 +439,8 @@ impl Buck {
         ]);
         command.args(targets);
 
-        info!("Querying buck for aliased proc macros");
-        let raw: BTreeMap<Target, MacroOutput> = utf8_command(&mut command)?;
+        info!("building proc macros");
+        let raw: BTreeMap<Target, MacroOutput> = deserialize_output(command.output(), &command)?;
 
         Ok(raw)
     }
@@ -379,8 +465,9 @@ impl Buck {
         ]);
         command.args(targets);
 
-        info!("Querying buck for aliased libraries");
-        let raw: BTreeMap<Target, AliasedTargetInfo> = utf8_command(&mut command)?;
+        info!("resolving aliased libraries");
+        let raw: BTreeMap<Target, AliasedTargetInfo> =
+            deserialize_output(command.output(), &command)?;
 
         if enabled!(Level::TRACE) {
             for (target, info) in &raw {
@@ -397,35 +484,76 @@ impl Buck {
     ) -> Result<HashMap<PathBuf, Vec<Target>>, anyhow::Error> {
         let mut command = self.command();
 
-        command.args(["uquery", "owner(%s)"]);
+        command.args(["uquery", "--json", "owner(%s)", "--"]);
         command.args(&files);
-        command.arg("--json");
 
         info!(?files, "Querying buck to determine owner");
-        let out = utf8_command(&mut command)?;
+        let out = deserialize_output(command.output(), &command)?;
         Ok(out)
     }
 }
 
-pub fn utf8_command<T>(command: &mut Command) -> Result<T, anyhow::Error>
+pub fn utf8_output(output: io::Result<Output>, command: &Command) -> Result<String, anyhow::Error> {
+    match output {
+        Ok(Output {
+            stdout,
+            stderr,
+            status,
+        }) if status.success() => String::from_utf8(stdout)
+            .or_else(|err| {
+                let context = cmd_err(command, status, &stderr);
+                Err(err).context(context)
+            })
+            .context("command returned non-utf8 output"),
+        Ok(Output {
+            stdout: _,
+            stderr,
+            status,
+        }) => Err(cmd_err(command, status, &stderr))
+            .with_context(|| format!("command ended with {}", status)),
+        Err(err) => Err(err)
+            .with_context(|| format!("command `{:?}`", command))
+            .context("failed to execute command"),
+    }
+}
+
+pub fn deserialize_output<T>(
+    output: io::Result<Output>,
+    command: &Command,
+) -> Result<T, anyhow::Error>
 where
     T: for<'a> Deserialize<'a>,
 {
-    let out = command.output()?;
-    if !out.status.success() {
-        bail!(
-            "failed to execute, logs: \nstdout:\n{}\nstderr\n{}",
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        )
+    match output {
+        Ok(Output {
+            stdout,
+            stderr,
+            status,
+        }) => {
+            tracing::debug!(?command, "parsing command output");
+            serde_json::from_slice(&stdout)
+                .with_context(|| cmd_err(command, status, &stderr))
+                .context("failed to deserialize command output")
+        }
+        Err(err) => Err(err)
+            .with_context(|| format!("command `{:?}`", command))
+            .context("failed to execute command"),
     }
+}
 
-    tracing::debug!("parsing bxl output");
-    serde_json::from_slice(&out.stdout).or_else(|e| {
-        bail!(
-            "failed to parse buck response: {e}, logs: \nstdout:\n{}\nstderr\n{}",
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        )
-    })
+fn cmd_err(command: &Command, status: ExitStatus, stderr: &[u8]) -> anyhow::Error {
+    anyhow::anyhow!(
+        "command `{:?}` (exit code: {})\nstderr:\n{}",
+        command,
+        status,
+        String::from_utf8_lossy(stderr),
+    )
+}
+
+/// Trim a trailing new line from `String`.
+/// Useful when trimming command output.
+pub fn truncate_line_ending(s: &mut String) {
+    if let Some(x) = s.strip_suffix("\r\n").or_else(|| s.strip_suffix('\n')) {
+        s.truncate(x.len());
+    }
 }

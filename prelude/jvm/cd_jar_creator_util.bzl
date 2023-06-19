@@ -378,15 +378,24 @@ def prepare_cd_exe(
         qualified_name: str.type,
         java: RunInfo.type,
         compiler: "artifact",
+        worker: WorkerInfo.type,
         debug_port: [int.type, None],
         debug_target: ["label", None],
-        extra_jvm_args: [str.type]) -> cmd_args.type:
-    debug_args = []
-    if debug_port and qualified_name.startswith(base_qualified_name(debug_target)):
-        debug_args = ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port)]
+        extra_jvm_args: [str.type]) -> [WorkerRunInfo.type, RunInfo.type]:
     jvm_args = extra_jvm_args + ["-XX:-MaxFDLimit"]
-
-    return cmd_args([java, debug_args, jvm_args, "-jar", compiler])
+    if debug_port and qualified_name.startswith(base_qualified_name(debug_target)):
+        # Do not use a worker when debugging is enabled
+        debug_args = ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port)]
+        return RunInfo(args = cmd_args([java, debug_args, jvm_args, "-jar", compiler]))
+    else:
+        worker_run_info = WorkerRunInfo(
+            # Specifies the command to compile using a non-worker process, on RE or if workers are disabled
+            exe = cmd_args([java, jvm_args, "-jar", compiler]),
+            # Specifies the command to initialize a new worker process.
+            # This is used for local execution if `build.use_persistent_workers=True`
+            worker = worker,
+        )
+        return worker_run_info
 
 # If there's additional compiled srcs, we need to merge them in and if the
 # caller specified an output artifact we need to make sure the jar is in that

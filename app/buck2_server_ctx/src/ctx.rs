@@ -12,6 +12,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_build_signals::DeferredBuildSignals;
+use buck2_build_signals::HasCriticalPathBackend;
 use buck2_common::result::SharedResult;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -75,6 +77,7 @@ pub struct DiceAccessor {
     pub is_nested_invocation: bool,
     pub sanitized_argv: Vec<String>,
     pub exit_when_different_state: bool,
+    pub build_signals: Box<dyn DeferredBuildSignals>,
 }
 
 #[async_trait]
@@ -82,7 +85,8 @@ pub trait ServerCommandDiceContext {
     async fn with_dice_ctx<'v, F, Fut, R>(&'v self, exec: F) -> anyhow::Result<R>
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
-        Fut: Future<Output = anyhow::Result<R>> + Send;
+        Fut: Future<Output = anyhow::Result<R>> + Send,
+        R: Send;
 
     async fn with_dice_ctx_maybe_exclusive<'v, F, Fut, R>(
         &'v self,
@@ -91,7 +95,8 @@ pub trait ServerCommandDiceContext {
     ) -> anyhow::Result<R>
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
-        Fut: Future<Output = anyhow::Result<R>> + Send;
+        Fut: Future<Output = anyhow::Result<R>> + Send,
+        R: Send;
 }
 
 #[async_trait]
@@ -101,6 +106,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
         Fut: Future<Output = anyhow::Result<R>> + Send,
+        R: Send,
     {
         self.with_dice_ctx_maybe_exclusive(exec, None).await
     }
@@ -113,19 +119,27 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
         Fut: Future<Output = anyhow::Result<R>> + Send,
+        R: Send,
     {
-        let dice_accessor = self.dice_accessor(PrivateStruct(())).await?;
+        let DiceAccessor {
+            dice_handler,
+            data,
+            setup,
+            is_nested_invocation,
+            sanitized_argv,
+            exit_when_different_state,
+            build_signals,
+        } = self.dice_accessor(PrivateStruct(())).await?;
 
         let events = self.events().dupe();
         events
             .span_async(DiceCriticalSectionStart {}, async move {
                 (
-                    dice_accessor
-                        .dice_handler
+                    dice_handler
                         .enter(
                             self.events().dupe(),
-                            &*dice_accessor.data,
-                            &*dice_accessor.setup,
+                            &*data,
+                            &*setup,
                             |dice| async move {
                                 let events = self.events().dupe();
 
@@ -138,18 +152,24 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                             dice_version: dice.equality_token().to_string(),
                                         },
                                         async move {
-                                            (
-                                                exec(self, dice).await,
-                                                CommandCriticalEnd { metadata },
+                                            let res = buck2_build_signals::scope(
+                                                build_signals,
+                                                self.events().dupe(),
+                                                dice.per_transaction_data()
+                                                    .get_critical_path_backend(),
+                                                || exec(self, dice),
                                             )
+                                            .await;
+
+                                            (res, CommandCriticalEnd { metadata })
                                         },
                                     )
                                     .await
                             },
-                            dice_accessor.is_nested_invocation,
-                            dice_accessor.sanitized_argv,
+                            is_nested_invocation,
+                            sanitized_argv,
                             exclusive_cmd,
-                            dice_accessor.exit_when_different_state,
+                            exit_when_different_state,
                             self.cancellation_context(),
                         )
                         .await,

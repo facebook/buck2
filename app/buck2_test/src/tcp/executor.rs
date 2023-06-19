@@ -13,16 +13,19 @@ use std::process::Stdio;
 
 use anyhow::Context as _;
 use buck2_util::process::async_background_command;
+use futures::future::Either;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
-use tokio::process::Child;
+
+use crate::executor_launcher::ExecutorFuture;
 
 pub(crate) async fn spawn(
     executable: &Path,
     args: Vec<String>,
     tpx_args: Vec<String>,
-) -> anyhow::Result<(Child, TcpStream, TcpStream)> {
-    // Use TCPStream via TCPListener with accept to simulate UnixStream.
+) -> anyhow::Result<(ExecutorFuture, TcpStream, TcpStream)> {
+    // Use TCPStream via TCPListener with accept to establish a duplex connection. We set up the
+    // listeners, our client connects to both, and that gets us two duplex streams.
     let (executor_addr, executor_tcp_listener) = create_tcp_listener().await?;
     let (orchestrator_addr, orchestrator_tcp_listener) = create_tcp_listener().await?;
 
@@ -46,19 +49,39 @@ pub(crate) async fn spawn(
         )
     })?;
 
-    // Use join to wait executor connection in no particular order.
-    let ((orchestrator_tcp_stream, _), (executor_tcp_stream, _)) = tokio::try_join!(
-        orchestrator_tcp_listener.accept(),
-        executor_tcp_listener.accept(),
-    )
-    .with_context(|| {
-        format!(
-            "Failed to accept TCP connection from {}",
-            &executable.display()
-        )
-    })?;
+    let exec = ExecutorFuture::new(proc);
 
-    Ok((proc, executor_tcp_stream, orchestrator_tcp_stream))
+    // Use join to wait executor connection in no particular order.
+    let conns = async {
+        let ((orchestrator_tcp_stream, _), (executor_tcp_stream, _)) = futures::future::try_join(
+            orchestrator_tcp_listener.accept(),
+            executor_tcp_listener.accept(),
+        )
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to accept TCP connection from {}",
+                &executable.display()
+            )
+        })?;
+
+        anyhow::Ok((orchestrator_tcp_stream, executor_tcp_stream))
+    };
+
+    futures::pin_mut!(conns);
+
+    // Wait for our connections to come up, but also check that the child hasn't exited before we
+    // get there.
+    match futures::future::select(exec, conns).await {
+        Either::Left((output, _)) => Err(anyhow::anyhow!(
+            "Executor exited before connecting: {}",
+            output?
+        )),
+        Either::Right((conns, exec)) => {
+            let (orchestrator_tcp_stream, executor_tcp_stream) = conns?;
+            Ok((exec, executor_tcp_stream, orchestrator_tcp_stream))
+        }
+    }
 }
 
 async fn create_tcp_listener() -> anyhow::Result<(String, TcpListener)> {

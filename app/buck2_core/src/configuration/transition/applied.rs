@@ -8,8 +8,8 @@
  */
 
 use allocative::Allocative;
+use buck2_util::collections::sorted_map::SortedMap;
 
-use crate::collections::sorted_map::SortedMap;
 use crate::configuration::data::ConfigurationData;
 
 #[derive(thiserror::Error, Debug)]

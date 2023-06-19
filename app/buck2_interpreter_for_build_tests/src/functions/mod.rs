@@ -8,4 +8,5 @@
  */
 
 mod host_info;
+mod load_symbols;
 mod read_config;

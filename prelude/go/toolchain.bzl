@@ -11,6 +11,8 @@ GoToolchainInfo = provider(fields = [
     "cgo_wrapper",
     "compile_wrapper",
     "compiler",
+    "compiler_flags_shared",
+    "compiler_flags_static",
     "cover",
     "cover_srcs",
     "cxx_toolchain_for_linking",
@@ -22,6 +24,8 @@ GoToolchainInfo = provider(fields = [
     "filter_srcs",
     "go",
     "linker",
+    "linker_flags_shared",
+    "linker_flags_static",
     "packer",
     "tags",
 ])

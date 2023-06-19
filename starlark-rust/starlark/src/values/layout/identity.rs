@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::fmt;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
@@ -39,11 +38,5 @@ impl<'v> ValueIdentity<'v> {
             identity: value.ptr_value(),
             phantom: PhantomData,
         }
-    }
-}
-
-impl<'v> fmt::Display for ValueIdentity<'v> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.identity.0)
     }
 }

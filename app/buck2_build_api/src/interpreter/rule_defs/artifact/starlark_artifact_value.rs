@@ -76,7 +76,7 @@ fn json_convert<'v>(v: serde_json::Value, heap: &'v Heap) -> anyhow::Result<Valu
         serde_json::Value::Bool(x) => Ok(Value::new_bool(x)),
         serde_json::Value::Number(x) => {
             if let Some(x) = x.as_i64().and_then(|x| i32::try_from(x).ok()) {
-                Ok(Value::new_int(x))
+                Ok(heap.alloc(x))
             } else if let Some(x) = x.as_f64() {
                 Ok(heap.alloc(x))
             } else {

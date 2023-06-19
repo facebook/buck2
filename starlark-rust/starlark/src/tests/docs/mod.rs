@@ -23,7 +23,10 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::assert;
+use crate::docs::Doc;
 use crate::docs::DocItem;
+use crate::docs::MarkdownFlavor;
+use crate::docs::RenderMarkdown;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
@@ -31,6 +34,7 @@ use crate::environment::MethodsStatic;
 use crate::starlark_type;
 use crate::tests::docs::golden::docs_golden_test;
 use crate::values::none::NoneType;
+use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
@@ -118,6 +122,7 @@ fn module(builder: &mut GlobalsBuilder) {
     /// 1 == 1
     /// # "#);
     /// ```
+    #[starlark(dot_type = "magic")]
     fn func3(
         #[starlark(require = pos)] a1: i32,
         #[starlark(require = pos)] a2: Option<i32>,
@@ -134,6 +139,19 @@ fn module(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<NoneType> {
         let _unused = (explicit_default, hidden_default, string_default);
         Ok(NoneType)
+    }
+
+    fn pos_either_named(
+        #[starlark(require = pos)] a: i32,
+        b: i32,
+        #[starlark(require = named)] c: i32,
+    ) -> anyhow::Result<NoneType> {
+        let _unused = (a, b, c);
+        Ok(NoneType)
+    }
+
+    fn notypes<'v>(a: Value<'v>) -> anyhow::Result<Value<'v>> {
+        Ok(a)
     }
 }
 
@@ -201,7 +219,7 @@ fn golden_docs_starlark() {
 fn golden_docs_module() {
     let res = docs_golden_test(
         "module",
-        GlobalsBuilder::new().with(module).build().documentation(),
+        DocItem::Module(GlobalsBuilder::new().with(module).build().documentation()),
     );
     assert!(!res.contains("starlark::assert::all_true"));
     assert!(res.contains(r#"string_default: str.type = "my_default"#));
@@ -211,4 +229,31 @@ fn golden_docs_module() {
 fn golden_docs_object() {
     let res = docs_golden_test("object", Obj.documentation().unwrap());
     assert!(res.contains(r#"name.\_\_exported\_\_"#));
+}
+
+#[test]
+fn inner_object_functions_have_docs() {
+    let heap = Heap::new();
+    let obj = heap.alloc_simple(Obj);
+    let item = obj
+        .get_attr("func1", &heap)
+        .unwrap()
+        .unwrap()
+        .documentation()
+        .unwrap();
+    let res = Doc::named_item("func1".to_owned(), item).render_markdown(MarkdownFlavor::DocFile);
+    assert!(res.contains("Docs for func1"));
+}
+
+#[test]
+fn inner_module_functions_have_docs() {
+    let item = GlobalsBuilder::new()
+        .with(module)
+        .build()
+        .get("func1")
+        .unwrap()
+        .documentation()
+        .unwrap();
+    let res = Doc::named_item("func1".to_owned(), item).render_markdown(MarkdownFlavor::DocFile);
+    assert!(res.contains("Docs for func1"))
 }

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::env;
 use std::fmt::Write;
 use std::fs;
@@ -24,7 +23,6 @@ use anyhow::Context;
 
 use crate::docs::Doc;
 use crate::docs::DocItem;
-use crate::docs::Identifier;
 use crate::docs::MarkdownFlavor;
 use crate::docs::RenderMarkdown;
 
@@ -32,14 +30,7 @@ const REGENERATE_VAR_NAME: &str = "STARLARK_RUST_REGENERATE_DOC_TESTS";
 
 #[allow(clippy::write_literal)] // We mark generated files as generated, but not this file.
 fn make_golden(item: DocItem) -> String {
-    let doc = Doc {
-        id: Identifier {
-            name: "name".to_owned(),
-            location: None,
-        },
-        item,
-        custom_attrs: HashMap::new(),
-    };
+    let doc = Doc::named_item("name".to_owned(), item);
     let markdown = doc.render_markdown(MarkdownFlavor::DocFile);
 
     let mut golden = String::new();

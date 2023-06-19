@@ -14,6 +14,7 @@ indexmap = { workspace = true }
 itertools = { workspace = true }
 ref-cast = { workspace = true }
 thiserror = { workspace = true }
+regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
@@ -21,6 +22,7 @@ dice = { workspace = true }
 gazebo = { workspace = true }
 dupe = { workspace = true }
 
+buck2_analysis = { workspace = true }
 buck2_audit = { workspace = true }
 buck2_build_api = { workspace = true }
 buck2_client_ctx = { workspace = true }

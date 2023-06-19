@@ -11,7 +11,6 @@ use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
-use more_futures::cancellation::future::TerminationObserver;
 use tokio::sync::oneshot::Sender;
 
 use crate::api::storage_type::StorageType;
@@ -22,6 +21,7 @@ use crate::impls::core::processor::StateProcessor;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
+use crate::impls::task::dice::TerminationObserver;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;

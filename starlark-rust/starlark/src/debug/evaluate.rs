@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use std::mem;
-
 use crate::collections::SmallMap;
 use crate::debug::inspect::to_scope_names_by_local_slot_id;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
@@ -80,7 +78,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             }
         }
 
-        let orig_module_variables = mem::replace(&mut self.module_variables, None);
+        let orig_module_variables = self.module_variables.take();
         let globals = self.top_frame_def_info_for_debugger()?.globals;
         let res = self.eval_module(statements, &globals);
         self.module_variables = orig_module_variables;
@@ -117,6 +115,7 @@ mod tests {
     use crate::assert;
     use crate::environment::GlobalsBuilder;
     use crate::syntax::Dialect;
+    use crate::wasm::is_wasm;
 
     #[starlark_module]
     fn debugger(builder: &mut GlobalsBuilder) {
@@ -131,6 +130,10 @@ mod tests {
 
     #[test]
     fn test_debug_evaluate() {
+        if is_wasm() {
+            return;
+        }
+
         let mut a = assert::Assert::new();
         a.globals_add(debugger);
         let check = r#"

@@ -17,7 +17,7 @@
 
 //! Provides debug-related functionality and utilities.
 mod adapter;
-mod breakpoint;
+
 mod evaluate;
 mod inspect;
 

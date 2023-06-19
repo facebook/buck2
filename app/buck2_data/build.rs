@@ -166,6 +166,10 @@ fn main() -> io::Result<()> {
             "#[serde(rename = \"concurrent_command_blocking_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .field_attribute(
+            "bxl_ensure_artifacts_duration",
+            "#[serde(rename = \"bxl_ensure_artifacts_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
             "CriticalPathEntry2.user_duration",
             "#[serde(rename = \"user_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
@@ -192,6 +196,14 @@ fn main() -> io::Result<()> {
         .type_attribute(
             "buck.data.CriticalPathEntry2.Materialization.owner",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
+        .type_attribute(
+            "buck.data.StarlarkUserMetadataValue",
+            "#[serde(transparent)]",
+        )
+        .type_attribute(
+            "buck.data.StarlarkUserMetadataValue.value",
+            "#[serde(untagged)]",
         )
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")

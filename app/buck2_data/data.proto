@@ -79,6 +79,8 @@ message SpanStartEvent {
     ConnectToInstallerStart connect_to_installer = 79;
     SetupLocalResourcesStart local_resources = 80;
     ReleaseLocalResourcesStart release_local_resources = 81;
+    // Measure total time it takes to ensure BXL artifacts.
+    BxlEnsureArtifactsStart bxl_ensure_artifacts = 82;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -124,6 +126,7 @@ message SpanEndEvent {
     ConnectToInstallerEnd connect_to_installer = 80;
     SetupLocalResourcesEnd local_resources = 81;
     ReleaseLocalResourcesEnd release_local_resources = 82;
+    BxlEnsureArtifactsEnd bxl_ensure_artifacts = 83;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -139,9 +142,26 @@ message UntrackedFile {
   string file_type = 2;
 }
 
+message StarlarkUserMetadataValue {
+  oneof value {
+    string string_value = 1;
+    int32 int_value = 2;
+    bool bool_value = 3;
+  }
+}
+
+message StarlarkUserEvent {
+  string id = 1;
+  map<string, StarlarkUserMetadataValue> metadata = 2;
+}
+
+message CommandOptions {
+  uint64 concurrency = 1;
+}
+
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 9, 13, 22;
+  reserved 8, 9, 13, 22;
 
   oneof data {
     StructuredError structured_error = 1;
@@ -156,8 +176,6 @@ message InstantEvent {
     // Test result is an instant event for similar reasons as TestDiscovery.
     // It corresponds with the completion of an individual test.
     TestResult test_result = 7;
-    // Inform tailer that rage was performed on certain command.
-    RageInvoked rage_invoked = 8;
     Snapshot snapshot = 10;
 
     DiceStateSnapshot dice_state_snapshot = 11;
@@ -181,7 +199,7 @@ message InstantEvent {
     // Notify the client that the daemon is shutting down.
     DaemonShutdown daemon_shutdown = 19;
 
-    // TODO iguridi: consolidate with RageInvoked
+    // Information collected by buck2 rage command
     RageResult rage_result = 20;
 
     // Notify the client that the daemon would like to update the rendering.
@@ -210,6 +228,12 @@ message InstantEvent {
     // Unexpected file found in buck-out/<isolation_dir>/gen during a
     // clean --stale run, not found in materializer state
     UntrackedFile untracked_file = 29;
+
+    // For user-defined instant events. Currently only used in BXL.
+    StarlarkUserEvent starlark_user_event = 30;
+
+    // Log options that are command-level and processed by the daemon.
+    CommandOptions comand_options = 31;
   }
 
   reserved 12; // Log
@@ -425,13 +449,6 @@ message TestDiscovery {
   }
 }
 
-// Event indicating buck2 rage has been invoked.
-message RageInvoked {
-  map<string, string> metadata = 1;
-  // the trace id of the command that rage was invoked upon.
-  optional string recent_command_trace_id = 2;
-}
-
 // Result of invoking buck2 rage
 message RageResult {
   reserved 1 to 8;
@@ -530,6 +547,13 @@ message Snapshot {
   // Network statistics for "interesting" network interfaces.
   map<string, NetworkInterfaceStats> network_interface_stats = 109;
 
+  uint64 http_download_bytes = 110;
+
+  uint64 deferred_materializer_declares = 200;
+  uint64 deferred_materializer_declares_reused = 201;
+
+  optional UnixSystemStats unix_system_stats = 300;
+
   // Client side metrics.
 
   // Delay between time snapshot is created and time it is received
@@ -537,6 +561,12 @@ message Snapshot {
   optional int64 this_event_client_delay_ms = 2001;
   // Client average user + system CPU time since last snapshot processed.
   optional uint32 client_cpu_percents = 2002;
+}
+
+message UnixSystemStats {
+  double load1 = 1;
+  double load5 = 2;
+  double load15 = 3;
 }
 
 enum TestStatus {
@@ -903,6 +933,10 @@ enum ActionExecutionKind {
   ACTION_EXECUTION_KIND_SKIPPED = 5;
   // This action was logically executed, but didn't perform all the work.
   ACTION_EXECUTION_KIND_DEFERRED = 6;
+  // This action was served by the local dep file cache and not executed.
+  ACTION_EXECUTION_KIND_LOCAL_DEP_FILE = 7;
+  // This action was executed locally via a worker.
+  ACTION_EXECUTION_KIND_LOCAL_WORKER = 8;
 }
 
 // A name for a particular action, suitable for offline analytics and user
@@ -957,6 +991,11 @@ message CommandExecutionDetails {
     // The command, if it was local and omitted from this log record for
     // brevity.
     OmittedLocalCommand omitted_local_command = 9;
+    // The command used to initialize the worker, if the action failed at this
+    // step.
+    WorkerInitCommand worker_init_command = 11;
+    // The command, if executed by a local worker.
+    WorkerCommand worker_command = 12;
   }
 
   // We should probably get the some more fields from CommandExecutionMetadata
@@ -1151,6 +1190,7 @@ message CacheQuery {
 
 message CacheHit {
   string action_digest = 1;
+  optional string action_key = 3;
 }
 
 message ReStage {
@@ -1205,6 +1245,8 @@ message LocalStage {
     LocalMaterializeInputs materialize_inputs = 3;
     LocalPrepareOutputDirs prepare_outputs = 4;
     AcquireLocalResource acquire_local_resource = 5;
+    InitializeWorker initialize_worker = 6;
+    WorkerExecute worker_execute = 7;
   }
 }
 
@@ -1214,11 +1256,19 @@ message LocalExecute {
   LocalCommand command = 1;
 }
 
+message WorkerExecute {
+  WorkerCommand command = 1;
+}
+
 message LocalMaterializeInputs {}
 
 message LocalPrepareOutputDirs {}
 
 message AcquireLocalResource {}
+
+message InitializeWorker {
+  WorkerInitCommand command = 1;
+}
 
 message ExecutorStageEnd {}
 
@@ -1370,18 +1420,33 @@ message ConsoleMessage {
   string message = 1;
 }
 
+message EnvironmentEntry {
+  // The environment key.
+  string key = 1;
+  // The environment value.
+  string value = 2;
+}
+
 /// A representation of a command that we executed locally.
 message LocalCommand {
-  message EnvironmentEntry {
-    // The environment key.
-    string key = 1;
-    // The environment value.
-    string value = 2;
-  }
-
   repeated string argv = 1;
   repeated EnvironmentEntry env = 2;
   string action_digest = 3;
+}
+
+message WorkerInitCommand {
+  repeated string argv = 1;
+  repeated EnvironmentEntry env = 2;
+}
+
+/// A representation of a command executed by a local worker.
+message WorkerCommand {
+  repeated string argv = 1;
+  repeated EnvironmentEntry env = 2;
+  string action_digest = 3;
+  /// The exe args to run this command as a separate process,
+  /// if needed to reproduce a failed command.
+  repeated string fallback_exe = 4;
 }
 
 // A representation of a command we executed remotely.
@@ -1428,7 +1493,7 @@ message TypedMetadata {
 
 // Record event sent directly to scribe.
 message InvocationRecord {
-  reserved 22, 36;
+  reserved 22, 36, 66;
 
   // Optional - present if ever sent to client.
   CommandStart command_start = 1;
@@ -1459,6 +1524,9 @@ message InvocationRecord {
   uint64 run_skipped_count = 13;
   // Optional - Count of actions that used fallback if fallback was used
   optional uint64 run_fallback_count = 14;
+  // Optional - Count of actions executed locally by a persistent worker,
+  // actions included in this count are also included in run_local_count.
+  optional uint64 local_actions_executed_via_worker = 15;
   // Optional - the first snapshot sent.
   Snapshot first_snapshot = 20;
   // Optional - the last snapshot sent.
@@ -1540,9 +1608,13 @@ message InvocationRecord {
   optional string restarted_trace_id = 63;
   optional bool has_command_result = 64;
   optional uint64 compressed_event_log_size_bytes = 65;
-  bool use_streaming_upload = 66;
   optional bool has_end_of_stream = 67;
   optional string critical_path_backend = 68;
+  optional bool instant_command_is_success = 69;
+  // Optional - total time for final artifact materializations.
+  google.protobuf.Duration bxl_ensure_artifacts_duration = 70;
+  optional uint64 re_upload_bytes = 71;
+  optional uint64 re_download_bytes = 72;
 }
 
 message CacheUploadStart {
@@ -1647,6 +1719,10 @@ message BxlExecutionEnd {}
 message BxlDiceInvocationStart {}
 
 message BxlDiceInvocationEnd {}
+
+message BxlEnsureArtifactsStart {}
+
+message BxlEnsureArtifactsEnd {}
 
 message DiceBlockConcurrentCommandStart {
   string current_active_trace_id = 1;

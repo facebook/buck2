@@ -75,7 +75,7 @@ starlark_complex_value!(pub TransitiveSetTraversal);
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetTraversalGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("transitive_set_iterator");
 
@@ -110,7 +110,7 @@ starlark_complex_value!(pub TransitiveSetProjectionTraversal);
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetProjectionTraversalGen<V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("transitive_set_args_projection_iterator");
 

@@ -18,31 +18,26 @@ Finally, superconsole delineates between rendering logic and program state - eac
 
 ```rust
 use std::convert::TryInto;
-use superconsole::{
-    components::bordering::{Bordered, BorderedSpec},
-    Component, Dimensions, DrawMode, Line, State, SuperConsole,
-};
+use superconsole::components::bordering::{Bordered, BorderedSpec};
+use superconsole::{Component, Dimensions, DrawMode, Lines, SuperConsole};
 
 #[derive(Debug)]
 struct HelloWorld;
 
 impl Component for HelloWorld {
-    fn draw_unchecked(
-        &self,
-        _dimensions: Dimensions,
-        _mode: DrawMode,
-    ) -> anyhow::Result<Vec<Line>> {
-        Ok(vec![vec!["hello world"].try_into()?])
+    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
+        Ok(Lines(vec![
+            vec!["Hello world!".to_owned()].try_into().unwrap(),
+        ]))
     }
 }
 
 pub fn main() -> anyhow::Result<()> {
     let bordering = BorderedSpec::default();
-    let mut superconsole =
-        SuperConsole::new(Box::new(Bordered::new(Box::new(HelloWorld), bordering)))
-            .ok_or_else(|| anyhow::anyhow!("Not a TTY"))?;
-    superconsole.render(&state![])?;
-    superconsole.finalize(&state![])?;
+    let mut superconsole = SuperConsole::new().ok_or_else(|| anyhow::anyhow!("Not a TTY"))?;
+    let component = Bordered::new(HelloWorld, bordering);
+    superconsole.render(&component)?;
+    superconsole.finalize(&component)?;
     Ok(())
 }
 ```

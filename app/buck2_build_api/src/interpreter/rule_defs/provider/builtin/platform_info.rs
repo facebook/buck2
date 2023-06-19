@@ -27,7 +27,7 @@ use crate::interpreter::rule_defs::provider::builtin::configuration_info::Config
 #[internal_provider(platform_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub(crate) struct PlatformInfoGen<V> {
+pub struct PlatformInfoGen<V> {
     #[provider(field_type = "String")]
     label: V,
     #[provider(field_type = "ConfigurationInfo")]
@@ -50,7 +50,7 @@ impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
 }
 
 impl<'v> PlatformInfo<'v> {
-    pub(crate) fn from_configuration(
+    pub fn from_configuration(
         cfg: &ConfigurationData,
         heap: &'v Heap,
     ) -> anyhow::Result<PlatformInfo<'v>> {

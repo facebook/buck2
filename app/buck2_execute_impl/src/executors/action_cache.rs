@@ -20,7 +20,9 @@ use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;
 use buck2_execute::execute::result::CommandExecutionResult;
+use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
@@ -34,7 +36,9 @@ pub struct ActionCacheChecker {
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
     pub re_use_case: RemoteExecutorUseCase,
+    pub re_action_key: Option<String>,
     pub upload_all_actions: bool,
+    pub knobs: ExecutorGlobalKnobs,
 }
 
 #[async_trait]
@@ -95,6 +99,17 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             Ok(None) => return ControlFlow::Continue(manager),
         };
 
+        let action_key = if self.knobs.log_action_keys {
+            let identity = ReActionIdentity::new(
+                command.target,
+                self.re_action_key.as_deref(),
+                request.paths(),
+            );
+            Some(identity.action_key)
+        } else {
+            None
+        };
+
         let res = download_action_results(
             request,
             &*self.materializer,
@@ -105,6 +120,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             // TODO (torozco): We should deduplicate this and ActionExecutionKind.
             buck2_data::CacheHit {
                 action_digest: action_digest.to_string(),
+                action_key,
             }
             .into(),
             request.paths(),

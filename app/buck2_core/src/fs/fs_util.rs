@@ -10,6 +10,7 @@
 // We'd love to use fs-err instead, but that code gives bad error messages and doesn't wrap all functions.
 // Various bugs have been raised - if they all get fixed we can migrate.
 use std::borrow::Cow;
+use std::env;
 use std::fs;
 use std::fs::File;
 use std::io;
@@ -25,6 +26,7 @@ use common_path::common_path;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 
+use crate::fs::cwd::assert_cwd_is_not_set;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::abs_path::AbsPath;
@@ -121,6 +123,12 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> anyhow::Result<()> {
             permission_check(std::os::windows::fs::symlink_file(&target_canonical, link))
         }
     }
+}
+
+pub fn set_current_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
+    assert_cwd_is_not_set()?;
+    env::set_current_dir(path.as_ref())
+        .with_context(|| format!("set_current_dir({})", P::as_ref(&path).display()))
 }
 
 pub fn create_dir_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {

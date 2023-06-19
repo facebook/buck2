@@ -7,14 +7,13 @@
  * of this source tree.
  */
 
-use buck2_build_api::attrs::resolve::configured_attr::ConfiguredAttrExt;
+use buck2_analysis::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
-use buck2_core::buck_path::resolver::BuckPathResolver;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
@@ -26,11 +25,11 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_interpreter::selector::register_select;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx_listing;
 use buck2_interpreter_for_build::attrs::coerce::testing::to_value;
+use buck2_interpreter_for_build::interpreter::selector::register_select;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -207,7 +206,7 @@ fn test_any() -> anyhow::Result<()> {
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!("True", configured.as_display_no_ctx().to_string());
 
-    let value = Value::new_int(42);
+    let value = heap.alloc(42);
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!("42", coerced.as_display_no_ctx().to_string());
     let configured = coerced.configure(&attr, &configuration_ctx())?;
@@ -768,7 +767,7 @@ fn test_arg() -> anyhow::Result<()> {
     let heap = Heap::new();
     let value = heap.alloc("$(exe //some:exe) --file=$(location \"//some:location\")");
 
-    let attr = AttrType::arg();
+    let attr = AttrType::arg(false);
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     // Note that targets are canonicalized.
@@ -882,7 +881,7 @@ fn test_user_placeholders() -> anyhow::Result<()> {
         .build();
 
     let resolve = move |value: &str| {
-        let attr = AttrType::arg();
+        let attr = AttrType::arg(false);
         let coerced = attr.coerce(
             AttrIsConfigurable::Yes,
             &coercion_ctx(),
@@ -899,12 +898,12 @@ fn test_user_placeholders() -> anyhow::Result<()> {
                 )
                 .unwrap();
                 let fs = ArtifactFs::new(
-                    BuckPathResolver::new(CellResolver::testing_with_name_and_path(
+                    CellResolver::testing_with_name_and_path(
                         CellName::testing_new("cell"),
                         CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new(
                             "cell_path".into(),
                         )),
-                    )),
+                    ),
                     BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
                         "buck_out/v2".into(),
                     )),

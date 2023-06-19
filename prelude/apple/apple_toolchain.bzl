@@ -20,6 +20,7 @@ def apple_toolchain_impl(ctx: "context") -> ["provider"]:
             codesign_allocate = ctx.attrs.codesign_allocate[RunInfo],
             codesign_identities_command = ctx.attrs.codesign_identities_command[RunInfo] if ctx.attrs.codesign_identities_command else None,
             compile_resources_locally = ctx.attrs.compile_resources_locally,
+            copy_scene_kit_assets = ctx.attrs.copy_scene_kit_assets[RunInfo],
             cxx_platform_info = ctx.attrs.cxx_toolchain[CxxPlatformInfo],
             cxx_toolchain_info = ctx.attrs.cxx_toolchain[CxxToolchainInfo],
             dsymutil = ctx.attrs.dsymutil[RunInfo],

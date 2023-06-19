@@ -12,7 +12,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_api::interpreter::context::prelude_path;
 use buck2_cli_proto::unstable_docs_response;
 use buck2_cli_proto::UnstableDocsRequest;
 use buck2_cli_proto::UnstableDocsResponse;
@@ -24,6 +23,7 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
+use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::GlobalInterpreterState;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -89,25 +89,24 @@ pub(crate) fn builtin_doc<S: ToString>(name: S, directory: &str, item: DocItem) 
 
 fn get_builtin_global_starlark_docs() -> Doc {
     let globals = Globals::extended();
-    builtin_doc("globals", "standard", globals.documentation())
+    builtin_doc(
+        "globals",
+        "standard",
+        DocItem::Module(globals.documentation()),
+    )
 }
 
 /// Globals that are in the interpreter, but none of the starlark global symbols.
 fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> anyhow::Result<Doc> {
-    let cleaned_build = match interpreter_state.extension_file_global_env.documentation() {
-        DocItem::Module(mut b_o) => {
-            let globals = Globals::extended();
-            let global_symbols: HashSet<_> = globals.names().map(|s| s.as_str()).collect();
-            b_o.members = b_o
-                .members
-                .into_iter()
-                .filter(|(name, _)| !global_symbols.contains(&name.as_str()))
-                .collect();
-            DocItem::Module(b_o)
-        }
-        item => item,
-    };
-    Ok(builtin_doc("globals", "", cleaned_build))
+    let mut b_o = interpreter_state.extension_file_global_env.documentation();
+    let globals = Globals::extended();
+    let global_symbols: HashSet<_> = globals.names().map(|s| s.as_str()).collect();
+    b_o.members = b_o
+        .members
+        .into_iter()
+        .filter(|(name, _)| !global_symbols.contains(&name.as_str()))
+        .collect();
+    Ok(builtin_doc("globals", "", DocItem::Module(b_o)))
 }
 
 pub fn get_builtin_docs(

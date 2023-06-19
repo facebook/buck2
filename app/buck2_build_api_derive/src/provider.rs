@@ -116,11 +116,17 @@ impl ProviderCodegen {
         Ok(format_ident!("register_{}", name_snake_str))
     }
 
+    /// `id` field is object identity, which is ignored for equality or display purposes.
+    fn is_id_field(&self, field: &syn::Field) -> bool {
+        field.ident.as_ref().unwrap() == "id" && field.ty.to_token_stream().to_string() == "u64"
+    }
+
     fn field_names(&self) -> syn::Result<Vec<&syn::Ident>> {
         match &self.input.fields {
             syn::Fields::Named(fields) => Ok(fields
                 .named
                 .iter()
+                .filter(|f| !self.is_id_field(f))
                 .map(|v| v.ident.as_ref().expect("no field name in named fields?"))
                 .collect()),
             _ => Err(syn::Error::new_spanned(
@@ -165,6 +171,13 @@ impl ProviderCodegen {
     }
 
     fn field_doc(&self, field: &syn::Field) -> syn::Result<FieldDoc> {
+        if self.is_id_field(field) {
+            return Err(syn::Error::new_spanned(
+                field,
+                "id field should not be documented",
+            ));
+        }
+
         syn::custom_keyword!(field_type);
 
         let name = field.ident.as_ref().unwrap().to_owned();
@@ -209,6 +222,7 @@ impl ProviderCodegen {
             syn::Fields::Named(fields) => Ok(fields
                 .named
                 .iter()
+                .filter(|f| !self.is_id_field(f))
                 .map(|f| self.field_doc(f))
                 .collect::<syn::Result<Vec<_>>>()?),
             _ => Err(syn::Error::new_spanned(
@@ -283,7 +297,7 @@ impl ProviderCodegen {
             impl<'v, V: starlark::values::ValueLike<'v> + 'v> starlark::values::StarlarkValue<'v>
                 for #gen_name<V>
             where
-                Self: starlark::any::ProvidesStaticType,
+                Self: starlark::any::ProvidesStaticType<'v>,
             {
                 starlark::starlark_type!(#name_str);
 

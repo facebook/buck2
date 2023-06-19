@@ -10,9 +10,8 @@
 use buck2_client_ctx::argv::Argv;
 use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
-use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
+use buck2_client_ctx::exit_result::ExitResult;
 
 /// Kill the buck daemon.
 ///
@@ -25,21 +24,8 @@ use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 pub struct KillCommand {}
 
 impl KillCommand {
-    pub fn exec(
-        self,
-        _matches: &clap::ArgMatches,
-        ctx: ClientCommandContext<'_>,
-    ) -> anyhow::Result<()> {
-        ctx.with_runtime(async move |ctx| {
-            let _log_on_drop = try_get_invocation_recorder(
-                &ctx,
-                CommonDaemonCommandOptions::default_ref(),
-                "kill",
-                std::env::args().collect(),
-                None,
-                false,
-            )?;
-
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+        ctx.instant_command("kill", async move |ctx| {
             match ctx
                 .connect_buckd(BuckdConnectOptions::existing_only_no_console())
                 .await

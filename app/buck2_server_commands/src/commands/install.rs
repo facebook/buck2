@@ -19,11 +19,11 @@ use std::process::Stdio;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::build::materialize_artifact_group;
 use buck2_build_api::build::MaterializationContext;
-use buck2_build_api::calculation::Calculation;
 use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -63,6 +63,7 @@ use buck2_install_proto::FileReadyRequest;
 use buck2_install_proto::InstallInfoRequest;
 use buck2_install_proto::ShutdownRequest;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
+use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -122,6 +123,7 @@ async fn get_installer_log_directory(
     let out_path = ctx.get_buck_out_path().await?;
     let filesystem = server_ctx.project_root();
     let buck_out_path = out_path
+        .root()
         .as_forward_relative_path()
         .resolve(filesystem.root());
     let install_log_dir = buck_out_path.join(ForwardRelativePathBuf::unchecked_new(
@@ -231,7 +233,7 @@ async fn install(
         for (target_name, providers) in targets {
             let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
             let providers_label = ctx
-                .get_configured_target(&label, global_target_platform.dupe().as_ref())
+                .get_configured_provider_label(&label, global_target_platform.dupe().as_ref())
                 .await?;
             let frozen_providers = ctx
                 .get_providers(&providers_label)

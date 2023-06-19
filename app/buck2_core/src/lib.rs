@@ -22,6 +22,7 @@
 #![feature(pattern)]
 #![feature(box_patterns)]
 #![feature(maybe_uninit_slice)]
+#![feature(impl_trait_in_assoc_type)]
 #![cfg_attr(windows, feature(windows_file_type_ext))]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
@@ -43,7 +44,6 @@ pub mod build_file_path;
 pub mod bzl;
 pub mod category;
 pub mod cells;
-pub mod collections;
 pub mod configuration;
 pub mod directory;
 pub mod env_helper;

@@ -220,13 +220,8 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn pop<'v>(
         this: Value<'v>,
-        #[starlark(require = pos)] index: Option<Value<'v>>,
+        #[starlark(require = pos)] index: Option<i32>,
     ) -> anyhow::Result<Value<'v>> {
-        let index = match index {
-            Some(index) => Some(index.to_int()?),
-            None => None,
-        };
-
         let this = ListData::from_value_mut(this)?;
         let index = index.unwrap_or_else(|| (this.len() as i32) - 1);
         if index < 0 || index >= this.len() as i32 {

@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
-use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_util::collections::ordered_map::OrderedMap;
 use derivative::Derivative;
 use dupe::Dupe;
 use starlark::codemap::FileSpan;

@@ -16,6 +16,7 @@
  */
 
 use std::cell::RefCell;
+use std::cell::UnsafeCell;
 use std::marker;
 use std::marker::PhantomData;
 
@@ -87,6 +88,22 @@ impl Freeze for u32 {
     }
 }
 
+impl Freeze for i64 {
+    type Frozen = i64;
+
+    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<i64> {
+        Ok(self)
+    }
+}
+
+impl Freeze for u64 {
+    type Frozen = u64;
+
+    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<u64> {
+        Ok(self)
+    }
+}
+
 impl Freeze for usize {
     type Frozen = usize;
 
@@ -130,6 +147,17 @@ where
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<T::Frozen> {
         self.into_inner().freeze(freezer)
+    }
+}
+
+impl<T> Freeze for UnsafeCell<T>
+where
+    T: Freeze,
+{
+    type Frozen = UnsafeCell<T::Frozen>;
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        Ok(UnsafeCell::new(self.into_inner().freeze(freezer)?))
     }
 }
 
@@ -274,6 +302,22 @@ impl<A: Freeze, B: Freeze, C: Freeze> Freeze for (A, B, C) {
             self.0.freeze(freezer)?,
             self.1.freeze(freezer)?,
             self.2.freeze(freezer)?,
+        ))
+    }
+}
+
+impl<A: Freeze, B: Freeze, C: Freeze, D: Freeze> Freeze for (A, B, C, D) {
+    type Frozen = (A::Frozen, B::Frozen, C::Frozen, D::Frozen);
+
+    fn freeze(
+        self,
+        freezer: &Freezer,
+    ) -> anyhow::Result<(A::Frozen, B::Frozen, C::Frozen, D::Frozen)> {
+        Ok((
+            self.0.freeze(freezer)?,
+            self.1.freeze(freezer)?,
+            self.2.freeze(freezer)?,
+            self.3.freeze(freezer)?,
         ))
     }
 }

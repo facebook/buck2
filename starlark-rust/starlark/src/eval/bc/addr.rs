@@ -31,6 +31,7 @@ use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::bc::repr::BcInstrHeader;
 use crate::eval::bc::repr::BcInstrRepr;
+use crate::eval::bc::repr::BC_INSTR_ALIGN;
 
 /// Address relative to bytecode start.
 #[derive(
@@ -84,14 +85,15 @@ impl AddAssign<u32> for BcAddr {
 #[derive(Copy, Clone, Dupe, Debug, PartialEq)]
 pub(crate) struct BcPtrRange {
     start: *const u8,
+    /// Length in bytes.
     len: usize,
 }
 
 impl BcPtrRange {
-    pub(crate) fn for_slice(slice: &[usize]) -> BcPtrRange {
+    pub(crate) fn for_slice(slice: &[u64]) -> BcPtrRange {
         BcPtrRange {
             start: slice.as_ptr() as *const u8,
-            len: slice.len() * mem::size_of::<usize>(),
+            len: mem::size_of_val::<[u64]>(slice),
         }
     }
 
@@ -119,6 +121,7 @@ pub(crate) struct BcPtrAddr<'b> {
 impl<'b> BcPtrAddr<'b> {
     /// Constructor.
     unsafe fn new(ptr: *const u8, range: IfDebug<BcPtrRange>) -> BcPtrAddr<'b> {
+        debug_assert!(ptr as usize % BC_INSTR_ALIGN == 0);
         range.if_debug(|range| range.assert_in_range(ptr));
         BcPtrAddr {
             ptr,
@@ -128,7 +131,7 @@ impl<'b> BcPtrAddr<'b> {
     }
 
     /// Create a pointer for the beginning of the slice.
-    pub(crate) fn for_slice_start(slice: &'b [usize]) -> BcPtrAddr<'b> {
+    pub(crate) fn for_slice_start(slice: &'b [u64]) -> BcPtrAddr<'b> {
         unsafe {
             BcPtrAddr::new(
                 slice.as_ptr() as *const u8,
@@ -138,7 +141,7 @@ impl<'b> BcPtrAddr<'b> {
     }
 
     /// Create a pointer for the beginning of the slice.
-    pub(crate) fn for_slice_end(slice: &'b [usize]) -> BcPtrAddr<'b> {
+    pub(crate) fn for_slice_end(slice: &'b [u64]) -> BcPtrAddr<'b> {
         unsafe {
             BcPtrAddr::new(
                 slice.as_ptr().add(slice.len()) as *const u8,
@@ -169,7 +172,12 @@ impl<'b> BcPtrAddr<'b> {
     }
 
     pub(crate) fn get_instr_mut<I: BcInstr>(self) -> *mut BcInstrRepr<I> {
-        debug_assert!(self.remaining_if_debug() >= mem::size_of::<BcInstrRepr<I>>());
+        debug_assert!(
+            self.remaining_if_debug() >= mem::size_of::<BcInstrRepr<I>>(),
+            "remaining: {}, instr size: {}",
+            self.remaining_if_debug(),
+            mem::size_of::<BcInstrRepr<I>>()
+        );
         self.ptr as *mut BcInstrRepr<I>
     }
 

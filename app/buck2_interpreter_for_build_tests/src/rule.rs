@@ -8,12 +8,13 @@
  */
 
 use buck2_build_api::interpreter::build_defs::register_transitive_set;
-use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter::file_loader::LoadedModules;
+use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::nodes::attr_spec::AttributeSpecExt;
+use buck2_interpreter_for_build::rule::register_rule_function;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::nodes::unconfigured::testing::targets_to_json;
@@ -30,7 +31,8 @@ use starlark::docs::DocType;
 fn rule_tester() -> Tester {
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_transitive_set);
-    tester.additional_globals(register_rule_defs);
+    tester.additional_globals(register_rule_function);
+    tester.additional_globals(register_attrs);
     tester
 }
 
@@ -174,6 +176,7 @@ fn udr_is_recorded() -> SharedResult<()> {
             "target_compatible_with": [],
             "tests": [],
             "visibility": [],
+            "within_view": ["PUBLIC"],
         },
         "target2": {
             "name": "target2",
@@ -189,6 +192,7 @@ fn udr_is_recorded() -> SharedResult<()> {
             "target_compatible_with": [],
             "tests": [],
             "visibility": [],
+            "within_view": ["PUBLIC"],
         },
     });
     let actual = targets_to_json(
@@ -367,6 +371,7 @@ fn returns_documentation() -> anyhow::Result<()> {
                 raw_type: "None".to_owned(),
             }),
         },
+        dot_type: None,
     });
 
     let tester = rule_tester();

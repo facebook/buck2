@@ -9,6 +9,10 @@ load("@prelude//apple:apple_sdk.bzl", "get_apple_sdk_name")
 load("@prelude//apple:apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 load("@prelude//apple:apple_utility.bzl", "has_apple_toolchain")
 load(
+    "@prelude//cxx:argsfiles.bzl",
+    "CompileArgsfile",  # @unused Used as a type
+)
+load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
@@ -18,9 +22,9 @@ load("@prelude//utils:utils.bzl", "expect")
 def apple_populate_xcode_attributes(
         ctx,
         srcs: [CxxSrcWithFlags.type],
-        argsfiles_by_ext: {str.type: "artifact"},
+        argsfiles: {str.type: CompileArgsfile.type},
         product_name: str.type) -> {str.type: ""}:
-    data = cxx_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles_by_ext = argsfiles_by_ext, product_name = product_name)
+    data = cxx_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = product_name)
 
     if has_apple_toolchain(ctx):
         data["sdk"] = get_apple_sdk_name(ctx)
@@ -60,3 +64,6 @@ def _get_attribute_with_output(ctx: "context", attr_name: str.type) -> ["depende
             # So, an empty `DefaultInfo` basically signifies that there's no xctoolchain.
             return dep
     return None
+
+def apple_get_xcode_absolute_path_prefix() -> [str.type, None]:
+    return read_config("xcode", "absolute_path_prefix", None)

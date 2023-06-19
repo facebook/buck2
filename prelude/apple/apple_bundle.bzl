@@ -252,7 +252,9 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     # Define the xcode data sub target
     xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes, processed_info_plist = apple_bundle_part_list_output.info_plist_part.source)
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
-    install_data = generate_install_data(ctx)
+
+    plist_bundle_relative_path = get_apple_bundle_part_relative_destination_path(ctx, apple_bundle_part_list_output.info_plist_part)
+    install_data = generate_install_data(ctx, plist_bundle_relative_path)
 
     # Collect extra bundle outputs
     extra_output_provider = _extra_output_provider(ctx)
@@ -330,12 +332,12 @@ def _extra_output_provider(ctx: "context") -> AppleBundleExtraOutputsInfo.type:
 
 def generate_install_data(
         ctx: "context",
+        plist_path: str.type,
         populate_rule_specific_attributes_func: ["function", None] = None,
         **kwargs) -> "artifact":
     data = {
         "fullyQualifiedName": ctx.label,
-        ## TODO(T110665037): populate full path similar to bundle_spec.json
-        "info_plist": ctx.attrs.info_plist,
+        "info_plist": plist_path,
         "use_idb": "true",
         ## TODO(T110665037): read from .buckconfig
         # We require the user to have run `xcode-select` and `/var/db/xcode_select_link` to symlink

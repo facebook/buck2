@@ -86,7 +86,7 @@ pub(crate) trait ProviderLike<'v>: Debug {
     fn items(&self) -> Vec<(&str, Value<'v>)>;
 }
 
-unsafe impl<'v> ProvidesStaticType for &'v dyn ProviderLike<'v> {
+unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn ProviderLike<'v> {
     type StaticType = &'static dyn ProviderLike<'static>;
 }
 

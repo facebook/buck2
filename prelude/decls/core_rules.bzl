@@ -10,6 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//http_archive/exec_deps.bzl", "HttpArchiveExecDeps")
 load(":common.bzl", "OnDuplicateEntry", "buck", "prelude_rule", "validate_uri")
 load(":genrule_common.bzl", "genrule_common")
 load(":remote_common.bzl", "remote_common")
@@ -769,28 +770,15 @@ http_archive = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "sha1": attrs.option(attrs.string(), default = None),
             "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
-            # Exec deps are not supported in an anon_target. But http_archive is
-            # too useful to use in anon targets, so the following is a hack to
-            # make it usable.
-            #
-            # When anon targets work better, replace with the following:
-            #
-            #     "_create_exclusion_list": attrs.default_only(attrs.exec_dep(default = "prelude//http_archive/tools:create_exclusion_list")),
-            #     "_exec_os_type": buck.exec_os_type_arg(),
-            #
-            # The hack is that the following exec dep attributes have a correct
-            # default value for ordinary usage of http_archive from BUCK files,
-            # but anon targets can explicitly set them to None and get
-            # reasonable behavior.
-            #
-            # We'd use `attrs.option(attrs.exec_dep(...), default = "...")`
-            # except that is not allowed, because explicitly passing None in an
-            # attribute value does not set the optional to None, it means set to
-            # the default value.
-            "_create_exclusion_list": attrs.list(attrs.exec_dep(), default = ["prelude//http_archive/tools:create_exclusion_list"]),
-            "_exec_os_type": attrs.list(attrs.exec_dep(), default = ["prelude//os_lookup/targets:os_lookup"]),
-            # Should not exist, only here as part of the anon target workaround.
-            "_override_exec_platform_name": attrs.option(attrs.string(), default = None),
+            "exec_deps": attrs.dep(providers = [HttpArchiveExecDeps], default = "prelude//http_archive/tools:exec_deps", doc = """
+                When using http_archive as an anon target, the rule invoking the
+                anon target needs to mirror this attribute into its own
+                attributes, and forward the provider into the anon target
+                invocation.
+
+                When using http_archive normally not as an anon target, the
+                default value is always fine.
+            """),
         }
     ),
 )
@@ -989,6 +977,10 @@ remote_file = prelude_rule(
                 You can specify an `http`, `https`, or a `mvn` URL. If you
                  specify a `mvn` URL, it will be decoded as described in the
                  javadocs for MavenUrlDecoder See the example section below.
+            """),
+            "vpnless_url": attrs.option(attrs.string(), default = None, doc = """
+                An optional additional URL from which this resource can be downloaded when
+                  off VPN. Meta-internal only.
             """),
             "sha1": attrs.string(default = "", doc = """
                 The [`SHA-1`](//wikipedia.org/wiki/SHA-1) hash of the downloaded artifact.

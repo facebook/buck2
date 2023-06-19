@@ -13,6 +13,7 @@ load(
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorArgs",
 )
 load(":apple_utility.bzl", "get_module_name")
 
@@ -68,9 +69,10 @@ def preprocessor_info_for_modulemap(ctx: "context", name: str.type, headers: [CH
     ctx.actions.run(cmd, category = "modulemap", identifier = name)
 
     return CPreprocessor(
+        relative_args = CPreprocessorArgs(args = _exported_preprocessor_args(symlink_tree)),
+        absolute_args = CPreprocessorArgs(args = _exported_preprocessor_args(symlink_tree)),
         modular_args = _args_for_modulemap(output, symlink_tree, swift_header),
         modulemap_path = cmd_args(output).hidden(cmd_args(symlink_tree)),
-        args = _exported_preprocessor_args(symlink_tree),
     )
 
 def _args_for_modulemap(
@@ -85,4 +87,4 @@ def _args_for_modulemap(
     return [cmd]
 
 def _exported_preprocessor_args(symlink_tree: "artifact") -> ["cmd_args"]:
-    return [cmd_args(symlink_tree, format = "-I{}")]
+    return [cmd_args(symlink_tree, format = "-I./{}")]

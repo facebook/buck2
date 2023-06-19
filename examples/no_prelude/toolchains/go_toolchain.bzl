@@ -66,7 +66,6 @@ def http_archive_impl(ctx: "context", url, archive_extension, sha1) -> ["provide
         allow_args = True,
     )
 
-    cmd = cmd_args()
     if host_info().os.is_windows:
         cmd = cmd_args([script])
     else:

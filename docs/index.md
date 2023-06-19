@@ -46,7 +46,10 @@ The following sub-sections contain a list of links to key points in the Buck2 Do
 ### External articles about Buck2
 
 * [Introducing Buck2](https://engineering.fb.com/2023/04/06/open-source/buck2-open-source-large-scale-build-system/) - our initial introduction when we open sourced Buck2.
-* [Using buck to build Rust projects](https://steveklabnik.com/writing/using-buck-to-build-rust-projects) - working through an initial small Rust project, by [Steve Klabnik](https://steveklabnik.com/).
+* [Reddit AMA](https://old.reddit.com/r/rust/comments/136qs44/hello_rrust_we_are_meta_engineers_who_created_the/) where the Buck2 team answered a number of questions.
+* [Using buck to build Rust projects](https://steveklabnik.com/writing/using-buck-to-build-rust-projects) - working through an initial small Rust project, by [Steve Klabnik](https://steveklabnik.com/). Followed up by [building from crates.io](https://steveklabnik.com/writing/using-cratesio-with-buck) and [updating Buck2](https://steveklabnik.com/writing/updating-buck).
+* [Awesome Buck2](https://github.com/sluongng/awesome-buck2) is a collection of resources about Buck2.
+* [Buck2 Unboxing](https://www.buildbuddy.io/blog/buck2-review/) is a general review of Buck2 by [Son Luong Ngoc](https://github.com/sluongng/).
 
 ### External projects using Buck2
 

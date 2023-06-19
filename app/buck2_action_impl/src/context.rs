@@ -15,12 +15,11 @@ use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::attrs::resolve::attr_type::arg::value::ResolvedMacro;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkOutputOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -33,7 +32,9 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ACTIONS;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
+use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::category::Category;
@@ -654,12 +655,12 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
 
         let (starlark_exe, starlark_worker) = match exe {
             Some(Either::Left(worker_run)) => {
-                let worker = worker_run.typed.worker();
+                let worker: ValueOf<&WorkerInfo> = worker_run.typed.worker();
                 let worker_exe = worker_run.typed.exe();
                 worker_exe.as_ref().visit_artifacts(&mut artifact_visitor)?;
                 let starlark_exe = StarlarkCommandLine::try_from_value(worker_exe.to_value())?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
-                (starlark_exe, NoneOr::Other(worker.value))
+                (starlark_exe, NoneOr::Other(worker))
             }
             Some(Either::Right(exe)) => {
                 let starlark_exe = StarlarkCommandLine::try_from_value(*exe)?;
@@ -758,6 +759,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             return Err(RunActionError::NoOutputsSpecified.into());
         }
         let heap = eval.heap();
+
         let starlark_values = heap.alloc(StarlarkRunActionValues {
             exe: heap.alloc(starlark_exe),
             args: heap.alloc(starlark_args),
@@ -931,7 +933,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this: &'v AnalysisActions<'v>,
         #[starlark(require = named)] dynamic: Vec<StarlarkArtifact>,
         #[starlark(require = named)] inputs: Vec<StarlarkArtifact>,
-        #[starlark(require = named)] outputs: Vec<StarlarkOutputArtifact>,
+        #[starlark(require = named)] outputs: Vec<StarlarkOutputOrDeclaredArtifact>,
         #[starlark(require = named)] f: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
@@ -950,7 +952,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         // Conversion
         let dynamic = dynamic.iter().map(|x| x.artifact()).collect();
         let inputs = inputs.iter().map(|x| x.artifact()).collect();
-        let outputs = outputs.iter().map(|x| x.artifact()).collect();
+        let outputs = outputs.iter().map(|x| x.0.artifact()).collect();
 
         // Registration
         let attributes_lambda = heap.alloc((this.attributes, f));

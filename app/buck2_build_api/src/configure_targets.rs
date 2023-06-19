@@ -18,16 +18,14 @@ use buck2_events::dispatch::console_message;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::future::FutureExt;
-use gazebo::prelude::SliceExt;
+use gazebo::prelude::VecExt;
 use starlark_map::small_set::SmallSet;
-
-use crate::calculation::Calculation;
-use crate::nodes::calculation::NodeCalculation;
 
 // Returns a tuple of compatible and incompatible targets.
 fn split_compatible_incompatible(
@@ -60,30 +58,21 @@ pub async fn get_maybe_compatible_targets(
     let mut by_package_futs: Vec<_> = Vec::new();
     for (_package, result) in loaded_targets {
         let targets = result?;
-        let global_target_platform = global_target_platform.dupe();
 
-        by_package_futs.push({
-            ctx.temporary_spawn(|ctx, _cancellation| {
-                async move {
-                    let ctx = &ctx;
-                    let global_target_platform = global_target_platform.as_ref();
-                    let target_futs: Vec<_> = targets.map(|target| async move {
-                        let target = ctx
-                            .get_configured_target(target.label(), global_target_platform)
-                            .await?;
-                        anyhow::Ok(ctx.get_configured_target_node(&target).await?)
-                    });
-                    futures::future::join_all(target_futs).await
-                }
-                .boxed()
-            })
+        by_package_futs.extend({
+            let global_target_platform = global_target_platform.as_ref();
+            let target_futs: Vec<_> = targets.into_map(|target| async move {
+                let target = ctx
+                    .get_configured_target(target.label(), global_target_platform)
+                    .await?;
+                anyhow::Ok(ctx.get_configured_target_node(&target).await?)
+            });
+
+            target_futs
         });
     }
 
-    Ok(futures::future::join_all(by_package_futs)
-        .await
-        .into_iter()
-        .flatten())
+    Ok(futures::future::join_all(by_package_futs).await.into_iter())
 }
 
 /// Converts target nodes to a set of compatible configured target nodes.

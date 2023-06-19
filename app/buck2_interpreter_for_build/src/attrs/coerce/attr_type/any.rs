@@ -34,7 +34,7 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> anyhow::Result<Coe
         Ok(CoercedAttr::None)
     } else if let Some(x) = value.unpack_bool() {
         Ok(CoercedAttr::Bool(BoolLiteral(x)))
-    } else if let Some(x) = value.unpack_int() {
+    } else if let Some(x) = value.unpack_i32() {
         Ok(CoercedAttr::Int(x))
     } else if let Some(x) = DictRef::from_value(value) {
         Ok(CoercedAttr::Dict(

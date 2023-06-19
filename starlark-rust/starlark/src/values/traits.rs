@@ -28,6 +28,7 @@
 //! https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#sequence-types).
 //! We also use the term _container_ for denoting any of those type that can
 //! hold several values.
+
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -36,6 +37,7 @@ use std::fmt::Write;
 use allocative::Allocative;
 use erased_serde::Serialize;
 use starlark_derive::starlark_internal_vtable;
+use starlark_map::StarlarkHashValue;
 
 use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
@@ -82,7 +84,7 @@ use crate::values::ValueError;
 /// starlark_complex_value!(One);
 ///
 /// impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for OneGen<V>
-///     where Self: ProvidesStaticType
+///     where Self: ProvidesStaticType<'v>,
 /// {
 ///     starlark_type!("one");
 ///
@@ -207,7 +209,7 @@ where
 /// any implementations other than the default implementation will not be run.
 #[starlark_internal_vtable]
 pub trait StarlarkValue<'v>:
-    'v + ProvidesStaticType + Allocative + Debug + Display + Serialize + Sized
+    'v + ProvidesStaticType<'v> + Allocative + Debug + Display + Serialize + Sized
 {
     /// Return a string describing the type of self, as returned by the type()
     /// function.
@@ -250,6 +252,12 @@ pub trait StarlarkValue<'v>:
         Self::TYPE == ty
     }
 
+    /// Function is implemented for types values.
+    #[doc(hidden)]
+    fn type_matches_value(&self, _value: Value<'v>, _private: Private) -> bool {
+        unreachable!("`type_matches_value` should only be called on special types")
+    }
+
     /// Get the members associated with this type, accessible via `this_type.x`.
     /// These members will have `dir`/`getattr`/`hasattr` properly implemented,
     /// so it is the preferred way to go if possible. See
@@ -267,7 +275,7 @@ pub trait StarlarkValue<'v>:
     where
         Self: Sized,
     {
-        Self::get_methods().map(|methods| methods.documentation())
+        Self::get_methods().map(|methods| DocItem::Object(methods.documentation()))
     }
 
     /// Return a string representation of self, as returned by the `repr()` function.
@@ -307,13 +315,6 @@ pub trait StarlarkValue<'v>:
         true
     }
 
-    /// Convert self to a integer value, as returned by the int() function if
-    /// the type is numeric (not for string).
-    /// Works for int and bool (0 = false, 1 = true).
-    fn to_int(&self) -> anyhow::Result<i32> {
-        ValueError::unsupported(self, "int()")
-    }
-
     /// Return a hash data for self to be used when self is placed as a key in a `Dict`.
     /// Return an [`Err`] if there is no hash for this value (e.g. list).
     /// Must be stable between frozen and non-frozen values.
@@ -330,6 +331,14 @@ pub trait StarlarkValue<'v>:
         } else {
             Err(ControlError::NotHashableValue(Self::TYPE.to_owned()).into())
         }
+    }
+
+    /// Get the hash value. Calls [`write_hash`](Self::write_hash) by default.
+    #[doc(hidden)]
+    fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
+        let mut hasher = StarlarkHasher::new();
+        self.write_hash(&mut hasher)?;
+        Ok(hasher.finish_small())
     }
 
     /// Compare `self` with `other` for equality.

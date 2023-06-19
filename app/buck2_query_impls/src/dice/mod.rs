@@ -11,9 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_api::calculation::Calculation;
 use buck2_build_api::configure_targets::load_compatible_patterns;
-use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::HasFileOps;
@@ -48,9 +46,11 @@ use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -176,7 +176,7 @@ impl<'c> DiceQueryDelegate<'c> {
         })
     }
 
-    pub(crate) fn ctx(&self) -> &DiceComputations {
+    pub(crate) fn ctx(&self) -> &'c DiceComputations {
         self.ctx
     }
 

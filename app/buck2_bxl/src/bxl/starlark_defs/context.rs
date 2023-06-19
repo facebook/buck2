@@ -21,10 +21,10 @@ use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::execution_platform::EXECUTION_PLATFORM;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
-use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
+use buck2_common::events::HasEvents;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
@@ -42,6 +42,7 @@ use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use dashmap::DashMap;
@@ -85,6 +86,7 @@ use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
+use crate::bxl::starlark_defs::event::to_starlark_user_event;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::target_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
@@ -660,13 +662,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// Returns the [`BxlFilesystem`] for performing a basic set of filesystem operations within bxl
     #[starlark(attribute)]
     fn fs<'v>(this: &BxlContext<'v>) -> anyhow::Result<BxlFilesystem<'v>> {
-        Ok(BxlFilesystem::new(
-            &this.async_ctx,
-            &this.output_stream.project_fs,
-            &this.output_stream.artifact_fs,
-            this.cell_resolver.get(this.cell_name)?,
-            this,
-        ))
+        Ok(BxlFilesystem::new(this))
     }
 
     /// Returns the [`StarlarkAuditCtx`] that holds all the audit functions.
@@ -714,9 +710,28 @@ fn register_context(builder: &mut MethodsBuilder) {
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Option<Value<'v>>> {
-        this.async_ctx
-            .via_dice(|dice| action_factory.run_promises(dice, eval))?;
-
+        this.async_ctx.via_dice(|dice| {
+            action_factory.run_promises(dice, eval, format!("bxl$promises:{}", &this.current_bxl))
+        })?;
         Ok(promise.get())
+    }
+
+    /// Emits a user-defined instant event, taking in a required string id and a metadata dictionary where the
+    /// keys are strings, and values are either strings, bools, or ints. The id is user-supplied, and used to
+    /// identify the instant events in the event logs more easily.
+    fn instant_event<'v>(
+        this: &BxlContext<'v>,
+        #[starlark(require = named)] id: &str,
+        #[starlark(require = named)] metadata: Value<'v>,
+    ) -> anyhow::Result<NoneType> {
+        let event = to_starlark_user_event(id, metadata)?;
+
+        this.async_ctx
+            .0
+            .per_transaction_data()
+            .get_dispatcher()
+            .instant_event(event);
+
+        Ok(NoneType)
     }
 }

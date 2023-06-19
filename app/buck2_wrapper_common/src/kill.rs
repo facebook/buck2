@@ -14,15 +14,35 @@ pub fn process_exists(pid: u32) -> anyhow::Result<bool> {
 }
 
 /// Send `KILL` or call `TerminateProcess` on the given process.
-/// Return `Ok(())` if call is successful or process does not exist.
-pub fn kill(pid: u32) -> anyhow::Result<()> {
-    os_specific::kill(pid)
+///
+/// Returns a KilledProcessHandle that can be used to observe the termination of the killed process.
+pub fn kill(pid: u32) -> anyhow::Result<Box<dyn KilledProcessHandle>> {
+    match os_specific::kill(pid)? {
+        Some(handle) => Ok(Box::new(handle) as _),
+        None => Ok(Box::new(NoProcess) as _),
+    }
+}
+
+pub trait KilledProcessHandle {
+    fn has_exited(&self) -> anyhow::Result<bool>;
+}
+
+/// Returned when os_specific::kill reports that nothing was killed because the process wasn't even
+/// running.
+struct NoProcess;
+
+impl KilledProcessHandle for NoProcess {
+    fn has_exited(&self) -> anyhow::Result<bool> {
+        Ok(true)
+    }
 }
 
 #[cfg(unix)]
 mod os_specific {
     use anyhow::Context;
     use nix::sys::signal::Signal;
+
+    use crate::kill::KilledProcessHandle;
 
     pub(crate) fn process_exists(pid: u32) -> anyhow::Result<bool> {
         let pid = nix::unistd::Pid::from_raw(
@@ -37,58 +57,77 @@ mod os_specific {
         }
     }
 
-    pub(super) fn kill(pid: u32) -> anyhow::Result<()> {
-        let daemon_pid = nix::unistd::Pid::from_raw(
+    fn process_exists_impl(pid: nix::unistd::Pid) -> anyhow::Result<bool> {
+        match nix::sys::signal::kill(pid, None) {
+            Ok(_) => Ok(true),
+            Err(nix::errno::Errno::ESRCH) => Ok(false),
+            Err(e) => Err(e)
+                .with_context(|| format!("unexpected error checking if process {} exists", pid)),
+        }
+    }
+
+    pub(super) fn kill(pid: u32) -> anyhow::Result<Option<impl KilledProcessHandle>> {
+        let pid = nix::unistd::Pid::from_raw(
             pid.try_into()
                 .with_context(|| format!("Integer overflow converting pid {} to pid_t", pid))?,
         );
 
-        match nix::sys::signal::kill(daemon_pid, Signal::SIGKILL) {
-            Ok(()) => Ok(()),
-            Err(nix::errno::Errno::ESRCH) => Ok(()),
-            Err(e) => Err(e).context("Failed to kill daemon"),
+        match nix::sys::signal::kill(pid, Signal::SIGKILL) {
+            Ok(()) => Ok(Some(UnixKilledProcessHandle { pid })),
+            Err(nix::errno::Errno::ESRCH) => Ok(None),
+            Err(e) => Err(e).with_context(|| format!("Failed to kill pid {}", pid)),
+        }
+    }
+
+    struct UnixKilledProcessHandle {
+        pid: nix::unistd::Pid,
+    }
+
+    impl KilledProcessHandle for UnixKilledProcessHandle {
+        fn has_exited(&self) -> anyhow::Result<bool> {
+            Ok(!process_exists_impl(self.pid)?)
         }
     }
 }
 
 #[cfg(windows)]
-mod os_specific {
-    use std::io;
+pub mod os_specific {
+    use std::time::Duration;
 
-    use anyhow::Context;
-    use winapi::um::processthreadsapi::OpenProcess;
-    use winapi::um::processthreadsapi::TerminateProcess;
-    use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
-    use winapi::um::winnt::PROCESS_TERMINATE;
-
-    use crate::winapi_handle::WinapiHandle;
-
-    fn open_process(desired_access: u32, pid: u32) -> anyhow::Result<Option<WinapiHandle>> {
-        let proc_handle = unsafe { OpenProcess(desired_access, 0, pid) };
-        if proc_handle.is_null() {
-            // If proc_handle is null, process died already, or other error like access denied.
-            // TODO(nga): handle error properly.
-            return Ok(None);
-        }
-        Ok(Some(unsafe { WinapiHandle::new(proc_handle) }))
-    }
+    use crate::kill::KilledProcessHandle;
+    use crate::winapi_process::WinapiProcessHandle;
 
     pub(crate) fn process_exists(pid: u32) -> anyhow::Result<bool> {
-        Ok(open_process(PROCESS_QUERY_INFORMATION, pid)?.is_some())
+        Ok(WinapiProcessHandle::open_for_info(pid).is_some())
     }
 
-    pub(super) fn kill(pid: u32) -> anyhow::Result<()> {
-        let proc_handle = match open_process(PROCESS_TERMINATE, pid)? {
+    pub(super) fn kill(pid: u32) -> anyhow::Result<Option<impl KilledProcessHandle>> {
+        let handle = match WinapiProcessHandle::open_for_terminate(pid) {
             Some(proc_handle) => proc_handle,
-            None => return Ok(()),
+            None => return Ok(None),
         };
-        unsafe {
-            if TerminateProcess(proc_handle.handle(), 1) == 0 {
-                return Err(io::Error::last_os_error())
-                    .with_context(|| format!("Failed to kill daemon ({})", pid));
-            }
-            Ok(())
+
+        handle.terminate()?;
+
+        Ok(Some(WindowsKilledProcessHandle { handle }))
+    }
+
+    /// Windows reuses PIDs more aggressively than UNIX, so there we add an extra guard in the form
+    /// of the process creation time.
+    struct WindowsKilledProcessHandle {
+        handle: WinapiProcessHandle,
+    }
+
+    impl KilledProcessHandle for WindowsKilledProcessHandle {
+        fn has_exited(&self) -> anyhow::Result<bool> {
+            self.handle.has_exited()
         }
+    }
+
+    /// Returns process creation time with 100 ns precision.
+    pub fn process_creation_time(pid: u32) -> Option<Duration> {
+        let proc_handle = WinapiProcessHandle::open_for_info(pid)?;
+        proc_handle.process_creation_time().ok()
     }
 }
 
@@ -119,18 +158,18 @@ mod tests {
             assert!(process_exists(pid).unwrap());
         }
 
-        kill(pid).unwrap();
+        let handle = kill(pid).unwrap();
 
         child.wait().unwrap();
         // Drop child to ensure the Windows handle is closed.
         drop(child);
 
         if !cfg!(windows) {
-            assert!(!process_exists(pid).unwrap());
+            assert!(handle.has_exited().unwrap());
         } else {
             let start = Instant::now();
             loop {
-                if !process_exists(pid).unwrap() {
+                if handle.has_exited().unwrap() {
                     break;
                 }
                 assert!(

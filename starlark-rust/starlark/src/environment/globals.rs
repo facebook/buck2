@@ -15,11 +15,9 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -29,7 +27,6 @@ use crate::collections::symbol_map::Symbol;
 use crate::collections::symbol_map::SymbolMap;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
-use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::docs::DocObject;
@@ -54,29 +51,24 @@ use crate::values::Heap;
 use crate::values::Value;
 
 /// The global values available during execution.
-#[derive(Clone, Dupe, Debug, Display, Allocative)]
-#[display(fmt = "globals")]
+#[derive(Clone, Dupe, Debug, Allocative)]
 pub struct Globals(Arc<GlobalsData>);
 
 /// Methods of an object.
-#[derive(Clone, Dupe, Debug, Display)]
-#[display(fmt = "methods")]
-pub struct Methods(Arc<MethodsData>);
+#[derive(Clone, Debug)]
+pub struct Methods {
+    /// This field holds the objects referenced in `members`.
+    #[allow(dead_code)]
+    heap: FrozenHeapRef,
+    members: SymbolMap<FrozenValueNotSpecial>,
+    docstring: Option<String>,
+}
 
 #[derive(Debug, Allocative)]
 struct GlobalsData {
     heap: FrozenHeapRef,
     variables: SymbolMap<FrozenValue>,
     variable_names: Vec<FrozenStringValue>,
-    docstring: Option<String>,
-}
-
-#[derive(Debug)]
-struct MethodsData {
-    /// This field holds the objects referenced in `members`.
-    #[allow(dead_code)]
-    heap: FrozenHeapRef,
-    members: SymbolMap<FrozenValueNotSpecial>,
     docstring: Option<String>,
 }
 
@@ -151,6 +143,12 @@ impl Globals {
         self.0.variable_names.iter().copied()
     }
 
+    /// Iterate over all the items in this environment.
+    /// Note returned values are owned by this globals.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
+        self.0.variables.iter().map(|(n, v)| (n.as_str(), *v))
+    }
+
     pub(crate) fn heap(&self) -> &FrozenHeapRef {
         &self.0.heap
     }
@@ -164,24 +162,13 @@ impl Globals {
             .join("\n")
     }
 
-    /// Get the documentation for both the object itself, and its members. Returned as a `Module`.
-    pub fn documentation(&self) -> DocItem {
+    /// Get the documentation for both the object itself, and its members.
+    pub fn documentation(&self) -> DocModule {
         let DocObject { docs, members } = common_documentation(
             &self.0.docstring,
             self.0.variables.iter().map(|(n, v)| (n.as_str(), *v)),
         );
-        DocItem::Module(DocModule { docs, members })
-    }
-
-    /// Get the documentation for each member. Useful when loading a number of objects into
-    /// a single [`Globals`] instance, but where the documentation for each member will be
-    /// split up later.
-    pub fn member_documentation(&self) -> HashMap<String, Option<DocItem>> {
-        self.0
-            .variables
-            .iter()
-            .map(|(symbol, value)| (symbol.as_str().to_owned(), value.to_value().documentation()))
-            .collect()
+        DocModule { docs, members }
     }
 }
 
@@ -191,41 +178,35 @@ impl Methods {
     }
 
     pub(crate) fn get_frozen(&self, name: &str) -> Option<FrozenValueNotSpecial> {
-        self.0.members.get_str(name).copied()
+        self.members.get_str(name).copied()
     }
 
     pub(crate) fn get_hashed(&self, name: Hashed<&str>) -> Option<FrozenValueNotSpecial> {
-        self.0.members.get_hashed_str(name).copied()
+        self.members.get_hashed_str(name).copied()
     }
 
     pub(crate) fn get_frozen_symbol(&self, name: &Symbol) -> Option<FrozenValueNotSpecial> {
-        self.0.members.get(name).copied()
+        self.members.get(name).copied()
     }
 
     pub(crate) fn names(&self) -> Vec<String> {
-        self.0
-            .members
-            .keys()
-            .map(|x| x.as_str().to_owned())
-            .collect()
+        self.members.keys().map(|x| x.as_str().to_owned()).collect()
     }
 
     pub(crate) fn members(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
-        self.0
-            .members
+        self.members
             .iter()
             .map(|(k, v)| (k.as_str(), v.to_frozen_value()))
     }
 
-    /// Fetch the documentation. Returned as an `Object`.
-    pub fn documentation(&self) -> DocItem {
-        DocItem::Object(common_documentation(
-            &self.0.docstring,
-            self.0
-                .members
+    /// Fetch the documentation.
+    pub fn documentation(&self) -> DocObject {
+        common_documentation(
+            &self.docstring,
+            self.members
                 .iter()
                 .map(|(n, v)| (n.as_str(), v.to_frozen_value())),
-        ))
+        )
     }
 }
 
@@ -317,7 +298,7 @@ impl GlobalsBuilder {
         name: &str,
         speculative_exec_safe: bool,
         raw_docs: NativeCallableRawDocs,
-        typ: Option<FrozenValue>,
+        typ: Option<FrozenStringValue>,
         f: F,
     ) where
         F: NativeFunc,
@@ -374,11 +355,11 @@ impl MethodsBuilder {
 
     /// Called at the end to build a [`Methods`].
     pub fn build(self) -> Methods {
-        Methods(Arc::new(MethodsData {
+        Methods {
             heap: self.heap.into_ref(),
             members: self.members,
             docstring: self.docstring,
-        }))
+        }
     }
 
     /// A fluent API for modifying [`MethodsBuilder`] and returning the result.
@@ -545,10 +526,10 @@ impl MethodsStatic {
     /// only be allocated once (ensuring things like function comparison works properly).
     pub fn populate(&'static self, x: impl FnOnce(&mut MethodsBuilder), out: &mut MethodsBuilder) {
         let methods = self.methods(x).unwrap();
-        for (name, value) in methods.0.members.iter() {
+        for (name, value) in methods.members.iter() {
             out.members.insert(name.as_str(), *value);
         }
-        out.docstring = methods.0.docstring.clone();
+        out.docstring = methods.docstring.clone();
     }
 }
 

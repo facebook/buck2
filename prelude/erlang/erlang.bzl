@@ -17,6 +17,7 @@ load(":erlang_toolchain.bzl", "erlang_otp_binaries_impl")
 common_attributes = {
     "contacts": attrs.list(attrs.string(), default = []),
     "labels": attrs.list(attrs.string(), default = []),
+    "os_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None),
 }
 
 common_shell_attributes = {
@@ -40,7 +41,7 @@ rules_attributes = {
         "erl_opts": attrs.option(attrs.list(attrs.string()), default = None),
         "extra_includes": attrs.list(attrs.dep(), default = []),
         "includes": attrs.list(attrs.source(), default = []),
-        "metadata": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None),
+        "metadata": attrs.option(attrs.dict(key = attrs.string(), value = attrs.one_of(attrs.string(), attrs.list(attrs.string()))), default = None),
         "mod": attrs.option(attrs.tuple(attrs.string(), attrs.list(attrs.string())), default = None),
         "resources": attrs.list(attrs.dep(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
@@ -79,6 +80,7 @@ rules_attributes = {
         "deps": attrs.list(attrs.dep(), default = []),
         "env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
         "extra_ct_hooks": attrs.list(attrs.string(), default = []),
+        "preamble": attrs.string(default = read_config("erlang", "erlang_test_preamble", "test:info(),test:ensure_initialized(),user_drv:start().")),
         "property_tests": attrs.list(attrs.dep(), default = []),
         "resources": attrs.list(attrs.dep(), default = []),
         "suite": attrs.source(),

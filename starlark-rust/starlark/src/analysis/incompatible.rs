@@ -76,7 +76,7 @@ fn match_bad_type_equality(
 ) {
     fn lookup_type<'a>(x: &AstExpr, types: &HashMap<&str, &'a str>) -> Option<&'a str> {
         match &**x {
-            Expr::Identifier(name, _) => types.get(name.node.as_str()).copied(),
+            Expr::Identifier(name) => types.get(name.node.0.as_str()).copied(),
             _ => None,
         }
     }
@@ -85,7 +85,7 @@ fn match_bad_type_equality(
     fn is_type_call(x: &AstExpr) -> bool {
         match &**x {
             Expr::Call(fun, args) if args.len() == 1 => match &***fun {
-                Expr::Identifier(x, _) => x.node == "type",
+                Expr::Identifier(x) => x.node.0 == "type",
                 _ => false,
             },
             _ => false,
@@ -162,8 +162,8 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
     ) {
         match &**x {
             Stmt::Assign(lhs, op_rhs) => match (&**lhs, &(**op_rhs).1.node) {
-                (Assign::Identifier(x), Expr::Identifier(y, _))
-                    if x.node.0 == y.node
+                (Assign::Identifier(x), Expr::Identifier(y))
+                    if x.node.0 == y.node.0
                         && defined.get(x.node.0.as_str()).map_or(false, |x| x.1)
                         && !exported.contains(x.node.0.as_str()) =>
                 {

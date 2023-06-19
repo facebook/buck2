@@ -10,9 +10,6 @@
 use std::future::Future;
 
 use allocative::Allocative;
-use dupe::Dupe;
-use futures::future::BoxFuture;
-use more_futures::cancellation::CancellationContext;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -30,7 +27,7 @@ use crate::UserCycleDetectorGuard;
 ///
 /// The context is valid only for the duration of the computation of a single key, and cannot be
 /// owned.
-#[derive(Allocative, Dupe, Clone)]
+#[derive(Allocative)]
 #[repr(transparent)]
 pub struct DiceComputations(pub(crate) DiceComputationsImpl);
 
@@ -45,7 +42,7 @@ impl DiceComputations {
     /// context is for.
     pub fn compute<'a, K>(
         &'a self,
-        key: &'a K,
+        key: &K,
     ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
     where
         K: Key,
@@ -57,27 +54,14 @@ impl DiceComputations {
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
     /// than the entire opaque value.
-    pub fn compute_opaque<'b, 'a: 'b, K>(
+    pub fn compute_opaque<'a, K>(
         &'a self,
-        key: &'b K,
-    ) -> impl Future<Output = DiceResult<OpaqueValue<'a, K>>> + 'b
+        key: &K,
+    ) -> impl Future<Output = DiceResult<OpaqueValue<'a, K>>> + 'a
     where
         K: Key,
     {
         self.0.compute_opaque(key)
-    }
-
-    /// temporarily here while we figure out why dice isn't paralleling computations so that we can
-    /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
-    /// the Arc, which makes lifetimes weird.
-    pub fn temporary_spawn<F, R>(&self, f: F) -> impl Future<Output = R>
-    where
-        F: for<'a> FnOnce(&'a DiceComputations, &'a CancellationContext) -> BoxFuture<'a, R>
-            + Send
-            + 'static,
-        R: Send + 'static,
-    {
-        self.0.temporary_spawn(f)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the

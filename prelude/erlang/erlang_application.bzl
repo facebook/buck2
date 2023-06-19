@@ -31,6 +31,7 @@ load(
     "convert",
     "multidict_projection",
     "multidict_projection_key",
+    "normalise_metadata",
     "str_to_bool",
     "to_term_args",
 )
@@ -249,7 +250,9 @@ def _generate_app_file(
     app_build_cmd.hidden(srcs)
     if ctx.attrs.app_src:
         app_build_cmd.hidden(ctx.attrs.app_src)
-    ctx.actions.run(
+    erlang_build.utils.run_with_env(
+        ctx,
+        toolchain,
         app_build_cmd,
         category = "app_resource",
         identifier = action_identifier(toolchain, paths.basename(app_file_name)),
@@ -288,9 +291,10 @@ def _app_info_content(
     if ctx.attrs.mod:
         data["mod"] = ctx.attrs.mod
     if ctx.attrs.env:
-        data["env"] = ctx.attrs.env.items()
+        data["env"] = {k: cmd_args(v) for k, v in ctx.attrs.env.items()}
     if ctx.attrs.metadata:
-        data["metadata"] = ctx.attrs.metadata
+        data["metadata"] = {k: normalise_metadata(v) for k, v in ctx.attrs.metadata.items()}
+
     app_info_content = to_term_args(data)
     return ctx.actions.write(
         paths.join(erlang_build.utils.build_dir(toolchain), "app_info.term"),

@@ -273,6 +273,7 @@ pub(crate) enum CommandKind {
     Docs(DocsCommand),
     #[clap(subcommand)]
     Profile(ProfileCommand),
+    #[clap(hide(true))] // @oss-enable
     Rage(RageCommand),
     Clean(CleanCommand),
     #[clap(subcommand)]

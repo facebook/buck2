@@ -8,7 +8,6 @@
  */
 
 use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
-use buck2_interpreter::functions::more::MORE_FUNCTIONS;
 use buck2_interpreter::path::StarlarkPath;
 use either::Either;
 use itertools::Itertools;
@@ -153,14 +152,4 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
             },
         ))
     }
-}
-
-/// Natives for `BUCK` and `bzl` files.
-pub(crate) fn register_build_bzl_natives(builder: &mut GlobalsBuilder) {
-    register_provider(builder);
-    register_transitive_set(builder);
-    (MORE_FUNCTIONS.get().unwrap().register_module_natives)(builder);
-    (MORE_FUNCTIONS.get().unwrap().register_host_info)(builder);
-    (MORE_FUNCTIONS.get().unwrap().register_read_config)(builder);
-    (MORE_FUNCTIONS.get().unwrap().register_read_package_value)(builder);
 }

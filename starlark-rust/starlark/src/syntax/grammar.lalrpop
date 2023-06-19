@@ -53,6 +53,11 @@ string: AstString = <l:@L> <e:"STRING"> <r:@R>
 identifier: AstString = <l:@L> <e:"IDENTIFIER"> <r:@R>
     => e.ast(l, r);
 
+Ident: AstIdent = <id:identifier> => Spanned {
+    span: id.span,
+    node: IdentP(id.node, ()),
+};
+
 AssignIdent: AstAssignIdent = <id:identifier> => Spanned {
     span: id.span,
     node: AssignIdentP(id.node, ()),
@@ -70,8 +75,8 @@ DefStmt_: Stmt =
   "def" <identifier> "(" <COMMA<ParameterTyped>> ")" <ReturnType> ":" <Suite>
       =>? Ok(Stmt::check_def(<>, codemap)?);
 
-ReturnType: Option<Box<AstExpr>> = {
-    "->" <Test> =>? Ok(Some(Box::new(dialect.check_type(codemap, <>)?))),
+ReturnType: Option<Box<AstTypeExpr>> = {
+    "->" <TypeExpr> => Some(Box::new(<>)),
     => None,
 }
 
@@ -93,8 +98,10 @@ ParameterTyped_: Parameter = {
     "**" <AssignIdent> <Type>             => Parameter::KwArgs(<>),
 };
 
-Type: Option<Box<AstExpr>> = {
-    ":" <Test> =>? Ok(Some(Box::new(dialect.check_type(codemap, <>)?))),
+TypeExpr: AstTypeExpr = <Test> =>? Ok(dialect.check_type(codemap, <>)?);
+
+Type: Option<Box<AstTypeExpr>> = {
+    ":" <TypeExpr> => Some(Box::new(<>)),
     => None,
 }
 
@@ -183,6 +190,7 @@ LoadStmtInner: Load = "load" "(" <module:string> <args:("," <LoadStmtSyms>)+> ",
     Load {
         module,
         args,
+        payload: (),
     }
 };
 
@@ -240,8 +248,8 @@ Argument_: Argument = {
 };
 
 Operand: AstExpr = {
-    <l:@L> <i:identifier> <r:@R>
-        => Expr::Identifier(i, ()).ast(l, r),
+    <l:@L> <i:Ident> <r:@R>
+        => Expr::Identifier(i).ast(l, r),
     <l:@L> <i:integer> <r:@R>
         => Expr::Literal(AstLiteral::Int(i)).ast(l, r),
     <l:@L> <f:float> <r:@R>
@@ -281,6 +289,7 @@ Clause: Clause = {
 };
 ForClause: ForClause = "for" <var:ExprList> "in" <over:OrTest>
     =>? Ok(ForClause {var: Stmt::check_assign(codemap, var)?, over});
+
 
 // Base expression. Priorities are taken from Python 3 grammar.
 Test: AstExpr = {
@@ -396,7 +405,7 @@ FactorExpr: AstExpr = {
 
 extern {
     type Location = usize;
-    type Error = anyhow::Error;
+    type Error = crate::eval::compiler::EvalException;
 
     enum lexer::Token {
       "INDENT" => lexer::Token::Indent,

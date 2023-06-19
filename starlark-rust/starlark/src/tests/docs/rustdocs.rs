@@ -68,10 +68,7 @@ fn globals(builder: &mut GlobalsBuilder) {
         unimplemented!()
     }
 
-    fn pos_named(
-        #[starlark(require = pos)] arg1: i32,
-        #[starlark(require = named)] arg2: i32,
-    ) -> anyhow::Result<i32> {
+    fn pos_named(arg1: i32, #[starlark(require = named)] arg2: i32) -> anyhow::Result<i32> {
         unimplemented!()
     }
 
@@ -118,7 +115,7 @@ def with_arguments(*args, **kwargs) -> int.type: pass
     }
 
     let expected = expected.documentation().members;
-    let got = unpack(got.documentation());
+    let got = unpack(DocItem::Module(got.documentation()));
     assert_eq!(expected.len(), got.len());
     for (name, expected1) in expected.iter() {
         let got1 = got.get(name).unwrap();

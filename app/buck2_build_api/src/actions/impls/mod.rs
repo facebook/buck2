@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-pub mod dep_files;
 pub mod expanded_command_line;
 pub mod json;
 pub mod run_action_knobs;

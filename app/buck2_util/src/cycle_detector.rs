@@ -14,13 +14,16 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::future::Future;
 use std::hash::Hash;
+use std::mem::ManuallyDrop;
 use std::time::Duration;
 
+use anyhow::Context;
 use futures::lock::Mutex;
 use starlark_map::small_set::SmallSet;
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
+use tokio::task::JoinHandle;
 use tracing::debug;
 use tracing::error;
 use tracing::trace;
@@ -73,6 +76,8 @@ pub trait CycleDescriptor: Debug + 'static {
 #[derive(Debug)]
 pub struct LazyCycleDetector<C: CycleDescriptor> {
     events_sender: mpsc::UnboundedSender<Event<C>>,
+    #[allow(unused)] // used in tests
+    task: JoinHandle<()>,
 }
 
 impl<C: CycleDescriptor> LazyCycleDetector<C> {
@@ -82,18 +87,31 @@ impl<C: CycleDescriptor> LazyCycleDetector<C> {
 
     pub fn new_with_delay(idle_delay: Duration) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
-        tokio::spawn(
+
+        let task = tokio::spawn(async move {
+            // We place the receiver into a ManuallyDrop so that if the runtime shuts down (and
+            // this future gets dropped), callers won't panic when they send. This allows us to
+            // enforce the invariant that senders can expect this task to be alive, unless shutdown
+            // is ongoing, in which case the cycle detector simply does not do anything (which is
+            // fine since those tasks won't hang anyway: the runtime is shutting down!).
+            let mut receiver = ManuallyDrop::new(receiver);
+
             CycleDetectorState {
                 nodes: Vec::new(),
-                events_receiver: receiver,
                 node_ids: HashMap::new(),
                 dirtied_nodes: HashSet::new(),
                 idle_delay,
             }
-            .run(),
-        );
+            .run(&mut receiver)
+            .await;
+
+            // If `run` is done then let's drop the receiver.
+            let _receiver = ManuallyDrop::into_inner(receiver);
+        });
+
         Self {
             events_sender: sender,
+            task,
         }
     }
 
@@ -142,7 +160,7 @@ impl<C: CycleDescriptor> LazyCycleDetectorGuard<C> {
             cycle = &mut *guard => {
                 match cycle {
                     Ok(e) => Ok(Err(e)),
-                    Err(e) => Err(anyhow::anyhow!("error on cycle detector guard receiver: {}", e))
+                    Err(e) => Err(anyhow::anyhow!("error on cycle detector guard receiver: {}", e)).context(format!("for key `{}`", self.key))
                 }
             }
         }
@@ -151,12 +169,6 @@ impl<C: CycleDescriptor> LazyCycleDetectorGuard<C> {
     pub fn add_edge(&self, dep: C::Key) {
         self.events_sender
             .send(Event::Edge(self.key.clone(), dep))
-            .expect("cycle detector events receiver died while cycle detector still alive");
-    }
-
-    pub fn finish(&self) {
-        self.events_sender
-            .send(Event::Finished(self.key.clone()))
             .expect("cycle detector events receiver died while cycle detector still alive");
     }
 }
@@ -190,17 +202,16 @@ struct CycleDetectorState<C: CycleDescriptor> {
     nodes: Vec<(C::Key, NodeState<C>)>,
     // These are nodes for which we've seen a new out-edge since last we checked for cycles. We will start our next search at these nodes.
     dirtied_nodes: HashSet<u32>,
-    events_receiver: mpsc::UnboundedReceiver<Event<C>>,
     idle_delay: Duration,
 }
 
 impl<C: CycleDescriptor> CycleDetectorState<C> {
-    async fn run(mut self) {
-        'outer: while let Some(ev) = self.events_receiver.recv().await {
+    async fn run(mut self, events_receiver: &mut mpsc::UnboundedReceiver<Event<C>>) {
+        'outer: while let Some(ev) = events_receiver.recv().await {
             self.handle_event(ev);
             loop {
                 // drain the queue without .awaiting.
-                while let Ok(ev) = self.events_receiver.try_recv() {
+                while let Ok(ev) = events_receiver.try_recv() {
                     self.handle_event(ev);
                 }
                 // Now we'll start the idle delay, if we get any events
@@ -212,7 +223,7 @@ impl<C: CycleDescriptor> CycleDetectorState<C> {
                         break;
                     }
                     // recv() is cancel-safe, see its doc.
-                    ev = self.events_receiver.recv() => {
+                    ev = events_receiver.recv() => {
                         match ev {
                             Some(ev) => self.handle_event(ev),
                             None => {
@@ -264,16 +275,24 @@ impl<C: CycleDescriptor> CycleDetectorState<C> {
             Event::Started(k, sender) => {
                 debug!("started {}", k);
                 match self.node_mut(&k) {
-                    NodeState::Finished => {
-                        // this probably indicates a bug.
-                        error!("cycle detector got start event after finished for {}", k)
-                    }
                     NodeState::CycleDetected(e) => {
                         let _ignored = sender.send((**e).clone());
                     }
-                    NodeState::Working(v) => v.1 = sender,
-                    v @ NodeState::Known => {
+                    v @ NodeState::Finished => {
+                        // we cancelled/finished once, but due to eager deps, are restarting the
+                        // node, so replace the entire node
+                        debug!("replace existing finished {}", k);
                         *v = NodeState::Working(Box::new((VecDeque::new(), sender)))
+                    }
+                    v @ NodeState::Working(_) => {
+                        debug!("replace existing worker sender {}", k);
+                        // we cancelled/finished once, but due to eager deps, are restarting the
+                        // node, so replace the entire node
+                        *v = NodeState::Working(Box::new((VecDeque::new(), sender)))
+                    }
+                    v @ NodeState::Known => {
+                        debug!("known to working state {}", k);
+                        *v = NodeState::Working(Box::new((VecDeque::new(), sender)));
                     }
                 }
             }
@@ -467,29 +486,36 @@ mod tests {
 
     #[tokio::test]
     async fn should_detect_simple_cycle() {
-        let detector =
-            LazyCycleDetector::<SimpleCycleDescriptor>::new_with_delay(Duration::from_millis(1));
-        let g0 = detector.start(0);
-        let g1 = detector.start(1);
-        let g2 = detector.start(2);
+        let task = {
+            let detector = LazyCycleDetector::<SimpleCycleDescriptor>::new_with_delay(
+                Duration::from_millis(1),
+            );
+            let g0 = detector.start(0);
+            let g1 = detector.start(1);
+            let g2 = detector.start(2);
 
-        g0.add_edge(1);
-        g1.add_edge(2);
-        g2.add_edge(0);
+            g0.add_edge(1);
+            g1.add_edge(2);
+            g2.add_edge(0);
 
-        let res = g0
-            .guard_this(tokio::time::sleep(Duration::from_secs(120)).boxed())
-            .await;
-        match res {
-            Ok(Err(..)) => {
-                // good
+            let res = g0
+                .guard_this(tokio::time::sleep(Duration::from_secs(120)).boxed())
+                .await;
+            match res {
+                Ok(Err(..)) => {
+                    // good
+                }
+                Ok(Ok(..)) => {
+                    panic!("should've detected a cycle")
+                }
+                Err(..) => {
+                    panic!("should not have gotten a cycle detector error")
+                }
             }
-            Ok(Ok(..)) => {
-                panic!("should've detected a cycle")
-            }
-            Err(..) => {
-                panic!("should not have gotten a cycle detector error")
-            }
-        }
+
+            detector.task
+        };
+
+        task.await.unwrap();
     }
 }

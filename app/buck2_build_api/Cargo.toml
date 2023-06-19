@@ -12,7 +12,6 @@ async-trait = { workspace = true }
 blake3 = { workspace = true }
 derive_more = { workspace = true }
 derivative = { workspace = true }
-hashbrown = { workspace = true }
 once_cell = { workspace = true }
 inventory = { workspace = true }
 futures = { workspace = true }
@@ -65,6 +64,8 @@ buck2_query = { workspace = true }
 buck2_test_api = { workspace = true }
 buck2_cli_proto = { workspace = true }
 buck2_util = { workspace = true }
+buck2_build_signals = { workspace = true }
+buck2_file_watcher = { workspace = true }
 
 [dev-dependencies]
 buck2_wrapper_common = { workspace = true }

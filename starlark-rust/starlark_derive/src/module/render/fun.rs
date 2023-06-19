@@ -43,7 +43,22 @@ impl StarFun {
         match &self.type_attribute {
             Some(x) => quote_spanned! {
             self.span()=>
-                std::option::Option::Some(starlark::const_frozen_string!(#x).to_frozen_value())
+                std::option::Option::Some(starlark::const_frozen_string!(#x))
+            },
+            None => {
+                quote_spanned! {
+                    self.span()=>
+                    std::option::Option::None
+                }
+            }
+        }
+    }
+
+    fn type_str(&self) -> TokenStream {
+        match &self.type_attribute {
+            Some(x) => quote_spanned! {
+            self.span()=>
+                std::option::Option::Some(#x)
             },
             None => {
                 quote_spanned! {
@@ -553,9 +568,9 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
 
     let return_type_str = render_starlark_return_type(x, &x.starlark_return_type);
     let var_name = format_ident!("__documentation");
+    let dot_type: TokenStream = x.type_str();
     let documentation = quote_spanned!(span=>
         let #var_name = {
-            let signature = #documentation_signature;
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
             let return_type = Some(
                 starlark::docs::DocType {
@@ -564,9 +579,10 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
             );
             starlark::values::function::NativeCallableRawDocs {
                 rust_docstring: #docs,
-                signature,
+                signature: #documentation_signature,
                 parameter_types,
                 return_type,
+                dot_type: #dot_type,
             }
         };
     );
@@ -700,7 +716,7 @@ fn render_signature_arg(
 fn render_default_as_frozen_value(default: &Expr) -> Option<TokenStream> {
     let x = quote!(#default).to_string();
     if let Ok(x) = x.trim_end_matches("i32").parse::<i32>() {
-        Some(quote! { starlark::values::FrozenValue::new_int(#x) })
+        Some(quote! { globals_builder.alloc(#x) })
     } else if let Ok(x) = x.parse::<bool>() {
         Some(quote! { starlark::values::FrozenValue::new_bool(#x) })
     } else if x == "NoneOr :: None" {

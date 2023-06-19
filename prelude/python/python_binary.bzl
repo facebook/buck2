@@ -40,6 +40,7 @@ load(
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
 )
 load(
@@ -59,10 +60,6 @@ load(
     "linkables",
 )
 load("@prelude//linking:shared_libraries.bzl", "merge_shared_libraries", "traverse_shared_library_info")
-load(
-    "@prelude//utils:types.bzl",
-    "unchecked",  # @unused Used as a type
-)
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load("@prelude//paths.bzl", "paths")
 load("@prelude//resources.bzl", "gather_resources")
@@ -76,7 +73,6 @@ load(
     ":manifest.bzl",
     "create_dep_manifest_for_source_map",
     "create_manifest_for_extensions",
-    "create_manifest_for_source_dir",
     "create_manifest_for_source_map",
 )
 load(":native_python_util.bzl", "merge_cxx_extension_info")
@@ -105,9 +101,12 @@ def _package_style(ctx: "context") -> PackageStyle.type:
 
 # We do a lot of merging extensions, so don't use O(n) type annotations
 def _merge_extensions(
-        extensions: unchecked({str.type: ("_a", "label")}),
-        incoming_label: unchecked("label"),
-        incoming_extensions: unchecked({str.type: "_a"})) -> None:
+        # {str.type: ("_a", "label")}
+        extensions,
+        # "label"
+        incoming_label,
+        # {str.type: "_a"}
+        incoming_extensions) -> None:
     """
     Merges a incoming_extensions into `extensions`. Fails if duplicate dests exist.
     """
@@ -201,6 +200,8 @@ def _get_shared_only_groups(shared_only_libs: [LinkableProviders.type]) -> [Grou
 
     # Add link group specs for dlopen-able libs.
     for dep in shared_only_libs:
+        if dep.linkable_graph == None:
+            continue
         groups.append(
             Group(
                 name = str(dep.linkable_graph.nodes.value.label.raw_target()),
@@ -217,7 +218,6 @@ def _get_shared_only_groups(shared_only_libs: [LinkableProviders.type]) -> [Grou
                 ),
             ),
         )
-
     return groups
 
 def _get_link_group_info(
@@ -311,11 +311,7 @@ def python_executable(
     bytecode_manifest = None
     if srcs:
         src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs)
-        bytecode_manifest = create_manifest_for_source_dir(
-            ctx,
-            "bytecode",
-            compile_manifests(ctx, [src_manifest]),
-        )
+        _, bytecode_manifest = compile_manifests(ctx, [src_manifest])
 
     dep_manifest = None
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -490,7 +486,7 @@ def convert_python_library_to_executable(
         ]
         extra_preprocessors = []
         if ctx.attrs.par_style == "native":
-            extra_preprocessors.append(CPreprocessor(args = ["-DNATIVE_PAR_STYLE=1"]))
+            extra_preprocessors.append(CPreprocessor(relative_args = CPreprocessorArgs(args = ["-DNATIVE_PAR_STYLE=1"])))
 
         # All deps inolved in the link.
         link_deps = (

@@ -32,7 +32,8 @@ pub(crate) enum InstrControl<'v, 'b> {
     Next(BcPtrAddr<'b>),
     /// Return from the function.
     Return(Value<'v>),
-    /// Error.
+    /// Error. This can be either any `anyhow::Error` or `Diagnostics`.
+    /// If it is the former, error span will be added from instruction metadata.
     Err(anyhow::Error),
 }
 

@@ -5,20 +5,19 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(
-    ":manifest.bzl",
-    "ManifestInfo",  # @unused Used as a type
-)
+load(":manifest.bzl", "ManifestInfo")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
 def compile_manifests(
         ctx: "context",
         manifests: [ManifestInfo.type],
-        ignore_errors: bool.type = False) -> "artifact":
+        ignore_errors: bool.type = False) -> ("artifact", ManifestInfo.type):
     output = ctx.actions.declare_output("bytecode", dir = True)
+    bytecode_manifest = ctx.actions.declare_output("bytecode.manifest")
     cmd = cmd_args(ctx.attrs._python_toolchain[PythonToolchainInfo].host_interpreter)
     cmd.add(ctx.attrs._python_toolchain[PythonToolchainInfo].compile)
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
+    cmd.add(cmd_args(bytecode_manifest.as_output(), format = "--bytecode-manifest={}"))
     if ignore_errors:
         cmd.add("--ignore-errors")
     for manifest in manifests:
@@ -32,4 +31,5 @@ def compile_manifests(
         env = {"PYTHONHASHSEED": "7"},
         category = "py_compile",
     )
-    return output
+    bytecode_manifest_info = ManifestInfo(manifest = bytecode_manifest, artifacts = [(output, "bytecode")])
+    return output, bytecode_manifest_info

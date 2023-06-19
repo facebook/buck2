@@ -7,6 +7,7 @@ rust_library(
     name = "buck2_server_ctx",
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
+        "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:tokio",
     ],
@@ -25,6 +26,7 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:tracing-subscriber",
         "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_build_signals:buck2_build_signals",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",

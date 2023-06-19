@@ -12,6 +12,8 @@ mod cli;
 mod json_project;
 mod target;
 
+use std::io;
+use std::io::IsTerminal as _;
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -47,13 +49,13 @@ enum Command {
     /// Convert buck's build to a format that rust-analyzer can consume.
     Develop {
         /// Buck targets to include in rust-project.json.
-        #[arg(required = true, conflicts_with = "files", num_args = 1..)]
+        #[clap(required = true, conflicts_with = "files", multiple_values = true)]
         targets: Vec<String>,
 
         /// Path of the file being developed.
         ///
         /// Used to discover the owning set of targets.
-        #[arg(required = true, last = true, num_args = 1..)]
+        #[clap(required = true, last = true, multiple_values = true)]
         files: Vec<PathBuf>,
 
         /// Where to write the generated `rust-project.json`.
@@ -74,6 +76,10 @@ enum Command {
         /// Pretty-print generated `rust-project.json` file.
         #[clap(short, long)]
         pretty: bool,
+
+        /// Use paths relative to the project root in `rust-project.json`.
+        #[clap(long, hide = true)]
+        relative_paths: bool,
     },
 }
 
@@ -84,8 +90,8 @@ fn main() -> anyhow::Result<()> {
     let subscriber = tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()
-                .with_ansi(atty::is(atty::Stream::Stderr))
-                .with_writer(std::io::stderr),
+                .with_ansi(io::stderr().is_terminal())
+                .with_writer(io::stderr),
         )
         .with(filter);
     tracing::subscriber::set_global_default(subscriber)?;

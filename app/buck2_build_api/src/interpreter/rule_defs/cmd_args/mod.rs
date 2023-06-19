@@ -14,8 +14,10 @@ use starlark::values::Value;
 
 use crate::interpreter::rule_defs::cmd_args::options::QuoteStyle;
 
+pub mod arg_builder;
 mod builder;
 mod options;
+pub(crate) mod space_separated;
 mod traits;
 mod typ;
 pub mod value;

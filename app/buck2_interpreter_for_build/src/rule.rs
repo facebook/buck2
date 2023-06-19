@@ -162,6 +162,7 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
                 raw_type: Value::new_none().to_string(),
             }),
             self.docs.as_deref(),
+            None,
         );
 
         Some(DocItem::Function(function_docs))

@@ -10,8 +10,8 @@ The latest set of `buck2` executables can be found under the [`latest` release p
 To get started, first install [rustup](https://rustup.rs/), then compile the `buck2` executable:
 
 ```bash
-rustup install nightly-2023-03-07
-cargo +nightly-2023-03-07 install --git https://github.com/facebook/buck2.git buck2
+rustup install nightly-2023-04-23
+cargo +nightly-2023-04-23 install --git https://github.com/facebook/buck2.git buck2
 ```
 
 The above commands install `buck2` into a suitable directory, such as `$HOME/.cargo/bin`, which you should then add to your `$PATH`:
@@ -32,7 +32,7 @@ Some of our rules use symlinks, which are disabled by default for non-admin Wind
 
 ## Compiling your first project
 
-This section covers the building of a ['hello_world' example project](https://github.com/facebook/buck2/tree/main/examples/hello_world) that contains a simple C++ binary. If you are interested in seeing how other languages can be built, take a look at the [prelude example project](https://github.com/facebook/buck2/tree/main/examples/prelude), which contains Rust, C++, Python, and OCaml targets.
+This section covers the building of a ['hello_world' example project](https://github.com/facebook/buck2/tree/main/examples/hello_world) that contains a simple C++ binary. If you are interested in seeing how other languages can be built, take a look at the [prelude example project](https://github.com/facebook/buck2/tree/main/examples/with_prelude), which contains Rust, C++, Python, and OCaml targets.
 
 First, clone the buck2 repository and cd into the 'hello_world' project:
 

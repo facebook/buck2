@@ -162,7 +162,9 @@ impl<'v> BcFramePtr<'v> {
 impl<'v> BcFrame<'v> {
     #[inline(always)]
     fn offset_of_slots() -> usize {
-        memoffset::offset_of!(BcFrame<'v>, slots)
+        let offset = memoffset::offset_of!(BcFrame<'v>, slots);
+        assert_eq!(mem::size_of::<BcFrame<'v>>(), offset);
+        offset
     }
 
     #[inline(always)]

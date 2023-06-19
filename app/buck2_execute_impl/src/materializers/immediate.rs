@@ -14,7 +14,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_common::http::HttpClient;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project::ProjectRoot;
@@ -55,7 +55,7 @@ pub struct ImmediateMaterializer {
     digest_config: DigestConfig,
     re_client_manager: Arc<ReConnectionManager>,
     io_executor: Arc<dyn BlockingExecutor>,
-    http_client: Arc<dyn HttpClient>,
+    http_client: CountingHttpClient,
 }
 
 impl ImmediateMaterializer {
@@ -64,7 +64,7 @@ impl ImmediateMaterializer {
         digest_config: DigestConfig,
         re_client_manager: Arc<ReConnectionManager>,
         io_executor: Arc<dyn BlockingExecutor>,
-        http_client: Arc<dyn HttpClient>,
+        http_client: CountingHttpClient,
     ) -> Self {
         Self {
             fs,
@@ -212,7 +212,7 @@ impl Materializer for ImmediateMaterializer {
             .await?;
 
         http_download(
-            &*self.http_client,
+            &self.http_client,
             &self.fs,
             self.digest_config,
             &path,

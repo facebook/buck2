@@ -51,3 +51,20 @@ impl<'a> FileLoader for ReturnFileLoader<'a> {
         }
     }
 }
+
+/// Same as [`ReturnFileLoader`], but does not require fighting the borrow checker.
+pub(crate) struct ReturnOwnedFileLoader {
+    pub(crate) modules: HashMap<String, FrozenModule>,
+}
+
+impl FileLoader for ReturnOwnedFileLoader {
+    fn load(&self, path: &str) -> anyhow::Result<FrozenModule> {
+        match self.modules.get(path) {
+            Some(v) => Ok(v.dupe()),
+            None => Err(anyhow::anyhow!(
+                "ReturnOwnedFileLoader does not know the module `{}`",
+                path
+            )),
+        }
+    }
+}

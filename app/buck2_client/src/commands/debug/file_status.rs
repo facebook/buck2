@@ -29,6 +29,9 @@ pub struct FileStatusCommand {
     /// Paths to validate
     #[clap(value_name = "PATH", required = true)]
     paths: Vec<PathArg>,
+
+    #[clap(long, short)]
+    verbose: bool,
 }
 
 #[async_trait]
@@ -58,6 +61,7 @@ impl StreamingCommand for FileStatusCommand {
                     paths: self
                         .paths
                         .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,
+                    verbose: self.verbose,
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),

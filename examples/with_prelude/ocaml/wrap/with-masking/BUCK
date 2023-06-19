@@ -1,0 +1,68 @@
+# @lint-ignore-every BUCKFORMAT
+
+load("//test_utils.bzl", "assert_output")
+
+# buildifier: disable=no-effect
+export_file(
+    name = "al__.mli",
+    visibility = [
+        ":al__",
+        ":al__imp"
+    ],
+
+) if not host_info().os.is_windows else None
+
+# buildifier: disable=no-effect
+ocaml_library(
+    name = "al__",
+    compiler_flags = [ "-no-alias-deps" ],
+    srcs = [
+        ":al__.mli",
+        "al__.ml",
+    ],
+    visibility = [ ":al__imp" ],
+
+) if not host_info().os.is_windows else None
+
+# buildifier: disable=no-effect
+ocaml_library(
+    name = "al__imp",
+    compiler_flags = [
+        "-open", "Al__"
+    ],
+    ocamldep_flags = [
+        "-open", "Al__",
+        "-map", "$(location :al__.mli)"
+    ],
+    srcs = glob( [ "al__*.ml*" ], exclude = [ "al__.ml*" ] ),
+    deps = [ ":al__" ],
+    visibility = [ ":al" ],
+
+) if not host_info().os.is_windows else None
+
+# buildifier: disable=no-effect
+ocaml_library(
+    name = "al",
+    compiler_flags = [ "-open", "Al__" ],
+    srcs = glob( [ "al.ml*" ] ),
+    deps = [ ":al__imp" ],
+    visibility = [ "PUBLIC" ],
+
+) if not host_info().os.is_windows else None
+
+# buildifier: disable=no-effect
+ocaml_binary(
+    name = "test-Al",
+    srcs = [ "test_Al.ml" ],
+    deps = [ ":al" ],
+    visibility = [ "PUBLIC" ],
+
+) if not host_info().os.is_windows else None
+
+# buildifier: disable=no-effect
+assert_output(
+    name = "test-Al-check",
+    command = "$(exe_target :test-Al)",
+    output = "Hello world!",
+
+) if not host_info().os.is_windows else None

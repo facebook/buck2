@@ -219,6 +219,14 @@ pub struct ExecutionResult2 {
     pub execution_time: Duration,
 }
 
+pub enum ExecuteResponse {
+    /// A result is available.
+    Result(ExecutionResult2),
+
+    /// The test run is being cancelled.
+    Cancelled,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TestExecutable {
     pub ui_prints: DisplayMetadata,

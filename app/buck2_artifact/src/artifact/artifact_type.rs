@@ -546,7 +546,6 @@ mod tests {
     use assert_matches::assert_matches;
     use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::buck_path::path::BuckPath;
-    use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellResolver;
@@ -632,10 +631,10 @@ mod tests {
             ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
                 .unwrap();
         let fs = ArtifactFs::new(
-            BuckPathResolver::new(CellResolver::testing_with_name_and_path(
+            CellResolver::testing_with_name_and_path(
                 CellName::testing_new("cell"),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-            )),
+            ),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs,
         );
@@ -673,10 +672,10 @@ mod tests {
         );
 
         let fs = ArtifactFs::new(
-            BuckPathResolver::new(CellResolver::testing_with_name_and_path(
+            CellResolver::testing_with_name_and_path(
                 CellName::testing_new("cell"),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-            )),
+            ),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs.dupe(),
         );

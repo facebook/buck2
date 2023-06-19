@@ -42,7 +42,7 @@ enum ExecutionPlatformProviderErrors {
 #[internal_provider(info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub(crate) struct ExecutionPlatformInfoGen<V> {
+pub struct ExecutionPlatformInfoGen<V> {
     /// label of the defining rule, used in informative messages
     #[provider(field_type = "StarlarkTargetLabel")]
     label: V,

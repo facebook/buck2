@@ -27,6 +27,7 @@ ipnetwork = { workspace = true }
 itertools = { workspace = true }
 libc = { workspace = true }
 once_cell = { workspace = true }
+pin-project = { workspace = true }
 prost-types = { workspace = true }
 rand = { workspace = true }
 ref-cast = { workspace = true }
@@ -45,6 +46,7 @@ tracing = { workspace = true }
 num_enum = { workspace = true }
 derivative = { workspace = true }
 parking_lot = { workspace = true }
+tokio-util = { workspace = true }
 toml = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

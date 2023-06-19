@@ -7,8 +7,9 @@
  * of this source tree.
  */
 
-use buck2_build_api::attrs::resolve::attr_type::dep::DepAttrTypeExt;
-use buck2_build_api::attrs::resolve::ctx::AttrResolutionContext;
+use buck2_analysis::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;
+use buck2_analysis::attrs::resolve::attr_type::dep::DepAttrTypeExt;
+use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::package::PackageLabel;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
@@ -58,7 +59,7 @@ impl AnonTargetAttrExt for AnonTargetAttr {
     ) -> anyhow::Result<Value<'v>> {
         match self {
             AnonTargetAttr::Bool(v) => Ok(Value::new_bool(v.0)),
-            AnonTargetAttr::Int(v) => Ok(Value::new_int(*v)),
+            AnonTargetAttr::Int(v) => Ok(ctx.heap().alloc(*v)),
             AnonTargetAttr::String(v) | AnonTargetAttr::EnumVariant(v) => {
                 Ok(ctx.heap().alloc(v.as_str()))
             }
@@ -90,6 +91,8 @@ impl AnonTargetAttrExt for AnonTargetAttr {
             AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, ctx),
             AnonTargetAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
             AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.clone()))),
+            AnonTargetAttr::Arg(a) => a.resolve(ctx),
+            AnonTargetAttr::PromiseArtifact(artifact) => Ok(ctx.heap().alloc(artifact.clone())),
         }
     }
 }

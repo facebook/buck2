@@ -17,7 +17,6 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_data::action_key;
 use buck2_data::span_start_event::Data;
 use buck2_data::ActionKey;
@@ -29,6 +28,7 @@ use buck2_data::ConfiguredTargetLabel;
 use buck2_data::TargetLabel;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
+use buck2_util::collections::ordered_set::OrderedSet;
 use buck2_util::commas::commas;
 use buck2_util::truncate::truncate;
 use dupe::Dupe;
@@ -308,6 +308,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
             Data::LocalResources(..) => Ok("Local resources setup".to_owned()),
             Data::ReleaseLocalResources(..) => Ok("Releasing local resources".to_owned()),
+            Data::BxlEnsureArtifacts(..) => Err(ParseEventError::UnexpectedEvent.into()),
         };
 
         // This shouldn't really be necessary, but that's how try blocks work :(
@@ -422,6 +423,8 @@ pub fn display_executor_stage(
                 Stage::MaterializeInputs(..) => "local_materialize_inputs",
                 Stage::PrepareOutputs(_) => "local_prepare_outputs",
                 Stage::AcquireLocalResource(_) => "acquire_local_resource",
+                Stage::InitializeWorker(_) => "initialize_worker",
+                Stage::WorkerExecute(_) => "worker_execute",
             }
         }
     };
@@ -579,6 +582,8 @@ fn failure_reason_for_command_execution(
     let locality = match command.command {
         Some(Command::RemoteCommand(..)) => "Remote ",
         Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => "Local ",
+        Some(Command::WorkerInitCommand(..)) => "Local Worker Initialization ",
+        Some(Command::WorkerCommand(..)) => "Local Worker ",
         None => "",
     };
 

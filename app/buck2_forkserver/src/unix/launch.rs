@@ -17,6 +17,7 @@ use anyhow::Context;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process::background_command;
 use tokio::net::UnixStream;
+use tokio::process::Command;
 
 use crate::client::ForkserverClient;
 
@@ -69,7 +70,7 @@ pub async fn launch_forkserver(
         });
     }
 
-    let child = command
+    let child = Command::from(command)
         .spawn()
         .with_context(|| format!("Failed to start Forkserver `{}`", exe.to_string_lossy()))?;
 

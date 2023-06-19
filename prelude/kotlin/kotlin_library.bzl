@@ -382,7 +382,13 @@ def build_kotlin_library(
             )
             extra_sub_targets = extra_sub_targets | class_to_src_map_sub_targets
 
-            default_info = get_default_info(ctx.attrs._java_toolchain[JavaToolchainInfo], outputs, extra_sub_targets = extra_sub_targets)
+            default_info = get_default_info(
+                ctx.actions,
+                ctx.attrs._java_toolchain[JavaToolchainInfo],
+                outputs,
+                java_packaging_info,
+                extra_sub_targets = extra_sub_targets,
+            )
             return JavaProviders(
                 java_library_info = java_library_info,
                 java_library_intellij_info = intellij_info,

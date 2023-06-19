@@ -30,7 +30,9 @@
 %%%       "applications"           := [<entry to applications field>],
 %%%       "included_applications"  := I[<entry to included_applications field>],
 %%%       "template"               => <path to an .app.src file>,
-%%%       "version"                => <version string>
+%%%       "version"                => <version string>,
+%%%       "env"                    => [application env variable],
+%%%       "metadata"               => map of metadata
 %%%   }
 %%%
 %%% @end
@@ -104,7 +106,7 @@ do_parse_app_info_file(AppInfoFile) ->
         ]} ->
             Template = get_template(maps:get("template", Terms, undefined)),
             Mod = get_mod(Name, maps:get("mod", Terms, undefined)),
-            Env = get_env(maps:get("env", Terms, undefined), []),
+            Env = get_env(maps:get("env", Terms, undefined)),
             Metadata = get_metadata(maps:get("metadata", Terms, undefined)),
             #{
                 name => Name,
@@ -151,24 +153,15 @@ get_mod(AppName, {ModuleName, StringArgs}) ->
         _:_ -> module_filed_error(AppName, ModString)
     end.
 
--spec get_env([tuple()] | undefined, [tuple()]) -> [tuple()] | undefined.
-get_env(undefined, _) -> undefined;
-get_env([], EnvList) -> lists:reverse(EnvList);
-get_env([{K, V} | T], EnvList) ->
-    get_env(T, [{parse_str(K), parse_str(V)} | EnvList]).
+-spec get_env(map() | undefined) -> [tuple()] | undefined.
+get_env(undefined) -> undefined;
+get_env(Env) ->
+    [{list_to_atom(K), V} || {K, V} <- maps:to_list(Env)].
 
 -spec get_metadata(map() | undefined) -> map().
 get_metadata(undefined) -> #{};
 get_metadata(Metadata) ->
-    maps:from_list([{parse_str(K), parse_str(V)} || {K, V} <- maps:to_list(Metadata)]).
-
--spec parse_str(string()) -> term().
-parse_str("") ->
-    [];
-parse_str(StrArgs) ->
-    {ok, Tokens, _} = erl_scan:string(StrArgs ++ "."),
-    {ok, Term} = erl_parse:parse_term(Tokens),
-    Term.
+    maps:from_list([{list_to_atom(K), V} || {K, V} <- maps:to_list(Metadata)]).
 
 -spec check_and_normalize_template(
     string(),

@@ -32,6 +32,10 @@ pub(crate) enum TaskState {
 }
 
 impl<'a> DiceTaskHandle<'a> {
+    pub(crate) fn report_initial_lookup(&self) -> TaskState {
+        self.internal.state.report_initial_lookup()
+    }
+
     pub(crate) fn checking_deps(&self) -> TaskState {
         self.internal.state.report_checking_deps()
     }
@@ -47,11 +51,24 @@ impl<'a> DiceTaskHandle<'a> {
     pub(crate) fn cancellation_ctx(&self) -> &CancellationContext {
         &self.cancellations
     }
+
+    #[cfg(test)]
+    pub(crate) fn testing_new() -> &'static DiceTaskHandle<'static> {
+        static TEST: once_cell::sync::Lazy<DiceTaskHandle> =
+            once_cell::sync::Lazy::new(|| DiceTaskHandle::<'static> {
+                internal: DiceTaskInternal::new(crate::impls::key::DiceKey { index: 99999 }),
+                cancellations: CancellationContext::testing(),
+            });
+
+        &TEST
+    }
 }
 
 impl<'a> Drop for DiceTaskHandle<'a> {
     fn drop(&mut self) {
         if self.internal.read_value().is_none() {
+            debug!("task is terminated");
+
             // This is only owned by the main worker task. If this was dropped, and no result was
             // ever recorded, then we must have been terminated.
             self.internal.report_terminated()

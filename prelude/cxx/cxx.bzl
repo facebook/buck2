@@ -41,6 +41,7 @@ load(
     "create_linkable_node",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executor_from_props",
@@ -111,6 +112,7 @@ load(":platform.bzl", "cxx_by_platform")
 load(
     ":preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorArgs",
     "cxx_attr_exported_preprocessor_flags",
     "cxx_exported_preprocessor_info",
     "cxx_inherited_preprocessor_infos",
@@ -320,7 +322,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     if header_dirs != None:
         for x in header_dirs:
             args.append(format_system_include_arg(cmd_args(x), compiler_type))
-    specific_exportd_pre = CPreprocessor(args = args)
+    specific_exportd_pre = CPreprocessor(relative_args = CPreprocessorArgs(args = args))
     providers.append(cxx_merge_cpreprocessors(
         ctx,
         [generic_exported_pre, specific_exportd_pre],
@@ -378,7 +380,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                         shlink_args.extend(exported_linker_flags)
                         shlink_args.extend(non_exported_linker_flags)
                         shlink_args.extend(get_link_whole_args(linker_type, [lib]))
-                        shared_lib, _, _ = cxx_link_into_shared_library(
+                        link_result = cxx_link_into_shared_library(
                             ctx,
                             soname,
                             [
@@ -388,6 +390,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                                 get_link_args(inherited_exported_link, LinkStyle("shared")),
                             ],
                         )
+                        shared_lib = link_result.linked_object
 
                 if shared_lib:
                     out = shared_lib.output
@@ -409,6 +412,9 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                         # Generate a shared library interface if the rule supports it.
                         if ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx):
                             shared_lib_for_linking = cxx_mk_shlib_intf(ctx, ctx.attrs.name, shared_lib.output)
+                        if ctx.attrs._target_os_type[OsLookup].platform == "windows" and ctx.attrs.import_lib != None:
+                            shared_lib_for_linking = ctx.attrs.import_lib
+
                         linkable = SharedLibLinkable(lib = shared_lib_for_linking)
 
                     # Provided means something external to the build will provide
@@ -615,6 +621,7 @@ def _get_params_for_android_binary_cxx_library() -> (CxxRuleSubTargetParams.type
         xcode_data = False,
         clang_traces = False,
         objects = False,
+        bitcode_bundle = False,
     )
     provider_params = CxxRuleProviderParams(
         compilation_database = False,

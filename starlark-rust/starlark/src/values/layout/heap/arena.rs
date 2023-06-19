@@ -172,14 +172,14 @@ impl<A: ArenaAllocator> Arena<A> {
         &'v mut [MaybeUninit<T::ExtraElem>],
     ) {
         assert!(
-            mem::align_of::<T>() <= mem::align_of::<AValueHeader>(),
+            mem::align_of::<T>() <= AValueHeader::ALIGN,
             "Unexpected alignment in Starlark arena. Type {} has alignment {}, expected <= {}",
             std::any::type_name::<T>(),
             mem::align_of::<T>(),
-            mem::align_of::<AValueHeader>()
+            AValueHeader::ALIGN,
         );
 
-        let size = T::memory_size_for_extra_len(extra_len).add_header();
+        let size = T::alloc_size_for_extra_len(extra_len);
         let p = bump.alloc(size).as_ptr();
         unsafe {
             let repr = &mut *(p as *mut MaybeUninit<AValueRepr<T>>);
@@ -216,7 +216,7 @@ impl<A: ArenaAllocator> Arena<A> {
         // so very important to put in a current vtable
         // We always alloc at least one pointer worth of space, so can write in a one-ST blackhole
 
-        let x = BlackHole(T::memory_size_for_extra_len(extra_len));
+        let x = BlackHole(T::alloc_size_for_extra_len(extra_len));
         let p = unsafe {
             transmute!(
                 &mut MaybeUninit<AValueRepr<T>>,
@@ -446,7 +446,7 @@ impl<A: ArenaAllocator> Drop for Arena<A> {
     fn drop(&mut self) {
         self.for_each_drop_unordered(|x| {
             // Safe to convert to *mut because we are the only owner
-            let value = x.payload_ptr() as *mut ();
+            let value = x.payload_ptr();
             x.0.drop_in_place(value);
         });
     }

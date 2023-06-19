@@ -109,7 +109,7 @@ impl<'v, V: ValueLike<'v>> Display for StructGen<'v, V> {
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StructGen<'v, V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!(Struct::TYPE);
 

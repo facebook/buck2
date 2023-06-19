@@ -9,9 +9,8 @@
 
 use std::sync::Arc;
 
-use buck2_build_api::configuration::calculation::ExecutionPlatformsKey;
-use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_configured::configuration::calculation::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::data::ConfigurationData;
@@ -36,6 +35,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::internal_attrs;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::targets_map::TargetsMap;

@@ -1,0 +1,26 @@
+[package]
+name = "buck2_configured"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+derive_more = { workspace = true }
+futures = { workspace = true }
+indexmap = { workspace = true }
+thiserror = { workspace = true }
+
+allocative = { workspace = true }
+dice = { workspace = true }
+dupe = { workspace = true }
+gazebo = { workspace = true }
+more_futures = { workspace = true }
+starlark_map = { workspace = true }
+
+buck2_build_api = { workspace = true }
+buck2_common = { workspace = true }
+buck2_core = { workspace = true }
+buck2_execute = { workspace = true }
+buck2_node = { workspace = true }
+buck2_util = { workspace = true }

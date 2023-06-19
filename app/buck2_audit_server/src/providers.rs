@@ -12,7 +12,6 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_audit::providers::AuditProvidersCommand;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
@@ -21,6 +20,7 @@ use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersName;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
+use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -104,7 +104,7 @@ async fn server_execute_with_dice(
         for (target_name, providers) in targets {
             let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
             let providers_label = ctx
-                .get_configured_target(&label, target_platform.as_ref())
+                .get_configured_provider_label(&label, target_platform.as_ref())
                 .await?;
 
             // `.push` is deprecated in newer `futures`,

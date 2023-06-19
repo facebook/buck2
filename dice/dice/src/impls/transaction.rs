@@ -24,7 +24,6 @@ use crate::impls::core::state::StateRequest;
 use crate::impls::ctx::BaseComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
-use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::DiceValidity;
@@ -97,9 +96,7 @@ impl TransactionUpdater {
 
         let (transaction, guard) = self.commit_to_state().await;
 
-        let cycles = UserCycleDetectorData::new();
-
-        BaseComputeCtx::new(transaction, user_data, dice, cycles, guard)
+        BaseComputeCtx::new(transaction, user_data, dice, guard)
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
@@ -109,9 +106,7 @@ impl TransactionUpdater {
 
         let (transaction, guard) = self.commit_to_state().await;
 
-        let cycles = UserCycleDetectorData::new();
-
-        BaseComputeCtx::new(transaction, Arc::new(extra), dice, cycles, guard)
+        BaseComputeCtx::new(transaction, Arc::new(extra), dice, guard)
     }
 
     pub(crate) async fn existing_state(&self) -> BaseComputeCtx {
@@ -130,13 +125,7 @@ impl TransactionUpdater {
         });
 
         let (transaction, guard) = rx.await.unwrap();
-        BaseComputeCtx::new(
-            transaction,
-            self.user_data.dupe(),
-            self.dice.dupe(),
-            UserCycleDetectorData::new(),
-            guard,
-        )
+        BaseComputeCtx::new(transaction, self.user_data.dupe(), self.dice.dupe(), guard)
     }
 
     pub(crate) fn unstable_take(&self) {

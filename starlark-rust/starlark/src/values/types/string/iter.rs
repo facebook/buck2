@@ -68,7 +68,7 @@ pub(crate) fn iterate_codepoints<'v>(string: StringValue<'v>, heap: &'v Heap) ->
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StringIterableGen<'v, V>
 where
-    Self: ProvidesStaticType,
+    Self: ProvidesStaticType<'v>,
 {
     starlark_type!("iterator");
 
@@ -81,7 +81,7 @@ where
                 self.string
                     .as_str()
                     .chars()
-                    .map(|c| Value::new_int(u32::from(c) as i32)),
+                    .map(|c| heap.alloc(u32::from(c))),
             )
         };
         Ok(iter)

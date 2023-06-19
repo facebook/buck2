@@ -24,7 +24,6 @@ use std::time::SystemTime;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::build_signals;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::daemon_api_server::*;
@@ -82,7 +81,6 @@ use tonic::Code;
 use tonic::Request;
 use tonic::Response;
 use tonic::Status;
-use tracing::debug_span;
 
 use crate::active_commands::ActiveCommand;
 use crate::active_commands::ActiveCommandStateWriter;
@@ -475,25 +473,17 @@ impl BuckdServer {
                     let result: anyhow::Result<Res> = try {
                         let base_context =
                             daemon_state.prepare_command(dispatch.dupe(), guard).await?;
-                        build_signals::scope(
-                            base_context.events.dupe(),
-                            data.critical_path_backend,
-                            |build_sender| async {
-                                let context = ServerCommandContext::new(
-                                    base_context,
-                                    req.client_context()?,
-                                    build_sender,
-                                    opts.starlark_profiler_instrumentation_override(&req)?,
-                                    req.build_options(),
-                                    daemon_state.paths.buck_out_dir(),
-                                    cancellations,
-                                )?;
 
-                                func(&context, PartialResultDispatcher::new(dispatch.dupe()), req)
-                                    .await
-                            },
-                        )
-                        .await?
+                        let context = ServerCommandContext::new(
+                            base_context,
+                            req.client_context()?,
+                            opts.starlark_profiler_instrumentation_override(&req)?,
+                            req.build_options(),
+                            daemon_state.paths.buck_out_dir(),
+                            cancellations,
+                        )?;
+
+                        func(&context, PartialResultDispatcher::new(dispatch.dupe()), req).await?
                     };
 
                     let result: CommandResult = result_to_command_result(result);
@@ -727,7 +717,6 @@ where
         |cancellations| func(req, cancellations),
         &BuckSpawner::default(),
         &events_ctx,
-        debug_span!(parent: None, "running-command",),
     );
     let (output_send, output_recv) = tokio::sync::mpsc::unbounded_channel();
 
@@ -869,6 +858,7 @@ impl DaemonApi for BuckdServer {
                         data.dice_manager.unsafe_dice().dupe(),
                         data.materializer.dupe(),
                         data.scribe_sink.dupe() as _,
+                        data.http_client.dupe(),
                     )
                     .create_snapshot(),
                 )
@@ -898,6 +888,16 @@ impl DaemonApi for BuckdServer {
                 daemon_constraints: Some(daemon_constraints),
                 project_root: daemon_state.paths.project_root().to_string(),
                 isolation_dir: daemon_state.paths.isolation.to_string(),
+                forkserver_pid: daemon_state
+                    .data
+                    .as_ref()
+                    .ok()
+                    .and_then(|state| state.forkserver.as_ref().map(|f| f.pid())),
+                supports_vpnless: daemon_state
+                    .data()
+                    .as_ref()
+                    .ok()
+                    .map(|state| state.http_client.supports_vpnless()),
                 ..Default::default()
             };
             Ok(base)
@@ -911,7 +911,7 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<CommandResult>, Status> {
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
             let FlushDepFilesRequest {} = req;
-            buck2_build_api::actions::impls::dep_files::flush_dep_files();
+            buck2_file_watcher::dep_files::flush_dep_files();
             Ok(GenericResponse {})
         })
         .await

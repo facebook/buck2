@@ -44,7 +44,7 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_common::http::HttpClient;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::io::IoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
@@ -61,6 +61,7 @@ use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_file_watcher::mergebase::Mergebase;
 use derivative::Derivative;
 use derive_more::Display;
 use indexmap::indexmap;
@@ -194,6 +195,8 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     fn command_execution_manager(&self) -> CommandExecutionManager;
 
+    fn mergebase(&self) -> &Mergebase;
+
     fn prepare_action(
         &mut self,
         request: &CommandExecutionRequest,
@@ -249,7 +252,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn io_provider(&self) -> Arc<dyn IoProvider>;
 
     /// Http client used for fetching and downloading remote artifacts.
-    fn http_client(&self) -> Arc<dyn HttpClient>;
+    fn http_client(&self) -> CountingHttpClient;
 }
 
 #[derive(Error, Debug)]

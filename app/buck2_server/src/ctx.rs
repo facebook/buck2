@@ -21,16 +21,14 @@ use async_trait::async_trait;
 use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
+use buck2_build_api::build_signals::create_build_signals;
 use buck2_build_api::build_signals::BuildSignalsInstaller;
 use buck2_build_api::build_signals::SetBuildSignals;
-use buck2_build_api::calculation::ConfiguredGraphCycleDescriptor;
 use buck2_build_api::context::SetBuildContextData;
-use buck2_build_api::interpreter::context::configure_build_file_globals;
-use buck2_build_api::interpreter::context::configure_extension_file_globals;
-use buck2_build_api::interpreter::context::configure_package_file_globals;
-use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
+use buck2_build_signals::CriticalPathBackendName;
+use buck2_build_signals::HasCriticalPathBackend;
 use buck2_cli_proto::client_context::HostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
@@ -42,7 +40,7 @@ use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_common::http::HttpClient;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::SetHttpClient;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::io::IoProvider;
@@ -52,6 +50,7 @@ use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_configured::calculation::ConfiguredGraphCycleDescriptor;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::cells::CellResolver;
 use buck2_core::facebook_only;
@@ -81,15 +80,21 @@ use buck2_execute::re::manager::ReConnectionManager;
 use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
+use buck2_file_watcher::file_watcher::FileWatcher;
+use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_forkserver::client::ForkserverClient;
-use buck2_interpreter::bxl::CONFIGURE_BXL_FILE_GLOBALS;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
+use buck2_interpreter_for_build::interpreter::globals::configure_build_file_globals;
+use buck2_interpreter_for_build::interpreter::globals::configure_bxl_file_globals;
+use buck2_interpreter_for_build::interpreter::globals::configure_extension_file_globals;
+use buck2_interpreter_for_build::interpreter::globals::configure_package_file_globals;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::concurrency::DiceDataProvider;
@@ -121,7 +126,6 @@ use crate::daemon::common::get_default_executor_config;
 use crate::daemon::common::parse_concurrency;
 use crate::daemon::common::CommandExecutorFactory;
 use crate::dice_tracker::BuckDiceTracker;
-use crate::file_watcher::FileWatcher;
 use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
 
@@ -169,7 +173,7 @@ pub struct BaseServerCommandContext {
     /// Mutex for creating symlinks
     pub create_unhashed_outputs_lock: Arc<Mutex<()>>,
     /// Http client used during run actions; shared with materializer.
-    pub http_client: Arc<dyn HttpClient>,
+    pub http_client: CountingHttpClient,
 }
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
@@ -196,9 +200,6 @@ pub struct ServerCommandContext<'a> {
     // that we give out other handles, but we don't depend on the lifetimes of those for this guarantee. We
     // also use this to send a RemoteExecutionSessionCreated if the connection is made.
     _re_connection_handle: ReConnectionHandle,
-
-    /// A sender for build signals. This field is exposed to the rest of the command via DICE.
-    build_signals: BuildSignalsInstaller,
 
     /// Starlark profiler instrumentation requested throughout the duration of this command. Usually associated with
     /// the `buck2 profile` command.
@@ -238,7 +239,6 @@ impl<'a> ServerCommandContext<'a> {
     pub fn new(
         base_context: BaseServerCommandContext,
         client_context: &ClientContext,
-        build_signals: BuildSignalsInstaller,
         starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
         build_options: Option<&CommonBuildOptions>,
         buck_out_dir: ProjectRelativePathBuf,
@@ -323,7 +323,6 @@ impl<'a> ServerCommandContext<'a> {
             host_xcode_version_override: client_context.host_xcode_version.clone(),
             oncall,
             _re_connection_handle: re_connection_handle,
-            build_signals,
             starlark_profiler_instrumentation_override,
             buck_out_dir,
             build_options: build_options.cloned(),
@@ -340,7 +339,10 @@ impl<'a> ServerCommandContext<'a> {
         })
     }
 
-    async fn dice_data_constructor(&self) -> DiceCommandDataProvider {
+    async fn dice_data_constructor(
+        &self,
+        build_signals: BuildSignalsInstaller,
+    ) -> DiceCommandDataProvider {
         let execution_strategy = self
             .build_options
             .as_ref()
@@ -382,7 +384,6 @@ impl<'a> ServerCommandContext<'a> {
         let blocking_executor: Arc<_> = self.base_context.blocking_executor.dupe();
         let materializer = self.base_context.materializer.dupe();
         let re_connection = Arc::new(self.get_re_connection());
-        let build_signals = self.build_signals.dupe();
 
         let forkserver = self.base_context.forkserver.dupe();
 
@@ -513,7 +514,7 @@ struct DiceCommandDataProvider {
     create_unhashed_symlink_lock: Arc<Mutex<()>>,
     starlark_debugger: Option<BuckStarlarkDebuggerHandle>,
     keep_going: bool,
-    http_client: Arc<dyn HttpClient>,
+    http_client: CountingHttpClient,
 }
 
 #[async_trait]
@@ -546,7 +547,15 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .unwrap_or_else(RolloutPercentage::always)
             .roll();
 
-        let executor_global_knobs = ExecutorGlobalKnobs { enable_miniperf };
+        let log_action_keys = root_config
+            .parse::<RolloutPercentage>("buck2", "log_action_keys")?
+            .unwrap_or_else(RolloutPercentage::always)
+            .roll();
+
+        let executor_global_knobs = ExecutorGlobalKnobs {
+            enable_miniperf,
+            log_action_keys,
+        };
 
         let host_sharing_broker =
             HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, concurrency);
@@ -576,11 +585,9 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .parse::<bool>("buck2", "use_network_action_output_cache")?
             .unwrap_or(false);
 
-        if let Some(enforce_re_timeouts) =
-            root_config.parse::<bool>("buck2", "enforce_re_timeouts")?
-        {
-            run_action_knobs.enforce_re_timeouts = enforce_re_timeouts;
-        }
+        run_action_knobs.enforce_re_timeouts = root_config
+            .parse::<bool>("buck2", "enforce_re_timeouts")?
+            .unwrap_or(true);
 
         let mut data = UserComputationData {
             data,
@@ -591,6 +598,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
         };
 
         let worker_pool = Arc::new(WorkerPool::new());
+
+        let critical_path_backend = root_config
+            .parse("buck2", "critical_path_backend2")?
+            .unwrap_or(CriticalPathBackendName::Default);
 
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
         data.set_re_client(self.re_connection.get_client());
@@ -620,6 +631,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock.dupe());
         data.set_starlark_debugger_handle(self.starlark_debugger.clone().map(|v| Box::new(v) as _));
         data.set_keep_going(self.keep_going);
+        data.set_critical_path_backend(critical_path_backend);
         data.spawner = Arc::new(BuckSpawner::default());
 
         let tags = vec![
@@ -627,6 +639,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
             format!("miniperf:{}", enable_miniperf),
         ];
         self.events.instant_event(buck2_data::TagEvent { tags });
+
+        self.events.instant_event(buck2_data::CommandOptions {
+            concurrency: concurrency as _,
+        });
 
         Ok(data)
     }
@@ -654,7 +670,11 @@ struct DiceCommandUpdater {
 
 #[async_trait]
 impl DiceUpdater for DiceCommandUpdater {
-    async fn update(&self, ctx: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater> {
+    async fn update(
+        &self,
+        ctx: DiceTransactionUpdater,
+        user_data: &mut UserComputationData,
+    ) -> anyhow::Result<DiceTransactionUpdater> {
         let (cell_resolver, legacy_configs, _): (CellResolver, LegacyBuckConfigs, _) = self
             .cell_config_loader
             .cells_and_configs(ctx.existing_state().await.deref())
@@ -674,11 +694,12 @@ impl DiceUpdater for DiceCommandUpdater {
             configure_build_file_globals,
             configure_package_file_globals,
             configure_extension_file_globals,
-            *CONFIGURE_BXL_FILE_GLOBALS.get()?,
+            configure_bxl_file_globals,
             None,
         )?;
 
-        let mut ctx = self.file_watcher.sync(ctx).await?;
+        let (mut ctx, mergebase) = self.file_watcher.sync(ctx).await?;
+        user_data.set_mergebase(mergebase);
 
         ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
 
@@ -722,6 +743,8 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
     async fn dice_accessor(&self, _private: PrivateStruct) -> SharedResult<DiceAccessor> {
+        let (build_signals_installer, deferred_build_signals) = create_build_signals();
+
         let is_nested_invocation = if let Some(uuid) = &self.daemon_uuid_from_client {
             uuid == &daemon_id::DAEMON_UUID.to_string()
         } else {
@@ -730,11 +753,12 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
         Ok(DiceAccessor {
             dice_handler: self.base_context.dice_manager.dupe(),
-            data: Box::new(self.dice_data_constructor().await),
+            data: Box::new(self.dice_data_constructor(build_signals_installer).await),
             setup: Box::new(self.dice_updater().await?),
             is_nested_invocation,
             sanitized_argv: self.sanitized_argv.clone(),
             exit_when_different_state: self.exit_when_different_state,
+            build_signals: deferred_build_signals,
         })
     }
 

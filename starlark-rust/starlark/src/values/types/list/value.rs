@@ -412,7 +412,7 @@ pub(crate) fn list_methods() -> Option<&'static Methods> {
 
 impl<'v, T: ListLike<'v> + 'v> StarlarkValue<'v> for ListGen<T>
 where
-    Self: ProvidesStaticType + Display,
+    Self: ProvidesStaticType<'v> + Display,
 {
     starlark_type!(ListData::TYPE);
 

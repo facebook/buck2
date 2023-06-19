@@ -11,8 +11,8 @@ use std::borrow::Cow;
 use std::io::Write;
 
 use anyhow::Context;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::audit_dep_files::AUDIT_DEP_FILES;
-use buck2_build_api::calculation::Calculation;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::directory::Directory;

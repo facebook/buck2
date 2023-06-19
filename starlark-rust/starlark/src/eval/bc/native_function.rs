@@ -23,7 +23,6 @@ use crate::eval::Evaluator;
 use crate::values::function::NativeFunc;
 use crate::values::function::NativeFunction;
 use crate::values::FrozenRef;
-use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Value;
 
@@ -44,11 +43,6 @@ impl BcNativeFunction {
     #[inline]
     pub(crate) fn fun(&self) -> FrozenValueTyped<'static, NativeFunction> {
         self.fun
-    }
-
-    #[inline]
-    pub(crate) fn to_frozen_value(&self) -> FrozenValue {
-        self.fun.to_frozen_value()
     }
 
     #[inline]

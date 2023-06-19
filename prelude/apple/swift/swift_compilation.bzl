@@ -9,12 +9,12 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_explicit_modules_env_var", "get_module_name", "get_versioned_target_triple")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
+load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION")
+load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxObjectFormat")
-load("@prelude//cxx:cxx_types.bzl", "CxxAdditionalArgsfileParams")
 load(
     "@prelude//cxx:debug.bzl",
     "ExternalDebugInfoTSet",  # @unused Used as a type
@@ -24,6 +24,7 @@ load("@prelude//cxx:headers.bzl", "CHeader")
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorArgs",
     "CPreprocessorInfo",  # @unused Used as a type
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
@@ -81,8 +82,8 @@ SwiftCompilationOutput = record(
     pre = field(CPreprocessor.type),
     # Exported preprocessor info required for ObjC compilation of rdeps.
     exported_pre = field(CPreprocessor.type),
-    # Argsfile to compile an object file which is used by some subtargets.
-    swift_argsfile = field(CxxAdditionalArgsfileParams.type),
+    # Argsfiles used to compile object files.
+    argsfiles = field(CompileArgsfiles.type),
 )
 
 REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
@@ -175,7 +176,7 @@ def compile_swift(
     module_name = get_module_name(ctx)
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
     output_object = ctx.actions.declare_output(module_name + ".o")
-    output_swiftmodule = ctx.actions.declare_output(module_name + ".swiftmodule")
+    output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
 
     shared_flags = _get_shared_flags(
         ctx,
@@ -194,7 +195,7 @@ def compile_swift(
         _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, unprocessed_header)
         _perform_swift_postprocessing(ctx, module_name, unprocessed_header, output_header)
 
-    swift_argsfile = _compile_object(ctx, toolchain, shared_flags, srcs, output_object)
+    argsfiles = _compile_object(ctx, toolchain, shared_flags, srcs, output_object)
 
     # Swift libraries extend the ObjC modulemaps to include the -Swift.h header
     modulemap_pp_info = preprocessor_info_for_modulemap(ctx, "swift-extended", exported_headers, output_header)
@@ -207,7 +208,7 @@ def compile_swift(
     exported_pp_info = CPreprocessor(
         headers = [exported_swift_header],
         modular_args = modulemap_pp_info.modular_args,
-        args = modulemap_pp_info.args,
+        relative_args = CPreprocessorArgs(args = modulemap_pp_info.relative_args.args),
         modulemap_path = modulemap_pp_info.modulemap_path,
     )
 
@@ -228,7 +229,7 @@ def compile_swift(
         dependency_info = get_swift_dependency_info(ctx, exported_pp_info, output_swiftmodule),
         pre = pre,
         exported_pre = exported_pp_info,
-        swift_argsfile = swift_argsfile,
+        argsfiles = argsfiles,
     )
 
 # Swift headers are postprocessed to make them compatible with Objective-C
@@ -265,7 +266,7 @@ def _compile_swiftmodule(
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
         output_swiftmodule: "artifact",
-        output_header: "artifact") -> CxxAdditionalArgsfileParams.type:
+        output_header: "artifact") -> CompileArgsfiles.type:
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-Xfrontend",
@@ -279,26 +280,19 @@ def _compile_swiftmodule(
         "-emit-objc-header-path",
         output_header.as_output(),
     ])
-    return _compile_with_argsfile(ctx, "swiftmodule_compile", argfile_cmd, srcs, cmd, toolchain, CxxObjectFormat("swift"))
+    return _compile_with_argsfile(ctx, "swiftmodule_compile", SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain)
 
 def _compile_object(
         ctx: "context",
         toolchain: "SwiftToolchainInfo",
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
-        output_object: "artifact") -> CxxAdditionalArgsfileParams.type:
+        output_object: "artifact") -> CompileArgsfiles.type:
     object_format = toolchain.object_format.value
     embed_bitcode = False
-    if toolchain.object_format == SwiftObjectFormat("object"):
-        cxx_format = CxxObjectFormat("native")
-    elif toolchain.object_format in [SwiftObjectFormat("bc"), SwiftObjectFormat("ir"), SwiftObjectFormat("irgen")]:
-        cxx_format = CxxObjectFormat("bitcode")
-    elif toolchain.object_format == SwiftObjectFormat("object-embed-bitcode"):
+    if toolchain.object_format == SwiftObjectFormat("object-embed-bitcode"):
         object_format = "object"
         embed_bitcode = True
-        cxx_format = CxxObjectFormat("embedded-bitcode")
-    else:
-        cxx_format = CxxObjectFormat("native")
 
     cmd = cmd_args([
         "-emit-{}".format(object_format),
@@ -309,22 +303,24 @@ def _compile_object(
     if embed_bitcode:
         cmd.add("--embed-bitcode")
 
-    return _compile_with_argsfile(ctx, "swift_compile", shared_flags, srcs, cmd, toolchain, cxx_output_format = cxx_format)
+    return _compile_with_argsfile(ctx, "swift_compile", SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain)
 
 def _compile_with_argsfile(
         ctx: "context",
-        name: str.type,
+        category_prefix: str.type,
+        extension: str.type,
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
         additional_flags: "cmd_args",
-        toolchain: "SwiftToolchainInfo",
-        cxx_output_format: CxxObjectFormat.type) -> CxxAdditionalArgsfileParams.type:
-    shell_quoted_cmd = cmd_args(shared_flags, quote = "shell")
-    argfile, _ = ctx.actions.write(name + ".argsfile", shell_quoted_cmd, allow_args = True)
+        toolchain: "SwiftToolchainInfo") -> CompileArgsfiles.type:
+    shell_quoted_args = cmd_args(shared_flags, quote = "shell")
+    argsfile, _ = ctx.actions.write(extension + ".argsfile", shell_quoted_args, allow_args = True)
+    input_args = [shared_flags]
+    cmd_form = cmd_args(argsfile, format = "@{}", delimiter = "").hidden(input_args)
 
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
-    cmd.add(cmd_args(["@", argfile], delimiter = ""))
+    cmd.add(cmd_form)
 
     cmd.add([s.file for s in srcs])
 
@@ -332,15 +328,12 @@ def _compile_with_argsfile(
     # because there's no shared module cache across different libraries.
     prefer_local = not uses_explicit_modules(ctx)
 
-    # Argsfile should also depend on all artifacts in it, otherwise they won't be materialised.
-    cmd.hidden([shared_flags])
-
     # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
     # so that CI builds populate caches used by developer machines.
     explicit_modules_enabled = uses_explicit_modules(ctx)
 
     # Make it easier to debug whether Swift actions get compiled with explicit modules or not
-    category = name + ("_with_explicit_mods" if explicit_modules_enabled else "")
+    category = category_prefix + ("_with_explicit_mods" if explicit_modules_enabled else "")
     ctx.actions.run(
         cmd,
         env = get_explicit_modules_env_var(explicit_modules_enabled),
@@ -349,8 +342,16 @@ def _compile_with_argsfile(
         allow_cache_upload = prefer_local,
     )
 
-    hidden_args = [shared_flags]
-    return CxxAdditionalArgsfileParams(file = argfile, format = cxx_output_format, hidden_args = hidden_args, extension = ".swift")
+    relative_argsfile = CompileArgsfile(
+        file = argsfile,
+        cmd_form = cmd_form,
+        input_args = input_args,
+        args = shell_quoted_args,
+        args_without_file_prefix_args = shared_flags,
+    )
+
+    # Swift correctly handles relative paths and we can utilize the relative argsfile for absolute paths.
+    return CompileArgsfiles(relative = {extension: relative_argsfile}, absolute = {extension: relative_argsfile})
 
 def _get_shared_flags(
         ctx: "context",
@@ -529,7 +530,7 @@ def _add_mixed_library_flags_to_cmd(
     # the debugger as they require absolute paths. Instead we will enforce
     # that mixed libraries do not have serialized debugging info and rely on
     # rdeps to serialize the correct paths.
-    for arg in objc_modulemap_pp_info.args:
+    for arg in objc_modulemap_pp_info.relative_args.args:
         cmd.add("-Xcc")
         cmd.add(arg)
 

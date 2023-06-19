@@ -26,6 +26,7 @@ pub use self::starlark_artifact_value::StarlarkArtifactValue;
 pub use self::starlark_declared_artifact::StarlarkDeclaredArtifact;
 pub use self::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 pub use self::starlark_output_artifact::StarlarkOutputArtifact;
+pub use self::starlark_output_artifact::StarlarkOutputOrDeclaredArtifact;
 pub use self::starlark_promise_artifact::StarlarkPromiseArtifact;
 
 #[derive(Debug, thiserror::Error)]

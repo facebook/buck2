@@ -8,9 +8,11 @@
  */
 
 use std::ops::Deref;
+use std::ptr;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use lock_free_hashtable::atomic_value::AtomicValue;
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub(crate) struct Arc<T>(triomphe::Arc<T>);
@@ -42,5 +44,35 @@ impl<T> Deref for Arc<T> {
     #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<T> AtomicValue for Arc<T> {
+    type Raw = *const T;
+    type Ref<'a> = &'a T where Self: 'a;
+
+    #[inline]
+    fn null() -> Self::Raw {
+        ptr::null()
+    }
+
+    #[inline]
+    fn is_null(this: Self::Raw) -> bool {
+        this.is_null()
+    }
+
+    #[inline]
+    fn into_raw(this: Self) -> Self::Raw {
+        triomphe::Arc::into_raw(this.0)
+    }
+
+    #[inline]
+    unsafe fn from_raw(raw: Self::Raw) -> Self {
+        Arc(triomphe::Arc::from_raw(raw))
+    }
+
+    #[inline]
+    unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
+        &*raw
     }
 }

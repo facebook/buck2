@@ -10,7 +10,6 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::io::Write;
-use std::iter;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -25,7 +24,8 @@ use buck2_event_observer::event_observer::DebugEventObserverExtra;
 use buck2_event_observer::session_info::SessionInfo;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
-use buck2_event_observer::what_ran::local_command_to_string;
+use buck2_event_observer::what_ran::command_to_string;
+use buck2_event_observer::what_ran::worker_command_as_fallback_to_string;
 use buck2_event_observer::what_ran::WhatRanOptions;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -54,6 +54,7 @@ use crate::subscribers::superconsole::debugger::StarlarkDebuggerComponent;
 use crate::subscribers::superconsole::dice::DiceComponent;
 use crate::subscribers::superconsole::io::IoHeader;
 use crate::subscribers::superconsole::re::ReHeader;
+use crate::subscribers::superconsole::session_info::SessionInfoComponent;
 use crate::subscribers::superconsole::test::TestHeader;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 use crate::subscribers::superconsole::timed_list::TimedList;
@@ -65,6 +66,7 @@ mod debugger;
 pub(crate) mod dice;
 mod io;
 mod re;
+pub mod session_info;
 pub mod test;
 pub mod timed_list;
 
@@ -751,7 +753,7 @@ fn lines_for_command_details(
 
     match command_failed.command.as_ref() {
         Some(Command::LocalCommand(local_command)) => {
-            let command = local_command_to_string(local_command);
+            let command = command_to_string(local_command);
             let command = command.as_str();
             let command = if verbosity.print_failure_full_command() {
                 Cow::Borrowed(command)
@@ -782,6 +784,44 @@ fn lines_for_command_details(
         }
         Some(Command::OmittedLocalCommand(..)) | None => {
             // Nothing to show in this case.
+        }
+        Some(Command::WorkerInitCommand(worker_init_command)) => {
+            let command = command_to_string(worker_init_command);
+            let command = command.as_str();
+            let command = if verbosity.print_failure_full_command() {
+                Cow::Borrowed(command)
+            } else {
+                match truncate(command) {
+                    None => Cow::Borrowed(command),
+                    Some(short) => Cow::Owned(format!(
+                        "{} (run `buck2 log what-failed` to get the full command)",
+                        short
+                    )),
+                }
+            };
+
+            lines.push(Line::from_iter([Span::new_styled_lossy(
+                format!("Reproduce locally: `{}`", command).with(Color::DarkRed),
+            )]));
+        }
+        Some(Command::WorkerCommand(worker_command)) => {
+            let command = worker_command_as_fallback_to_string(worker_command);
+            let command = command.as_str();
+            let command = if verbosity.print_failure_full_command() {
+                Cow::Borrowed(command)
+            } else {
+                match truncate(command) {
+                    None => Cow::Borrowed(command),
+                    Some(short) => Cow::Owned(format!(
+                        "{} (run `buck2 log what-failed` to get the full command)",
+                        short
+                    )),
+                }
+            };
+
+            lines.push(Line::from_iter([Span::new_styled_lossy(
+                format!("Reproduce locally: `{}`", command).with(Color::DarkRed),
+            )]));
         }
     };
 
@@ -823,68 +863,6 @@ fn color(color: Color) -> ContentStyle {
     ContentStyle {
         foreground_color: Some(color),
         ..Default::default()
-    }
-}
-
-/// This component is used to display session information for a command e.g. RE session ID
-pub struct SessionInfoComponent<'s> {
-    pub session_info: &'s SessionInfo,
-}
-
-impl<'s> Component for SessionInfoComponent<'s> {
-    fn draw_unchecked(&self, dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
-        let mut headers = Lines::new();
-        let mut ids = vec![];
-        if cfg!(fbcode_build) {
-            headers.push(Line::unstyled("Buck UI:")?);
-            ids.push(Span::new_unstyled(format!(
-                "https://www.internalfb.com/buck2/{}",
-                self.session_info.trace_id
-            ))?);
-        } else {
-            headers.push(Line::unstyled("Build ID:")?);
-            ids.push(Span::new_unstyled(&self.session_info.trace_id)?);
-        }
-        if let Some(buck2_data::TestSessionInfo { info }) = &self.session_info.test_session {
-            headers.push(Line::unstyled("Test UI:")?);
-            ids.push(Span::new_unstyled(info)?);
-        }
-        // pad all headers to the max width.
-        headers.justify();
-        headers.pad_lines_right(1);
-
-        let max_len = headers
-            .iter()
-            .zip(ids.iter())
-            .map(|(header, id)| header.len() + id.len())
-            .max()
-            .unwrap_or(0);
-
-        let lines = if max_len > dimensions.width {
-            headers
-                .into_iter()
-                .zip(ids.into_iter())
-                .flat_map(|(header, id)| {
-                    iter::once(header).chain(iter::once(Line::from_iter([id])))
-                })
-                .collect()
-        } else {
-            headers
-                .iter_mut()
-                .zip(ids.into_iter())
-                .for_each(|(header, id)| header.push(id));
-            headers
-        };
-
-        let max_len = lines.iter().map(|line| line.len()).max().unwrap_or(0);
-
-        Ok(if max_len > dimensions.width {
-            Lines(vec![Line::unstyled(
-                "<Terminal too small for build details>",
-            )?])
-        } else {
-            lines
-        })
     }
 }
 
@@ -1059,8 +1037,9 @@ mod tests {
         } else {
             assert!(frame_contains(&frame, "Build ID:"));
         }
-        assert!(frame_contains(&frame, "RE: reSessionID-123"));
-        assert!(frame_contains(&frame, "Progress"));
+        assert!(frame_contains(&frame, "Network:"));
+        assert!(frame_contains(&frame, "(reSessionID-123)"));
+        assert!(frame_contains(&frame, "Remaining"));
 
         console
             .handle_command_result(&buck2_cli_proto::CommandResult { result: None })

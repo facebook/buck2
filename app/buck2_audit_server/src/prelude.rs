@@ -11,12 +11,12 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_audit::prelude::AuditPreludeCommand;
-use buck2_build_api::interpreter::context::prelude_path;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
+use buck2_interpreter::prelude_path::prelude_path;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;

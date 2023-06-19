@@ -260,9 +260,12 @@ def process_genrule(
     # Some rules need to run from the build root, but for everything else, `cd`
     # into the sandboxed source dir and relative all paths to that.
     if not _requires_build_root(ctx):
+        srcs_dir = srcs_artifact
+        if not is_windows:
+            srcs_dir = cmd_args(srcs_dir, quote = "shell")
         script = (
             # Change to the directory that genrules expect.
-            [cmd_args(srcs_artifact, format = "cd {}")] +
+            [cmd_args(srcs_dir, format = "cd {}")] +
             # Relative all paths in the command to the sandbox dir.
             [cmd.relative_to(srcs_artifact) for cmd in script]
         )

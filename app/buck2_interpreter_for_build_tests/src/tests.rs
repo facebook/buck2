@@ -28,8 +28,10 @@ use buck2_interpreter::dice::starlark_types::SetDisableStarlarkTypes;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::load_module::InterpreterCalculation;
+use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
+use buck2_interpreter_for_build::rule::register_rule_function;
 use buck2_interpreter_for_build::super_package::defs::register_package_natives;
 use buck2_interpreter_for_build::super_package::package_value::register_read_package_value;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -81,7 +83,11 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
             false,
             register_read_package_value,
             register_package_natives,
-            register_rule_defs,
+            |globals| {
+                register_rule_defs(globals);
+                register_rule_function(globals);
+                register_attrs(globals);
+            },
             |_| {},
             None,
         )

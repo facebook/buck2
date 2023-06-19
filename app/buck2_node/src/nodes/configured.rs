@@ -20,8 +20,6 @@ use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::collections::ordered_map::OrderedMap;
-use buck2_core::collections::unordered_map::UnorderedMap;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
@@ -32,6 +30,8 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
+use buck2_util::collections::ordered_map::OrderedMap;
+use buck2_util::collections::unordered_map::UnorderedMap;
 use dupe::Dupe;
 use either::Either;
 use once_cell::sync::Lazy;
@@ -53,6 +53,7 @@ use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
+use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::resolved::ResolvedConfiguration;
 use crate::nodes::attributes::DEPS;
@@ -411,7 +412,7 @@ impl ConfiguredTargetNode {
         self.0.exec_deps.iter()
     }
 
-    /// Return the `tests` declared for this target.
+    /// Return the `tests` declared for this target configured in same target platform as this target.
     pub fn tests(&self) -> impl Iterator<Item = ConfiguredProvidersLabel> {
         #[derive(Default)]
         struct TestCollector {
@@ -434,6 +435,73 @@ impl ConfiguredTargetNode {
         if let Some(tests) = self.get(TESTS_ATTRIBUTE_FIELD, AttrInspectOptions::All) {
             tests.traverse(self.label().pkg(), &mut traversal).unwrap();
         }
+        traversal.labels.into_iter()
+    }
+
+    /// Return the unconfigured `tests` declared for this target.
+    pub fn unconfigured_tests(&self) -> impl Iterator<Item = &ProvidersLabel> {
+        #[derive(Default)]
+        struct TestCollector<'a> {
+            labels: Vec<&'a ProvidersLabel>,
+        }
+
+        impl<'a> CoercedAttrTraversal<'a> for TestCollector<'a> {
+            fn dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn exec_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn toolchain_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn transition_dep(
+                &mut self,
+                _dep: &'a TargetLabel,
+                _tr: &Arc<TransitionId>,
+            ) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn split_transition_dep(
+                &mut self,
+                _dep: &'a TargetLabel,
+                _tr: &Arc<TransitionId>,
+            ) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn configuration_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn platform_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn input(&mut self, _input: BuckPathRef) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn label(&mut self, label: &'a ProvidersLabel) -> anyhow::Result<()> {
+                self.labels.push(label);
+                Ok(())
+            }
+        }
+
+        let mut traversal = TestCollector::default();
+
+        if let Some(tests) = self
+            .0
+            .target_node
+            .attr_or_none(TESTS_ATTRIBUTE_FIELD, AttrInspectOptions::All)
+        {
+            tests.traverse(self.label().pkg(), &mut traversal).unwrap();
+        }
+
         traversal.labels.into_iter()
     }
 

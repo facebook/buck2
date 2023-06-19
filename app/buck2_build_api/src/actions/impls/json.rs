@@ -108,7 +108,7 @@ fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
         JsonUnpack::None
     } else if let Some(x) = value.unpack_str() {
         JsonUnpack::String(x)
-    } else if let Some(x) = value.unpack_int() {
+    } else if let Some(x) = value.unpack_i32() {
         JsonUnpack::Number(x)
     } else if let Some(x) = value.unpack_bool() {
         JsonUnpack::Bool(x)

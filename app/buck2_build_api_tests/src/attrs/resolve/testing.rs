@@ -9,8 +9,8 @@
 
 use std::sync::Arc;
 
-use buck2_build_api::attrs::resolve::ctx::AnalysisQueryResult;
-use buck2_build_api::attrs::resolve::ctx::AttrResolutionContext;
+use buck2_analysis::attrs::resolve::ctx::AnalysisQueryResult;
+use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::build_defs::register_provider;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;

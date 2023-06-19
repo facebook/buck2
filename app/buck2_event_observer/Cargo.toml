@@ -20,7 +20,7 @@ gazebo = { workspace = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 shlex = { workspace = true }
-superconsole = { version = "0.1.0", path = "../../superconsole" }
+superconsole = { version = "0.2.0", path = "../../superconsole" }
 thiserror = { workspace = true }
 buck2_util = { workspace = true }
 tracing = { workspace = true }

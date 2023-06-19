@@ -52,7 +52,7 @@ use crate::data::ConfiguredTargetHandle;
 use crate::data::DeclaredOutput;
 use crate::data::DisplayMetadata;
 use crate::data::ExecuteRequest2;
-use crate::data::ExecutionResult2;
+use crate::data::ExecuteResponse;
 use crate::data::ExecutorConfigOverride;
 use crate::data::PrepareForLocalExecutionResult;
 use crate::data::RequiredLocalResources;
@@ -60,6 +60,10 @@ use crate::data::TestExecutable;
 use crate::data::TestResult;
 use crate::protocol::TestOrchestrator;
 
+/// Test runner client to buck2 test orchestrator.
+///
+/// When running `buck2 test`, buck2 starts a gRPC server
+/// and spawns a test runner which connects to buck2 process using this client.
 pub struct TestOrchestratorClient {
     test_orchestrator_client: test_orchestrator_client::TestOrchestratorClient<Channel>,
     downward_api_client: downward_api_client::DownwardApiClient<Channel>,
@@ -127,9 +131,8 @@ impl DownwardApi for TestOrchestratorClient {
     }
 }
 
-#[async_trait::async_trait]
-impl TestOrchestrator for TestOrchestratorClient {
-    async fn execute2(
+impl TestOrchestratorClient {
+    pub async fn execute2(
         &self,
         ui_prints: DisplayMetadata,
         target: ConfiguredTargetHandle,
@@ -140,7 +143,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
         required_local_resources: RequiredLocalResources,
-    ) -> anyhow::Result<ExecutionResult2> {
+    ) -> anyhow::Result<ExecuteResponse> {
         let test_executable = TestExecutable {
             ui_prints,
             target,
@@ -160,22 +163,26 @@ impl TestOrchestrator for TestOrchestratorClient {
         let req: buck2_test_proto::ExecuteRequest2 =
             req.try_into().context("Invalid execute request")?;
 
-        let ExecuteResponse2 { result } = self
+        let ExecuteResponse2 { response } = self
             .test_orchestrator_client
             .clone()
             .execute2(req)
             .await?
             .into_inner();
 
-        let result = result
-            .context("Missing `result`")?
-            .try_into()
-            .context("Invalid `result`")?;
+        let response = match response.context("Missing `response`")? {
+            buck2_test_proto::execute_response2::Response::Result(res) => {
+                ExecuteResponse::Result(res.try_into().context("Invalid `result`")?)
+            }
+            buck2_test_proto::execute_response2::Response::Cancelled(
+                buck2_test_proto::Cancelled {},
+            ) => ExecuteResponse::Cancelled,
+        };
 
-        Ok(result)
+        Ok(response)
     }
 
-    async fn report_test_result(&self, result: TestResult) -> anyhow::Result<()> {
+    pub async fn report_test_result(&self, result: TestResult) -> anyhow::Result<()> {
         let result = result.try_into().context("Invalid `result`")?;
 
         self.test_orchestrator_client
@@ -188,7 +195,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn report_tests_discovered(
+    pub async fn report_tests_discovered(
         &self,
         target: ConfiguredTargetHandle,
         suite: String,
@@ -210,7 +217,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn report_test_session(&self, session_info: String) -> anyhow::Result<()> {
+    pub async fn report_test_session(&self, session_info: String) -> anyhow::Result<()> {
         self.test_orchestrator_client
             .clone()
             .report_test_session(ReportTestSessionRequest { session_info })
@@ -219,7 +226,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn end_of_test_results(&self, exit_code: i32) -> anyhow::Result<()> {
+    pub async fn end_of_test_results(&self, exit_code: i32) -> anyhow::Result<()> {
         self.test_orchestrator_client
             .clone()
             .end_of_test_results(EndOfTestResultsRequest { exit_code })
@@ -228,7 +235,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn prepare_for_local_execution(
+    pub async fn prepare_for_local_execution(
         &self,
         ui_prints: DisplayMetadata,
         target: ConfiguredTargetHandle,
@@ -266,7 +273,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(result)
     }
 
-    async fn attach_info_message(&self, message: String) -> anyhow::Result<()> {
+    pub async fn attach_info_message(&self, message: String) -> anyhow::Result<()> {
         self.test_orchestrator_client
             .clone()
             .attach_info_message(AttachInfoMessageRequest { message })
@@ -275,12 +282,12 @@ impl TestOrchestrator for TestOrchestratorClient {
     }
 }
 
-pub struct Service<T> {
+struct TestOrchestratorService<T: TestOrchestrator> {
     inner: T,
 }
 
 #[async_trait::async_trait]
-impl<T> test_orchestrator_server::TestOrchestrator for Service<T>
+impl<T> test_orchestrator_server::TestOrchestrator for TestOrchestratorService<T>
 where
     T: TestOrchestrator + Send + Sync + 'static,
 {
@@ -308,7 +315,7 @@ where
                 pre_create_dirs,
             } = test_executable;
 
-            let result = self
+            let response = self
                 .inner
                 .execute2(
                     ui_prints,
@@ -324,10 +331,21 @@ where
                 .await
                 .context("Execution failed")?;
 
-            let result = result.try_into().context("Failed to serialize result")?;
+            let response = match response {
+                ExecuteResponse::Result(r) => {
+                    buck2_test_proto::execute_response2::Response::Result(
+                        r.try_into().context("Failed to serialize result")?,
+                    )
+                }
+                ExecuteResponse::Cancelled => {
+                    buck2_test_proto::execute_response2::Response::Cancelled(
+                        buck2_test_proto::Cancelled {},
+                    )
+                }
+            };
 
             Ok(ExecuteResponse2 {
-                result: Some(result),
+                response: Some(response),
             })
         })
         .await
@@ -466,8 +484,12 @@ where
     }
 }
 
+struct DownwardApiService<T: DownwardApi> {
+    inner: T,
+}
+
 #[async_trait::async_trait]
-impl<T> downward_api_server::DownwardApi for Service<T>
+impl<T> downward_api_server::DownwardApi for DownwardApiService<T>
 where
     T: DownwardApi + Send + Sync + 'static,
 {
@@ -552,14 +574,14 @@ where
     let router = tonic::transport::Server::builder()
         .layer(EventDispatcherLayer::new(dispatcher))
         .add_service(
-            test_orchestrator_server::TestOrchestratorServer::new(Service {
+            test_orchestrator_server::TestOrchestratorServer::new(TestOrchestratorService {
                 inner: orchestrator,
             })
             .max_encoding_message_size(usize::MAX)
             .max_decoding_message_size(usize::MAX),
         )
         .add_service(
-            downward_api_server::DownwardApiServer::new(Service {
+            downward_api_server::DownwardApiServer::new(DownwardApiService {
                 inner: downward_api,
             })
             .max_encoding_message_size(usize::MAX)

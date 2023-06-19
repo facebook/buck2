@@ -29,7 +29,6 @@
 // our val_ref requires a pointer to the value. We need to put that pointer
 // somewhere. The solution is to have a separate value storage vs vtable.
 
-use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
@@ -69,13 +68,11 @@ use crate::values::demand::request_value_impl;
 use crate::values::dict::FrozenDictRef;
 use crate::values::enumeration::EnumType;
 use crate::values::enumeration::FrozenEnumValue;
-use crate::values::float::StarlarkFloat;
 use crate::values::function::FrozenBoundMethod;
 use crate::values::function::NativeFunction;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::int::PointerI32;
 use crate::values::iter::StarlarkIterator;
-use crate::values::layout::avalue::basic_ref;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::StarlarkStrAValue;
 use crate::values::layout::avalue::VALUE_EMPTY_TUPLE;
@@ -90,7 +87,7 @@ use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::layout::vtable::AValueDyn;
-use crate::values::num::Num;
+use crate::values::num::NumRef;
 use crate::values::range::Range;
 use crate::values::record::FrozenRecord;
 use crate::values::record::RecordType;
@@ -100,6 +97,8 @@ use crate::values::stack_guard;
 use crate::values::string::StarlarkStr;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::inline_int::InlineInt;
+use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::list::value::FrozenListData;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
@@ -246,7 +245,7 @@ impl<'v> Value<'v> {
     }
 
     #[inline]
-    pub(crate) fn new_ptr_usize_with_str_tag(x: usize) -> Self {
+    pub(crate) unsafe fn new_ptr_usize_with_str_tag(x: usize) -> Self {
         Self(Pointer::new_unfrozen_usize_with_str_tag(x))
     }
 
@@ -264,8 +263,13 @@ impl<'v> Value<'v> {
 
     /// Create a new integer.
     #[inline]
-    pub fn new_int(x: i32) -> Self {
+    pub(crate) fn new_int(x: InlineInt) -> Self {
         FrozenValue::new_int(x).to_value()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn testing_new_int(x: i32) -> Self {
+        FrozenValue::testing_new_int(x).to_value()
     }
 
     /// Create a new blank string.
@@ -303,7 +307,7 @@ impl<'v> Value<'v> {
     #[inline]
     unsafe fn unpack_frozen_unchecked(self) -> FrozenValue {
         debug_assert!(!self.0.is_unfrozen());
-        FrozenValue(self.0.cast_lifetime().to_frozen_pointer())
+        FrozenValue(self.0.cast_lifetime().to_frozen_pointer_unchecked())
     }
 
     /// Is this value `None`.
@@ -313,17 +317,8 @@ impl<'v> Value<'v> {
     }
 
     /// Obtain the underlying numerical value, if it is one.
-    pub fn unpack_num(self) -> Option<Num<'v>> {
-        Num::unpack_value(self)
-    }
-
-    /// This operation allocates `BigInt` for small int, use carefully.
-    pub(crate) fn unpack_int_or_big(self) -> Option<Cow<'v, BigInt>> {
-        match self.unpack_num()? {
-            Num::Float(_) => None,
-            Num::Int(x) => Some(Cow::Owned(BigInt::from(x))),
-            Num::BigInt(x) => Some(Cow::Borrowed(x.get())),
-        }
+    pub(crate) fn unpack_num(self) -> Option<NumRef<'v>> {
+        NumRef::unpack_value(self)
     }
 
     pub(crate) fn unpack_integer<I>(self) -> Option<I>
@@ -332,9 +327,9 @@ impl<'v> Value<'v> {
         I: TryFrom<&'v BigInt>,
     {
         match self.unpack_num()? {
-            Num::Float(_) => None,
-            Num::Int(x) => I::try_from(x).ok(),
-            Num::BigInt(x) => x.unpack_integer(),
+            NumRef::Float(_) => None,
+            NumRef::Int(StarlarkIntRef::Small(x)) => I::try_from(x.to_i32()).ok(),
+            NumRef::Int(StarlarkIntRef::Big(x)) => x.unpack_integer(),
         }
     }
 
@@ -350,15 +345,21 @@ impl<'v> Value<'v> {
         }
     }
 
-    /// Obtain the underlying `int` if it is an integer.
+    /// Obtain the underlying integer if it fits in an `i32`.
+    /// Note floats are not considered integers, i. e. `unpack_i32` for `1.0` will return `None`.
     #[inline]
-    pub fn unpack_int(self) -> Option<i32> {
+    pub fn unpack_i32(self) -> Option<i32> {
+        i32::unpack_value(self)
+    }
+
+    #[inline]
+    pub(crate) fn unpack_inline_int(self) -> Option<InlineInt> {
         self.0.unpack_int()
     }
 
     #[inline]
     pub(crate) fn unpack_int_value(self) -> Option<FrozenValueTyped<'static, PointerI32>> {
-        if self.unpack_int().is_some() {
+        if self.unpack_inline_int().is_some() {
             // SAFETY: We've just checked the value is an int.
             unsafe {
                 Some(FrozenValueTyped::new_unchecked(
@@ -412,7 +413,7 @@ impl<'v> Value<'v> {
         unsafe {
             match self.0.unpack() {
                 Either::Left(x) => x.unpack_header_unchecked().unpack(),
-                Either::Right(x) => basic_ref(x),
+                Either::Right(x) => x.as_avalue_dyn(),
             }
         }
     }
@@ -490,13 +491,17 @@ impl<'v> Value<'v> {
         }
     }
 
-    /// `int(x)`.
-    pub fn to_int(self) -> anyhow::Result<i32> {
+    /// Conversion to an int that sees through `bool` and `int`.
+    pub(crate) fn to_int(self) -> anyhow::Result<i32> {
         // Fast path for the common case
-        if let Some(x) = self.unpack_int() {
+        if let Some(x) = self.unpack_i32() {
             Ok(x)
+        } else if let Some(x) = self.unpack_bool() {
+            Ok(x as i32)
+        } else if let Some(NumRef::Int(_)) = self.unpack_num() {
+            Err(ValueError::IntegerOverflow.into())
         } else {
-            self.get_ref().to_int()
+            ValueError::unsupported_owned(self.get_type(), "int()", None)
         }
     }
 
@@ -651,11 +656,11 @@ impl<'v> Value<'v> {
     /// before falling back to [`add`](StarlarkValue::add).
     pub fn add(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         // Fast special case for ints.
-        if let Some(ls) = self.unpack_int() {
-            if let Some(rs) = other.unpack_int() {
+        if let Some(ls) = self.unpack_inline_int() {
+            if let Some(rs) = other.unpack_inline_int() {
                 // On overflow take the slow path below.
                 if let Some(sum) = ls.checked_add(rs) {
-                    return Ok(Value::new_int(sum));
+                    return Ok(heap.alloc(sum));
                 }
             }
         }
@@ -853,11 +858,6 @@ impl FrozenValue {
         Self(FrozenPointer::new_frozen_usize_with_str_tag(x))
     }
 
-    #[inline]
-    pub(crate) fn new_ptr_value(x: usize) -> Self {
-        unsafe { Self(FrozenPointer::new(x)) }
-    }
-
     /// Create a new value representing `None` in Starlark.
     #[inline]
     pub fn new_none() -> Self {
@@ -876,8 +876,13 @@ impl FrozenValue {
 
     /// Create a new int in Starlark.
     #[inline]
-    pub fn new_int(x: i32) -> Self {
+    pub(crate) fn new_int(x: InlineInt) -> Self {
         Self(FrozenPointer::new_int(x))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn testing_new_int(x: i32) -> Self {
+        Self::new_int(InlineInt::try_from(x).ok().unwrap())
     }
 
     /// Create a new empty string.
@@ -909,15 +914,16 @@ impl FrozenValue {
         self.to_value().unpack_bool()
     }
 
-    /// Return the int if the value is an integer, otherwise [`None`].
+    /// Obtain the underlying integer if it fits in an `i32`.
+    /// Note floats are not considered integers, i. e. `unpack_i32` for `1.0` will return `None`.
     #[inline]
-    pub fn unpack_int(self) -> Option<i32> {
-        self.0.unpack_int()
+    pub fn unpack_i32(self) -> Option<i32> {
+        self.to_value().unpack_i32()
     }
 
     #[inline]
-    pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
-        self.0.unpack_int_unchecked()
+    pub(crate) fn unpack_inline_int(self) -> Option<InlineInt> {
+        self.to_value().unpack_inline_int()
     }
 
     #[inline]
@@ -949,8 +955,7 @@ impl FrozenValue {
         self.is_none()
             || self.is_str()
             || self.unpack_bool().is_some()
-            || self.unpack_int().is_some()
-            || FrozenValueTyped::<StarlarkFloat>::new(self).is_some()
+            || NumRef::unpack_value(self.to_value()).is_some()
             || FrozenListData::from_frozen_value(&self).is_some()
             || FrozenDictRef::from_frozen_value(self).is_some()
             || FrozenValueTyped::<FrozenTuple>::new(self).is_some()
@@ -1060,13 +1065,18 @@ pub trait ValueLike<'v>:
     + CoerceKey<Value<'v>>
     + Freeze<Frozen = FrozenValue>
     + Allocative
+    + ProvidesStaticType<'v>
     + Sealed
+    + 'v
 {
     /// `StringValue` or `FrozenStringValue`.
     type String: StringValueLike<'v>;
 
     /// Produce a [`Value`] regardless of the type you are starting with.
     fn to_value(self) -> Value<'v>;
+
+    /// Convert from [`FrozenValue`].
+    fn from_frozen_value(v: FrozenValue) -> Self;
 
     /// Call this value as a function with given arguments.
     fn invoke(
@@ -1129,6 +1139,11 @@ impl<'v> ValueLike<'v> for Value<'v> {
         self
     }
 
+    #[inline]
+    fn from_frozen_value(v: FrozenValue) -> Self {
+        v.to_value()
+    }
+
     fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T> {
         if T::static_type_id() == StarlarkStr::static_type_id() {
             if self.is_str() {
@@ -1138,7 +1153,7 @@ impl<'v> ValueLike<'v> for Value<'v> {
                 None
             }
         } else if PointerI32::type_is_pointer_i32::<T>() {
-            if self.unpack_int().is_some() {
+            if self.unpack_inline_int().is_some() {
                 // SAFETY: we just checked this is int, and requested type is int.
                 Some(unsafe { self.downcast_ref_unchecked() })
             } else {
@@ -1190,6 +1205,11 @@ impl<'v> ValueLike<'v> for FrozenValue {
     }
 
     #[inline]
+    fn from_frozen_value(v: FrozenValue) -> Self {
+        v
+    }
+
+    #[inline]
     fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T> {
         self.to_value().downcast_ref()
     }
@@ -1235,7 +1255,7 @@ mod tests {
         let heap = Heap::new();
         let string = heap.alloc_str("asd").to_value();
         let none = Value::new_none();
-        let integer = Value::new_int(17);
+        let integer = Value::testing_new_int(17);
 
         assert!(string.downcast_ref::<NoneType>().is_none());
         assert!(integer.downcast_ref::<NoneType>().is_none());
@@ -1251,5 +1271,12 @@ mod tests {
         assert!(string.downcast_ref::<PointerI32>().is_none());
         assert_eq!(17, integer.downcast_ref::<PointerI32>().unwrap().get());
         assert!(none.downcast_ref::<PointerI32>().is_none());
+    }
+
+    #[test]
+    fn test_unpack_i32() {
+        let heap = Heap::new();
+        let value = heap.alloc(i32::MAX);
+        assert_eq!(Some(i32::MAX), value.unpack_i32());
     }
 }

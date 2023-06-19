@@ -51,7 +51,7 @@ impl StatusDecoder for DefaultStatusDecoder {
     }
 }
 
-fn default_decode_exit_code(status: ExitStatus) -> i32 {
+pub fn default_decode_exit_code(status: ExitStatus) -> i32 {
     let exit_code;
 
     #[cfg(unix)]

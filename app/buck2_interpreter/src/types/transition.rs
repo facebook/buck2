@@ -24,7 +24,7 @@ pub trait TransitionValue {
     fn transition_id(&self) -> anyhow::Result<Arc<TransitionId>>;
 }
 
-unsafe impl<'v> ProvidesStaticType for &'v dyn TransitionValue {
+unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn TransitionValue {
     type StaticType = &'static dyn TransitionValue;
 }
 

@@ -23,7 +23,7 @@ use thiserror::Error;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
-use crate::errors::Diagnostic;
+use crate::eval::compiler::EvalException;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::Argument;
 use crate::syntax::ast::Assign;
@@ -37,6 +37,7 @@ use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstParameter;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstString;
+use crate::syntax::ast::AstTypeExpr;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::LambdaP;
@@ -108,8 +109,10 @@ impl Expr {
         f: AstExpr,
         args: Vec<AstArgument>,
         codemap: &CodeMap,
-    ) -> anyhow::Result<Expr> {
-        let err = |span, msg| Err(Diagnostic::new(msg, span, codemap));
+    ) -> Result<Expr, EvalException> {
+        let err = |span, msg: ArgumentDefinitionOrderError| {
+            Err(EvalException::new(msg.into(), span, codemap))
+        };
 
         let mut stage = ArgsStage::Positional;
         let mut named_args = HashSet::new();
@@ -164,10 +167,10 @@ fn test_param_name<'a, T>(
     n: &'a AstAssignIdent,
     arg: &Spanned<T>,
     codemap: &CodeMap,
-) -> anyhow::Result<()> {
+) -> Result<(), EvalException> {
     if argset.contains(n.node.0.as_str()) {
-        return Err(Diagnostic::new(
-            ArgumentUseOrderError::DuplicateParameterName,
+        return Err(EvalException::new(
+            ArgumentUseOrderError::DuplicateParameterName.into(),
             arg.span,
             codemap,
         ));
@@ -190,8 +193,8 @@ enum ArgumentUseOrderError {
     MultipleKwargs,
 }
 
-fn check_parameters(parameters: &[AstParameter], codemap: &CodeMap) -> anyhow::Result<()> {
-    let err = |span, msg| Err(Diagnostic::new(msg, span, codemap));
+fn check_parameters(parameters: &[AstParameter], codemap: &CodeMap) -> Result<(), EvalException> {
+    let err = |span, msg: ArgumentUseOrderError| Err(EvalException::new(msg.into(), span, codemap));
 
     // you can't repeat argument names
     let mut argset = HashSet::new();
@@ -247,7 +250,7 @@ impl Expr {
         params: Vec<AstParameter>,
         body: AstExpr,
         codemap: &CodeMap,
-    ) -> anyhow::Result<Expr> {
+    ) -> Result<Expr, EvalException> {
         check_parameters(&params, codemap)?;
         Ok(Expr::Lambda(LambdaP {
             params,
@@ -261,10 +264,10 @@ impl Stmt {
     pub(crate) fn check_def(
         name: AstString,
         params: Vec<AstParameter>,
-        return_type: Option<Box<AstExpr>>,
+        return_type: Option<Box<AstTypeExpr>>,
         stmts: AstStmt,
         codemap: &CodeMap,
-    ) -> anyhow::Result<Stmt> {
+    ) -> Result<Stmt, EvalException> {
         check_parameters(&params, codemap)?;
         let name = name.into_map(|s| AssignIdentP(s, ()));
         Ok(Stmt::Def(DefP {
@@ -276,7 +279,7 @@ impl Stmt {
         }))
     }
 
-    pub(crate) fn check_assign(codemap: &CodeMap, x: AstExpr) -> anyhow::Result<AstAssign> {
+    pub(crate) fn check_assign(codemap: &CodeMap, x: AstExpr) -> Result<AstAssign, EvalException> {
         Ok(Spanned {
             span: x.span,
             node: match x.node {
@@ -285,9 +288,13 @@ impl Stmt {
                 }
                 Expr::Dot(a, b) => Assign::Dot(a, b),
                 Expr::ArrayIndirection(a_b) => Assign::ArrayIndirection(a_b),
-                Expr::Identifier(x, ()) => Assign::Identifier(x.into_map(|s| AssignIdentP(s, ()))),
+                Expr::Identifier(x) => Assign::Identifier(x.into_map(|s| AssignIdentP(s.0, ()))),
                 _ => {
-                    return Err(Diagnostic::new(ValidateError::InvalidLhs, x.span, codemap));
+                    return Err(EvalException::new(
+                        ValidateError::InvalidLhs.into(),
+                        x.span,
+                        codemap,
+                    ));
                 }
             },
         })
@@ -296,16 +303,16 @@ impl Stmt {
     pub(crate) fn check_assignment(
         codemap: &CodeMap,
         lhs: AstExpr,
-        ty: Option<Box<AstExpr>>,
+        ty: Option<Box<AstTypeExpr>>,
         op: Option<AssignOp>,
         rhs: AstExpr,
-    ) -> anyhow::Result<Stmt> {
+    ) -> Result<Stmt, EvalException> {
         if op.is_some() {
             // for augmented assignment, Starlark doesn't allow tuple/list
             match &lhs.node {
                 Expr::Tuple(_) | Expr::List(_) => {
-                    return Err(Diagnostic::new(
-                        ValidateError::InvalidModifyLhs,
+                    return Err(EvalException::new(
+                        ValidateError::InvalidModifyLhs.into(),
                         lhs.span,
                         codemap,
                     ));
@@ -323,7 +330,7 @@ impl Stmt {
                 None
             };
             if let Some(err) = err {
-                return Err(Diagnostic::new(err, ty.span, codemap));
+                return Err(EvalException::new(err.into(), ty.span, codemap));
             }
         }
         Ok(match op {
@@ -337,7 +344,7 @@ impl Stmt {
         codemap: &CodeMap,
         stmt: &AstStmt,
         dialect: &Dialect,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), EvalException> {
         // Inside a for, we allow continue/break, unless we go beneath a def.
         // Inside a def, we allow return.
         // All load's must occur at the top-level.
@@ -349,8 +356,8 @@ impl Stmt {
             top_level: bool,
             inside_for: bool,
             inside_def: bool,
-        ) -> anyhow::Result<()> {
-            let err = |x: anyhow::Error| Err(Diagnostic::new(x, stmt.span, codemap));
+        ) -> Result<(), EvalException> {
+            let err = |x: anyhow::Error| Err(EvalException::new(x, stmt.span, codemap));
 
             match &stmt.node {
                 Stmt::Def(DefP { body, .. }) => f(codemap, dialect, body, false, false, true),

@@ -16,12 +16,11 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_build_api::build_signals::CriticalPathBackendName;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmKind;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::http_client;
-use buck2_common::http::HttpClient;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -54,13 +53,11 @@ use buck2_execute_impl::materializers::immediate::ImmediateMaterializer;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
+use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
-use buck2_server_ctx::concurrency::DiceCleanup;
-use buck2_server_ctx::concurrency::NestedInvocation;
-use buck2_server_ctx::concurrency::ParallelInvocation;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
@@ -77,8 +74,6 @@ use crate::daemon::disk_state::DiskStateOptions;
 use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
-use crate::file_watcher::FileWatcher;
-
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
 #[derive(Allocative)]
 pub struct DaemonState {
@@ -88,7 +83,7 @@ pub struct DaemonState {
     pub paths: InvocationPaths,
 
     /// This holds the main data shared across different commands.
-    data: SharedResult<Arc<DaemonStateData>>,
+    pub(crate) data: SharedResult<Arc<DaemonStateData>>,
 }
 
 /// DaemonStateData is the main shared data across all commands. It's lazily initialized on
@@ -148,8 +143,6 @@ pub struct DaemonStateData {
     #[allocative(skip)]
     pub create_unhashed_outputs_lock: Arc<Mutex<()>>,
 
-    pub critical_path_backend: CriticalPathBackendName,
-
     /// A unique identifier for the materializer state.
     pub materializer_state_identity: Option<MaterializerStateIdentity>,
 
@@ -158,7 +151,7 @@ pub struct DaemonStateData {
     pub enable_restarter: bool,
 
     /// Http client used for materializer and RunAction implementations.
-    pub http_client: Arc<dyn HttpClient>,
+    pub http_client: CountingHttpClient,
 
     /// Are we using buck-out as our cwd?
     pub cwd_buck_out: bool,
@@ -238,7 +231,7 @@ impl DaemonState {
             .roll();
 
         if cwd_buck_out {
-            std::env::set_current_dir(paths.buck_out_path()).context("Error changing dirs")?;
+            fs_util::set_current_dir(paths.buck_out_path()).context("Error changing dirs")?;
             buck2_core::fs::cwd::cwd_will_not_change().context("Error initializing static cwd")?;
         }
 
@@ -432,18 +425,6 @@ impl DaemonState {
             .parse("buck2", "use_network_action_output_cache")?
             .unwrap_or(false);
 
-        let nested_invocation_config = root_config
-            .parse::<NestedInvocation>("buck2", "nested_invocation")?
-            .unwrap_or(NestedInvocation::Run);
-
-        let parallel_invocation_config = root_config
-            .parse::<ParallelInvocation>("buck2", "parallel_invocation")?
-            .unwrap_or(ParallelInvocation::Run);
-
-        let cleanup_config = root_config
-            .parse::<DiceCleanup>("buck2", "dice_cleanup")?
-            .unwrap_or(DiceCleanup::Run);
-
         let create_unhashed_outputs_lock = Arc::new(Mutex::new(()));
 
         let buffer_size = root_config
@@ -467,10 +448,6 @@ impl DaemonState {
         )
         .context("failed to init scribe sink")?;
 
-        let critical_path_backend = root_config
-            .parse("buck2", "critical_path_backend2")?
-            .unwrap_or(CriticalPathBackendName::Default);
-
         let enable_restarter = root_config
             .parse::<RolloutPercentage>("buck2", "restarter")?
             .unwrap_or_else(RolloutPercentage::never)
@@ -482,12 +459,7 @@ impl DaemonState {
         // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
         // tokio::task::spawn(watchman_query.sync());
         Ok(Arc::new(DaemonStateData {
-            dice_manager: ConcurrencyHandler::new(
-                dice,
-                nested_invocation_config,
-                parallel_invocation_config,
-                cleanup_config,
-            ),
+            dice_manager: ConcurrencyHandler::new(dice),
             file_watcher,
             io,
             re_client_manager,
@@ -500,7 +472,6 @@ impl DaemonState {
             disk_state_options,
             start_time: std::time::Instant::now(),
             create_unhashed_outputs_lock,
-            critical_path_backend,
             materializer_state_identity,
             enable_restarter,
             http_client,
@@ -519,7 +490,7 @@ impl DaemonState {
         deferred_materializer_configs: DeferredMaterializerConfigs,
         materializer_db: Option<MaterializerStateSqliteDb>,
         materializer_state: Option<MaterializerState>,
-        http_client: Arc<dyn HttpClient>,
+        http_client: CountingHttpClient,
     ) -> anyhow::Result<Arc<dyn Materializer>> {
         match materialization_method {
             MaterializationMethod::Immediate => Ok(Arc::new(ImmediateMaterializer::new(

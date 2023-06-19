@@ -25,7 +25,6 @@ pub fn init_late_bindings() {
         interpreter::calculation::init_interpreter_calculation_impl();
         interpreter::calculation::init_target_graph_calculation_impl();
         interpreter::build_context::init_starlark_path_from_build_context();
-        interpreter::functions::more::init_more_functions();
         rule::init_frozen_rule_get_impl();
     });
 }

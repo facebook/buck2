@@ -7,18 +7,15 @@
  * of this source tree.
  */
 
-use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::executor_config::CacheUploadBehavior;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
@@ -26,7 +23,6 @@ use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
-use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
@@ -55,110 +51,26 @@ use remote_execution::TExecutedActionMetadata;
 use remote_execution::TFile;
 use remote_execution::TStatus;
 use remote_execution::TTimestamp;
-use tracing::info;
-
-use crate::re::download::download_action_results;
-use crate::re::download::DownloadResult;
 
 // Whether to throw errors when cache uploads fail (primarily for tests).
 static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR_ON_CACHE_UPLOAD");
 
-/// A PreparedCommandExecutor that will check the action cache before executing any actions using the underlying executor.
-pub struct CachingExecutor {
+/// A PreparedCommandExecutor that will write to cache after invoking the inner executor
+pub struct CacheUploader {
     pub inner: Arc<dyn PreparedCommandExecutor>,
     pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
     pub re_use_case: RemoteExecutorUseCase,
-    pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
-    pub cache_upload_behavior: CacheUploadBehavior,
+    pub max_bytes: Option<u64>,
 }
 
-impl CachingExecutor {
-    async fn try_action_cache_fetch(
-        &self,
-        manager: CommandExecutionManager,
-        request: &CommandExecutionRequest,
-        action_digest: &ActionDigest,
-        action_blobs: &ActionBlobs,
-        digest_config: DigestConfig,
-        cancellations: &CancellationContext,
-    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
-        let re_client = &self.re_client;
-        let action_cache_response = executor_stage_async(
-            buck2_data::CacheQuery {
-                action_digest: action_digest.to_string(),
-            },
-            re_client.action_cache(action_digest.dupe(), self.re_use_case),
-        )
-        .await;
-
-        if self.upload_all_actions {
-            match re_client
-                .upload(
-                    self.artifact_fs.fs(),
-                    &self.materializer,
-                    action_blobs,
-                    ProjectRelativePath::empty(),
-                    request.paths().input_directory(),
-                    self.re_use_case,
-                    digest_config,
-                )
-                .await
-            {
-                Err(e) => {
-                    return ControlFlow::Break(manager.error("upload", e));
-                }
-                Ok(_) => {}
-            };
-        }
-
-        let response = match action_cache_response {
-            Err(e) => {
-                return ControlFlow::Break(manager.error("remote_action_cache", e));
-            }
-            Ok(Some(response)) => {
-                // we were able to go to the action cache, so can skip uploading and running
-                info!(
-                    "Action result is cached, skipping execution of:\n```\n$ {}\n```\n for action `{}`",
-                    request.all_args_str(),
-                    action_digest,
-                );
-                response
-            }
-            Ok(None) => return ControlFlow::Continue(manager),
-        };
-
-        let res = download_action_results(
-            request,
-            &*self.materializer,
-            &self.re_client,
-            self.re_use_case,
-            digest_config,
-            manager,
-            // TODO (torozco): We should deduplicate this and ActionExecutionKind.
-            buck2_data::CacheHit {
-                action_digest: action_digest.to_string(),
-            }
-            .into(),
-            request.paths(),
-            request.outputs(),
-            action_digest,
-            &response,
-            cancellations,
-        )
-        .await;
-
-        let DownloadResult::Result(res) = res;
-
-        ControlFlow::Break(res)
-    }
-
+impl CacheUploader {
     /// Upload an action result to the RE action cache, assuming conditions for the upload are met:
     /// the action must have been successful and must have run locally (not much point in caching
-    /// something that ran on RE and is already cached), and cache uploads must be enabled, both
-    /// for this executor and this particular action.
+    /// something that ran on RE and is already cached), and cache uploads must be enabled for this particular action.
+    /// The CacheUploader should only be used if cache uploads are enabled.
     async fn maybe_perform_cache_upload(
         &self,
         request: &CommandExecutionRequest,
@@ -167,11 +79,6 @@ impl CachingExecutor {
         result: &CommandExecutionResult,
         digest_config: DigestConfig,
     ) -> anyhow::Result<Option<CacheUploadOutcome>> {
-        let max_bytes = match self.cache_upload_behavior {
-            CacheUploadBehavior::Enabled { max_bytes } => max_bytes,
-            CacheUploadBehavior::Disabled => return Ok(None),
-        };
-
         if !request.allow_cache_upload() {
             return Ok(None);
         }
@@ -204,7 +111,7 @@ impl CachingExecutor {
                     // NOTE: If the size exceeds the limit, we still log that attempt, since
                     // whoever is configuring this can't easily anticipate how large the outputs
                     // will be, so some logging is useful.
-                    if let Some(max_bytes) = max_bytes {
+                    if let Some(max_bytes) = self.max_bytes {
                         if output_bytes > max_bytes {
                             return Ok(CacheUploadOutcome::Rejected(
                                 CacheUploadRejectionReason::OutputExceedsLimit { max_bytes },
@@ -425,7 +332,7 @@ impl CachingExecutor {
 }
 
 #[async_trait]
-impl PreparedCommandExecutor for CachingExecutor {
+impl PreparedCommandExecutor for CacheUploader {
     async fn exec_cmd(
         &self,
         command: &PreparedCommand<'_, '_>,
@@ -436,17 +343,6 @@ impl PreparedCommandExecutor for CachingExecutor {
             Ok(r) => r.unwrap_or_default(),
             Err(e) => return manager.error("cache_upload", e),
         };
-
-        let manager = self
-            .try_action_cache_fetch(
-                manager,
-                command.request,
-                &command.prepared_action.action,
-                &command.prepared_action.blobs,
-                command.digest_config,
-                cancellations,
-            )
-            .await?;
 
         let mut res = self.inner.exec_cmd(command, manager, cancellations).await;
 

@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//java/utils:java_utils.bzl", "get_classpath_subtarget")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@prelude//utils:utils.bzl", "expect")
 load(
@@ -72,6 +73,9 @@ def _create_fat_jar(
 
     main_class = ctx.attrs.main_class
     if main_class:
+        if do_not_create_inner_jar and native_libs:
+            fail("For performance reasons, java binaries with a main class and native libs should always generate an inner jar.\
+            The reason for having inner.jar is so that we don't have to compress the native libraries, which is slow at compilation time and also at runtime (when decompressing).")
         args += ["--main_class", main_class]
 
     manifest_file = ctx.attrs.manifest_file
@@ -102,7 +106,12 @@ def _create_fat_jar(
     fat_jar_cmd = cmd_args(args)
     fat_jar_cmd.hidden(jars, [native_lib.lib.output for native_lib in native_libs.values()])
 
-    ctx.actions.run(fat_jar_cmd, local_only = local_only, category = "fat_jar")
+    ctx.actions.run(
+        fat_jar_cmd,
+        local_only = local_only,
+        category = "fat_jar",
+        allow_cache_upload = True,
+    )
 
     if generate_wrapper == False:
         expect(
@@ -180,8 +189,10 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
         )
         other_outputs = [classpath_file] + [packaging_jar_args] + _get_java_tool_artifacts(java_toolchain)
 
+    sub_targets = get_classpath_subtarget(ctx.actions, packaging_info)
+
     return [
-        DefaultInfo(default_output = main_artifact, other_outputs = other_outputs),
+        DefaultInfo(default_output = main_artifact, other_outputs = other_outputs, sub_targets = sub_targets),
         RunInfo(args = run_cmd),
         create_template_info(packaging_info, first_order_libs),
     ]

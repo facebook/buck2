@@ -18,11 +18,11 @@ load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",  # @unused Used as a type
 )
+load(":argsfiles.bzl", "CompileArgsfiles")
 load(
     ":compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load(":cxx_toolchain_types.bzl", "CxxObjectFormat")
 load(
     ":headers.bzl",
     "CxxHeadersLayout",
@@ -57,6 +57,7 @@ CxxRuleSubTargetParams = record(
     link_style_outputs = field(bool.type, True),
     xcode_data = field(bool.type, True),
     objects = field(bool.type, True),
+    bitcode_bundle = field(bool.type, True),
 )
 
 # Parameters to control which providers to define when processing Cxx rules.
@@ -77,22 +78,11 @@ CxxRuleProviderParams = record(
     preprocessor_for_tests = field(bool.type, True),
 )
 
-# Params to handle an argsfile for non-Clang sources which may present in Apple rules.
-CxxAdditionalArgsfileParams = record(
-    file = field("artifact"),
-    # The output of the compile step is one of the following, but defaults to "native"
-    # meaning a intermediate .o file in the native architecture
-    format = field(CxxObjectFormat.type, CxxObjectFormat("native")),
-    # Hidden args necessary for the argsfile to reference
-    hidden_args = field([["artifacts", "cmd_args"]]),
-    # An extension of a file for which this argsfile is generated.
-    extension = field(str.type),
-)
-
 # Parameters to handle non-Clang sources, e.g Swift on Apple's platforms.
 CxxRuleAdditionalParams = record(
     srcs = field([CxxSrcWithFlags.type], []),
-    argsfiles = field([CxxAdditionalArgsfileParams.type], []),
+    # Additional argsfiles to include for this rule.
+    argsfiles = field(CompileArgsfiles.type, CompileArgsfiles()),
     # External debug info to be used when generated static output
     static_external_debug_info = field(["transitive_set"], []),
     # External debug info to be used when generating shared objects

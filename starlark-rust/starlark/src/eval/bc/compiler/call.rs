@@ -37,12 +37,8 @@ use crate::eval::bc::instr_impl::InstrCallMethod;
 use crate::eval::bc::instr_impl::InstrCallMethodPos;
 use crate::eval::bc::instr_impl::InstrCallPos;
 use crate::eval::bc::instr_impl::InstrLen;
-use crate::eval::bc::instr_impl::InstrObjectFieldRaw;
-use crate::eval::bc::instr_impl::InstrRecordCallEnter;
-use crate::eval::bc::instr_impl::InstrRecordCallExit;
 use crate::eval::bc::instr_impl::InstrType;
 use crate::eval::bc::native_function::BcNativeFunction;
-use crate::eval::bc::stack_ptr::BcSlotIn;
 use crate::eval::bc::stack_ptr::BcSlotOut;
 use crate::eval::bc::writer::BcWriter;
 use crate::eval::compiler::args::ArgsCompiledValue;
@@ -106,65 +102,6 @@ impl CallCompiled {
 }
 
 impl IrSpanned<CallCompiled> {
-    fn write_record_call_enter_exit_slot(
-        span: FrameSpan,
-        fun: BcSlotIn,
-        bc: &mut BcWriter,
-        k: impl FnOnce(&mut BcWriter),
-    ) {
-        assert!(bc.record_call_enter_exit());
-
-        bc.write_instr::<InstrRecordCallEnter>(span, fun);
-        k(bc);
-        bc.write_instr::<InstrRecordCallExit>(span, ());
-    }
-
-    fn write_maybe_record_call_enter_exit_slot(
-        span: FrameSpan,
-        fun: BcSlotIn,
-        bc: &mut BcWriter,
-        k: impl FnOnce(&mut BcWriter),
-    ) {
-        if bc.record_call_enter_exit() {
-            Self::write_record_call_enter_exit_slot(span, fun, bc, k);
-        } else {
-            k(bc);
-        }
-    }
-
-    fn write_maybe_record_call_enter_exit_const(
-        span: FrameSpan,
-        fun: FrozenValue,
-        bc: &mut BcWriter,
-        k: impl FnOnce(&mut BcWriter),
-    ) {
-        if bc.record_call_enter_exit() {
-            bc.alloc_slot(|slot, bc| {
-                bc.write_const(span, fun, slot.to_out());
-                Self::write_record_call_enter_exit_slot(span, slot.to_in(), bc, k);
-            });
-        } else {
-            k(bc);
-        }
-    }
-
-    fn write_maybe_record_call_enter_exit_method(
-        span: FrameSpan,
-        this: BcSlotIn,
-        field: &Symbol,
-        bc: &mut BcWriter,
-        k: impl FnOnce(&mut BcWriter),
-    ) {
-        if bc.record_call_enter_exit() {
-            bc.alloc_slot(|method, bc| {
-                bc.write_instr::<InstrObjectFieldRaw>(span, (this, field.clone(), method.to_out()));
-                Self::write_record_call_enter_exit_slot(span, method.to_in(), bc, k);
-            })
-        } else {
-            k(bc);
-        }
-    }
-
     fn write_args(
         args: &ArgsCompiledValue,
         bc: &mut BcWriter,
@@ -183,24 +120,6 @@ impl IrSpanned<CallCompiled> {
         }
     }
 
-    fn write_args_then_maybe_record_call_enter_exit(
-        args: &ArgsCompiledValue,
-        fun: FrozenValue,
-        fun_span: FrameSpan,
-        bc: &mut BcWriter,
-        k: impl FnOnce(Either<BcCallArgsPos, BcCallArgsFull<Symbol>>, &mut BcWriter),
-    ) {
-        // Write arguments.
-        Self::write_args(args, bc, |args, bc| {
-            // Write `RecordCallEnter` if needed.
-            Self::write_maybe_record_call_enter_exit_const(fun_span, fun, bc, |bc| {
-                // Write the call.
-                k(args, bc)
-            })
-            // Write `RecordCallExit` if needed.
-        })
-    }
-
     fn write_call_frozen(
         span: FrameSpan,
         fun: FrozenValue,
@@ -210,53 +129,35 @@ impl IrSpanned<CallCompiled> {
     ) {
         let file_span = bc.alloc_file_span(span);
         if let Some(fun) = FrozenValueTyped::<FrozenDef>::new(fun) {
-            Self::write_args_then_maybe_record_call_enter_exit(
-                args,
-                fun.to_frozen_value(),
-                span,
-                bc,
-                |args, bc| match args {
-                    Either::Left(npops) => bc.write_instr::<InstrCallFrozenDefPos>(
-                        span,
-                        (fun, npops, file_span, target),
-                    ),
-                    Either::Right(args) => bc.write_instr::<InstrCallFrozenDef>(
-                        span,
-                        (fun, args.resolve(fun.as_ref()), file_span, target),
-                    ),
-                },
-            )
+            Self::write_args(args, bc, |args, bc| match args {
+                Either::Left(npops) => {
+                    bc.write_instr::<InstrCallFrozenDefPos>(span, (fun, npops, file_span, target))
+                }
+                Either::Right(args) => bc.write_instr::<InstrCallFrozenDef>(
+                    span,
+                    (fun, args.resolve(fun.as_ref()), file_span, target),
+                ),
+            })
         } else if let Some(fun) = FrozenValueTyped::<NativeFunction>::new(fun) {
             let fun = BcNativeFunction::new(fun);
-            Self::write_args_then_maybe_record_call_enter_exit(
-                args,
-                fun.to_frozen_value(),
-                span,
-                bc,
-                |args, bc| match args {
-                    Either::Left(npops) => {
-                        bc.write_instr::<InstrCallFrozenNativePos>(
-                            span,
-                            (fun, npops, file_span, target),
-                        );
-                    }
-                    Either::Right(args) => {
-                        bc.write_instr::<InstrCallFrozenNative>(
-                            span,
-                            (fun, args, file_span, target),
-                        );
-                    }
-                },
-            )
+            Self::write_args(args, bc, |args, bc| match args {
+                Either::Left(npops) => {
+                    bc.write_instr::<InstrCallFrozenNativePos>(
+                        span,
+                        (fun, npops, file_span, target),
+                    );
+                }
+                Either::Right(args) => {
+                    bc.write_instr::<InstrCallFrozenNative>(span, (fun, args, file_span, target));
+                }
+            })
         } else {
-            Self::write_args_then_maybe_record_call_enter_exit(args, fun, span, bc, |args, bc| {
-                match args {
-                    Either::Left(npops) => {
-                        bc.write_instr::<InstrCallFrozenPos>(span, (fun, npops, file_span, target));
-                    }
-                    Either::Right(args) => {
-                        bc.write_instr::<InstrCallFrozen>(span, (fun, args, file_span, target));
-                    }
+            Self::write_args(args, bc, |args, bc| match args {
+                Either::Left(npops) => {
+                    bc.write_instr::<InstrCallFrozenPos>(span, (fun, npops, file_span, target));
+                }
+                Either::Right(args) => {
+                    bc.write_instr::<InstrCallFrozen>(span, (fun, args, file_span, target));
                 }
             })
         }
@@ -275,48 +176,44 @@ impl IrSpanned<CallCompiled> {
             let known_method = get_known_method(symbol.as_str());
             if let Some(pos) = args.pos_only() {
                 write_exprs(pos, bc, |pos, bc| {
-                    Self::write_maybe_record_call_enter_exit_method(span, this, symbol, bc, |bc| {
-                        if let Some(known_method) = known_method {
-                            bc.write_instr::<InstrCallMaybeKnownMethodPos>(
-                                span,
-                                (
-                                    this,
-                                    symbol.clone(),
-                                    known_method,
-                                    BcCallArgsPos { pos },
-                                    file_span,
-                                    target,
-                                ),
-                            );
-                        } else {
-                            bc.write_instr::<InstrCallMethodPos>(
-                                span,
-                                (
-                                    this,
-                                    symbol.clone(),
-                                    BcCallArgsPos { pos },
-                                    file_span,
-                                    target,
-                                ),
-                            );
-                        }
-                    })
+                    if let Some(known_method) = known_method {
+                        bc.write_instr::<InstrCallMaybeKnownMethodPos>(
+                            span,
+                            (
+                                this,
+                                symbol.clone(),
+                                known_method,
+                                BcCallArgsPos { pos },
+                                file_span,
+                                target,
+                            ),
+                        );
+                    } else {
+                        bc.write_instr::<InstrCallMethodPos>(
+                            span,
+                            (
+                                this,
+                                symbol.clone(),
+                                BcCallArgsPos { pos },
+                                file_span,
+                                target,
+                            ),
+                        );
+                    }
                 });
             } else {
                 args.write_bc(bc, |args, bc| {
-                    Self::write_maybe_record_call_enter_exit_method(span, this, symbol, bc, |bc| {
-                        if let Some(known_method) = known_method {
-                            bc.write_instr::<InstrCallMaybeKnownMethod>(
-                                span,
-                                (this, symbol.clone(), known_method, args, file_span, target),
-                            );
-                        } else {
-                            bc.write_instr::<InstrCallMethod>(
-                                span,
-                                (this, symbol.clone(), args, file_span, target),
-                            );
-                        }
-                    })
+                    if let Some(known_method) = known_method {
+                        bc.write_instr::<InstrCallMaybeKnownMethod>(
+                            span,
+                            (this, symbol.clone(), known_method, args, file_span, target),
+                        );
+                    } else {
+                        bc.write_instr::<InstrCallMethod>(
+                            span,
+                            (this, symbol.clone(), args, file_span, target),
+                        );
+                    }
                 })
             }
         })
@@ -340,21 +237,12 @@ impl IrSpanned<CallCompiled> {
                 Some(f) => Self::write_call_frozen(span, f, &self.args, target, bc),
                 None => {
                     self.fun.write_bc_cb(bc, |fun, bc| {
-                        Self::write_args(&self.args, bc, |args, bc| {
-                            Self::write_maybe_record_call_enter_exit_slot(span, fun, bc, |bc| {
-                                match args {
-                                    Either::Left(npops) => bc.write_instr::<InstrCallPos>(
-                                        span,
-                                        (fun, npops, file_span, target),
-                                    ),
-                                    Either::Right(args) => {
-                                        bc.write_instr::<InstrCall>(
-                                            span,
-                                            (fun, args, file_span, target),
-                                        );
-                                    }
-                                }
-                            })
+                        Self::write_args(&self.args, bc, |args, bc| match args {
+                            Either::Left(npops) => bc
+                                .write_instr::<InstrCallPos>(span, (fun, npops, file_span, target)),
+                            Either::Right(args) => {
+                                bc.write_instr::<InstrCall>(span, (fun, args, file_span, target));
+                            }
                         })
                     });
                 }

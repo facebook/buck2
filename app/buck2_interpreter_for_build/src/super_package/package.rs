@@ -12,8 +12,8 @@ use buck2_core::cells::CellResolver;
 use buck2_core::pattern::ParsedPattern;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;
+use buck2_node::visibility::VisibilityWithinViewBuilder;
 use buck2_node::visibility::WithinViewSpecification;
-use buck2_util::arc_str::ThinArcSlice;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -39,23 +39,19 @@ fn parse_visibility(
     cell_name: CellName,
     cell_resolver: &CellResolver,
 ) -> anyhow::Result<VisibilitySpecification> {
-    let mut specs: Option<Vec<_>> = None;
+    let mut builder = VisibilityWithinViewBuilder::with_capacity(patterns.len());
     for pattern in patterns {
         if pattern == VisibilityPattern::PUBLIC {
-            return Ok(VisibilitySpecification::Public);
-        }
-        specs
-            .get_or_insert_with(|| Vec::with_capacity(patterns.len()))
-            .push(VisibilityPattern(ParsedPattern::parse_precise(
+            builder.add_public();
+        } else {
+            builder.add(VisibilityPattern(ParsedPattern::parse_precise(
                 pattern,
                 cell_name,
                 cell_resolver,
             )?));
+        }
     }
-    Ok(match specs {
-        Some(specs) => VisibilitySpecification::VisibleTo(specs.into_iter().collect()),
-        None => VisibilitySpecification::DEFAULT,
-    })
+    Ok(builder.build_visibility())
 }
 
 fn parse_within_view(
@@ -63,23 +59,19 @@ fn parse_within_view(
     cell_name: CellName,
     cell_resolver: &CellResolver,
 ) -> anyhow::Result<WithinViewSpecification> {
-    let mut specs: Option<Vec<_>> = None;
+    let mut builder = VisibilityWithinViewBuilder::with_capacity(patterns.len());
     for pattern in patterns {
         if pattern == VisibilityPattern::PUBLIC {
-            return Ok(WithinViewSpecification::Public);
-        }
-        specs
-            .get_or_insert_with(|| Vec::with_capacity(patterns.len()))
-            .push(VisibilityPattern(ParsedPattern::parse_precise(
+            builder.add_public();
+        } else {
+            builder.add(VisibilityPattern(ParsedPattern::parse_precise(
                 pattern,
                 cell_name,
                 cell_resolver,
             )?));
+        }
     }
-    Ok(match specs {
-        Some(specs) => WithinViewSpecification::VisibleTo(specs.into_iter().collect()),
-        None => WithinViewSpecification::VisibleTo(ThinArcSlice::empty()),
-    })
+    Ok(builder.build_within_view())
 }
 
 /// Globals for `PACKAGE` files and `bzl` files included from `PACKAGE` files.

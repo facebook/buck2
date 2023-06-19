@@ -38,6 +38,7 @@ use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::tuple::TupleAttrType;
 use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::attr_type::visibility::VisibilityAttrType;
+use crate::attrs::attr_type::within_view::WithinViewAttrType;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -45,6 +46,7 @@ use crate::attrs::coerced_attr::CoercedSelector;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::visibility::VisibilitySpecification;
+use crate::visibility::WithinViewSpecification;
 
 #[derive(Debug, thiserror::Error)]
 enum CoercedAttrWithTypeError {
@@ -82,6 +84,7 @@ pub enum CoercedAttrWithType<'a, 't> {
     Dict(&'a DictLiteral<CoercedAttr>, &'t DictAttrType),
     OneOf(&'a CoercedAttr, u32, &'t OneOfAttrType),
     Visibility(&'a VisibilitySpecification, VisibilityAttrType),
+    WithinView(&'a WithinViewSpecification, WithinViewAttrType),
     ExplicitConfiguredDep(
         &'a UnconfiguredExplicitConfiguredDep,
         &'t ExplicitConfiguredDepAttrType,
@@ -131,6 +134,9 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             (CoercedAttr::Visibility(v), AttrTypeInner::Visibility(t)) => {
                 Ok(CoercedAttrWithType::Visibility(v, *t))
             }
+            (CoercedAttr::WithinView(v), AttrTypeInner::WithinView(t)) => {
+                Ok(CoercedAttrWithType::WithinView(v, *t))
+            }
             (CoercedAttr::ExplicitConfiguredDep(d), AttrTypeInner::ConfiguredDep(t)) => {
                 Ok(CoercedAttrWithType::ExplicitConfiguredDep(d, t))
             }
@@ -166,6 +172,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | (CoercedAttr::Dict(_), _)
             | (CoercedAttr::OneOf(..), _)
             | (CoercedAttr::Visibility(_), _)
+            | (CoercedAttr::WithinView(_), _)
             | (CoercedAttr::ExplicitConfiguredDep(_), _)
             | (CoercedAttr::SplitTransitionDep(_), _)
             | (CoercedAttr::ConfigurationDep(_), _)
@@ -195,6 +202,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             CoercedAttr::None => Ok(CoercedAttrWithType::None),
             CoercedAttr::OneOf(_, _)
             | CoercedAttr::Visibility(_)
+            | CoercedAttr::WithinView(_)
             | CoercedAttr::ExplicitConfiguredDep(_)
             | CoercedAttr::SplitTransitionDep(_)
             | CoercedAttr::ConfiguredDep(_)

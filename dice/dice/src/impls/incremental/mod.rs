@@ -14,7 +14,6 @@
 //! with multiple versions in-flight at the same time.
 //!
 
-use std::any::Any;
 use std::borrow::Cow;
 use std::fmt::Debug;
 
@@ -23,10 +22,7 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
-use more_futures::cancellable_future::DisableCancellationGuard;
-use more_futures::cancellation::future::TerminationStatus;
 use tokio::sync::oneshot;
-use tracing::Instrument;
 
 use crate::api::activation_tracker::ActivationData;
 use crate::arc::Arc;
@@ -43,12 +39,15 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::task::dice::DiceTask;
-use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::promise::DicePromise;
-use crate::impls::task::spawn_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
+use crate::impls::worker::state::DiceWorkerStateCheckingDeps;
+use crate::impls::worker::state::DiceWorkerStateComputing;
+use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
+use crate::impls::worker::state::DiceWorkerStateLookupNode;
+use crate::impls::worker::DiceTaskWorker;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
 use crate::versions::VersionNumber;
@@ -68,7 +67,7 @@ mod tests;
 #[derive(Allocative)]
 pub(crate) struct IncrementalEngine {
     state: CoreStateHandle,
-    version_epoch: VersionEpoch,
+    pub(crate) version_epoch: VersionEpoch,
 }
 
 impl Debug for IncrementalEngine {
@@ -93,58 +92,15 @@ impl IncrementalEngine {
         events_dispatcher: DiceEventDispatcher,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
     ) -> DiceTask {
-        let eval_dupe = eval.dupe();
-        spawn_dice_task(&*eval.user_data.spawner, &eval.user_data, move |handle| {
-            async move {
-                if let Some(previous) = previously_cancelled_task {
-                    debug!(msg = "waiting for previously cancelled task");
-                    match previous.termination.await {
-                        TerminationStatus::Finished => {
-                            // old task actually finished, so just use that result if it wasn't
-                            // cancelled
-
-
-                            match previous.previous.get_finished_value().expect("Terminated task must have finished value") {
-                                Ok(res) => {
-                                    debug!(msg = "previously cancelled task actually finished");
-
-                                    handle.finished(res);
-                                    return Box::new(()) as Box<dyn Any + Send + 'static>;
-                                }
-                                Err(_err) => {
-                                    // actually was cancelled, so just continue re-evaluating
-
-                                }
-                            }
-                        }
-                        _ => {
-                            // continue re-evaluating
-                        }
-                    }
-                }
-
-                let engine =
-                    IncrementalEngine::new(eval_dupe.dice.state_handle.dupe(), version_epoch);
-
-                let result = engine
-                    .eval_entry_versioned(k, eval_dupe, cycles, events_dispatcher, &handle)
-                    .await;
-
-                match result {
-                    Ok((res, _guard)) => {
-                        handle.finished(res)
-                    }
-                    Err(_) => {
-                        // we drop the current handle, leaving the original `DiceTask` as terminated
-                        // state
-                    }
-                }
-
-                Box::new(()) as Box<dyn Any + Send + 'static>
-            }
-            .instrument(debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.per_live_version_ctx.get_version(), v_epoch = %version_epoch))
-            .boxed()
-        })
+        let state_handle = eval.dice.state_handle.dupe();
+        DiceTaskWorker::spawn(
+            k,
+            eval,
+            cycles,
+            events_dispatcher,
+            previously_cancelled_task,
+            IncrementalEngine::new(state_handle, version_epoch),
+        )
     }
 
     #[instrument(
@@ -198,14 +154,13 @@ impl IncrementalEngine {
         })
     }
 
-    async fn eval_entry_versioned(
+    pub(crate) async fn eval_entry_versioned(
         &self,
         k: DiceKey,
-        eval: AsyncEvaluator,
-        mut cycles: UserCycleDetectorData,
+        eval: &AsyncEvaluator,
         events_dispatcher: DiceEventDispatcher,
-        task_handle: &DiceTaskHandle<'_>,
-    ) -> CancellableResult<(DiceComputedValue, Option<DisableCancellationGuard>)> {
+        task_state: DiceWorkerStateLookupNode<'_>,
+    ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         let v = eval.per_live_version_ctx.get_version();
         let (tx, rx) = oneshot::channel();
         self.state.request(StateRequest::LookupKey {
@@ -216,30 +171,14 @@ impl IncrementalEngine {
         let state_result = rx.await.unwrap();
 
         match state_result {
-            VersionedGraphResult::Match(entry) => {
-                debug!(
-                    msg = "found existing entry with matching version in cache. reusing result.",
-                );
-                Ok((entry, None))
-            }
+            VersionedGraphResult::Match(entry) => Ok(task_state.lookup_matches(entry)),
             VersionedGraphResult::Compute => {
-                cycles.start_computing_key(
-                    k,
-                    &eval.dice.key_index,
-                    eval.user_data.cycle_detector.as_deref(),
-                );
-                self.compute(k, eval, cycles, &events_dispatcher, task_handle)
+                self.compute(k, eval, &events_dispatcher, task_state.lookup_dirtied(eval))
                     .await
-                    .map(|(res, g)| (res, Some(g)))
             }
 
             VersionedGraphResult::CheckDeps(mismatch) => {
-                cycles.start_computing_key(
-                    k,
-                    &eval.dice.key_index,
-                    eval.user_data.cycle_detector.as_deref(),
-                );
-                task_handle.checking_deps();
+                let task_state = task_state.checking_deps(eval);
 
                 let deps_changed = {
                     events_dispatcher.check_deps_started(k);
@@ -252,26 +191,17 @@ impl IncrementalEngine {
                         eval.dupe(),
                         &mismatch.verified_versions,
                         mismatch.deps_to_validate,
-                        &cycles,
+                        &task_state,
                     )
                     .await?
                 };
 
                 match deps_changed {
-                    DidDepsChange::Changed | DidDepsChange::NoDeps => self
-                        .compute(k, eval, cycles, &events_dispatcher, task_handle)
-                        .await
-                        .map(|(res, g)| (res, Some(g))),
+                    DidDepsChange::Changed | DidDepsChange::NoDeps => {
+                        self.compute(k, eval, &events_dispatcher, task_state.deps_not_match())
+                            .await
+                    }
                     DidDepsChange::NoChange(deps) => {
-                        cycles.finished_computing_key(
-                            &eval.dice.key_index,
-                            eval.user_data.cycle_detector.as_deref(),
-                        );
-
-                        debug!(
-                            msg = "reusing previous value because deps didn't change. Updating caches"
-                        );
-
                         report_key_activation(
                             &eval.dice.key_index,
                             eval.user_data.activation_tracker.as_deref(),
@@ -279,6 +209,8 @@ impl IncrementalEngine {
                             deps.iter().copied(),
                             ActivationData::Reused,
                         );
+
+                        let task_state = task_state.deps_match()?;
 
                         // report reuse
                         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -291,9 +223,7 @@ impl IncrementalEngine {
                             resp: tx,
                         });
 
-                        debug!(msg = "Update caches complete");
-
-                        rx.await.unwrap().map(|res| (res, None))
+                        rx.await.unwrap().map(|r| task_state.cached(r))
                     }
                 }
             }
@@ -303,13 +233,10 @@ impl IncrementalEngine {
     async fn compute(
         &self,
         k: DiceKey,
-        eval: AsyncEvaluator,
-        cycles: UserCycleDetectorData,
+        eval: &AsyncEvaluator,
         event_dispatcher: &DiceEventDispatcher,
-        task_handle: &DiceTaskHandle<'_>,
-    ) -> CancellableResult<(DiceComputedValue, DisableCancellationGuard)> {
-        task_handle.computing();
-
+        task_state: DiceWorkerStateComputing<'_>,
+    ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         event_dispatcher.started(k);
         scopeguard::defer! {
             event_dispatcher.finished(k);
@@ -320,19 +247,8 @@ impl IncrementalEngine {
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        let eval_result = eval
-            .evaluate(k, cycles, task_handle.cancellation_ctx())
-            .await?;
-
-        let guard = match task_handle.cancellation_ctx().try_to_disable_cancellation() {
-            Some(g) => g,
-            None => {
-                debug!("evaluation cancelled, skipping cache updates");
-                return Err(Cancelled);
-            }
-        };
-
-        debug!(msg = "evaluation finished. updating caches");
+        let eval_result_state = eval.evaluate(k, task_state).await?;
+        let eval_result = eval_result_state.result;
 
         let res = {
             report_key_activation(
@@ -364,16 +280,14 @@ impl IncrementalEngine {
             }
         };
 
-        debug!(msg = "update future completed");
-
-        res.map(|res| (res, guard))
+        res.map(|res| eval_result_state.state.cached(res))
     }
 
     /// determines if the given 'Dependency' has changed between versions 'last_version' and
     /// 'target_version'
     #[instrument(
         level = "debug",
-        skip(self, eval, cycles),
+        skip(self, eval, deps, check_deps_state),
         fields(version = %eval.per_live_version_ctx.get_version(), verified_versions = %verified_versions)
     )]
     async fn compute_whether_dependencies_changed(
@@ -382,8 +296,10 @@ impl IncrementalEngine {
         eval: AsyncEvaluator,
         verified_versions: &VersionRanges,
         deps: Arc<Vec<DiceKey>>,
-        cycles: &UserCycleDetectorData,
+        check_deps_state: &DiceWorkerStateCheckingDeps<'_>,
     ) -> CancellableResult<DidDepsChange> {
+        trace!(deps = ?deps);
+
         if deps.is_empty() {
             return Ok(DidDepsChange::NoDeps);
         }
@@ -396,7 +312,7 @@ impl IncrementalEngine {
                         dep.dupe(),
                         parent_key,
                         &eval,
-                        cycles.subrequest(*dep, &eval.dice.key_index),
+                        check_deps_state.cycles_for_dep(*dep, &eval),
                     )
                     .map(|r| r.map(|v| v.history().get_verified_ranges()))
             })
@@ -410,7 +326,6 @@ impl IncrementalEngine {
                     verified_versions =
                         Cow::Owned(verified_versions.intersect(&dep_version_ranges));
                     if verified_versions.is_empty() {
-                        debug!(msg = "deps changed");
                         return Ok(DidDepsChange::Changed);
                     }
                 }
@@ -419,8 +334,6 @@ impl IncrementalEngine {
                 }
             }
         }
-
-        debug!(msg = "deps did not change");
 
         Ok(DidDepsChange::NoChange(deps))
     }

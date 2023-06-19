@@ -34,7 +34,6 @@ load(
 )
 load(":platform.bzl", "cxx_by_platform")
 
-ARGSFILES_SUBTARGET = "argsfiles"
 OBJECTS_SUBTARGET = "objects"
 
 # The dependencies

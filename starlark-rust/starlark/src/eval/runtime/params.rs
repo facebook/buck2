@@ -659,12 +659,19 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         mut parameter_types: HashMap<usize, DocType>,
         mut parameter_docs: HashMap<String, Option<DocString>>,
     ) -> Vec<DocParam> {
+        let mut pos_only = 0;
         let mut params: Vec<DocParam> = self
             .iter_params()
             .enumerate()
             .map(|(i, (name, kind))| {
                 let typ = parameter_types.remove(&i);
                 let docs = parameter_docs.remove(name).flatten();
+                if pos_only == i
+                    && !matches!(kind, ParameterKind::Args | ParameterKind::KWargs)
+                    && self.names.get_str(name).is_none()
+                {
+                    pos_only += 1;
+                }
                 let name = name.to_owned();
                 match kind {
                     ParameterKind::Required => DocParam::Arg {
@@ -694,6 +701,10 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         // Go back and add the "*" arg if it's present
         if let Some(i) = self.no_args_param_index() {
             params.insert(i, DocParam::NoArgs);
+        }
+
+        if pos_only > 0 {
+            params.insert(pos_only, DocParam::OnlyPosBefore);
         }
 
         params

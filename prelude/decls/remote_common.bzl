@@ -33,6 +33,10 @@ def _urls_arg():
      subsequent ones are only tried if the download fails. If validation fails,
      a new URL is not used. Supported protocols are "http", "https", and "mvn".
 """),
+        "vpnless_urls": attrs.list(attrs.string(), default = [], doc = """
+    Additional URLs from which this resource can be downloaded when
+     off VPN. Meta-internal only.
+"""),
     }
 
 remote_common = struct(

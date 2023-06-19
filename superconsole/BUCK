@@ -56,6 +56,15 @@ rust_binary(
 )
 
 rust_binary(
+    name = "readme",
+    srcs = ["examples/readme.rs"],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        ":superconsole",
+    ],
+)
+
+rust_binary(
     name = "stylized",
     srcs = ["examples/stylized.rs"],
     deps = [

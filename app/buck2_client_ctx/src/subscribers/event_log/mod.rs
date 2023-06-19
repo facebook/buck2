@@ -10,6 +10,6 @@
 pub mod file_names;
 pub mod read;
 pub mod subscriber;
-pub mod upload;
+pub mod user_event_types;
 pub mod utils;
 pub mod write;

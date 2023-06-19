@@ -11,10 +11,6 @@ load(
     "LinkedObject",  # @unused Used as a type
 )
 load("@prelude//linking:strip.bzl", "strip_shared_library")
-load(
-    "@prelude//utils:types.bzl",
-    "unchecked",  # @unused Used as a type
-)
 
 SharedLibrary = record(
     lib = field(LinkedObject.type),
@@ -72,8 +68,10 @@ def create_shared_libraries(
 
 # We do a lot of merging library maps, so don't use O(n) type annotations
 def _merge_lib_map(
-        dest_mapping: unchecked({str.type: SharedLibrary.type}),
-        mapping_to_merge: unchecked({str.type: SharedLibrary.type})) -> None:
+        # {str.type: SharedLibrary.type}
+        dest_mapping,
+        # {str.type: SharedLibrary.type}
+        mapping_to_merge) -> None:
     """
     Merges a mapping_to_merge into `dest_mapping`. Fails if different libraries
     map to the same name.

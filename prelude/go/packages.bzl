@@ -7,13 +7,20 @@
 
 load("@prelude//utils:utils.bzl", "value_or")
 
+GoPkg = record(
+    # Built w/ `-shared`.
+    shared = field("artifact"),
+    # Built w/o `-shared`.
+    static = field("artifact"),
+)
+
 def go_attr_pkg_name(ctx: "context") -> str.type:
     """
     Return the Go package name for the given context corresponding to a rule.
     """
     return value_or(ctx.attrs.package_name, ctx.label.package)
 
-def merge_pkgs(pkgss: [{str.type: "artifact"}]) -> {str.type: "artifact"}:
+def merge_pkgs(pkgss: [{str.type: "_pkg"}]) -> {str.type: "_pkg"}:
     """
     Merge mappings of packages into a single mapping, throwing an error on
     conflicts.
@@ -28,3 +35,12 @@ def merge_pkgs(pkgss: [{str.type: "artifact"}]) -> {str.type: "artifact"}:
             all_pkgs[name] = path
 
     return all_pkgs
+
+def pkg_artifacts(pkgs: {str.type: GoPkg.type}, shared: bool.type = False) -> {str.type: "artifact"}:
+    """
+    Return a map package name to a `shared` or `static` package artifact.
+    """
+    return {
+        name: pkg.shared if shared else pkg.static
+        for name, pkg in pkgs.items()
+    }

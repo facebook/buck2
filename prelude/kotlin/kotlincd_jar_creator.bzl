@@ -93,6 +93,7 @@ def create_jar_artifact_kotlincd(
             standardLibraryClassPath = kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
             annotationProcessingClassPath = kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library,
             compilationTracerPlugin = kotlin_toolchain.compilation_tracer_plugin,
+            qpldDotslash = kotlin_toolchain.qpld_dotslash,
             jvmAbiGenPlugin = kotlin_toolchain.jvm_abi_gen_plugin,
             kotlinCompilerPlugins = {plugin: {"params": plugin_options} if plugin_options else {} for plugin, plugin_options in kotlin_compiler_plugins.items()},
             kosabiPluginOptions = struct(
@@ -223,10 +224,12 @@ def create_jar_artifact_kotlincd(
             qualified_name,
             java = java_toolchain.java[RunInfo],
             compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0],
+            worker = kotlin_toolchain.kotlincd_worker[WorkerInfo],
             debug_port = kotlin_toolchain.kotlincd_debug_port,
             debug_target = kotlin_toolchain.kotlincd_debug_target,
             extra_jvm_args = kotlin_toolchain.kotlincd_jvm_args,
         )
+
         args = cmd_args()
         args.add(
             "--action-id",
@@ -277,7 +280,7 @@ def create_jar_artifact_kotlincd(
             dep_files["classpath_jars"] = classpath_jars_tag
 
         actions.run(
-            cmd_args(exe, args),
+            args,
             env = {
                 "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
@@ -285,6 +288,8 @@ def create_jar_artifact_kotlincd(
             category = "{}kotlincd_jar".format(category_prefix),
             identifier = actions_identifier,
             dep_files = dep_files,
+            exe = exe,
+            local_only = True if kotlin_toolchain.kotlincd_debug_port else False,
         )
 
     library_classpath_jars_tag = actions.artifact_tag()

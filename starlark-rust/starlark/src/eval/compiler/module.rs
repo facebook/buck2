@@ -18,7 +18,7 @@
 //! Compile and evaluate module top-level statements.
 
 use crate::codemap::Spanned;
-use crate::environment::EnvironmentError;
+use crate::const_frozen_string;
 use crate::eval::bc::frame::alloca_frame;
 use crate::eval::compiler::add_span_to_expr_error;
 use crate::eval::compiler::expr_throw;
@@ -35,6 +35,14 @@ use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
 
+#[derive(Debug, thiserror::Error)]
+enum ModuleError {
+    #[error("No imports are available, you tried `{0}` (no call to `Evaluator.set_loader`)")]
+    NoImportsAvailable(String),
+    #[error("Unexpected statement (internal error)")]
+    UnexpectedStatement,
+}
+
 impl<'v> Compiler<'v, '_, '_> {
     fn eval_load(&mut self, load: CstLoad) -> Result<(), EvalException> {
         let name = load.node.module.node;
@@ -44,7 +52,7 @@ impl<'v> Compiler<'v, '_, '_> {
         let loadenv = match self.eval.loader.as_ref() {
             None => {
                 return Err(add_span_to_expr_error(
-                    EnvironmentError::NoImportsAvailable(name).into(),
+                    ModuleError::NoImportsAvailable(name).into(),
                     span,
                     self.eval,
                 ));
@@ -72,6 +80,43 @@ impl<'v> Compiler<'v, '_, '_> {
         Ok(())
     }
 
+    /// Compile and evaluate regular statement.
+    /// Regular statement is a statement which is not `load` or a sequence of statements.
+    fn eval_regular_top_level_stmt(
+        &mut self,
+        mut stmt: CstStmt,
+        local_names: FrozenRef<'static, [FrozenStringValue]>,
+    ) -> Result<Value<'v>, EvalException> {
+        if matches!(stmt.node, StmtP::Statements(_) | StmtP::Load(_)) {
+            return Err(EvalException::new(
+                ModuleError::UnexpectedStatement.into(),
+                stmt.span,
+                &self.codemap,
+            ));
+        }
+
+        self.populate_types_in_stmt(&mut stmt)?;
+
+        let stmt = self.module_top_level_stmt(stmt);
+        let bc = stmt.as_bc(
+            &self.compile_context(false),
+            local_names,
+            0,
+            self.eval.module_env.frozen_heap(),
+        );
+        // We don't preserve locals between top level statements.
+        // That is OK for now: the only locals used in module evaluation
+        // are comprehension bindings.
+        let local_count = local_names.len().try_into().unwrap();
+        alloca_frame(
+            self.eval,
+            local_count,
+            bc.max_stack_size,
+            bc.max_loop_depth,
+            |eval| eval.eval_bc(const_frozen_string!("module").to_value(), &bc),
+        )
+    }
+
     fn eval_top_level_stmt(
         &mut self,
         stmt: CstStmt,
@@ -92,26 +137,7 @@ impl<'v> Compiler<'v, '_, '_> {
                 })?;
                 Ok(Value::new_none())
             }
-            _ => {
-                let stmt = self.module_top_level_stmt(stmt);
-                let bc = stmt.as_bc(
-                    &self.compile_context(false),
-                    local_names,
-                    0,
-                    self.eval.module_env.frozen_heap(),
-                );
-                // We don't preserve locals between top level statements.
-                // That is OK for now: the only locals used in module evaluation
-                // are comprehension bindings.
-                let local_count = local_names.len().try_into().unwrap();
-                alloca_frame(
-                    self.eval,
-                    local_count,
-                    bc.max_stack_size,
-                    bc.max_loop_depth,
-                    |eval| eval.eval_bc(&bc),
-                )
-            }
+            _ => self.eval_regular_top_level_stmt(stmt, local_names),
         }
     }
 

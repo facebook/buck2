@@ -11,10 +11,8 @@ use std::sync::Arc;
 
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_deps_collector::CoercedDeps;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
-use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::values::AttrValues;
@@ -22,8 +20,6 @@ use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::package::Package;
 use buck2_node::rule::Rule;
-use buck2_node::visibility::VisibilityPattern;
-use buck2_node::visibility::VisibilitySpecification;
 use dupe::Dupe;
 use starlark::eval::CallStack;
 use starlark::eval::ParametersParser;
@@ -119,48 +115,5 @@ impl TargetNodeExt for TargetNode {
             CoercedDeps::from(deps_cache),
             call_stack.map(StarlarkCallStack::new),
         ))
-    }
-}
-
-pub(crate) fn parse_visibility(
-    ctx: &dyn AttrCoercionContext,
-    attr: &CoercedAttr,
-) -> anyhow::Result<VisibilitySpecification> {
-    let visibility = match attr {
-        CoercedAttr::List(list) => &**list,
-        CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
-            unreachable!("coercion of visibility verified it's not configurable")
-        }
-        _ => {
-            unreachable!("coercion of visibility verified the type")
-        }
-    };
-
-    let mut specs: Option<Vec<_>> = None;
-    for item in visibility.iter() {
-        let value = match item {
-            CoercedAttr::String(value) => value,
-            CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
-                unreachable!("coercion of visibility verified it's not configurable")
-            }
-            _ => {
-                unreachable!("coercion of visibility verified the type")
-            }
-        };
-
-        if value.as_str() == VisibilityPattern::PUBLIC {
-            // TODO(cjhopman): We should probably enforce that this is the only entry.
-            return Ok(VisibilitySpecification::Public);
-        }
-
-        specs
-            .get_or_insert_with(|| Vec::with_capacity(visibility.len()))
-            .push(VisibilityPattern(ctx.coerce_target_pattern(value)?));
-    }
-    match specs {
-        None => Ok(VisibilitySpecification::DEFAULT),
-        Some(specs) => Ok(VisibilitySpecification::VisibleTo(
-            specs.into_iter().collect(),
-        )),
     }
 }

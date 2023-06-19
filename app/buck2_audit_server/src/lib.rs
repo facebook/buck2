@@ -92,6 +92,7 @@ impl AuditCommandExt for AuditCommand {
             AuditCommand::DeferredMaterializer(cmd) => cmd,
             AuditCommand::Visibility(cmd) => cmd,
             AuditCommand::Output(cmd) => cmd,
+            AuditCommand::Parse(cmd) => cmd,
         }
     }
 }

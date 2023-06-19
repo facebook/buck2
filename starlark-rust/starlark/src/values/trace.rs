@@ -17,6 +17,7 @@
 
 use std::cell::Cell;
 use std::cell::RefCell;
+use std::cell::UnsafeCell;
 use std::marker;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI16;
@@ -116,7 +117,13 @@ unsafe impl<'v, T: Trace<'v>> Trace<'v> for RefCell<T> {
     }
 }
 
-unsafe impl<'v, T: Trace<'v> + Copy> Trace<'v> for Cell<T> {
+unsafe impl<'v, T: Trace<'v>> Trace<'v> for Cell<T> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        self.get_mut().trace(tracer);
+    }
+}
+
+unsafe impl<'v, T: Trace<'v>> Trace<'v> for UnsafeCell<T> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         self.get_mut().trace(tracer);
     }

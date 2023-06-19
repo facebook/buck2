@@ -92,7 +92,7 @@ def erlang_tests_macro(
         if prop_target:
             property_tests = [prop_target]
 
-    common_attributes["labels"] = common_attributes.get("labels", []) + ["tpx-enable-artifact-reporting"]
+    common_attributes["labels"] = common_attributes.get("labels", []) + ["tpx-enable-artifact-reporting", "test-framework=39:erlang_common_test"]
 
     for suite in suites:
         # forward resources and deps fields and generate erlang_test target
@@ -222,6 +222,9 @@ def erlang_test_impl(ctx: "context") -> ["provider"]:
         if ErlangTestInfo in dep
     ] + [output_dir]
 
+    preamble = '-eval "%s" \\' % (ctx.attrs.preamble)
+    additional_args = [cmd_args(preamble, "-noshell \\")]
+
     all_direct_shell_dependencies = check_dependencies([ctx.attrs._cli_lib], [ErlangAppInfo])
     cli_lib_deps = flatten_dependencies(ctx, all_direct_shell_dependencies)
 
@@ -232,7 +235,7 @@ def erlang_test_impl(ctx: "context") -> ["provider"]:
         ctx,
         shell_deps.values(),
         additional_paths = additional_paths,
-        additional_args = [cmd_args('-eval "test:info(), test:ensure_initialized(), user_drv:start()." \\', "-noshell \\")],
+        additional_args = additional_args,
     )
 
     return [

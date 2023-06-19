@@ -20,6 +20,7 @@ load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout", "prepare
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
     "cxx_private_preprocessor_info",
@@ -43,7 +44,7 @@ load(
 )
 load(":compile.bzl", "GoPkgCompileInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
-load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
+load(":packages.bzl", "GoPkg", "go_attr_pkg_name", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
 # A map of expected linkages for provided link style
@@ -137,14 +138,15 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
     cxx_srcs.extend(c_srcs)
 
     # Wrap the generated CGO C headers in a CPreprocessor object for compiling.
-    cgo_headers_pre = CPreprocessor(args = [
+    cgo_headers_pre = CPreprocessor(relative_args = CPreprocessorArgs(args = [
         "-I",
         prepare_headers(
             ctx,
             {h.basename: h for h in c_headers},
             "cgo-private-headers",
+            None,
         ).include_path,
-    ])
+    ]))
 
     link_style = ctx.attrs.link_style
     if link_style == None:
@@ -163,6 +165,7 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
         [own_pre, cgo_headers_pre],
         inherited_pre,
         [],
+        None,
         linkage,
     )
 
@@ -176,16 +179,29 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
         all_srcs.add(get_filtered_srcs(ctx, ctx.attrs.go_srcs))
 
     # Build Go library.
-    lib = compile(
+    static_pkg = compile(
         ctx,
         pkg_name,
         all_srcs,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
+        shared = False,
     )
+    shared_pkg = compile(
+        ctx,
+        pkg_name,
+        all_srcs,
+        deps = ctx.attrs.deps + ctx.attrs.exported_deps,
+        shared = True,
+    )
+    pkgs = {
+        pkg_name: GoPkg(
+            shared = shared_pkg,
+            static = static_pkg,
+        ),
+    }
 
-    pkgs = {pkg_name: lib}
     return [
-        DefaultInfo(default_output = lib),
+        DefaultInfo(default_output = static_pkg),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),

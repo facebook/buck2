@@ -129,10 +129,10 @@ fn duplicate_assign(
                 }
             }
             Bind::Get(x) => {
-                warnings.remove(x.node.as_str());
+                warnings.remove(x.node.0.as_str());
             }
             Bind::GetDotted(x) => {
-                warnings.remove(x.variable.node.as_str());
+                warnings.remove(x.variable.node.0.as_str());
             }
             Bind::Scope(scope) => {
                 duplicate_assign(codemap, scope, false, res);
@@ -162,10 +162,10 @@ fn unused_variable(codemap: &CodeMap, scope: &Scope, top: bool, res: &mut Vec<Li
         match x {
             Bind::Set(..) => {}
             Bind::Get(x) => {
-                warnings.remove(&x.node);
+                warnings.remove(&x.node.0);
             }
             Bind::GetDotted(x) => {
-                warnings.remove(&x.variable.node);
+                warnings.remove(&x.variable.node.0);
             }
             Bind::Scope(scope) => {
                 unused_variable(codemap, scope, false, res);
@@ -188,12 +188,13 @@ fn unassigned_variable(codemap: &CodeMap, scope: &Scope, res: &mut Vec<LintT<Nam
     for x in &scope.inner {
         match x {
             Bind::Get(x)
-                if scope.bound.get(&x.node).is_some() && !assigned.contains(x.as_str()) =>
+                if scope.bound.get(&x.node.0).is_some()
+                    && !assigned.contains(x.node.0.as_str()) =>
             {
                 res.push(LintT::new(
                     codemap,
                     x.span,
-                    NameWarning::UsingUnassigned(x.node.clone()),
+                    NameWarning::UsingUnassigned(x.node.0.clone()),
                 ))
             }
             Bind::Set(_, x) => {

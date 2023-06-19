@@ -194,10 +194,12 @@ def create_jar_artifact_javacd(
             qualified_name,
             java = java_toolchain.java[RunInfo],
             compiler = java_toolchain.javac[DefaultInfo].default_outputs[0],
+            worker = java_toolchain.javacd_worker[WorkerInfo],
             debug_port = java_toolchain.javacd_debug_port,
             debug_target = java_toolchain.javacd_debug_target,
             extra_jvm_args = java_toolchain.javacd_jvm_args,
         )
+
         args = cmd_args()
         args.add(
             "--action-id",
@@ -253,7 +255,7 @@ def create_jar_artifact_javacd(
             dep_files["classpath_jars"] = classpath_jars_tag
 
         actions.run(
-            cmd_args(exe, args),
+            args,
             env = {
                 "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
@@ -261,6 +263,8 @@ def create_jar_artifact_javacd(
             category = "{}javacd_jar".format(category_prefix),
             identifier = actions_identifier or "",
             dep_files = dep_files,
+            exe = exe,
+            local_only = True if java_toolchain.javacd_debug_port else False,
         )
 
     library_classpath_jars_tag = actions.artifact_tag()

@@ -13,17 +13,9 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use dashmap::mapref::entry::Entry;
 use derivative::Derivative;
 use dupe::Dupe;
-use futures::future::BoxFuture;
-use futures::future::Either;
 use futures::FutureExt;
-use more_futures::cancellation::CancellationContext;
-use more_futures::spawn::spawn_cancellable;
-use more_futures::spawn::DropCancelAndTerminationObserver;
-use more_futures::spawn::StrongJoinHandle;
-use more_futures::spawn::WeakFutureError;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 
@@ -35,6 +27,7 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
+use crate::impls::cache::DiceTaskRef;
 use crate::impls::cache::SharedCache;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::versions::VersionEpoch;
@@ -49,10 +42,12 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::opaque::OpaqueValueModern;
 use crate::impls::task::dice::MaybeCancelled;
+use crate::impls::task::promise::DicePromise;
 use crate::impls::task::sync_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
+use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidity;
@@ -66,7 +61,7 @@ use crate::HashSet;
 use crate::UserCycleDetectorGuard;
 
 /// Context that is the base for which all requests start from
-#[derive(Allocative, Dupe, Clone)]
+#[derive(Allocative)]
 pub(crate) struct BaseComputeCtx {
     // we need to give off references of `DiceComputation` so hold this for now, but really once we
     // get rid of the enum, we just hold onto the base data directly and do some ref casts
@@ -74,12 +69,35 @@ pub(crate) struct BaseComputeCtx {
     live_version_guard: ActiveTransactionGuard,
 }
 
+impl Clone for BaseComputeCtx {
+    fn clone(&self) -> Self {
+        Self {
+            data: match &self.data.0 {
+                DiceComputationsImpl::Legacy(_) => {
+                    unreachable!("wrong dice")
+                }
+                DiceComputationsImpl::Modern(ctx) => {
+                    DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
+                        ParentKey::None,
+                        ctx.async_evaluator.per_live_version_ctx.dupe(),
+                        ctx.async_evaluator.user_data.dupe(),
+                        ctx.async_evaluator.dice.dupe(),
+                        KeyComputingUserCycleDetectorData::Untracked,
+                    )))
+                }
+            },
+            live_version_guard: self.live_version_guard.dupe(),
+        }
+    }
+}
+
+impl Dupe for BaseComputeCtx {}
+
 impl BaseComputeCtx {
     pub(crate) fn new(
         per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
-        cycles: UserCycleDetectorData,
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
@@ -88,7 +106,7 @@ impl BaseComputeCtx {
                 per_live_version_ctx,
                 user_data,
                 dice,
-                cycles,
+                KeyComputingUserCycleDetectorData::Untracked,
             ))),
             live_version_guard,
         }
@@ -121,44 +139,36 @@ impl Deref for BaseComputeCtx {
 }
 
 /// Context given to the `compute` function of a `Key`.
-#[derive(Allocative, Dupe, Clone)]
-pub(crate) struct PerComputeCtx {
-    data: Arc<PerComputeCtxData>,
-}
-
 #[derive(Allocative)]
-pub(crate) struct PerComputeCtxData {
+pub(crate) struct PerComputeCtx {
     async_evaluator: AsyncEvaluator,
     dep_trackers: Mutex<RecordingDepsTracker>, // If we make PerComputeCtx &mut, we can get rid of this mutex after some refactoring
     parent_key: ParentKey,
     #[allocative(skip)]
-    cycles: UserCycleDetectorData,
+    cycles: KeyComputingUserCycleDetectorData,
     // Same as above, PerComputeCtx isn't actually geting shared.
     #[allocative(skip)]
     evaluation_data: Mutex<EvaluationData>,
 }
 
-#[allow(clippy::manual_async_fn, unused)]
 impl PerComputeCtx {
     pub(crate) fn new(
         parent_key: ParentKey,
         per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
-        cycles: UserCycleDetectorData,
+        cycles: KeyComputingUserCycleDetectorData,
     ) -> Self {
         Self {
-            data: Arc::new(PerComputeCtxData {
-                async_evaluator: AsyncEvaluator {
-                    per_live_version_ctx,
-                    user_data,
-                    dice,
-                },
-                dep_trackers: Mutex::new(RecordingDepsTracker::new()),
-                parent_key,
-                cycles,
-                evaluation_data: Mutex::new(EvaluationData::none()),
-            }),
+            async_evaluator: AsyncEvaluator {
+                per_live_version_ctx,
+                user_data,
+                dice,
+            },
+            dep_trackers: Mutex::new(RecordingDepsTracker::new()),
+            parent_key,
+            cycles,
+            evaluation_data: Mutex::new(EvaluationData::none()),
         }
     }
 
@@ -167,7 +177,7 @@ impl PerComputeCtx {
     /// context is for.
     pub(crate) fn compute<'a, K>(
         &'a self,
-        key: &'a K,
+        key: &K,
     ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
     where
         K: Key,
@@ -180,37 +190,34 @@ impl PerComputeCtx {
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
     /// than the entire opaque value.
-    pub(crate) fn compute_opaque<'b, 'a: 'b, K>(
+    pub(crate) fn compute_opaque<'a, K>(
         &'a self,
-        key: &'b K,
-    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + 'b
+        key: &K,
+    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + 'a
     where
         K: Key,
     {
         let dice_key = self
-            .data
             .async_evaluator
             .dice
             .key_index
             .index(CowDiceKeyHashed::key_ref(key));
 
-        self.data
-            .async_evaluator
+        self.async_evaluator
             .per_live_version_ctx
             .compute_opaque(
                 dice_key,
-                self.data.parent_key,
-                &self.data.async_evaluator,
-                self.data
-                    .cycles
-                    .subrequest(dice_key, &self.data.async_evaluator.dice.key_index),
+                self.parent_key,
+                &self.async_evaluator,
+                self.cycles
+                    .subrequest(dice_key, &self.async_evaluator.dice.key_index),
             )
             .map(move |cancellable_result| {
                 let cancellable = cancellable_result.map(move |dice_value| {
                     OpaqueValueModern::new(self, dice_key, dice_value.value().dupe())
                 });
 
-                cancellable.map_err(|e| DiceError::cancelled())
+                cancellable.map_err(|_| DiceError::cancelled())
             })
     }
 
@@ -225,28 +232,26 @@ impl PerComputeCtx {
         K: ProjectionKey,
     {
         let dice_key = self
-            .data
             .async_evaluator
             .dice
             .key_index
             .index(CowDiceKeyHashed::proj_ref(base_key, key));
 
         let r = self
-            .data
             .async_evaluator
             .per_live_version_ctx
             .compute_projection(
                 dice_key,
-                self.data.parent_key,
-                self.data.async_evaluator.dice.state_handle.dupe(),
+                self.parent_key,
+                self.async_evaluator.dice.state_handle.dupe(),
                 SyncEvaluator::new(
-                    self.data.async_evaluator.user_data.dupe(),
-                    self.data.async_evaluator.dice.dupe(),
+                    self.async_evaluator.user_data.dupe(),
+                    self.async_evaluator.dice.dupe(),
                     base,
                 ),
                 DiceEventDispatcher::new(
-                    self.data.async_evaluator.user_data.tracker.dupe(),
-                    self.data.async_evaluator.dice.dupe(),
+                    self.async_evaluator.user_data.tracker.dupe(),
+                    self.async_evaluator.dice.dupe(),
                 ),
             );
 
@@ -255,8 +260,7 @@ impl PerComputeCtx {
             Err(_cancelled) => return Err(DiceError::cancelled()),
         };
 
-        self.data
-            .dep_trackers
+        self.dep_trackers
             .lock()
             .record(dice_key, r.value().validity());
 
@@ -266,47 +270,10 @@ impl PerComputeCtx {
             .dupe())
     }
 
-    /// temporarily here while we figure out why dice isn't paralleling computations so that we can
-    /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
-    /// the Arc, which makes lifetimes weird.
-    pub(crate) fn temporary_spawn<F, R>(
-        &self,
-        f: F,
-    ) -> Either<
-        StrongJoinHandle<BoxFuture<'static, Result<R, WeakFutureError>>>,
-        DropCancelAndTerminationObserver<R>,
-    >
-    where
-        F: for<'a> FnOnce(&'a DiceComputations, &'a CancellationContext) -> BoxFuture<'a, R>
-            + Send
-            + 'static,
-        R: Send + 'static,
-    {
-        let duped = self.dupe();
-
-        spawn_cancellable(
-            |cancellations| {
-                async move {
-                    f(
-                        &DiceComputations(DiceComputationsImpl::Modern(duped)),
-                        cancellations,
-                    )
-                    .await
-                }
-                .boxed()
-            },
-            self.data.async_evaluator.user_data.spawner.as_ref(),
-            &self.data.async_evaluator.user_data,
-            debug_span!(parent: None, "spawned_task",),
-        )
-        .into_drop_cancel()
-        .right_future()
-    }
-
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub(crate) fn global_data(&self) -> &DiceData {
-        &self.data.async_evaluator.dice.global_data
+        &self.async_evaluator.dice.global_data
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
@@ -314,29 +281,29 @@ impl PerComputeCtx {
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
-        &self.data.async_evaluator.user_data
+        &self.async_evaluator.user_data
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        self.data.async_evaluator.per_live_version_ctx.get_version()
+        self.async_evaluator.per_live_version_ctx.get_version()
     }
 
     pub(crate) fn into_updater(self) -> TransactionUpdater {
         TransactionUpdater::new(
-            self.data.async_evaluator.dice.dupe(),
-            self.data.async_evaluator.user_data.dupe(),
+            self.async_evaluator.dice.dupe(),
+            self.async_evaluator.user_data.dupe(),
         )
     }
 
     pub(super) fn dep_trackers(&self) -> MutexGuard<'_, RecordingDepsTracker> {
-        self.data.dep_trackers.lock()
+        self.dep_trackers.lock()
     }
 
     pub(crate) fn store_evaluation_data<T: Send + Sync + 'static>(
         &self,
         value: T,
     ) -> DiceResult<()> {
-        let mut evaluation_data = self.data.evaluation_data.lock();
+        let mut evaluation_data = self.evaluation_data.lock();
         if evaluation_data.0.is_some() {
             return Err(DiceError::duplicate_activation_data());
         }
@@ -344,25 +311,22 @@ impl PerComputeCtx {
         Ok(())
     }
 
-    pub(crate) fn finalize(self) -> ((HashSet<DiceKey>, DiceValidity), EvaluationData) {
-        // TODO need to clean up these ctxs so we have less runtime errors from Arc references
-        let data = Arc::try_unwrap(self.data)
-            .map_err(|_| "Error: tried to finalize when there are more references")
-            .unwrap();
-
-        data.cycles.finished_computing_key(
-            &data.async_evaluator.dice.key_index,
-            data.async_evaluator.user_data.cycle_detector.as_deref(),
-        );
-
+    pub(crate) fn finalize(
+        self,
+    ) -> (
+        (HashSet<DiceKey>, DiceValidity),
+        EvaluationData,
+        KeyComputingUserCycleDetectorData,
+    ) {
         (
-            data.dep_trackers.into_inner().collect_deps(),
-            data.evaluation_data.into_inner(),
+            self.dep_trackers.into_inner().collect_deps(),
+            self.evaluation_data.into_inner(),
+            self.cycles,
         )
     }
 
     pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
-        self.data.cycles.cycle_guard()
+        self.cycles.cycle_guard()
     }
 }
 
@@ -398,14 +362,17 @@ impl SharedLiveTransactionCtx {
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
         match self.cache.get(key) {
-            Some(Entry::Occupied(mut occupied)) => {
+            DiceTaskRef::Computed(result) => {
+                DicePromise::ready(result).left_future()
+            }
+            DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
                     MaybeCancelled::Ok(promise) => {
                         debug!(msg = "shared state is waiting on existing task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
 
                         promise
                     },
-                    MaybeCancelled::Cancelled(termination) => {
+                    MaybeCancelled::Cancelled => {
                         debug!(msg = "shared state has a cancelled task, spawning new one", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
 
                         let eval = eval.dupe();
@@ -421,9 +388,8 @@ impl SharedLiveTransactionCtx {
                                 eval,
                                 cycles,
                                 events,
-                                termination.map(|termination| PreviouslyCancelledTask {
+                                 Some(PreviouslyCancelledTask {
                                     previous,
-                                    termination,
                                 }),
                             )
                         });
@@ -437,7 +403,7 @@ impl SharedLiveTransactionCtx {
                 }
                 .left_future()
             }
-            Some(Entry::Vacant(vacant)) => {
+            DiceTaskRef::Vacant(vacant) => {
                 debug!(msg = "shared state is empty, spawning new task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
 
                 let eval = eval.dupe();
@@ -462,7 +428,7 @@ impl SharedLiveTransactionCtx {
 
                 fut.left_future()
             }
-            None => {
+            DiceTaskRef::TransactionCancelled => {
                 let v = self.version;
                 let v_epoch = self.version_epoch;
                 async move {
@@ -486,14 +452,14 @@ impl SharedLiveTransactionCtx {
         events: DiceEventDispatcher,
     ) -> CancellableResult<DiceComputedValue> {
         let promise = match self.cache.get(key) {
-            Some(Entry::Occupied(mut occupied)) => {
+            DiceTaskRef::Computed(value) => DicePromise::ready(value),
+            DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
                     MaybeCancelled::Ok(promise) => promise,
-                    MaybeCancelled::Cancelled(termination) => {
-                        let _ignored = termination; // for projections, since all projection evaluation is cheap and sync hence no side-effects, we ignore the termination
+                    MaybeCancelled::Cancelled => {
                         let task = unsafe {
                             // SAFETY: task completed below by `IncrementalEngine::project_for_key`
-                            sync_dice_task()
+                            sync_dice_task(key)
                         };
 
                         *occupied.get_mut() = task;
@@ -506,10 +472,10 @@ impl SharedLiveTransactionCtx {
                     }
                 }
             }
-            Some(Entry::Vacant(vacant)) => {
+            DiceTaskRef::Vacant(vacant) => {
                 let task = unsafe {
                     // SAFETY: task completed below by `IncrementalEngine::project_for_key`
-                    sync_dice_task()
+                    sync_dice_task(key)
                 };
 
                 vacant
@@ -519,12 +485,12 @@ impl SharedLiveTransactionCtx {
                     .not_cancelled()
                     .expect("just created")
             }
-            None => {
+            DiceTaskRef::TransactionCancelled => {
                 // for projection keys, these are cheap and synchronous computes that should never
                 // be cancelled
                 let task = unsafe {
                     // SAFETY: task completed below by `IncrementalEngine::project_for_key`
-                    sync_dice_task()
+                    sync_dice_task(key)
                 };
 
                 task.depended_on_by(parent_key)
@@ -564,8 +530,7 @@ impl EvaluationData {
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use dashmap::mapref::entry::Entry;
-
+    use crate::impls::cache::DiceTaskRef;
     use crate::impls::core::versions::VersionEpoch;
     use crate::impls::ctx::SharedLiveTransactionCtx;
     use crate::impls::key::DiceKey;
@@ -577,7 +542,7 @@ pub(crate) mod testing {
         pub(crate) fn inject(&self, k: DiceKey, v: DiceComputedValue) {
             let task = unsafe {
                 // SAFETY: completed immediately below
-                sync_dice_task()
+                sync_dice_task(k)
             };
             let _r = task
                 .depended_on_by(ParentKey::None)
@@ -585,13 +550,15 @@ pub(crate) mod testing {
                 .expect("just created")
                 .get_or_complete(|| v);
 
-            match self.cache.get(k).expect("cancelled") {
-                Entry::Occupied(o) => {
+            match self.cache.get(k) {
+                DiceTaskRef::Computed(_) => panic!("cannot inject already computed task"),
+                DiceTaskRef::Occupied(o) => {
                     o.replace_entry(task);
                 }
-                Entry::Vacant(v) => {
+                DiceTaskRef::Vacant(v) => {
                     v.insert(task);
                 }
+                DiceTaskRef::TransactionCancelled => panic!("transaction cancelled"),
             }
         }
 

@@ -233,10 +233,10 @@ pub fn register_instant_function(builder: &mut GlobalsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_elapsed_millis(ctx):
-    ///     now = now()
-    ///     time_a = now.elapsed_millis()
+    ///     instant = now()
+    ///     time_a = instant.elapsed_millis()
     ///     # do something that takes a long time
-    ///     time_b = now.elapsed_millis()
+    ///     time_b = instant.elapsed_millis()
     ///
     ///     ctx.output.print(time_a)
     ///     ctx.output.print(time_b)

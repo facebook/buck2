@@ -75,7 +75,7 @@ mod tests {
     }
 
     // TODO(nga): implement derive for this.
-    unsafe impl<'v> ProvidesStaticType for &'v dyn SomeTrait {
+    unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn SomeTrait {
         type StaticType = &'static dyn SomeTrait;
     }
 

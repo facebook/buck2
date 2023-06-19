@@ -15,24 +15,28 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
+use anyhow::Context as _;
+use async_trait::async_trait;
+use buck2_analysis::analysis::calculation::AnalysisKey;
+use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::calculation::BuildKey;
 use buck2_build_api::actions::calculation::BuildKeyActivationData;
 use buck2_build_api::actions::RegisteredAction;
-use buck2_build_api::analysis::calculation::AnalysisKey;
-use buck2_build_api::analysis::calculation::AnalysisKeyActivationData;
 use buck2_build_api::artifact_groups::calculation::EnsureProjectedArtifactKey;
 use buck2_build_api::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::build_signals::BuildSignals;
 use buck2_build_api::build_signals::BuildSignalsInstaller;
-use buck2_build_api::build_signals::CriticalPathBackendName;
-use buck2_build_api::build_signals::NodeDuration;
-use buck2_build_api::build_signals::START_LISTENER_BY_BACKEND_NAME;
+use buck2_build_api::build_signals::CREATE_BUILD_SIGNALS;
 use buck2_build_api::deferred::calculation::DeferredCompute;
 use buck2_build_api::deferred::calculation::DeferredResolve;
-use buck2_build_api::nodes::calculation::ConfiguredTargetNodeKey;
+use buck2_build_signals::CriticalPathBackendName;
+use buck2_build_signals::DeferredBuildSignals;
+use buck2_build_signals::FinishBuildSignals;
+use buck2_build_signals::NodeDuration;
+use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;
@@ -211,10 +215,6 @@ impl BuildSignals for BuildSignalSender {
             .into(),
         );
     }
-
-    fn build_finished(&self) {
-        let _ignored = self.sender.send(BuildSignal::BuildFinished);
-    }
 }
 
 impl ActivationTracker for BuildSignalSender {
@@ -289,6 +289,60 @@ impl ActivationTracker for BuildSignalSender {
 
         let _ignored = self.sender.send(signal.into());
     }
+}
+
+pub struct DeferredBuildSignalsImpl {
+    sender: Arc<BuildSignalSender>,
+    receiver: UnboundedReceiver<BuildSignal>,
+}
+
+impl DeferredBuildSignals for DeferredBuildSignalsImpl {
+    fn start(
+        self: Box<Self>,
+        events: EventDispatcher,
+        backend: CriticalPathBackendName,
+    ) -> Box<dyn FinishBuildSignals> {
+        let handle = match backend {
+            CriticalPathBackendName::LongestPathGraph => {
+                start_backend(events, self.receiver, LongestPathGraphBackend::new())
+            }
+            CriticalPathBackendName::Default => {
+                start_backend(events, self.receiver, DefaultBackend::new())
+            }
+        };
+
+        Box::new(FinishBuildSignalsImpl {
+            sender: self.sender,
+            handle,
+        }) as _
+    }
+}
+
+pub struct FinishBuildSignalsImpl {
+    sender: Arc<BuildSignalSender>,
+    handle: JoinHandle<anyhow::Result<()>>,
+}
+
+#[async_trait]
+impl FinishBuildSignals for FinishBuildSignalsImpl {
+    async fn finish(self: Box<Self>) -> anyhow::Result<()> {
+        let _ignored = self.sender.sender.send(BuildSignal::BuildFinished);
+
+        self.handle
+            .await
+            .context("Error joining critical path task")?
+    }
+}
+
+fn start_backend(
+    events: EventDispatcher,
+    receiver: UnboundedReceiver<BuildSignal>,
+    backend: impl BuildListenerBackend + Send + 'static,
+) -> JoinHandle<anyhow::Result<()>> {
+    let listener = BuildSignalReceiver::new(receiver, backend);
+    tokio::spawn(with_dispatcher_async(events.dupe(), async move {
+        listener.run_and_log().await
+    }))
 }
 
 struct BuildSignalReceiver<T> {
@@ -546,37 +600,20 @@ struct NodeData {
 
 assert_eq_size!(NodeData, [usize; 8]);
 
-fn start_listener(
-    events: EventDispatcher,
-    backend: impl BuildListenerBackend + Send + 'static,
-) -> (BuildSignalsInstaller, JoinHandle<anyhow::Result<()>>) {
+fn create_build_signals() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignals>) {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-    let sender = BuildSignalSender { sender };
 
-    let listener = BuildSignalReceiver::new(receiver, backend);
-    let receiver_task_handle = tokio::spawn(with_dispatcher_async(events.dupe(), async move {
-        listener.run_and_log().await
-    }));
-
-    let sender = Arc::new(sender);
-
+    let sender = Arc::new(BuildSignalSender { sender });
     let installer = BuildSignalsInstaller {
         build_signals: sender.dupe() as _,
-        activation_tracker: sender as _,
+        activation_tracker: sender.dupe() as _,
     };
 
-    (installer, receiver_task_handle)
-}
+    let deferred = Box::new(DeferredBuildSignalsImpl { receiver, sender });
 
-fn init_start_listener_by_backend_nane() {
-    START_LISTENER_BY_BACKEND_NAME.init(|events, backend| match backend {
-        CriticalPathBackendName::LongestPathGraph => {
-            start_listener(events, LongestPathGraphBackend::new())
-        }
-        CriticalPathBackendName::Default => start_listener(events, DefaultBackend::new()),
-    })
+    (installer, deferred as _)
 }
 
 pub fn init_late_bindings() {
-    init_start_listener_by_backend_nane();
+    CREATE_BUILD_SIGNALS.init(create_build_signals)
 }

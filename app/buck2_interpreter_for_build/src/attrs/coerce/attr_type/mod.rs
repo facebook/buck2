@@ -35,6 +35,7 @@ pub mod split_transition_dep;
 mod string;
 mod tuple;
 mod visibility;
+mod within_view;
 
 pub trait AttrTypeExt {
     fn this(&self) -> &AttrType;
@@ -116,6 +117,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
             Self::SplitTransitionDep(x) => x.coerce_item(configurable, ctx, value),
             Self::Label(x) => x.coerce_item(configurable, ctx, value),
             Self::Visibility(x) => x.coerce_item(configurable, ctx, value),
+            Self::WithinView(x) => x.coerce_item(configurable, ctx, value),
         }
     }
 
@@ -142,6 +144,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
             AttrTypeInner::SplitTransitionDep(x) => x.starlark_type(),
             AttrTypeInner::Label(x) => x.starlark_type(),
             AttrTypeInner::Visibility(x) => x.starlark_type(),
+            AttrTypeInner::WithinView(x) => x.starlark_type(),
         }
     }
 }

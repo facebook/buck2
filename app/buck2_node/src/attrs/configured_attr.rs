@@ -12,17 +12,17 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_core::buck_path::path::BuckPathRef;
-use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
+use buck2_util::collections::ordered_map::OrderedMap;
 use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_map::small_map;
 
-use crate::attrs::attr_type::arg::StringWithMacros;
+use super::attr_type::arg::ConfiguredStringWithMacros;
 use crate::attrs::attr_type::attr_config::source_file_display;
 use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
@@ -43,6 +43,7 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::visibility::VisibilitySpecification;
+use crate::visibility::WithinViewSpecification;
 
 #[derive(Debug, thiserror::Error)]
 enum ConfiguredAttrError {
@@ -94,6 +95,7 @@ pub enum ConfiguredAttr {
         u32,
     ),
     Visibility(VisibilitySpecification),
+    WithinView(WithinViewSpecification),
     ExplicitConfiguredDep(Box<ConfiguredExplicitConfiguredDep>),
     SplitTransitionDep(Box<ConfiguredSplitTransitionDep>),
     ConfigurationDep(Box<TargetLabel>),
@@ -102,7 +104,7 @@ pub enum ConfiguredAttr {
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
     Label(Box<ConfiguredProvidersLabel>),
-    Arg(StringWithMacros<ConfiguredProvidersLabel>),
+    Arg(ConfiguredStringWithMacros),
     Query(Box<QueryAttr<ConfiguredProvidersLabel>>),
     SourceFile(CoercedPath),
 }
@@ -135,6 +137,7 @@ impl AttrDisplayWithContext for ConfiguredAttr {
             ConfiguredAttr::None => write!(f, "None"),
             ConfiguredAttr::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             ConfiguredAttr::Visibility(v) => Display::fmt(v, f),
+            ConfiguredAttr::WithinView(v) => Display::fmt(v, f),
             ConfiguredAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             ConfiguredAttr::SplitTransitionDep(e) => Display::fmt(e, f),
             ConfiguredAttr::ConfigurationDep(e) => write!(f, "\"{}\"", e),
@@ -182,6 +185,7 @@ impl ConfiguredAttr {
             ConfiguredAttr::None => Ok(()),
             ConfiguredAttr::OneOf(l, _) => l.traverse(pkg, traversal),
             ConfiguredAttr::Visibility(..) => Ok(()),
+            ConfiguredAttr::WithinView(..) => Ok(()),
             ConfiguredAttr::ExplicitConfiguredDep(dep) => dep.as_ref().traverse(traversal),
             ConfiguredAttr::SplitTransitionDep(deps) => {
                 for target in deps.deps.values() {
@@ -193,7 +197,7 @@ impl ConfiguredAttr {
             ConfiguredAttr::Dep(dep) => dep.traverse(traversal),
             ConfiguredAttr::SourceLabel(dep) => traversal.dep(dep),
             ConfiguredAttr::Label(label) => traversal.label(label),
-            ConfiguredAttr::Arg(arg) => arg.traverse(traversal),
+            ConfiguredAttr::Arg(arg) => arg.string_with_macros.traverse(traversal),
             ConfiguredAttr::Query(query) => query.traverse(traversal),
             ConfiguredAttr::SourceFile(source) => {
                 for x in source.inputs() {
@@ -312,9 +316,9 @@ impl ConfiguredAttr {
                 }
             }
             ConfiguredAttr::Arg(left) => {
-                let res = left.concat(items.map(|x| {
+                let res = left.string_with_macros.concat(items.map(|x| {
                     match x? {
-                        ConfiguredAttr::Arg(x) => Ok(x),
+                        ConfiguredAttr::Arg(x) => Ok(x.string_with_macros),
                         attr => Err(ConfiguredAttrError::ConcatNotSupportedValues(
                             "arg",
                             attr.as_display_no_ctx().to_string(),
@@ -322,7 +326,10 @@ impl ConfiguredAttr {
                         .into()),
                     }
                 }))?;
-                Ok(ConfiguredAttr::Arg(res))
+                Ok(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
+                    string_with_macros: res,
+                    anon_target_compatible: left.anon_target_compatible,
+                }))
             }
             val => Err(ConfiguredAttrError::ConcatNotSupported(
                 val.as_display_no_ctx().to_string(),

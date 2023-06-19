@@ -62,14 +62,13 @@ pub trait ProviderCallableLike {
         let ctor = match creator {
             Some(creator) => {
                 let docs = GlobalsBuilder::new().with(creator).build().documentation();
-                match docs {
-                    DocItem::Module(x) if x.members.len() == 1 => {
-                        match x.members.into_iter().next() {
-                            Some((name, DocMember::Function(x))) => Some((name, x)),
-                            _ => None,
-                        }
+                if docs.members.len() == 1 {
+                    match docs.members.into_iter().next() {
+                        Some((name, DocMember::Function(x))) => Some((name, x)),
+                        _ => None,
                     }
-                    _ => None,
+                } else {
+                    None
                 }
             }
             _ => None,
@@ -83,7 +82,15 @@ pub trait ProviderCallableLike {
                     .map(|(a, b)| (a.to_owned(), DocMember::Property(b)))
                     .collect(),
             })),
-            Some((name, DocFunction { docs, params, ret })) => {
+            Some((
+                name,
+                DocFunction {
+                    docs,
+                    params,
+                    ret,
+                    dot_type,
+                },
+            )) => {
                 let summary = if let Some(x) = &docs {
                     x.summary.clone()
                 } else if let Some(x) = &overall {
@@ -119,13 +126,18 @@ pub trait ProviderCallableLike {
                         raw_type: format!("{name}.type"),
                     }),
                 };
-                Some(DocItem::Function(DocFunction { docs, params, ret }))
+                Some(DocItem::Function(DocFunction {
+                    docs,
+                    params,
+                    ret,
+                    dot_type,
+                }))
             }
         }
     }
 }
 
-unsafe impl<'v> ProvidesStaticType for &'v dyn ProviderCallableLike {
+unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn ProviderCallableLike {
     type StaticType = &'static dyn ProviderCallableLike;
 }
 

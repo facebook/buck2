@@ -606,10 +606,10 @@ fn test_module_visibility_preserved_by_evaluator() -> anyhow::Result<()> {
     let globals = Globals::standard();
 
     let import = Module::new();
-    import.set("a", Value::new_int(1));
+    import.set("a", Value::testing_new_int(1));
     import.set_private(
         import.frozen_heap().alloc_str_intern("b"),
-        Value::new_int(2),
+        Value::testing_new_int(2),
     );
 
     {
@@ -866,7 +866,7 @@ xs == [1, 2, 3, 1, 2, 3]
 xs = [1, 2, 3]
 xs.pop(xs)
 "#,
-        "not supported",
+        "Type of parameter `index` doesn't match",
     );
     assert::fail(
         r#"
@@ -1011,10 +1011,31 @@ animal("Joe")
 
 #[test]
 fn test_fuzzer_59102() {
-    // let src = std::fs::read_to_string("/Users/ndmitchell/fbsource/fbcode/buck2/clusterfuzz-testcase-minimized-starlark-6484634888962048").unwrap();
+    // From https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=59102
     let src = "\"\u{e0070}";
     let res: Result<AstModule, anyhow::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
     // The panic actually only happens when we format the result
     format!("{:?}", res);
+}
+
+#[test]
+fn test_fuzzer_59371() {
+    // From https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=59371
+    let src = "\"\u{2009}\\x";
+    let res: Result<AstModule, anyhow::Error> =
+        AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
+    // The panic actually only happens when we format the result
+    format!("{:?}", res);
+}
+
+#[test]
+fn test_fuzzer_59839() {
+    // From https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=59839
+    let src = "\"{20000000000000000396}\".format()";
+    let ast = AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard).unwrap();
+    let globals: Globals = Globals::standard();
+    let module: Module = Module::new();
+    let mut eval: Evaluator = Evaluator::new(&module);
+    assert!(eval.eval_module(ast, &globals).is_err());
 }

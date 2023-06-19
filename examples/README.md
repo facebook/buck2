@@ -3,7 +3,7 @@
 In these folders are some examples on how to get buck2 working with
 your favorite languages and tools.
 
-## prelude
+## with_prelude
 
 Examples taking advantage of the prelude to create toolchain-independent
 build definitions in cpp and python. Includes as an example a usecase

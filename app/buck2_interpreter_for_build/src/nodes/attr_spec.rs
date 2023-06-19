@@ -17,6 +17,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::internal::attr_is_configurable;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::values::AttrValues;
 use buck2_node::visibility::VisibilitySpecification;
@@ -82,6 +83,7 @@ impl AttributeSpecExt for AttributeSpec {
             };
 
             let is_visibility = attr_name == VISIBILITY_ATTRIBUTE_FIELD;
+            let is_with_view = attr_name == WITHIN_VIEW_ATTRIBUTE_FIELD;
             if let Some(v) = user_value {
                 let mut coerced = attribute
                     .coerce(
@@ -100,19 +102,15 @@ impl AttributeSpecExt for AttributeSpec {
                     })?;
 
                 if is_visibility {
-                    if internals.package().default_visibility_to_public {
-                        if coerced
-                            == CoercedValue::Custom(CoercedAttr::Visibility(
-                                VisibilitySpecification::DEFAULT,
-                            ))
-                        {
-                            coerced = CoercedValue::Custom(CoercedAttr::Visibility(
-                                VisibilitySpecification::Public,
-                            ));
-                        }
-                    } else if coerced == CoercedValue::Default {
+                    if coerced == CoercedValue::Default {
                         coerced = CoercedValue::Custom(CoercedAttr::Visibility(
                             internals.super_package.visibility().dupe(),
+                        ));
+                    }
+                } else if is_with_view {
+                    if coerced == CoercedValue::Default {
+                        coerced = CoercedValue::Custom(CoercedAttr::WithinView(
+                            internals.super_package.within_view().dupe(),
                         ));
                     }
                 }
@@ -124,18 +122,7 @@ impl AttributeSpecExt for AttributeSpec {
                     CoercedValue::Default => {}
                 }
             } else if is_visibility {
-                if internals.package().default_visibility_to_public {
-                    attr_values.push_sorted(
-                        attr_idx,
-                        CoercedAttr::Visibility(VisibilitySpecification::Public),
-                    );
-                } else if internals.super_package.visibility() != &VisibilitySpecification::DEFAULT
-                {
-                    // This behavior of handling `default_visibility_to_public`
-                    // and package visibility is different:
-                    // When visibility is specified explicitly to "default" (i.e. `[]`),
-                    // we flush visibility to public when `default_visibility_to_public` is true.
-                    // but do not apply package visibility.
+                if internals.super_package.visibility() != &VisibilitySpecification::DEFAULT {
                     attr_values.push_sorted(
                         attr_idx,
                         CoercedAttr::Visibility(internals.super_package.visibility().dupe()),

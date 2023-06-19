@@ -39,13 +39,13 @@ use futures::stream::TryStreamExt;
 use itertools::Itertools;
 use tokio::sync::Mutex;
 
+use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::artifact::materializer::ArtifactMaterializer;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::build_signals::HasBuildSignals;
-use crate::calculation::Calculation;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
@@ -172,13 +172,13 @@ pub struct BuildEvent {
     variant: BuildEventVariant,
 }
 
-pub async fn build_configured_label(
-    ctx: &DiceComputations,
+pub async fn build_configured_label<'a>(
+    ctx: &'a DiceComputations,
     materialization_context: &MaterializationContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     skippable: bool,
-) -> anyhow::Result<BoxStream<'static, BuildEvent>> {
+) -> anyhow::Result<BoxStream<'a, BuildEvent>> {
     let providers_label = Arc::new(providers_label);
 
     let artifact_fs = ctx.get_artifact_fs().await?;
@@ -285,15 +285,11 @@ pub async fn build_configured_label(
         .into_iter()
         .enumerate()
         .map({
-            // The closure gets its copy.
-            let ctx = ctx.dupe();
             let materialization_context = materialization_context.dupe();
             move |(index, (output, provider_type))| {
-                // And each future we create gets one too.
-                let ctx = ctx.dupe();
                 let materialization_context = materialization_context.dupe();
                 async move {
-                    let res = materialize_artifact_group(&ctx, &output, &materialization_context)
+                    let res = materialize_artifact_group(ctx, &output, &materialization_context)
                         .await
                         .shared_error()
                         .map(|values| ProviderArtifacts {

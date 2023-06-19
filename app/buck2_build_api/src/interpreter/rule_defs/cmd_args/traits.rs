@@ -26,8 +26,8 @@ use starlark::any::ProvidesStaticType;
 use starlark::values::string::StarlarkStr;
 
 use crate::artifact_groups::ArtifactGroup;
-use crate::attrs::resolve::attr_type::arg::value::ResolvedMacro;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
+use crate::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 
 pub trait CommandLineArtifactVisitor {
     fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>);
@@ -100,7 +100,7 @@ pub trait CommandLineArgLike {
     ) -> anyhow::Result<()>;
 }
 
-unsafe impl<'v> ProvidesStaticType for &'v dyn CommandLineArgLike {
+unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn CommandLineArgLike {
     type StaticType = &'static dyn CommandLineArgLike;
 }
 

@@ -84,6 +84,7 @@ impl Span {
     }
 
     /// The length in bytes of the text of the span
+    #[cfg(test)]
     pub fn len(self) -> u32 {
         self.end.0 - self.begin.0
     }
@@ -131,6 +132,13 @@ impl<T> Spanned<T> {
     pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Spanned<U> {
         Spanned {
             node: f(&self.node),
+            span: self.span,
+        }
+    }
+
+    pub(crate) fn as_ref(&self) -> Spanned<&T> {
+        Spanned {
+            node: &self.node,
             span: self.span,
         }
     }
@@ -396,8 +404,19 @@ pub(crate) struct LineCol {
     /// The line number within the file (0-indexed).
     pub line: usize,
 
-    /// The column within the line (0-indexed).
+    /// The column within the line (0-indexed in characters).
     pub column: usize,
+}
+
+impl LineCol {
+    #[cfg(test)]
+    fn testing_parse(line_col: &str) -> LineCol {
+        let (line, col) = line_col.split_once(':').unwrap();
+        LineCol {
+            line: line.parse::<usize>().unwrap().checked_sub(1).unwrap(),
+            column: col.parse::<usize>().unwrap().checked_sub(1).unwrap(),
+        }
+    }
 }
 
 /// A file, and a line and column range within it.
@@ -496,11 +515,11 @@ impl FileSpan {
 pub struct ResolvedSpan {
     /// 0-based line number of the beginning of the span.
     pub begin_line: usize,
-    /// 0-based column number of the beginning of the span.
+    /// 0-based character column number of the beginning of the span.
     pub begin_column: usize,
     /// 0-based line number of the end of the span.
     pub end_line: usize,
-    /// 0-based column number of the end of the span.
+    /// 0-based character column number of the end of the span.
     pub end_column: usize,
 }
 
@@ -559,6 +578,32 @@ impl ResolvedSpan {
             end_column: end.column,
         }
     }
+
+    #[cfg(test)]
+    fn testing_parse(span: &str) -> ResolvedSpan {
+        match span.split_once('-') {
+            None => {
+                let line_col = LineCol::testing_parse(span);
+                ResolvedSpan::from_span(line_col, line_col)
+            }
+            Some((begin, end)) => {
+                let begin = LineCol::testing_parse(begin);
+                if end.contains(':') {
+                    let end = LineCol::testing_parse(end);
+                    ResolvedSpan::from_span(begin, end)
+                } else {
+                    let end_col = end.parse::<usize>().unwrap().checked_sub(1).unwrap();
+                    ResolvedSpan::from_span(
+                        begin,
+                        LineCol {
+                            line: begin.line,
+                            column: end_col,
+                        },
+                    )
+                }
+            }
+        }
+    }
 }
 
 /// File name and line and column pairs for a span.
@@ -568,6 +613,17 @@ pub struct ResolvedFileSpan {
     pub file: String,
     /// The span.
     pub span: ResolvedSpan,
+}
+
+impl ResolvedFileSpan {
+    #[cfg(test)]
+    pub(crate) fn testing_parse(span: &str) -> ResolvedFileSpan {
+        let (file, span) = span.split_once(':').unwrap();
+        ResolvedFileSpan {
+            file: file.to_owned(),
+            span: ResolvedSpan::testing_parse(span),
+        }
+    }
 }
 
 impl Display for ResolvedFileSpan {

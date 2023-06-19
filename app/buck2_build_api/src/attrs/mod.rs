@@ -44,5 +44,3 @@
 //! for its sources would specify `attrs.list(attrs.file())` and would
 //! receive a list of files in the implementation. The intermediate form of that
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
-
-pub mod resolve;

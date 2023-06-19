@@ -12,6 +12,7 @@ KotlinToolchainInfo = provider(
     fields = [
         "annotation_processing_jar",
         "compilation_tracer_plugin",
+        "qpld_dotslash",
         "compile_kotlin",
         "dep_files",
         "kapt_base64_encoder",
@@ -21,6 +22,7 @@ KotlinToolchainInfo = provider(
         "kotlincd_debug_port",
         "kotlincd_debug_target",
         "kotlincd_jvm_args",
+        "kotlincd_worker",
         "kotlin_stdlib",
         "kotlin_home_libraries",
         "kosabi_stubs_gen_plugin",

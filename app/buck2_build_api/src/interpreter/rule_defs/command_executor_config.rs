@@ -143,6 +143,15 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 Some(RemoteExecutorUseCase::new(re_use_case.to_owned()))
             };
 
+            let re_action_key = if remote_execution_action_key.is_none() {
+                None
+            } else {
+                let re_action_key = remote_execution_action_key
+                    .unpack_str()
+                    .context("remote_execution_action_key is not a string")?;
+                Some(re_action_key.to_owned())
+            };
+
             let local_options = if local_enabled {
                 Some(LocalExecutorOptions {
                     use_persistent_workers,
@@ -151,13 +160,6 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 None
             };
             let remote_options = if remote_enabled {
-                let re_action_key = remote_execution_action_key.to_value();
-                let re_action_key = if re_action_key.is_none() {
-                    None
-                } else {
-                    Some(re_action_key.to_value().to_str())
-                };
-
                 let re_max_input_files_bytes = remote_execution_max_input_files_mebibytes
                     .map(u64::try_from)
                     .transpose()
@@ -171,7 +173,6 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                     .map(|t| t * 1000);
 
                 Some(RemoteExecutorOptions {
-                    re_action_key,
                     re_max_input_files_bytes,
                     re_max_queue_time_ms,
                 })
@@ -238,6 +239,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         )?,
                         re_use_case: re_use_case
                             .context(CommandExecutorConfigErrors::MissingField("re_use_case"))?,
+                        re_action_key,
                         cache_upload_behavior,
                         remote_cache_enabled,
                     }
@@ -248,6 +250,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                     // remote_enabled first.
                     re_properties: re_properties.unwrap_or_default(),
                     re_use_case: re_use_case.unwrap_or_else(RemoteExecutorUseCase::buck2_default),
+                    re_action_key,
                     cache_upload_behavior,
                     remote_cache_enabled: true,
                 },

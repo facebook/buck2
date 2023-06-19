@@ -61,12 +61,6 @@ impl AlignedSize {
 
     #[inline]
     pub(crate) const fn of<T>() -> AlignedSize {
-        assert!(mem::align_of::<T>() == AValueHeader::ALIGN);
-        AlignedSize::new_bytes(mem::size_of::<T>())
-    }
-
-    #[inline]
-    pub(crate) const fn of_align_up<T>() -> AlignedSize {
         AlignedSize::align_up(mem::size_of::<T>())
     }
 

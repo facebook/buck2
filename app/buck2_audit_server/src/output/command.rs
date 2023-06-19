@@ -16,12 +16,12 @@ use buck2_build_api::actions::query::PRINT_ACTION_NODE;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::audit_output::AuditOutputResult;
 use buck2_build_api::audit_output::AUDIT_OUTPUT;
-use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
+use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -54,10 +54,14 @@ async fn audit_output<'v>(
     let (target_label, config_hash, path_after_target_name) = match parsed {
         BuckOutPathType::RuleOutput {
             target_label,
-            config_hash,
+            common_attrs,
             path_after_target_name,
             ..
-        } => (target_label, config_hash, path_after_target_name),
+        } => (
+            target_label,
+            common_attrs.config_hash,
+            path_after_target_name,
+        ),
         _ => {
             return Err(anyhow::anyhow!(AuditOutputError::UnsupportedPathType(
                 output_path.to_owned()

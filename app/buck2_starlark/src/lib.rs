@@ -29,10 +29,13 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::debug::StarlarkDebugAttachCommand;
 use crate::lint::StarlarkLintCommand;
+use crate::typecheck::StarlarkTypecheckCommand;
 
 mod debug;
 mod lint;
+mod oracle_buck;
 pub mod server;
+mod typecheck;
 mod util;
 
 #[derive(Debug, clap::Subcommand)]
@@ -49,6 +52,7 @@ pub enum StarlarkCommand {
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 pub enum StarlarkOpaqueCommand {
     Lint(StarlarkLintCommand),
+    Typecheck(StarlarkTypecheckCommand),
 }
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
@@ -89,6 +93,7 @@ impl StarlarkOpaqueCommand {
     fn as_subcommand(&self) -> &dyn StarlarkOpaqueSubcommand {
         match self {
             Self::Lint(cmd) => cmd,
+            Self::Typecheck(cmd) => cmd,
         }
     }
 }

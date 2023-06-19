@@ -20,7 +20,6 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::target::name::TargetNameRef;
 use buck2_events::dispatch::console_message;
-use buck2_interpreter::globspec::GlobSpec;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
@@ -32,6 +31,7 @@ use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
+use crate::interpreter::globspec::GlobSpec;
 use crate::super_package::data::SuperPackage;
 
 impl From<ModuleInternals> for EvaluationResult {
@@ -81,7 +81,6 @@ pub struct ModuleInternals {
     /// Directly imported modules.
     imports: Vec<ImportPath>,
     package_implicits: Option<PackageImplicits>,
-    default_visibility_to_public: bool,
     record_target_call_stacks: bool,
     skip_targets_with_duplicate_names: bool,
     /// The files owned by this directory. Is `None` for .bzl files.
@@ -122,7 +121,6 @@ impl ModuleInternals {
         buildfile_path: Arc<BuildFilePath>,
         imports: Vec<ImportPath>,
         package_implicits: Option<PackageImplicits>,
-        default_visibility_to_public: bool,
         record_target_call_stacks: bool,
         skip_targets_with_duplicate_names: bool,
         package_listing: PackageListing,
@@ -134,7 +132,6 @@ impl ModuleInternals {
             state: RefCell::new(State::BeforeTargets(None)),
             imports,
             package_implicits,
-            default_visibility_to_public,
             record_target_call_stacks,
             skip_targets_with_duplicate_names,
             package_listing,
@@ -186,7 +183,6 @@ impl ModuleInternals {
                             package: Arc::new(Package {
                                 buildfile_path: self.buildfile_path.dupe(),
                                 oncall,
-                                default_visibility_to_public: self.default_visibility_to_public,
                             }),
                             recorder: TargetsRecorder::new(),
                         });

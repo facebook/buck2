@@ -57,11 +57,11 @@ use crate::eval::compiler::expr::get_attr_hashed_raw;
 use crate::eval::compiler::expr::EvalError;
 use crate::eval::compiler::expr::MemberOrValue;
 use crate::eval::compiler::expr_throw;
-use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::add_assign;
 use crate::eval::compiler::stmt::bit_or_assign;
 use crate::eval::compiler::stmt::possible_gc;
 use crate::eval::compiler::stmt::AssignError;
+use crate::eval::compiler::EvalException;
 use crate::eval::runtime::arguments::ResolvedArgName;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
@@ -881,8 +881,8 @@ pub(crate) type InstrLen = InstrUnOp<InstrLenImpl>;
 
 impl InstrUnOpImpl for InstrLenImpl {
     #[inline(always)]
-    fn eval<'v>(v: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(Value::new_int(v.length()?))
+    fn eval<'v>(v: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        Ok(heap.alloc(v.length()?))
     }
 }
 
@@ -989,14 +989,14 @@ impl InstrNoFlowImpl for InstrDictNPopImpl {
                 Ok(k) => k,
                 Err(e) => {
                     let spans = &Bc::slow_arg_at_ptr(ip).spans;
-                    return Err(add_span_to_expr_error(e, spans[i], eval).0);
+                    return Err(add_span_to_expr_error(e, spans[i], eval).into_anyhow());
                 }
             };
             let prev = dict.insert_hashed(k, v);
             if prev.is_some() {
                 let e = EvalError::DuplicateDictionaryKey(k.key().to_string()).into();
                 let spans = &Bc::slow_arg_at_ptr(ip).spans;
-                return Err(add_span_to_expr_error(e, spans[i], eval).0);
+                return Err(add_span_to_expr_error(e, spans[i], eval).into_anyhow());
             }
         }
         let dict = eval.heap().alloc(Dict::new(dict));
@@ -1110,23 +1110,22 @@ pub(crate) struct InstrCheckTypeImpl;
 pub(crate) type InstrCheckType = InstrNoFlow<InstrCheckTypeImpl>;
 
 impl InstrNoFlowImpl for InstrCheckTypeImpl {
-    type Arg = (BcSlotIn, BcSlotIn);
+    type Arg = (BcSlotIn, TypeCompiled<FrozenValue>);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (expr, ty): &(BcSlotIn, BcSlotIn),
+        (expr, ty): &(BcSlotIn, TypeCompiled<FrozenValue>),
     ) -> anyhow::Result<()> {
         let expr = frame.get_bc_slot(*expr);
-        let ty = frame.get_bc_slot(*ty);
         let start = if eval.typecheck_profile.enabled {
             Some(Instant::now())
         } else {
             None
         };
-        let res = expr.check_type(ty, None, eval.heap());
+        let res = ty.check_type(expr, None);
         if let Some(start) = start {
             let name = const_frozen_string!("assignment");
             eval.typecheck_profile.add(name, start.elapsed());
@@ -1364,7 +1363,7 @@ pub(crate) type InstrDef = InstrNoFlow<InstrDefImpl>;
 pub(crate) struct InstrDefData {
     pub(crate) function_name: String,
     pub(crate) params: ParametersCompiled<u32>,
-    pub(crate) return_type: Option<IrSpanned<u32>>,
+    pub(crate) return_type: Option<TypeCompiled<FrozenValue>>,
     pub(crate) info: FrozenRef<'static, DefInfo>,
 }
 
@@ -1396,15 +1395,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
             }
 
             if let (name, Some(t)) = x.name_ty() {
-                assert!(*t == pop_index);
-                let v = pop[pop_index as usize];
-                pop_index += 1;
-                parameter_types.push((
-                    LocalSlotId(i),
-                    name.name.clone(),
-                    v,
-                    expr_throw(TypeCompiled::new(v, eval.heap()), x.span, eval).map_err(|e| e.0)?,
-                ));
+                parameter_types.push((LocalSlotId(i), name.name.clone(), t));
             }
 
             match &x.node {
@@ -1416,13 +1407,9 @@ impl InstrNoFlowImpl for InstrDefImpl {
 
                     if ty.is_some() {
                         // Check the type of the default
-                        let (_, _, ty_value, ty_compiled) = parameter_types.last().unwrap();
-                        expr_throw(
-                            value.check_type_compiled(*ty_value, ty_compiled, Some(&n.name)),
-                            x.span,
-                            eval,
-                        )
-                        .map_err(|e| e.0)?;
+                        let (_, _, ty_compiled) = parameter_types.last().unwrap();
+                        expr_throw(ty_compiled.check_type(value, Some(&n.name)), x.span, eval)
+                            .map_err(EvalException::into_anyhow)?;
                     }
                     parameters.defaulted(&n.name, value);
                 }
@@ -1430,19 +1417,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
                 ParameterCompiled::KwArgs(_, _) => parameters.kwargs(),
             };
         }
-        let return_type = match &def_data.return_type {
-            None => None,
-            Some(v) => {
-                assert!(v.node == pop_index);
-                let value = pop[pop_index as usize];
-                pop_index += 1;
-                Some((
-                    value,
-                    expr_throw(TypeCompiled::new(value, eval.heap()), v.span, eval)
-                        .map_err(|e| e.0)?,
-                ))
-            }
-        };
+        let return_type = def_data.return_type;
         assert!(pop_index as usize == pop.len());
         let def = eval.heap().alloc(Def::new(
             parameters.finish(),
@@ -1593,7 +1568,8 @@ impl<A: BcCallArgsForDef> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
     ) -> anyhow::Result<()> {
         let arguments = args.pop_from_stack(frame);
         let r = eval.with_call_stack(fun.to_value(), Some(*span), |eval| {
-            fun.as_ref().invoke_with_args(&arguments, eval)
+            fun.as_ref()
+                .invoke_with_args(fun.to_value(), &arguments, eval)
         })?;
         frame.set_bc_slot(*target, r);
         Ok(())
@@ -1717,12 +1693,8 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A>
 }
 
 pub(crate) struct InstrPossibleGcImpl;
-pub(crate) struct InstrRecordCallEnterImpl;
-pub(crate) struct InstrRecordCallExitImpl;
 
 pub(crate) type InstrPossibleGc = InstrNoFlow<InstrPossibleGcImpl>;
-pub(crate) type InstrRecordCallEnter = InstrNoFlow<InstrRecordCallEnterImpl>;
-pub(crate) type InstrRecordCallExit = InstrNoFlow<InstrRecordCallExitImpl>;
 
 impl InstrNoFlowImpl for InstrPossibleGcImpl {
     type Arg = ();
@@ -1734,37 +1706,6 @@ impl InstrNoFlowImpl for InstrPossibleGcImpl {
         (): &(),
     ) -> anyhow::Result<()> {
         possible_gc(eval);
-        Ok(())
-    }
-}
-
-impl InstrNoFlowImpl for InstrRecordCallEnterImpl {
-    type Arg = BcSlotIn;
-
-    fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        frame: BcFramePtr<'v>,
-        _ip: BcPtrAddr,
-        fun: &BcSlotIn,
-    ) -> anyhow::Result<()> {
-        let fun = frame.get_bc_slot(*fun);
-        eval.heap_profile.record_call_enter(fun, eval.heap());
-        eval.flame_profile.record_call_enter(fun);
-        Ok(())
-    }
-}
-
-impl InstrNoFlowImpl for InstrRecordCallExitImpl {
-    type Arg = ();
-
-    fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        _frame: BcFramePtr<'v>,
-        _ip: BcPtrAddr,
-        (): &(),
-    ) -> anyhow::Result<()> {
-        eval.heap_profile.record_call_exit(eval.heap());
-        eval.flame_profile.record_call_exit();
         Ok(())
     }
 }

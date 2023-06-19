@@ -28,29 +28,23 @@ impl AttrTypeCoerce for ListAttrType {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<CoercedAttr> {
-        if let Some(list) = ListRef::from_value(value) {
-            Ok(CoercedAttr::List(ListLiteral(
-                ctx.intern_list(
-                    list.content()
-                        .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?,
-                ),
-            )))
-        } else if let Some(list) = TupleRef::from_value(value) {
-            Ok(CoercedAttr::List(ListLiteral(
-                ctx.intern_list(
-                    list.content()
-                        .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?,
-                ),
-            )))
-        } else {
-            Err(anyhow::anyhow!(CoercionError::type_error(
-                ListRef::TYPE,
-                value,
-            )))
-        }
+        let list = coerce_list(value)?;
+        Ok(CoercedAttr::List(ListLiteral(ctx.intern_list(
+            list.try_map(|v| (self.inner).coerce(configurable, ctx, *v))?,
+        ))))
     }
 
     fn starlark_type(&self) -> String {
         format!("[{}]", self.inner.starlark_type())
+    }
+}
+
+pub(crate) fn coerce_list<'v>(value: Value<'v>) -> anyhow::Result<&'v [Value<'v>]> {
+    if let Some(list) = ListRef::from_value(value) {
+        Ok(list.content())
+    } else if let Some(list) = TupleRef::from_value(value) {
+        Ok(list.content())
+    } else {
+        Err(CoercionError::type_error(ListRef::TYPE, value).into())
     }
 }

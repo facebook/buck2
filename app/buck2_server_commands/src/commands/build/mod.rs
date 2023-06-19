@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
 use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
@@ -20,7 +21,6 @@ use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::build::ProvidersToBuild;
-use buck2_build_api::calculation::Calculation;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_cli_proto::build_request::BuildProviders;
@@ -48,6 +48,7 @@ use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -372,26 +373,22 @@ fn build_targets_in_universe<'a>(
         .map(|p| {
             let materialization_context = materialization_context.dupe();
             let providers_to_build = providers_to_build.clone();
-            ctx.temporary_spawn(|ctx, _cancellations| {
-                async move {
-                    let res = build::build_configured_label(
-                        &ctx,
-                        &materialization_context,
-                        p,
-                        &providers_to_build,
-                        false,
-                    )
-                    .await;
+            async move {
+                let res = build::build_configured_label(
+                    ctx,
+                    &materialization_context,
+                    p,
+                    &providers_to_build,
+                    false,
+                )
+                .await;
 
-                    match res {
-                        Ok(stream) => stream.map(Ok).left_stream(),
-                        Err(e) => {
-                            futures::stream::once(futures::future::ready(Err(e))).right_stream()
-                        }
-                    }
+                match res {
+                    Ok(stream) => stream.map(Ok).left_stream(),
+                    Err(e) => futures::stream::once(futures::future::ready(Err(e))).right_stream(),
                 }
-                .boxed()
-            })
+            }
+            .boxed()
         })
         .collect::<FuturesUnordered<_>>()
         .flatten_unordered(None)
@@ -508,19 +505,16 @@ fn build_targets_for_spec<'a>(
             .map(|build_spec| {
                 let materialization_context = materialization_context.dupe();
                 let providers_to_build = providers_to_build.clone();
-                // TODO(cjhopman): Figure out why we need these explicit spawns to get actual multithreading.
-                ctx.temporary_spawn(move |ctx, _cancellations| {
-                    async move {
-                        build_target(
-                            &ctx,
-                            build_spec,
-                            &providers_to_build,
-                            &materialization_context,
-                        )
-                        .await
-                    }
-                    .boxed()
-                })
+                async move {
+                    build_target(
+                        ctx,
+                        build_spec,
+                        &providers_to_build,
+                        &materialization_context,
+                    )
+                    .await
+                }
+                .boxed()
             })
             .collect::<FuturesUnordered<_>>()
             .flatten_unordered(None);
@@ -531,15 +525,15 @@ fn build_targets_for_spec<'a>(
     .try_flatten_stream()
 }
 
-async fn build_target(
-    ctx: &DiceComputations,
+async fn build_target<'a>(
+    ctx: &'a DiceComputations,
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
     materialization_context: &MaterializationContext,
-) -> impl Stream<Item = anyhow::Result<BuildEvent>> + 'static {
+) -> impl Stream<Item = anyhow::Result<BuildEvent>> + 'a {
     let res = async {
         let providers_label = ctx
-            .get_configured_target(
+            .get_configured_provider_label(
                 &ProvidersLabel::new(spec.target.label().dupe(), spec.providers),
                 spec.global_target_platform.as_ref(),
             )

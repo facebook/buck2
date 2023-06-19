@@ -10,7 +10,6 @@
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_common::executor_config::PathSeparatorKind;
-use buck2_core::buck_path::resolver::BuckPathResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -25,7 +24,7 @@ use starlark::values::Value;
 fn artifact_fs() -> ArtifactFs {
     let cell_info = cells(None).unwrap();
     ArtifactFs::new(
-        BuckPathResolver::new(cell_info.1),
+        cell_info.1,
         BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
             "buck-out/v2".to_owned(),
         )),

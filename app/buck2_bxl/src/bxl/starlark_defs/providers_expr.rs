@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_build_api::calculation::Calculation;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -23,6 +22,7 @@ use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use dupe::Dupe;
 use itertools::Either;
 use starlark::eval::Evaluator;
@@ -105,7 +105,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             Self::unpack_providers_label(value, ctx)?.map_or(Ok(None), |label| {
                 let result: anyhow::Result<_> = try {
                     Self::Literal(ctx.async_ctx.via_dice(|ctx| {
-                        ctx.get_configured_target(&label, target_platform.as_ref())
+                        ctx.get_configured_provider_label(&label, target_platform.as_ref())
                     })?)
                 };
                 result.map(Some)

@@ -21,7 +21,6 @@ use flush_dep_files::FlushDepFilesCommand;
 use heap_dump::HeapDumpCommand;
 use internal_version::InternalVersionCommand;
 use materialize::MaterializeCommand;
-use replay::ReplayCommand;
 
 use crate::commands::debug::allocative::AllocativeCommand;
 use crate::commands::debug::daemon_dir::DaemonDirCommand;
@@ -33,6 +32,7 @@ use crate::commands::debug::set_log_filter::SetLogFilterCommand;
 use crate::commands::debug::trace_io::TraceIoCommand;
 use crate::commands::debug::upload_re_logs::UploadReLogsCommand;
 use crate::commands::log::debug_last_log::DebugLastLogCommand;
+use crate::commands::log::debug_replay::DebugReplayCommand;
 use crate::commands::log::debug_what_ran::DebugWhatRanCommand;
 
 mod allocative;
@@ -49,7 +49,6 @@ mod internal_version;
 mod log_perf;
 mod materialize;
 mod persist_event_logs;
-pub mod replay;
 mod segfault;
 mod set_log_filter;
 mod trace_io;
@@ -70,11 +69,8 @@ pub enum DebugCommand {
     AllocatorStats(AllocatorStatsCommand),
     /// Dump the DICE graph to a file and saves it to disk.
     DiceDump(DiceDumpCommand),
-    /// Replay a previous command by reading off from an event log.
-    ///
-    /// This does not interact (or even launch) a daemon.
-    /// Rather, it simply reads from a log of saved events and streams them to the CLI.
-    Replay(ReplayCommand),
+    #[clap(setting(clap::AppSettings::Hidden))]
+    Replay(DebugReplayCommand),
     /// Prints the hash of the buck2 binary
     InternalVersion(InternalVersionCommand),
     /// Renders an event-log to a Chrome trace file for inspection with a browser.

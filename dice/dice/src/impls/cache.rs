@@ -13,60 +13,140 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
-use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dupe::Dupe;
 use fnv::FnvBuildHasher;
-use more_futures::cancellation::future::TerminationObserver;
+use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
 use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
+use crate::impls::task::dice::DiceTaskInternal;
+use crate::impls::value::DiceComputedValue;
+use crate::result::CancellableResult;
+
+#[derive(Allocative)]
+struct Data {
+    completed: ShardedLockFreeRawTable<Arc<DiceTaskInternal>, 64>,
+    /// Completed tasks lazily moved into `completed` from this map.
+    storage: DashMap<DiceKey, DiceTask, FnvBuildHasher>,
+    is_cancelled: AtomicBool,
+}
 
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct SharedCache {
     data: Arc<Data>,
 }
 
-#[derive(Allocative)]
-struct Data {
-    storage: DashMap<DiceKey, DiceTask, FnvBuildHasher>,
-    is_cancelled: AtomicBool,
+/// Reference to the task in the cache.
+pub(crate) enum DiceTaskRef<'a> {
+    Computed(DiceComputedValue),
+    Occupied(dashmap::mapref::entry::OccupiedEntry<'a, DiceKey, DiceTask, FnvBuildHasher>),
+    Vacant(dashmap::mapref::entry::VacantEntry<'a, DiceKey, DiceTask, FnvBuildHasher>),
+    TransactionCancelled,
+}
+
+impl<'a> DiceTaskRef<'a> {
+    #[cfg(test)]
+    pub(crate) fn testing_insert(self, task: DiceTask) {
+        if let Self::Vacant(e) = self {
+            e.insert(task);
+        } else {
+            panic!("inserting into non-vacant entry");
+        }
+    }
 }
 
 impl SharedCache {
-    pub(crate) fn get(&self, key: DiceKey) -> Option<Entry<DiceKey, DiceTask, FnvBuildHasher>> {
+    fn key_hash(key: DiceKey) -> u64 {
+        (key.index as u64).wrapping_mul(0x9e3779b97f4a7c15)
+    }
+
+    fn try_get_computed(&self, key: DiceKey) -> Option<DiceComputedValue> {
+        let hash = Self::key_hash(key);
+        self.data
+            .completed
+            .lookup(hash, |task| task.key == key)
+            .map(|task| {
+                task.read_value()
+                    .expect("must be computed")
+                    .expect("must not be cancelled")
+            })
+    }
+
+    pub(crate) fn get(&self, key: DiceKey) -> DiceTaskRef {
+        if let Some(computed) = self.try_get_computed(key) {
+            if self.data.is_cancelled.load(Ordering::Acquire) {
+                return DiceTaskRef::TransactionCancelled;
+            }
+
+            return DiceTaskRef::Computed(computed);
+        }
+
         let entry = self.data.storage.entry(key);
+
+        // Not we acquired the lock, check computed map again.
+        let computed = self.try_get_computed(key);
+
         if self.data.is_cancelled.load(Ordering::Acquire) {
-            None
-        } else {
-            Some(entry)
+            return DiceTaskRef::TransactionCancelled;
+        }
+
+        if let Some(computed) = computed {
+            return DiceTaskRef::Computed(computed);
+        }
+
+        match entry {
+            dashmap::mapref::entry::Entry::Occupied(e) => {
+                if let Some(CancellableResult::Ok(result)) = e.get().internal.read_value() {
+                    // Promote entry to computed.
+                    // So lookup will be faster next time.
+
+                    // TODO(nga): insert unique unchecked,
+                    //   which `LockFreeRawTable` does not support yet.
+                    let (_ignore, original) = self.data.completed.insert(
+                        Self::key_hash(key),
+                        e.get().internal.dupe(),
+                        |a, b| a.key == b.key,
+                        |task| Self::key_hash(task.key),
+                    );
+                    assert!(original.is_none());
+
+                    // Must remove from dashmap after inserting into completed.
+                    e.remove();
+                    return DiceTaskRef::Computed(result);
+                }
+                DiceTaskRef::Occupied(e)
+            }
+            dashmap::mapref::entry::Entry::Vacant(e) => DiceTaskRef::Vacant(e),
         }
     }
 
     pub(crate) fn new() -> Self {
-        Self {
+        SharedCache {
             data: Arc::new(Data {
                 storage: DashMap::default(),
+                completed: ShardedLockFreeRawTable::new(),
                 is_cancelled: AtomicBool::new(false),
             }),
         }
     }
 
     pub(crate) fn active_tasks_count(&self) -> usize {
-        self.data.storage.len()
+        self.data.storage.len() + self.data.completed.len()
     }
 
     /// This function gets the termination observer for all running tasks when transaction is
     /// cancelled and prevents further tasks from being added
-    pub(crate) fn cancel_pending_tasks(self) -> Vec<TerminationObserver> {
+    pub(crate) fn cancel_pending_tasks(self) -> Vec<DiceTask> {
         self.data.is_cancelled.store(true, Ordering::Release);
         self.data
             .storage
             .iter()
             .filter_map(|entry| {
                 if entry.value().is_pending() {
-                    entry.value().cancel()
+                    entry.value().cancel();
+                    Some(entry.value().clone())
                 } else {
                     None
                 }
@@ -114,6 +194,7 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
     use crate::arc::Arc;
+    use crate::impls::cache::DiceTaskRef;
     use crate::impls::cache::SharedCache;
     use crate::impls::core::graph::history::CellHistory;
     use crate::impls::key::DiceKey;
@@ -145,8 +226,8 @@ mod tests {
         }
     }
 
-    async fn make_completed_task(val: usize) -> DiceTask {
-        let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    async fn make_completed_task(key: DiceKey, val: usize) -> DiceTask {
+        let task = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             async move {
                 handle.finished(DiceComputedValue::new(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
@@ -169,21 +250,23 @@ mod tests {
         task
     }
 
-    async fn make_finished_cancelling_task() -> DiceTask {
-        let finished_cancelling_tasks = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    async fn make_finished_cancelling_task(key: DiceKey) -> DiceTask {
+        let finished_cancelling_tasks = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             async move {
                 let _handle = handle;
                 futures::future::pending().await
             }
             .boxed()
         });
-        finished_cancelling_tasks.cancel().unwrap().await;
+        finished_cancelling_tasks.cancel();
+
+        finished_cancelling_tasks.await_termination().await;
 
         finished_cancelling_tasks
     }
 
-    fn make_never_finish_yet_to_cancel_task() -> DiceTask {
-        spawn_dice_task(&TokioSpawner, &(), |handle| {
+    fn make_never_finish_yet_to_cancel_task(key: DiceKey) -> DiceTask {
+        spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             async move {
                 let _handle = handle;
                 futures::future::pending().await
@@ -196,49 +279,45 @@ mod tests {
     async fn test_drain_task() {
         let cache = SharedCache::new();
 
-        let completed_task1 = make_completed_task(1).await;
-        let completed_task2 = make_completed_task(2).await;
+        let completed_task1 = make_completed_task(DiceKey { index: 10 }, 1).await;
+        let completed_task2 = make_completed_task(DiceKey { index: 20 }, 2).await;
 
-        let finished_cancelling_tasks1 = make_finished_cancelling_task().await;
-        let finished_cancelling_tasks2 = make_finished_cancelling_task().await;
+        let finished_cancelling_tasks1 = make_finished_cancelling_task(DiceKey { index: 30 }).await;
+        let finished_cancelling_tasks2 = make_finished_cancelling_task(DiceKey { index: 40 }).await;
 
-        let yet_to_cancel_tasks1 = make_never_finish_yet_to_cancel_task();
-        let yet_to_cancel_tasks2 = make_never_finish_yet_to_cancel_task();
-        let yet_to_cancel_tasks3 = make_never_finish_yet_to_cancel_task();
+        let yet_to_cancel_tasks1 = make_never_finish_yet_to_cancel_task(DiceKey { index: 50 });
+        let yet_to_cancel_tasks2 = make_never_finish_yet_to_cancel_task(DiceKey { index: 60 });
+        let yet_to_cancel_tasks3 = make_never_finish_yet_to_cancel_task(DiceKey { index: 70 });
 
         cache
             .get(DiceKey { index: 1 })
-            .unwrap()
-            .or_insert(completed_task1);
+            .testing_insert(completed_task1);
         cache
             .get(DiceKey { index: 2 })
-            .unwrap()
-            .or_insert(completed_task2);
+            .testing_insert(completed_task2);
         cache
             .get(DiceKey { index: 3 })
-            .unwrap()
-            .or_insert(finished_cancelling_tasks1);
+            .testing_insert(finished_cancelling_tasks1);
         cache
             .get(DiceKey { index: 4 })
-            .unwrap()
-            .or_insert(finished_cancelling_tasks2);
+            .testing_insert(finished_cancelling_tasks2);
         cache
             .get(DiceKey { index: 5 })
-            .unwrap()
-            .or_insert(yet_to_cancel_tasks1);
+            .testing_insert(yet_to_cancel_tasks1);
         cache
             .get(DiceKey { index: 6 })
-            .unwrap()
-            .or_insert(yet_to_cancel_tasks2);
+            .testing_insert(yet_to_cancel_tasks2);
         cache
             .get(DiceKey { index: 7 })
-            .unwrap()
-            .or_insert(yet_to_cancel_tasks3);
+            .testing_insert(yet_to_cancel_tasks3);
 
         let pending_tasks = cache.dupe().cancel_pending_tasks();
 
         assert_eq!(pending_tasks.len(), 3);
 
-        assert!(cache.get(DiceKey { index: 999 }).is_none());
+        assert!(matches!(
+            cache.get(DiceKey { index: 999 }),
+            DiceTaskRef::TransactionCancelled
+        ));
     }
 }

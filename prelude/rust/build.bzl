@@ -359,7 +359,7 @@ def rust_compile(
 
     rustc_cmd = cmd_args(
         common_args.args,
-        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, "/=", ctx.label.package, delimiter = ""),
+        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, "/=", ctx.label.package, "/", delimiter = ""),
         compile_ctx.linker_args,
         # Report unused --extern crates in the notification stream
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],

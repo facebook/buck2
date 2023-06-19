@@ -22,6 +22,7 @@ pub(crate) mod bc;
 pub(crate) mod compiler;
 pub(crate) mod runtime;
 
+use std::collections::HashMap;
 use std::mem;
 use std::time::Instant;
 
@@ -42,16 +43,14 @@ use crate::collections::symbol_map::Symbol;
 use crate::docs::DocString;
 use crate::environment::Globals;
 use crate::eval::compiler::def::DefInfo;
-use crate::eval::compiler::scope::CompilerAstMap;
-use crate::eval::compiler::scope::Scope;
-use crate::eval::compiler::scope::ScopeData;
+use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::Compiler;
+use crate::eval::compiler::EvalException;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
-use crate::hint::unlikely;
 use crate::slice_vec_ext::SliceExt;
-use crate::syntax::ast::AstModule;
+use crate::syntax::module::AstModule;
 use crate::syntax::DialectTypes;
 use crate::values::Value;
 
@@ -72,24 +71,20 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             .frozen_heap()
             .alloc_any_display_from_debug(codemap.dupe());
 
-        let globals = self.module_env.frozen_heap().alloc_any(globals.dupe());
-
-        let mut scope_data = ScopeData::new();
-
-        let root_scope_id = scope_data.new_scope().0;
-
-        let mut statement = statement.into_map_payload(&mut CompilerAstMap(&mut scope_data));
+        let globals = self
+            .module_env
+            .frozen_heap()
+            .alloc_any_display_from_type_name(globals.dupe());
 
         if let Some(docstring) = DocString::extract_raw_starlark_docstring(&statement) {
             self.module_env.set_docstring(docstring)
         }
 
-        let mut scope = Scope::enter_module(
+        let (statement, mut scope) = ModuleScopes::enter_module(
             self.module_env.mutable_names(),
             self.module_env.frozen_heap(),
-            root_scope_id,
-            scope_data,
-            &mut statement,
+            &HashMap::new(),
+            statement,
             globals,
             codemap,
             &dialect,
@@ -99,7 +94,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         scope.errors.truncate(1);
         if let Some(e) = scope.errors.pop() {
             // Static errors, reported even if the branch is not hit
-            return Err(e);
+            return Err(e.into_anyhow());
         }
 
         let (module_slots, scope_data) = scope.exit_module();
@@ -124,11 +119,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         // Set up the world to allow evaluation (do NOT use ? from now on)
 
         self.call_stack.push(Value::new_none(), None).unwrap();
-        if unlikely(self.heap_or_flame_profile) {
-            self.heap_profile
-                .record_call_enter(Value::new_none(), self.heap());
-            self.flame_profile.record_call_enter(Value::new_none());
-        }
 
         // Evaluation
         let mut compiler = Compiler {
@@ -144,16 +134,13 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
         // Clean up the world, putting everything back
         self.call_stack.pop();
-        if unlikely(self.heap_or_flame_profile) {
-            self.heap_profile.record_call_exit(self.heap());
-            self.flame_profile.record_call_exit();
-        }
+
         self.module_def_info = old_def_info;
 
         self.module_env.add_eval_duration(start.elapsed());
 
         // Return the result of evaluation
-        res.map_err(|e| e.0)
+        res.map_err(EvalException::into_anyhow)
     }
 
     /// Evaluate a function stored in a [`Value`], passing in `positional` and `named` arguments.
@@ -172,6 +159,10 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             args: None,
             kwargs: None,
         });
-        function.invoke(&params, self)
+        // eval_module pushes an "empty" call stack frame. other places expect that first frame to be ignorable, and
+        // so we push an empty frame too (otherwise things would ignore this function's own frame).
+        self.with_call_stack(Value::new_none(), None, |this| {
+            function.invoke(&params, this)
+        })
     }
 }

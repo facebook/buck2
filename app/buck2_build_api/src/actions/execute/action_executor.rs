@@ -18,8 +18,8 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::HasHttpClient;
-use buck2_common::http::HttpClient;
 use buck2_common::io::IoProvider;
 use buck2_common::liveliness_observer::NoopLivelinessObserver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -52,6 +52,8 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::output_size::OutputCountAndBytes;
 use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_file_watcher::mergebase::GetMergebase;
+use buck2_file_watcher::mergebase::Mergebase;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -61,6 +63,7 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use more_futures::cancellation::CancellationContext;
 
+use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::error::CommandExecutionErrorMarker;
 use crate::actions::execute::error::ExecuteError;
@@ -71,7 +74,6 @@ use crate::actions::ActionExecutionCtx;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
-use crate::calculation::Calculation;
 
 /// This is the result of the action as exposed to other things in the dice computation.
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative)]
@@ -127,6 +129,9 @@ pub enum ActionExecutionKind {
     /// This action logically executed, but didn't do all the work.
     #[display(fmt = "deferred")]
     Deferred,
+    /// This action was served by the local dep file cache and not executed.
+    #[display(fmt = "local_dep_files")]
+    LocalDepFile,
 }
 
 pub struct CommandExecutionRef<'a> {
@@ -145,6 +150,7 @@ impl ActionExecutionKind {
             ActionExecutionKind::Simple => buck2_data::ActionExecutionKind::Simple,
             ActionExecutionKind::Skipped => buck2_data::ActionExecutionKind::Skipped,
             ActionExecutionKind::Deferred => buck2_data::ActionExecutionKind::Deferred,
+            ActionExecutionKind::LocalDepFile => buck2_data::ActionExecutionKind::LocalDepFile,
         }
     }
 
@@ -165,7 +171,7 @@ impl ActionExecutionKind {
                 did_cache_upload: *did_cache_upload,
                 eligible_for_full_hybrid: *eligible_for_full_hybrid,
             }),
-            Self::Simple | Self::Skipped | Self::Deferred => None,
+            Self::Simple | Self::Skipped | Self::Deferred | Self::LocalDepFile => None,
         }
     }
 }
@@ -235,6 +241,7 @@ impl HasActionExecutor for DiceComputations {
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
         let io_provider = self.global_data().get_io_provider();
         let http_client = self.per_transaction_data().get_http_client();
+        let mergebase = self.per_transaction_data().get_mergebase();
 
         Ok(Arc::new(BuckActionExecutor::new(
             CommandExecutor::new(
@@ -253,6 +260,7 @@ impl HasActionExecutor for DiceComputations {
             run_action_knobs,
             io_provider,
             http_client,
+            mergebase,
         )))
     }
 }
@@ -266,7 +274,8 @@ pub struct BuckActionExecutor {
     digest_config: DigestConfig,
     run_action_knobs: RunActionKnobs,
     io_provider: Arc<dyn IoProvider>,
-    http_client: Arc<dyn HttpClient>,
+    http_client: CountingHttpClient,
+    mergebase: Mergebase,
 }
 
 impl BuckActionExecutor {
@@ -279,7 +288,8 @@ impl BuckActionExecutor {
         digest_config: DigestConfig,
         run_action_knobs: RunActionKnobs,
         io_provider: Arc<dyn IoProvider>,
-        http_client: Arc<dyn HttpClient>,
+        http_client: CountingHttpClient,
+        mergebase: Mergebase,
     ) -> Self {
         Self {
             command_executor,
@@ -291,6 +301,7 @@ impl BuckActionExecutor {
             run_action_knobs,
             io_provider,
             http_client,
+            mergebase,
         }
     }
 }
@@ -404,6 +415,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
 
     fn cancellation_context(&self) -> &CancellationContext {
         self.cancellations
+    }
+
+    fn mergebase(&self) -> &Mergebase {
+        &self.executor.mergebase
     }
 
     fn prepare_action(
@@ -526,7 +541,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.executor.io_provider.dupe()
     }
 
-    fn http_client(&self) -> Arc<dyn HttpClient> {
+    fn http_client(&self) -> CountingHttpClient {
         self.executor.http_client.dupe()
     }
 }
@@ -648,11 +663,11 @@ mod tests {
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::executor_config::CommandGenerationOptions;
     use buck2_common::executor_config::PathSeparatorKind;
+    use buck2_common::http::counting_client::CountingHttpClient;
     use buck2_common::http::ClientForTest;
     use buck2_common::io::fs::FsIoProvider;
     use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::buck_path::path::BuckPath;
-    use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::category::Category;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
@@ -719,7 +734,7 @@ mod tests {
 
         let project_fs = temp_fs.path().dupe();
         let artifact_fs = ArtifactFs::new(
-            BuckPathResolver::new(cells),
+            cells,
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
                 "cell/buck-out/v2".into(),
             )),
@@ -752,7 +767,8 @@ mod tests {
                 project_fs,
                 CasDigestConfig::testing_default(),
             )),
-            Arc::new(ClientForTest {}),
+            CountingHttpClient::new(Arc::new(ClientForTest {})),
+            Default::default(),
         );
 
         #[derive(Debug, Allocative)]

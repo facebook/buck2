@@ -23,11 +23,44 @@ use std::cell::RefCell;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
+use std::ptr::NonNull;
 use std::slice;
 
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
 use crate::hint::likely;
 use crate::hint::unlikely;
+
+/// Holds the allocation.
+struct Buffer {
+    ptr: NonNull<u8>,
+    layout: Layout,
+}
+
+impl Buffer {
+    fn alloc(layout: Layout) -> Buffer {
+        let ptr = unsafe { alloc(layout) as *mut u8 };
+        let ptr = NonNull::new(ptr).unwrap();
+        Buffer { ptr, layout }
+    }
+
+    fn ptr(&self) -> *mut u8 {
+        self.ptr.as_ptr()
+    }
+
+    fn end(&self) -> *mut u8 {
+        unsafe { self.ptr.as_ptr().add(self.layout.size()) }
+    }
+
+    fn size_words(&self) -> usize {
+        self.layout.size() / ALIGN
+    }
+}
+
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        unsafe { dealloc(self.ptr.as_ptr().cast(), self.layout) }
+    }
+}
 
 /// We'd love to use the real `alloca`, but don't want to blow through the stack space,
 /// so define our own wrapper.
@@ -36,21 +69,15 @@ pub(crate) struct Alloca {
     // An alternative design would be to bake the <T> into the type, so all allocations are of the same type.
     // Benchmarking that, even if the most optimistic scenario (just reallocating a single element)
     // the performance difference is only 2%, so keep the flexibility of not needing to predeclare the type.
-    alloc: Cell<*mut usize>,
-    end: Cell<*mut usize>,
-    last_size_words: Cell<usize>,
-    buffers: RefCell<Vec<(*mut usize, Layout)>>,
-}
-
-impl Drop for Alloca {
-    fn drop(&mut self) {
-        for (ptr, layout) in self.buffers.borrow_mut().drain(0..) {
-            unsafe { dealloc(ptr as *mut u8, layout) }
-        }
-    }
+    alloc: Cell<*mut Align>,
+    end: Cell<*mut Align>,
+    buffers: RefCell<Vec<Buffer>>,
 }
 
 const INITIAL_SIZE: usize = 1000000; // ~ 1Mb
+
+type Align = u64;
+const ALIGN: usize = mem::size_of::<Align>();
 
 impl Alloca {
     pub fn new() -> Self {
@@ -58,14 +85,13 @@ impl Alloca {
     }
 
     pub fn with_capacity(size_bytes: usize) -> Self {
-        let size_words = (size_bytes + (mem::size_of::<usize>() - 1)) / mem::size_of::<usize>();
-        let layout = Layout::array::<usize>(size_words).unwrap();
-        let pointer = unsafe { alloc(layout) as *mut usize };
+        let size_words = (size_bytes + ALIGN - 1) / ALIGN;
+        let layout = Layout::array::<Align>(size_words).unwrap();
+        let buffer = Buffer::alloc(layout);
         Self {
-            alloc: Cell::new(pointer),
-            end: Cell::new(pointer.wrapping_add(size_words)),
-            last_size_words: Cell::new(size_words),
-            buffers: RefCell::new(vec![(pointer, layout)]),
+            alloc: Cell::new(buffer.ptr().cast()),
+            end: Cell::new(buffer.end().cast()),
+            buffers: RefCell::new(vec![buffer]),
         }
     }
 
@@ -73,7 +99,8 @@ impl Alloca {
         unsafe {
             debug_assert!(self.end.get().offset_from(self.alloc.get()) >= 0);
             debug_assert!(
-                self.end.get().offset_from(self.alloc.get()) as usize <= self.last_size_words.get()
+                self.end.get().offset_from(self.alloc.get()) as usize
+                    <= self.buffers.borrow().last().unwrap().size_words()
             );
         }
     }
@@ -83,15 +110,36 @@ impl Alloca {
     fn allocate_more(&self, len: usize, one: Layout) {
         let want =
             Layout::from_size_align(one.size().checked_mul(len).unwrap(), one.align()).unwrap();
-        assert!(want.size() % mem::size_of::<usize>() == 0);
-        assert!(want.align() % mem::size_of::<usize>() == 0);
-        let size_words = self.last_size_words.get() * 2 + want.size() / mem::size_of::<usize>();
-        let layout = Layout::array::<usize>(size_words).unwrap();
-        let pointer = unsafe { alloc(layout) as *mut usize };
-        self.buffers.borrow_mut().push((pointer, layout));
+        assert!(want.align() <= mem::size_of::<Align>());
+        let size_words =
+            self.buffers.borrow().last().unwrap().size_words() * 2 + want.size() / ALIGN;
+        let layout = Layout::array::<Align>(size_words).unwrap();
+        let buffer = Buffer::alloc(layout);
+        let pointer = buffer.ptr().cast();
+        let end = buffer.end().cast();
+        self.buffers.borrow_mut().push(buffer);
         self.alloc.set(pointer);
-        self.last_size_words.set(size_words);
-        self.end.set(pointer.wrapping_add(size_words));
+        self.end.set(end);
+    }
+
+    /// Convert remaining capacity in words to remaining capacity in `T`.
+    #[inline(always)]
+    fn rem_in_words_to_rem_in_t<T>(rem_in_words: usize) -> usize {
+        assert!(mem::align_of::<T>() <= ALIGN);
+        rem_in_words * ALIGN / mem::size_of::<T>()
+    }
+
+    #[inline(always)]
+    fn len_in_to_to_len_in_words<T>(len: usize) -> usize {
+        if mem::size_of::<T>() % ALIGN == 0 {
+            // Special case to make common case fast:
+            // https://rust.godbolt.org/z/adh3nzdzs
+            len * (mem::size_of::<T>() / ALIGN)
+        } else {
+            // Multiplication does not overflow because we know that `[T; len]`
+            // is within the size of the current buffer, which is smaller than `isize::MAX`.
+            (len * mem::size_of::<T>() + ALIGN - 1) / ALIGN
+        }
     }
 
     /// Note that the `Drop` for the `T` will not be called. That's safe if there is no `Drop`,
@@ -100,20 +148,18 @@ impl Alloca {
     pub fn alloca_uninit<T, R>(&self, len: usize, k: impl FnOnce(&mut [MaybeUninit<T>]) -> R) -> R {
         self.assert_state();
 
-        assert_eq!(mem::size_of::<T>() % mem::size_of::<usize>(), 0);
-        assert_eq!(mem::align_of::<T>(), mem::size_of::<usize>());
+        assert!(mem::align_of::<T>() <= ALIGN);
 
         let mut start = self.alloc.get();
 
         let rem_words = unsafe { self.end.get().offset_from(start) as usize };
-        let rem_in_t = rem_words * mem::size_of::<usize>() / mem::size_of::<T>();
+        let rem_in_t = Self::rem_in_words_to_rem_in_t::<T>(rem_words);
         if unlikely(len > rem_in_t) {
             self.allocate_more(len, Layout::new::<T>());
             start = self.alloc.get();
         }
 
-        // Multiplication won't overflow, `allocate_more` checked that.
-        let size_words = mem::size_of::<T>() * len / mem::size_of::<usize>();
+        let size_words = Self::len_in_to_to_len_in_words::<T>(len);
 
         let stop = start.wrapping_add(size_words);
         let old = start;
@@ -204,6 +250,44 @@ impl Alloca {
 mod tests {
     use super::*;
 
+    #[allow(clippy::identity_op)]
+    #[test]
+    fn test_rem_in_words_to_rem_in_t() {
+        assert_eq!(10, Alloca::rem_in_words_to_rem_in_t::<Align>(10));
+        assert_eq!(
+            1 * ALIGN / mem::size_of::<u32>(),
+            Alloca::rem_in_words_to_rem_in_t::<u32>(1)
+        );
+        assert_eq!(
+            2 * ALIGN / mem::size_of::<u32>(),
+            Alloca::rem_in_words_to_rem_in_t::<u32>(2)
+        );
+        assert_eq!(1, Alloca::rem_in_words_to_rem_in_t::<[u8; ALIGN - 1]>(1));
+        assert_eq!(1, Alloca::rem_in_words_to_rem_in_t::<[u8; ALIGN]>(1));
+        assert_eq!(0, Alloca::rem_in_words_to_rem_in_t::<[u8; ALIGN + 1]>(1));
+        assert_eq!(2, Alloca::rem_in_words_to_rem_in_t::<[u8; ALIGN - 1]>(2));
+        assert_eq!(2, Alloca::rem_in_words_to_rem_in_t::<[u8; ALIGN]>(2));
+        assert_eq!(1, Alloca::rem_in_words_to_rem_in_t::<[u8; ALIGN + 1]>(2));
+    }
+
+    #[test]
+    fn test_len_in_t_to_len_in_words() {
+        assert_eq!(10, Alloca::len_in_to_to_len_in_words::<Align>(10));
+        assert_eq!(1, Alloca::len_in_to_to_len_in_words::<u8>(1));
+        assert_eq!(1, Alloca::len_in_to_to_len_in_words::<u8>(ALIGN - 1));
+        assert_eq!(1, Alloca::len_in_to_to_len_in_words::<u8>(ALIGN));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<u8>(ALIGN + 1));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<u8>(2 * ALIGN - 1));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<u8>(2 * ALIGN));
+        assert_eq!(3, Alloca::len_in_to_to_len_in_words::<u8>(2 * ALIGN + 1));
+        assert_eq!(1, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN - 1]>(1));
+        assert_eq!(1, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN]>(1));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN + 1]>(1));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN - 1]>(2));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN]>(2));
+        assert_eq!(3, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN + 1]>(2));
+    }
+
     #[test]
     fn test_alloca() {
         // Use a small capacity to encourage overflow behaviour
@@ -231,6 +315,19 @@ mod tests {
         }
 
         assert_eq!(2, a.buffers.borrow().len());
+    }
+
+    #[test]
+    fn test_alloca_bug_not_aligned() {
+        let a = Alloca::with_capacity(100);
+        a.alloca_fill(1, 17u8, |xs| {
+            // Bug was triggered because the end of first allocation
+            // was rounded down instead of up.
+            a.alloca_fill(1, 19u8, |ys| {
+                assert_eq!([17], xs);
+                assert_eq!([19], ys);
+            });
+        })
     }
 
     #[test]

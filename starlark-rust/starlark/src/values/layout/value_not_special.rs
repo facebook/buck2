@@ -33,7 +33,7 @@ pub(crate) struct FrozenValueNotSpecial(FrozenValue);
 impl FrozenValueNotSpecial {
     #[inline]
     pub(crate) fn new(value: FrozenValue) -> Option<FrozenValueNotSpecial> {
-        if value.is_str() || value.unpack_int().is_some() {
+        if value.is_str() || value.unpack_inline_int().is_some() {
             None
         } else {
             Some(FrozenValueNotSpecial(value))

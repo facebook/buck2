@@ -15,28 +15,27 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_analysis::analysis::calculation::get_rule_impl;
+use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
+use buck2_analysis::analysis::env::RuleImplFunction;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
 use buck2_build_api::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use buck2_build_api::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
-use buck2_build_api::analysis::calculation::get_rule_impl;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
-use buck2_build_api::analysis::RuleAnalysisAttrResolutionContext;
-use buck2_build_api::analysis::RuleImplFunction;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_build_api::keep_going;
-use buck2_build_api::nodes::calculation::find_execution_platform_by_configuration;
 use buck2_common::result::SharedResult;
+use buck2_configured::nodes::calculation::find_execution_platform_by_configuration;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
@@ -58,20 +57,25 @@ use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
+use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::internal::internal_attrs;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
+use buck2_util::collections::ordered_map::OrderedMap;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -84,7 +88,6 @@ use more_futures::cancellation::CancellationContext;
 use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Module;
-use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
@@ -94,7 +97,6 @@ use thiserror::Error;
 
 use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
-use crate::anon_target_attr::AnonTargetAttrTraversal;
 use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
 use crate::anon_target_attr_resolve::AnonTargetAttrExt;
 use crate::anon_target_node::AnonTarget;
@@ -124,6 +126,8 @@ pub enum AnonTargetsError {
     InternalAttribute(String),
     #[error("Missing attribute `{0}`")]
     MissingAttribute(String),
+    #[error("Query macros are not supported")]
+    QueryMacroNotSupported,
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, Display, Trace, Allocative)]
@@ -283,10 +287,18 @@ impl AnonTargetKey {
     fn deps(&self) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
         struct Traversal(Vec<ConfiguredTargetLabel>);
 
-        impl AnonTargetAttrTraversal for Traversal {
+        impl ConfiguredAttrTraversal for Traversal {
             fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
                 self.0.push(dep.target().dupe());
                 Ok(())
+            }
+
+            fn query_macro(
+                &mut self,
+                _query: &str,
+                _resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
+            ) -> anyhow::Result<()> {
+                Err(AnonTargetsError::QueryMacroNotSupported.into())
             }
         }
 
@@ -334,54 +346,65 @@ impl AnonTargetKey {
                 rule: self.0.rule_type().to_string(),
             },
             async move {
-                let analysis_registry = {
-                    let mut eval = Evaluator::new(&env);
-                    eval.set_print_handler(&print);
+                let (mut eval, ctx, list_res) = with_starlark_eval_provider(
+                    dice,
+                    &mut StarlarkProfilerOrInstrumentation::disabled(),
+                    format!("anon_analysis:{}", self),
+                    |provider| {
+                        let mut eval = provider.make(&env)?;
+                        eval.set_print_handler(&print);
 
-                    // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
-                    let resolution_ctx = RuleAnalysisAttrResolutionContext {
-                        module: &env,
-                        dep_analysis_results,
-                        query_results: HashMap::new(),
-                    };
+                        // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
+                        let resolution_ctx = RuleAnalysisAttrResolutionContext {
+                            module: &env,
+                            dep_analysis_results,
+                            query_results: HashMap::new(),
+                        };
 
-                    let mut resolved_attrs = Vec::with_capacity(self.0.attrs().len());
-                    for (name, attr) in self.0.attrs().iter() {
-                        resolved_attrs.push((
-                            name,
-                            attr.resolve_single(self.0.name().pkg(), &resolution_ctx)?,
-                        ));
-                    }
-                    let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
+                        let mut resolved_attrs = Vec::with_capacity(self.0.attrs().len());
+                        for (name, attr) in self.0.attrs().iter() {
+                            resolved_attrs.push((
+                                name,
+                                attr.resolve_single(self.0.name().pkg(), &resolution_ctx)?,
+                            ));
+                        }
+                        let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
 
-                    let registry = AnalysisRegistry::new_from_owner(
-                        BaseDeferredKey::AnonTarget(self.0.dupe()),
-                        exec_resolution,
-                    )?;
+                        let registry = AnalysisRegistry::new_from_owner(
+                            BaseDeferredKey::AnonTarget(self.0.dupe()),
+                            exec_resolution,
+                        )?;
 
-                    let ctx = env.heap().alloc_typed(AnalysisContext::new(
-                        eval.heap(),
-                        attributes,
-                        Some(
-                            eval.heap()
-                                .alloc_typed(Label::new(ConfiguredProvidersLabel::new(
+                        let ctx = env.heap().alloc_typed(AnalysisContext::new(
+                            eval.heap(),
+                            attributes,
+                            Some(eval.heap().alloc_typed(Label::new(
+                                ConfiguredProvidersLabel::new(
                                     self.0.configured_label(),
                                     ProvidersName::Default,
-                                ))),
-                        ),
-                        registry,
-                        dice.global_data().get_digest_config(),
-                    ));
+                                ),
+                            ))),
+                            registry,
+                            dice.global_data().get_digest_config(),
+                        ));
 
-                    let list_res = rule_impl.invoke(&mut eval, ctx)?;
-                    ctx.actions.run_promises(dice, &mut eval).await?;
-                    let res_typed = ProviderCollection::try_from_value(list_res)?;
-                    let res = env.heap().alloc(res_typed);
-                    env.set("", res);
+                        let list_res = rule_impl.invoke(&mut eval, ctx)?;
+                        Ok((eval, ctx, list_res))
+                    },
+                )
+                .await?;
 
-                    // Pull the ctx object back out, and steal ctx.action's state back
-                    ctx.take_state()
-                };
+                ctx.actions
+                    .run_promises(dice, &mut eval, format!("anon_analysis$promises:{}", self))
+                    .await?;
+                let res_typed = ProviderCollection::try_from_value(list_res)?;
+                let res = env.heap().alloc(res_typed);
+                env.set("", res);
+
+                // Pull the ctx object back out, and steal ctx.action's state back
+                let analysis_registry = ctx.take_state();
+                std::mem::drop(eval);
+
                 let (frozen_env, deferreds) = analysis_registry.finalize(&env)?(env)?;
 
                 let res = frozen_env.get("").unwrap();
@@ -572,6 +595,19 @@ impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
             .filter(|p| !p.is_empty())
             .map(|p| Box::new(p) as Box<dyn AnonPromisesDyn>)
     }
+
+    /*
+    pub(crate) fn get_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {
+        if self.entries.is_empty() {
+            None
+        } else {
+            // We swap it out, so we can still collect new promises
+            let mut new = AnonTargetsRegistry::new(self.execution_platform.dupe());
+            mem::swap(&mut new, self);
+            Some(new)
+        }
+    }
+    */
 
     fn assert_no_promises(&self) -> anyhow::Result<()> {
         if self.promises.is_empty() {

@@ -266,6 +266,9 @@ def main() -> int:
         except UnicodeDecodeError:
             print(f"Can't parse: {args.file}")
             modules_list = []
+        except RecursionError:
+            print(f"Recursion depth reached traversing ast: {args.file}")
+            modules_list = []
 
     with open(args.out, "w") as f:
         f.write(json.dumps({"modules": modules_list}))

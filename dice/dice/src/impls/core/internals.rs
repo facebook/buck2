@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use more_futures::cancellation::future::TerminationObserver;
+use gazebo::prelude::SliceExt;
 
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
@@ -19,6 +19,8 @@ use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::core::versions::VersionTracker;
 use crate::impls::key::DiceKey;
+use crate::impls::task::dice::DiceTask;
+use crate::impls::task::dice::TerminationObserver;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
@@ -35,7 +37,7 @@ use crate::HashMap;
 pub(super) struct CoreState {
     version_tracker: VersionTracker,
     graph: VersionedGraph,
-    pending_termination_tasks: Vec<TerminationObserver>,
+    pending_termination_tasks: Vec<DiceTask>,
 }
 
 impl CoreState {
@@ -84,7 +86,7 @@ impl CoreState {
     pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
         if let Some(evicted_cache) = self.version_tracker.drop_at_version(v) {
             self.pending_termination_tasks
-                .retain(|task| !task.is_terminated());
+                .retain(|task| task.is_pending());
             self.pending_termination_tasks
                 .extend(evicted_cache.cancel_pending_tasks());
         }
@@ -115,9 +117,10 @@ impl CoreState {
 
     pub(super) fn get_tasks_pending_cancellation(&mut self) -> Vec<TerminationObserver> {
         self.pending_termination_tasks
-            .retain(|task| !task.is_terminated());
+            .retain(|task| task.is_pending());
 
-        self.pending_termination_tasks.clone()
+        self.pending_termination_tasks
+            .map(|task| task.await_termination())
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
@@ -172,6 +175,7 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
     use crate::arc::Arc;
+    use crate::impls::cache::DiceTaskRef;
     use crate::impls::core::graph::history::CellHistory;
     use crate::impls::core::internals::CoreState;
     use crate::impls::key::DiceKey;
@@ -226,8 +230,8 @@ mod tests {
         assert_ne!(another_epoch, epoch);
     }
 
-    async fn make_completed_task(val: usize) -> DiceTask {
-        let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    async fn make_completed_task(key: DiceKey, val: usize) -> DiceTask {
+        let task = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             async move {
                 handle.finished(DiceComputedValue::new(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
@@ -250,15 +254,17 @@ mod tests {
         task
     }
 
-    async fn make_finished_cancelling_task() -> DiceTask {
-        let finished_cancelling_tasks = spawn_dice_task(&TokioSpawner, &(), |handle| {
+    async fn make_finished_cancelling_task(key: DiceKey) -> DiceTask {
+        let finished_cancelling_tasks = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             async move {
                 let _handle = handle;
                 futures::future::pending().await
             }
             .boxed()
         });
-        finished_cancelling_tasks.cancel().unwrap().await;
+        finished_cancelling_tasks.cancel();
+
+        finished_cancelling_tasks.await_termination().await;
 
         finished_cancelling_tasks
     }
@@ -271,10 +277,10 @@ mod tests {
         }
     }
 
-    async fn make_yet_to_cancel_tasks() -> (DiceTask, BlockCancel, Arc<Semaphore>) {
+    async fn make_yet_to_cancel_tasks(key: DiceKey) -> (DiceTask, BlockCancel, Arc<Semaphore>) {
         let block_cancel = Arc::new(Semaphore::new(0));
         let arrive_cancel = Arc::new(Semaphore::new(0));
-        let yet_to_cancel_tasks = spawn_dice_task(&TokioSpawner, &(), |handle| {
+        let yet_to_cancel_tasks = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             let block_cancel = block_cancel.dupe();
             let arrive_cancel = arrive_cancel.dupe();
             async move {
@@ -300,9 +306,9 @@ mod tests {
         )
     }
 
-    async fn make_never_cancellable_task() -> DiceTask {
+    async fn make_never_cancellable_task(key: DiceKey) -> DiceTask {
         let arrive_never_cancel = Arc::new(Semaphore::new(0));
-        let never_cancel_tasks = spawn_dice_task(&TokioSpawner, &(), |handle| {
+        let never_cancel_tasks = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             let arrive_never_cancel = arrive_never_cancel.dupe();
             async move {
                 handle
@@ -328,51 +334,49 @@ mod tests {
 
         let (_epoch, cache) = core.ctx_at_version(v);
 
-        let completed_task1 = make_completed_task(1).await;
-        let completed_task2 = make_completed_task(2).await;
+        let completed_task1 = make_completed_task(DiceKey { index: 10 }, 1).await;
+        let completed_task2 = make_completed_task(DiceKey { index: 20 }, 2).await;
 
-        let finished_cancelling_tasks1 = make_finished_cancelling_task().await;
-        let finished_cancelling_tasks2 = make_finished_cancelling_task().await;
+        let finished_cancelling_tasks1 = make_finished_cancelling_task(DiceKey { index: 30 }).await;
+        let finished_cancelling_tasks2 = make_finished_cancelling_task(DiceKey { index: 40 }).await;
 
-        let (yet_to_cancel_tasks1, guard1, arrive_cancel1) = make_yet_to_cancel_tasks().await;
-        let (yet_to_cancel_tasks2, guard2, arrive_cancel2) = make_yet_to_cancel_tasks().await;
+        let (yet_to_cancel_tasks1, guard1, arrive_cancel1) =
+            make_yet_to_cancel_tasks(DiceKey { index: 50 }).await;
+        let (yet_to_cancel_tasks2, guard2, arrive_cancel2) =
+            make_yet_to_cancel_tasks(DiceKey { index: 60 }).await;
 
-        let never_cancel_tasks1 = make_never_cancellable_task().await;
+        let never_cancel_tasks1 = make_never_cancellable_task(DiceKey { index: 100500 }).await;
 
         cache
             .get(DiceKey { index: 1 })
-            .unwrap()
-            .or_insert(completed_task1);
+            .testing_insert(completed_task1);
         cache
             .get(DiceKey { index: 2 })
-            .unwrap()
-            .or_insert(completed_task2);
+            .testing_insert(completed_task2);
         cache
             .get(DiceKey { index: 3 })
-            .unwrap()
-            .or_insert(finished_cancelling_tasks1);
+            .testing_insert(finished_cancelling_tasks1);
         cache
             .get(DiceKey { index: 4 })
-            .unwrap()
-            .or_insert(finished_cancelling_tasks2);
+            .testing_insert(finished_cancelling_tasks2);
         cache
             .get(DiceKey { index: 5 })
-            .unwrap()
-            .or_insert(yet_to_cancel_tasks1);
+            .testing_insert(yet_to_cancel_tasks1);
         cache
             .get(DiceKey { index: 6 })
-            .unwrap()
-            .or_insert(yet_to_cancel_tasks2);
+            .testing_insert(yet_to_cancel_tasks2);
         cache
             .get(DiceKey { index: 7 })
-            .unwrap()
-            .or_insert(never_cancel_tasks1);
+            .testing_insert(never_cancel_tasks1);
 
         core.drop_ctx_at_version(v);
 
         assert_eq!(core.get_tasks_pending_cancellation().len(), 3);
 
-        assert!(cache.get(DiceKey { index: 999 }).is_none());
+        assert!(matches!(
+            cache.get(DiceKey { index: 999 }),
+            DiceTaskRef::TransactionCancelled
+        ));
 
         // let the cancellable tasks cancel
         drop(guard1);
@@ -384,12 +388,11 @@ mod tests {
 
         let (_epoch, cache) = core.ctx_at_version(v);
 
-        let never_cancel_tasks2 = make_never_cancellable_task().await;
+        let never_cancel_tasks2 = make_never_cancellable_task(DiceKey { index: 300 }).await;
 
         cache
             .get(DiceKey { index: 8 })
-            .unwrap()
-            .or_insert(never_cancel_tasks2);
+            .testing_insert(never_cancel_tasks2);
 
         core.drop_ctx_at_version(v);
 

@@ -41,12 +41,11 @@ impl ReState {
     pub fn render_header(&self, draw_mode: DrawMode) -> Option<String> {
         let mut parts = Vec::new();
 
-        if let Some(session_id) = self.session_id.as_ref() {
-            parts.push(session_id.to_owned());
-        }
-
         if let Some((_, last)) = &self.two_snapshots.last {
-            if last.re_upload_bytes > 0 || last.re_download_bytes > 0 {
+            if last.re_upload_bytes > 0
+                || last.re_download_bytes > 0
+                || last.http_download_bytes > 0
+            {
                 let part = match draw_mode {
                     DrawMode::Normal => {
                         fn format_byte_per_second(bytes_per_second: u64) -> String {
@@ -65,12 +64,20 @@ impl ReState {
                             .two_snapshots
                             .re_download_bytes_per_second()
                             .unwrap_or_default();
+                        let http_download_bytes_per_second = self
+                            .two_snapshots
+                            .http_download_bytes_per_second()
+                            .unwrap_or_default();
                         format!(
                             "Up: {} {}  Down: {} {}",
                             HumanizedBytes::fixed_width(last.re_upload_bytes),
                             format_byte_per_second(re_upload_bytes_per_second),
-                            HumanizedBytes::fixed_width(last.re_download_bytes),
-                            format_byte_per_second(re_download_bytes_per_second),
+                            HumanizedBytes::fixed_width(
+                                last.re_download_bytes + last.http_download_bytes
+                            ),
+                            format_byte_per_second(
+                                re_download_bytes_per_second + http_download_bytes_per_second
+                            ),
                         )
                     }
                     DrawMode::Final => {
@@ -85,11 +92,27 @@ impl ReState {
             }
         }
 
+        if let Some(session_id) = self.session_id.as_ref() {
+            parts.push(format!("({})", session_id.to_owned()));
+        }
+
         if parts.is_empty() {
             return None;
         }
 
-        Some(format!("RE: {}", parts.join("  ")))
+        Some(format!("Network: {}", parts.join("  ")))
+    }
+
+    fn render_detailed_item_no_progress_stats(
+        &self,
+        name: &str,
+        stat: u64,
+    ) -> anyhow::Result<Option<Line>> {
+        let line = format!(
+            "{name:<20}: \
+            {stat:>5} bytes"
+        );
+        Ok(Some(Line::unstyled(&line)?))
     }
 
     fn render_detailed_items(
@@ -118,46 +141,51 @@ impl ReState {
         let mut r = Vec::new();
         if let Some((_, last)) = &self.two_snapshots.last {
             r.extend(self.render_detailed_items(
-                "uploads",
+                "re_uploads",
                 last.re_uploads_started,
                 last.re_uploads_finished_successfully,
                 last.re_uploads_finished_with_error,
             )?);
             r.extend(self.render_detailed_items(
-                "downloads",
+                "re_downloads",
                 last.re_downloads_started,
                 last.re_downloads_finished_successfully,
                 last.re_downloads_finished_with_error,
             )?);
             r.extend(self.render_detailed_items(
-                "action_cache",
+                "re_action_cache",
                 last.re_action_cache_started,
                 last.re_action_cache_finished_successfully,
                 last.re_action_cache_finished_with_error,
             )?);
             r.extend(self.render_detailed_items(
-                "executes",
+                "re_executes",
                 last.re_executes_started,
                 last.re_executes_finished_successfully,
                 last.re_executes_finished_with_error,
             )?);
             r.extend(self.render_detailed_items(
-                "materializes",
+                "re_materializes",
                 last.re_materializes_started,
                 last.re_materializes_finished_successfully,
                 last.re_materializes_finished_with_error,
             )?);
             r.extend(self.render_detailed_items(
-                "write_action_results",
+                "re_write_action_results",
                 last.re_write_action_results_started,
                 last.re_write_action_results_finished_successfully,
                 last.re_write_action_results_finished_with_error,
             )?);
             r.extend(self.render_detailed_items(
-                "get_digest_expirations",
+                "re_get_digest_expirations",
                 last.re_get_digest_expirations_started,
                 last.re_get_digest_expirations_finished_successfully,
                 last.re_get_digest_expirations_finished_with_error,
+            )?);
+            // TODO(raulgarcia4): Add some in-progress-stats for http metrics as well.
+            r.extend(self.render_detailed_item_no_progress_stats(
+                "http_download_bytes",
+                last.http_download_bytes,
             )?);
         }
         Ok(r)

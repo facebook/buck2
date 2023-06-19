@@ -102,12 +102,16 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
 
     Ok(quote_spanned! {span=>
         fn #namespace_fn_name() {
-            #use_inventory
-            starlark::__derive_refs::inventory::submit! {
-                starlark::docs::RegisteredDoc {
-                    getter: || starlark::docs::RegisteredDoc::for_type::<#frozen_name>(&[#(#custom_attrs),*]),
-                }
-            };
+            // `ctor` fails at compile time on wasm32.
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                #use_inventory
+                starlark::__derive_refs::inventory::submit! {
+                    starlark::docs::RegisteredDoc {
+                        getter: || starlark::docs::RegisteredDoc::for_type::<#frozen_name>(&[#(#custom_attrs),*]),
+                    }
+                };
+            }
         }
     })
 }

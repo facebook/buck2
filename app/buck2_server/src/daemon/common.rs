@@ -22,7 +22,6 @@ use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::executor_config::RemoteEnabledExecutor;
 use buck2_common::executor_config::RemoteExecutorOptions;
 use buck2_common::executor_config::RemoteExecutorUseCase;
-use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
@@ -36,13 +35,14 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute_impl::executors::action_cache::ActionCacheChecker;
-use buck2_execute_impl::executors::caching::CachingExecutor;
+use buck2_execute_impl::executors::caching::CacheUploader;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_forkserver::client::ForkserverClient;
+use buck2_util::collections::sorted_map::SortedMap;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
 use once_cell::sync::OnceCell;
@@ -160,6 +160,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
         let remote_executor_new = |options: &RemoteExecutorOptions,
                                    re_use_case: &RemoteExecutorUseCase,
+                                   re_action_key: &Option<String>,
                                    remote_cache_enabled: bool| {
             // 30GB is the max RE can currently support.
             const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
@@ -170,7 +171,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 materializer: self.materializer.dupe(),
                 re_client: self.re_connection.get_client(),
                 re_use_case: *re_use_case,
-                re_action_key: options.re_action_key.clone(),
+                re_action_key: re_action_key.clone(),
                 re_max_input_files_bytes: options
                     .re_max_input_files_bytes
                     .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
@@ -197,6 +198,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 executor,
                 re_properties,
                 re_use_case,
+                re_action_key,
                 cache_upload_behavior,
                 remote_cache_enabled,
             } => {
@@ -208,6 +210,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         Some(Arc::new(remote_executor_new(
                             remote,
                             re_use_case,
+                            re_action_key,
                             *remote_cache_enabled,
                         )))
                     }
@@ -217,7 +220,12 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         level,
                     } if !self.strategy.ban_hybrid() => Some(Arc::new(HybridExecutor {
                         local: local_executor_new(local),
-                        remote: remote_executor_new(remote, re_use_case, *remote_cache_enabled),
+                        remote: remote_executor_new(
+                            remote,
+                            re_use_case,
+                            re_action_key,
+                            *remote_cache_enabled,
+                        ),
                         level: *level,
                         executor_preference: self.strategy.hybrid_preference(),
                         low_pass_filter: self.low_pass_filter.dupe(),
@@ -238,27 +246,32 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 let (executor, cache_checker) = if disable_caching || !remote_cache_enabled {
                     (inner_executor, Arc::new(NoOpCommandExecutor {}) as _)
                 } else {
-                    (
-                        inner_executor.map(|inner_executor| {
-                            Arc::new(CachingExecutor {
-                                inner: inner_executor,
-                                artifact_fs: artifact_fs.clone(),
-                                materializer: self.materializer.dupe(),
-                                re_client: self.re_connection.get_client(),
-                                re_use_case: *re_use_case,
-                                upload_all_actions: self.upload_all_actions,
-                                knobs: self.executor_global_knobs.dupe(),
-                                cache_upload_behavior: *cache_upload_behavior,
-                            }) as _
-                        }),
-                        Arc::new(ActionCacheChecker {
-                            artifact_fs: artifact_fs.clone(),
-                            materializer: self.materializer.dupe(),
-                            re_client: self.re_connection.get_client(),
-                            re_use_case: *re_use_case,
-                            upload_all_actions: self.upload_all_actions,
-                        }) as _,
-                    )
+                    let executor =
+                        if let CacheUploadBehavior::Enabled { max_bytes } = cache_upload_behavior {
+                            inner_executor.map(|inner_executor| {
+                                Arc::new(CacheUploader {
+                                    inner: inner_executor,
+                                    artifact_fs: artifact_fs.clone(),
+                                    materializer: self.materializer.dupe(),
+                                    re_client: self.re_connection.get_client(),
+                                    re_use_case: *re_use_case,
+                                    knobs: self.executor_global_knobs.dupe(),
+                                    max_bytes: *max_bytes,
+                                }) as _
+                            })
+                        } else {
+                            inner_executor
+                        };
+                    let cacher = Arc::new(ActionCacheChecker {
+                        artifact_fs: artifact_fs.clone(),
+                        materializer: self.materializer.dupe(),
+                        re_client: self.re_connection.get_client(),
+                        re_use_case: *re_use_case,
+                        re_action_key: re_action_key.clone(),
+                        upload_all_actions: self.upload_all_actions,
+                        knobs: self.executor_global_knobs.dupe(),
+                    }) as _;
+                    (executor, cacher)
                 };
 
                 let platform = RE::Platform {
@@ -341,6 +354,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             },
             re_properties: get_default_re_properties(host_platform),
             re_use_case: RemoteExecutorUseCase::buck2_default(),
+            re_action_key: None,
             cache_upload_behavior: CacheUploadBehavior::Disabled,
             remote_cache_enabled: true,
         }

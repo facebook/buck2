@@ -14,7 +14,6 @@ use allocative::Allocative;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::local_resource_state::LocalResourceState;
-use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
@@ -25,6 +24,7 @@ use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
+use buck2_util::collections::sorted_set::SortedSet;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
@@ -32,7 +32,6 @@ use host_sharing::host_sharing::HostSharingRequirements;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use sorted_vector_map::SortedVectorMap;
-use starlark::values::ValueIdentity;
 use thiserror::Error;
 
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
@@ -231,7 +230,7 @@ impl CommandExecutionPaths {
 }
 
 #[derive(Copy, Clone, Dupe, Debug, Display, Allocative, Hash, PartialEq, Eq)]
-pub struct WorkerId(pub ValueIdentity<'static>);
+pub struct WorkerId(pub u64);
 
 pub struct WorkerSpec {
     pub id: WorkerId,
@@ -365,6 +364,10 @@ impl CommandExecutionRequest {
 
     pub fn all_args_str(&self) -> String {
         self.all_args().join(" ")
+    }
+
+    pub fn exe(&self) -> &[String] {
+        &self.exe
     }
 
     pub fn args(&self) -> &[String] {

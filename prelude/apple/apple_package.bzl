@@ -10,12 +10,8 @@ load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_package_config.bzl", "IpaCompressionLevel")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
+load(":apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
-
-_SKIP_COPYING_SWIFT_STDLIB_EXTENSIONS = [
-    ".framework",
-    ".appex",
-]
 
 def apple_package_impl(ctx: "context") -> ["provider"]:
     ipa_contents = _get_ipa_contents(ctx)
@@ -38,8 +34,7 @@ def _get_ipa_contents(ctx) -> "artifact":
     }
 
     apple_bundle_info = bundle[AppleBundleInfo]
-    should_copy_swift_stdlib = not (apple_bundle_info.skip_copying_swift_stdlib or app.extension in _SKIP_COPYING_SWIFT_STDLIB_EXTENSIONS)
-    if should_copy_swift_stdlib:
+    if (not apple_bundle_info.skip_copying_swift_stdlib) and should_copy_swift_stdlib(app.extension):
         contents["SwiftSupport"] = _get_swift_support_dir(ctx, app, apple_bundle_info)
 
     if apple_bundle_info.contains_watchapp:

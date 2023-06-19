@@ -171,7 +171,7 @@ impl CliArgValue {
     pub(crate) fn as_starlark<'v>(&self, heap: &'v Heap) -> Value<'v> {
         match self {
             CliArgValue::Bool(b) => Value::new_bool(*b),
-            CliArgValue::Int(i) => Value::new_int(*i),
+            CliArgValue::Int(i) => heap.alloc(*i),
             CliArgValue::Float(f) => heap.alloc(f.parse::<f64>().expect("already verified")),
             CliArgValue::String(s) => heap.alloc(s),
             CliArgValue::List(l) => heap.alloc(AllocList(l.iter().map(|v| v.as_starlark(heap)))),
@@ -195,6 +195,7 @@ pub(crate) enum CliArgType {
     TargetLabel,
     TargetExpr,
     SubTarget,
+    SubTargetExpr,
 }
 
 impl Display for CliArgType {
@@ -256,6 +257,10 @@ impl CliArgType {
         CliArgType::SubTarget
     }
 
+    fn sub_target_expr() -> Self {
+        CliArgType::SubTargetExpr
+    }
+
     fn enumeration(vs: HashSet<String>) -> Self {
         CliArgType::Enumeration(Arc::new(vs))
     }
@@ -283,7 +288,7 @@ impl CliArgType {
             CliArgType::Bool => CliArgValue::Bool(value.unpack_bool().ok_or_else(|| {
                 CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
             })?),
-            CliArgType::Int => CliArgValue::Int(value.unpack_int().ok_or_else(|| {
+            CliArgType::Int => CliArgValue::Int(value.unpack_i32().ok_or_else(|| {
                 CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
             })?),
             CliArgType::Float => CliArgValue::Float(
@@ -355,6 +360,11 @@ impl CliArgType {
                     CliArgType::TargetExpr
                 )));
             }
+            CliArgType::SubTargetExpr => {
+                return Err(anyhow::anyhow!(CliArgError::NoDefaultsAllowed(
+                    CliArgType::SubTargetExpr
+                )));
+            }
         })
     }
 
@@ -391,6 +401,7 @@ impl CliArgType {
                     })
             }),
             CliArgType::TargetExpr => clap.takes_value(true),
+            CliArgType::SubTargetExpr => clap.takes_value(true),
         }
     }
 
@@ -490,6 +501,36 @@ impl CliArgType {
                             .collect::<SharedResult<_>>()?,
                     ))
                 }
+                CliArgType::SubTargetExpr => {
+                    let x = clap.value_of().unwrap_or("");
+                    let pattern = ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
+                        &ctx.target_alias_resolver,
+                        ctx.relative_dir.as_cell_path(),
+                        x,
+                        &ctx.cell_resolver,
+                    )?;
+                    let loaded =
+                        load_patterns(ctx.dice, vec![pattern], MissingTargetBehavior::Fail).await?;
+
+                    Some(CliArgValue::List(
+                        loaded
+                            .into_iter()
+                            .flat_map(|(pkg, result)| match result {
+                                Ok(res) => res
+                                    .keys()
+                                    .map(|(target, pattern)| {
+                                        Ok(CliArgValue::ProvidersLabel(
+                                            pattern
+                                                .to_owned()
+                                                .into_providers_label(pkg.dupe(), target.as_ref()),
+                                        ))
+                                    })
+                                    .collect::<Vec<_>>(),
+                                Err(e) => vec![Err(e.dupe())],
+                            })
+                            .collect::<SharedResult<Vec<_>>>()?,
+                    ))
+                }
             })
         }
         .boxed()
@@ -587,6 +628,13 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     ) -> anyhow::Result<CliArgs> {
         CliArgs::new(None, doc, CliArgType::target_expr(), short)
     }
+
+    fn sub_target_expr<'v>(
+        #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
+    ) -> anyhow::Result<CliArgs> {
+        CliArgs::new(None, doc, CliArgType::sub_target_expr(), short)
+    }
 }
 
 pub fn register_cli_args_module(registry: &mut GlobalsBuilder) {
@@ -633,7 +681,7 @@ mod tests {
         );
 
         assert_eq!(
-            CliArgType::int().coerce_value(Value::new_int(42))?,
+            CliArgType::int().coerce_value(heap.alloc(42))?,
             CliArgValue::Int(42)
         );
 

@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-use std::future::Future;
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -48,7 +45,6 @@ use remote_execution::HostResourceRequirements;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
-use remote_execution::NetworkStatisticsResponse;
 use remote_execution::REClient;
 use remote_execution::REClientBuilder;
 use remote_execution::REClientError;
@@ -58,7 +54,6 @@ use remote_execution::TActionResult2;
 use remote_execution::TCode;
 use remote_execution::TDigest;
 use remote_execution::TExecutionPolicy;
-use remote_execution::TResultsCachePolicy;
 use remote_execution::UploadRequest;
 use remote_execution::WriteActionResultRequest;
 use tokio::sync::Semaphore;
@@ -70,72 +65,19 @@ use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::executor_stage_async;
 use crate::execute::manager::CommandExecutionManager;
+use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::metadata::RemoteExecutionMetadataExt;
+use crate::re::stats::OpStats;
+use crate::re::stats::RemoteExecutionClientOpStats;
+use crate::re::stats::RemoteExecutionClientStats;
 use crate::re::uploader::UploadStats;
 use crate::re::uploader::Uploader;
-
-pub struct RemoteExecutionClientOpStats {
-    pub started: u32,
-    pub finished_successfully: u32,
-    pub finished_with_error: u32,
-}
-
-impl From<&'_ OpStats> for RemoteExecutionClientOpStats {
-    fn from(stats: &OpStats) -> RemoteExecutionClientOpStats {
-        RemoteExecutionClientOpStats {
-            started: stats.started.load(Ordering::Relaxed),
-            finished_successfully: stats.finished_successfully.load(Ordering::Relaxed),
-            finished_with_error: stats.finished_with_error.load(Ordering::Relaxed),
-        }
-    }
-}
-
-pub struct RemoteExecutionClientStats {
-    /// In bytes.
-    pub uploaded: u64,
-    /// In bytes.
-    pub downloaded: u64,
-    pub uploads: RemoteExecutionClientOpStats,
-    pub downloads: RemoteExecutionClientOpStats,
-    pub action_cache: RemoteExecutionClientOpStats,
-    pub executes: RemoteExecutionClientOpStats,
-    pub materializes: RemoteExecutionClientOpStats,
-    pub write_action_results: RemoteExecutionClientOpStats,
-    pub get_digest_expirations: RemoteExecutionClientOpStats,
-}
 
 #[derive(Clone, Dupe, Allocative)]
 pub struct RemoteExecutionClient {
     data: Arc<RemoteExecutionClientData>,
-}
-
-#[derive(Default, Allocative)]
-struct OpStats {
-    started: AtomicU32,
-    finished_successfully: AtomicU32,
-    finished_with_error: AtomicU32,
-}
-
-impl OpStats {
-    fn op<'a, R, F>(&'a self, f: F) -> impl Future<Output = anyhow::Result<R>> + 'a
-    where
-        F: Future<Output = anyhow::Result<R>> + 'a,
-    {
-        // We avoid using `async fn` or `async move` here to avoid doubling the
-        // future size. See https://github.com/rust-lang/rust/issues/62958
-        self.started.fetch_add(1, Ordering::Relaxed);
-        f.map(|result| {
-            (if result.is_ok() {
-                &self.finished_successfully
-            } else {
-                &self.finished_with_error
-            })
-            .fetch_add(1, Ordering::Relaxed);
-            result
-        })
-    }
 }
 
 // The large one is the actual default case
@@ -148,11 +90,6 @@ pub enum ExecuteResponseOrCancelled {
 #[derive(Allocative)]
 struct RemoteExecutionClientData {
     client: RemoteExecutionClientImpl,
-    /// Network stats will increase throughout the lifetime of the RE client, so we're not
-    /// guaranteed that they'll start at zero (if we reuse the client). Accordingly, we track the
-    /// initial value so that we can provide a delta.
-    #[allocative(skip)]
-    initial_network_stats: NetworkStatisticsResponse,
     uploads: OpStats,
     downloads: OpStats,
     action_cache: OpStats,
@@ -179,15 +116,9 @@ impl RemoteExecutionClient {
         )
         .await?;
 
-        let initial_network_stats = client
-            .client()
-            .get_network_stats()
-            .context("Error getting initial network stats")?;
-
         Ok(Self {
             data: Arc::new(RemoteExecutionClientData {
                 client,
-                initial_network_stats,
                 uploads: OpStats::default(),
                 downloads: OpStats::default(),
                 action_cache: OpStats::default(),
@@ -317,6 +248,7 @@ impl RemoteExecutionClient {
         skip_cache_read: bool,
         skip_cache_write: bool,
         re_max_queue_time: Option<Duration>,
+        knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         self.data
             .executes
@@ -332,6 +264,7 @@ impl RemoteExecutionClient {
                     skip_cache_read,
                     skip_cache_write,
                     re_max_queue_time,
+                    knobs,
                 )
                 .map_err(|e| self.decorate_error(e)))
             .await
@@ -440,16 +373,9 @@ impl RemoteExecutionClient {
             .get_network_stats()
             .context("Error getting updated network stats")?;
 
-        let uploaded = updated
-            .uploaded
-            .checked_sub(self.data.initial_network_stats.uploaded)
-            .and_then(|d| u64::try_from(d).ok())
-            .context("Overflow calculating uploaded bytes")?;
-        let downloaded = updated
-            .downloaded
-            .checked_sub(self.data.initial_network_stats.downloaded)
-            .and_then(|d| u64::try_from(d).ok())
-            .context("Overflow calculating downloaded bytes")?;
+        let uploaded = updated.uploaded as u64;
+        let downloaded = updated.downloaded as u64;
+
         Ok(RemoteExecutionClientStats {
             uploaded,
             downloaded,
@@ -747,6 +673,7 @@ impl RemoteExecutionClientImpl {
         manager: &mut CommandExecutionManager,
         re_max_queue_time: Option<Duration>,
         platform: &remote_execution::Platform,
+        knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         use buck2_data::re_stage;
         use buck2_data::ReExecute;
@@ -755,8 +682,7 @@ impl RemoteExecutionClientImpl {
         use buck2_data::ReWorkerDownload;
         use buck2_data::ReWorkerUpload;
 
-        static LOG_ACTION_KEYS: EnvHelper<bool> = EnvHelper::new("BUCK2_LOG_ACTION_KEYS");
-        let action_key = if LOG_ACTION_KEYS.get_copied()?.unwrap_or_default() {
+        let action_key = if knobs.log_action_keys {
             metadata
                 .action_history_info
                 .as_ref()
@@ -924,6 +850,7 @@ impl RemoteExecutionClientImpl {
         skip_cache_read: bool,
         skip_cache_write: bool,
         re_max_queue_time: Option<Duration>,
+        knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         let metadata = RemoteExecutionMetadata {
             action_history_info: Some(ActionHistoryInfo {
@@ -947,11 +874,6 @@ impl RemoteExecutionClientImpl {
         let request = ExecuteRequest {
             skip_cache_lookup: self.skip_remote_cache || skip_cache_read,
             execution_policy: Some(TExecutionPolicy::default()),
-            // Cache for as long as we can
-            results_cache_policy: Some(TResultsCachePolicy {
-                priority: if self.skip_remote_cache { 0 } else { i32::MAX },
-                ..Default::default()
-            }),
             action_digest: action_digest.to_re(),
             ..Default::default()
         };
@@ -962,6 +884,7 @@ impl RemoteExecutionClientImpl {
             manager,
             re_max_queue_time,
             platform,
+            knobs,
         )
         .await
         .with_context(|| format!("RE: execution with digest {}", &action_digest))

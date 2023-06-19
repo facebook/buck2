@@ -294,22 +294,8 @@ impl TestServer {
         let prelude_path = root.join("dir/prelude.bzl");
         let ret = hashmap! {
             LspUrl::try_from(Url::parse("starlark:/native/builtin.bzl")?)? => vec![
-                Doc {
-                    id: Identifier {
-                        name: "native_function1".to_owned(),
-                        location: None,
-                    },
-                    item: DocItem::Function(DocFunction::default()),
-                    custom_attrs: Default::default(),
-                },
-                Doc {
-                    id: Identifier {
-                        name: "native_function2".to_owned(),
-                        location: None,
-                    },
-                    item: DocItem::Function(DocFunction::default()),
-                    custom_attrs: Default::default(),
-                },
+                Doc::named_item("native_function1".to_owned(), DocItem::Function(DocFunction::default())),
+                Doc::named_item("native_function2".to_owned(),DocItem::Function(DocFunction::default())),
             ],
             LspUrl::try_from(Url::from_file_path(prelude_path).unwrap())? => vec![
                 Doc {

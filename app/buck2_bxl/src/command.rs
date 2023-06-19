@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::build::materialize_artifact_group;
 use buck2_build_api::build::BuildTargetResult;
@@ -21,7 +22,6 @@ use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;
@@ -38,6 +38,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::soft_error;
 use buck2_core::tag_result;
+use buck2_data::BxlEnsureArtifactsEnd;
+use buck2_data::BxlEnsureArtifactsStart;
 use buck2_data::StarlarkFailNoStacktrace;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -265,52 +267,68 @@ async fn ensure_artifacts(
         buck2_build_api::bxl::result::BxlResult::BuildsArtifacts {
             built, artifacts, ..
         } => {
-            let mut futs = vec![];
-
-            built.iter().for_each(|res| match res {
-                BxlBuildResult::Built(BuildTargetResult { outputs, .. }) => {
-                    outputs.iter().for_each(|res| match res {
-                        Ok(artifacts) => {
-                            for (artifact, _value) in artifacts.values.iter() {
-                                futs.push(
-                                    async {
-                                        materialize_artifact_group(
-                                            ctx,
-                                            &ArtifactGroup::Artifact(artifact.dupe()),
-                                            materialization_ctx,
-                                        )
-                                        .await?;
-                                        Ok(())
-                                    }
-                                    .boxed(),
-                                )
-                            }
-                        }
-                        Err(e) => futs.push(futures::future::ready(Err(e.dupe())).boxed()),
-                    });
-                }
-
-                BxlBuildResult::None => {}
-            });
-
-            artifacts.iter().for_each(|a| {
-                futs.push(
-                    async move {
-                        materialize_artifact_group(ctx, a, materialization_ctx).await?;
-                        Ok(())
-                    }
-                    .boxed(),
-                );
-            });
-
-            let res = futures::future::join_all(futs)
+            get_dispatcher()
+                .span_async(BxlEnsureArtifactsStart {}, async move {
+                    (
+                        ensure_artifacts_inner(ctx, materialization_ctx, built, artifacts).await,
+                        BxlEnsureArtifactsEnd {},
+                    )
+                })
                 .await
-                .into_iter()
-                .filter_map(|res| res.err())
-                .collect::<Vec<_>>();
-            if res.is_empty() { Ok(()) } else { Err(res) }
         }
     }
+}
+
+async fn ensure_artifacts_inner(
+    ctx: &DiceComputations,
+    materialization_ctx: &MaterializationContext,
+    built: &[BxlBuildResult],
+    artifacts: &[ArtifactGroup],
+) -> Result<(), Vec<SharedError>> {
+    let mut futs = vec![];
+
+    built.iter().for_each(|res| match res {
+        BxlBuildResult::Built(BuildTargetResult { outputs, .. }) => {
+            outputs.iter().for_each(|res| match res {
+                Ok(artifacts) => {
+                    for (artifact, _value) in artifacts.values.iter() {
+                        futs.push(
+                            async {
+                                materialize_artifact_group(
+                                    ctx,
+                                    &ArtifactGroup::Artifact(artifact.dupe()),
+                                    materialization_ctx,
+                                )
+                                .await?;
+                                Ok(())
+                            }
+                            .boxed(),
+                        )
+                    }
+                }
+                Err(e) => futs.push(futures::future::ready(Err(e.dupe())).boxed()),
+            });
+        }
+
+        BxlBuildResult::None => {}
+    });
+
+    artifacts.iter().for_each(|a| {
+        futs.push(
+            async move {
+                materialize_artifact_group(ctx, a, materialization_ctx).await?;
+                Ok(())
+            }
+            .boxed(),
+        );
+    });
+
+    let res = futures::future::join_all(futs)
+        .await
+        .into_iter()
+        .filter_map(|res| res.err())
+        .collect::<Vec<_>>();
+    if res.is_empty() { Ok(()) } else { Err(res) }
 }
 
 #[derive(Debug, thiserror::Error)]

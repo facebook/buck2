@@ -23,7 +23,6 @@ use crate::eval::bc::stack_ptr::BcSlotOut;
 use crate::eval::bc::writer::BcWriter;
 use crate::eval::compiler::def::DefCompiled;
 use crate::eval::compiler::def::ParametersCompiled;
-use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::slice_vec_ext::SliceExt;
 
@@ -38,14 +37,14 @@ impl DefCompiled {
         let DefCompiled {
             ref function_name,
             ref params,
-            ref return_type,
+            return_type,
             info,
         } = *self;
         let function_name = function_name.clone();
 
         let num_positional = params.num_positional;
 
-        let how_many_slots_we_need = params.count_exprs() + return_type.as_ref().map_or(0, |_| 1);
+        let how_many_slots_we_need = params.count_exprs();
 
         bc.alloc_slots(how_many_slots_we_need, |slots, bc| {
             let mut slots_i = slots.iter();
@@ -58,14 +57,6 @@ impl DefCompiled {
                         value_count - 1
                     })
                 })
-            });
-            let return_type = return_type.as_ref().map(|t| {
-                t.write_bc(slots_i.next().unwrap().to_out(), bc);
-                value_count += 1;
-                IrSpanned {
-                    node: value_count - 1,
-                    span: t.span,
-                }
             });
 
             let params = ParametersCompiled {

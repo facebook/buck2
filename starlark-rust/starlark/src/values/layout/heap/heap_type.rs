@@ -54,7 +54,6 @@ use crate::values::layout::avalue::any_array_avalue;
 use crate::values::layout::avalue::array_avalue;
 use crate::values::layout::avalue::complex;
 use crate::values::layout::avalue::complex_no_freeze;
-use crate::values::layout::avalue::float_avalue;
 use crate::values::layout::avalue::frozen_list_avalue;
 use crate::values::layout::avalue::frozen_tuple_avalue;
 use crate::values::layout::avalue::list_avalue;
@@ -80,7 +79,6 @@ use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
 use crate::values::string::intern::interner::FrozenStringInterner;
 use crate::values::string::StarlarkStr;
-use crate::values::types::float::StarlarkFloat;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::ComplexValue;
@@ -387,10 +385,6 @@ impl FrozenHeap {
         }
     }
 
-    pub(crate) fn alloc_float(&self, f: StarlarkFloat) -> FrozenValue {
-        self.alloc_raw(float_avalue(f))
-    }
-
     pub(crate) fn alloc_simple_typed<T: StarlarkValue<'static> + Send + Sync>(
         &self,
         val: T,
@@ -432,6 +426,16 @@ impl FrozenHeap {
     ) -> FrozenRef<'static, T> {
         #[derive(derive_more::Display, Debug)]
         #[display(fmt = "{:?}", _0)]
+        struct Wrapper<T: Debug + Send + Sync>(T);
+        self.alloc_any(Wrapper(value)).map(|r| &r.0)
+    }
+
+    pub(crate) fn alloc_any_display_from_type_name<T: Debug + Send + Sync>(
+        &self,
+        value: T,
+    ) -> FrozenRef<'static, T> {
+        #[derive(derive_more::Display, Debug)]
+        #[display(fmt = "{}", "std::any::type_name::<T>()")]
         struct Wrapper<T: Debug + Send + Sync>(T);
         self.alloc_any(Wrapper(value)).map(|r| &r.0)
     }
@@ -744,10 +748,6 @@ impl Heap {
         let mut dst = [0; 4];
         let res = x.encode_utf8(&mut dst);
         self.alloc_str(res)
-    }
-
-    pub(crate) fn alloc_float<'v>(&'v self, f: StarlarkFloat) -> Value<'v> {
-        self.alloc_raw(float_avalue(f))
     }
 
     /// Allocate a simple [`StarlarkValue`] on this heap.

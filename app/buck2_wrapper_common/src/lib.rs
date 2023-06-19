@@ -17,23 +17,33 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-use anyhow::Context;
+use is_buck2::WhoIsAsking;
 use sysinfo::Pid;
 use sysinfo::PidExt;
-use sysinfo::Process;
 use sysinfo::ProcessExt;
 use sysinfo::System;
 use sysinfo::SystemExt;
+
+use crate::is_buck2::is_buck2_exe;
+
 pub mod invocation_id;
+pub mod is_buck2;
 pub mod kill;
 pub mod winapi_handle;
+pub(crate) mod winapi_process;
 
 pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
 
-/// Kills all running Buck2 processes, except this process's hierarchy. Returns whether it
-/// succeeded without errors.
-pub fn killall(write: impl Fn(String)) -> bool {
+/// Because `sysinfo::Process` is not `Clone`.
+struct ProcessInfo {
+    pid: u32,
+    name: String,
+    cmd: Vec<String>,
+}
+
+/// Find all buck2 processes in the system.
+fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
     let mut system = System::new();
     system.refresh_processes();
 
@@ -50,71 +60,104 @@ pub fn killall(write: impl Fn(String)) -> bool {
 
     let mut buck2_processes = Vec::new();
     for (pid, process) in system.processes() {
-        let exe_name = process.exe().file_stem().and_then(|s| s.to_str());
-        if exe_name == Some("buck2") && !current_parents.contains(pid) {
-            buck2_processes.push(process);
+        if is_buck2_exe(process.exe(), who_is_asking) && !current_parents.contains(pid) {
+            buck2_processes.push(ProcessInfo {
+                pid: pid.as_u32(),
+                name: process.name().to_owned(),
+                cmd: process.cmd().to_vec(),
+            });
         }
     }
+
+    buck2_processes
+}
+
+/// Kills all running Buck2 processes, except this process's hierarchy. Returns whether it
+/// succeeded without errors.
+pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
+    let buck2_processes = find_buck2_processes(who_is_asking);
 
     if buck2_processes.is_empty() {
         write("No buck2 processes found".to_owned());
         return true;
     }
 
-    let mut ok = true;
+    struct Printer<F> {
+        write: F,
+        /// All processes were killed successfully.
+        ok: bool,
+    }
 
-    for process in buck2_processes {
-        fn kill(process: &Process) -> anyhow::Result<()> {
-            let pid = process.pid();
-            let pid = pid
-                .as_u32()
-                .try_into()
-                .with_context(|| format!("Integer overflow converting {}", pid))?;
-            kill::kill(pid)?;
-            let start = Instant::now();
-            // 5 seconds is not enough on macOS to shutdown forkserver.
-            // We don't really need to wait for forkserver shutdown,
-            // we care about buckd shutdown. But logic to distinguish
-            // between forkserver and buckd would be too fragile.
-            let timeout_secs = 10;
-            while start.elapsed() < Duration::from_secs(timeout_secs) {
-                if !kill::process_exists(pid)? {
-                    return Ok(());
-                }
-                thread::sleep(Duration::from_millis(100));
-            }
-            Err(anyhow::anyhow!(
-                "Process {pid} still exists after {timeout_secs}s after kill sent"
-            ))
+    impl<F: Fn(String)> Printer<F> {
+        fn fmt_status(&mut self, process: &ProcessInfo, status: &str) -> String {
+            format!(
+                "{} {} ({}). {}",
+                status,
+                process.name,
+                process.pid,
+                shlex::join(process.cmd.iter().map(|s| s.as_str())),
+            )
         }
 
-        let result = kill(process);
-
-        if result.is_err() {
-            ok = false;
-        }
-
-        let status = if result.is_ok() {
-            "Killed"
-        } else {
-            "Failed to kill"
-        };
-
-        let mut message = format!(
-            "{} {} ({}). {}",
-            status,
-            process.name(),
-            process.pid(),
-            process.cmd().join(" "),
-        );
-        if let Err(error) = result {
+        fn failed_to_kill(&mut self, process: &ProcessInfo, error: anyhow::Error) {
+            let mut message = self.fmt_status(process, "Failed to kill");
             for line in format!("{:?}", error).lines() {
                 message.push_str("\n  ");
                 message.push_str(line);
             }
+            (self.write)(message);
+
+            self.ok = false;
         }
-        write(message);
+
+        fn killed(&mut self, process: &ProcessInfo) {
+            let message = self.fmt_status(process, "Killed");
+            (self.write)(message);
+        }
     }
 
-    ok
+    let mut printer = Printer { write, ok: true };
+
+    // Send a kill signal and collect the processes that are still alive.
+
+    let mut processes_still_alive: Vec<(ProcessInfo, _)> = Vec::new();
+    for process in buck2_processes {
+        match kill::kill(process.pid) {
+            Ok(handle) => processes_still_alive.push((process, handle)),
+            Err(e) => printer.failed_to_kill(&process, e),
+        };
+    }
+
+    // Wait for the processes to exit.
+
+    let start = Instant::now();
+    while !processes_still_alive.is_empty() {
+        let timeout_secs = 10;
+
+        processes_still_alive.retain(|(process, handle)| match handle.has_exited() {
+            Err(e) => {
+                printer.failed_to_kill(process, e);
+                false
+            }
+            Ok(true) => {
+                printer.killed(process);
+                false
+            }
+            Ok(false) => true,
+        });
+
+        if start.elapsed() > Duration::from_secs(timeout_secs) {
+            for process in processes_still_alive {
+                printer.failed_to_kill(
+                    &process.0,
+                    anyhow::anyhow!("Process still alive after {timeout_secs}s after kill sent"),
+                );
+            }
+            break;
+        }
+
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    printer.ok
 }

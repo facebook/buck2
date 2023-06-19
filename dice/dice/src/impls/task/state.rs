@@ -15,9 +15,7 @@ use allocative::Allocative;
 use crate::impls::task::handle::TaskState;
 
 /// The state of the DiceTask about what stage of evaluation we are in.
-/// The state is an `u8` consisting of states `INITIAL_LOOKUP`, `CHECKING_DEPS`, `COMPUTING`, `SYNC`
-/// `READY` and `TERMINATED`, with an additional `PROJECTING` state that can occur simultaneously
-/// with the above states to indicate that there is an attempt to synchronously compute this task.
+/// The state is an `u8` consisting of states in `DiceTaskState`.
 /// Only certain state transitions are allowed. `INITIAL_LOOKUP` can transition to all other states.
 /// Only `SYNC` can transition to `READY`. Transition from `READY` to any other state is a noop.
 /// `TERMINATED` is used to indicate that no more status updates will be available despite not
@@ -76,6 +74,10 @@ impl AtomicDiceTaskState {
         self.transition(|s| s.transition(TargetState::CheckingDeps))
     }
 
+    pub(super) fn report_initial_lookup(&self) -> TaskState {
+        self.transition(|s| s.transition(TargetState::InitialLookup))
+    }
+
     pub(super) fn report_computing(&self) -> TaskState {
         self.transition(|s| s.transition(TargetState::Computing))
     }
@@ -108,6 +110,7 @@ pub(crate) mod introspection {
         pub(crate) fn introspect_state(&self) -> DiceTaskStateForDebugging {
             match DiceTaskState::from_u8_state(self.0.load(Ordering::Acquire)) {
                 DiceTaskState::InitialLookup(_) => DiceTaskStateForDebugging::AsyncInProgress,
+                DiceTaskState::AwaitingPrevious(_) => DiceTaskStateForDebugging::AsyncInProgress,
                 DiceTaskState::CheckingDeps(_) => DiceTaskStateForDebugging::AsyncInProgress,
                 DiceTaskState::Computing(_) => DiceTaskStateForDebugging::AsyncInProgress,
                 DiceTaskState::Sync => DiceTaskStateForDebugging::SyncInProgress,
@@ -126,6 +129,8 @@ enum DiceTaskState {
     CheckingDeps(IsProjecting),
     /// When we are actively computing the value by running the key's compute
     Computing(IsProjecting),
+    /// When we are waiting for the previous version of this task to cancel
+    AwaitingPrevious(IsProjecting),
     /// When we are synchronizing over the updating of the value
     Sync,
     /// When the value is ready to be used
@@ -137,34 +142,47 @@ enum DiceTaskState {
 impl DiceTaskState {
     fn from_u8_state(state: u8) -> Self {
         // The 4th bit is a boolean to indicate if its projecting
-        // We pack the state is a 3 bits corresponding to integers 0 to 4.
-        // The 4th bit is a boolean to indicate if its projecting
+        // We pack the state is a 3 bits corresponding to integers 0 to 6.
         match state & 0b111 {
-            0 => Self::InitialLookup(IsProjecting::unpack(state)),
-            1 => Self::CheckingDeps(IsProjecting::unpack(state)),
-            2 => Self::Computing(IsProjecting::unpack(state)),
-            3 => Self::Sync,
-            4 => Self::Ready,
-            5 => Self::Terminated,
+            0 => Self::AwaitingPrevious(IsProjecting::unpack(state)),
+            1 => Self::InitialLookup(IsProjecting::unpack(state)),
+            2 => Self::CheckingDeps(IsProjecting::unpack(state)),
+            3 => Self::Computing(IsProjecting::unpack(state)),
+            4 => Self::Sync,
+            5 => Self::Ready,
+            6 => Self::Terminated,
             _ => unreachable!("invalid state `{}`", state),
         }
     }
 
     fn into_u8_state(self) -> u8 {
-        // We pack the state is a 3 bits corresponding to integers 0 to 4.
+        // We pack the state is a 3 bits corresponding to integers 0 to 6.
         // The 4th bit is a boolean to indicate if its projecting
         match self {
-            DiceTaskState::InitialLookup(proj) => proj.pack(),
-            DiceTaskState::CheckingDeps(proj) => 1 | proj.pack(),
-            DiceTaskState::Computing(proj) => 2 | proj.pack(),
-            DiceTaskState::Sync => 3,
-            DiceTaskState::Ready => 4,
-            DiceTaskState::Terminated => 5,
+            DiceTaskState::AwaitingPrevious(proj) => proj.pack(),
+            DiceTaskState::InitialLookup(proj) => 1 | proj.pack(),
+            DiceTaskState::CheckingDeps(proj) => 2 | proj.pack(),
+            DiceTaskState::Computing(proj) => 3 | proj.pack(),
+            DiceTaskState::Sync => 4,
+            DiceTaskState::Ready => 5,
+            DiceTaskState::Terminated => 6,
         }
     }
 
     fn transition(self, target: TargetState) -> Option<Self> {
         match self {
+            DiceTaskState::AwaitingPrevious(proj) => match target {
+                target @ (TargetState::InitialLookup
+                | TargetState::Sync
+                | TargetState::Terminated) => Some(target.into_dice_task_state_with_proj(proj)),
+                target => {
+                    panic!(
+                        "invalid state transition `{:?}` -> `{:?}`",
+                        DiceTaskState::Computing(proj),
+                        target
+                    )
+                }
+            },
             DiceTaskState::InitialLookup(proj) => match target {
                 TargetState::Ready => {
                     panic!(
@@ -217,6 +235,9 @@ impl DiceTaskState {
 
     fn project(self) -> Option<Self> {
         match self {
+            DiceTaskState::AwaitingPrevious(_) => {
+                Some(DiceTaskState::AwaitingPrevious(IsProjecting::Projecting))
+            }
             DiceTaskState::InitialLookup(_) => {
                 Some(DiceTaskState::InitialLookup(IsProjecting::Projecting))
             }
@@ -238,6 +259,8 @@ impl DiceTaskState {
 
 #[derive(Debug, PartialEq, Eq)]
 enum TargetState {
+    /// When we are looking up this node from cache
+    InitialLookup,
     /// When we are waiting for our dependencies to see if the value can be reused
     CheckingDeps,
     /// When we are actively computing the value by running the key's compute
@@ -253,6 +276,7 @@ enum TargetState {
 impl TargetState {
     fn into_dice_task_state_with_proj(&self, proj: IsProjecting) -> DiceTaskState {
         match self {
+            TargetState::InitialLookup => DiceTaskState::InitialLookup(proj),
             TargetState::CheckingDeps => DiceTaskState::CheckingDeps(proj),
             TargetState::Computing => DiceTaskState::Computing(proj),
             TargetState::Sync => DiceTaskState::Sync,

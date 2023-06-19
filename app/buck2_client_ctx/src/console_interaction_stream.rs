@@ -44,6 +44,7 @@ impl<'a> Drop for ConsoleInteractionStream<'a> {
 
 #[cfg(unix)]
 mod interactive_terminal {
+    use std::io::IsTerminal;
     use std::os::unix::io::AsRawFd;
 
     use anyhow::Context as _;
@@ -57,15 +58,13 @@ mod interactive_terminal {
         pub fn enable() -> anyhow::Result<Option<Self>> {
             let fd = std::io::stdin().as_raw_fd();
 
-            if !nix::unistd::isatty(fd).context("Failed to check stdin for TTY")? {
+            if !std::io::stdin().is_terminal() {
                 return Ok(None);
             }
 
             // If stdout is redirected, let's also no turn this on since it might be redirected to
             // something that wants stdout. We can always debug those with `debug replay` now.
-            if !nix::unistd::isatty(std::io::stdout().as_raw_fd())
-                .context("Failed to check stdout for TTY")?
-            {
+            if !std::io::stdout().is_terminal() {
                 return Ok(None);
             }
 
@@ -80,9 +79,7 @@ mod interactive_terminal {
             //
             // We check stderr because if stderr is a TTY the user will see a bunch of consoles
             // interleaving and that would probably tell them something's wrong.
-            if !nix::unistd::isatty(std::io::stderr().as_raw_fd())
-                .context("Failed to check stderr for TTY")?
-            {
+            if !std::io::stderr().is_terminal() {
                 return Ok(None);
             }
 

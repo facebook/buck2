@@ -37,9 +37,7 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
-use buck2_data::RageInvoked;
 use buck2_data::RageResult;
-use buck2_events::metadata;
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::sink::scribe::ThriftScribeSink;
 use buck2_events::BuckEvent;
@@ -234,7 +232,6 @@ impl RageCommand {
 
             let selected_invocation = maybe_select_invocation(ctx.stdin(), &logdir, &self).await?;
             let invocation_id = get_trace_id(&selected_invocation).await?;
-            dispatch_invoked_event(sink.as_ref(), &rage_id, invocation_id.as_ref()).await?;
             if let Some(ref invocation_id) = invocation_id {
                 manifold_id = format!("{}_{}", invocation_id, manifold_id);
             }
@@ -410,7 +407,7 @@ async fn upload_daemon_stderr(
         .context(RageError::OpenFileError(path.display().to_string()))?
         .into();
     let filename = format!("{}.stderr", manifold_id);
-    manifold::Upload::new(manifold::Bucket::RageDumps, &filename)
+    manifold::Upload::new(manifold::Bucket::RAGE_DUMPS, &filename)
         .with_default_ttl()
         .from_stdio(upload_log_file)?
         .spawn()
@@ -420,28 +417,13 @@ async fn upload_daemon_stderr(
 
 async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow::Result<String> {
     let filename = format!("{}-event_log{}", manifold_id, path.extension());
-    let bucket = manifold::Bucket::RageDumps;
+    let bucket = manifold::Bucket::RAGE_DUMPS;
     manifold::Upload::new(bucket, &filename)
         .with_default_ttl()
         .from_file(path.path())?
         .spawn()
         .await?;
-    Ok(format!("{}/flat/{}", bucket.info().name, filename))
-}
-
-async fn dispatch_invoked_event(
-    sink: Option<&ThriftScribeSink>,
-    rage_id: &TraceId,
-    trace_id: Option<&TraceId>,
-) -> anyhow::Result<()> {
-    let recent_command_trace_id = trace_id.map(|x| x.to_string());
-    let metadata = metadata::collect();
-    let data = Some(Data::RageInvoked(RageInvoked {
-        metadata,
-        recent_command_trace_id,
-    }));
-    dispatch_event_to_scribe(sink, rage_id, InstantEvent { data }).await?;
-    Ok(())
+    Ok(format!("{}/flat/{}", bucket.name, filename))
 }
 
 async fn dispatch_result_event(

@@ -93,7 +93,7 @@
 //!
 //! let ast = AstModule::parse("quadratic.star", starlark_code.to_owned(), &Dialect::Standard)?;
 //! let res = eval.eval_module(ast, &globals)?;
-//! assert_eq!(res.unpack_int(), Some(273)); // Verify that we got an `int` return value of 4 * 8^2 + 2 * 8 + 1 = 273
+//! assert_eq!(res.unpack_i32(), Some(273)); // Verify that we got an `int` return value of 4 * 8^2 + 2 * 8 + 1 = 273
 //! # Ok(())
 //! # }
 //! # fn main(){ run().unwrap(); }
@@ -188,7 +188,7 @@
 //! let mut eval = Evaluator::new(&module);
 //! let res = eval.eval_module(ast, &globals);
 //! // We expect this to fail, since it is a type violation
-//! assert!(res.unwrap_err().to_string().contains("Value `test` of type `string` does not match the type annotation `int`"));
+//! assert!(res.unwrap_err().to_string().contains("Value `test` of type `string` does not match the type annotation `int.type`"));
 //! # Ok(())
 //! # }
 //! # fn main(){ run().unwrap(); }
@@ -273,12 +273,13 @@
 //! let module = Module::new();
 //! let mut eval = Evaluator::new(&module);
 //! let quad = eval.eval_module(ast, &globals)?;
+//! let heap = module.heap();
 //! let res = eval.eval_function(
 //!     quad,
-//!     &[Value::new_int(4), Value::new_int(2), Value::new_int(1)],
-//!     &[("x", Value::new_int(8))],
+//!     &[heap.alloc(4), heap.alloc(2), heap.alloc(1)],
+//!     &[("x", heap.alloc(8))],
 //! )?;
-//! assert_eq!(res.unpack_int(), Some(273));
+//! assert_eq!(res.unpack_i32(), Some(273));
 //! # Ok(())
 //! # }
 //! # fn main(){ run().unwrap(); }
@@ -408,6 +409,7 @@ mod hint;
 mod stdlib;
 pub mod syntax;
 pub mod values;
+pub(crate) mod wasm;
 
 pub mod coerce;
 #[cfg(test)]

@@ -65,7 +65,7 @@ mod tests {
         assert!(
             // Make test compatible with Windows.
             err.replace('\\', "/")
-                .contains("starlark/src/eval/runtime/rust_loc.rs"),
+                .contains("src/eval/runtime/rust_loc.rs"),
             "output: {:?}",
             err
         );

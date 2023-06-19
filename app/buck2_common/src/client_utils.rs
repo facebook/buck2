@@ -97,12 +97,24 @@ pub async fn get_channel_tcp(socket_addr: Ipv4Addr, port: u16) -> anyhow::Result
         .with_context(|| format!("failed to connect to port {}", port))
 }
 
-pub async fn retrying<L, Fut: Future<Output = anyhow::Result<L>>, F: FnMut() -> Fut>(
+#[derive(thiserror::Error, Debug)]
+pub enum RetryError<E> {
+    #[error("Timed out after {0:.2}s")]
+    Timeout(f64),
+    #[error("Failed after {tries} attempts over {timeout_secs:.2}s, with error: {last_error}")]
+    Failed {
+        timeout_secs: f64,
+        tries: i32,
+        last_error: E,
+    },
+}
+
+pub async fn retrying<L, E, Fut: Future<Output = Result<L, E>>, F: FnMut() -> Fut>(
     initial_delay: Duration,
     max_delay: Duration,
     timeout: Duration,
     mut func: F,
-) -> anyhow::Result<L> {
+) -> Result<L, RetryError<E>> {
     let deadline = Instant::now() + timeout;
     let mut wait = initial_delay;
     let mut tries = 0;
@@ -125,24 +137,15 @@ pub async fn retrying<L, Fut: Future<Output = anyhow::Result<L>>, F: FnMut() -> 
         }
     }
 
-    fn make_error(
-        tries: u32,
-        last_error: Option<anyhow::Error>,
-        timeout: Duration,
-    ) -> anyhow::Error {
+    fn make_error<E>(tries: i32, last_error: Option<E>, timeout: Duration) -> RetryError<E> {
+        let timeout_secs = timeout.as_secs_f64();
         match last_error {
-            Some(e) => e.context(format!(
-                "Failed after {} attempts over {:.2}s",
+            Some(e) => RetryError::Failed {
+                timeout_secs,
                 tries,
-                timeout.as_secs_f64()
-            )),
-            None => {
-                // `tries` is zero here.
-                anyhow::anyhow!(
-                    "Timed out after {:.2}s, unknown error",
-                    timeout.as_secs_f64()
-                )
-            }
+                last_error: e,
+            },
+            None => RetryError::Timeout(timeout_secs),
         }
     }
 }
@@ -152,6 +155,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::client_utils::retrying;
+    use crate::client_utils::RetryError;
 
     #[tokio::test]
     async fn test_retrying_error_forever() {
@@ -163,7 +167,7 @@ mod tests {
             Duration::from_millis(1),
             || async { Err(anyhow::anyhow!("test")) },
         );
-        let result: anyhow::Result<()> = future.await;
+        let result: Result<(), RetryError<anyhow::Error>> = future.await;
         assert!(result.is_err());
     }
 }

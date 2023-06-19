@@ -19,6 +19,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::fmt::Formatter;
+use std::slice;
 
 use either::Either;
 
@@ -27,19 +29,22 @@ use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocType;
-use crate::eval::compiler::scope::CstExpr;
+use crate::eval::compiler::scope::CstTypeExpr;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
+use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::ctx::TypingContext;
+use crate::typing::oracle::traits::TypingAttr;
 
 /// A typing operation wasn't able to produce a precise result,
 /// so made some kind of approximation.
@@ -195,6 +200,21 @@ pub enum Ty {
     /// Type that contain anything
     Any,
     /// A series of alternative types.
+    ///
+    /// When typechecking, we try all alternatives, and if at least one of them
+    /// succeeds, then the whole expression is considered to be a success.
+    ///
+    /// For example, when typechecking:
+    ///
+    /// ```python
+    /// x = ... # string or int
+    /// y = ... # string
+    /// x + y   # `int + string` fails, but `string + string` succeeds,
+    ///         # so the whole expression is typechecked successfully as `string`
+    /// ```
+    ///
+    /// This is different handling of union types than in TypeScript for example,
+    /// TypeScript would consider such expression to be an error.
     Union(TyUnion),
     /// A name, represented by `"name"` in the Starlark type.
     /// Will never be a type that can be represented by another operation,
@@ -253,13 +273,7 @@ pub struct TyUnion(Vec<Ty>);
 
 impl Display for TyUnion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut comma = commas();
-        write!(f, "[")?;
-        for x in &self.0 {
-            comma(f)?;
-            write!(f, "{}", x)?;
-        }
-        write!(f, "]")
+        display_container::fmt_container(f, "[", "]", &self.0)
     }
 }
 
@@ -282,6 +296,34 @@ pub struct TyFunction {
     pub params: Vec<Param>,
     /// The result type of the function.
     pub result: Box<Ty>,
+}
+
+impl Display for TyFunction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let TyFunction {
+            name,
+            params,
+            result,
+            ..
+        } = self;
+        write!(f, "def{}{}(", if name.is_empty() { "" } else { " " }, name)?;
+        let mut first = true;
+        for param in params {
+            if !first {
+                write!(f, ", ")?;
+                first = false;
+            }
+            let opt = if param.optional { "=.." } else { "" };
+            match &param.mode {
+                ParamMode::PosOnly => write!(f, "#: {}{}", param.ty, opt)?,
+                ParamMode::PosOrName(name) => write!(f, "#{}: {}{}", name, param.ty, opt)?,
+                ParamMode::NameOnly(name) => write!(f, "{}: {}{}", name, param.ty, opt)?,
+                ParamMode::Args => write!(f, "*args: {}", param.ty)?,
+                ParamMode::Kwargs => write!(f, "**kwargs: {}", param.ty)?,
+            }
+        }
+        write!(f, ") -> {}", result)
+    }
 }
 
 fn merge_adjacent<T>(xs: Vec<T>, f: impl Fn(T, T) -> Either<T, (T, T)>) -> Vec<T> {
@@ -324,7 +366,27 @@ impl Ty {
                 fields: BTreeMap::new(),
                 extra: true,
             },
+            "never" => Self::Void,
+            // Note that "tuple" cannot be converted to Ty::Tuple
+            // since we don't know the length of the tuple.
             _ => Self::Name(TyName(name.to_owned())),
+        }
+    }
+
+    /// Turn a type back into a name, potentially erasing some structure.
+    /// E.g. the type `[bool]` would return `list`.
+    /// Types like [`Ty::Any`] will return `None`.
+    pub fn as_name(&self) -> Option<&str> {
+        match self {
+            Ty::Name(x) => Some(x.as_str()),
+            Ty::None => Some("NoneType"),
+            Ty::List(_) => Some("list"),
+            Ty::Tuple(_) => Some("tuple"),
+            Ty::Dict(_) => Some("dict"),
+            Ty::Struct { .. } => Some("struct"),
+            Ty::Function { .. } => Some("function"),
+            Ty::Void => Some("never"),
+            _ => None,
         }
     }
 
@@ -349,8 +411,13 @@ impl Ty {
     }
 
     /// Create a list type.
-    pub fn list(inner: Ty) -> Self {
-        Ty::List(Box::new(inner))
+    pub fn list(element: Ty) -> Self {
+        Ty::List(Box::new(element))
+    }
+
+    /// Create a iterable type.
+    pub fn iter(item: Ty) -> Self {
+        Ty::Iter(Box::new(item))
     }
 
     /// Create a dictionary type.
@@ -454,11 +521,11 @@ impl Ty {
     }
 
     /// Iterate over the types within a union, pretending the type is a singleton union if not a union.
-    pub(crate) fn iter_union(&self) -> impl Iterator<Item = &Self> {
+    pub(crate) fn iter_union(&self) -> &[Self] {
         match self {
-            Self::Union(xs) => Either::Left(xs.0.iter()),
-            Self::Void => Either::Left([].iter()),
-            _ => Either::Right(std::iter::once(self)),
+            Self::Union(xs) => &xs.0,
+            Self::Void => &[],
+            _ => slice::from_ref(self),
         }
     }
 
@@ -466,8 +533,8 @@ impl Ty {
     pub(crate) fn into_iter_union(self) -> impl Iterator<Item = Self> {
         match self {
             Self::Union(xs) => Either::Left(xs.0.into_iter()),
-            Self::Void => Either::Right(Either::Left(std::iter::empty())),
-            _ => Either::Right(Either::Right(std::iter::once(self))),
+            Self::Void => Either::Left(Vec::new().into_iter()),
+            _ => Either::Right(std::iter::once(self)),
         }
     }
 
@@ -499,7 +566,7 @@ impl Ty {
     }
 
     /// See what lies behind an attribute on a type
-    pub(crate) fn attribute(&self, attr: &str, ctx: &TypingContext) -> Result<Ty, ()> {
+    pub(crate) fn attribute(&self, attr: TypingAttr, ctx: &TypingContext) -> Result<Ty, ()> {
         // There are some structural types which have to be handled in a specific way
         match self {
             Ty::Any => Ok(Ty::Any),
@@ -517,6 +584,9 @@ impl Ty {
                 } else {
                     Ok(Ty::unions(rs))
                 }
+            }
+            Ty::Function(x) if attr == TypingAttr::Regular("type") && !x.type_attr.is_empty() => {
+                Ok(Ty::string())
             }
             _ => match ctx.oracle.attribute(self, attr) {
                 Some(r) => r,
@@ -539,7 +609,7 @@ impl Ty {
                 }
         };
 
-        let itered = |ty: &Ty| ctx?.oracle.attribute(ty, "__iter__")?.ok();
+        let itered = |ty: &Ty| ctx?.oracle.attribute(ty, TypingAttr::Iter)?.ok();
 
         for x in self.iter_union() {
             for y in other.iter_union() {
@@ -574,31 +644,37 @@ impl Ty {
         return false;
     }
 
-    pub(crate) fn from_expr_opt(
-        x: &Option<Box<CstExpr>>,
+    pub(crate) fn from_type_expr_opt(
+        x: &Option<Box<CstTypeExpr>>,
         approximations: &mut Vec<Approximation>,
     ) -> Self {
         match x {
             None => Ty::Any,
-            Some(x) => Self::from_expr(x, approximations),
+            Some(x) => Self::from_type_expr(x, approximations),
         }
     }
 
-    pub(crate) fn from_expr<P: AstPayload>(
-        x: &AstExprP<P>,
+    pub(crate) fn from_type_expr<P: AstPayload>(
+        x: &AstTypeExprP<P>,
         approximations: &mut Vec<Approximation>,
     ) -> Self {
-        match &**x {
+        Self::from_expr(&x.expr, approximations)
+    }
+
+    // This should go away when `ExprType` is disconnected from `Expr`.
+    fn from_expr<P: AstPayload>(x: &AstExprP<P>, approximations: &mut Vec<Approximation>) -> Self {
+        let mut unknown = || {
+            approximations.push(Approximation::new("Unknown type", x));
+            Ty::Any
+        };
+        match &x.node {
             ExprP::Tuple(xs) => Ty::Tuple(xs.map(|x| Self::from_expr(x, approximations))),
             ExprP::Dot(x, b) if &**b == "type" => match &***x {
-                ExprP::Identifier(x, _) => match (*x).as_str() {
+                ExprP::Identifier(x) => match x.node.0.as_str() {
                     "str" => Ty::string(),
                     x => Ty::name(x),
                 },
-                _ => {
-                    approximations.push(Approximation::new("Unknown type", x));
-                    Ty::Any
-                }
+                _ => unknown(),
             },
             ExprP::Literal(AstLiteral::String(x)) => {
                 if x.is_empty() || x.starts_with('_') {
@@ -618,11 +694,14 @@ impl Ty {
                 Self::from_expr(&x[0].0, approximations),
                 Self::from_expr(&x[0].1, approximations),
             ),
-            ExprP::Identifier(x, _) if &**x == "None" => Ty::None,
-            _ => {
-                approximations.push(Approximation::new("Unknown type", x));
-                Ty::Any
-            }
+            ExprP::Identifier(x) if x.node.0 == "None" => Ty::None,
+            ExprP::Call(fun, args) if args.len() == 1 => match (&fun.node, &args[0].node) {
+                (ExprP::Identifier(name), ArgumentP::Positional(arg)) if name.node.0 == "iter" => {
+                    Ty::iter(Ty::from_expr(arg, approximations))
+                }
+                _ => unknown(),
+            },
+            _ => unknown(),
         }
     }
 
@@ -639,7 +718,7 @@ impl Ty {
 
     pub(crate) fn from_docs_function(function: &DocFunction) -> Self {
         let mut params = Vec::with_capacity(function.params.len());
-        let mut no_args = false;
+        let mut seen_no_args = false;
         for p in &function.params {
             match p {
                 DocParam::Arg {
@@ -648,7 +727,7 @@ impl Ty {
                     default_value,
                     ..
                 } => {
-                    let mut r = if no_args {
+                    let mut r = if seen_no_args {
                         Param::name_only(name, Ty::from_docs_type(typ))
                     } else {
                         Param::pos_or_name(name, Ty::from_docs_type(typ))
@@ -658,12 +737,26 @@ impl Ty {
                     }
                     params.push(r);
                 }
-                DocParam::NoArgs => no_args = true,
-                DocParam::Args { typ, .. } => params.push(Param::args(Ty::from_docs_type(typ))),
+                DocParam::OnlyPosBefore => {
+                    for x in params.iter_mut() {
+                        if matches!(x.mode, ParamMode::PosOrName(_)) {
+                            x.mode = ParamMode::PosOnly;
+                        }
+                    }
+                }
+                DocParam::NoArgs => seen_no_args = true,
+                DocParam::Args { typ, .. } => {
+                    seen_no_args = true;
+                    params.push(Param::args(Ty::from_docs_type(typ)))
+                }
                 DocParam::Kwargs { typ, .. } => params.push(Param::kwargs(Ty::from_docs_type(typ))),
             }
         }
-        Ty::function(params, Self::from_docs_type(&function.ret.typ))
+        let result = Self::from_docs_type(&function.ret.typ);
+        match &function.dot_type {
+            None => Ty::function(params, result),
+            Some(type_attr) => Ty::ctor_function(type_attr, params, result),
+        }
     }
 
     pub(crate) fn from_docs_type(ty: &Option<DocType>) -> Self {
@@ -690,21 +783,8 @@ impl Ty {
     }
 }
 
-// Returns a function that produces commas every time apart from the first
-pub(crate) fn commas() -> impl FnMut(&mut fmt::Formatter<'_>) -> fmt::Result {
-    let mut with_comma = false;
-    move |f: &mut fmt::Formatter<'_>| -> fmt::Result {
-        if with_comma {
-            write!(f, ", ")?;
-        }
-        with_comma = true;
-        Ok(())
-    }
-}
-
 impl Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut comma = commas();
         match self {
             Ty::Void => write!(f, "Void"),
             Ty::Any => write!(f, "\"\""),
@@ -714,49 +794,23 @@ impl Display for Ty {
             Ty::Iter(x) => write!(f, "iter({})", x),
             Ty::List(x) => write!(f, "[{}]", x),
             Ty::Tuple(xs) => {
-                write!(f, "(")?;
-                for x in xs {
-                    comma(f)?;
-                    write!(f, "{}", x)?;
-                }
                 if xs.len() == 1 {
-                    write!(f, ",")?;
+                    write!(f, "({},)", xs[0])
+                } else {
+                    display_container::fmt_container(f, "(", ")", xs)
                 }
-                write!(f, ")")
             }
             Ty::Dict(k_v) => write!(f, "{{{}: {}}}", k_v.0, k_v.1),
-            Ty::Struct { fields, extra } => {
-                write!(f, "struct(")?;
-                for (k, v) in fields {
-                    comma(f)?;
-                    write!(f, "{} = {}", k, v)?;
-                }
-                if *extra {
-                    comma(f)?;
-                    write!(f, "..")?;
-                }
-                write!(f, ")")
-            }
-            Ty::Function(TyFunction {
-                name,
-                params,
-                result,
-                ..
-            }) => {
-                write!(f, "def{}{}(", if name.is_empty() { "" } else { " " }, name)?;
-                for param in params {
-                    comma(f)?;
-                    let opt = if param.optional { "=.." } else { "" };
-                    match &param.mode {
-                        ParamMode::PosOnly => write!(f, "#: {}{}", param.ty, opt)?,
-                        ParamMode::PosOrName(name) => write!(f, "#{}: {}{}", name, param.ty, opt)?,
-                        ParamMode::NameOnly(name) => write!(f, "{}: {}{}", name, param.ty, opt)?,
-                        ParamMode::Args => write!(f, "*args: {}", param.ty)?,
-                        ParamMode::Kwargs => write!(f, "**kwargs: {}", param.ty)?,
-                    }
-                }
-                write!(f, ") -> {}", result)
-            }
+            Ty::Struct { fields, extra } => display_container::fmt_container(
+                f,
+                "struct(",
+                ")",
+                display_container::iter_display_chain(
+                    fields.iter().map(|(k, v)| format!("{} = {}", k, v)),
+                    extra.then_some(".."),
+                ),
+            ),
+            Ty::Function(fun) => Display::fmt(fun, f),
         }
     }
 }
