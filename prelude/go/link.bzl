@@ -92,7 +92,14 @@ def link(
         linker_flags: [""] = [],
         shared: bool.type = False):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    output = ctx.actions.declare_output(ctx.label.name + (".so" if build_mode == GoBuildMode("c_shared") else ""))
+    if go_toolchain.env_go_os == "windows":
+        executable_extension = ".exe"
+        shared_extension = ".dll"
+    else:
+        executable_extension = ""
+        shared_extension = ".so"
+    file_extension = shared_extension if build_mode == GoBuildMode("c_shared") else executable_extension
+    output = ctx.actions.declare_output(ctx.label.name + file_extension)
 
     cmd = get_toolchain_cmd_args(go_toolchain)
 
