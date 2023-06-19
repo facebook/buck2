@@ -193,16 +193,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             local_resource_state_registry,
         }
     }
-}
 
-struct PreparedLocalResourceSetupContext {
-    pub target: ConfiguredTargetLabel,
-    pub execution_request: CommandExecutionRequest,
-    pub env_var_mapping: IndexMap<String, String>,
-}
-
-#[async_trait]
-impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
     async fn execute2(
         &self,
         metadata: DisplayMetadata,
@@ -321,6 +312,42 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             start_time: timing.start_time,
             execution_time: timing.execution_time,
         }))
+    }
+}
+
+struct PreparedLocalResourceSetupContext {
+    pub target: ConfiguredTargetLabel,
+    pub execution_request: CommandExecutionRequest,
+    pub env_var_mapping: IndexMap<String, String>,
+}
+
+#[async_trait]
+impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
+    async fn execute2(
+        &self,
+        metadata: DisplayMetadata,
+        test_target: ConfiguredTargetHandle,
+        cmd: Vec<ArgValue>,
+        env: SortedVectorMap<String, ArgValue>,
+        timeout: Duration,
+        host_sharing_requirements: HostSharingRequirements,
+        pre_create_dirs: Vec<DeclaredOutput>,
+        executor_override: Option<ExecutorConfigOverride>,
+        required_local_resources: RequiredLocalResources,
+    ) -> anyhow::Result<ExecuteResponse> {
+        BuckTestOrchestrator::execute2(
+            self,
+            metadata,
+            test_target,
+            cmd,
+            env,
+            timeout,
+            host_sharing_requirements,
+            pre_create_dirs,
+            executor_override,
+            required_local_resources,
+        )
+        .await
     }
 
     async fn report_test_result(&self, r: TestResult) -> anyhow::Result<()> {
