@@ -1,67 +1,136 @@
-# Buck2 [![CI](https://circleci.com/gh/facebook/buck2.svg?style=svg)](https://app.circleci.com/pipelines/github/facebook/buck2)
+<div class="title-block" style="text-align: center;" align="center">
 
-This repo contains the code for the Buck2 build system - the successor to the original [Buck build system](https://buck.build).
+# Buck2: fast multi-language build system
 
-* To understand why Buck2 might be interesting, see [this explainer](https://buck2.build/docs/why/) or [our introductory blog post](https://engineering.fb.com/2023/04/06/open-source/buck2-open-source-large-scale-build-system).
-* For our user-facing documentation see [https://buck2.build/](https://buck2.build/).
+![Version]
+![License]
+[![Build Status]][CI]
 
-We're keen for you to give Buck2 a go and [let us know](https://github.com/facebook/buck2/issues) any problems you run into.
+[Version]:  https://img.shields.io/badge/release-unstable,%20"Developer%20Edition"-orange.svg
+[License]:  https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blueviolet.svg
+[Build Status]: https://img.shields.io/circleci/build/github/facebook/buck2
+[CI]: https://app.circleci.com/pipelines/github/facebook/buck2
 
-## Getting started
+<strong>
+  <a href="https://buck2.build">Homepage</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="https://buck2.build/docs/getting_started/">Getting Started</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="./CONTRIBUTING.md">Contributing</a>
+</strong>
 
-You can either download the [latest](https://github.com/facebook/buck2/releases/tag/latest) `buck2` binary, or build from source.
+---
 
-Buck2 is written in Rust, which requires [rustup](https://rustup.rs/) to compile.
+</div>
 
-You can either build `buck2` from a clone of the Buck2 repo:
+Buck2 is a fast, hermetic, multi-language build system, and a direct successor
+to the original [Buck build system](https://buck.build) ("Buck1") &mdash; both
+designed by Meta.
 
-```sh
-git clone https://github.com/facebook/buck2.git
-cd buck2/
-cargo install --path=app/buck2
-```
+But what do those words really mean for a build system &mdash; and why might
+they interest you? "But why Buck2?" you might ask, when so many build systems
+already exist?
 
-Or alternatively install it directly from GitHub:
+- **Fast**. It doesn't matter whether a single build command takes 60 seconds to
+  complete, or 0.1 seconds: when you have to build things, Buck2 doesn't waste
+  time &mdash; it calculates the critical path and gets out of the way, with
+  minimal overhead. It's not just the core design, but also careful attention to
+  detail that makes Buck2 so snappy. Buck2 is up to 2x faster than Buck1 *in
+  practice*[^perf-note]. So you spend more time iterating, and less time
+  waiting.
+- **Hermetic**. When using Remote Execution[^hermetic-re-only], Buck2 becomes
+  *hermetic*: it is required for a build rule to correctly declare all of its
+  inputs; if they aren't specified correctly (e.g. a `.c` file neeads a `.h`
+  file that isn't correctly specified), the build will fail. This enforced
+  correctness helps avoids entire classes of errors that most build systems
+  allow, and helps ensure builds work everywhere for all users. And Buck2
+  correctly tracks dependencies with far better accuracy than Buck1, in more
+  languages, across more scenarios. That means "it compiles on my machine" can
+  become a thing of the past.
+- **Multi-language**. Many teams have to deal with multiple programming
+  languages that have complex inter-dependencies, and struggle to express that.
+  Most people settle with `make` and tie together `dune` to `pip` and `cargo`.
+  But then how do you run test suites, code coverage, or query code databases?
+  Buck2 is designed to support multiple languages from the start, with
+  abstractions for interoperation. And because it's completely scriptable, and
+  *users* can implement language support &mdash; it's incredibly flexible. Now
+  your Python library can depend on an OCaml library, and your OCaml library can
+  depend on a Rust crate &mdash; and with a single build tool, you have a
+  consistent UX to build and test and integrate all of these components.
 
-```sh
-rustup install nightly-2023-04-23
-cargo +nightly-2023-04-23 install --git https://github.com/facebook/buck2.git buck2
-```
+[^perf-note]: This number comes from internal usage of Buck1 versus Buck2 at
+    Meta. Please note that *appropriate* comparisons with systems like Bazel
+    have yet to be performed; Buck1 is the baseline because it's simply what
+    existed and what had to be replaced. Please benchmark Buck2 against your
+    favorite tools and let us know how it goes!
 
-Build uses prebuilt `protoc` binary from
-[protoc-bin-vendored](https://crates.io/crates/protoc-bin-vendored) crate.
-If these binaries to do not work on your machine (for example, when building for NixOS),
-path to `protoc` binary and protobuf include path can be specified via
-`BUCK2_BUILD_PROTOC` and `BUCK2_BUILD_PROTOC_INCLUDE` environment variables.
+[^hermetic-re-only]: Buck2 currently does not sandbox *local-only* build steps;
+    in contrast, Buck2 using Remote Execution is *always* hermetic by design.
+    The vast majority of build rules are remote compatible, as well. Despite
+    that, we hope to lift this restriction in the (hopefully short-term) future
+    so that local-only builds are hermetic as well.
 
-To build a project with `buck2`, go to the [getting started guide](https://buck2.build/docs/getting_started/).
+If you're familiar with systems like Buck1, [Bazel](https://bazel.build/), or
+[Pants](https://www.pantsbuild.org/) &mdash; then Buck2 will feel warm and cozy,
+and these ideas will be familiar. But then why create Buck2 if those already
+exist? Because that isn't all &mdash; the page
+_["Why Buck2?"](https://buck2.build/docs/why/)_ on our website goes into more
+detail on several other important design critera that separate Buck2 from the
+rest of the pack, including:
+
+- Support for ultra-large repositories, through filesystem virtualization and
+  watching for changes to the filesystem.
+- Totally language-agnostic core executable, with a small API &mdash; even C/C++
+  support is written as a library. You can write everything from scratch, if you
+  wanted.
+- "Buck Extension Language" (BXL) can be used for self-introspection of the
+  build system, allowing automation tools to inspect and run actions in the
+  build graph. This allows you to more cleanly support features that need graph
+  introspection, like LSPs or compilation databases.
+- Support for distributed compilation, using the same Remote Execution API that
+  is supported by Bazel. Existing solutions like BuildBarn, BuildBuddy, and
+  EngFlow all work today.
+- An efficient, robust, and sound design &mdash; inspired by modern theory of
+  build systems and incremental computation.
+- And more!
+
+If these headline features make you interested &mdash; check out the [Getting
+Started](https://buck2.build/docs/getting_started/) guide!
+
+## 🚧🚧🚧 **Warning** 🚧🚧🚧 &mdash; rough terrain lies ahead
+
+Buck2 was released recently and currently **does not have a stable release tag
+at this time**. Pre-release tags/binaries, and stable tags/binaries, will come
+at later dates. Despite that, it is used extensively inside of Meta on vast
+amounts of code every day, and [buck2-prelude](/prelude/) is the same code used
+internally for all these builds, as well.
+
+Meta just uses the latest committed `HEAD` version of Buck2 at all times. Your
+mileage may vary &mdash; but at the moment, tracking `HEAD` is ideal for
+submitting bug reports and catching regressions.
+
+The short of this is that you should consider this project and its code to be
+battle-tested and working, but outside consumers will encounter quite a lot of
+rough edges right now &mdash; several features are missing or in progress, some
+toolchains from Buck1 are missing, and you'll probably have to fiddle with
+things more than necessary to get it nice and polished.
+
+Please provide feedback by submitting [issues and questions!](/issues)
+
+## Installing Buck2
+
+You can get started by downloading the [latest buck2
+binary](https://github.com/facebook/buck2/releases/tag/latest) for your
+platform. The `latest` tag always refers to a recent commit; it is updated on
+every single push to the GitHub repository, so it will always be a recent
+version.
+
+You can also compile Buck2 from source, if a binary isn't immediately available
+for your use; check out the [HACKING.md](./HACKING.md) file for information.
 
 ## Terminology conventions
 
-Frequently used terms and their definitions can be found in the [glossary page](https://buck2.build/docs/concepts/glossary/).
-
-## Coding conventions
-
-Beyond the obvious (well-tested, easy to read) we prefer guidelines that are automatically enforced, e.g. through Rustfmt, Clippy or the custom linter we have written. Some rules:
-
-* Use the utilities from Gazebo where they are useful, in particular, `dupe`.
-* Prefer `to_owned` to convert `&str` to `String`.
-* Qualify `anyhow::Result` rather than `use anyhow::Result`.
-* Most errors should be returned as `anyhow::Result`. Inspecting errors outside tests and the top-level error handler is strongly discouraged.
-* Most errors should be constructed with `thiserror` deriving `enum` values, not raw `anyhow!`.
-* We use the `derivative` library to derive the `PartialEq` and `Hash` traits when some fields should be ignored.
-* Prefer `use crate::foo::bar` over `use super::bar` or `use crate::foo::*`, apart from test modules which often have `use super::*` at the top.
-* Modules should either have submodules or types/functions/constants, but not both.
-* Prefer `anyhow::Error` for checking internal invariants that are maintained between multiple files, while `panic!`/`unreachable!` are reasonable if the invariant is file-local.
-
-### Error messages
-
-* Names (of variables, targets, files, etc) should be quoted with backticks,
-  e.g. ``Variable `x` not defined``.
-* Lists should use square brackets, e.g. ``Available targets: [`aa`, `bb`]``.
-* Error messages should start with an upper case letter.
-  Error messages should not end with a period.
+Frequently used terms and their definitions can be found in the [glossary
+page](https://buck2.build/docs/concepts/glossary/).
 
 ## License
 
-Buck2 is both MIT and Apache License, Version 2.0 licensed, as found in the [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE) files.
+Buck2 is licensed under both the MIT license and Apache-2.0 license; the exact
+terms can be found in the [LICENSE-MIT](LICENSE-MIT) and
+[LICENSE-APACHE](LICENSE-APACHE) files, respectively.
