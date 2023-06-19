@@ -583,12 +583,12 @@ impl<'f> ModuleScopes<'f> {
                     Some(v) => ResolvedIdent::Global(v),
                 }
             }
-            Some(slot) => ResolvedIdent::Slot(slot),
+            Some((slot, binding_id)) => ResolvedIdent::Slot(slot, binding_id),
         };
         match scope {
             ResolveIdentScope::Any => {}
             ResolveIdentScope::GlobalForTypeExpression => match resolved {
-                ResolvedIdent::Slot((Slot::Local(_), _)) => {
+                ResolvedIdent::Slot(Slot::Local(_), _) => {
                     self.errors.push(EvalException::new(
                         ScopeError::TypeExpressionGlobalOrBuiltin(ident.node.0.clone()).into(),
                         ident.span,
@@ -596,7 +596,7 @@ impl<'f> ModuleScopes<'f> {
                     ));
                     return;
                 }
-                ResolvedIdent::Slot((Slot::Module(_), _)) => {}
+                ResolvedIdent::Slot(Slot::Module(_), _) => {}
                 ResolvedIdent::Global(_) => {}
             },
         }
@@ -1004,7 +1004,7 @@ impl<'f> ModuleScopeData<'f> {
 
 #[derive(Debug)]
 pub(crate) enum ResolvedIdent {
-    Slot((Slot, BindingId)),
+    Slot(Slot, BindingId),
     Global(FrozenValue),
 }
 
@@ -1148,7 +1148,7 @@ mod tests {
             fn visit_expr(&mut self, expr: &CstExpr) {
                 if let ExprP::Identifier(ident) = &expr.node {
                     let resolved = match ident.node.1.as_ref().unwrap() {
-                        ResolvedIdent::Slot((_slot, binding_id)) => binding_id.0.to_string(),
+                        ResolvedIdent::Slot(_slot, binding_id) => binding_id.0.to_string(),
                         ResolvedIdent::Global(_) => "G".to_owned(),
                     };
                     write!(&mut self.r, " {}:{}", ident.node.0, resolved).unwrap();

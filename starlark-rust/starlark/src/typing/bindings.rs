@@ -125,7 +125,7 @@ impl<'a> BindingsCollect<'a> {
                 AssignP::ArrayIndirection(array_index) => match &*array_index.0 {
                     ExprP::Identifier(Spanned {
                         span: _,
-                        node: IdentP(_name, Some(ResolvedIdent::Slot((_, ident)))),
+                        node: IdentP(_name, Some(ResolvedIdent::Slot(_, ident))),
                     }) => {
                         bindings
                             .bindings
@@ -271,7 +271,7 @@ impl<'a> BindingsCollect<'a> {
                                         _ => None,
                                     };
                                     if let Some((extend, arg)) = res {
-                                        if let ResolvedIdent::Slot((_, id)) =
+                                        if let ResolvedIdent::Slot(_, id) =
                                             id.node.1.as_ref().unwrap()
                                         {
                                             let bind = if extend {

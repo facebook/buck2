@@ -461,7 +461,7 @@ impl TypingContext<'_> {
             }
             ExprP::Identifier(x) => {
                 match &x.node.1 {
-                    Some(ResolvedIdent::Slot((_, i))) => {
+                    Some(ResolvedIdent::Slot(_, i)) => {
                         if let Some(ty) = self.types.get(i) {
                             ty.clone()
                         } else {

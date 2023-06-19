@@ -1123,7 +1123,7 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
             .1
             .unwrap_or_else(|| panic!("variable not resolved: `{}`", ident.node.0));
         match resolved_ident {
-            ResolvedIdent::Slot((Slot::Local(slot), binding_id)) => {
+            ResolvedIdent::Slot(Slot::Local(slot), binding_id) => {
                 let binding = self.scope_data.get_binding(binding_id);
 
                 // We can't look up the local variabless in advance, because they are different each time
@@ -1133,7 +1133,7 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
                     Captured::No => ExprCompiled::Local(LocalSlotId(slot.0)),
                 }
             }
-            ResolvedIdent::Slot((Slot::Module(slot), binding_id)) => {
+            ResolvedIdent::Slot(Slot::Module(slot), binding_id) => {
                 let binding = self.scope_data.get_binding(binding_id);
 
                 // We can only inline variables if they were assigned once

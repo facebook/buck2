@@ -107,14 +107,14 @@ impl<'v> Compiler<'v, '_, '_> {
             ));
         };
         let mut value = match ident_payload {
-            ResolvedIdent::Slot((Slot::Local(..), _)) => {
+            ResolvedIdent::Slot(Slot::Local(..), _) => {
                 return Err(EvalException::new(
                     TypesError::LocalIdentifier.into(),
                     first.span,
                     &self.codemap,
                 ));
             }
-            ResolvedIdent::Slot((Slot::Module(module_slot_id), _)) => {
+            ResolvedIdent::Slot(Slot::Module(module_slot_id), _) => {
                 match self.eval.module_env.slots().get_slot(*module_slot_id) {
                     Some(v) => v,
                     None => {
