@@ -46,7 +46,7 @@ create_artifact_annotation(FileName) ->
                 #{
                     generic_text_log => #{
                         log_aggregator_config => #{
-                            log_type => "whatsapp_common_test"
+                            log_type => "WhatsApp Common Test Log"
                         }
                     }
                 };
