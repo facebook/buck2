@@ -111,7 +111,7 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
 
     # The HTTP download is local so it makes little sense to run actions
     # remotely, unless we can defer them.
-    local_only = ctx.attrs.sha1 == None
+    local_only = ctx.attrs.sha1 == None and ctx.attrs.sha256 == None
 
     ext_type = _type(ctx)
 
