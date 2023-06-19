@@ -73,7 +73,6 @@ load(
     ":manifest.bzl",
     "create_dep_manifest_for_source_map",
     "create_manifest_for_extensions",
-    "create_manifest_for_source_dir",
     "create_manifest_for_source_map",
 )
 load(":native_python_util.bzl", "merge_cxx_extension_info")
@@ -312,11 +311,7 @@ def python_executable(
     bytecode_manifest = None
     if srcs:
         src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs)
-        bytecode_manifest = create_manifest_for_source_dir(
-            ctx,
-            "bytecode",
-            compile_manifests(ctx, [src_manifest]),
-        )
+        _, bytecode_manifest = compile_manifests(ctx, [src_manifest])
 
     dep_manifest = None
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]

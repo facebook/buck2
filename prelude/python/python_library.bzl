@@ -37,7 +37,6 @@ load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
     "create_dep_manifest_for_source_map",
-    "create_manifest_for_source_dir",
     "create_manifest_for_source_map",
 )
 load(
@@ -276,9 +275,8 @@ def python_library_impl(ctx: "context") -> ["provider"]:
     # Compile bytecode.
     bytecode_manifest = None
     if src_manifest != None:
-        bytecode = compile_manifests(ctx, [src_manifest])
+        bytecode, bytecode_manifest = compile_manifests(ctx, [src_manifest])
         sub_targets["compile"] = [DefaultInfo(default_output = bytecode)]
-        bytecode_manifest = create_manifest_for_source_dir(ctx, "bytecode", bytecode)
         sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = [a for a, _ in src_manifest.artifacts])]
         if python_toolchain.emit_dependency_metadata:
             dep_manifest = create_dep_manifest_for_source_map(ctx, python_toolchain, qualified_srcs)
