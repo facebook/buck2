@@ -30,6 +30,7 @@ gazebo = { workspace = true }
 display_container = { workspace = true }
 dupe = { workspace = true }
 dice = { workspace = true }
+cmp_any = { workspace = true }
 buck2_events = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }

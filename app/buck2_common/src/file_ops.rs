@@ -19,10 +19,10 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use cmp_any::PartialEqAny;
 use compact_str::CompactString;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::cmp::PartialEqAny;
 
 use crate::cas_digest::CasDigest;
 use crate::cas_digest::CasDigestConfig;
@@ -370,8 +370,8 @@ pub mod testing {
     use async_trait::async_trait;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_path::CellPathRef;
+    use cmp_any::PartialEqAny;
     use dupe::Dupe;
-    use gazebo::cmp::PartialEqAny;
     use itertools::Itertools;
 
     use crate::cas_digest::CasDigestConfig;

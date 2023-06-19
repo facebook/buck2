@@ -14,7 +14,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use gazebo::cmp::PartialEqAny;
+use cmp_any::PartialEqAny;
 
 /// Untyped version of `starlark::eval::CallStack`.
 pub trait StarlarkCallStackImpl: Display + Debug + Send + Sync + 'static {

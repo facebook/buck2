@@ -62,6 +62,7 @@ dupe = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+cmp_any = { workspace = true }
 internment_tweaks = { path = "../../shed/internment_tweaks" }
 more_futures = { workspace = true }
 sorted_vector_map = { workspace = true }

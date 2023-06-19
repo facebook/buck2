@@ -17,9 +17,9 @@ use std::hash::Hasher;
 use std::iter;
 use std::sync::Arc;
 
+use cmp_any::PartialEqAny;
 use derivative::Derivative;
 use dupe::Dupe;
-use gazebo::cmp::PartialEqAny;
 use itertools::Either;
 use serde::de::Error;
 use serde::de::Unexpected;

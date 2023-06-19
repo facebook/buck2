@@ -81,6 +81,7 @@ members = [
     # Uncomment to manually test linter_test
     # "gazebo_lint/linter_test",
     "gazebo/display_container",
+    "gazebo/cmp_any",
     "gazebo/gazebo",
     "gazebo/gazebo_derive",
     "integrations/rust-project",
@@ -287,6 +288,7 @@ allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "has
 gazebo.version = "0.8.1"
 gazebo.features = ["str_pattern_extensions"]
 gazebo.path = "gazebo/gazebo"
+cmp_any = { path = "gazebo/cmp_any" }
 dupe.version = "0.9.0"
 dupe.path = "gazebo/dupe"
 dice = { path = "dice/dice" }

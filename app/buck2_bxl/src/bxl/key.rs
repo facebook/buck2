@@ -25,8 +25,8 @@ use buck2_core::target::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
 use buck2_util::collections::ordered_map::OrderedMap;
+use cmp_any::PartialEqAny;
 use dupe::Dupe;
-use gazebo::cmp::PartialEqAny;
 
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
 

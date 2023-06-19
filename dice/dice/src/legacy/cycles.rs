@@ -17,8 +17,8 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use cmp_any::PartialEqAny;
 use dupe::IterDupedExt;
-use gazebo::cmp::PartialEqAny;
 use indexmap::set::IndexSet;
 
 use crate::api::error::DiceError;

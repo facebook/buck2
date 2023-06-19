@@ -18,6 +18,7 @@ allocative = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
+cmp_any = { workspace = true }
 more_futures = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }

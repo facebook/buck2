@@ -20,8 +20,8 @@ use std::sync::Weak;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use cmp_any::PartialEqAny;
 use dupe::Dupe;
-use gazebo::cmp::PartialEqAny;
 use parking_lot::RwLock;
 use parking_lot::RwLockReadGuard;
 

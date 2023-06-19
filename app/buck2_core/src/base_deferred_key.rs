@@ -18,8 +18,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
+use cmp_any::PartialEqAny;
 use dupe::Dupe;
-use gazebo::cmp::PartialEqAny;
 
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;

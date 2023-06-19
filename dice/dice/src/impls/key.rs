@@ -16,10 +16,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use cmp_any::PartialEqAny;
 use derive_more::Display;
 use dupe::Dupe;
 use fnv::FnvHasher;
-use gazebo::cmp::PartialEqAny;
 use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
@@ -127,7 +127,7 @@ impl DiceKeyErased {
 impl PartialEq for DiceKeyErased {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (DiceKeyErased::Key(k), DiceKeyErased::Key(ok)) => k.eq_any() == ok.eq_any(),
+            (DiceKeyErased::Key(k), DiceKeyErased::Key(ok)) => k.cmp_any() == ok.cmp_any(),
             (DiceKeyErased::Projection(k), DiceKeyErased::Projection(ok)) => k == ok,
             _ => false,
         }
@@ -158,7 +158,7 @@ impl<'a> DiceKeyErasedRef<'a> {
         }
     }
 
-    #[allow(unused)] // generally useful function that is the counterpart on `DiceKeyErased` 
+    #[allow(unused)] // generally useful function that is the counterpart on `DiceKeyErased`
     pub(crate) fn key_type_name(&self) -> &'static str {
         match self {
             DiceKeyErasedRef::Key(k) => k.key_type_name(),
@@ -177,7 +177,7 @@ impl<'a> DiceKeyErasedRef<'a> {
 impl<'a> PartialEq for DiceKeyErasedRef<'a> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (DiceKeyErasedRef::Key(k), DiceKeyErasedRef::Key(ok)) => k.eq_any() == ok.eq_any(),
+            (DiceKeyErasedRef::Key(k), DiceKeyErasedRef::Key(ok)) => k.cmp_any() == ok.cmp_any(),
             (DiceKeyErasedRef::Projection(k), DiceKeyErasedRef::Projection(ok)) => k == ok,
             _ => false,
         }
@@ -260,7 +260,7 @@ pub(crate) trait DiceKeyDyn: Allocative + Display + Send + Sync + 'static {
         cancellations: &CancellationContext,
     ) -> Arc<dyn DiceValueDyn>;
 
-    fn eq_any(&self) -> PartialEqAny;
+    fn cmp_any(&self) -> PartialEqAny;
 
     fn hash(&self) -> u64;
 
@@ -287,7 +287,7 @@ where
         Arc::new(DiceKeyValue::<K>::new(value))
     }
 
-    fn eq_any(&self) -> PartialEqAny {
+    fn cmp_any(&self) -> PartialEqAny {
         PartialEqAny::new(self)
     }
 
@@ -319,7 +319,7 @@ pub(crate) trait DiceProjectionDyn: Allocative + Display + Send + Sync + 'static
         ctx: &DiceProjectionComputations,
     ) -> Arc<dyn DiceValueDyn>;
 
-    fn eq_any(&self) -> PartialEqAny;
+    fn cmp_any(&self) -> PartialEqAny;
 
     fn hash(&self) -> u64;
 
@@ -350,7 +350,7 @@ where
         Arc::new(DiceProjectValue::<K>::new(value))
     }
 
-    fn eq_any(&self) -> PartialEqAny {
+    fn cmp_any(&self) -> PartialEqAny {
         PartialEqAny::new(self)
     }
 
@@ -402,7 +402,7 @@ impl ProjectionWithBase {
 
 impl PartialEq for ProjectionWithBase {
     fn eq(&self, other: &Self) -> bool {
-        self.proj.eq_any() == other.proj.eq_any() && self.base == other.base
+        self.proj.cmp_any() == other.proj.cmp_any() && self.base == other.base
     }
 }
 
@@ -440,7 +440,7 @@ impl<'a> ProjectionWithBaseRef<'a> {
 
 impl<'a> PartialEq for ProjectionWithBaseRef<'a> {
     fn eq(&self, other: &Self) -> bool {
-        self.proj.eq_any() == other.proj.eq_any() && self.base == other.base
+        self.proj.cmp_any() == other.proj.cmp_any() && self.base == other.base
     }
 }
 
@@ -458,8 +458,8 @@ mod introspection {
     use std::hash::Hash;
     use std::hash::Hasher;
 
+    use cmp_any::PartialEqAny;
     use dupe::Dupe;
-    use gazebo::cmp::PartialEqAny;
 
     use crate::impls::key::DiceKey;
     use crate::impls::key::DiceKeyErased;

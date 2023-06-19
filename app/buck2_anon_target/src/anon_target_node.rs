@@ -27,7 +27,7 @@ use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::collections::sorted_map::SortedMap;
-use gazebo::cmp::PartialEqAny;
+use cmp_any::PartialEqAny;
 
 use crate::anon_target_attr::AnonTargetAttr;
 

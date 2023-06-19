@@ -1078,8 +1078,8 @@ pub(crate) mod testing {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use cmp_any::PartialEqAny;
     use derivative::Derivative;
-    use gazebo::cmp::PartialEqAny;
     use parking_lot::RwLock;
 
     use crate::legacy::incremental::dep_trackers::testing::Dep;
@@ -1258,10 +1258,10 @@ mod tests {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use cmp_any::PartialEqAny;
     use derive_more::Display;
     use dupe::Dupe;
     use futures::FutureExt;
-    use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use indexmap::indexset;
     use more_futures::cancellation::CancellationContext;

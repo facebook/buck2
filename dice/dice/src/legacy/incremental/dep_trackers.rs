@@ -178,8 +178,8 @@ mod internals {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use cmp_any::PartialEqAny;
     use dupe::Dupe;
-    use gazebo::cmp::PartialEqAny;
 
     use crate::api::error::DiceResult;
     use crate::introspection::graph::AnyKey;
