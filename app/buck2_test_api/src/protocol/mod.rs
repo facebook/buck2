@@ -24,7 +24,7 @@ use crate::data::ArgValue;
 use crate::data::ConfiguredTargetHandle;
 use crate::data::DeclaredOutput;
 use crate::data::DisplayMetadata;
-use crate::data::ExecutionResult2;
+use crate::data::ExecuteResponse;
 use crate::data::ExecutorConfigOverride;
 use crate::data::ExternalRunnerSpec;
 use crate::data::PrepareForLocalExecutionResult;
@@ -65,7 +65,7 @@ pub trait TestOrchestrator: Send + Sync {
         // ExternalRunnerTestInfo to work.
         executor_override: Option<ExecutorConfigOverride>,
         required_local_resources: RequiredLocalResources,
-    ) -> anyhow::Result<ExecutionResult2>;
+    ) -> anyhow::Result<ExecuteResponse>;
 
     /// reports a test is done
     async fn report_test_result(&self, r: TestResult) -> anyhow::Result<()>;

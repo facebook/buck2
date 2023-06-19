@@ -252,9 +252,12 @@ message ExecutionResult2 {
   google.protobuf.Duration execution_time = 6;
 }
 
+message Cancelled {}
+
 message ExecuteResponse2 {
   oneof response {
     ExecutionResult2 result = 1;
+    Cancelled cancelled = 2;
   }
 }
 

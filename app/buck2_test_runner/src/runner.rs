@@ -12,6 +12,7 @@ use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
 use buck2_test_api::data::ConfiguredTargetHandle;
 use buck2_test_api::data::DisplayMetadata;
+use buck2_test_api::data::ExecuteResponse;
 use buck2_test_api::data::ExecutionResult2;
 use buck2_test_api::data::ExecutionStatus;
 use buck2_test_api::data::ExternalRunnerSpec;
@@ -75,10 +76,15 @@ impl Buck2TestRunner {
                 );
                 let target_handle = spec.target.handle.to_owned();
 
-                let execution_result = self
+                let execution_response = self
                     .execute_test_from_spec(spec)
                     .await
                     .expect("Test execution request failed");
+
+                let execution_result = match execution_response {
+                    ExecuteResponse::Result(r) => r,
+                    ExecuteResponse::Cancelled => return TestStatus::OMITTED,
+                };
 
                 let test_result = get_test_result(name, target_handle, execution_result);
                 let test_status = test_result.status.clone();
@@ -112,7 +118,7 @@ impl Buck2TestRunner {
     async fn execute_test_from_spec(
         &self,
         spec: ExternalRunnerSpec,
-    ) -> anyhow::Result<ExecutionResult2> {
+    ) -> anyhow::Result<ExecuteResponse> {
         let display_metadata = DisplayMetadata::Testing {
             suite: spec.target.target,
             testcases: Vec::new(),

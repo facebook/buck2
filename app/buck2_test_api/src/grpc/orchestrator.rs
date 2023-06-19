@@ -52,7 +52,7 @@ use crate::data::ConfiguredTargetHandle;
 use crate::data::DeclaredOutput;
 use crate::data::DisplayMetadata;
 use crate::data::ExecuteRequest2;
-use crate::data::ExecutionResult2;
+use crate::data::ExecuteResponse;
 use crate::data::ExecutorConfigOverride;
 use crate::data::PrepareForLocalExecutionResult;
 use crate::data::RequiredLocalResources;
@@ -143,7 +143,7 @@ impl TestOrchestratorClient {
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
         required_local_resources: RequiredLocalResources,
-    ) -> anyhow::Result<ExecutionResult2> {
+    ) -> anyhow::Result<ExecuteResponse> {
         let test_executable = TestExecutable {
             ui_prints,
             target,
@@ -170,13 +170,16 @@ impl TestOrchestratorClient {
             .await?
             .into_inner();
 
-        let result = match response.context("Missing `response`")? {
+        let response = match response.context("Missing `response`")? {
             buck2_test_proto::execute_response2::Response::Result(res) => {
-                res.try_into().context("Invalid `result`")?
+                ExecuteResponse::Result(res.try_into().context("Invalid `result`")?)
             }
+            buck2_test_proto::execute_response2::Response::Cancelled(
+                buck2_test_proto::Cancelled {},
+            ) => ExecuteResponse::Cancelled,
         };
 
-        Ok(result)
+        Ok(response)
     }
 
     pub async fn report_test_result(&self, result: TestResult) -> anyhow::Result<()> {
@@ -312,7 +315,7 @@ where
                 pre_create_dirs,
             } = test_executable;
 
-            let result = self
+            let response = self
                 .inner
                 .execute2(
                     ui_prints,
@@ -328,12 +331,21 @@ where
                 .await
                 .context("Execution failed")?;
 
-            let result = result.try_into().context("Failed to serialize result")?;
+            let response = match response {
+                ExecuteResponse::Result(r) => {
+                    buck2_test_proto::execute_response2::Response::Result(
+                        r.try_into().context("Failed to serialize result")?,
+                    )
+                }
+                ExecuteResponse::Cancelled => {
+                    buck2_test_proto::execute_response2::Response::Cancelled(
+                        buck2_test_proto::Cancelled {},
+                    )
+                }
+            };
 
             Ok(ExecuteResponse2 {
-                response: Some(buck2_test_proto::execute_response2::Response::Result(
-                    result,
-                )),
+                response: Some(response),
             })
         })
         .await

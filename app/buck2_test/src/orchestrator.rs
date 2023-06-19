@@ -98,6 +98,7 @@ use buck2_test_api::data::ArgValueContent;
 use buck2_test_api::data::ConfiguredTargetHandle;
 use buck2_test_api::data::DeclaredOutput;
 use buck2_test_api::data::DisplayMetadata;
+use buck2_test_api::data::ExecuteResponse;
 use buck2_test_api::data::ExecutionResult2;
 use buck2_test_api::data::ExecutionStatus;
 use buck2_test_api::data::ExecutionStream;
@@ -213,7 +214,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
         required_local_resources: RequiredLocalResources,
-    ) -> anyhow::Result<ExecutionResult2> {
+    ) -> anyhow::Result<ExecuteResponse> {
         self.liveliness_observer.require_alive().await?;
 
         let test_target = self.session.get(test_target)?;
@@ -312,14 +313,14 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             .await
             .context("Error materializing test outputs")?;
 
-        Ok(ExecutionResult2 {
+        Ok(ExecuteResponse::Result(ExecutionResult2 {
             status,
             stdout,
             stderr,
             outputs,
             start_time: timing.start_time,
             execution_time: timing.execution_time,
-        })
+        }))
     }
 
     async fn report_test_result(&self, r: TestResult) -> anyhow::Result<()> {
