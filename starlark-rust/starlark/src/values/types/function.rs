@@ -216,11 +216,6 @@ impl NativeFunction {
             name,
         )
     }
-
-    /// A `.type` value, if one exists. Specified using `#[starlark(type = "the_type")]`.
-    pub fn set_type(&mut self, typ: FrozenValue) {
-        self.typ = Some(typ)
-    }
 }
 
 impl<'v> AllocValue<'v> for NativeFunction {
