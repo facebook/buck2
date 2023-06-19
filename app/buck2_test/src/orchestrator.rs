@@ -109,6 +109,7 @@ use buck2_test_api::data::PrepareForLocalExecutionResult;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::protocol::TestOrchestrator;
+use derive_more::From;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::channel::mpsc::UnboundedSender;
@@ -194,6 +195,14 @@ impl<'a> BuckTestOrchestrator<'a> {
         }
     }
 
+    async fn require_alive(&self) -> Result<(), Cancelled> {
+        if !self.liveliness_observer.is_alive().await {
+            return Err(Cancelled);
+        }
+
+        Ok(())
+    }
+
     async fn execute2(
         &self,
         metadata: DisplayMetadata,
@@ -205,8 +214,8 @@ impl<'a> BuckTestOrchestrator<'a> {
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
         required_local_resources: RequiredLocalResources,
-    ) -> anyhow::Result<ExecuteResponse> {
-        self.liveliness_observer.require_alive().await?;
+    ) -> Result<ExecutionResult2, ExecuteError> {
+        self.require_alive().await?;
 
         let test_target = self.session.get(test_target)?;
 
@@ -255,7 +264,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 .setup_local_resources(setup_contexts, setup_local_resources_executor, timeout)
                 .await?;
 
-            self.liveliness_observer.require_alive().await?;
+            self.require_alive().await?;
 
             resources
         } else {
@@ -281,7 +290,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             .execute_shared(&test_target, metadata, &test_executor, execution_request)
             .await?;
 
-        self.liveliness_observer.require_alive().await?;
+        self.require_alive().await?;
 
         let (outputs, paths_to_materialize) = outputs
             .into_iter()
@@ -304,14 +313,14 @@ impl<'a> BuckTestOrchestrator<'a> {
             .await
             .context("Error materializing test outputs")?;
 
-        Ok(ExecuteResponse::Result(ExecutionResult2 {
+        Ok(ExecutionResult2 {
             status,
             stdout,
             stderr,
             outputs,
             start_time: timing.start_time,
             execution_time: timing.execution_time,
-        }))
+        })
     }
 }
 
@@ -319,6 +328,16 @@ struct PreparedLocalResourceSetupContext {
     pub target: ConfiguredTargetLabel,
     pub execution_request: CommandExecutionRequest,
     pub env_var_mapping: IndexMap<String, String>,
+}
+
+// A token used to implement From
+struct Cancelled;
+
+// NOTE: This doesn't implement Error so that we can't accidentally lose the Cancelled variant.
+#[derive(From)]
+enum ExecuteError {
+    Error(anyhow::Error),
+    Cancelled(Cancelled),
 }
 
 #[async_trait]
@@ -335,7 +354,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         executor_override: Option<ExecutorConfigOverride>,
         required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<ExecuteResponse> {
-        BuckTestOrchestrator::execute2(
+        let res = BuckTestOrchestrator::execute2(
             self,
             metadata,
             test_target,
@@ -347,7 +366,13 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             executor_override,
             required_local_resources,
         )
-        .await
+        .await;
+
+        match res {
+            Ok(r) => Ok(ExecuteResponse::Result(r)),
+            Err(ExecuteError::Cancelled(Cancelled)) => Ok(ExecuteResponse::Cancelled),
+            Err(ExecuteError::Error(e)) => Err(e),
+        }
     }
 
     async fn report_test_result(&self, r: TestResult) -> anyhow::Result<()> {
@@ -503,13 +528,16 @@ impl<'b> BuckTestOrchestrator<'b> {
         metadata: DisplayMetadata,
         executor: &CommandExecutor,
         request: CommandExecutionRequest,
-    ) -> anyhow::Result<(
-        ExecutionStream,
-        ExecutionStream,
-        ExecutionStatus,
-        CommandExecutionMetadata,
-        Vec<BuckOutTestPath>,
-    )> {
+    ) -> Result<
+        (
+            ExecutionStream,
+            ExecutionStream,
+            ExecutionStatus,
+            CommandExecutionMetadata,
+            Vec<BuckOutTestPath>,
+        ),
+        ExecuteError,
+    > {
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),
             self.events.dupe(),
@@ -630,7 +658,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                 outputs,
             ),
             CommandExecutionStatus::Cancelled => {
-                return Err(anyhow::anyhow!("Internal error: Cancelled"));
+                return Err(ExecuteError::Cancelled(Cancelled));
             }
         })
     }
@@ -876,7 +904,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         setup_contexts: Vec<LocalResourceSetupContext>,
         executor: CommandExecutor,
         timeout: Duration,
-    ) -> anyhow::Result<Vec<LocalResourceState>> {
+    ) -> Result<Vec<LocalResourceState>, ExecuteError> {
         let setup_commands = futures::future::try_join_all(
             setup_contexts
                 .into_iter()
@@ -884,7 +912,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         )
         .await?;
 
-        self.liveliness_observer.require_alive().await?;
+        self.require_alive().await?;
 
         let resource_futs = setup_commands.into_iter().map(|context| {
             let local_resource_target = context.target.dupe();
@@ -917,7 +945,9 @@ impl<'b> BuckTestOrchestrator<'b> {
                 .clone()
         });
 
-        Ok(futures::future::try_join_all(resource_futs).await?)
+        Ok(futures::future::try_join_all(resource_futs)
+            .await
+            .map_err(anyhow::Error::from)?)
     }
 
     async fn prepare_local_resource(

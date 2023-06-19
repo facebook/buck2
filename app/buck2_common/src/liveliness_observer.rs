@@ -41,13 +41,6 @@ impl dyn LivelinessObserver {
     pub async fn is_alive(&self) -> bool {
         futures::poll!(self.while_alive()).is_pending()
     }
-
-    pub async fn require_alive(&self) -> anyhow::Result<()> {
-        if !self.is_alive().await {
-            return Err(NotAlive.into());
-        }
-        Ok(())
-    }
 }
 
 /// A LivelinessObserver with an implementation backed by an RW Lock. While the lock is held with
