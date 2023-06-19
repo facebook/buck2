@@ -163,17 +163,18 @@ impl TestOrchestratorClient {
         let req: buck2_test_proto::ExecuteRequest2 =
             req.try_into().context("Invalid execute request")?;
 
-        let ExecuteResponse2 { result } = self
+        let ExecuteResponse2 { response } = self
             .test_orchestrator_client
             .clone()
             .execute2(req)
             .await?
             .into_inner();
 
-        let result = result
-            .context("Missing `result`")?
-            .try_into()
-            .context("Invalid `result`")?;
+        let result = match response.context("Missing `response`")? {
+            buck2_test_proto::execute_response2::Response::Result(res) => {
+                res.try_into().context("Invalid `result`")?
+            }
+        };
 
         Ok(result)
     }
@@ -330,7 +331,9 @@ where
             let result = result.try_into().context("Failed to serialize result")?;
 
             Ok(ExecuteResponse2 {
-                result: Some(result),
+                response: Some(buck2_test_proto::execute_response2::Response::Result(
+                    result,
+                )),
             })
         })
         .await

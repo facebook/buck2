@@ -253,7 +253,9 @@ message ExecutionResult2 {
 }
 
 message ExecuteResponse2 {
-  ExecutionResult2 result = 1;
+  oneof response {
+    ExecutionResult2 result = 1;
+  }
 }
 
 message PrepareForLocalExecutionResult {
