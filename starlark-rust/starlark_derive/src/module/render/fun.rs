@@ -43,7 +43,7 @@ impl StarFun {
         match &self.type_attribute {
             Some(x) => quote_spanned! {
             self.span()=>
-                std::option::Option::Some(starlark::const_frozen_string!(#x).to_frozen_value())
+                std::option::Option::Some(starlark::const_frozen_string!(#x))
             },
             None => {
                 quote_spanned! {

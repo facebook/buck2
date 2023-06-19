@@ -45,6 +45,7 @@ use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
 use crate::values::FrozenHeap;
+use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
@@ -165,7 +166,8 @@ pub struct NativeFunction {
     #[allocative(skip)]
     pub(crate) function: Box<dyn NativeFunc>,
     pub(crate) name: String,
-    pub(crate) typ: Option<FrozenValue>,
+    /// `.type` attribute.
+    pub(crate) typ: Option<FrozenStringValue>,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]

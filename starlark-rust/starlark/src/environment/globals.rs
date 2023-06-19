@@ -298,7 +298,7 @@ impl GlobalsBuilder {
         name: &str,
         speculative_exec_safe: bool,
         raw_docs: NativeCallableRawDocs,
-        typ: Option<FrozenValue>,
+        typ: Option<FrozenStringValue>,
         f: F,
     ) where
         F: NativeFunc,
