@@ -773,6 +773,8 @@ message FileStatusRequest {
   ClientContext context = 1;
   // The paths we want to learn about
   repeated string paths = 2;
+  // Show hashes of files passed in.
+  bool verbose = 3;
 }
 
 message FlushDepFilesRequest {}

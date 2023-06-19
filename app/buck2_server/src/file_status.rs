@@ -63,6 +63,8 @@ struct FileStatusResult<'a> {
     checked: usize,
     /// Number of ones that were bad
     bad: usize,
+    /// Whether to write matches
+    verbose: bool,
     /// Handle for writing output
     stderr: StderrOutputGuard<'a>,
 }
@@ -75,6 +77,17 @@ impl FileStatusResult<'_> {
     fn mismatch(&mut self, err: Mismatch) -> anyhow::Result<()> {
         writeln!(self.stderr, "MISMATCH: {}", err)?;
         self.bad += 1;
+        Ok(())
+    }
+
+    fn report_match(
+        &mut self,
+        path: &ProjectRelativePath,
+        digest: &FileDigest,
+    ) -> anyhow::Result<()> {
+        if self.verbose {
+            writeln!(self.stderr, "Match: {} {}", path, digest)?;
+        }
         Ok(())
     }
 }
@@ -99,6 +112,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         let mut result = FileStatusResult {
             checked: 0,
             bad: 0,
+            verbose: self.req.verbose,
             stderr: server_ctx.stderr()?,
         };
 
@@ -227,6 +241,8 @@ async fn check_file_status(
                                 fs_digest,
                                 dice_metadata.digest.data().to_owned(),
                             ))?;
+                        } else {
+                            result.report_match(path, &fs_digest)?;
                         }
                     }
                 }
