@@ -18,10 +18,92 @@
 // This makes for a better API.
 #![allow(clippy::result_unit_err)]
 
+use dupe::Dupe;
+
 use crate::typing::ty::Arg;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
 use crate::typing::TyFunction;
+
+/// Unary operator for [`TypingOracle::attribute`].
+#[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display)]
+pub enum TypingUnOp {
+    /// `+`.
+    #[display(fmt = "+")]
+    Plus,
+    /// `+`.
+    #[display(fmt = "-")]
+    Minus,
+    /// `~`.
+    #[display(fmt = "~")]
+    BitNot,
+}
+
+/// Binary operator for [`TypingOracle::attribute`].
+#[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display)]
+pub enum TypingBinOp {
+    /// `+`.
+    #[display(fmt = "+")]
+    Add,
+    /// `-`.
+    #[display(fmt = "-")]
+    Sub,
+    /// `/`.
+    #[display(fmt = "/")]
+    Div,
+    /// `//`.
+    #[display(fmt = "/")]
+    FloorDiv,
+    /// `*`.
+    #[display(fmt = "*")]
+    Mul,
+    /// `%`.
+    #[display(fmt = "%")]
+    Percent,
+    /// `y in x`.
+    #[display(fmt = "in")]
+    In,
+    /// `|`.
+    #[display(fmt = "|")]
+    BitOr,
+    /// `^`.
+    #[display(fmt = "^")]
+    BitXor,
+    /// `&`.
+    #[display(fmt = "&")]
+    BitAnd,
+    /// `<`.
+    #[display(fmt = "<")]
+    Less,
+    /// `<<`.
+    #[display(fmt = "<<")]
+    LeftShift,
+    /// `>>`.
+    #[display(fmt = ">>")]
+    RightShift,
+}
+
+/// Attribute for [`TypingOracle::attribute`].
+#[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display)]
+pub enum TypingAttr<'a> {
+    /// Apply unary operator.
+    #[display(fmt = "unary {}", _0)]
+    UnOp(TypingUnOp),
+    /// Apply binary operator.
+    #[display(fmt = "binary {}", _0)]
+    BinOp(TypingBinOp),
+    /// `x[a:b:c]`.
+    #[display(fmt = "[::]")]
+    Slice,
+    /// Return iterable element type.
+    #[display(fmt = "iter")]
+    Iter,
+    /// `x[a]`, return the function.
+    #[display(fmt = "[]")]
+    Index,
+    /// Get a regular attribute.
+    Regular(&'a str),
+}
 
 /// Callbacks which provide types when typechecking a module.
 ///
@@ -32,7 +114,7 @@ pub trait TypingOracle {
     /// Given a type and a `.` attribute, what is its type.
     /// Return [`Err`] to indicate we _know_ this isn't a valid attribute.
     /// Return [`None`] if we aren't sure.
-    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, _ty: &Ty, _attr: TypingAttr) -> Option<Result<Ty, ()>> {
         None
     }
 
@@ -80,7 +162,7 @@ pub(crate) struct OracleNoAttributes;
 
 #[cfg(test)]
 impl TypingOracle for OracleNoAttributes {
-    fn attribute(&self, _ty: &Ty, _attr: &str) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, _ty: &Ty, _attr: TypingAttr) -> Option<Result<Ty, ()>> {
         Some(Err(()))
     }
 }
@@ -91,7 +173,7 @@ where
     T: TypingOracle;
 
 impl<T: TypingOracle> TypingOracle for OracleSeq<T> {
-    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         self.0.iter().find_map(|oracle| oracle.attribute(ty, attr))
     }
 
@@ -117,7 +199,7 @@ impl<T: TypingOracle> TypingOracle for OracleSeq<T> {
 // Forwarding traits
 
 impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
-    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         (*self).attribute(ty, attr)
     }
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
@@ -135,7 +217,7 @@ impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
 }
 
 impl<T: TypingOracle + ?Sized> TypingOracle for Box<T> {
-    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         self.as_ref().attribute(ty, attr)
     }
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {

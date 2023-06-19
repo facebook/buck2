@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
+use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
 
@@ -85,14 +86,16 @@ impl OracleDocs {
 }
 
 impl TypingOracle for OracleDocs {
-    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
-        if attr.starts_with("__") && attr.ends_with("__") {
-            // We don't record operator info in the docs, so it is always missing
-            return None;
-        }
-        match self.objects.get(ty.as_name()?)?.get(attr) {
-            None => Some(Err(())),
-            Some(res) => Some(Ok(res.clone())),
+    fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+        match attr {
+            TypingAttr::Regular(attr) => match self.objects.get(ty.as_name()?)?.get(attr) {
+                None => Some(Err(())),
+                Some(res) => Some(Ok(res.clone())),
+            },
+            _ => {
+                // We don't record operator info in the docs, so it is always missing
+                return None;
+            }
         }
     }
 

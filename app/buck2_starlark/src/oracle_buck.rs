@@ -36,13 +36,17 @@ pub(crate) fn oracle_buck(globals: &Globals) -> Arc<dyn TypingOracle + Send + Sy
 struct CustomBuck;
 
 impl TypingOracle for CustomBuck {
-    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         match ty.as_name()? {
             "dependency" => match attr {
                 // We can index by providers, which either appear as functions (for builtin providers)
                 // or as Any (for user providers)
-                "__index__" => Some(Ok(Ty::function(vec![Param::pos_only(Ty::Any)], Ty::Any))),
-                "__in__" => Some(Ok(Ty::function(vec![Param::pos_only(Ty::Any)], Ty::bool()))),
+                TypingAttr::Index => {
+                    Some(Ok(Ty::function(vec![Param::pos_only(Ty::Any)], Ty::Any)))
+                }
+                TypingAttr::BinOp(TypingBinOp::In) => {
+                    Some(Ok(Ty::function(vec![Param::pos_only(Ty::Any)], Ty::bool())))
+                }
                 _ => None,
             },
             _ => None,
@@ -79,7 +83,7 @@ impl TypingOracle for CustomBuck {
 struct AddErrors(OracleDocs);
 
 impl TypingOracle for AddErrors {
-    fn attribute(&self, ty: &Ty, _attr: &str) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &Ty, _attr: TypingAttr) -> Option<Result<Ty, ()>> {
         if self.0.known_object(ty.as_name()?) {
             Some(Err(()))
         } else {

@@ -32,6 +32,7 @@ use crate::eval::compiler::EvalException;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
+use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::BinOp;
@@ -39,7 +40,10 @@ use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
 use crate::typing::bindings::BindExpr;
+use crate::typing::oracle::traits::TypingAttr;
+use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingOracle;
+use crate::typing::oracle::traits::TypingUnOp;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Arg;
 use crate::typing::ty::Param;
@@ -265,7 +269,7 @@ impl TypingContext<'_> {
     }
 
     fn from_iterated(&self, ty: &Ty, span: Span) -> Ty {
-        self.expression_attribute(ty, "__iter__", span)
+        self.expression_attribute(ty, TypingAttr::Iter, span)
     }
 
     pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {
@@ -293,25 +297,25 @@ impl TypingContext<'_> {
         }
     }
 
-    fn expression_attribute(&self, ty: &Ty, attr: &str, span: Span) -> Ty {
+    fn expression_attribute(&self, ty: &Ty, attr: TypingAttr, span: Span) -> Ty {
         match ty.attribute(attr, self) {
             Ok(x) => x,
             Err(()) => self.add_error(
                 span,
                 TypingError::AttributeNotAvailable {
                     typ: ty.to_string(),
-                    attr: attr.to_owned(),
+                    attr: attr.to_string(),
                 },
             ),
         }
     }
 
-    fn expression_primitive_ty(&self, name: &str, arg0: Ty, args: Vec<Ty>, span: Span) -> Ty {
-        let fun = self.expression_attribute(&arg0, &format!("__{}__", name.to_lowercase()), span);
+    fn expression_primitive_ty(&self, name: TypingAttr, arg0: Ty, args: Vec<Ty>, span: Span) -> Ty {
+        let fun = self.expression_attribute(&arg0, name, span);
         self.validate_call(&fun, &args.into_map(Arg::Pos), span)
     }
 
-    fn expression_primitive(&self, name: &str, args: &[&CstExpr], span: Span) -> Ty {
+    fn expression_primitive(&self, name: TypingAttr, args: &[&CstExpr], span: Span) -> Ty {
         let t0 = self.expression_type(args[0]);
         let ts = args[1..].map(|x| self.expression_type(x));
         self.expression_primitive_ty(name, t0, ts, span)
@@ -326,7 +330,20 @@ impl TypingContext<'_> {
                 let span = lhs.span;
                 let rhs = self.expression_type(rhs);
                 let lhs = self.expression_assign(lhs);
-                self.expression_primitive_ty(&format!("{:?}", op), lhs, vec![rhs], span)
+                let attr = match op {
+                    AssignOp::Add => TypingAttr::BinOp(TypingBinOp::Add),
+                    AssignOp::Subtract => TypingAttr::BinOp(TypingBinOp::Sub),
+                    AssignOp::Multiply => TypingAttr::BinOp(TypingBinOp::Mul),
+                    AssignOp::Divide => TypingAttr::BinOp(TypingBinOp::Div),
+                    AssignOp::FloorDivide => TypingAttr::BinOp(TypingBinOp::FloorDiv),
+                    AssignOp::Percent => TypingAttr::BinOp(TypingBinOp::Percent),
+                    AssignOp::BitAnd => TypingAttr::BinOp(TypingBinOp::BitAnd),
+                    AssignOp::BitOr => TypingAttr::BinOp(TypingBinOp::BitOr),
+                    AssignOp::BitXor => TypingAttr::BinOp(TypingBinOp::BitXor),
+                    AssignOp::LeftShift => TypingAttr::BinOp(TypingBinOp::LeftShift),
+                    AssignOp::RightShift => TypingAttr::BinOp(TypingBinOp::RightShift),
+                };
+                self.expression_primitive_ty(attr, lhs, vec![rhs], span)
             }
             BindExpr::SetIndex(id, index, e) => {
                 let span = index.span;
@@ -378,7 +395,7 @@ impl TypingContext<'_> {
         match &**x {
             AssignP::Tuple(_) => self.approximation("expression_assignment", x),
             AssignP::ArrayIndirection(a_b) => {
-                self.expression_primitive("index", &[&a_b.0, &a_b.1], x.span)
+                self.expression_primitive(TypingAttr::Index, &[&a_b.0, &a_b.1], x.span)
             }
             AssignP::Dot(_, _) => self.approximation("expression_assignment", x),
             AssignP::Identifier(x) => {
@@ -408,7 +425,9 @@ impl TypingContext<'_> {
         let span = x.span;
         match &**x {
             ExprP::Tuple(xs) => Ty::Tuple(xs.map(|x| self.expression_type(x))),
-            ExprP::Dot(a, b) => self.expression_attribute(&self.expression_type(a), b, b.span),
+            ExprP::Dot(a, b) => {
+                self.expression_attribute(&self.expression_type(a), TypingAttr::Regular(b), b.span)
+            }
             ExprP::Call(f, args) => {
                 let args_ty = args.map(|x| match &**x {
                     ArgumentP::Positional(x) => Arg::Pos(self.expression_type(x)),
@@ -432,13 +451,13 @@ impl TypingContext<'_> {
                 self.validate_call(&f_ty, &args_ty, span)
             }
             ExprP::ArrayIndirection(a_b) => {
-                self.expression_primitive("index", &[&a_b.0, &a_b.1], span)
+                self.expression_primitive(TypingAttr::Index, &[&a_b.0, &a_b.1], span)
             }
             ExprP::Slice(x, start, stop, stride) => {
                 for e in [start, stop, stride].iter().copied().flatten() {
                     self.validate_type(&self.expression_type(e), &Ty::int(), e.span);
                 }
-                self.expression_attribute(&self.expression_type(x), "__slice__", span)
+                self.expression_attribute(&self.expression_type(x), TypingAttr::Slice, span)
             }
             ExprP::Identifier(x) => {
                 match &x.node.1 {
@@ -476,9 +495,15 @@ impl TypingContext<'_> {
                     Ty::bool()
                 }
             }
-            ExprP::Minus(x) => self.expression_primitive("minus", &[&**x], span),
-            ExprP::Plus(x) => self.expression_primitive("plus", &[&**x], span),
-            ExprP::BitNot(x) => self.expression_primitive("bit_not", &[&**x], span),
+            ExprP::Minus(x) => {
+                self.expression_primitive(TypingAttr::UnOp(TypingUnOp::Minus), &[&**x], span)
+            }
+            ExprP::Plus(x) => {
+                self.expression_primitive(TypingAttr::UnOp(TypingUnOp::Plus), &[&**x], span)
+            }
+            ExprP::BitNot(x) => {
+                self.expression_primitive(TypingAttr::UnOp(TypingUnOp::BitNot), &[&**x], span)
+            }
             ExprP::Op(lhs, op, rhs) => {
                 let lhs = self.expression_type(lhs);
                 let rhs = self.expression_type(rhs);
@@ -502,15 +527,90 @@ impl TypingContext<'_> {
                     }
                     BinOp::In | BinOp::NotIn => {
                         // We dispatch `x in y` as y.__in__(x) as that's how we validate
-                        self.expression_primitive_ty("in", rhs, vec![lhs], span);
+                        self.expression_primitive_ty(
+                            TypingAttr::BinOp(TypingBinOp::In),
+                            rhs,
+                            vec![lhs],
+                            span,
+                        );
                         // Ignore the return type, we know it's always a bool
                         bool_ret
                     }
                     BinOp::Less | BinOp::LessOrEqual | BinOp::Greater | BinOp::GreaterOrEqual => {
-                        self.expression_primitive_ty("less", lhs, vec![rhs], span);
+                        self.expression_primitive_ty(
+                            TypingAttr::BinOp(TypingBinOp::Less),
+                            lhs,
+                            vec![rhs],
+                            span,
+                        );
                         bool_ret
                     }
-                    _ => self.expression_primitive_ty(&format!("{:?}", op), lhs, vec![rhs], span),
+                    BinOp::Subtract => self.expression_primitive_ty(
+                        TypingAttr::BinOp(TypingBinOp::Sub),
+                        lhs,
+                        vec![rhs],
+                        span,
+                    ),
+                    BinOp::Add => self.expression_primitive_ty(
+                        TypingAttr::BinOp(TypingBinOp::Add),
+                        lhs,
+                        vec![rhs],
+                        span,
+                    ),
+                    BinOp::Multiply => self.expression_primitive_ty(
+                        TypingAttr::BinOp(TypingBinOp::Mul),
+                        lhs,
+                        vec![rhs],
+                        span,
+                    ),
+                    BinOp::Percent => self.expression_primitive_ty(
+                        TypingAttr::BinOp(TypingBinOp::Percent),
+                        lhs,
+                        vec![rhs],
+                        span,
+                    ),
+                    BinOp::Divide => self.expression_primitive_ty(
+                        TypingAttr::BinOp(TypingBinOp::Div),
+                        lhs,
+                        vec![rhs],
+                        span,
+                    ),
+                    BinOp::FloorDivide => self.expression_primitive_ty(
+                        TypingAttr::BinOp(TypingBinOp::FloorDiv),
+                        lhs,
+                        vec![rhs],
+                        span,
+                    ),
+                    BinOp::BitAnd => self.expression_primitive_ty(
+                        TypingAttr::BinOp(TypingBinOp::BitAnd),
+                        lhs,
+                        vec![rhs],
+                        span,
+                    ),
+                    BinOp::BitOr => self.expression_primitive_ty(
+                        TypingAttr::BinOp(TypingBinOp::BitOr),
+                        lhs,
+                        vec![rhs],
+                        span,
+                    ),
+                    BinOp::BitXor => self.expression_primitive_ty(
+                        TypingAttr::BinOp(TypingBinOp::BitXor),
+                        lhs,
+                        vec![rhs],
+                        span,
+                    ),
+                    BinOp::LeftShift => self.expression_primitive_ty(
+                        TypingAttr::BinOp(TypingBinOp::LeftShift),
+                        lhs,
+                        vec![rhs],
+                        span,
+                    ),
+                    BinOp::RightShift => self.expression_primitive_ty(
+                        TypingAttr::BinOp(TypingBinOp::RightShift),
+                        lhs,
+                        vec![rhs],
+                        span,
+                    ),
                 }
             }
             ExprP::If(c_t_f) => {

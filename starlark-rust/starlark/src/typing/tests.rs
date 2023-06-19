@@ -30,6 +30,7 @@ use crate::syntax::Dialect;
 use crate::typing::oracle::traits::OracleNoAttributes;
 use crate::typing::oracle::traits::OracleNoBuiltins;
 use crate::typing::oracle::traits::OracleSeq;
+use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Interface;
 use crate::typing::OracleStandard;
 use crate::typing::Param;
@@ -54,7 +55,7 @@ fn mk_oracle() -> impl TypingOracle {
 fn test_oracle() {
     let o = mk_oracle();
     assert_eq!(
-        o.attribute(&Ty::string(), "removeprefix"),
+        o.attribute(&Ty::string(), TypingAttr::Regular("removeprefix")),
         Some(Ok(Ty::function(
             vec![Param::pos_only(Ty::string())],
             Ty::string()

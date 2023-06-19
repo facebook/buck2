@@ -44,6 +44,7 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::ctx::TypingContext;
+use crate::typing::oracle::traits::TypingAttr;
 
 /// A typing operation wasn't able to produce a precise result,
 /// so made some kind of approximation.
@@ -565,7 +566,7 @@ impl Ty {
     }
 
     /// See what lies behind an attribute on a type
-    pub(crate) fn attribute(&self, attr: &str, ctx: &TypingContext) -> Result<Ty, ()> {
+    pub(crate) fn attribute(&self, attr: TypingAttr, ctx: &TypingContext) -> Result<Ty, ()> {
         // There are some structural types which have to be handled in a specific way
         match self {
             Ty::Any => Ok(Ty::Any),
@@ -584,7 +585,9 @@ impl Ty {
                     Ok(Ty::unions(rs))
                 }
             }
-            Ty::Function(x) if attr == "type" && !x.type_attr.is_empty() => Ok(Ty::string()),
+            Ty::Function(x) if attr == TypingAttr::Regular("type") && !x.type_attr.is_empty() => {
+                Ok(Ty::string())
+            }
             _ => match ctx.oracle.attribute(self, attr) {
                 Some(r) => r,
                 None => Ok(ctx.approximation("oracle.attribute", format!("{}.{}", self, attr))),
@@ -606,7 +609,7 @@ impl Ty {
                 }
         };
 
-        let itered = |ty: &Ty| ctx?.oracle.attribute(ty, "__iter__")?.ok();
+        let itered = |ty: &Ty| ctx?.oracle.attribute(ty, TypingAttr::Iter)?.ok();
 
         for x in self.iter_union() {
             for y in other.iter_union() {

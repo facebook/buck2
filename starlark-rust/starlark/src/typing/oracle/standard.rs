@@ -22,7 +22,10 @@ use crate::docs::DocItem;
 use crate::environment::Globals;
 use crate::stdlib::LibraryExtension;
 use crate::typing::oracle::docs::OracleDocs;
+use crate::typing::oracle::traits::TypingAttr;
+use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingOracle;
+use crate::typing::oracle::traits::TypingUnOp;
 use crate::typing::ty::Arg;
 use crate::typing::ty::Param;
 use crate::typing::ty::Ty;
@@ -74,7 +77,7 @@ impl OracleStandard {
 }
 
 impl TypingOracle for OracleStandard {
-    fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         let fallback = || match self.fallback.attribute(ty, attr) {
             // We know we have full knowledge, so if we don't know, that must mean the attribute does not exist
             None => Some(Err(())),
@@ -85,38 +88,55 @@ impl TypingOracle for OracleStandard {
         Some(Ok(match ty {
             Ty::None => return Some(Err(())),
             Ty::List(elem) => match attr {
-                "__slice__" => ty.clone(),
-                "__less__" => {
+                TypingAttr::Slice => ty.clone(),
+                TypingAttr::BinOp(TypingBinOp::Less) => {
                     // This is a bit weak, beacuse it only looks at this oracle
                     return self.attribute(ty, attr);
                 }
-                "__iter__" => (**elem).clone(),
-                "__in__" => Ty::function(vec![Param::pos_only((**elem).clone())], Ty::bool()),
-                "__index__" => Ty::function(vec![Param::pos_only(Ty::int())], (**elem).clone()),
-                "__add__" => Ty::function(vec![Param::pos_only(Ty::Any)], Ty::list(Ty::Any)),
-                "__multiply__" => Ty::function(vec![Param::pos_only(Ty::int())], ty.clone()),
-                "pop" => Ty::function(
+
+                TypingAttr::Iter => (**elem).clone(),
+                TypingAttr::BinOp(TypingBinOp::In) => {
+                    Ty::function(vec![Param::pos_only((**elem).clone())], Ty::bool())
+                }
+                TypingAttr::Index => {
+                    Ty::function(vec![Param::pos_only(Ty::int())], (**elem).clone())
+                }
+                TypingAttr::BinOp(TypingBinOp::Add) => {
+                    Ty::function(vec![Param::pos_only(Ty::Any)], Ty::list(Ty::Any))
+                }
+                TypingAttr::BinOp(TypingBinOp::Mul) => {
+                    Ty::function(vec![Param::pos_only(Ty::int())], ty.clone())
+                }
+                TypingAttr::Regular("pop") => Ty::function(
                     vec![Param::pos_only(Ty::int()).optional()],
                     (**elem).clone(),
                 ),
-                "index" => Ty::function(
+                TypingAttr::Regular("index") => Ty::function(
                     vec![
                         Param::pos_only((**elem).clone()),
                         Param::pos_only(Ty::int()).optional(),
                     ],
                     Ty::int(),
                 ),
-                "remove" => Ty::function(vec![Param::pos_only((**elem).clone())], Ty::None),
+                TypingAttr::Regular("remove") => {
+                    Ty::function(vec![Param::pos_only((**elem).clone())], Ty::None)
+                }
                 _ => return fallback(),
             },
             Ty::Dict(tk_tv) => {
                 let (ref tk, ref tv) = **tk_tv;
                 match attr {
-                    "__in__" => Ty::function(vec![Param::pos_only(tk.clone())], Ty::bool()),
-                    "__bitor__" => Ty::function(vec![Param::pos_only(ty.clone())], ty.clone()),
-                    "__iter__" => tk.clone(),
-                    "__index__" => Ty::function(vec![Param::pos_only(tk.clone())], tv.clone()),
-                    "get" => Ty::union2(
+                    TypingAttr::BinOp(TypingBinOp::In) => {
+                        Ty::function(vec![Param::pos_only(tk.clone())], Ty::bool())
+                    }
+                    TypingAttr::BinOp(TypingBinOp::BitOr) => {
+                        Ty::function(vec![Param::pos_only(ty.clone())], ty.clone())
+                    }
+                    TypingAttr::Iter => tk.clone(),
+                    TypingAttr::Index => {
+                        Ty::function(vec![Param::pos_only(tk.clone())], tv.clone())
+                    }
+                    TypingAttr::Regular("get") => Ty::union2(
                         Ty::function(
                             vec![Param::pos_only(tk.clone())],
                             Ty::union2(tv.clone(), Ty::None),
@@ -127,65 +147,100 @@ impl TypingOracle for OracleStandard {
                             Ty::Any,
                         ),
                     ),
-                    "keys" => Ty::function(vec![], Ty::list(tk.clone())),
-                    "values" => Ty::function(vec![], Ty::list(tv.clone())),
-                    "items" => {
+                    TypingAttr::Regular("keys") => Ty::function(vec![], Ty::list(tk.clone())),
+                    TypingAttr::Regular("values") => Ty::function(vec![], Ty::list(tv.clone())),
+                    TypingAttr::Regular("items") => {
                         Ty::function(vec![], Ty::list(Ty::Tuple(vec![tk.clone(), tv.clone()])))
                     }
-                    "popitem" => Ty::function(vec![], Ty::Tuple(vec![tk.clone(), tv.clone()])),
+                    TypingAttr::Regular("popitem") => {
+                        Ty::function(vec![], Ty::Tuple(vec![tk.clone(), tv.clone()]))
+                    }
                     _ => return fallback(),
                 }
             }
-            Ty::Struct { fields, extra } => match fields.get(attr) {
-                Some(ty) => ty.clone(),
-                None if *extra => Ty::Any,
+            Ty::Struct { fields, extra } => match attr {
+                TypingAttr::Regular(attr) => match fields.get(attr) {
+                    Some(ty) => ty.clone(),
+                    None if *extra => Ty::Any,
+                    _ => return Some(Err(())),
+                },
                 _ => return Some(Err(())),
             },
             Ty::Tuple(tys) => match attr {
-                "__in__" => {
+                TypingAttr::BinOp(TypingBinOp::In) => {
                     Ty::function(vec![Param::pos_only(Ty::unions(tys.clone()))], Ty::bool())
                 }
-                "__iter__" => Ty::unions(tys.clone()),
-                "__index__" => {
+                TypingAttr::Iter => Ty::unions(tys.clone()),
+                TypingAttr::Index => {
                     Ty::function(vec![Param::pos_only(Ty::int())], Ty::unions(tys.clone()))
                 }
                 _ => return Some(Err(())),
             },
             Ty::Name(x) if x == "tuple" => match attr {
-                "__iter__" => Ty::Any,
-                "__in__" => Ty::function(vec![Param::pos_only(Ty::Any)], Ty::bool()),
-                "__index__" => Ty::function(vec![Param::pos_only(Ty::int())], Ty::Any),
+                TypingAttr::Iter => Ty::Any,
+                TypingAttr::BinOp(TypingBinOp::In) => {
+                    Ty::function(vec![Param::pos_only(Ty::Any)], Ty::bool())
+                }
+                TypingAttr::Index => Ty::function(vec![Param::pos_only(Ty::int())], Ty::Any),
                 _ => return Some(Err(())),
             },
             Ty::Name(x) if x == "int" => match attr {
-                "__less__" => Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool()),
-                "__subtract__" => Ty::function(vec![Param::pos_only(Ty::int())], Ty::int()),
-                "__add__" => Ty::function(vec![Param::pos_only(Ty::int())], Ty::int()),
-                "__minus__" => Ty::function(vec![], Ty::int()),
-                "__divide__" => Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float()),
+                TypingAttr::BinOp(TypingBinOp::Less) => {
+                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool())
+                }
+                TypingAttr::BinOp(TypingBinOp::Sub) => {
+                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::int())
+                }
+                TypingAttr::BinOp(TypingBinOp::Add) => {
+                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::int())
+                }
+                TypingAttr::UnOp(TypingUnOp::Minus) => Ty::function(vec![], Ty::int()),
+                TypingAttr::BinOp(TypingBinOp::Div) => {
+                    Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float())
+                }
                 _ => return Some(Err(())),
             },
             Ty::Name(x) if x == "float" => match attr {
-                "__less__" => Ty::function(vec![Param::pos_only(Ty::float())], Ty::bool()),
-                "__subtract__" => Ty::function(vec![Param::pos_only(Ty::float())], Ty::float()),
-                "__add__" => Ty::function(vec![Param::pos_only(Ty::float())], Ty::float()),
-                "__minus__" => Ty::function(vec![], Ty::float()),
-                "__divide__" => Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float()),
+                TypingAttr::BinOp(TypingBinOp::Less) => {
+                    Ty::function(vec![Param::pos_only(Ty::float())], Ty::bool())
+                }
+                TypingAttr::BinOp(TypingBinOp::Sub) => {
+                    Ty::function(vec![Param::pos_only(Ty::float())], Ty::float())
+                }
+                TypingAttr::BinOp(TypingBinOp::Add) => {
+                    Ty::function(vec![Param::pos_only(Ty::float())], Ty::float())
+                }
+                TypingAttr::UnOp(TypingUnOp::Minus) => Ty::function(vec![], Ty::float()),
+                TypingAttr::BinOp(TypingBinOp::Div) => {
+                    Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float())
+                }
                 _ => return Some(Err(())),
             },
             Ty::Name(x) if x == "string" => match attr {
-                "__less__" => Ty::function(vec![Param::pos_only(Ty::string())], Ty::bool()),
-                "__index__" => Ty::function(vec![Param::pos_only(Ty::int())], Ty::string()),
-                "__in__" => Ty::function(vec![Param::pos_only(Ty::string())], Ty::bool()),
-                "__add__" => Ty::function(vec![Param::pos_only(Ty::string())], Ty::string()),
-                "__multiply__" => Ty::function(vec![Param::pos_only(Ty::int())], Ty::string()),
-                "__slice__" => Ty::string(),
-                "__percent__" => Ty::function(vec![Param::pos_only(Ty::Any)], Ty::string()),
+                TypingAttr::BinOp(TypingBinOp::Less) => {
+                    Ty::function(vec![Param::pos_only(Ty::string())], Ty::bool())
+                }
+                TypingAttr::Index => Ty::function(vec![Param::pos_only(Ty::int())], Ty::string()),
+                TypingAttr::BinOp(TypingBinOp::In) => {
+                    Ty::function(vec![Param::pos_only(Ty::string())], Ty::bool())
+                }
+                TypingAttr::BinOp(TypingBinOp::Add) => {
+                    Ty::function(vec![Param::pos_only(Ty::string())], Ty::string())
+                }
+                TypingAttr::BinOp(TypingBinOp::Mul) => {
+                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::string())
+                }
+                TypingAttr::Slice => Ty::string(),
+                TypingAttr::BinOp(TypingBinOp::Percent) => {
+                    Ty::function(vec![Param::pos_only(Ty::Any)], Ty::string())
+                }
                 _ => return fallback(),
             },
             Ty::Name(x) if x == "range" => match attr {
-                "__iter__" => Ty::int(),
-                "__in__" => Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool()),
+                TypingAttr::Iter => Ty::int(),
+                TypingAttr::BinOp(TypingBinOp::In) => {
+                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool())
+                }
                 _ => return Some(Err(())),
             },
             _ => {
@@ -238,7 +293,7 @@ impl TypingOracle for OracleStandard {
                 let mut res = Vec::new();
                 for x in args {
                     match x {
-                        Arg::Pos(x) => match self.attribute(x, "__iter__") {
+                        Arg::Pos(x) => match self.attribute(x, TypingAttr::Iter) {
                             Some(Err(_)) => {
                                 return Some(Err("Argument does not allow iteration".to_owned()));
                             }
