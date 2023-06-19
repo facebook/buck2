@@ -36,7 +36,6 @@ use crate::hint::unlikely;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
 use crate::values::iter::StarlarkIterator;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
@@ -263,12 +262,6 @@ impl<'a, 'v, S: ArgSymbol> ArgumentsImpl<'v, 'a> for ArgumentsPos<'v, 'a, S> {
 /// when evaluation function or method calls.
 #[derive(Default, Clone, Dupe_)]
 pub struct Arguments<'v, 'a>(pub(crate) ArgumentsFull<'v, 'a, Symbol>);
-
-impl<'v, 'a> StarlarkTypeRepr for &'v Arguments<'v, 'a> {
-    fn starlark_type_repr() -> String {
-        "arguments".to_owned()
-    }
-}
 
 impl<'v, 'a> Arguments<'v, 'a> {
     /// Unwrap all named arguments (both explicit and in `**kwargs`) into a map.
