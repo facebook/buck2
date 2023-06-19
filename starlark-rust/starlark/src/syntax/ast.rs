@@ -311,7 +311,6 @@ pub(crate) enum StmtP<P: AstPayload> {
     IfElse(AstExprP<P>, Box<(AstStmtP<P>, AstStmtP<P>)>),
     For(AstAssignP<P>, Box<(AstExprP<P>, AstStmtP<P>)>),
     Def(DefP<P>),
-    // The Visibility of a Load is implicit from the Dialect, not written by a user
     Load(LoadP<P>),
 }
 
