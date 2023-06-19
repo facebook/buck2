@@ -8,5 +8,7 @@
  */
 
 mod eq;
+mod ord;
 
 pub use eq::PartialEqAny;
+pub use ord::OrdAny;
