@@ -241,7 +241,13 @@ impl<'f> ModuleScopes<'f> {
         self.scope_data.mut_scope(scope_id)
     }
 
-    pub fn enter_module(
+    /// Resolve symbols in a module.
+    ///
+    /// Checks all the symbols are resolved to locals/globals/captured/etc.
+    /// Do not check types yet. But validate type expressions.
+    ///
+    /// This function does not fail, errors are stored in the `errors` field.
+    pub(crate) fn enter_module(
         module: &'f MutableNames,
         frozen_heap: &'f FrozenHeap,
         loads: &HashMap<String, Interface>,
