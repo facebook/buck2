@@ -30,6 +30,7 @@ use crate::typing::ty::Arg;
 use crate::typing::ty::Param;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
+use crate::typing::ty::TyStruct;
 use crate::values::StarlarkValue;
 
 /// A [`TypingOracle`] based on information from documentation.
@@ -158,7 +159,7 @@ impl TypingOracle for OracleStandard {
                     _ => return fallback(),
                 }
             }
-            Ty::Struct { fields, extra } => match attr {
+            Ty::Struct(TyStruct { fields, extra }) => match attr {
                 TypingAttr::Regular(attr) => match fields.get(attr) {
                     Some(ty) => ty.clone(),
                     None if *extra => Ty::Any,
@@ -262,10 +263,7 @@ impl TypingOracle for OracleStandard {
             "struct" => Ty::special_function(
                 "struct",
                 vec![Param::kwargs(Ty::Any)],
-                Ty::Struct {
-                    fields: BTreeMap::new(),
-                    extra: true,
-                },
+                Ty::Struct(TyStruct::any()),
             ),
             _ => return self.fallback.builtin(name),
         }))
@@ -287,7 +285,7 @@ impl TypingOracle for OracleStandard {
                         Arg::Kwargs(_) => extra = true,
                     }
                 }
-                Some(Ok(Ty::Struct { fields, extra }))
+                Some(Ok(Ty::Struct(TyStruct { fields, extra })))
             }
             "zip" => {
                 let mut res = Vec::new();

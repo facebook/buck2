@@ -31,6 +31,7 @@ use crate::typing::oracle::traits::OracleNoAttributes;
 use crate::typing::oracle::traits::OracleNoBuiltins;
 use crate::typing::oracle::traits::OracleSeq;
 use crate::typing::oracle::traits::TypingAttr;
+use crate::typing::ty::TyStruct;
 use crate::typing::Interface;
 use crate::typing::OracleStandard;
 use crate::typing::Param;
@@ -269,10 +270,10 @@ fn test_special_function_struct() {
     TypeCheck::new()
         .ty(
             "x",
-            Ty::Struct {
+            Ty::Struct(TyStruct {
                 fields: btreemap! {"a".to_owned() => Ty::int(), "b".to_owned() => Ty::string()},
                 extra: false,
-            },
+            }),
         )
         .check(
             r#"

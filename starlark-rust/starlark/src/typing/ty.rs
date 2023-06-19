@@ -232,13 +232,7 @@ pub enum Ty {
     /// A dictionary, with key and value types
     Dict(Box<(Ty, Ty)>),
     /// A `struct`.
-    Struct {
-        /// The fields that are definitely present in the struct, with their types.
-        fields: BTreeMap<String, Ty>,
-        /// [`true`] if there might be additional fields not captured above,
-        /// [`false`] if this struct has no extra members.
-        extra: bool,
-    },
+    Struct(TyStruct),
     /// A `function`.
     Function(TyFunction),
 }
@@ -326,6 +320,41 @@ impl Display for TyFunction {
     }
 }
 
+/// Struct type.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TyStruct {
+    /// The fields that are definitely present in the struct, with their types.
+    pub(crate) fields: BTreeMap<String, Ty>,
+    /// [`true`] if there might be additional fields not captured above,
+    /// [`false`] if this struct has no extra members.
+    pub(crate) extra: bool,
+}
+
+impl TyStruct {
+    /// Any struct.
+    pub(crate) fn any() -> TyStruct {
+        TyStruct {
+            fields: BTreeMap::new(),
+            extra: true,
+        }
+    }
+}
+
+impl Display for TyStruct {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let TyStruct { fields, extra } = self;
+        display_container::fmt_container(
+            f,
+            "struct(",
+            ")",
+            display_container::iter_display_chain(
+                fields.iter().map(|(k, v)| format!("{} = {}", k, v)),
+                extra.then_some(".."),
+            ),
+        )
+    }
+}
+
 fn merge_adjacent<T>(xs: Vec<T>, f: impl Fn(T, T) -> Either<T, (T, T)>) -> Vec<T> {
     let mut res = Vec::new();
     let mut last = None;
@@ -362,10 +391,7 @@ impl Ty {
             "function" => {
                 Self::function(vec![Param::args(Ty::Any), Param::kwargs(Ty::Any)], Ty::Any)
             }
-            "struct" => Self::Struct {
-                fields: BTreeMap::new(),
-                extra: true,
-            },
+            "struct" => Self::Struct(TyStruct::any()),
             "never" => Self::Void,
             // Note that "tuple" cannot be converted to Ty::Tuple
             // since we don't know the length of the tuple.
@@ -495,18 +521,18 @@ impl Ty {
                 Either::Left(Ty::dict(Ty::union2(x.0, y.0), Ty::union2(x.1, y.1)))
             }
             (
-                Ty::Struct { fields, extra },
-                Ty::Struct {
+                Ty::Struct(TyStruct { fields, extra }),
+                Ty::Struct(TyStruct {
                     fields: mut fields2,
                     extra: extra2,
-                },
+                }),
             ) if extra == extra2 && itertools::equal(fields.keys(), fields2.keys()) => {
                 let mut res = BTreeMap::new();
                 for (k, v) in fields {
                     let v2 = fields2.remove(&k).unwrap();
                     res.insert(k, Ty::union2(v, v2));
                 }
-                Either::Left(Ty::Struct { fields: res, extra })
+                Either::Left(Ty::Struct(TyStruct { fields: res, extra }))
             }
             xy => Either::Right(xy),
         });
@@ -801,16 +827,8 @@ impl Display for Ty {
                 }
             }
             Ty::Dict(k_v) => write!(f, "{{{}: {}}}", k_v.0, k_v.1),
-            Ty::Struct { fields, extra } => display_container::fmt_container(
-                f,
-                "struct(",
-                ")",
-                display_container::iter_display_chain(
-                    fields.iter().map(|(k, v)| format!("{} = {}", k, v)),
-                    extra.then_some(".."),
-                ),
-            ),
             Ty::Function(fun) => Display::fmt(fun, f),
+            Ty::Struct(s) => Display::fmt(s, f),
         }
     }
 }
