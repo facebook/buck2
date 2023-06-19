@@ -313,6 +313,23 @@ impl<'f> ModuleScopes<'f> {
         (cst, scope)
     }
 
+    pub(crate) fn enter_module_err(
+        module: &'f MutableNames,
+        frozen_heap: &'f FrozenHeap,
+        loads: &HashMap<String, Interface>,
+        stmt: AstStmt,
+        globals: FrozenRef<'static, Globals>,
+        codemap: FrozenRef<'static, CodeMap>,
+        dialect: &Dialect,
+    ) -> anyhow::Result<(CstStmt, Self)> {
+        let (cst, mut scope) =
+            Self::enter_module(module, frozen_heap, loads, stmt, globals, codemap, dialect);
+        if let Some(first_error) = scope.errors.drain(..).next() {
+            return Err(first_error.into_anyhow());
+        }
+        Ok((cst, scope))
+    }
+
     // Number of module slots I need, and a struct holding all scopes.
     pub fn exit_module(mut self) -> (u32, ModuleScopeData<'f>) {
         assert!(self.locals.len() == 1);
@@ -1090,7 +1107,7 @@ mod tests {
         let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::Extended).unwrap();
         let frozen_heap = FrozenHeap::new();
         let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap.dupe());
-        let (cst, scope) = ModuleScopes::enter_module(
+        let (cst, scope) = ModuleScopes::enter_module_err(
             module,
             &frozen_heap,
             &HashMap::new(),
@@ -1098,8 +1115,8 @@ mod tests {
             FrozenRef::new(Globals::empty()),
             codemap,
             &Dialect::Extended,
-        );
-        assert!(scope.errors.is_empty());
+        )
+        .unwrap();
         let (.., scope_data) = scope.exit_module();
         let mut r = String::new();
         for (i, binding) in scope_data.bindings.iter().enumerate() {
