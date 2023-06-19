@@ -38,6 +38,10 @@ def strip_srcs_path(ctx: "context") -> ["string"]:
     for p in toml_main:
         toml_main_path = toml_main_path + p + "/"
 
+    # If the toml file is in the current directory, then we need to account for that.
+    if toml_main_path == "":
+        toml_main_path = "./"
+
     src_labels = [f.short_path.split(toml_main_path)[-1] for f in ctx.attrs.srcs]
     src_labels += [ctx.attrs.project_toml.short_path.split(toml_main_path)[-1]]
     return src_labels
