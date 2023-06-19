@@ -39,6 +39,7 @@ use crate::environment::MethodsStatic;
 use crate::private::Private;
 use crate::slice_vec_ext::SliceExt;
 use crate::starlark_type;
+use crate::typing::Ty;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
 use crate::values::layout::avalue::alloc_static;
@@ -78,7 +79,8 @@ enum TypingError {
     ValueDoesNotMatchType(String, &'static str, String),
 }
 
-trait TypeCompiledImpl<'v>: Allocative + Display + Debug + 'v {
+trait TypeCompiledImpl<'v>: Allocative + Debug + 'v {
+    fn as_ty(&self) -> Ty;
     fn matches(&self, value: Value<'v>) -> bool;
     fn is_wildcard(&self) -> bool {
         false
@@ -140,7 +142,7 @@ where
 
 impl<'v, T: TypeCompiledImpl<'v>> Display for TypeCompiledImplAsStarlarkValue<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "eval_type({})", self.0)
+        write!(f, "eval_type({})", self.0.as_ty())
     }
 }
 
@@ -197,7 +199,7 @@ pub(crate) struct TypeCompiled<V>(
 impl<'v, V: ValueLike<'v>> Display for TypeCompiled<V> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.downcast() {
-            Ok(t) => Display::fmt(t, f),
+            Ok(t) => Display::fmt(&t.as_ty(), f),
             Err(_) => {
                 // This is unreachable, but we should not panic in `Display`.
                 Display::fmt(&self.0, f)
@@ -228,6 +230,10 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 
     pub(crate) fn matches(&self, value: Value<'v>) -> bool {
         self.0.to_value().get_ref().type_matches_value(value)
+    }
+
+    pub(crate) fn as_ty(&self) -> Ty {
+        self.downcast().unwrap().as_ty()
     }
 
     pub(crate) fn type_is_wildcard(self) -> bool {
@@ -298,19 +304,14 @@ impl<'v, V: ValueLike<'v>> Eq for TypeCompiled<V> {}
 
 impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     fn type_anything() -> TypeCompiled<V> {
-        #[derive(
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            derive_more::Display,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "\"\"")]
+        #[derive(Eq, PartialEq, Hash, Allocative, Debug, ProvidesStaticType)]
         struct Anything;
 
         impl<'v> TypeCompiledImpl<'v> for Anything {
+            fn as_ty(&self) -> Ty {
+                Ty::Any
+            }
+
             fn matches(&self, _value: Value<'v>) -> bool {
                 true
             }
@@ -331,19 +332,14 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     }
 
     fn type_none() -> TypeCompiled<V> {
-        #[derive(
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            derive_more::Display,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "None")]
+        #[derive(Eq, PartialEq, Hash, Allocative, Debug, ProvidesStaticType)]
         struct IsNone;
 
         impl<'v> TypeCompiledImpl<'v> for IsNone {
+            fn as_ty(&self) -> Ty {
+                Ty::None
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 value.is_none()
             }
@@ -360,19 +356,14 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     }
 
     fn type_string() -> TypeCompiled<V> {
-        #[derive(
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            derive_more::Display,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "str.type")]
+        #[derive(Eq, PartialEq, Hash, Allocative, Debug, ProvidesStaticType)]
         struct IsString;
 
         impl<'v> TypeCompiledImpl<'v> for IsString {
+            fn as_ty(&self) -> Ty {
+                Ty::string()
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 value.unpack_str().is_some() || value.get_ref().matches_type("string")
             }
@@ -389,19 +380,14 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     }
 
     fn type_int() -> TypeCompiled<V> {
-        #[derive(
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            derive_more::Display,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "int.type")]
+        #[derive(Eq, PartialEq, Hash, Allocative, Debug, ProvidesStaticType)]
         struct IsInt;
 
         impl<'v> TypeCompiledImpl<'v> for IsInt {
+            fn as_ty(&self) -> Ty {
+                Ty::int()
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 value.unpack_inline_int().is_some() || value.get_ref().matches_type("int")
             }
@@ -418,19 +404,14 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     }
 
     fn type_bool() -> TypeCompiled<V> {
-        #[derive(
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            derive_more::Display,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "bool.type")]
+        #[derive(Eq, PartialEq, Hash, Allocative, Debug, ProvidesStaticType)]
         struct IsBool;
 
         impl<'v> TypeCompiledImpl<'v> for IsBool {
+            fn as_ty(&self) -> Ty {
+                Ty::bool()
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 value.unpack_bool().is_some() || value.get_ref().matches_type("bool")
             }
@@ -447,19 +428,14 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     }
 
     fn type_list() -> TypeCompiled<V> {
-        #[derive(
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            derive_more::Display,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "[\"\"]")]
+        #[derive(Eq, PartialEq, Hash, Allocative, Debug, ProvidesStaticType)]
         struct IsList;
 
         impl<'v> TypeCompiledImpl<'v> for IsList {
+            fn as_ty(&self) -> Ty {
+                Ty::list(Ty::Any)
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 ListRef::from_value(value).is_some()
             }
@@ -476,19 +452,14 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     }
 
     fn type_dict() -> TypeCompiled<V> {
-        #[derive(
-            Eq,
-            PartialEq,
-            Hash,
-            Allocative,
-            Debug,
-            derive_more::Display,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "{{\"\": \"\"}}")]
+        #[derive(Eq, PartialEq, Hash, Allocative, Debug, ProvidesStaticType)]
         struct IsDict;
 
         impl<'v> TypeCompiledImpl<'v> for IsDict {
+            fn as_ty(&self) -> Ty {
+                Ty::dict(Ty::Any, Ty::Any)
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 DictRef::from_value(value).is_some()
             }
@@ -523,16 +494,18 @@ impl<'v> TypeCompiled<Value<'v>> {
             Hash,
             Allocative,
             Debug,
-            derive_more::Display,
             Trace,
             Freeze,
             ProvidesStaticType,
             Clone
         )]
-        #[display(fmt = "\"{}\"", _0)]
         struct IsConcrete(String);
 
         impl<'v> TypeCompiledImpl<'v> for IsConcrete {
+            fn as_ty(&self) -> Ty {
+                Ty::name(&self.0)
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 value.get_ref().matches_type(&self.0)
             }
@@ -551,15 +524,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         t: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
-        #[derive(
-            Allocative,
-            Debug,
-            derive_more::Display,
-            Trace,
-            Freeze,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "[{}]", _0)]
+        #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsListOf<V>(TypeCompiled<V>);
 
         impl<V> PartialEq for IsListOf<V>
@@ -586,6 +551,10 @@ impl<'v> TypeCompiled<Value<'v>> {
         where
             Self: ProvidesStaticType<'v>,
         {
+            fn as_ty(&self) -> Ty {
+                Ty::list(self.0.as_ty())
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 match ListRef::from_value(value) {
                     None => false,
@@ -608,15 +577,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         t2: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
-        #[derive(
-            Allocative,
-            Debug,
-            derive_more::Display,
-            Trace,
-            Freeze,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "[{}, {}]", _0, _1)]
+        #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsAnyOfTwo<V>(TypeCompiled<V>, TypeCompiled<V>);
 
         impl<V> Hash for IsAnyOfTwo<V>
@@ -644,6 +605,10 @@ impl<'v> TypeCompiled<Value<'v>> {
         where
             Self: ProvidesStaticType<'v>,
         {
+            fn as_ty(&self) -> Ty {
+                Ty::union2(self.0.as_ty(), self.1.as_ty())
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 self.0.matches(value) || self.1.matches(value)
             }
@@ -688,16 +653,14 @@ impl<'v> TypeCompiled<Value<'v>> {
 
         impl<V> Eq for IsAnyOf<V> where TypeCompiled<V>: Eq {}
 
-        impl<'v, V: ValueLike<'v>> Display for IsAnyOf<V> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                display_container::fmt_container(f, "[", "]", &self.0)
-            }
-        }
-
         impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsAnyOf<V>
         where
             Self: ProvidesStaticType<'v>,
         {
+            fn as_ty(&self) -> Ty {
+                Ty::unions(self.0.map(|t| t.as_ty()))
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 self.0.iter().any(|t| t.matches(value))
             }
@@ -717,15 +680,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         vt: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
-        #[derive(
-            Allocative,
-            Debug,
-            derive_more::Display,
-            Trace,
-            Freeze,
-            ProvidesStaticType
-        )]
-        #[display(fmt = "{{{}: {}}}", _0, _1)]
+        #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsDictOf<V>(TypeCompiled<V>, TypeCompiled<V>);
 
         impl<V> Hash for IsDictOf<V>
@@ -753,6 +708,10 @@ impl<'v> TypeCompiled<Value<'v>> {
         where
             Self: ProvidesStaticType<'v>,
         {
+            fn as_ty(&self) -> Ty {
+                Ty::dict(self.0.as_ty(), self.1.as_ty())
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 match DictRef::from_value(value) {
                     None => false,
@@ -800,20 +759,14 @@ impl<'v> TypeCompiled<Value<'v>> {
 
         impl<V> Eq for IsTupleOf<V> where TypeCompiled<V>: Eq {}
 
-        impl<'v, V: ValueLike<'v>> Display for IsTupleOf<V> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                if self.0.len() == 1 {
-                    display_container::fmt_container(f, "(", ",)", [&self.0[0]])
-                } else {
-                    display_container::fmt_container(f, "(", ")", &self.0)
-                }
-            }
-        }
-
         impl<'v, V: ValueLike<'v>> TypeCompiledImpl<'v> for IsTupleOf<V>
         where
             Self: ProvidesStaticType<'v>,
         {
+            fn as_ty(&self) -> Ty {
+                Ty::Tuple(self.0.map(|t| t.as_ty()))
+            }
+
             fn matches(&self, value: Value<'v>) -> bool {
                 match Tuple::from_value(value) {
                     Some(v) if v.len() == self.0.len() => {
@@ -972,7 +925,7 @@ f(8) == False"#,
         // Type errors should be caught in arguments
         a.fails(
             "def f(i: bool.type):\n pass\nf(1)",
-            &["type annotation", "`1`", "`int`", "`bool.type`", "`i`"],
+            &["Value `1` of type `int` does not match the type annotation `\"bool\"` for argument `i`"],
         );
         // Type errors should be caught when the user forgets quotes around a valid type
         a.fail("def f(v: bool):\n pass\n", r#"Perhaps you meant `"bool"`"#);
@@ -980,7 +933,7 @@ f(8) == False"#,
             r#"Foo = record(value=int.type)
 def f(v: bool.type) -> Foo:
     return Foo(value=1)"#,
-            &[r#"record(value=field(int.type))"#],
+            &[r#"record(value=field("int"))"#],
         );
         a.fails(
             r#"Bar = enum("bar")
@@ -991,12 +944,12 @@ def f(v: Bar):
         // Type errors should be caught in return positions
         a.fails(
             "def f() -> bool.type:\n return 1\nf()",
-            &["type annotation", "`1`", "`bool.type`", "`int`", "return"],
+            &["type annotation", "`1`", "\"bool\"", "`int`", "return"],
         );
         // And for functions without return
         a.fails(
             "def f() -> bool.type:\n pass\nf()",
-            &["type annotation", "`None`", "`bool.type`", "return"],
+            &["type annotation", "`None`", "\"bool\"", "return"],
         );
         // And for functions that return None implicitly or explicitly
         a.fails(
@@ -1046,7 +999,7 @@ is_type([1,2,"test"], ["_a"])
 def foo(f: int.type = None):
     pass
 "#,
-            "`None` of type `NoneType` does not match the type annotation `int.type`",
+            "`None` of type `NoneType` does not match the type annotation `\"int\"`",
         );
     }
 
@@ -1061,7 +1014,7 @@ def foo(f: int.type = None):
         }
 
         t("\"\"", "\"\"");
-        t("\"list\"", "list.type");
+        t("[\"\"]", "list.type");
         t("[\"\"]", "[\"\"]");
         t("None", "None");
         t("[\"a\", \"b\"]", "[\"a\", \"b\"]");
@@ -1069,13 +1022,13 @@ def foo(f: int.type = None):
 
     #[test]
     fn test_type_compiled_starlark_api() {
-        assert::eq("\"eval_type(int.type)\"", "repr(eval_type(int.type))");
+        assert::eq("\"eval_type(\\\"int\\\")\"", "repr(eval_type(int.type))");
         assert::is_true("eval_type(int.type).matches(1)");
         assert::is_true("not eval_type(int.type).matches([])");
         assert::pass("eval_type(int.type).check_matches(1)");
         assert::fail(
             "eval_type(int.type).check_matches([])",
-            "Value of type `list` does not match type `int.type`: []",
+            "Value of type `list` does not match type `\"int\"`: []",
         );
     }
 
@@ -1098,7 +1051,7 @@ def f(x: ty):
 
 f("x")
 "#,
-            "Value `x` of type `string` does not match the type annotation `int.type` for argument `x`",
+            "Value `x` of type `string` does not match the type annotation `\"int\"` for argument `x`",
         );
     }
 }

@@ -188,7 +188,7 @@
 //! let mut eval = Evaluator::new(&module);
 //! let res = eval.eval_module(ast, &globals);
 //! // We expect this to fail, since it is a type violation
-//! assert!(res.unwrap_err().to_string().contains("Value `test` of type `string` does not match the type annotation `int.type`"));
+//! assert!(res.unwrap_err().to_string().contains("Value `test` of type `string` does not match the type annotation `\"int\"`"));
 //! # Ok(())
 //! # }
 //! # fn main(){ run().unwrap(); }

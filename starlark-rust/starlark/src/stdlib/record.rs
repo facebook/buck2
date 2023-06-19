@@ -122,7 +122,9 @@ assert_eq(dir(rec1), ["host", "port"])
 rec_type = record(host=str.type, port=int.type)
 rec_type(host=1, port=80)
 "#,
-            &["`1`", "`str.type`", "`host`"],
+            &[
+                "Value `1` of type `int` does not match the type annotation `\"string\"` for argument `host`",
+            ],
         );
         assert::fails(
             r#"
