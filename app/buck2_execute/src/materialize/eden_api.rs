@@ -278,7 +278,7 @@ impl EdenBuckOut {
         &self,
         project_fs: &ProjectRoot,
         path: &ProjectRelativePathBuf,
-        cancellations: &CancellationContext,
+        cancellations: &CancellationContext<'_>,
     ) -> anyhow::Result<()> {
         // Existence check would not trigger materialization since EdenFS will fast
         // return by not materialization the path. So the only cost is Eden will load
@@ -314,7 +314,7 @@ impl EdenBuckOut {
         &self,
         project_fs: &ProjectRoot,
         paths: Vec<ProjectRelativePathBuf>,
-        cancellations: &CancellationContext,
+        cancellations: &CancellationContext<'_>,
     ) -> anyhow::Result<()> {
         // TODO(bobyf, torozco) does this need to be critical section
 

@@ -146,7 +146,7 @@ pub struct BuckTestOrchestrator<'a> {
     events: EventDispatcher,
     liveliness_observer: Arc<dyn LivelinessObserver>,
     digest_config: DigestConfig,
-    cancellations: &'a CancellationContext,
+    cancellations: &'a CancellationContext<'a>,
     local_resource_state_registry: Arc<LocalResourceRegistry<'a>>,
 }
 
@@ -156,7 +156,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         session: Arc<TestSession>,
         liveliness_observer: Arc<dyn LivelinessObserver>,
         results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
-        cancellations: &'a CancellationContext,
+        cancellations: &'a CancellationContext<'a>,
         local_resource_state_registry: Arc<LocalResourceRegistry<'a>>,
     ) -> anyhow::Result<BuckTestOrchestrator<'a>> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
@@ -982,7 +982,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         digest_config: DigestConfig,
         executor: CommandExecutor,
         context: PreparedLocalResourceSetupContext,
-        cancellations: &'b CancellationContext,
+        cancellations: &'b CancellationContext<'b>,
     ) -> SharedResult<LocalResourceState> {
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),

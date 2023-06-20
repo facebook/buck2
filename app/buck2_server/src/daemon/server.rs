@@ -68,7 +68,7 @@ use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryFutureExt;
-use more_futures::cancellation::CancellationContext;
+use more_futures::cancellation::ExplicitCancellationContext;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_cancellable;
 use rand::RngCore;
@@ -678,7 +678,7 @@ fn pump_events<E: EventSource>(
 #[allow(clippy::mut_mut)] // select! does this internally
 async fn streaming<
     Req: Send + Sync + 'static,
-    F: for<'a> FnOnce(Req, &'a CancellationContext) -> BoxFuture<'a, ()>,
+    F: for<'a> FnOnce(Req, &'a ExplicitCancellationContext) -> BoxFuture<'a, ()>,
     E: EventSource + 'static,
 >(
     req: Request<Req>,

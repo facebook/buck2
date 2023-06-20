@@ -28,15 +28,15 @@ static INSTANCE: Lazy<CancellationContext> =
 
 /// Context available to the function running inside the future to control and manage it's own
 /// cancellation
-pub struct CancellationContext(CancellationContextInner);
+pub struct CancellationContext<'a>(CancellationContextInner<'a>);
 
-impl CancellationContext {
+impl<'a> CancellationContext<'a> {
     /// TODO replace with real initialization
     pub fn todo() -> Self {
         CancellationContext(CancellationContextInner::ThreadLocal)
     }
 
-    pub fn testing<'a>() -> &'a Self {
+    pub fn testing() -> &'a Self {
         &INSTANCE
     }
 
@@ -50,7 +50,7 @@ impl CancellationContext {
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
     /// entering the critical section (i.e. the last ref was dropped during `poll`), then the
     /// future is allowed to continue executing until this future resolves.
-    pub fn critical_section<'a, F, Fut>(
+    pub fn critical_section<F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -66,7 +66,7 @@ impl CancellationContext {
     /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
     /// CancellationObserver is a future that resolves when cancellation is requested (or when this
     /// section exits).
-    pub fn with_structured_cancellation<'a, F, Fut>(
+    pub fn with_structured_cancellation<F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -158,22 +158,35 @@ impl ExplicitCancellationContext {
             None
         }
     }
+
+    pub fn into_compatible(&self) -> CancellationContext {
+        CancellationContext(CancellationContextInner::Explicit(self))
+    }
+
+    pub fn testing<'a>() -> &'a Self {
+        static INSTANCE: Lazy<ExplicitCancellationContext> =
+            Lazy::new(|| ExplicitCancellationContext {
+                inner: ExecutionContext::testing(),
+            });
+
+        &INSTANCE
+    }
 }
 
-enum CancellationContextInner {
+enum CancellationContextInner<'a> {
     /// The old thread local based implementation
     ThreadLocal,
     /// The cancellation context passed explicitly
-    Explicit(ExplicitCancellationContext),
+    Explicit(&'a ExplicitCancellationContext),
 }
 
-impl CancellationContextInner {
+impl<'a> CancellationContextInner<'a> {
     /// Enter a critical section during which the current future (if supports explicit cancellation)
     /// should not be dropped. If the future was not cancelled before entering the critical section,
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
     /// entering the critical section (i.e. the last ref was dropped during `poll`), then the
     /// future is allowed to continue executing until this future resolves.
-    pub fn critical_section<'a, F, Fut>(
+    pub fn critical_section<F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -192,7 +205,7 @@ impl CancellationContextInner {
     /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
     /// CancellationObserver is a future that resolves when cancellation is requested (or when this
     /// section exits).
-    pub fn with_structured_cancellation<'a, F, Fut>(
+    pub fn with_structured_cancellation<F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a

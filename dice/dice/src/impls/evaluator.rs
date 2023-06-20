@@ -66,7 +66,9 @@ impl AsyncEvaluator {
                     cycles,
                 )));
 
-                let value = key_dyn.compute(&new_ctx, state.cancellation_ctx()).await;
+                let value = key_dyn
+                    .compute(&new_ctx, &state.cancellation_ctx().into_compatible())
+                    .await;
                 let ((deps, dep_validity), evaluation_data, cycles) = match new_ctx.0 {
                     DiceComputationsImpl::Legacy(_) => {
                         unreachable!("modern dice created above")

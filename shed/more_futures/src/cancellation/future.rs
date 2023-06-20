@@ -36,23 +36,19 @@ use pin_project::pin_project;
 use tokio::sync::oneshot;
 
 use crate::cancellable_future::CancellationObserver;
-use crate::cancellation::CancellationContext;
-use crate::cancellation::CancellationContextInner;
 use crate::cancellation::ExplicitCancellationContext;
 
 pub(crate) fn make_cancellable_future<F, T>(
     f: F,
 ) -> (ExplicitlyCancellableFuture<T>, CancellationHandle)
 where
-    F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
+    F: for<'a> FnOnce(&'a ExplicitCancellationContext) -> BoxFuture<'a, T> + Send,
 {
     let context = ExecutionContext::new();
 
     let fut = {
         let context = context.dupe();
-        let cancel = CancellationContext(CancellationContextInner::Explicit(
-            ExplicitCancellationContext { inner: context },
-        ));
+        let cancel = ExplicitCancellationContext { inner: context };
 
         ExplicitlyCancellableTask::new(cancel, f)
     };
@@ -71,15 +67,15 @@ pub struct ExplicitlyCancellableTask<T> {
     // reference to the `context`, and so absolutely must be dropped first.
     #[pin]
     fut: MaybeFuture<BoxFuture<'static, T>>, // not actually static but the lifetime of this struct
-    context: CancellationContext,
+    context: ExplicitCancellationContext,
 
     _p: PhantomPinned,
 }
 
 impl<T> ExplicitlyCancellableTask<T> {
-    fn new<F>(context: CancellationContext, f: F) -> Pin<Box<Self>>
+    fn new<F>(context: ExplicitCancellationContext, f: F) -> Pin<Box<Self>>
     where
-        F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
+        F: for<'a> FnOnce(&'a ExplicitCancellationContext) -> BoxFuture<'a, T> + Send,
     {
         let this = ExplicitlyCancellableTask {
             context,
@@ -384,6 +380,10 @@ impl ExecutionContext {
                 should_exit: false,
             })),
         }
+    }
+
+    pub fn testing() -> Self {
+        Self::new()
     }
 
     pub(crate) fn enter_critical_section(&self) -> CriticalSectionGuard {

@@ -52,7 +52,7 @@ impl EdenBuckOut {
         &self,
         _project_fs: &buck2_core::fs::project::ProjectRoot,
         _paths: Vec<ProjectRelativePathBuf>,
-        _cancellations: &CancellationContext,
+        _cancellations: &CancellationContext<'_>,
     ) -> anyhow::Result<()> {
         self.not_implemented
     }
@@ -306,7 +306,7 @@ impl dyn Materializer {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
-        cancellations: &CancellationContext,
+        cancellations: &CancellationContext<'_>,
     ) -> anyhow::Result<()> {
         self.check_declared_external_symlink(&value)?;
         self.declare_copy_impl(path, value, srcs, cancellations)
@@ -319,7 +319,7 @@ impl dyn Materializer {
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-        cancellations: &CancellationContext,
+        cancellations: &CancellationContext<'_>,
     ) -> anyhow::Result<()> {
         for (_, value) in artifacts.iter() {
             self.check_declared_external_symlink(value)?;

@@ -67,7 +67,7 @@ pub async fn download_action_results<'a>(
     requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
     action_digest: &ActionDigest,
     response: &dyn RemoteActionResult,
-    cancellations: &CancellationContext,
+    cancellations: &CancellationContext<'_>,
 ) -> DownloadResult {
     let downloader = CasDownloader {
         materializer,
@@ -122,7 +122,7 @@ impl CasDownloader<'_> {
         requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
         action_digest: &ActionDigest,
         output_spec: &dyn RemoteActionResult,
-        cancellations: &CancellationContext,
+        cancellations: &CancellationContext<'_>,
     ) -> ControlFlow<
         DownloadResult,
         (
@@ -252,7 +252,7 @@ impl CasDownloader<'_> {
         &self,
         artifacts: ExtractedArtifacts,
         action_digest: &ActionDigest,
-        cancellations: &CancellationContext,
+        cancellations: &CancellationContext<'_>,
     ) -> anyhow::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
         // Declare the outputs to the materializer
         self.materializer

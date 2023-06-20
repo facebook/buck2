@@ -49,7 +49,7 @@ use futures::future::Future;
 use futures::future::FutureExt;
 use futures::future::Shared;
 use itertools::Itertools;
-use more_futures::cancellation::CancellationContext;
+use more_futures::cancellation::ExplicitCancellationContext;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use thiserror::Error;
@@ -334,7 +334,7 @@ impl ConcurrencyHandler {
         sanitized_argv: Vec<String>,
         exclusive_cmd: Option<String>,
         exit_when_different_state: bool,
-        cancellations: &CancellationContext,
+        cancellations: &ExplicitCancellationContext,
     ) -> anyhow::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
@@ -783,7 +783,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            CancellationContext::testing(),
+            ExplicitCancellationContext::testing(),
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -799,7 +799,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            CancellationContext::testing(),
+            ExplicitCancellationContext::testing(),
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -815,7 +815,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            CancellationContext::testing(),
+            ExplicitCancellationContext::testing(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -849,7 +849,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            CancellationContext::testing(),
+            ExplicitCancellationContext::testing(),
         );
 
         let fut2 = concurrency.enter(
@@ -866,7 +866,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            CancellationContext::testing(),
+            ExplicitCancellationContext::testing(),
         );
 
         match futures::future::try_join(fut1, fut2).await {
@@ -903,7 +903,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            CancellationContext::testing(),
+            ExplicitCancellationContext::testing(),
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -919,7 +919,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            CancellationContext::testing(),
+            ExplicitCancellationContext::testing(),
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -935,7 +935,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            CancellationContext::testing(),
+            ExplicitCancellationContext::testing(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -984,7 +984,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
-                        CancellationContext::testing(),
+                        ExplicitCancellationContext::testing(),
                     )
                     .await
             }
@@ -1009,7 +1009,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
-                        CancellationContext::testing(),
+                        ExplicitCancellationContext::testing(),
                     )
                     .await
             }
@@ -1036,7 +1036,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
-                        CancellationContext::testing(),
+                        ExplicitCancellationContext::testing(),
                     )
                     .await
             }
@@ -1101,7 +1101,7 @@ mod tests {
                         Vec::new(),
                         None,
                         true,
-                        CancellationContext::testing(),
+                        ExplicitCancellationContext::testing(),
                     )
                     .await
             }
@@ -1126,7 +1126,7 @@ mod tests {
                         Vec::new(),
                         None,
                         true,
-                        CancellationContext::testing(),
+                        ExplicitCancellationContext::testing(),
                     )
                     .await
             }
@@ -1153,7 +1153,7 @@ mod tests {
                         Vec::new(),
                         None,
                         true,
-                        CancellationContext::testing(),
+                        ExplicitCancellationContext::testing(),
                     )
                     .await
             }
@@ -1261,7 +1261,7 @@ mod tests {
                 Vec::new(),
                 None,
                 false,
-                CancellationContext::testing(),
+                ExplicitCancellationContext::testing(),
             )
             .await?;
 
@@ -1280,7 +1280,7 @@ mod tests {
                 Vec::new(),
                 None,
                 false,
-                CancellationContext::testing(),
+                ExplicitCancellationContext::testing(),
             )
             .await?;
 
@@ -1298,7 +1298,7 @@ mod tests {
                 Vec::new(),
                 None,
                 false,
-                CancellationContext::testing(),
+                ExplicitCancellationContext::testing(),
             )
             .await?;
 
@@ -1410,7 +1410,7 @@ mod tests {
                             Vec::new(),
                             exclusive_cmd,
                             false,
-                            CancellationContext::testing(),
+                            ExplicitCancellationContext::testing(),
                         )
                         .await
                 }
@@ -1485,7 +1485,7 @@ mod tests {
                     Vec::new(),
                     None,
                     false,
-                    CancellationContext::testing(),
+                    ExplicitCancellationContext::testing(),
                 )
                 .await
         });
@@ -1541,7 +1541,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            CancellationContext::testing(),
+            ExplicitCancellationContext::testing(),
         );
         pin_mut!(fut1);
 
@@ -1560,7 +1560,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            CancellationContext::testing(),
+            ExplicitCancellationContext::testing(),
         );
         pin_mut!(fut2);
 

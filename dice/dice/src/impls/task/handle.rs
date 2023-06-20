@@ -9,7 +9,7 @@
 
 //! Handle to the DiceTask as seen by the thread responsible for completing the task
 
-use more_futures::cancellation::CancellationContext;
+use more_futures::cancellation::ExplicitCancellationContext;
 
 use crate::arc::Arc;
 use crate::impls::task::dice::DiceTaskInternal;
@@ -19,7 +19,7 @@ use crate::impls::value::DiceComputedValue;
 /// the task.
 pub(crate) struct DiceTaskHandle<'a> {
     pub(super) internal: Arc<DiceTaskInternal>,
-    pub(super) cancellations: &'a CancellationContext,
+    pub(super) cancellations: &'a ExplicitCancellationContext,
 }
 
 /// After reporting that we are about to transition to a state, should we continue processing or
@@ -48,7 +48,7 @@ impl<'a> DiceTaskHandle<'a> {
         let _ignore = self.internal.set_value(value);
     }
 
-    pub(crate) fn cancellation_ctx(&self) -> &CancellationContext {
+    pub(crate) fn cancellation_ctx(&self) -> &ExplicitCancellationContext {
         &self.cancellations
     }
 
@@ -57,7 +57,7 @@ impl<'a> DiceTaskHandle<'a> {
         static TEST: once_cell::sync::Lazy<DiceTaskHandle> =
             once_cell::sync::Lazy::new(|| DiceTaskHandle::<'static> {
                 internal: DiceTaskInternal::new(crate::impls::key::DiceKey { index: 99999 }),
-                cancellations: CancellationContext::testing(),
+                cancellations: ExplicitCancellationContext::testing(),
             });
 
         &TEST

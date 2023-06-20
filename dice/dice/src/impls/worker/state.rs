@@ -10,7 +10,7 @@
 //! The main worker thread for the dice task
 
 use more_futures::cancellable_future::DisableCancellationGuard;
-use more_futures::cancellation::CancellationContext;
+use more_futures::cancellation::ExplicitCancellationContext;
 
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::KeyEvaluationResult;
@@ -214,7 +214,7 @@ pub(crate) struct DiceWorkerStateEvaluating<'a> {
 }
 
 impl<'a> DiceWorkerStateEvaluating<'a> {
-    pub(crate) fn cancellation_ctx(&self) -> &CancellationContext {
+    pub(crate) fn cancellation_ctx(&self) -> &ExplicitCancellationContext {
         self.internals.cancellation_ctx()
     }
 

@@ -116,7 +116,7 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
-use more_futures::cancellation::CancellationContext;
+use more_futures::cancellation::ExplicitCancellationContext;
 use tokio::sync::Mutex;
 use tracing::warn;
 
@@ -230,7 +230,7 @@ pub struct ServerCommandContext<'a> {
     /// Sanitized argument vector from the CLI from the client side.
     pub(crate) sanitized_argv: Vec<String>,
 
-    cancellations: &'a CancellationContext,
+    cancellations: &'a ExplicitCancellationContext,
 
     exit_when_different_state: bool,
 }
@@ -242,7 +242,7 @@ impl<'a> ServerCommandContext<'a> {
         starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
         build_options: Option<&CommonBuildOptions>,
         buck_out_dir: ProjectRelativePathBuf,
-        cancellations: &'a CancellationContext,
+        cancellations: &'a ExplicitCancellationContext,
     ) -> anyhow::Result<Self> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
 
@@ -911,7 +911,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
             })
     }
 
-    fn cancellation_context(&self) -> &CancellationContext {
-        &self.cancellations
+    fn cancellation_context(&self) -> &ExplicitCancellationContext {
+        self.cancellations
     }
 }

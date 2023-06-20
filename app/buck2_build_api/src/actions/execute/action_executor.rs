@@ -312,7 +312,7 @@ struct BuckActionExecutionContext<'a> {
     inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
     outputs: &'a [BuildArtifact],
     command_reports: &'a mut Vec<CommandExecutionReport>,
-    cancellations: &'a CancellationContext,
+    cancellations: &'a CancellationContext<'a>,
 }
 
 impl BuckActionExecutionContext<'_> {

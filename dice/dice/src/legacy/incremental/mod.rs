@@ -549,7 +549,7 @@ where
         k: &K::Key,
         transaction_ctx: Arc<TransactionCtx>,
         extra: ComputationData,
-        cancellation: &CancellationContext,
+        cancellation: &CancellationContext<'_>,
     ) -> CancellableResult<GraphNode<K>> {
         let desc = K::key_type_name();
         extra

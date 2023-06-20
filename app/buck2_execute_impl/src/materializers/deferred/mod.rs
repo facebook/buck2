@@ -271,7 +271,7 @@ struct DeferredMaterializerCommandProcessor<T: 'static> {
     ttl_refresh_history: Vec<TtlRefreshHistoryEntry>,
     /// The current ttl_refresh instance, if any exists.
     ttl_refresh_instance: Option<oneshot::Receiver<(DateTime<Utc>, anyhow::Result<()>)>>,
-    cancellations: &'static CancellationContext,
+    cancellations: &'static CancellationContext<'static>,
     stats: Arc<DeferredMaterializerStats>,
 }
 

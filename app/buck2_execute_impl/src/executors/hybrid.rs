@@ -61,7 +61,7 @@ impl HybridExecutor {
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_observer: Arc<dyn LivelinessObserver>,
-        cancellations: &CancellationContext,
+        cancellations: &CancellationContext<'_>,
     ) -> CommandExecutionResult {
         let local_manager =
             CommandExecutionManager::new(claim_manager, events, liveliness_observer);
@@ -76,7 +76,7 @@ impl HybridExecutor {
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_observer: Arc<dyn LivelinessObserver>,
-        cancellations: &CancellationContext,
+        cancellations: &CancellationContext<'_>,
     ) -> CommandExecutionResult {
         let remote_manager =
             CommandExecutionManager::new(claim_manager, events, liveliness_observer);

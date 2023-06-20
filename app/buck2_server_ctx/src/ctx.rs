@@ -29,7 +29,7 @@ use buck2_execute::materialize::materializer::Materializer;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
+use more_futures::cancellation::ExplicitCancellationContext;
 
 use crate::concurrency::ConcurrencyHandler;
 use crate::concurrency::DiceDataProvider;
@@ -65,7 +65,7 @@ pub trait ServerCommandContextTrait: Send + Sync {
         providers_patterns: &[ParsedPattern<ConfiguredProvidersPatternExtra>],
     );
 
-    fn cancellation_context(&self) -> &CancellationContext;
+    fn cancellation_context(&self) -> &ExplicitCancellationContext;
 }
 
 pub struct PrivateStruct(());

@@ -132,14 +132,14 @@ mod state_machine {
 
     #[async_trait]
     impl IoHandler for StubIoHandler {
-        fn write(
+        fn write<'a>(
             self: &Arc<Self>,
             _path: ProjectRelativePathBuf,
             _write: Arc<WriteFile>,
             _version: Version,
             _command_sender: MaterializerSender<Self>,
-            _cancellations: &CancellationContext,
-        ) -> BoxFuture<Result<(), SharedMaterializingError>> {
+            _cancellations: &'a CancellationContext<'a>,
+        ) -> BoxFuture<'a, Result<(), SharedMaterializingError>> {
             unimplemented!()
         }
 

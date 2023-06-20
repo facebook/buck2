@@ -89,7 +89,7 @@ pub(super) trait IoHandler: Sized + Sync + Send + 'static {
         write: Arc<WriteFile>,
         version: Version,
         command_sender: MaterializerSender<Self>,
-        cancellations: &'a CancellationContext,
+        cancellations: &'a CancellationContext<'a>,
     ) -> BoxFuture<'a, Result<(), SharedMaterializingError>>;
 
     fn clean_path<'a>(
@@ -126,7 +126,7 @@ impl DefaultIoHandler {
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
         stat: &mut MaterializationStat,
-        cancellations: &CancellationContext,
+        cancellations: &CancellationContext<'_>,
     ) -> Result<(), MaterializeEntryError> {
         // Materialize the dir structure, and symlinks
         self.io_executor

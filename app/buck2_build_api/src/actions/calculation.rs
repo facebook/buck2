@@ -58,7 +58,7 @@ pub trait ActionCalculation {
 
 async fn build_action_impl(
     ctx: &DiceComputations,
-    cancellation: &CancellationContext,
+    cancellation: &CancellationContext<'_>,
     key: &ActionKey,
 ) -> anyhow::Result<ActionOutputs> {
     // Compute is only called if we have cache miss
@@ -82,7 +82,7 @@ async fn build_action_impl(
 
 async fn build_action_no_redirect(
     ctx: &DiceComputations,
-    cancellation: &CancellationContext,
+    cancellation: &CancellationContext<'_>,
     action: Arc<RegisteredAction>,
 ) -> anyhow::Result<ActionOutputs> {
     let materialized_inputs = {

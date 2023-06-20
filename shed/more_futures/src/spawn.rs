@@ -31,7 +31,7 @@ use crate::cancellable_future::StrongRefCount;
 use crate::cancellable_future::WeakRefCount;
 use crate::cancellation::future::make_cancellable_future;
 use crate::cancellation::future::CancellationHandle;
-use crate::cancellation::CancellationContext;
+use crate::cancellation::ExplicitCancellationContext;
 use crate::instrumented_shared::SharedEvents;
 use crate::instrumented_shared::SharedEventsFuture;
 use crate::spawner::Spawner;
@@ -233,7 +233,7 @@ pub fn spawn_cancellable<F, T, S>(
     ctx: &S,
 ) -> FutureAndCancellationHandle<T>
 where
-    for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
+    for<'a> F: FnOnce(&'a ExplicitCancellationContext) -> BoxFuture<'a, T> + Send,
     T: Any + Send + 'static,
 {
     let (future, cancellation_handle) = make_cancellable_future(f);
