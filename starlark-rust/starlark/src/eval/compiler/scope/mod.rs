@@ -22,6 +22,7 @@ use std::collections::HashMap;
 use std::iter;
 use std::marker::PhantomData;
 use std::mem;
+use std::slice;
 
 use dupe::Dupe;
 use starlark_derive::VisitSpanMut;
@@ -258,6 +259,15 @@ impl<'f> ModuleScopes<'f> {
         let scope_id = scope_data.new_scope().0;
         let mut cst = CstStmt::from_ast(stmt, &mut scope_data, loads);
 
+        let top_level_stmts: &mut [CstStmt] = match &mut cst.node {
+            StmtP::Statements(stmts) => {
+                // TODO(nga): single-line top-level statements like `a(); b()`
+                //   will be treated as multiple top-level statements.
+                stmts
+            }
+            _ => slice::from_mut(&mut cst),
+        };
+
         // Not really important, sanity check
         assert_eq!(scope_id, ScopeId::module());
 
@@ -272,14 +282,16 @@ impl<'f> ModuleScopes<'f> {
             locals.insert_hashed(name.get_hashed(), binding_id);
         }
 
-        Stmt::collect_defines(
-            &mut cst,
-            InLoop::No,
-            &mut scope_data,
-            frozen_heap,
-            &mut locals,
-            dialect,
-        );
+        for stmt in top_level_stmts.iter_mut() {
+            Stmt::collect_defines(
+                stmt,
+                InLoop::No,
+                &mut scope_data,
+                frozen_heap,
+                &mut locals,
+                dialect,
+            );
+        }
 
         let mut module_bindings = SmallMap::new();
         for (x, binding_id) in locals {
@@ -292,7 +304,9 @@ impl<'f> ModuleScopes<'f> {
         }
 
         // Here we traverse the AST second time to collect scopes of defs
-        Self::collect_defines_recursively(&mut scope_data, &mut cst, frozen_heap, dialect);
+        for stmt in top_level_stmts.iter_mut() {
+            Self::collect_defines_recursively(&mut scope_data, stmt, frozen_heap, dialect);
+        }
         let mut scope = Self {
             scope_data,
             frozen_heap,
@@ -304,7 +318,9 @@ impl<'f> ModuleScopes<'f> {
             globals,
             errors: Vec::new(),
         };
-        scope.resolve_idents(&mut cst);
+        for stmt in top_level_stmts.iter_mut() {
+            scope.resolve_idents(stmt);
+        }
         (cst, scope)
     }
 
