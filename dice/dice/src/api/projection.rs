@@ -20,6 +20,7 @@ use crate::api::data::DiceData;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
+use crate::introspection::graph::short_type_name;
 
 /// Synchronously computed key from an "opaque" value.
 pub trait ProjectionKey:
@@ -57,7 +58,7 @@ pub trait ProjectionKey:
 
     /// Provides a short informative name for this projection type.
     fn key_type_name() -> &'static str {
-        "<unknown_projection>"
+        short_type_name(std::any::type_name::<Self>())
     }
 }
 
