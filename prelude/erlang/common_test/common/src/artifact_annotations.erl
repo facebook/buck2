@@ -37,25 +37,22 @@ serialize(ArtifactAnnotation) -> jsone:encode(ArtifactAnnotation).
 -spec create_artifact_annotation(file:filename()) -> test_result_artifact_annotations().
 create_artifact_annotation(FileName) ->
     Type =
-        case
-            lists:member(filename:extension(FileName), [".json", ".html", ".log", ".spec", ".txt"])
-        of
+        case lists:member(filename:extension(FileName), [".json", ".html", ".log", ".spec", ".txt"]) of
             true ->
                 case filename:basename(FileName) =:= "test.log" of
-            true ->
-                #{
-                    generic_text_log => #{
-                        log_aggregator_config => #{
-                            log_type => "WhatsApp Common Test Log"
+                    true ->
+                        #{
+                            generic_text_log => #{
+                                log_aggregator_config => #{
+                                    log_type => <<"WhatsApp Common Test Log">>
+                                }
+                            }
+                        };
+                    false ->
+                        #{
+                            generic_text_log => #{}
                         }
-                    }
-                };
-            false ->
-                #{
-                    generic_text_log => #{
-                    }
-                }
-            end;
+                end;
             _ ->
                 #{
                     generic_blob => #{}
