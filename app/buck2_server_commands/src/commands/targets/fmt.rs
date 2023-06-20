@@ -71,6 +71,7 @@ pub(crate) trait TargetFormatter: Send + Sync {
         stdout: &mut String,
         stderr: &mut String,
     ) {
+        writeln!(stderr, "Error parsing {}\n{:?}", package, error).unwrap();
     }
 }
 
@@ -329,16 +330,6 @@ impl TargetFormatter for TargetNameFormat {
         if self.target_call_stacks {
             print_target_call_stack_after_target(buffer, target_info.node.call_stack().as_deref());
         }
-    }
-
-    fn package_error(
-        &self,
-        package: PackageLabel,
-        error: &anyhow::Error,
-        _stdout: &mut String,
-        stderr: &mut String,
-    ) {
-        writeln!(stderr, "Error parsing {}\n{:?}", package, error).unwrap();
     }
 }
 
