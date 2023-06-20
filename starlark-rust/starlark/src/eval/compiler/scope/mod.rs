@@ -246,7 +246,7 @@ impl<'f> ModuleScopes<'f> {
     /// Do not check types yet. But validate type expressions.
     ///
     /// This function does not fail, errors are stored in the `errors` field.
-    pub(crate) fn enter_module(
+    fn enter_module(
         module: &'f MutableNames,
         frozen_heap: &'f FrozenHeap,
         loads: &HashMap<String, Interface>,
@@ -345,15 +345,25 @@ impl<'f> ModuleScopes<'f> {
         Ok((cst, scope))
     }
 
-    // Number of module slots I need, and a struct holding all scopes.
-    fn exit_module(mut self) -> (u32, ModuleScopeData<'f>) {
+    // Number of module slots I need, a struct holding all scopes, and module bindings.
+    fn exit_module(
+        mut self,
+    ) -> (
+        u32,
+        ModuleScopeData<'f>,
+        SmallMap<FrozenStringValue, BindingId>,
+    ) {
         assert!(self.locals.len() == 1);
         assert!(self.unscopes.is_empty());
         let scope_id = self.locals.pop().unwrap();
         assert!(scope_id == ScopeId::module());
         let scope = self.scope_data.get_scope(scope_id);
         assert!(scope.parent.is_empty());
-        (self.module.slot_count(), self.scope_data)
+        (
+            self.module.slot_count(),
+            self.scope_data,
+            self.module_bindings,
+        )
     }
 
     pub(crate) fn check_module_err(
@@ -367,8 +377,29 @@ impl<'f> ModuleScopes<'f> {
     ) -> anyhow::Result<(CstStmt, u32, ModuleScopeData<'f>)> {
         let (stmt, scopes) =
             Self::enter_module_err(module, frozen_heap, loads, stmt, globals, codemap, dialect)?;
-        let (slot_count, scope_data) = scopes.exit_module();
+        let (slot_count, scope_data, _) = scopes.exit_module();
         Ok((stmt, slot_count, scope_data))
+    }
+
+    pub(crate) fn check_module(
+        module: &'f MutableNames,
+        frozen_heap: &'f FrozenHeap,
+        loads: &HashMap<String, Interface>,
+        stmt: AstStmt,
+        globals: FrozenRef<'static, Globals>,
+        codemap: FrozenRef<'static, CodeMap>,
+        dialect: &Dialect,
+    ) -> (
+        Vec<EvalException>,
+        CstStmt,
+        ModuleScopeData<'f>,
+        SmallMap<FrozenStringValue, BindingId>,
+    ) {
+        let (stmt, mut scope) =
+            Self::enter_module(module, frozen_heap, loads, stmt, globals, codemap, dialect);
+        let errors = mem::take(&mut scope.errors);
+        let (_, scope_data, module_bindings) = scope.exit_module();
+        (errors, stmt, scope_data, module_bindings)
     }
 
     fn collect_defines_in_def(

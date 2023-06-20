@@ -150,7 +150,7 @@ impl AstModule {
         let codemap = self.codemap.dupe();
         let names = MutableNames::new();
         let frozen_heap = FrozenHeap::new();
-        let (cst, scope) = ModuleScopes::enter_module(
+        let (scope_errors, cst, scope_data, module_bindings) = ModuleScopes::check_module(
             &names,
             &frozen_heap,
             loads,
@@ -168,7 +168,7 @@ impl AstModule {
 
         let mut typemap = HashMap::with_capacity(types.len());
         for (id, ty) in &types {
-            let binding = scope.scope_data.get_binding(*id);
+            let binding = scope_data.get_binding(*id);
             let name = binding.name.as_str().to_owned();
             let span = match binding.source {
                 BindingSource::Source(span) => span,
@@ -181,8 +181,7 @@ impl AstModule {
             codemap: codemap.dupe(),
         };
 
-        let errors = scope
-            .errors
+        let errors = scope_errors
             .into_iter()
             .chain(solve_errors)
             .map(EvalException::into_anyhow)
@@ -191,7 +190,7 @@ impl AstModule {
         let mut res = HashMap::new();
         for (name, vis) in names.all_names_and_visibilities() {
             if vis == Visibility::Public {
-                let ty = types[scope.module_bindings.get(name.as_str()).unwrap()].clone();
+                let ty = types[module_bindings.get(name.as_str()).unwrap()].clone();
                 res.insert(name.as_str().to_owned(), ty);
             }
         }
