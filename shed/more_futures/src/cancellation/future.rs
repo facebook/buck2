@@ -38,6 +38,7 @@ use tokio::sync::oneshot;
 use crate::cancellable_future::CancellationObserver;
 use crate::cancellation::CancellationContext;
 use crate::cancellation::CancellationContextInner;
+use crate::cancellation::ExplicitCancellationContext;
 
 pub(crate) fn make_cancellable_future<F, T>(
     f: F,
@@ -49,7 +50,9 @@ where
 
     let fut = {
         let context = context.dupe();
-        let cancel = CancellationContext(CancellationContextInner::Explicit(context));
+        let cancel = CancellationContext(CancellationContextInner::Explicit(
+            ExplicitCancellationContext { inner: context },
+        ));
 
         ExplicitlyCancellableTask::new(cancel, f)
     };
