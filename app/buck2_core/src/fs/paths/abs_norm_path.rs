@@ -494,7 +494,7 @@ impl AbsNormPathBuf {
         Ok(AbsNormPathBuf(path))
     }
 
-    pub(crate) fn unchecked_new(path: PathBuf) -> Self {
+    pub fn unchecked_new(path: PathBuf) -> Self {
         AbsNormPathBuf(AbsPathBuf::try_from(path).unwrap())
     }
 

@@ -135,6 +135,8 @@ impl CommandLineContext for AbsCommandLineContext<'_> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
@@ -184,9 +186,19 @@ mod tests {
             "."
         );
         assert_eq!(
+            CommandLineLocation::from_relative_path(RelativePathBuf::new(), windows_path_sep)
+                .into_string(),
+            "."
+        );
+        assert_eq!(
             CommandLineLocation::from_relative_path(RelativePathBuf::from("a"), unix_path_sep)
                 .into_string(),
-            "a"
+            "./a"
+        );
+        assert_eq!(
+            CommandLineLocation::from_relative_path(RelativePathBuf::from("a"), windows_path_sep)
+                .into_string(),
+            ".\\a"
         );
         assert_eq!(
             CommandLineLocation::from_relative_path(RelativePathBuf::from("a/b"), unix_path_sep)
@@ -197,6 +209,77 @@ mod tests {
             CommandLineLocation::from_relative_path(RelativePathBuf::from("a/b"), windows_path_sep)
                 .into_string(),
             "a\\b"
+        );
+    }
+
+    #[cfg(not(unix))]
+    #[test]
+    fn test_abs_command_line_location_windows() {
+        let root = ProjectRoot::new_unchecked(AbsNormPathBuf::unchecked_new(PathBuf::from(
+            "C:\\foo\\bar",
+        )));
+
+        assert_eq!(
+            CommandLineLocation::from_root(
+                &root,
+                RelativePathBuf::new(),
+                PathSeparatorKind::Windows
+            )
+            .into_string(),
+            "C:\\foo\\bar",
+        );
+
+        assert_eq!(
+            CommandLineLocation::from_root(
+                &root,
+                RelativePathBuf::from("baz"),
+                PathSeparatorKind::Windows
+            )
+            .into_string(),
+            "C:\\foo\\bar\\baz",
+        );
+
+        assert_eq!(
+            CommandLineLocation::from_root(
+                &root,
+                RelativePathBuf::from("baz/qux"),
+                PathSeparatorKind::Windows
+            )
+            .into_string(),
+            "C:\\foo\\bar\\baz\\qux",
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_abs_command_line_location_unix() {
+        let root =
+            ProjectRoot::new_unchecked(AbsNormPathBuf::unchecked_new(PathBuf::from("/foo/bar")));
+
+        assert_eq!(
+            CommandLineLocation::from_root(&root, RelativePathBuf::new(), PathSeparatorKind::Unix)
+                .into_string(),
+            "/foo/bar",
+        );
+
+        assert_eq!(
+            CommandLineLocation::from_root(
+                &root,
+                RelativePathBuf::from("baz"),
+                PathSeparatorKind::Unix
+            )
+            .into_string(),
+            "/foo/bar/baz",
+        );
+
+        assert_eq!(
+            CommandLineLocation::from_root(
+                &root,
+                RelativePathBuf::from("baz/qux"),
+                PathSeparatorKind::Unix
+            )
+            .into_string(),
+            "/foo/bar/baz/qux",
         );
     }
 }

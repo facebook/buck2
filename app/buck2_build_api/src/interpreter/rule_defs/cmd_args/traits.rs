@@ -222,13 +222,29 @@ impl CommandLineLocation<'_> {
                 root_buf.extend(path.iter());
                 root_buf.to_string_lossy()
             }
-            None => Cow::Borrowed(path.as_str()),
+            None => {
+                let path = path.as_str();
+
+                if path.contains('/') {
+                    Cow::Borrowed(path)
+                } else if path.is_empty() {
+                    // In command lines, the empty path is the current directory, so use that instead
+                    // so we don't have to deal with empty strings being implicit current directory.
+                    Cow::Borrowed(".")
+                } else {
+                    // If the path isn't empty, but doesn't have any path separators, add `./` This
+                    // ensures that if we have an executable relative to the repo root, we can
+                    // execute it (since `execvp`'s behavior is dependent on the presence of a `/`
+                    // in the path).
+                    let mut res = String::with_capacity(path.len() + 2);
+                    res.push_str("./");
+                    res.push_str(path);
+                    Cow::Owned(res)
+                }
+            }
         };
-        // In command lines, the empty path is the current directory, so use that instead
-        // so we don't have to deal with empty strings being implicit current directory.
-        if res.is_empty() {
-            ".".to_owned()
-        } else if path_separator == PathSeparatorKind::Windows && res.contains('/') {
+
+        if path_separator == PathSeparatorKind::Windows {
             res.replace('/', "\\")
         } else {
             res.into_owned()
