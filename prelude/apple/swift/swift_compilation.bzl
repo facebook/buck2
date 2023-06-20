@@ -144,6 +144,7 @@ def get_swift_cxx_flags(ctx: "context") -> [str.type]:
 def compile_swift(
         ctx: "context",
         srcs: [CxxSrcWithFlags.type],
+        parse_as_library: bool.type,
         deps_providers: list.type,
         exported_headers: [CHeader.type],
         objc_modulemap_pp_info: [CPreprocessor.type, None],
@@ -181,6 +182,7 @@ def compile_swift(
     shared_flags = _get_shared_flags(
         ctx,
         deps_providers,
+        parse_as_library,
         compiled_underlying_pcm,
         module_name,
         exported_headers,
@@ -356,6 +358,7 @@ def _compile_with_argsfile(
 def _get_shared_flags(
         ctx: "context",
         deps_providers: list.type,
+        parse_as_library: bool.type,
         underlying_module: ["SwiftPCMCompiledInfo", None],
         module_name: str.type,
         objc_headers: [CHeader.type],
@@ -374,7 +377,6 @@ def _get_shared_flags(
         "-wmo",
         "-module-name",
         module_name,
-        "-parse-as-library",
         # Disable Clang module breadcrumbs in the DWARF info. These will not be
         # debug prefix mapped and are not shareable across machines.
         "-Xfrontend",
@@ -382,6 +384,11 @@ def _get_shared_flags(
         "-Xfrontend",
         "-enable-cross-import-overlays",
     ])
+
+    if parse_as_library:
+        cmd.add([
+            "-parse-as-library",
+        ])
 
     if uses_explicit_modules(ctx):
         cmd.add(get_disable_pch_validation_flags())

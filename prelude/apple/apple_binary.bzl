@@ -54,7 +54,15 @@ def apple_binary_impl(ctx: "context") -> [["provider"], "promise"]:
 
         cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
-        swift_compile = compile_swift(ctx, swift_srcs, deps_providers, [], None, objc_bridging_header_flags)
+        swift_compile = compile_swift(
+            ctx,
+            swift_srcs,
+            False,  # parse_as_library
+            deps_providers,
+            [],
+            None,
+            objc_bridging_header_flags,
+        )
         swift_object_files = [swift_compile.object_file] if swift_compile else []
 
         swift_preprocessor = [swift_compile.pre] if swift_compile else []
