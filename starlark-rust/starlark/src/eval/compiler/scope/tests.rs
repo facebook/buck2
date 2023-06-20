@@ -46,7 +46,7 @@ fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
     let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::Extended).unwrap();
     let frozen_heap = FrozenHeap::new();
     let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap.dupe());
-    let (cst, scope) = ModuleScopes::enter_module_err(
+    let (cst, .., scope_data) = ModuleScopes::check_module_err(
         module,
         &frozen_heap,
         &HashMap::new(),
@@ -56,7 +56,6 @@ fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
         &Dialect::Extended,
     )
     .unwrap();
-    let (.., scope_data) = scope.exit_module();
     let mut r = String::new();
     for (i, binding) in scope_data.bindings.iter().enumerate() {
         if i != 0 {

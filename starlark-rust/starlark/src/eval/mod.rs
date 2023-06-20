@@ -80,7 +80,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             self.module_env.set_docstring(docstring)
         }
 
-        let (statement, scope) = ModuleScopes::enter_module_err(
+        let (statement, module_slots, scope_data) = ModuleScopes::check_module_err(
             self.module_env.mutable_names(),
             self.module_env.frozen_heap(),
             &HashMap::new(),
@@ -90,7 +90,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             &dialect,
         )?;
 
-        let (module_slots, scope_data) = scope.exit_module();
         let scope_names = scope_data.get_scope(ScopeId::module());
         let local_names = self
             .frozen_heap()
