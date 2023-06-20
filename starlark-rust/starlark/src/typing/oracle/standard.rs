@@ -276,8 +276,14 @@ impl TypingOracle for OracleStandard {
                 let mut extra = false;
                 for x in args {
                     match x {
-                        Arg::Pos(_) | Arg::Args(_) => {
+                        Arg::Pos(_) => {
                             return Some(Err("Positional arguments not allowed".to_owned()));
+                        }
+                        Arg::Args(_) => {
+                            // Args can be empty, and this is valid call:
+                            // ```
+                            // struct(*[], **{})
+                            // ```
                         }
                         Arg::Name(name, val) => {
                             fields.insert(name.clone(), val.clone());
