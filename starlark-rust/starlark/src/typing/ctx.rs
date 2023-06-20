@@ -86,7 +86,7 @@ impl TypingContext<'_> {
         self.errors
             .borrow_mut()
             .push(EvalException::new(err.into(), span, &self.codemap));
-        Ty::Void
+        Ty::Never
     }
 
     pub(crate) fn approximation(&self, category: &'static str, message: impl Debug) -> Ty {
@@ -376,7 +376,7 @@ impl TypingContext<'_> {
                     Ty::list(self.expression_type(e))
                 } else {
                     // It doesn't seem to be a list, so let's assume the append is non-mutating
-                    Ty::Void
+                    Ty::Never
                 }
             }
             BindExpr::ListExtend(id, e) => {
@@ -384,7 +384,7 @@ impl TypingContext<'_> {
                     Ty::list(self.from_iterated(&self.expression_type(e), e.span))
                 } else {
                     // It doesn't seem to be a list, so let's assume the extend is non-mutating
-                    Ty::Void
+                    Ty::Never
                 }
             }
         }
@@ -490,7 +490,7 @@ impl TypingContext<'_> {
             },
             ExprP::Not(x) => {
                 if self.expression_type(x).is_void() {
-                    Ty::Void
+                    Ty::Never
                 } else {
                     Ty::bool()
                 }
@@ -508,14 +508,14 @@ impl TypingContext<'_> {
                 let lhs = self.expression_type(lhs);
                 let rhs = self.expression_type(rhs);
                 let bool_ret = if lhs.is_void() || rhs.is_void() {
-                    Ty::Void
+                    Ty::Never
                 } else {
                     Ty::bool()
                 };
                 match op {
                     BinOp::And | BinOp::Or => {
                         if lhs.is_void() {
-                            Ty::Void
+                            Ty::Never
                         } else {
                             Ty::union2(lhs, rhs)
                         }
@@ -618,7 +618,7 @@ impl TypingContext<'_> {
                 let t = self.expression_type(&c_t_f.1);
                 let f = self.expression_type(&c_t_f.2);
                 if c.is_void() {
-                    Ty::Void
+                    Ty::Never
                 } else {
                     Ty::union2(t, f)
                 }

@@ -55,7 +55,7 @@ fn solve_bindings(
     let mut types = bindings
         .expressions
         .keys()
-        .map(|x| (*x, Ty::Void))
+        .map(|x| (*x, Ty::Never))
         .collect::<HashMap<_, _>>();
     for (k, ty) in bindings.types {
         types.insert(k, ty);

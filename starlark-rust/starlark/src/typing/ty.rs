@@ -196,7 +196,7 @@ impl Param {
 pub enum Ty {
     /// Type that can't be inhabited.
     /// If an expression has this type, then the code cannot be reached.
-    Void,
+    Never,
     /// Type that contain anything
     Any,
     /// A series of alternative types.
@@ -392,7 +392,7 @@ impl Ty {
                 Self::function(vec![Param::args(Ty::Any), Param::kwargs(Ty::Any)], Ty::Any)
             }
             "struct" => Self::Struct(TyStruct::any()),
-            "never" => Self::Void,
+            "never" => Self::Never,
             // Note that "tuple" cannot be converted to Ty::Tuple
             // since we don't know the length of the tuple.
             _ => Self::Name(TyName(name.to_owned())),
@@ -411,7 +411,7 @@ impl Ty {
             Ty::Dict(_) => Some("dict"),
             Ty::Struct { .. } => Some("struct"),
             Ty::Function { .. } => Some("function"),
-            Ty::Void => Some("never"),
+            Ty::Never => Some("never"),
             _ => None,
         }
     }
@@ -491,7 +491,7 @@ impl Ty {
     }
 
     pub(crate) fn is_void(&self) -> bool {
-        self == &Ty::Void
+        self == &Ty::Never
     }
 
     pub(crate) fn is_list(&self) -> bool {
@@ -510,7 +510,7 @@ impl Ty {
         xs = xs.into_iter().flat_map(|x| x.into_iter_union()).collect();
         xs.sort();
         xs.dedup();
-        xs.retain(|x| x != &Ty::Void);
+        xs.retain(|x| x != &Ty::Never);
         if xs.contains(&Ty::Any) {
             return Ty::Any;
         }
@@ -538,7 +538,7 @@ impl Ty {
         });
 
         if xs.is_empty() {
-            Ty::Void
+            Ty::Never
         } else if xs.len() == 1 {
             xs.pop().unwrap()
         } else {
@@ -550,7 +550,7 @@ impl Ty {
     pub(crate) fn iter_union(&self) -> &[Self] {
         match self {
             Self::Union(xs) => &xs.0,
-            Self::Void => &[],
+            Self::Never => &[],
             _ => slice::from_ref(self),
         }
     }
@@ -559,7 +559,7 @@ impl Ty {
     pub(crate) fn into_iter_union(self) -> impl Iterator<Item = Self> {
         match self {
             Self::Union(xs) => Either::Left(xs.0.into_iter()),
-            Self::Void => Either::Left(Vec::new().into_iter()),
+            Self::Never => Either::Left(Vec::new().into_iter()),
             _ => Either::Right(std::iter::once(self)),
         }
     }
@@ -573,10 +573,10 @@ impl Ty {
     pub(crate) fn indexed(self, i: usize) -> Ty {
         match self {
             Ty::Any => Ty::Any,
-            Ty::Void => Ty::Void,
-            Ty::None => Ty::Void,
+            Ty::Never => Ty::Never,
+            Ty::None => Ty::Never,
             Ty::List(x) => *x,
-            Ty::Tuple(xs) => xs.get(i).cloned().unwrap_or(Ty::Void),
+            Ty::Tuple(xs) => xs.get(i).cloned().unwrap_or(Ty::Never),
             Ty::Union(xs) => Ty::unions(xs.0.into_map(|x| x.indexed(i))),
             // Not exactly sure what we should do here
             _ => Ty::Any,
@@ -596,7 +596,7 @@ impl Ty {
         // There are some structural types which have to be handled in a specific way
         match self {
             Ty::Any => Ok(Ty::Any),
-            Ty::Void => Ok(Ty::Void),
+            Ty::Never => Ok(Ty::Never),
             Ty::Union(xs) => {
                 let rs = xs
                     .alternatives()
@@ -812,7 +812,7 @@ impl Ty {
 impl Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Ty::Void => write!(f, "Void"),
+            Ty::Never => write!(f, "Void"),
             Ty::Any => write!(f, "\"\""),
             Ty::Union(xs) => write!(f, "{}", xs),
             Ty::Name(x) => write!(f, "{}", x),

@@ -78,7 +78,7 @@ fn test_oracle() {
     );
     assert_eq!(
         o.builtin("fail"),
-        Some(Ok(Ty::function(vec![Param::args(Ty::Any)], Ty::Void)))
+        Some(Ok(Ty::function(vec![Param::args(Ty::Any)], Ty::Never)))
     );
     assert_eq!(o.builtin("not_a_symbol"), Some(Err(())));
 
