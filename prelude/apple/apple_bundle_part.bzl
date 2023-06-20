@@ -12,6 +12,7 @@ load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo", "CodeSignType")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_sdk_metadata.bzl", "get_apple_sdk_metadata_for_sdk_name")
+load(":apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
 # Defines where and what should be copied into
@@ -30,12 +31,16 @@ AppleBundlePart = record(
     codesign_on_copy = field(bool.type, False),
 )
 
+SwiftStdlibArguments = record(
+    primary_binary_rel_path = field(str.type),
+)
+
 def bundle_output(ctx: "context") -> "artifact":
     bundle_dir_name = get_bundle_dir_name(ctx)
     output = ctx.actions.declare_output(bundle_dir_name)
     return output
 
-def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.type], info_plist_part: [AppleBundlePart.type, None]) -> None:
+def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.type], info_plist_part: [AppleBundlePart.type, None], swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> None:
     all_parts = parts + [info_plist_part] if info_plist_part else []
     spec_file = _bundle_spec_json(ctx, all_parts)
 
@@ -54,16 +59,37 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
     else:
         codesign_configuration_args = []
 
-    if codesign_type.value in ["distribution", "adhoc"]:
+    codesign_required = codesign_type.value in ["distribution", "adhoc"]
+    swift_support_required = swift_stdlib_args and (not ctx.attrs.skip_copying_swift_stdlib) and should_copy_swift_stdlib(bundle.extension)
+
+    sdk_name = get_apple_sdk_name(ctx)
+    if codesign_required or swift_support_required:
+        platform_args = ["--platform", sdk_name]
+    else:
+        platform_args = []
+
+    if swift_support_required:
+        swift_args = [
+            "--binary-destination",
+            swift_stdlib_args.primary_binary_rel_path,
+            "--frameworks-destination",
+            bundle_relative_path_for_destination(AppleBundleDestination("frameworks"), sdk_name, ctx.attrs.extension),
+            "--plugins-destination",
+            bundle_relative_path_for_destination(AppleBundleDestination("plugins"), sdk_name, ctx.attrs.extension),
+            "--swift-stdlib-command",
+            cmd_args(ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.swift_stdlib_tool, delimiter = " ", quote = "shell"),
+            "--sdk-root",
+            ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.sdk_path,
+        ]
+    else:
+        swift_args = []
+
+    if codesign_required:
         codesign_args = [
             "--codesign",
             "--codesign-tool",
             codesign_tool,
         ]
-
-        external_name = get_apple_sdk_name(ctx)
-        platform_args = ["--platform", external_name]
-        codesign_args.extend(platform_args)
 
         if codesign_type.value != "adhoc":
             provisioning_profiles = ctx.attrs._provisioning_profiles[DefaultInfo]
@@ -100,7 +126,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         bundle.as_output(),
         "--spec",
         spec_file,
-    ] + codesign_args)
+    ] + codesign_args + platform_args + swift_args)
     command.hidden([part.source for part in all_parts])
     run_incremental_args = {}
     incremental_state = ctx.actions.declare_output("incremental_state.json").as_output()

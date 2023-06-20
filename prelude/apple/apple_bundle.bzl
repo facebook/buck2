@@ -22,7 +22,7 @@ load(
 )
 load("@prelude//utils:utils.bzl", "expect", "flatten", "is_any")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
-load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
+load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
 load(":apple_bundle_types.bzl", "AppleBinaryExtraOutputsInfo", "AppleBundleExtraOutputsInfo", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
@@ -206,9 +206,10 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
 
     bundle = bundle_output(ctx)
 
-    assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part)
-
     primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, primary_binary_part)
+
+    assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part, SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path))
+
     primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
     run_cmd = cmd_args(primary_binary_path).hidden(bundle)
 
