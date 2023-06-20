@@ -433,7 +433,8 @@ impl FrozenProviderCollectionValue {
                                         ProviderCollectionError::RequestedInvalidSubTarget(
                                             provider_name.clone(),
                                             label.clone(),
-                                            v.default_info()
+                                            collection_value
+                                                .default_info()
                                                 .sub_targets()
                                                 .keys()
                                                 .map(|s| (*s).to_owned())
