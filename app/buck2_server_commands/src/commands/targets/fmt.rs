@@ -49,6 +49,10 @@ pub(crate) struct TargetInfo<'a> {
     pub(crate) target_hash: Option<BuckTargetHash>,
 }
 
+fn package_error_to_stderr(package: &PackageLabel, error: &anyhow::Error, stderr: &mut String) {
+    writeln!(stderr, "Error parsing {package}\n{error:?}").unwrap();
+}
+
 #[allow(unused_variables)]
 pub(crate) trait TargetFormatter: Send + Sync {
     fn begin(&self, buffer: &mut String) {}
@@ -71,7 +75,7 @@ pub(crate) trait TargetFormatter: Send + Sync {
         stdout: &mut String,
         stderr: &mut String,
     ) {
-        writeln!(stderr, "Error parsing {}\n{:?}", package, error).unwrap();
+        package_error_to_stderr(&package, error, stderr);
     }
 }
 
@@ -268,8 +272,12 @@ impl TargetFormatter for JsonFormat {
         package: PackageLabel,
         error: &anyhow::Error,
         stdout: &mut String,
-        _stderr: &mut String,
+        stderr: &mut String,
     ) {
+        // When an error happens we print it to stdout (as a JSON entry) and to stderr (as a human message).
+        // If the user has keep-going turned on, they'll get the JSON on stdout, but also have the error message appear on stderr.
+        // If the user has keep-going turned off, they'll only see one error message and then abort.
+        package_error_to_stderr(&package, error, stderr);
         self.writer.entry_start(stdout);
         let mut first = true;
         self.writer.entry_item(
