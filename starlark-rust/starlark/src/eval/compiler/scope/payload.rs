@@ -36,6 +36,7 @@ use crate::syntax::ast::AstLoadP;
 use crate::syntax::ast::AstNoPayload;
 use crate::syntax::ast::AstParameterP;
 use crate::syntax::ast::AstPayload;
+use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::payload_map::AstPayloadFunction;
@@ -69,9 +70,9 @@ impl AstPayload for CstPayload {
     type TypeExprPayload = Option<TypeCompiled<FrozenValue>>;
 }
 
-pub(crate) struct CompilerAstMap<'a, 'f> {
-    pub(crate) scope_data: &'a mut ModuleScopeData<'f>,
-    pub(crate) loads: &'a HashMap<String, Interface>,
+struct CompilerAstMap<'a, 'f> {
+    scope_data: &'a mut ModuleScopeData<'f>,
+    loads: &'a HashMap<String, Interface>,
 }
 
 impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_, '_> {
@@ -96,6 +97,16 @@ impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_, '_> {
 
     fn map_type_expr(&mut self, (): ()) -> Option<TypeCompiled<FrozenValue>> {
         None
+    }
+}
+
+impl CstStmt {
+    pub(crate) fn from_ast(
+        stmt: AstStmt,
+        scope_data: &mut ModuleScopeData,
+        loads: &HashMap<String, Interface>,
+    ) -> CstStmt {
+        stmt.into_map_payload(&mut CompilerAstMap { scope_data, loads })
     }
 }
 

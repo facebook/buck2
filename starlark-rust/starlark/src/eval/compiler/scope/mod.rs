@@ -36,7 +36,6 @@ use crate::environment::Globals;
 use crate::environment::Module;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::compiler::def::CopySlotFromParent;
-use crate::eval::compiler::scope::payload::CompilerAstMap;
 use crate::eval::compiler::scope::payload::CstAssign;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
 use crate::eval::compiler::scope::payload::CstExpr;
@@ -257,10 +256,7 @@ impl<'f> ModuleScopes<'f> {
     ) -> (CstStmt, Self) {
         let mut scope_data = ModuleScopeData::new();
         let scope_id = scope_data.new_scope().0;
-        let mut cst = stmt.into_map_payload(&mut CompilerAstMap {
-            scope_data: &mut scope_data,
-            loads,
-        });
+        let mut cst = CstStmt::from_ast(stmt, &mut scope_data, loads);
 
         // Not really important, sanity check
         assert_eq!(scope_id, ScopeId::module());
