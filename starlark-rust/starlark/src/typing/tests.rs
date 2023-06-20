@@ -239,7 +239,7 @@ foo([1,2,3])
             "filename:4:1-10",
         )
         .error(
-            r#"Expected type `[Void]` but got `"string"`"#,
+            r#"Expected type `["never"]` but got `"string""#,
             "filename:3:12-25",
         )
         .check(

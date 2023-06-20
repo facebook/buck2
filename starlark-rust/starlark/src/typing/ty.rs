@@ -812,7 +812,7 @@ impl Ty {
 impl Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Ty::Never => write!(f, "Void"),
+            Ty::Never => write!(f, "\"never\""),
             Ty::Any => write!(f, "\"\""),
             Ty::Union(xs) => write!(f, "{}", xs),
             Ty::Name(x) => write!(f, "{}", x),
