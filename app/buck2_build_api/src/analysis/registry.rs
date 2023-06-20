@@ -20,6 +20,7 @@ use buck2_artifact::deferred::id::DeferredId;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::execute::request::OutputType;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
@@ -270,8 +271,9 @@ impl<'v> AnalysisRegistry<'v> {
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         location: Option<FileSpan>,
+        option: Option<ForwardRelativePathBuf>,
     ) -> anyhow::Result<PromiseArtifact> {
-        self.artifact_promises.register(promise, location)
+        self.artifact_promises.register(promise, location, option)
     }
 
     /// You MUST pass the same module to both the first function and the second one.

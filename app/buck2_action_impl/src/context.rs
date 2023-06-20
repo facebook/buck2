@@ -61,6 +61,7 @@ use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::Heap;
+use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
@@ -967,18 +968,32 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         Ok(ArtifactTag::new())
     }
 
-    /// Converts a promise to an artifact. If the promise later resolves to a non-artifact, it is an error.
+    /// Converts a promise to an artifact. If the promise later resolves to a non-artifact, it is an error. Takes
+    /// in an optional named parameter `short_path` that can be used to access the short path before the promise is
+    /// resolved. It will be validated that the provided short path matches the built artifact's short path after
+    /// analysis happens and the promise has been resolved.
     ///
     /// For more details see https://buck2.build/docs/rule_authors/anon_targets/.
     fn artifact_promise<'v>(
         this: &AnalysisActions<'v>,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
+        #[starlark(require = named, default = NoneOr::None)] short_path: NoneOr<StringValue<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkPromiseArtifact> {
+        let short_path = if let Some(short_path) = short_path.into_option() {
+            Some(ForwardRelativePathBuf::new(short_path.as_str().to_owned())?)
+        } else {
+            None
+        };
+
         let declaration_location = eval.call_stack_top_location();
         let mut this = this.state();
-        let artifact = this.register_artifact_promise(promise, declaration_location.clone())?;
-        let res = StarlarkPromiseArtifact::new(declaration_location, artifact);
+        let artifact = this.register_artifact_promise(
+            promise,
+            declaration_location.clone(),
+            short_path.clone(),
+        )?;
+        let res = StarlarkPromiseArtifact::new(declaration_location, artifact, short_path);
         Ok(res)
     }
 }

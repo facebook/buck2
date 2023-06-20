@@ -13,6 +13,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::types::label::Label;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -56,6 +57,10 @@ enum PromiseArtifactError {
     UnresolvedAddedToCommandLine(StarlarkPromiseArtifact),
     #[error("promise artifact ({0}) cannot be projected")]
     CannotProject(StarlarkPromiseArtifact),
+    #[error(
+        "`short_path` was called on promise artifact ({0}), but no short path was promised. To access the short path on an unresolved promise artifact, `short_path` arg needs to be passed into `artifact_promise()`"
+    )]
+    NoShortPathPromised(StarlarkPromiseArtifact),
 }
 
 /// An artifact wrapper for a StarlarkPromise that will resolve to an artifact
@@ -73,10 +78,10 @@ enum PromiseArtifactError {
     Eq,
     PartialEq
 )]
-
 pub struct StarlarkPromiseArtifact {
     declaration_location: Option<FileSpan>,
     artifact: PromiseArtifact,
+    short_path: Option<ForwardRelativePathBuf>,
 }
 
 starlark_simple_value!(StarlarkPromiseArtifact);
@@ -97,10 +102,15 @@ impl Display for StarlarkPromiseArtifact {
 }
 
 impl StarlarkPromiseArtifact {
-    pub fn new(declaration_location: Option<FileSpan>, artifact: PromiseArtifact) -> Self {
+    pub fn new(
+        declaration_location: Option<FileSpan>,
+        artifact: PromiseArtifact,
+        short_path: Option<ForwardRelativePathBuf>,
+    ) -> Self {
         Self {
             declaration_location,
             artifact,
+            short_path,
         }
     }
 
@@ -267,7 +277,13 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StringValue<'v>> {
         match this.artifact.get() {
             Some(v) => StarlarkArtifactHelpers::short_path(v, heap),
-            None => Err(PromiseArtifactError::MethodUnsupported(this.clone(), "short_path").into()),
+            None => {
+                if let Some(short_path) = &this.short_path {
+                    Ok(heap.alloc_str(short_path.as_str()))
+                } else {
+                    Err(PromiseArtifactError::NoShortPathPromised(this.clone()).into())
+                }
+            }
         }
     }
 

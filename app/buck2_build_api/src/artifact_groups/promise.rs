@@ -15,6 +15,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 use once_cell::sync::OnceCell;
 use starlark::codemap::FileSpan;
@@ -42,6 +43,10 @@ pub(crate) enum PromiseArtifactResolveError {
         "artifact_promise() resolved to a source artifact, this isn't allowed: an artifact_promise() must resolve to a build artifact"
     )]
     SourceArtifact,
+    #[error(
+        "artifact_promise() was called with `short_path = {0}`, but it did not match the artifact's actual short path: `{1}`"
+    )]
+    ShortPathMismatch(ForwardRelativePathBuf, String),
 }
 
 fn maybe_declared_at(location: &Option<FileSpan>) -> String {
@@ -92,7 +97,11 @@ impl PromiseArtifact {
         self.artifact.get()
     }
 
-    pub(crate) fn resolve(&self, artifact: &dyn StarlarkArtifactLike) -> anyhow::Result<()> {
+    pub(crate) fn resolve(
+        &self,
+        artifact: &dyn StarlarkArtifactLike,
+        expected_short_path: &Option<ForwardRelativePathBuf>,
+    ) -> anyhow::Result<()> {
         if let Some(v) = artifact.get_associated_artifacts() {
             if !v.is_empty() {
                 return Err(PromiseArtifactResolveError::HasAssociatedArtifacts.into());
@@ -103,6 +112,20 @@ impl PromiseArtifact {
             .context("expected bound artifact for promise_artifact resolve")?;
         if bound.is_source() {
             return Err(PromiseArtifactResolveError::SourceArtifact.into());
+        }
+        if let Some(expected_short_path) = expected_short_path {
+            bound.get_path().with_short_path(|artifact_short_path| {
+                if artifact_short_path != expected_short_path {
+                    Err(anyhow::Error::new(
+                        PromiseArtifactResolveError::ShortPathMismatch(
+                            expected_short_path.clone(),
+                            artifact_short_path.to_string(),
+                        ),
+                    ))
+                } else {
+                    Ok(())
+                }
+            })?;
         }
         match self.artifact.set(bound) {
             Ok(_) => Ok(()),
