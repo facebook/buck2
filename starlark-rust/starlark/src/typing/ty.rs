@@ -220,8 +220,6 @@ pub enum Ty {
     /// Will never be a type that can be represented by another operation,
     /// e.g. never `"list"` because `Ty::List` could be used instead.
     Name(TyName),
-    /// The `None` type.
-    None,
     /// Iter is a type that supports iteration, only used as arguments to primitive functions.
     /// The inner type is applicable for each iteration element.
     Iter(Box<Ty>),
@@ -247,6 +245,7 @@ impl Display for TyName {
             "string" => write!(f, "str.type"),
             "int" => write!(f, "int.type"),
             "bool" => write!(f, "bool.type"),
+            "NoneType" => write!(f, "None"),
             other => write!(f, "\"{}\"", other),
         }
     }
@@ -392,7 +391,6 @@ impl Ty {
         match name {
             "list" => Self::List(Box::new(Ty::Any)),
             "dict" => Self::Dict(Box::new((Ty::Any, Ty::Any))),
-            "NoneType" => Self::None,
             "function" => {
                 Self::function(vec![Param::args(Ty::Any), Param::kwargs(Ty::Any)], Ty::Any)
             }
@@ -410,7 +408,6 @@ impl Ty {
     pub fn as_name(&self) -> Option<&str> {
         match self {
             Ty::Name(x) => Some(x.as_str()),
-            Ty::None => Some("NoneType"),
             Ty::List(_) => Some("list"),
             Ty::Tuple(_) => Some("tuple"),
             Ty::Dict(_) => Some("dict"),
@@ -419,6 +416,11 @@ impl Ty {
             Ty::Never => Some("never"),
             Ty::Any | Ty::Union(_) | Ty::Iter(_) => None,
         }
+    }
+
+    /// Create a `None` type.
+    pub fn none() -> Self {
+        Self::name("NoneType")
     }
 
     /// Create a boolean type.
@@ -579,7 +581,6 @@ impl Ty {
         match self {
             Ty::Any => Ty::Any,
             Ty::Never => Ty::Never,
-            Ty::None => Ty::Never,
             Ty::List(x) => *x,
             Ty::Tuple(xs) => xs.get(i).cloned().unwrap_or(Ty::Never),
             Ty::Union(xs) => Ty::unions(xs.0.into_map(|x| x.indexed(i))),
@@ -725,7 +726,7 @@ impl Ty {
                 Self::from_expr(&x[0].0, approximations),
                 Self::from_expr(&x[0].1, approximations),
             ),
-            ExprP::Identifier(x) if x.node.0 == "None" => Ty::None,
+            ExprP::Identifier(x) if x.node.0 == "None" => Ty::none(),
             ExprP::Call(fun, args) if args.len() == 1 => match (&fun.node, &args[0].node) {
                 (ExprP::Identifier(name), ArgumentP::Positional(arg)) if name.node.0 == "iter" => {
                     Ty::iter(Ty::from_expr(arg, approximations))
@@ -821,7 +822,6 @@ impl Display for Ty {
             Ty::Any => write!(f, "\"\""),
             Ty::Union(xs) => write!(f, "{}", xs),
             Ty::Name(x) => write!(f, "{}", x),
-            Ty::None => write!(f, "None"),
             Ty::Iter(x) => write!(f, "iter({})", x),
             Ty::List(x) => write!(f, "[{}]", x),
             Ty::Tuple(xs) => {

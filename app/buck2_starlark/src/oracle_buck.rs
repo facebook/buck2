@@ -66,7 +66,7 @@ impl TypingOracle for CustomBuck {
                 name: "rule".to_owned(),
                 type_attr: "".to_owned(),
                 params: vec![Param::kwargs(Ty::Any)],
-                result: Box::new(Ty::None),
+                result: Box::new(Ty::none()),
             })),
             _ => None,
         }

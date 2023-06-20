@@ -87,7 +87,7 @@ impl TypingOracle for OracleStandard {
         // We have to explicitly implement operators (e.g. `__in__` since we don't generate documentation for them).
         // We explicitly implement polymorphic functions (e.g. `dict.get`) so they can get much more precise types.
         Some(Ok(match ty {
-            Ty::None => return Some(Err(())),
+            ty if ty == &Ty::none() => return Some(Err(())),
             Ty::List(elem) => match attr {
                 TypingAttr::Slice => ty.clone(),
                 TypingAttr::BinOp(TypingBinOp::Less) => {
@@ -120,7 +120,7 @@ impl TypingOracle for OracleStandard {
                     Ty::int(),
                 ),
                 TypingAttr::Regular("remove") => {
-                    Ty::function(vec![Param::pos_only((**elem).clone())], Ty::None)
+                    Ty::function(vec![Param::pos_only((**elem).clone())], Ty::none())
                 }
                 _ => return fallback(),
             },
@@ -140,7 +140,7 @@ impl TypingOracle for OracleStandard {
                     TypingAttr::Regular("get") => Ty::union2(
                         Ty::function(
                             vec![Param::pos_only(tk.clone())],
-                            Ty::union2(tv.clone(), Ty::None),
+                            Ty::union2(tv.clone(), Ty::none()),
                         ),
                         // This second signature is a bit too lax, but get with a default is much rarer
                         Ty::function(
@@ -257,7 +257,7 @@ impl TypingOracle for OracleStandard {
 
     fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
         Some(Ok(match name {
-            "None" => Ty::None,
+            "None" => Ty::none(),
             "True" | "False" => Ty::bool(),
             "zip" => Ty::special_function("zip", vec![Param::args(Ty::Any)], Ty::list(Ty::Any)),
             "struct" => Ty::special_function(

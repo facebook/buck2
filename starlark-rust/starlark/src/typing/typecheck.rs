@@ -101,7 +101,7 @@ fn solve_bindings(
     }
     for (span, e, require) in &bindings.check_type {
         let ty = match e {
-            None => Ty::None,
+            None => Ty::none(),
             Some(x) => ctx.expression_type(x),
         };
         ctx.validate_type(&ty, require, *span);

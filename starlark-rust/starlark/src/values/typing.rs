@@ -337,7 +337,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 
         impl<'v> TypeCompiledImpl<'v> for IsNone {
             fn as_ty(&self) -> Ty {
-                Ty::None
+                Ty::none()
             }
 
             fn matches(&self, value: Value<'v>) -> bool {
