@@ -23,10 +23,10 @@ use thiserror::Error;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
+use crate::eval::compiler::scope::payload::CstAssign;
+use crate::eval::compiler::scope::payload::CstExpr;
+use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::BindingId;
-use crate::eval::compiler::scope::CstAssign;
-use crate::eval::compiler::scope::CstExpr;
-use crate::eval::compiler::scope::CstPayload;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::EvalException;
 use crate::slice_vec_ext::SliceExt;

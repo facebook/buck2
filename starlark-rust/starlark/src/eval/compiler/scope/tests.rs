@@ -24,12 +24,12 @@ use dupe::Dupe;
 
 use crate::environment::names::MutableNames;
 use crate::environment::Globals;
+use crate::eval::compiler::scope::payload::CstAssign;
+use crate::eval::compiler::scope::payload::CstAssignIdent;
+use crate::eval::compiler::scope::payload::CstExpr;
+use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::AssignCount;
 use crate::eval::compiler::scope::Captured;
-use crate::eval::compiler::scope::CstAssign;
-use crate::eval::compiler::scope::CstAssignIdent;
-use crate::eval::compiler::scope::CstExpr;
-use crate::eval::compiler::scope::CstStmt;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;

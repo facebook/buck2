@@ -29,7 +29,7 @@ use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocType;
-use crate::eval::compiler::scope::CstTypeExpr;
+use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;

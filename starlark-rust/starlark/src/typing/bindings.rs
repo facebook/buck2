@@ -22,11 +22,11 @@ use dupe::Dupe;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::eval::compiler::scope::payload::CstAssign;
+use crate::eval::compiler::scope::payload::CstExpr;
+use crate::eval::compiler::scope::payload::CstPayload;
+use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::BindingId;
-use crate::eval::compiler::scope::CstAssign;
-use crate::eval::compiler::scope::CstExpr;
-use crate::eval::compiler::scope::CstPayload;
-use crate::eval::compiler::scope::CstStmt;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;

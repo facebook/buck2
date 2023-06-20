@@ -17,12 +17,12 @@
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::eval::compiler::scope::CstExpr;
-use crate::eval::compiler::scope::CstIdent;
-use crate::eval::compiler::scope::CstParameter;
-use crate::eval::compiler::scope::CstPayload;
-use crate::eval::compiler::scope::CstStmt;
-use crate::eval::compiler::scope::CstTypeExpr;
+use crate::eval::compiler::scope::payload::CstExpr;
+use crate::eval::compiler::scope::payload::CstIdent;
+use crate::eval::compiler::scope::payload::CstParameter;
+use crate::eval::compiler::scope::payload::CstPayload;
+use crate::eval::compiler::scope::payload::CstStmt;
+use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::span::IrSpanned;

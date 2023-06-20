@@ -21,7 +21,7 @@ use crate::coerce::coerce;
 use crate::collections::symbol_map::Symbol;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
-use crate::eval::compiler::scope::CstArgument;
+use crate::eval::compiler::scope::payload::CstArgument;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgNames;

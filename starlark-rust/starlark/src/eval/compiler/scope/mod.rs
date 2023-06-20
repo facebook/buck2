@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+pub(crate) mod payload;
 mod tests;
 
 use std::collections::HashMap;
@@ -23,7 +24,6 @@ use std::marker::PhantomData;
 use std::mem;
 
 use dupe::Dupe;
-use dupe::OptionDupedExt;
 use starlark_derive::VisitSpanMut;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
@@ -36,22 +36,21 @@ use crate::environment::Globals;
 use crate::environment::Module;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::compiler::def::CopySlotFromParent;
+use crate::eval::compiler::scope::payload::CompilerAstMap;
+use crate::eval::compiler::scope::payload::CstAssign;
+use crate::eval::compiler::scope::payload::CstAssignIdent;
+use crate::eval::compiler::scope::payload::CstExpr;
+use crate::eval::compiler::scope::payload::CstIdent;
+use crate::eval::compiler::scope::payload::CstParameter;
+use crate::eval::compiler::scope::payload::CstPayload;
+use crate::eval::compiler::scope::payload::CstStmt;
+use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::syntax::ast::Assign;
 use crate::syntax::ast::AssignIdent;
-use crate::syntax::ast::AstArgumentP;
 use crate::syntax::ast::AstAssignIdentP;
-use crate::syntax::ast::AstAssignP;
-use crate::syntax::ast::AstExprP;
-use crate::syntax::ast::AstIdentP;
-use crate::syntax::ast::AstLoadP;
-use crate::syntax::ast::AstNoPayload;
-use crate::syntax::ast::AstParameterP;
-use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmt;
-use crate::syntax::ast::AstStmtP;
-use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
@@ -60,11 +59,9 @@ use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
 use crate::syntax::ast::Visibility;
-use crate::syntax::payload_map::AstPayloadFunction;
 use crate::syntax::uniplate::VisitMut;
 use crate::syntax::Dialect;
 use crate::typing::Interface;
-use crate::values::typing::TypeCompiled;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -1009,71 +1006,3 @@ pub(crate) enum ResolvedIdent {
     Slot(Slot, BindingId),
     Global(FrozenValue),
 }
-
-// We use CST as acronym for compiler-specific AST.
-
-/// Compiler-specific AST payload.
-#[derive(Debug)]
-pub(crate) struct CstPayload;
-impl AstPayload for CstPayload {
-    type LoadPayload = Interface;
-    /// Information about how identifier binding is resolved.
-    ///
-    /// This is `None` when CST is created.
-    /// All payload objects are filled with binding ids for all assign idents
-    /// during analysis.
-    ///
-    /// When compilation starts, all payloads are `Some`.
-    type IdentPayload = Option<ResolvedIdent>;
-    /// Binding for an identifier in assignment position.
-    ///
-    /// This is `None` when CST is created.
-    /// All payload objects are filled with binding ids for all assign idents
-    /// during analysis.
-    ///
-    /// When compilation starts, all payloads are `Some`.
-    type IdentAssignPayload = Option<BindingId>;
-    type DefPayload = ScopeId;
-    /// Populated before evaluation of top level statements.
-    type TypeExprPayload = Option<TypeCompiled<FrozenValue>>;
-}
-
-pub(crate) struct CompilerAstMap<'a, 'f> {
-    pub(crate) scope_data: &'a mut ModuleScopeData<'f>,
-    pub(crate) loads: &'a HashMap<String, Interface>,
-}
-
-impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_, '_> {
-    fn map_load(&mut self, import_path: &str, (): ()) -> Interface {
-        self.loads
-            .get(import_path)
-            .duped()
-            .unwrap_or_else(Interface::empty)
-    }
-
-    fn map_ident(&mut self, (): ()) -> Option<ResolvedIdent> {
-        None
-    }
-
-    fn map_ident_assign(&mut self, (): ()) -> Option<BindingId> {
-        None
-    }
-
-    fn map_def(&mut self, (): ()) -> ScopeId {
-        self.scope_data.new_scope().0
-    }
-
-    fn map_type_expr(&mut self, (): ()) -> Option<TypeCompiled<FrozenValue>> {
-        None
-    }
-}
-
-pub(crate) type CstExpr = AstExprP<CstPayload>;
-pub(crate) type CstTypeExpr = AstTypeExprP<CstPayload>;
-pub(crate) type CstAssign = AstAssignP<CstPayload>;
-pub(crate) type CstAssignIdent = AstAssignIdentP<CstPayload>;
-pub(crate) type CstIdent = AstIdentP<CstPayload>;
-pub(crate) type CstArgument = AstArgumentP<CstPayload>;
-pub(crate) type CstParameter = AstParameterP<CstPayload>;
-pub(crate) type CstStmt = AstStmtP<CstPayload>;
-pub(crate) type CstLoad = AstLoadP<CstPayload>;
