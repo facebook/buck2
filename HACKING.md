@@ -19,7 +19,7 @@ cd buck2/
 cargo install --path=app/buck2
 ```
 
-Or alternatively install it directly from GitHub:
+Or, alternatively, install it directly from GitHub:
 
 ```sh
 rustup install nightly-2023-04-23

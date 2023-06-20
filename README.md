@@ -126,7 +126,7 @@ for your use; check out the [HACKING.md](./HACKING.md) file for information.
 
 ## Terminology conventions
 
-Frequently used terms and their definitions can be found in the [glossary
+Frequently used terms and their definitions can be found on the [glossary
 page](https://buck2.build/docs/concepts/glossary/).
 
 ## License
