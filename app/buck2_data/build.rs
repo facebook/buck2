@@ -144,6 +144,10 @@ fn main() -> io::Result<()> {
             "#[serde(rename = \"wall_time_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .field_attribute(
+            "ActionExecutionEnd.input_materialization_duration",
+            "#[serde(rename = \"input_materialization_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
             "ActionKey.id",
             "#[serde(with = \"crate::serialize_bytes\")]",
         )

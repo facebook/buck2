@@ -1128,6 +1128,9 @@ message ActionExecutionEnd {
 
   // Hostname of this action ran on. This is set only when the action fails.
   optional string hostname = 34;
+
+  // Time to materialize inputs to the action.
+  google.protobuf.Duration input_materialization_duration = 35;
 }
 
 // The beginning of materialization for the output of a target requested,
