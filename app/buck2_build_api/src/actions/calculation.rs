@@ -9,7 +9,6 @@
 
 use std::iter::zip;
 use std::sync::Arc;
-use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
@@ -86,27 +85,21 @@ async fn build_action_no_redirect(
     cancellation: &CancellationContext,
     action: Arc<RegisteredAction>,
 ) -> anyhow::Result<ActionOutputs> {
-    let (materialized_inputs, input_materialization_duration) = {
+    let materialized_inputs = {
         let inputs = action.inputs()?;
         let ensure_futs: FuturesOrdered<_> = inputs
             .iter()
             .map(|v| ensure_artifact_group_staged(ctx, v))
             .collect();
 
-        let (ready_inputs, input_materialization_duration): (Vec<_>, Duration) = async move {
-            let input_materialization_start = Instant::now();
-            let futs =
-                tokio::task::unconstrained(keep_going::try_join_all(ctx, ensure_futs)).await?;
-            let input_materialization_duration = input_materialization_start.elapsed();
-            anyhow::Ok::<(Vec<_>, Duration)>((futs, input_materialization_duration))
-        }
-        .await?;
+        let ready_inputs: Vec<_> =
+            tokio::task::unconstrained(keep_going::try_join_all(ctx, ensure_futs)).await?;
 
         let mut results = IndexMap::with_capacity(inputs.len());
         for (artifact, ready) in zip(inputs.iter(), ready_inputs.into_iter()) {
             results.insert(artifact.clone(), ready.to_group_values(artifact)?);
         }
-        (results, input_materialization_duration)
+        results
     };
 
     let start_event = buck2_data::ActionExecutionStart {
@@ -235,7 +228,6 @@ async fn build_action_no_redirect(
                 buck2_revision,
                 buck2_build_time,
                 hostname,
-                input_materialization_duration: input_materialization_duration.try_into().ok(),
             }),
         )
     };
