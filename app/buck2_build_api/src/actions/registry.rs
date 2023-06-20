@@ -90,15 +90,22 @@ impl ActionsRegistry {
         path: &ForwardRelativePath,
         declaration_location: Option<FileSpan>,
     ) -> anyhow::Result<()> {
+        fn display_location_opt(location: Option<&FileSpan>) -> &dyn std::fmt::Display {
+            location.map_or(&"<unknown>" as _, |l| l as _)
+        }
+
         match self
             .claimed_output_paths
             .insert(path, DirectoryEntry::Leaf(declaration_location))
         {
             Ok(None) => Ok(()),
             Ok(Some(conflict)) => match conflict {
-                DirectoryEntry::Leaf(_payload) => Err(anyhow::anyhow!(
-                    ActionErrors::ConflictingOutputPath(path.to_owned())
-                )),
+                DirectoryEntry::Leaf(location) => {
+                    Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPath(
+                        path.to_owned(),
+                        display_location_opt(location.as_ref()).to_string(),
+                    )))
+                }
                 DirectoryEntry::Dir(conflict_dir) => {
                     let conflicting_paths = conflict_dir
                         .ordered_walk()
@@ -107,9 +114,7 @@ impl ActionsRegistry {
                             DirectoryEntry::Leaf(location) => Some(format!(
                                 "{} declared at {}",
                                 path.join(p),
-                                location
-                                    .as_ref()
-                                    .map_or(&"<unknown>" as _, |l| l as &dyn std::fmt::Display)
+                                display_location_opt(location.as_ref()),
                             )),
                             _ => None,
                         })
@@ -132,9 +137,7 @@ impl ActionsRegistry {
                 let conflict = format!(
                     "{} declared at {}",
                     conflict,
-                    location
-                        .as_ref()
-                        .map_or(&"<unknown>" as _, |l| l as &dyn std::fmt::Display)
+                    display_location_opt(location),
                 );
 
                 Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPaths(

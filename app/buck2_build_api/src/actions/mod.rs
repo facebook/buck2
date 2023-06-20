@@ -260,9 +260,9 @@ pub enum ActionErrors {
     #[error("Output path for artifact or metadata file cannot be empty.")]
     EmptyOutputPath,
     #[error(
-        "Multiple artifacts and/or metadata files are declared at the same output location `{0}`."
+        "Multiple artifacts and/or metadata files are declared at the same output location `{0}` declared at `{1}`."
     )]
-    ConflictingOutputPath(ForwardRelativePathBuf),
+    ConflictingOutputPath(ForwardRelativePathBuf, String),
     #[error(
         "Multiple artifacts and/or metadata files are declared at conflicting output locations. Output path `{0}` conflicts with the following output paths: {1:?}."
     )]

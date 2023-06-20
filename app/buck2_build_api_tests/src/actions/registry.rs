@@ -107,7 +107,7 @@ fn claiming_conflicting_path() -> anyhow::Result<()> {
         Err(e) => {
             assert_matches!(
                 e.downcast_ref::<ActionErrors>(),
-                Some(ActionErrors::ConflictingOutputPath(_))
+                Some(ActionErrors::ConflictingOutputPath(..))
             );
         }
     );
