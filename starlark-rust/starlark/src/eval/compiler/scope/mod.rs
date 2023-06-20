@@ -277,8 +277,12 @@ impl<'f> ModuleScopes<'f> {
 
         let existing_module_names_and_visibilites = module.all_names_and_visibilities();
         for (name, vis) in existing_module_names_and_visibilites.iter() {
-            let (binding_id, _binding) =
-                scope_data.new_binding(*name, None, *vis, AssignCount::AtMostOnce);
+            let (binding_id, _binding) = scope_data.new_binding(
+                *name,
+                BindingSource::FromModule,
+                *vis,
+                AssignCount::AtMostOnce,
+            );
             locals.insert_hashed(name.get_hashed(), binding_id);
         }
 
@@ -375,7 +379,7 @@ impl<'f> ModuleScopes<'f> {
             let binding_id = scope_data
                 .new_binding(
                     name,
-                    Some(p.span),
+                    BindingSource::Source(p.span),
                     Visibility::Public,
                     AssignCount::AtMostOnce,
                 )
@@ -841,8 +845,12 @@ impl AssignIdent {
                         InLoop::Yes => AssignCount::Any,
                         InLoop::No => AssignCount::AtMostOnce,
                     };
-                    let (new_binding_id, _) =
-                        scope_data.new_binding(name, Some(span), vis, assign_count);
+                    let (new_binding_id, _) = scope_data.new_binding(
+                        name,
+                        BindingSource::Source(span),
+                        vis,
+                        assign_count,
+                    );
                     e.insert(new_binding_id);
                     *binding = Some(new_binding_id);
                 }
@@ -907,6 +915,14 @@ pub(crate) enum Captured {
     No,
 }
 
+#[derive(Debug)]
+pub(crate) enum BindingSource {
+    /// Variable is defined in the source of the module.
+    Source(Span),
+    /// Variable came from `Module`, not defined in the source file.
+    FromModule,
+}
+
 /// Binding defines a place for a variable.
 ///
 /// For example, in code `x = 1; x = 2`, there's one binding for name `x`.
@@ -915,7 +931,7 @@ pub(crate) enum Captured {
 #[derive(Debug)]
 pub(crate) struct Binding<'f> {
     pub(crate) name: FrozenStringValue,
-    pub(crate) span: Option<Span>,
+    pub(crate) source: BindingSource,
     pub(crate) vis: Visibility,
     /// `slot` is `None` when it is not initialized yet.
     /// When analysis is completed, `slot` is always `Some`.
@@ -931,13 +947,13 @@ pub(crate) struct Binding<'f> {
 impl<'f> Binding<'f> {
     fn new(
         name: FrozenStringValue,
-        span: Option<Span>,
+        source: BindingSource,
         vis: Visibility,
         assign_count: AssignCount,
     ) -> Binding<'f> {
         Binding {
             name,
-            span,
+            source,
             vis,
             slot: None,
             assign_count,
@@ -977,13 +993,13 @@ impl<'f> ModuleScopeData<'f> {
     fn new_binding(
         &mut self,
         name: FrozenStringValue,
-        span: Option<Span>,
+        source: BindingSource,
         vis: Visibility,
         assigned_count: AssignCount,
     ) -> (BindingId, &mut Binding<'f>) {
         let binding_id = BindingId(self.bindings.len());
         self.bindings
-            .push(Binding::new(name, span, vis, assigned_count));
+            .push(Binding::new(name, source, vis, assigned_count));
         (binding_id, self.bindings.last_mut().unwrap())
     }
 

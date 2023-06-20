@@ -28,6 +28,7 @@ use crate::codemap::Span;
 use crate::environment::names::MutableNames;
 use crate::environment::Globals;
 use crate::eval::compiler::scope::BindingId;
+use crate::eval::compiler::scope::BindingSource;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::EvalException;
 use crate::syntax::ast::Visibility;
@@ -169,7 +170,10 @@ impl AstModule {
         for (id, ty) in &types {
             let binding = scope.scope_data.get_binding(*id);
             let name = binding.name.as_str().to_owned();
-            let span = binding.span.unwrap_or_default();
+            let span = match binding.source {
+                BindingSource::Source(span) => span,
+                BindingSource::FromModule => Span::default(),
+            };
             typemap.insert(*id, (name, span, ty.clone()));
         }
         let typemap = TypeMap {
