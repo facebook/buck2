@@ -243,7 +243,12 @@ pub struct TyName(String);
 
 impl Display for TyName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\"{}\"", self.0)
+        match self.0.as_str() {
+            "string" => write!(f, "str.type"),
+            "int" => write!(f, "int.type"),
+            "bool" => write!(f, "bool.type"),
+            other => write!(f, "\"{}\"", other),
+        }
     }
 }
 

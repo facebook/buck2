@@ -123,7 +123,7 @@ rec_type = record(host=str.type, port=int.type)
 rec_type(host=1, port=80)
 "#,
             &[
-                "Value `1` of type `int` does not match the type annotation `\"string\"` for argument `host`",
+                "Value `1` of type `int` does not match the type annotation `str.type` for argument `host`",
             ],
         );
         assert::fails(

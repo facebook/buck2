@@ -177,7 +177,7 @@ y = hash(foo("magic"))
 fn test_failure() {
     TypeCheck::new()
         .error(
-            r#"Expected type `"string"` but got `"int"`"#,
+            r#"Expected type `str.type` but got `int.type`"#,
             "filename:1:1-8",
         )
         .check(r#"hash(1)"#);
@@ -212,7 +212,7 @@ fn test_false_negative() {
 fn test_type_kwargs() {
     TypeCheck::new()
         .error(
-            r#"Expected type `{"string": ""}` but got `{"int": "string"}`"#,
+            r#"Expected type `{str.type: ""}` but got `{int.type: str.type}`"#,
             "filename:4:7-15",
         )
         .check(
@@ -235,11 +235,11 @@ foo([1,2,3])
     );
     TypeCheck::new()
         .error(
-            r#"Expected type `[""]` but got `"bool"`"#,
+            r#"Expected type `[""]` but got `bool.type`"#,
             "filename:4:1-10",
         )
         .error(
-            r#"Expected type `["never"]` but got `"string""#,
+            r#"Expected type `["never"]` but got `str.type`"#,
             "filename:3:12-25",
         )
         .check(

@@ -925,7 +925,7 @@ f(8) == False"#,
         // Type errors should be caught in arguments
         a.fails(
             "def f(i: bool.type):\n pass\nf(1)",
-            &["Value `1` of type `int` does not match the type annotation `\"bool\"` for argument `i`"],
+            &["Value `1` of type `int` does not match the type annotation `bool.type` for argument `i`"],
         );
         // Type errors should be caught when the user forgets quotes around a valid type
         a.fail("def f(v: bool):\n pass\n", r#"Perhaps you meant `"bool"`"#);
@@ -933,7 +933,7 @@ f(8) == False"#,
             r#"Foo = record(value=int.type)
 def f(v: bool.type) -> Foo:
     return Foo(value=1)"#,
-            &[r#"record(value=field("int"))"#],
+            &[r#"record(value=field(int.type))"#],
         );
         a.fails(
             r#"Bar = enum("bar")
@@ -944,12 +944,12 @@ def f(v: Bar):
         // Type errors should be caught in return positions
         a.fails(
             "def f() -> bool.type:\n return 1\nf()",
-            &["type annotation", "`1`", "\"bool\"", "`int`", "return"],
+            &["type annotation", "`1`", "bool.type", "`int`", "return"],
         );
         // And for functions without return
         a.fails(
             "def f() -> bool.type:\n pass\nf()",
-            &["type annotation", "`None`", "\"bool\"", "return"],
+            &["type annotation", "`None`", "bool.type", "return"],
         );
         // And for functions that return None implicitly or explicitly
         a.fails(
@@ -999,7 +999,7 @@ is_type([1,2,"test"], ["_a"])
 def foo(f: int.type = None):
     pass
 "#,
-            "`None` of type `NoneType` does not match the type annotation `\"int\"`",
+            "`None` of type `NoneType` does not match the type annotation `int.type`",
         );
     }
 
@@ -1022,13 +1022,13 @@ def foo(f: int.type = None):
 
     #[test]
     fn test_type_compiled_starlark_api() {
-        assert::eq("\"eval_type(\\\"int\\\")\"", "repr(eval_type(int.type))");
+        assert::eq("\"eval_type(int.type)\"", "repr(eval_type(int.type))");
         assert::is_true("eval_type(int.type).matches(1)");
         assert::is_true("not eval_type(int.type).matches([])");
         assert::pass("eval_type(int.type).check_matches(1)");
         assert::fail(
             "eval_type(int.type).check_matches([])",
-            "Value of type `list` does not match type `\"int\"`: []",
+            "Value of type `list` does not match type `int.type`: []",
         );
     }
 
@@ -1051,7 +1051,7 @@ def f(x: ty):
 
 f("x")
 "#,
-            "Value `x` of type `string` does not match the type annotation `\"int\"` for argument `x`",
+            "Value `x` of type `string` does not match the type annotation `int.type` for argument `x`",
         );
     }
 }
