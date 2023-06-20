@@ -405,7 +405,7 @@ impl ExecutionContext {
     }
 }
 
-pub struct CriticalSectionGuard<'a> {
+pub(crate) struct CriticalSectionGuard<'a> {
     shared: Option<&'a Mutex<ExecutionContextData>>,
 }
 
