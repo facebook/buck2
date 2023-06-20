@@ -532,20 +532,29 @@ message SegfaultRequest {}
 message SegfaultResponse {}
 
 message UnstableDocsRequest {
+  enum Format {
+    UNKNOWN = 0;
+    JSON = 1;
+    MARKDOWN = 2;
+  }
+
   ClientContext context = 1;
   repeated string symbol_patterns = 2;
   bool retrieve_builtins = 3;
   bool retrieve_prelude = 4;
+  Format format = 5;
+  // `markdown_output_path` must be set when format is Markdown and must be
+  // unset otherwise.
+  optional string markdown_output_path = 6;
+  string markdown_native_subdir = 7;
+  string markdown_starlark_subdir = 8;
 }
 
 message UnstableDocsResponse {
-  reserved 1;
+  reserved 1, 2;
 
-  message DocItem {
-    // This is just a json repr of Doc object.
-    string json = 1;
-  }
-  repeated DocItem docs = 2;
+  // Set when requested format is JSON.
+  optional string json_output = 3;
 }
 
 message CommandError {

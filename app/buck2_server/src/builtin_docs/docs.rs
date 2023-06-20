@@ -9,10 +9,12 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::path::Path;
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
-use buck2_cli_proto::unstable_docs_response;
+use buck2_cli_proto::unstable_docs_request;
 use buck2_cli_proto::UnstableDocsRequest;
 use buck2_cli_proto::UnstableDocsResponse;
 use buck2_common::dice::cells::HasCellResolver;
@@ -20,6 +22,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
@@ -34,7 +37,6 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use gazebo::prelude::VecExt;
 use starlark::collections::SmallMap;
 use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::Doc;
@@ -45,6 +47,13 @@ use starlark::docs::Location;
 use starlark::environment::Globals;
 
 use super::bxl_docs::get_builtin_bxl_docs;
+use crate::builtin_docs::markdown::generate_markdown_files;
+
+#[derive(Debug, thiserror::Error)]
+enum DocsError {
+    #[error("Unknown format requested (internal error)")]
+    UnknownFormat,
+}
 
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,
@@ -245,11 +254,30 @@ impl ServerCommandTemplate for DocsServerCommand {
     }
 }
 
+enum Format {
+    Json,
+    Markdown,
+}
+
+impl Format {
+    fn from_proto(request: &UnstableDocsRequest) -> anyhow::Result<Format> {
+        let format = unstable_docs_request::Format::from_i32(request.format)
+            .context("incorrect enum value")?;
+        match format {
+            unstable_docs_request::Format::Json => Ok(Format::Json),
+            unstable_docs_request::Format::Markdown => Ok(Format::Markdown),
+            unstable_docs_request::Format::Unknown => Err(DocsError::UnknownFormat.into()),
+        }
+    }
+}
+
 async fn docs(
     server_ctx: &dyn ServerCommandContextTrait,
     dice_ctx: DiceTransaction,
     request: &UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {
+    let format = Format::from_proto(request)?;
+
     let cell_resolver = dice_ctx.get_cell_resolver().await?;
     let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
     let current_cell = BuildFileCell::new(current_cell_path.cell());
@@ -285,11 +313,18 @@ async fn docs(
     let modules_docs = futures::future::try_join_all(module_calcs).await?;
     docs.extend(modules_docs.into_iter().flatten());
 
-    let docs = docs.into_try_map(|doc| {
-        anyhow::Ok(unstable_docs_response::DocItem {
-            json: serde_json::to_string(&doc)?,
-        })
-    })?;
+    let json_output = match format {
+        Format::Json => Some(serde_json::to_string(&docs)?),
+        Format::Markdown => {
+            let path = AbsPath::new(Path::new(request.markdown_output_path.as_ref().context(
+                "`markdown_output_path` must be set when requesting markdown (internal error)",
+            )?))?;
+            let starlark_subdir = Path::new(&request.markdown_starlark_subdir);
+            let native_subdir = Path::new(&request.markdown_native_subdir);
+            generate_markdown_files(path, starlark_subdir, native_subdir, docs)?;
+            None
+        }
+    };
 
-    Ok(UnstableDocsResponse { docs })
+    Ok(UnstableDocsResponse { json_output })
 }

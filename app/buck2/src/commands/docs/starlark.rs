@@ -9,6 +9,7 @@
 
 mod markdown;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::UnstableDocsRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -20,10 +21,7 @@ use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use dupe::Dupe;
-use gazebo::prelude::*;
-use starlark::docs::Doc;
 
-use crate::commands::docs::starlark::markdown::generate_markdown_files;
 use crate::commands::docs::starlark::markdown::MarkdownFileOptions;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
@@ -99,22 +97,37 @@ impl StreamingCommand for DocsStarlarkCommand {
                     symbol_patterns: self.patterns.clone(),
                     retrieve_builtins: self.builtins,
                     retrieve_prelude: self.prelude,
+                    format: match self.format {
+                        DocsOutputFormatArg::Json => {
+                            buck2_cli_proto::unstable_docs_request::Format::Json as i32
+                        }
+                        DocsOutputFormatArg::MarkdownFiles => {
+                            buck2_cli_proto::unstable_docs_request::Format::Markdown as i32
+                        }
+                    },
+                    markdown_output_path: self
+                        .markdown_file_opts
+                        .destination_dir
+                        .as_ref()
+                        .map(|d| {
+                            anyhow::Ok(
+                                d.resolve(&ctx.working_dir)
+                                    .to_str()
+                                    .context("path is not valid")?
+                                    .to_owned(),
+                            )
+                        })
+                        .transpose()?,
+                    markdown_starlark_subdir: self.markdown_file_opts.starlark_subdir.clone(),
+                    markdown_native_subdir: self.markdown_file_opts.native_subdir.clone(),
                 },
                 ctx.stdin().console_interaction_stream(&self.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await??;
 
-        let docs: Vec<Doc> = response
-            .docs
-            .try_map(|doc_item| serde_json::from_str(&doc_item.json))?;
-        match self.format {
-            DocsOutputFormatArg::Json => {
-                serde_json::to_writer_pretty(std::io::stdout(), &docs)?;
-            }
-            DocsOutputFormatArg::MarkdownFiles => {
-                generate_markdown_files(&ctx.working_dir, &self.markdown_file_opts, docs)?;
-            }
+        if let Some(json_output) = response.json_output {
+            buck2_client_ctx::println!("{}", json_output.trim_end())?;
         }
 
         ExitResult::success()
