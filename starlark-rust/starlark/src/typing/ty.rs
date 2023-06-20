@@ -412,7 +412,7 @@ impl Ty {
             Ty::Struct { .. } => Some("struct"),
             Ty::Function { .. } => Some("function"),
             Ty::Never => Some("never"),
-            _ => None,
+            Ty::Any | Ty::Union(_) | Ty::Iter(_) => None,
         }
     }
 
