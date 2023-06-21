@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Debug;
@@ -22,6 +23,8 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::slice;
 
+use cmp_any::OrdAny;
+use cmp_any::PartialEqAny;
 use either::Either;
 use serde::Serialize;
 use serde::Serializer;
@@ -242,6 +245,8 @@ pub enum Ty {
     Struct(TyStruct),
     /// A `function`.
     Function(TyFunction),
+    /// Custom type.
+    Custom(TyCustom),
 }
 
 impl Serialize for Ty {
@@ -298,6 +303,71 @@ impl TyUnion {
     /// The alternatives within a union, will always be at least two elements.
     pub fn alternatives(&self) -> &[Ty] {
         &self.0
+    }
+}
+
+/// Custom type implementation. [`Display`] must implement the representation of the type.
+pub trait TyCustomImpl: Debug + Display + Clone + Ord + Send + Sync + 'static {
+    fn as_name(&self) -> Option<&str>;
+}
+
+trait TyCustomDyn: Debug + Display + Send + Sync + 'static {
+    fn eq_token(&self) -> PartialEqAny;
+    fn cmp_token(&self) -> OrdAny;
+    fn clone_box(&self) -> Box<dyn TyCustomDyn>;
+    fn as_name(&self) -> Option<&str>;
+}
+
+impl<T: TyCustomImpl> TyCustomDyn for T {
+    fn eq_token(&self) -> PartialEqAny {
+        PartialEqAny::new(self)
+    }
+
+    fn cmp_token(&self) -> OrdAny {
+        OrdAny::new(self)
+    }
+
+    fn clone_box(&self) -> Box<dyn TyCustomDyn> {
+        Box::new(self.clone())
+    }
+
+    fn as_name(&self) -> Option<&str> {
+        self.as_name()
+    }
+}
+
+#[derive(Debug, derive_more::Display)]
+pub struct TyCustom(Box<dyn TyCustomDyn>);
+
+impl TyCustom {
+    pub(crate) fn as_name(&self) -> Option<&str> {
+        self.0.as_name()
+    }
+}
+
+impl PartialEq for TyCustom {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq_token() == other.0.eq_token()
+    }
+}
+
+impl Eq for TyCustom {}
+
+impl PartialOrd for TyCustom {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TyCustom {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.cmp_token().cmp(&other.0.cmp_token())
+    }
+}
+
+impl Clone for TyCustom {
+    fn clone(&self) -> TyCustom {
+        TyCustom(self.0.clone_box())
     }
 }
 
@@ -433,6 +503,7 @@ impl Ty {
             Ty::Struct { .. } => Some("struct"),
             Ty::Function { .. } => Some("function"),
             Ty::Never => Some("never"),
+            Ty::Custom(c) => c.as_name(),
             Ty::Any | Ty::Union(_) | Ty::Iter(_) => None,
         }
     }
@@ -859,6 +930,7 @@ impl Display for Ty {
             Ty::Dict(k_v) => write!(f, "{{{}: {}}}", k_v.0, k_v.1),
             Ty::Function(fun) => Display::fmt(fun, f),
             Ty::Struct(s) => Display::fmt(s, f),
+            Ty::Custom(c) => Display::fmt(c, f),
         }
     }
 }

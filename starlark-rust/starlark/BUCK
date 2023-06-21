@@ -102,6 +102,7 @@ rust_library(
         "fbsource//third-party/rust:textwrap",
         "fbsource//third-party/rust:thiserror",
         "//buck2/allocative/allocative:allocative",
+        "//buck2/gazebo/cmp_any:cmp_any",
         "//buck2/gazebo/display_container:display_container",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/starlark-rust/starlark_derive:starlark_derive",
