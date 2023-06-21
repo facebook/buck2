@@ -453,7 +453,7 @@ def _compile(
     if link_style == LinkStyle("shared"):
         compile_args.add("-dynamic", "-fPIC")
     elif link_style == LinkStyle("static_pic"):
-        compile_args.add("-fPIC")
+        compile_args.add("-fPIC", "-fexternal-dynamic-refs")
 
     osuf, hisuf = _output_extensions(link_style, ctx.attrs.enable_profiling)
     compile_args.add("-osuf", osuf, "-hisuf", hisuf)
