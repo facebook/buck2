@@ -214,8 +214,8 @@ async fn spawn_worker(
 
     let initial_delay = Duration::from_millis(50);
     let max_delay = Duration::from_millis(500);
-    let timeout = Duration::from_secs(5);
-    // TODO(ctolliday) add a span
+    // Might want to make this configurable, and/or measure impact of worker initialization on critical path
+    let timeout = Duration::from_secs(60);
     let channel = {
         let stdout_path = &stdout_path;
         let stderr_path = &stderr_path;
