@@ -33,6 +33,7 @@
 -export([terminate/1]).
 
 %% For tests purposes
+-export([new_node/1, new_leaf/1]).
 -export([register_result/4, get_result/2, qualifiedName/2]).
 
 -include("method_ids.hrl").
@@ -42,17 +43,26 @@
 %  `SUCCESS`, `FAILURE`, `ASSUMPTION_VIOLATION`, `DISABLED`, `EXCLUDED`, `DRY_RUN`
 
 %% -----------------------------------------------------------------------------
-%%            Records and types
+%%            Types
 %% -----------------------------------------------------------------------------
 
--record(tree_node, {
-    name :: string(),
-    init_method = none :: option(method_result()),
-    end_method = none :: option(method_result()),
-    test_cases = #{} :: #{string() => test_leaf()},
-    sub_groups = #{} :: #{string() => tree_node()}
-}).
--record(test_leaf, {name :: string(), init_method = none, end_method = none, main_method = none}).
+-type tree_node() :: #{
+    name := string(),
+    type := node,
+    init_method := option(method_result()),
+    end_method := option(method_result()),
+    test_cases := #{string() => test_leaf()},
+    sub_groups := #{string() => tree_node()}
+}.
+
+-type test_leaf() :: #{
+    name := string(),
+    type := leaf,
+    init_method := option(method_result()),
+    end_method := option(method_result()),
+    main_method := option(method_result())
+}.
+
 -record(state, {
     io_buffer :: pid() | undefined,
     id :: string(),
@@ -70,8 +80,6 @@
     main := method_result(),
     ends := list(method_result())
 }.
--type tree_node() :: #tree_node{}.
--type test_leaf() :: #test_leaf{}.
 -type state() :: #state{}.
 -type starting_times() :: #{method_id() => float()}.
 -type option(Type) :: Type | none.
@@ -116,6 +124,28 @@ qualifiedName(Groups, TestCase) ->
 % This one will, for each requested_test creates and output a method_result, using the
 % previously constructed tree_result.
 
+-spec new_node(Name :: string()) -> tree_node().
+new_node(Name) ->
+    #{
+        name => Name,
+        type => node,
+        init_method => none,
+        end_method => none,
+        test_cases => #{},
+        sub_groups => #{}
+    }.
+
+%% @doc Creates a new leaf
+-spec new_leaf(Name :: string()) -> test_leaf().
+new_leaf(Name) ->
+    #{
+        name => Name,
+        type => leaf,
+        init_method => none,
+        end_method => none,
+        main_method => none
+    }.
+
 %% @doc Transforms the pre_method_result into a method_result and inserts it inside the TreeResult
 -spec register_result(tree_node(), method_result(), list(string()), method_id()) -> tree_node().
 register_result(TreeResult, Result, Groups, MethodId) ->
@@ -124,29 +154,29 @@ register_result(TreeResult, Result, Groups, MethodId) ->
 %% @doc Inserts the method_result inside the tree.
 -spec insert_result(tree_node(), method_result(), list(string()), method_id()) -> tree_node().
 insert_result(TreeNode, ResultTest, [Group | Groups], MethodId) ->
-    Children = TreeNode#tree_node.sub_groups,
-    GroupNode = maps:get(Group, Children, #tree_node{name = Group}),
+    #{sub_groups := Children} = TreeNode,
+    GroupNode = maps:get(Group, Children, new_node(Group)),
     NewChildren = Children#{Group => insert_result(GroupNode, ResultTest, Groups, MethodId)},
-    TreeNode#tree_node{sub_groups = NewChildren};
+    TreeNode#{sub_groups => NewChildren};
 insert_result(TreeNode, ResultTest, [], MethodId) ->
     case MethodId of
         Init when Init =:= ?INIT_PER_SUITE; Init =:= ?INIT_PER_GROUP ->
-            TreeNode#tree_node{init_method = ResultTest};
+            TreeNode#{init_method => ResultTest};
         End when End =:= ?END_PER_SUITE; End =:= ?END_PER_GROUP ->
-            TreeNode#tree_node{end_method = ResultTest};
+            TreeNode#{end_method => ResultTest};
         {NameCase, Phase} ->
-            Cases = TreeNode#tree_node.test_cases,
-            TestLeaf = maps:get(NameCase, Cases, #test_leaf{name = NameCase}),
+            #{test_cases := Cases} = TreeNode,
+            TestLeaf = maps:get(NameCase, Cases, new_leaf(NameCase)),
             NewTestLeaf =
                 case Phase of
                     ?INIT_PER_TESTCASE ->
-                        TestLeaf#test_leaf{init_method = ResultTest};
+                        TestLeaf#{init_method => ResultTest};
                     ?MAIN_TESTCASE ->
-                        TestLeaf#test_leaf{main_method = ResultTest};
+                        TestLeaf#{main_method => ResultTest};
                     ?END_PER_TESTCASE ->
-                        TestLeaf#test_leaf{end_method = ResultTest}
+                        TestLeaf#{end_method => ResultTest}
                 end,
-            TreeNode#tree_node{test_cases = Cases#{NameCase => NewTestLeaf}}
+            TreeNode#{test_cases => Cases#{NameCase => NewTestLeaf}}
     end.
 
 %% @doc Provides a result for the RequestedResults based on the collected results.
@@ -228,21 +258,22 @@ collect_result(Node, Inits, Ends, Groups, TestCase, QualifiedName) ->
     end.
 
 -spec get_child(tree(), list(string()), string()) -> {tree(), list(string())}.
-get_child(Node, [Group | Groups], _TestCase) ->
-    {maps:get(Group, Node#tree_node.sub_groups, #tree_node{name = Group}), Groups};
-get_child(Node, [], TestCase) ->
-    {maps:get(TestCase, Node#tree_node.test_cases, #test_leaf{name = TestCase}), []}.
+get_child(#{sub_groups := SubGroups}, [Group | Groups], _TestCase) ->
+    {maps:get(Group, SubGroups, new_node(Group)), Groups};
+get_child(#{test_cases := TestCases}, [], TestCase) ->
+    {maps:get(TestCase, TestCases, new_leaf(TestCase)), []}.
 
 -spec collect_node(tree(), list(method_result()), list(method_result()), string()) ->
     {list(method_result()), option(method_result()), list(method_result())}.
 %% Collect the results from init_testcase, end_testcase and the main testcase for a given requested result.
 %% Proceeds with some additional logic if the result is missing or skipped.
 collect_node(
-    #test_leaf{init_method = OptMethodInit, end_method = OptMethodEnd} = TestLeaf,
+    #{type := leaf} = TestLeaf,
     Inits,
     Ends,
     QualifiedName
 ) ->
+    #{init_method := OptMethodInit, end_method := OptMethodEnd, main_method := OptMethodMain} = TestLeaf,
     {NewInits, NewEnds} = update_inits_ends(Inits, Ends, OptMethodInit, OptMethodEnd),
     InitsPassed = lists:all(
         fun
@@ -254,7 +285,7 @@ collect_node(
     ),
     %% Do NOT try to collect a result when one of the inits failed
     MainResult =
-        case {InitsPassed, TestLeaf#test_leaf.main_method} of
+        case {InitsPassed, OptMethodMain} of
             {false, _} ->
                 get_missing_result(NewInits, QualifiedName);
             {true, none} ->
@@ -267,11 +298,12 @@ collect_node(
         end,
     {NewInits, MainResult, NewEnds};
 collect_node(
-    #tree_node{init_method = OptMethodInit, end_method = OptMethodEnd} = _TreeNode,
+    #{type := node} = TreeNode,
     Inits,
     Ends,
     _QualifiedName
 ) ->
+    #{init_method := OptMethodInit, end_method := OptMethodEnd} = TreeNode,
     {NewInits, NewEnds} = update_inits_ends(Inits, Ends, OptMethodInit, OptMethodEnd),
     {NewInits, none, NewEnds}.
 
@@ -292,11 +324,9 @@ adds_if_present(Optional, List) ->
     end.
 
 %% Merge the StdOut from the init_per_testcase, main_testcase, and end_per_testcase
--spec merge_std_out(#test_leaf{}) -> string().
-merge_std_out(
-    #test_leaf{init_method = OptMethodInit, main_method = OptMainMethod, end_method = OptMethodEnd} =
-        _TestLeaf
-) ->
+-spec merge_std_out(test_leaf()) -> string().
+merge_std_out(#{type := leaf} = TestLeaf) ->
+    #{init_method := OptMethodInit, main_method := OptMainMethod, end_method := OptMethodEnd} = TestLeaf,
     InitStdOut =
         case OptMethodInit of
             none -> "";
@@ -495,7 +525,7 @@ pre_init_per_suite(Suite, Config, #state{} = State) ->
     {Config, State1#state{
         suite = Suite,
         groups = [],
-        tree_results = #tree_node{name = Suite},
+        tree_results = new_node(Suite),
         previous_group_failed = false
     }}.
 
