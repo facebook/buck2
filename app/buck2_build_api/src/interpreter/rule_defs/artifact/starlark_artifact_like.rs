@@ -72,6 +72,17 @@ pub trait StarlarkArtifactLike: Display {
         Ok(())
     }
 
+    /// Gets a copy of the StarlarkArtifact, ensuring that the artifact is bound.
+    fn get_bound_starlark_artifact(&self) -> anyhow::Result<StarlarkArtifact> {
+        let artifact = self.get_bound_artifact()?;
+        let associated_artifacts = self.get_associated_artifacts();
+        Ok(StarlarkArtifact {
+            artifact,
+            associated_artifacts: associated_artifacts
+                .map_or(AssociatedArtifacts::new(), |a| a.clone()),
+        })
+    }
+
     /// Gets the artifact group.
     fn get_artifact_group(&self) -> anyhow::Result<ArtifactGroup>;
 }

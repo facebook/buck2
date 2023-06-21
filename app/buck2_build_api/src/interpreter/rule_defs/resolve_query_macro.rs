@@ -13,7 +13,6 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_util::thin_box::ThinBoxSlice;
-use starlark::values::FrozenRef;
 use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
@@ -26,17 +25,12 @@ use crate::interpreter::rule_defs::resolved_macro::add_output_to_arg;
 #[derive(Debug, PartialEq, Allocative)]
 pub struct ResolvedQueryMacroTargetAndOutputs {
     pub sep: Box<str>,
-    pub list: Box<
-        [(
-            ConfiguredTargetLabel,
-            Box<[FrozenRef<'static, StarlarkArtifact>]>,
-        )],
-    >,
+    pub list: Box<[(ConfiguredTargetLabel, Box<[StarlarkArtifact]>)]>,
 }
 
 #[derive(Debug, PartialEq, Allocative)]
 pub enum ResolvedQueryMacro {
-    Outputs(ThinBoxSlice<Box<[FrozenRef<'static, StarlarkArtifact>]>>),
+    Outputs(ThinBoxSlice<Box<[StarlarkArtifact]>>),
     Targets(ThinBoxSlice<ConfiguredTargetLabel>),
     TargetsAndOutputs(Box<ResolvedQueryMacroTargetAndOutputs>),
 }

@@ -84,7 +84,7 @@ pub fn add_output_to_arg(
 fn add_outputs_to_arg(
     builder: &mut dyn ArgBuilder,
     ctx: &mut dyn CommandLineContext,
-    outputs_list: &[FrozenRef<'static, StarlarkArtifact>],
+    outputs_list: &[StarlarkArtifact],
 ) -> anyhow::Result<()> {
     for (i, value) in outputs_list.iter().enumerate() {
         if i != 0 {

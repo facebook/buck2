@@ -183,23 +183,28 @@ impl FrozenDefaultInfo {
 
     fn default_outputs_impl(
         &self,
-    ) -> anyhow::Result<
-        impl Iterator<Item = anyhow::Result<FrozenRef<'static, StarlarkArtifact>>> + '_,
-    > {
+    ) -> anyhow::Result<impl Iterator<Item = anyhow::Result<StarlarkArtifact>> + '_> {
         let list = ListRef::from_frozen_value(self.default_outputs)
             .context("Should be list of artifacts")?;
 
         Ok(list.iter().map(|v| {
-            anyhow::Ok(
-                v.unpack_frozen()
-                    .context("should be frozen")?
-                    .downcast_frozen_ref::<StarlarkArtifact>()
-                    .context("Should be list of artifacts")?,
+            let frozen_value = v.unpack_frozen().context("should be frozen")?;
+
+            Ok(
+                if let Some(starlark_artifact) = frozen_value.downcast_ref::<StarlarkArtifact>() {
+                    starlark_artifact.dupe()
+                } else {
+                    // This code path is for StarlarkPromiseArtifact. We have to create a `StarlarkArtifact` object here.
+                    let artifact_like = frozen_value
+                        .as_artifact()
+                        .context("Should be list of artifacts")?;
+                    artifact_like.get_bound_starlark_artifact()?
+                },
             )
         }))
     }
 
-    pub fn default_outputs<'a>(&'a self) -> Vec<FrozenRef<'static, StarlarkArtifact>> {
+    pub fn default_outputs<'a>(&'a self) -> Vec<StarlarkArtifact> {
         self.default_outputs_impl()
             .unwrap()
             .collect::<Result<_, _>>()
