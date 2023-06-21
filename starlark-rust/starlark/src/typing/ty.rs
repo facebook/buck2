@@ -23,6 +23,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::slice;
 
+use allocative::Allocative;
 use cmp_any::OrdAny;
 use cmp_any::PartialEqAny;
 use either::Either;
@@ -98,7 +99,7 @@ pub enum Arg {
 }
 
 /// The type of a parameter - can be positional, by name, `*args` or `**kwargs`.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
 pub enum ParamMode {
     /// Parameter can only be passed by position.
     PosOnly,
@@ -113,7 +114,7 @@ pub enum ParamMode {
 }
 
 /// A parameter argument to a function
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
 pub struct Param {
     /// The type of parameter
     pub mode: ParamMode,
@@ -204,7 +205,7 @@ impl Param {
 }
 
 /// A Starlark type.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
 pub enum Ty {
     /// Type that can't be inhabited.
     /// If an expression has this type, then the code cannot be reached.
@@ -260,7 +261,7 @@ impl Serialize for Ty {
 }
 
 /// The name of an atomic type.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
 pub struct TyName(String);
 
 impl Display for TyName {
@@ -290,7 +291,7 @@ impl TyName {
 
 /// A series of types that are unioned together.
 /// Must be at least two elements, all distinct elements, with no nested `Union` types directly inside it.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
 pub struct TyUnion(Vec<Ty>);
 
 impl Display for TyUnion {
@@ -307,11 +308,11 @@ impl TyUnion {
 }
 
 /// Custom type implementation. [`Display`] must implement the representation of the type.
-pub trait TyCustomImpl: Debug + Display + Clone + Ord + Send + Sync + 'static {
+pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync + 'static {
     fn as_name(&self) -> Option<&str>;
 }
 
-trait TyCustomDyn: Debug + Display + Send + Sync + 'static {
+trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {
     fn eq_token(&self) -> PartialEqAny;
     fn cmp_token(&self) -> OrdAny;
     fn clone_box(&self) -> Box<dyn TyCustomDyn>;
@@ -336,7 +337,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
     }
 }
 
-#[derive(Debug, derive_more::Display)]
+#[derive(Debug, derive_more::Display, Allocative)]
 pub struct TyCustom(Box<dyn TyCustomDyn>);
 
 impl TyCustom {
@@ -372,7 +373,7 @@ impl Clone for TyCustom {
 }
 
 /// A function.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
 pub struct TyFunction {
     /// The name of the function. Typically `""`, but for a few special builtin functions the name
     /// is used later to call [`TypingOracle::builtin_call`](crate::typing::TypingOracle::builtin_call).
@@ -414,7 +415,7 @@ impl Display for TyFunction {
 }
 
 /// Struct type.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
 pub struct TyStruct {
     /// The fields that are definitely present in the struct, with their types.
     pub(crate) fields: BTreeMap<String, Ty>,
