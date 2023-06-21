@@ -8,6 +8,7 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load("@prelude//linking:shared_libraries.bzl", "traverse_shared_library_info")
 load("@prelude//utils:utils.bzl", "flatten")
+load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "PythonLibraryInterface", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")
 load(":toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
@@ -17,20 +18,20 @@ PythonLibraryManifests = record(
     srcs = field([ManifestInfo.type, None]),
     src_types = field([ManifestInfo.type, None], None),
     resources = field([(ManifestInfo.type, ["_arglike"]), None]),
-    bytecode = field([ManifestInfo.type, None]),
+    bytecode = field([{PycInvalidationMode.type: ManifestInfo.type}, None]),
     dep_manifest = field([ManifestInfo.type, None]),
     extensions = field([{str.type: "_a"}, None]),
 )
 
-def _bytecode_artifacts(value: PythonLibraryManifests.type):
-    if value.bytecode == None:
-        return []
-    return [a for a, _ in value.bytecode.artifacts]
+def _bytecode_artifacts(invalidation_mode: PycInvalidationMode.type):
+    return lambda value: [] if value.bytecode == None else (
+        [a for a, _ in value.bytecode[invalidation_mode].artifacts]
+    )
 
-def _bytecode_manifests(value: PythonLibraryManifests.type):
-    if value.bytecode == None:
-        return []
-    return value.bytecode.manifest
+def _bytecode_manifests(invalidation_mode: PycInvalidationMode.type):
+    return lambda value: [] if value.bytecode == None else (
+        value.bytecode[invalidation_mode].manifest
+    )
 
 def _dep_manifests(value: PythonLibraryManifests.type):
     if value.dep_manifest == None:
@@ -83,10 +84,13 @@ def _source_type_artifacts(value: PythonLibraryManifests.type):
         return []
     return [a for a, _ in value.src_types.artifacts]
 
+_BYTECODE_PROJ_PREFIX = {
+    PycInvalidationMode("CHECKED_HASH"): "checked_bytecode",
+    PycInvalidationMode("UNCHECKED_HASH"): "bytecode",
+}
+
 PythonLibraryManifestsTSet = transitive_set(
-    args_projections = {
-        "bytecode_artifacts": _bytecode_artifacts,
-        "bytecode_manifests": _bytecode_manifests,
+    args_projections = dict({
         "dep_artifacts": _dep_artifacts,
         "dep_manifests": _dep_manifests,
         "hidden_resources": _hidden_resources,
@@ -96,7 +100,13 @@ PythonLibraryManifestsTSet = transitive_set(
         "source_manifests": _source_manifests,
         "source_type_artifacts": _source_type_artifacts,
         "source_type_manifests": _source_type_manifests,
-    },
+    }.items() + {
+        "{}_artifacts".format(prefix): _bytecode_artifacts(mode)
+        for mode, prefix in _BYTECODE_PROJ_PREFIX.items()
+    }.items() + {
+        "{}_manifests".format(prefix): _bytecode_manifests(mode)
+        for mode, prefix in _BYTECODE_PROJ_PREFIX.items()
+    }.items()),
     reductions = {
         "has_hidden_resources": _has_hidden_resources,
     },
@@ -126,9 +136,9 @@ def manifests_to_interface(manifests: PythonLibraryManifestsTSet.type) -> Python
         src_type_manifests = lambda: [manifests.project_as_args("source_manifests")],
         src_type_artifacts = lambda: [manifests.project_as_args("source_artifacts")],
         src_type_artifacts_with_path = lambda: [(a, p) for m in manifests.traverse() if m != None and m.src_types != None for a, p in m.src_types.artifacts],
-        bytecode_manifests = lambda: [manifests.project_as_args("bytecode_manifests")],
-        bytecode_artifacts = lambda: [manifests.project_as_args("bytecode_artifacts")],
-        bytecode_artifacts_with_paths = lambda: [(a, p) for m in manifests.traverse() if m != None and m.bytecode != None for a, p in m.bytecode.artifacts],
+        bytecode_manifests = lambda mode: [manifests.project_as_args("{}_manifests".format(_BYTECODE_PROJ_PREFIX[mode]))],
+        bytecode_artifacts = lambda mode: [manifests.project_as_args("{}_artifacts".format(_BYTECODE_PROJ_PREFIX[mode]))],
+        bytecode_artifacts_with_paths = lambda mode: [(a, p) for m in manifests.traverse() if m != None and m.bytecode != None for a, p in m.bytecode[mode].artifacts],
         resource_manifests = lambda: [manifests.project_as_args("resource_manifests")],
         resource_artifacts = lambda: [manifests.project_as_args("resource_artifacts")],
         resource_artifacts_with_paths = lambda: [(a, p) for m in manifests.traverse() if m != None and m.resources != None for a, p in m.resources[0].artifacts],

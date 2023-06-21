@@ -17,6 +17,7 @@ load(
     "LinkedObject",  # @unused Used as a type
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")  # @unused Used as a type
 load(":toolchain.bzl", "PackageStyle", "PythonToolchainInfo")
@@ -248,6 +249,7 @@ def _make_pex_impl(
         symlink_tree_path,
         manifest_module,
         pex_modules,
+        output_suffix,
     )
 
     output = ctx.actions.declare_output("{}{}".format(name, python_toolchain.pex_extension))
@@ -447,7 +449,8 @@ def _pex_modules_args(
         dep_artifacts: [("_arglike", str.type)],
         symlink_tree_path: [None, "artifact"],
         manifest_module: ["_arglike", None],
-        pex_modules: PexModules.type) -> "cmd_args":
+        pex_modules: PexModules.type,
+        output_suffix: str.type) -> "cmd_args":
     """
     Produces args to deal with a PEX's modules. Returns args to pass to the
     modules builder, and artifacts the resulting modules would require at
@@ -460,22 +463,24 @@ def _pex_modules_args(
     if manifest_module != None:
         cmd.add(cmd_args(manifest_module, format = "--module-manifest={}"))
 
+    if pex_modules.compile:
+        pyc_mode = PycInvalidationMode("UNCHECKED_HASH") if symlink_tree_path == None else PycInvalidationMode("CHECKED_HASH")
+        bytecode_manifests = pex_modules.manifests.bytecode_manifests(pyc_mode)
+        dep_artifacts.extend(pex_modules.manifests.bytecode_artifacts_with_paths(pyc_mode))
+
+        bytecode_manifests_path = ctx.actions.write(
+            "__bytecode_manifests{}.txt".format(output_suffix),
+            _srcs(
+                bytecode_manifests,
+                format = "--module-manifest={}",
+            ),
+        )
+        cmd.add(cmd_args(bytecode_manifests_path, format = "@{}"))
+        cmd.hidden(bytecode_manifests)
+
     if symlink_tree_path != None:
         cmd.add(["--modules-dir", symlink_tree_path.as_output()])
     else:
-        if pex_modules.compile:
-            bytecode_manifests = pex_modules.manifests.bytecode_manifests()
-            bytecode_manifests_path = ctx.actions.write(
-                "__bytecode_manifests.txt",
-                _srcs(
-                    bytecode_manifests,
-                    format = "--module-manifest={}",
-                ),
-            )
-            cmd.add(cmd_args(bytecode_manifests_path, format = "@{}"))
-            cmd.hidden(bytecode_manifests)
-            dep_artifacts.extend(pex_modules.manifests.bytecode_artifacts_with_paths())
-
         # Accumulate all the artifacts we depend on. Only add them to the command
         # if we are not going to create symlinks.
         cmd.hidden([a for a, _ in dep_artifacts])

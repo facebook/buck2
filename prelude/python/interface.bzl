@@ -51,13 +51,14 @@ PythonLibraryManifestsInterface = record(
     src_type_artifacts = field("function"),
     src_type_artifacts_with_path = field("function"),
 
-    # Returns the bytecode manifests for this Python library.
-    # [_arglike] of bytecode manifests
+    # Returns the bytecode manifests for this Python library, given a PycInvalidationMode.
+    # PycInvalidationMode -> [_arglike] of bytecode manifests (compiled with that mode)
     bytecode_manifests = field("function"),
 
     # Returns the files referenced by bytecode manifests for this Python library.
-    # [_arglike] of bytecode artifacts
+    # PycInvalidationMode -> [_arglike] of bytecode artifacts
     bytecode_artifacts = field("function"),
+    # PycInvalidationMode -> [[artifact, _path]]
     bytecode_artifacts_with_paths = field("function"),
 
     # Returns the resources manifests for this Python library.

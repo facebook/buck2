@@ -311,7 +311,7 @@ def python_executable(
     bytecode_manifest = None
     if srcs:
         src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs)
-        _, bytecode_manifest = compile_manifests(ctx, [src_manifest])
+        bytecode_manifest = compile_manifests(ctx, [src_manifest])
 
     dep_manifest = None
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
