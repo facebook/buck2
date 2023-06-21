@@ -76,6 +76,7 @@ GroupMapping = record(
 _VALID_ATTRS = [
     "enable_distributed_thinlto",
     "enable_if_node_count_exceeds",
+    "exported_linker_flags",
     "discard_group",
     "linker_flags",
 ]
@@ -89,8 +90,11 @@ GroupAttrs = record(
     # Discard all dependencies in the link group, useful for dropping unused dependencies
     # from the build graph.
     discard_group = field(bool.type, False),
-    # Adds additional linker flags to the link group.
+    # Adds additional linker flags used to link the link group shared object.
     linker_flags = field(list.type, []),
+    # Adds additional linker flags to apply to dependents that link against the
+    # link group's shared object.
+    exported_linker_flags = field(list.type, []),
 )
 
 # Representation of a parsed group
@@ -131,6 +135,7 @@ def parse_groups_definitions(
         group_attrs = GroupAttrs(
             enable_distributed_thinlto = attrs.get("enable_distributed_thinlto", False),
             enable_if_node_count_exceeds = attrs.get("enable_if_node_count_exceeds", None),
+            exported_linker_flags = attrs.get("exported_linker_flags", []),
             discard_group = attrs.get("discard_group", False),
             linker_flags = attrs.get("linker_flags", []),
         )
