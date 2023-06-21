@@ -87,11 +87,15 @@
     name := string(),
     startedTime := float(),
     endedTime := float(),
-    outcome := atom(),
+    outcome := outcome(),
     details := string(),
     std_out := string()
 }.
 
+-type outcome() ::
+    passed | failed | timeout | skipped.
+
+-type group_path() :: [atom()].
 
 -export_type([tree_node/0]).
 -export_type([method_result/0, case_result/0]).
@@ -103,7 +107,7 @@ second_timestamp() ->
     os:system_time(millisecond) / 1000.
 
 %% The groups order expected here is [leaf_group, ...., root_group]
--spec qualifiedName(list(atom()), string()) -> string().
+-spec qualifiedName(group_path(), TC :: string()) -> string().
 qualifiedName(Groups, TestCase) ->
     StringGroups = [atom_to_list(Group) || Group <- Groups],
     JoinedGroups = string:join(lists:reverse(StringGroups), ":"),
@@ -147,12 +151,16 @@ new_leaf(Name) ->
     }.
 
 %% @doc Transforms the pre_method_result into a method_result and inserts it inside the TreeResult
--spec register_result(tree_node(), method_result(), list(string()), method_id()) -> tree_node().
+-spec register_result(tree_node(), method_result(), group_path(), method_id()) -> tree_node().
 register_result(TreeResult, Result, Groups, MethodId) ->
     insert_result(TreeResult, Result, lists:reverse(Groups), MethodId).
 
 %% @doc Inserts the method_result inside the tree.
--spec insert_result(tree_node(), method_result(), list(string()), method_id()) -> tree_node().
+-spec insert_result(Node, Result, ReversedPath, MethodId) -> Node when
+    Node :: tree_node(),
+    Result :: method_result(),
+    ReversedPath :: group_path(),
+    MethodId :: method_id().
 insert_result(TreeNode, ResultTest, [Group | Groups], MethodId) ->
     #{sub_groups := Children} = TreeNode,
     GroupNode = maps:get(Group, Children, new_node(Group)),
@@ -181,7 +189,7 @@ insert_result(TreeNode, ResultTest, [], MethodId) ->
 
 %% @doc Provides a result for the RequestedResults based on the collected results.
 %% The format of the requested_results is a map from a list of groups to the list of test_cases that are sub-cases from the last group from the list.
--spec get_result(tree_node(), #{list(string) => list(string)}) -> list(case_result()).
+-spec get_result(tree(), #{group_path() => [string()]}) -> [case_result()].
 get_result(TreeResult, RequestedResults) ->
     maps:fold(
         fun(Groups, CasesRequests, AccExt) ->
@@ -198,7 +206,7 @@ get_result(TreeResult, RequestedResults) ->
     ).
 
 %% @doc Provides a result for a given specific requested_result.
--spec collect_result(tree(), list(string()), string()) -> case_result().
+-spec collect_result(tree(), group_path(), string()) -> case_result().
 collect_result(TreeResult, Groups, TestCase) ->
     QualifiedName = qualifiedName(lists:reverse(Groups), TestCase),
     LeafResult = collect_result(TreeResult, [], [], Groups, TestCase, QualifiedName),
@@ -206,6 +214,10 @@ collect_result(TreeResult, Groups, TestCase) ->
     MainResultWithEndFailure = report_end_failure(EndsResults, MainResult),
     LeafResult#{main => MainResultWithEndFailure}.
 
+-spec report_end_failure(MethodResults, ResultAcc) -> Result when
+    MethodResults :: [method_result()],
+    ResultAcc :: method_result(),
+    Result :: method_result().
 report_end_failure([], ResultAcc) ->
     ResultAcc;
 report_end_failure([#{outcome := passed} | Rest], ResultAcc) ->
@@ -230,6 +242,7 @@ report_end_failure(
         end,
     report_end_failure(Rest, ResultAcc#{outcome => MergedOutcome, details => MergedDetails}).
 
+-spec merge_outcome(outcome(), outcome()) -> outcome().
 merge_outcome(failed, _) -> failed;
 merge_outcome(_, failed) -> failed;
 merge_outcome(timeout, _) -> timeout;
@@ -241,11 +254,11 @@ merge_outcome(passed, Other) -> Other.
 %% @doc Collects all the inits / ends methods results linked to a requested_result.
 -spec collect_result(
     tree(),
-    list(method_result()),
-    list(method_result()),
-    list(string()),
-    string(),
-    string()
+    Inits :: [method_result()],
+    Ends :: [method_result()],
+    Groups :: group_path(),
+    TestCase :: string(),
+    QualifiedName :: string()
 ) -> case_result().
 collect_result(Node, Inits, Ends, Groups, TestCase, QualifiedName) ->
     {NewInits, OptMain, NewEnds} = collect_node(Node, Inits, Ends, QualifiedName),
@@ -257,16 +270,22 @@ collect_result(Node, Inits, Ends, Groups, TestCase, QualifiedName) ->
             #{inits => lists:reverse(NewInits), main => MainResult, ends => NewEnds}
     end.
 
--spec get_child(tree(), list(string()), string()) -> {tree(), list(string())}.
+-spec get_child(tree(), group_path(), TC :: string()) -> {tree(), group_path()}.
 get_child(#{sub_groups := SubGroups}, [Group | Groups], _TestCase) ->
     {maps:get(Group, SubGroups, new_node(Group)), Groups};
 get_child(#{test_cases := TestCases}, [], TestCase) ->
     {maps:get(TestCase, TestCases, new_leaf(TestCase)), []}.
 
--spec collect_node(tree(), list(method_result()), list(method_result()), string()) ->
-    {list(method_result()), option(method_result()), list(method_result())}.
-%% Collect the results from init_testcase, end_testcase and the main testcase for a given requested result.
+%% @doc Collect the results from init_testcase, end_testcase and the main testcase for a given requested result.
+%%
 %% Proceeds with some additional logic if the result is missing or skipped.
+-spec collect_node(
+    tree(),
+    Inits :: [method_result()],
+    Ends :: [method_result()],
+    QualName :: string()
+) ->
+    {NewInits :: [method_result()], MainResult :: option(method_result()), NewEnds :: [method_result()]}.
 collect_node(
     #{type := leaf} = TestLeaf,
     Inits,
@@ -308,11 +327,11 @@ collect_node(
     {NewInits, none, NewEnds}.
 
 -spec update_inits_ends(
-    list(method_result()),
-    list(method_result()),
-    option(method_result()),
-    option(method_result())
-) -> {list(method_result()), list(method_result())}.
+    Inits :: [method_result()],
+    Ends :: [method_result()],
+    MethInit :: option(method_result()),
+    MethEnd :: option(method_result())
+) -> {NewInits :: [method_result()], NewEnds :: [method_result()]}.
 update_inits_ends(Inits, Ends, OptMethodInit, OptMethodEnd) ->
     {adds_if_present(OptMethodInit, Inits), adds_if_present(OptMethodEnd, Ends)}.
 
@@ -348,7 +367,7 @@ merge_std_out(#{type := leaf} = TestLeaf) ->
 
 %% @doc Creates a method_result for a requested method for which no result was registered.
 %% Attempts to locate if one of the inits is responsible for the missing result.
--spec get_missing_result(list(method_result()), string()) -> method_result().
+-spec get_missing_result(Inits :: [method_result()], QualifiedName :: string()) -> method_result().
 get_missing_result(Inits, QualifiedName) ->
     MainResult =
         #{
@@ -362,7 +381,7 @@ get_missing_result(Inits, QualifiedName) ->
     handle_missing_results(Inits, MainResult).
 
 %% @doc Generates an user informative message in the case of the missing result by attempting to find the right init to blame.
--spec handle_missing_results(list(method_result()), method_result()) -> method_result().
+-spec handle_missing_results(Inits :: [method_result()], method_result()) -> method_result().
 handle_missing_results([], MainResult) ->
     MainResult;
 handle_missing_results([Init | Inits], MainResult) ->
@@ -411,7 +430,7 @@ handle_missing_results([Init | Inits], MainResult) ->
 %% Skip is an error state in tpx. If it is user skipped, the test is reported as omitted, which is not an error state.
 %% In the case where it is skipped because of init failure, it is reported as failed with appropriate user message reporting
 %% to the init to be blamed.
--spec handle_skipped_result(list(method_result()), method_result()) -> method_result().
+-spec handle_skipped_result(Inits :: [method_result()], MainResult :: method_result()) -> method_result().
 handle_skipped_result([], MainResult) ->
     MainResult;
 handle_skipped_result([Init | Inits], MainResult) ->
