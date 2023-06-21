@@ -23,6 +23,8 @@ use std::fmt::Formatter;
 use std::slice;
 
 use either::Either;
+use serde::Serialize;
+use serde::Serializer;
 
 use crate::docs::DocFunction;
 use crate::docs::DocMember;
@@ -233,6 +235,16 @@ pub enum Ty {
     Struct(TyStruct),
     /// A `function`.
     Function(TyFunction),
+}
+
+impl Serialize for Ty {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Arbitrary custom types are not deserializable, so serialization to string is enough.
+        serializer.serialize_str(&self.to_string())
+    }
 }
 
 /// The name of an atomic type.
