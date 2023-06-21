@@ -35,6 +35,8 @@
 %% For tests purposes
 -export([register_result/4, get_result/2, qualifiedName/2]).
 
+-include("method_ids.hrl").
+
 %% ----------------------- Types --------------------------
 
 %  `SUCCESS`, `FAILURE`, `ASSUMPTION_VIOLATION`, `DISABLED`, `EXCLUDED`, `DRY_RUN`
@@ -62,10 +64,6 @@
     output :: {file, string()} | stdout
 }).
 
--type inits_ends_groups_methods() ::
-    init_per_suite | end_per_suite | init_per_group | end_per_group.
--type inits_ends_case() :: init_per_case | end_per_case.
--type method_id() :: inits_ends_groups_methods() | {atom(), inits_ends_case()}.
 -type tree() :: test_leaf() | tree_node().
 -type case_result() :: #{
     inits := list(method_result()),
@@ -86,13 +84,6 @@
     std_out := string()
 }.
 
--define(INIT_PER_SUITE, '[init_per_suite]').
--define(INIT_PER_GROUP, '[init_per_group]').
--define(INIT_PER_TESTCASE, '[init_per_testcase]').
--define(END_PER_TESTCASE, '[end_per_testcase]').
--define(END_PER_GROUP, '[end_per_group]').
--define(END_PER_SUITE, '[end_per_suite]').
--define(MAIN_TESTCASE, '[main_testcase]').
 
 -export_type([tree_node/0]).
 -export_type([method_result/0, case_result/0]).
