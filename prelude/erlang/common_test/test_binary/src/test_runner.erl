@@ -365,7 +365,11 @@ build_test_spec(Suite, Tests, TestDir, OutputDir, CtOpts) ->
 -spec getCtHook([term()], string()) -> {term(), [term()]}.
 getCtHook(CtOpts, ResultOutput) ->
     {NewOpts, Hooks} = addOptsHook(CtOpts, []),
-    CtHookHandle = {ct_hooks, [{cth_tpx, [{result_json, ResultOutput}]} | lists:reverse(Hooks)]},
+    CthTpxHooks = [
+        {cth_tpx, #{role => top, result_json => ResultOutput}},
+        {cth_tpx, #{role => bot}}
+    ],
+    CtHookHandle = {ct_hooks, CthTpxHooks ++ lists:reverse(Hooks)},
     {CtHookHandle, NewOpts}.
 
 -spec addOptsHook([term()], [term()]) -> {term(), [term()]}.
