@@ -64,7 +64,6 @@ mod counting_reader {
 use counting_reader::CountingReader;
 
 use super::user_event_types::try_get_user_event;
-use super::user_event_types::UserEvent;
 use crate::argv::SanitizedArgv;
 
 impl<T> CountingReader<T> {
@@ -204,16 +203,7 @@ impl<'a> WriteEventLog<'a> {
                                 };
                             }
                             EventLogType::User => {
-                                if let Some(user_event) = event.try_get_user_event()? {
-                                    match user_event {
-                                        UserEvent::Invocation => {
-                                            event.serialize_to_json(&mut self.buf)?
-                                        }
-                                        UserEvent::UserEvent(_) => {
-                                            user_event.serialize_to_json(&mut self.buf)?
-                                        }
-                                    }
-
+                                if event.maybe_serialize_user_event(&mut self.buf)? {
                                     self.buf.push(b'\n');
                                 }
                             }
@@ -514,7 +504,7 @@ impl<'a> WriteEventLog<'a> {
 pub(crate) trait SerializeForLog {
     fn serialize_to_json(&self, buf: &mut Vec<u8>) -> anyhow::Result<()>;
     fn serialize_to_protobuf_length_delimited(&self, buf: &mut Vec<u8>) -> anyhow::Result<()>;
-    fn try_get_user_event(&self) -> anyhow::Result<Option<UserEvent>>;
+    fn maybe_serialize_user_event(&self, buf: &mut Vec<u8>) -> anyhow::Result<bool>;
 }
 
 impl SerializeForLog for Invocation {
@@ -534,8 +524,9 @@ impl SerializeForLog for Invocation {
     }
 
     // Always log invocation record to user event log for `buck2 log show` compatibility
-    fn try_get_user_event(&self) -> anyhow::Result<Option<UserEvent>> {
-        Ok(Some(UserEvent::Invocation))
+    fn maybe_serialize_user_event(&self, buf: &mut Vec<u8>) -> anyhow::Result<bool> {
+        serde_json::to_writer(buf, &self).context("Failed to serialize event")?;
+        Ok(true)
     }
 }
 
@@ -567,11 +558,15 @@ impl<'a> SerializeForLog for StreamValueForWrite<'a> {
         Ok(())
     }
 
-    fn try_get_user_event(&self) -> anyhow::Result<Option<UserEvent>> {
-        match self {
-            StreamValueForWrite::Event(event) => try_get_user_event(event),
-            _ => Ok(None),
+    fn maybe_serialize_user_event(&self, buf: &mut Vec<u8>) -> anyhow::Result<bool> {
+        if let StreamValueForWrite::Event(event) = self {
+            if let Some(user_event) = try_get_user_event(event)? {
+                serde_json::to_writer(buf, &user_event).context("Failed to serialize event")?;
+                return Ok(true);
+            }
         }
+
+        Ok(false)
     }
 }
 
