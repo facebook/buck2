@@ -32,7 +32,6 @@ use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstAssignP;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstIdentP;
-use crate::syntax::ast::AstLoadP;
 use crate::syntax::ast::AstNoPayload;
 use crate::syntax::ast::AstParameterP;
 use crate::syntax::ast::AstPayload;
@@ -45,7 +44,7 @@ use crate::values::typing::TypeCompiled;
 use crate::values::FrozenValue;
 
 /// Compiler-specific AST payload.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct CstPayload;
 impl AstPayload for CstPayload {
     type LoadPayload = Interface;
@@ -118,4 +117,3 @@ pub(crate) type CstIdent = AstIdentP<CstPayload>;
 pub(crate) type CstArgument = AstArgumentP<CstPayload>;
 pub(crate) type CstParameter = AstParameterP<CstPayload>;
 pub(crate) type CstStmt = AstStmtP<CstPayload>;
-pub(crate) type CstLoad = AstLoadP<CstPayload>;

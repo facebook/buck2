@@ -146,10 +146,10 @@ impl ArgsCompiledValue {
 }
 
 impl Compiler<'_, '_, '_> {
-    pub(crate) fn args(&mut self, args: Vec<CstArgument>) -> ArgsCompiledValue {
+    pub(crate) fn args(&mut self, args: &[CstArgument]) -> ArgsCompiledValue {
         let mut res = ArgsCompiledValue::default();
         for x in args {
-            match x.node {
+            match &x.node {
                 ArgumentP::Positional(x) => res.pos_named.push(self.expr(x)),
                 ArgumentP::Named(name, value) => {
                     let fv = self

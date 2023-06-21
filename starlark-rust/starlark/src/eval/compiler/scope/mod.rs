@@ -1075,7 +1075,7 @@ impl<'f> ModuleScopeData<'f> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Dupe)]
 pub(crate) enum ResolvedIdent {
     Slot(Slot, BindingId),
     Global(FrozenValue),

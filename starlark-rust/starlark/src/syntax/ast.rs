@@ -32,11 +32,12 @@ use crate::syntax::lexer::TokenInt;
 
 /// Payload types attached to AST nodes.
 pub(crate) trait AstPayload: Debug {
-    type LoadPayload: Debug;
-    type IdentPayload: Debug;
-    type IdentAssignPayload: Debug;
-    type DefPayload: Debug;
-    type TypeExprPayload: Debug;
+    // TODO(nga): we don't really need `Clone` for any payload.
+    type LoadPayload: Debug + Clone;
+    type IdentPayload: Debug + Clone;
+    type IdentAssignPayload: Debug + Clone;
+    type DefPayload: Debug + Clone;
+    type TypeExprPayload: Debug + Clone;
 }
 
 /// Default implementation of payload, which attaches `()` to nodes.
@@ -72,7 +73,6 @@ pub(crate) type AstAssignIdentP<P> = Spanned<AssignIdentP<P>>;
 pub(crate) type AstIdentP<P> = Spanned<IdentP<P>>;
 pub(crate) type AstArgumentP<P> = Spanned<ArgumentP<P>>;
 pub(crate) type AstParameterP<P> = Spanned<ParameterP<P>>;
-pub(crate) type AstLoadP<P> = Spanned<LoadP<P>>;
 pub(crate) type AstStmtP<P> = Spanned<StmtP<P>>;
 
 pub(crate) type AstExpr = AstExprP<AstNoPayload>;
@@ -99,7 +99,7 @@ pub(crate) trait ToAst: Sized {
 
 impl<T> ToAst for T {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum ArgumentP<P: AstPayload> {
     Positional(AstExprP<P>),
     Named(AstString, AstExprP<P>),
@@ -107,7 +107,7 @@ pub(crate) enum ArgumentP<P: AstPayload> {
     KwArgs(AstExprP<P>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum ParameterP<P: AstPayload> {
     Normal(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
     WithDefaultValue(
@@ -127,7 +127,7 @@ pub(crate) enum AstLiteral {
     String(AstString),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct LambdaP<P: AstPayload> {
     pub(crate) params: Vec<AstParameterP<P>>,
     pub(crate) body: Box<AstExprP<P>>,
@@ -147,7 +147,7 @@ impl<P: AstPayload> LambdaP<P> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum ExprP<P: AstPayload> {
     Tuple(Vec<AstExprP<P>>),
     Dot(Box<AstExprP<P>>, AstString),
@@ -179,7 +179,7 @@ pub(crate) enum ExprP<P: AstPayload> {
 }
 
 /// Restricted expression at type position.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct TypeExprP<P: AstPayload> {
     /// Currently it is an expr.
     /// Planning to restrict it.
@@ -189,7 +189,7 @@ pub(crate) struct TypeExprP<P: AstPayload> {
 }
 
 /// In some places e.g. AssignModify, the Tuple case is not allowed.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum AssignP<P: AstPayload> {
     // We use Tuple for both Tuple and List,
     // as these have the same semantics in Starlark.
@@ -209,20 +209,20 @@ pub(crate) struct AssignIdentP<P: AstPayload>(pub String, pub P::IdentAssignPayl
 pub(crate) struct IdentP<P: AstPayload>(pub String, pub P::IdentPayload);
 
 /// `load` statement.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct LoadP<P: AstPayload> {
     pub(crate) module: AstString,
     pub(crate) args: Vec<(AstAssignIdentP<P>, AstString)>,
     pub(crate) payload: P::LoadPayload,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ForClauseP<P: AstPayload> {
     pub(crate) var: AstAssignP<P>,
     pub(crate) over: AstExprP<P>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum ClauseP<P: AstPayload> {
     For(ForClauseP<P>),
     If(AstExprP<P>),

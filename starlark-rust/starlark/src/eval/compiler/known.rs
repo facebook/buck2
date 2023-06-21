@@ -17,6 +17,8 @@
 
 //! Things that operate on known values where we know we can do better.
 
+use std::borrow::Cow;
+
 use crate::codemap::Spanned;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::syntax::ast::ExprP;
@@ -26,15 +28,16 @@ use crate::syntax::ast::ExprP;
 /// switch to tuple where it makes no difference. A tuple of constants
 /// will go on the FrozenHeap, while a list of constants will be continually
 /// reallocated.
-pub(crate) fn list_to_tuple(x: CstExpr) -> CstExpr {
+pub(crate) fn list_to_tuple(x: &CstExpr) -> Cow<CstExpr> {
     match x {
         Spanned {
             node: ExprP::List(x),
             span,
-        } => Spanned {
-            node: ExprP::Tuple(x),
-            span,
-        },
-        _ => x,
+        } => Cow::Owned(Spanned {
+            // TODO(nga): do not clone.
+            node: ExprP::Tuple(x.clone()),
+            span: *span,
+        }),
+        _ => Cow::Borrowed(x),
     }
 }

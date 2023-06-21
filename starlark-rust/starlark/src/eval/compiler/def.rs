@@ -342,11 +342,11 @@ pub(crate) struct DefCompiled {
 }
 
 impl Compiler<'_, '_, '_> {
-    fn parameter_name(&mut self, ident: CstAssignIdent) -> ParameterName {
+    fn parameter_name(&mut self, ident: &CstAssignIdent) -> ParameterName {
         let binding_id = ident.1.expect("no binding for parameter");
         let binding = self.scope_data.get_binding(binding_id);
         ParameterName {
-            name: ident.node.0,
+            name: ident.node.0.clone(),
             captured: binding.captured,
         }
     }
@@ -354,29 +354,29 @@ impl Compiler<'_, '_, '_> {
     /// Compile a parameter. Return `None` for `*` pseudo parameter.
     fn parameter(
         &mut self,
-        x: CstParameter,
+        x: &CstParameter,
     ) -> Option<IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>>> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, x.span));
         Some(IrSpanned {
             span,
-            node: match x.node {
+            node: match &x.node {
                 ParameterP::Normal(x, t) => ParameterCompiled::Normal(
                     self.parameter_name(x),
-                    self.expr_for_type(t).map(|t| t.node),
+                    self.expr_for_type(t.as_deref()).map(|t| t.node),
                 ),
                 ParameterP::WithDefaultValue(x, t, v) => ParameterCompiled::WithDefaultValue(
                     self.parameter_name(x),
-                    self.expr_for_type(t).map(|t| t.node),
-                    self.expr(*v),
+                    self.expr_for_type(t.as_deref()).map(|t| t.node),
+                    self.expr(v),
                 ),
                 ParameterP::NoArgs => return None,
                 ParameterP::Args(x, t) => ParameterCompiled::Args(
                     self.parameter_name(x),
-                    self.expr_for_type(t).map(|t| t.node),
+                    self.expr_for_type(t.as_deref()).map(|t| t.node),
                 ),
                 ParameterP::KwArgs(x, t) => ParameterCompiled::KwArgs(
                     self.parameter_name(x),
-                    self.expr_for_type(t).map(|t| t.node),
+                    self.expr_for_type(t.as_deref()).map(|t| t.node),
                 ),
             },
         })
@@ -387,9 +387,9 @@ impl Compiler<'_, '_, '_> {
         name: &str,
         signature_span: FrozenFileSpan,
         scope_id: ScopeId,
-        params: Vec<CstParameter>,
-        return_type: Option<Box<CstTypeExpr>>,
-        suite: CstStmt,
+        params: &[CstParameter],
+        return_type: Option<&CstTypeExpr>,
+        suite: &CstStmt,
     ) -> ExprCompiled {
         let file = self.codemap.file_span(suite.span);
         let function_name = format!("{}.{}", file.file.filename(), name);
@@ -408,10 +408,7 @@ impl Compiler<'_, '_, '_> {
             .unwrap_or(params.len())
             .try_into()
             .unwrap();
-        let params = params
-            .into_iter()
-            .filter_map(|x| self.parameter(x))
-            .collect();
+        let params = params.iter().filter_map(|x| self.parameter(x)).collect();
         let params = ParametersCompiled {
             params,
             num_positional,

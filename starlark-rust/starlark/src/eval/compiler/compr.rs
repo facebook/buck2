@@ -35,9 +35,9 @@ use crate::syntax::ast::ForClauseP;
 impl Compiler<'_, '_, '_> {
     pub fn list_comprehension(
         &mut self,
-        x: CstExpr,
-        for_: ForClauseP<CstPayload>,
-        clauses: Vec<ClauseP<CstPayload>>,
+        x: &CstExpr,
+        for_: &ForClauseP<CstPayload>,
+        clauses: &[ClauseP<CstPayload>],
     ) -> ExprCompiled {
         let clauses = self.compile_clauses(for_, clauses);
         let x = self.expr(x);
@@ -46,10 +46,10 @@ impl Compiler<'_, '_, '_> {
 
     pub fn dict_comprehension(
         &mut self,
-        k: CstExpr,
-        v: CstExpr,
-        for_: ForClauseP<CstPayload>,
-        clauses: Vec<ClauseP<CstPayload>>,
+        k: &CstExpr,
+        v: &CstExpr,
+        for_: &ForClauseP<CstPayload>,
+        clauses: &[ClauseP<CstPayload>],
     ) -> ExprCompiled {
         let clauses = self.compile_clauses(for_, clauses);
         let k = self.expr(k);
@@ -70,7 +70,7 @@ impl Compiler<'_, '_, '_> {
                     return (Some(f), ifs);
                 }
                 ClauseP::If(x) => {
-                    let x = self.expr_truth(x);
+                    let x = self.expr_truth(&x);
                     if let ExprCompiledBool::Const(true) = &x.node {
                         // If the condition is always true, skip the clause.
                         continue;
@@ -86,11 +86,14 @@ impl Compiler<'_, '_, '_> {
 
     fn compile_clauses(
         &mut self,
-        for_: ForClauseP<CstPayload>,
-        mut clauses: Vec<ClauseP<CstPayload>>,
+        for_: &ForClauseP<CstPayload>,
+        clauses: &[ClauseP<CstPayload>],
     ) -> ClausesCompiled {
         // The first for.over is scoped before we enter the list comp
-        let over = self.expr(list_to_tuple(for_.over));
+        let over = self.expr(&list_to_tuple(&for_.over));
+
+        // TODO(nga): unnecessary clone.
+        let mut clauses = clauses.to_vec();
 
         // Now we want to group them into a `for`, followed by any number of `if`.
         // The evaluator wants to use pop to consume them, so reverse the order.
@@ -100,7 +103,7 @@ impl Compiler<'_, '_, '_> {
             match next_for {
                 None => {
                     let last = ClauseCompiled {
-                        var: self.assign(for_.var),
+                        var: self.assign(&for_.var),
                         over,
                         ifs,
                     };
@@ -108,8 +111,8 @@ impl Compiler<'_, '_, '_> {
                 }
                 Some(f) => {
                     res.push(ClauseCompiled {
-                        over: self.expr(f.over),
-                        var: self.assign(f.var),
+                        over: self.expr(&f.over),
+                        var: self.assign(&f.var),
                         ifs,
                     });
                 }

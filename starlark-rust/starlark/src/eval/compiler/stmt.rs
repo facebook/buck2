@@ -53,7 +53,6 @@ use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::slice_vec_ext::SliceExt;
-use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::DefP;
@@ -399,26 +398,26 @@ impl IrSpanned<AssignCompiledValue> {
 }
 
 impl Compiler<'_, '_, '_> {
-    pub fn assign(&mut self, expr: CstAssign) -> IrSpanned<AssignCompiledValue> {
+    pub fn assign(&mut self, expr: &CstAssign) -> IrSpanned<AssignCompiledValue> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
-        let assign = match expr.node {
+        let assign = match &expr.node {
             AssignP::Dot(e, s) => {
-                let e = self.expr(*e);
-                let s = s.node;
-                AssignCompiledValue::Dot(e, s)
+                let e = self.expr(e);
+                let s = &s.node;
+                AssignCompiledValue::Dot(e, s.to_owned())
             }
             AssignP::ArrayIndirection(e_idx) => {
-                let (e, idx) = *e_idx;
+                let (e, idx) = &**e_idx;
                 let e = self.expr(e);
                 let idx = self.expr(idx);
                 AssignCompiledValue::ArrayIndirection(e, idx)
             }
             AssignP::Tuple(v) => {
-                let v = v.into_map(|x| self.assign(x));
+                let v = v.map(|x| self.assign(x));
                 AssignCompiledValue::Tuple(v)
             }
             AssignP::Identifier(ident) => {
-                let name = ident.node.0;
+                let name = ident.node.0.as_str();
                 let binding_id = ident
                     .node
                     .1
@@ -434,7 +433,7 @@ impl Compiler<'_, '_, '_> {
                     (Slot::Local(slot), Captured::Yes) => {
                         AssignCompiledValue::LocalCaptured(LocalCapturedSlotId(slot.0))
                     }
-                    (Slot::Module(slot), _) => AssignCompiledValue::Module(slot, name),
+                    (Slot::Module(slot), _) => AssignCompiledValue::Module(slot, name.to_owned()),
                 }
             }
         };
@@ -444,22 +443,26 @@ impl Compiler<'_, '_, '_> {
     fn assign_modify(
         &mut self,
         span_stmt: Span,
-        lhs: CstAssign,
+        lhs: &CstAssign,
         rhs: IrSpanned<ExprCompiled>,
         op: AssignOp,
     ) -> StmtsCompiled {
         let span_stmt = FrameSpan::new(FrozenFileSpan::new(self.codemap, span_stmt));
         let span_lhs = FrameSpan::new(FrozenFileSpan::new(self.codemap, lhs.span));
-        match lhs.node {
+        match &lhs.node {
             AssignP::Dot(e, s) => {
-                let e = self.expr(*e);
+                let e = self.expr(e);
                 StmtsCompiled::one(IrSpanned {
                     span: span_stmt,
-                    node: StmtCompiled::AssignModify(AssignModifyLhs::Dot(e, s.node), op, rhs),
+                    node: StmtCompiled::AssignModify(
+                        AssignModifyLhs::Dot(e, s.node.clone()),
+                        op,
+                        rhs,
+                    ),
                 })
             }
             AssignP::ArrayIndirection(e_idx) => {
-                let (e, idx) = *e_idx;
+                let (e, idx) = &**e_idx;
                 let e = self.expr(e);
                 let idx = self.expr(idx);
                 StmtsCompiled::one(IrSpanned {
@@ -632,7 +635,7 @@ impl Compiler<'_, '_, '_> {
         StmtCompileContext { has_return_type }
     }
 
-    pub(crate) fn stmt(&mut self, stmt: CstStmt, allow_gc: bool) -> StmtsCompiled {
+    pub(crate) fn stmt(&mut self, stmt: &CstStmt, allow_gc: bool) -> StmtsCompiled {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, stmt.span));
         let is_statements = matches!(&stmt.node, StmtP::Statements(_));
         let res = self.stmt_direct(stmt, allow_gc);
@@ -651,8 +654,8 @@ impl Compiler<'_, '_, '_> {
         }
     }
 
-    pub(crate) fn module_top_level_stmt(&mut self, stmt: CstStmt) -> StmtsCompiled {
-        match stmt.node {
+    pub(crate) fn module_top_level_stmt(&mut self, stmt: &CstStmt) -> StmtsCompiled {
+        match &stmt.node {
             StmtP::Statements(..) => {
                 unreachable!("top level statement lists are handled by outer loop")
             }
@@ -662,9 +665,10 @@ impl Compiler<'_, '_, '_> {
                     // When top level statement is an expression, compile it as return.
                     // This is used to obtain the result of evaluation
                     // of the last statement-expression in module.
-                    node: StmtP::Return(Some(expr)),
+                    // TODO(nga): unnecessary clone.
+                    node: StmtP::Return(Some(expr.clone())),
                 };
-                self.stmt(stmt, true)
+                self.stmt(&stmt, true)
             }
             _ => self.stmt(stmt, true),
         }
@@ -673,8 +677,8 @@ impl Compiler<'_, '_, '_> {
     fn stmt_if(
         &mut self,
         span: FrameSpan,
-        cond: CstExpr,
-        then_block: CstStmt,
+        cond: &CstExpr,
+        then_block: &CstStmt,
         allow_gc: bool,
     ) -> StmtsCompiled {
         let cond = self.expr(cond);
@@ -685,9 +689,9 @@ impl Compiler<'_, '_, '_> {
     fn stmt_if_else(
         &mut self,
         span: FrameSpan,
-        cond: CstExpr,
-        then_block: CstStmt,
-        else_block: CstStmt,
+        cond: &CstExpr,
+        then_block: &CstStmt,
+        else_block: &CstStmt,
         allow_gc: bool,
     ) -> StmtsCompiled {
         let cond = self.expr(cond);
@@ -696,14 +700,14 @@ impl Compiler<'_, '_, '_> {
         StmtsCompiled::if_stmt(span, cond, then_block, else_block)
     }
 
-    fn stmt_expr(&mut self, expr: CstExpr) -> StmtsCompiled {
+    fn stmt_expr(&mut self, expr: &CstExpr) -> StmtsCompiled {
         let expr = self.expr(expr);
         StmtsCompiled::expr(expr)
     }
 
-    fn stmt_direct(&mut self, stmt: CstStmt, allow_gc: bool) -> StmtsCompiled {
+    fn stmt_direct(&mut self, stmt: &CstStmt, allow_gc: bool) -> StmtsCompiled {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, stmt.span));
-        match stmt.node {
+        match &stmt.node {
             StmtP::Def(def) => {
                 let signature_span = def.signature_span();
                 let signature_span = FrozenFileSpan::new(self.codemap, signature_span);
@@ -718,16 +722,16 @@ impl Compiler<'_, '_, '_> {
                     node: self.function(
                         &name.0,
                         signature_span,
-                        scope_id,
+                        *scope_id,
                         params,
-                        return_type,
-                        *body,
+                        return_type.as_deref(),
+                        body,
                     ),
                     span,
                 };
-                let lhs = self.assign(Spanned {
+                let lhs = self.assign(&Spanned {
                     span: name.span,
-                    node: AssignP::Identifier(name),
+                    node: AssignP::Identifier(name.clone()),
                 });
                 StmtsCompiled::one(IrSpanned {
                     span,
@@ -735,10 +739,10 @@ impl Compiler<'_, '_, '_> {
                 })
             }
             StmtP::For(var, over_body) => {
-                let (over, body) = *over_body;
+                let (over, body) = &**over_body;
                 let over = list_to_tuple(over);
                 let var = self.assign(var);
-                let over = self.expr(over);
+                let over = self.expr(&over);
                 let st = self.stmt(body, false);
                 StmtsCompiled::for_stmt(span, var, over, st)
             }
@@ -753,9 +757,9 @@ impl Compiler<'_, '_, '_> {
                 node: StmtCompiled::Return(self.expr(e)),
                 span,
             }),
-            StmtP::If(cond, then_block) => self.stmt_if(span, cond, *then_block, allow_gc),
+            StmtP::If(cond, then_block) => self.stmt_if(span, cond, then_block, allow_gc),
             StmtP::IfElse(cond, then_block_else_block) => {
-                let (then_block, else_block) = *then_block_else_block;
+                let (then_block, else_block) = &**then_block_else_block;
                 self.stmt_if_else(span, cond, then_block, else_block, allow_gc)
             }
             StmtP::Statements(stmts) => {
@@ -770,9 +774,9 @@ impl Compiler<'_, '_, '_> {
             }
             StmtP::Expression(e) => self.stmt_expr(e),
             StmtP::Assign(lhs, ty_rhs) => {
-                let (ty, rhs) = *ty_rhs;
+                let (ty, rhs) = &**ty_rhs;
                 let rhs = self.expr(rhs);
-                let ty = self.expr_for_type(ty.map(Box::new));
+                let ty = self.expr_for_type(ty.as_ref());
                 let lhs = self.assign(lhs);
                 StmtsCompiled::one(IrSpanned {
                     span,
@@ -780,8 +784,8 @@ impl Compiler<'_, '_, '_> {
                 })
             }
             StmtP::AssignModify(lhs, op, rhs) => {
-                let rhs = self.expr(*rhs);
-                self.assign_modify(span.span.span(), lhs, rhs, op)
+                let rhs = self.expr(rhs);
+                self.assign_modify(span.span.span(), lhs, rhs, *op)
             }
             StmtP::Load(..) => unreachable!(),
             StmtP::Pass => StmtsCompiled::empty(),
