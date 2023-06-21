@@ -32,9 +32,9 @@ print_summary(Total, Passed, FailedOrSkipped) ->
     ok | fail.
 print_result(Name, pass_result) ->
     io:format("~ts ~ts~n", [?CHECK_MARK, Name]);
-print_result(Name, {error, {_TestId, {thrown, {Reason, Stacktrace}}}}) ->
+print_result(Name, {fail, {_TestId, {thrown, {Reason, Stacktrace}}}}) ->
     print_error(Name, throw, Reason, Stacktrace);
-print_result(Name, {error, {_TestId, {Reason, Stacktrace}}}) ->
+print_result(Name, {fail, {_TestId, {Reason, Stacktrace}}}) ->
     print_error(Name, error, Reason, Stacktrace);
 print_result(Name, {skip, Where, {error, {Reason, Stacktrace}}}) ->
     print_skip_error(Name, Where, error, Reason, Stacktrace);

@@ -295,17 +295,17 @@ handle_post_result(Hooks, TestName, Suite, Result) ->
     end.
 
 -spec format_ct_error(throw | error | exit, Reason, Stacktrace) ->
-    {error, {thrown, Reason, Stacktrace}}
-    | {error, {Reason, Stacktrace}}
-    | {error, Reason}
+    {fail, {thrown, Reason, Stacktrace}}
+    | {fail, {Reason, Stacktrace}}
+    | {fail, Reason}
 when
     Reason :: term(), Stacktrace :: erlang:stacktrace().
 format_ct_error(throw, Reason, Stacktrace) ->
-    {error, {thrown, Reason, Stacktrace}};
+    {fail, {thrown, Reason, Stacktrace}};
 format_ct_error(error, Reason, Stacktrace) ->
-    {error, {Reason, Stacktrace}};
+    {fail, {Reason, Stacktrace}};
 format_ct_error(exit, Reason, _Stacktrace) ->
-    {error, Reason}.
+    {fail, Reason}.
 
 -spec build_test_name(part(), [atom()]) -> test_name().
 build_test_name(init_per_suite, _Path) ->
