@@ -55,24 +55,26 @@ summary(omitted) -> ?OMITTED.
         durationSecs := float()
     }.
 
+-type case_result() :: cth_tpx_test_tree:case_result().
+
 -type formatted_case_result() ::
     #{
-        inits := list(formatted_result()),
+        inits := [formatted_result()],
         main := formatted_result(),
-        ends := list(formatted_result())
+        ends := [formatted_result()]
     }.
 
--spec write_json_output(string(), list(cth_tpx:case_result())) -> {ok, file:filename()}.
+-spec write_json_output(string(), [case_result()]) -> {ok, file:filename()}.
 write_json_output(OutputDir, TpxResults) ->
     OuptputFile = filename:join(OutputDir, "result_exec.json"),
     file:write_file(OuptputFile, format_json(TpxResults)),
     {ok, OuptputFile}.
 
--spec format_json(list(cth_tpx:case_result())) -> string().
+-spec format_json([case_result()]) -> string().
 format_json(TpxResults) ->
     jsone:encode(lists:map(fun(CaseResult) -> format_case(CaseResult) end, TpxResults)).
 
--spec format_case(list(cth_tpx:case_result())) -> list(formatted_case_result()).
+-spec format_case([case_result()]) -> [formatted_case_result()].
 format_case(
     #{
         inits := Inits,
@@ -86,7 +88,7 @@ format_case(
         ends => lists:map(fun(MethodResult) -> format_method_result(MethodResult) end, Ends)
     }.
 
--spec format_method_result(cth_tpx:method_result()) -> formatted_result().
+-spec format_method_result(cth_tpx_test_tree:method_result()) -> formatted_result().
 
 format_method_result(
     #{

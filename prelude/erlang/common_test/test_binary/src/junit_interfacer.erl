@@ -20,6 +20,7 @@
 -export_type([test_result/0, optional/1]).
 
 -type test_result() :: success | failure | assumption_violation | disabled | excluded | dry_run.
+-type case_result() :: cth_tpx_test_tree:case_result().
 
 -type optional(Type) :: undefined | Type.
 
@@ -37,7 +38,7 @@ format_result(disabled) -> "DISABLED";
 format_result(excluded) -> "EXCLUDED";
 format_result(dry_run) -> "DRYRUN".
 
--spec write_xml_output(string(), list(cth_tpx:case_result()), atom(), any(), binary()) -> {ok, file:filename()}.
+-spec write_xml_output(string(), [case_result()], atom(), any(), binary()) -> {ok, file:filename()}.
 write_xml_output(OutputDir, TpxResults, Suite, Exit, Stdout) ->
     TestCase = results_to_test_case(TpxResults, Suite, Exit, Stdout),
     Export = xmerl:export_simple([test_case_to_xml(TestCase)], xmerl_xml),
@@ -70,7 +71,7 @@ test_to_xml(
 
 % Xml format according to https://www.internalfb.com/code/fbsource/[28cd5933c399]/fbcode/buck2/docs/test_execution.md?lines=98
 %% To be encoded following https://erlang.org/doc/apps/xmerl/xmerl_ug.html
--spec method_result_to_test_info(cth_tpx:method_result(), atom(), any(), binary()) -> #test{}.
+-spec method_result_to_test_info(cth_tpx_test_tree:method_result(), atom(), any(), binary()) -> #test{}.
 method_result_to_test_info(MethodResult, Suite, Exit, StdOut) ->
     #{
         main := #{
@@ -93,7 +94,7 @@ method_result_to_test_info(MethodResult, Suite, Exit, StdOut) ->
         )
     }.
 
--spec results_to_test_case(list(cth_tpx:case_result()), atom(), any(), binary()) -> #test_case{}.
+-spec results_to_test_case([case_result()], atom(), any(), binary()) -> #test_case{}.
 results_to_test_case(ListsResults, Suite, Exit, StdOut) ->
     TestElements = lists:map(
         fun(Test) ->

@@ -261,7 +261,8 @@ trimmed_content_file(File) ->
 
 %% @doc Provide tpx with a result when CT failed to provide results for tests.
 -spec collect_results_broken_run([atom()], atom(), string() | undefined, term(), binary()) ->
-    list(cth_tpx:case_result()).
+    [cth_tpx_test_tree:case_result()].
+
 collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->
     FormattedErrorMsg =
         case ErrorMsg of
@@ -276,10 +277,10 @@ collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->
                 main => #{
                     name => lists:flatten(
                         io_lib:format("~s.[main_testcase]", [
-                            % We need to reverse the list of groups as the method cth_tpx:qualifiedName expects them
+                            % We need to reverse the list of groups as the method cth_tpx_test_tree:qualified_name expects them
                             % in the reverse order (as it is designed to be called when exploring the tree of results
                             % where we push at each time the group we are in, leading to them being in reverse order).
-                            cth_tpx:qualifiedName(
+                            cth_tpx_test_tree:qualified_name(
                                 lists:reverse(Test#ct_test.groups), Test#ct_test.test_name
                             )
                         ])
@@ -303,9 +304,9 @@ collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->
 
 %% @doc Provide the results from the tests as specified by tpx protocol, from the json file
 %% provided by ct displaying results of all the tests ran.
--spec collect_results_fine_run(cth_tpx:tree_node(), [#ct_test{}]) -> list(cth_tpx:case_result()).
+-spec collect_results_fine_run(cth_tpx_test_tree:tree_node(), [#ct_test{}]) -> [cth_tpx_test_tree:case_result()].
 collect_results_fine_run(TreeResults, Tests) ->
-    cth_tpx:get_result(TreeResults, maps:from_list(get_requested_tests(Tests))).
+    cth_tpx_test_tree:get_result(TreeResults, maps:from_list(get_requested_tests(Tests))).
 
 %% @doc Returns a list of the tests by classifying from the (sequence) of groups they belong.
 %% The list is [{[sequence of groups] => [list of tests belonging to this sequence]}].
