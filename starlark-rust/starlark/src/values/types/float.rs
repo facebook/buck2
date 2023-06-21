@@ -260,10 +260,6 @@ impl Display for StarlarkFloat {
 impl<'v> StarlarkValue<'v> for StarlarkFloat {
     starlark_type!(StarlarkFloat::TYPE);
 
-    fn get_type_starlark_repr() -> String {
-        "float.type".to_owned()
-    }
-
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
         Ok(Some(NumRef::Float(self.0)) == other.unpack_num())
     }

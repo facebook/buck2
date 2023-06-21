@@ -111,7 +111,7 @@ impl<'v> AllocValue<'v> for BxlFilesystem<'v> {
 
 impl<'v> StarlarkTypeRepr for &'v BxlFilesystem<'v> {
     fn starlark_type_repr() -> String {
-        BxlFilesystem::get_type_starlark_repr()
+        BxlFilesystem::get_type_starlark_repr().to_string()
     }
 }
 

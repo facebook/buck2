@@ -55,7 +55,7 @@ impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for DictType<K, 
 
 impl<'v, T: StarlarkValue<'v> + ?Sized> StarlarkTypeRepr for T {
     fn starlark_type_repr() -> String {
-        Self::get_type_starlark_repr()
+        Self::get_type_starlark_repr().to_string()
     }
 }
 

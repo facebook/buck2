@@ -90,7 +90,7 @@ impl<'v> AllocValue<'v> for StarlarkUQueryCtx<'v> {
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkUQueryCtx<'v> {
     fn starlark_type_repr() -> String {
-        StarlarkUQueryCtx::get_type_starlark_repr()
+        StarlarkUQueryCtx::get_type_starlark_repr().to_string()
     }
 }
 

@@ -244,10 +244,6 @@ pub(crate) fn str_methods() -> Option<&'static Methods> {
 impl<'v> StarlarkValue<'v> for StarlarkStr {
     starlark_type!(STRING_TYPE);
 
-    fn get_type_starlark_repr() -> String {
-        "str.type".to_owned()
-    }
-
     fn is_special(_: Private) -> bool
     where
         Self: Sized,

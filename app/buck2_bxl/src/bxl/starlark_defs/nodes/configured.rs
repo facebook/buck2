@@ -487,7 +487,7 @@ impl<'v> AllocValue<'v> for StarlarkLazyAttrs<'v> {
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkLazyAttrs<'v> {
     fn starlark_type_repr() -> String {
-        StarlarkLazyAttrs::get_type_starlark_repr()
+        StarlarkLazyAttrs::get_type_starlark_repr().to_string()
     }
 }
 
@@ -570,7 +570,7 @@ impl<'v> AllocValue<'v> for StarlarkLazyResolvedAttrs<'v> {
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkLazyResolvedAttrs<'v> {
     fn starlark_type_repr() -> String {
-        StarlarkLazyResolvedAttrs::get_type_starlark_repr()
+        StarlarkLazyResolvedAttrs::get_type_starlark_repr().to_string()
     }
 }
 

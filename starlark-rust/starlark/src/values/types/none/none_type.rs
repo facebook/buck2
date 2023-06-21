@@ -62,10 +62,6 @@ impl NoneType {
 impl<'v> StarlarkValue<'v> for NoneType {
     starlark_type!(NoneType::TYPE);
 
-    fn get_type_starlark_repr() -> String {
-        "None".to_owned()
-    }
-
     fn is_special(_: Private) -> bool
     where
         Self: Sized,

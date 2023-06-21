@@ -278,7 +278,7 @@ impl<'v> AllocValue<'v> for BxlContext<'v> {
 
 impl<'v> StarlarkTypeRepr for &'v BxlContext<'v> {
     fn starlark_type_repr() -> String {
-        BxlContext::get_type_starlark_repr()
+        BxlContext::get_type_starlark_repr().to_string()
     }
 }
 

@@ -124,7 +124,7 @@ impl<'v> OutputStream<'v> {
 
 impl<'v> StarlarkTypeRepr for &'v OutputStream<'v> {
     fn starlark_type_repr() -> String {
-        OutputStream::get_type_starlark_repr()
+        OutputStream::get_type_starlark_repr().to_string()
     }
 }
 

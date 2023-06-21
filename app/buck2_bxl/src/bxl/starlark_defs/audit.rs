@@ -81,7 +81,7 @@ impl<'v> AllocValue<'v> for StarlarkAuditCtx<'v> {
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkAuditCtx<'v> {
     fn starlark_type_repr() -> String {
-        StarlarkAuditCtx::get_type_starlark_repr()
+        StarlarkAuditCtx::get_type_starlark_repr().to_string()
     }
 }
 

@@ -39,6 +39,7 @@ use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::private::Private;
+use crate::typing::Ty;
 use crate::values::demand::Demand;
 use crate::values::int::PointerI32;
 use crate::values::layout::avalue::AValue;
@@ -281,8 +282,7 @@ impl<'v> AValueDyn<'v> {
         self.vtable.type_name
     }
 
-    #[inline]
-    pub(crate) fn get_type_starlark_repr(self) -> String {
+    pub(crate) fn get_type_starlark_repr(self) -> Ty {
         (self.vtable.starlark_value.get_type_starlark_repr)()
     }
 

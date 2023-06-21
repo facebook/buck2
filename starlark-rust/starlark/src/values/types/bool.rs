@@ -35,6 +35,7 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::starlark_type;
+use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -79,7 +80,7 @@ impl AllocFrozenValue for bool {
 
 impl StarlarkTypeRepr for bool {
     fn starlark_type_repr() -> String {
-        StarlarkBool::get_type_starlark_repr()
+        StarlarkBool::get_type_starlark_repr().to_string()
     }
 }
 
@@ -93,8 +94,8 @@ impl UnpackValue<'_> for bool {
 impl StarlarkValue<'_> for StarlarkBool {
     starlark_type!(BOOL_TYPE);
 
-    fn get_type_starlark_repr() -> String {
-        "bool.type".to_owned()
+    fn get_type_starlark_repr() -> Ty {
+        Ty::bool()
     }
 
     fn is_special(_: Private) -> bool

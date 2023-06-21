@@ -238,7 +238,7 @@ impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkDeclaredArtifact {
     fn starlark_type_repr() -> String {
-        StarlarkDeclaredArtifact::get_type_starlark_repr()
+        StarlarkDeclaredArtifact::get_type_starlark_repr().to_string()
     }
 }
 

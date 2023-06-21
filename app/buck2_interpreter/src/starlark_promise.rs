@@ -273,7 +273,7 @@ impl<'v> AllocValue<'v> for StarlarkPromise<'v> {
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkPromise<'v> {
     fn starlark_type_repr() -> String {
-        StarlarkPromise::get_type_starlark_repr()
+        StarlarkPromise::get_type_starlark_repr().to_string()
     }
 }
 

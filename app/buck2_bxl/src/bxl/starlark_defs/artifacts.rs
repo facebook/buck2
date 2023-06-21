@@ -293,19 +293,19 @@ impl<'v> AllocValue<'v> for EnsuredArtifactGroupInner {
 
 impl<'v> StarlarkTypeRepr for &'v EnsuredArtifact {
     fn starlark_type_repr() -> String {
-        EnsuredArtifact::get_type_starlark_repr()
+        EnsuredArtifact::get_type_starlark_repr().to_string()
     }
 }
 
 impl<'v> StarlarkTypeRepr for &'v EnsuredArtifactGroup<'v> {
     fn starlark_type_repr() -> String {
-        EnsuredArtifactGroup::get_type_starlark_repr()
+        EnsuredArtifactGroup::get_type_starlark_repr().to_string()
     }
 }
 
 impl<'v> StarlarkTypeRepr for &'v EnsuredArtifactGroupInner {
     fn starlark_type_repr() -> String {
-        EnsuredArtifactGroupInner::get_type_starlark_repr()
+        EnsuredArtifactGroupInner::get_type_starlark_repr().to_string()
     }
 }
 

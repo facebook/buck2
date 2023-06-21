@@ -47,6 +47,7 @@ use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::private::Private;
+use crate::typing::Ty;
 use crate::values::demand::Demand;
 use crate::values::error::ControlError;
 use crate::values::function::FUNCTION_TYPE;
@@ -229,8 +230,8 @@ pub trait StarlarkValue<'v>:
     /// some instances it might be slightly different than what is returned by `TYPE`.
     ///
     /// This can be only implemented by the [`starlark_type!`](crate::starlark_type!) macro.
-    fn get_type_starlark_repr() -> String {
-        format!("\"{}\"", Self::get_type_value_static().as_str())
+    fn get_type_starlark_repr() -> Ty {
+        Ty::name(Self::TYPE)
     }
 
     /// Please do not implement this method or `get_type`, but use `starlark_type!` macro.

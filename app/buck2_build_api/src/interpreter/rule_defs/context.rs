@@ -64,7 +64,7 @@ pub struct AnalysisActions<'v> {
 
 impl<'v> StarlarkTypeRepr for &'v AnalysisActions<'v> {
     fn starlark_type_repr() -> String {
-        AnalysisActions::get_type_starlark_repr()
+        AnalysisActions::get_type_starlark_repr().to_string()
     }
 }
 
