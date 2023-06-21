@@ -229,7 +229,13 @@ pub(crate) fn render_starlark_type(
             }
         }
         Some(t) => {
-            quote_spanned! {span=> (#t).to_owned()}
+            quote_spanned! {span=>
+                {
+                    // TODO(nga): return `Ty`.
+                    let ty = starlark::typing::Ty::parse(#t).unwrap();
+                    ty.to_string()
+                }
+            }
         }
     }
 }
@@ -247,7 +253,11 @@ pub(crate) fn render_starlark_return_type(
             }
         }
         Some(t) => {
-            quote_spanned! {fun.span()=> (#t).to_owned()}
+            quote_spanned! {fun.span()=> {
+                // TODO(nga): return `Ty`.
+                let ty = starlark::typing::Ty::parse(#t).unwrap();
+                ty.to_string()
+            }}
         }
     }
 }

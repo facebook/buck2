@@ -614,7 +614,7 @@ fn cmd_args<'v>(x: Value<'v>) -> FieldsRef<'v, impl Fields<'v>> {
 fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// A list of arguments to be added to the command line, which may including `cmd_args`, artifacts, strings, `RunInfo` or lists thereof.
     /// Note that this operation mutates the input `cmd_args`.
-    #[starlark(return_type = "cmd_args")]
+    #[starlark(return_type = "\"cmd_args\"")]
     fn add<'v>(
         this: Value<'v>,
         #[starlark(args)] args: Vec<Value<'v>>,
@@ -628,7 +628,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     ///
     /// Typically used if the command you are running implicitly depends on files that are not
     /// passed on the command line, e.g. headers in the case of a C compilation.
-    #[starlark(return_type = "cmd_args")]
+    #[starlark(return_type = "\"cmd_args\"")]
     fn hidden<'v>(
         this: Value<'v>,
         #[starlark(args)] args: Vec<Value<'v>>,
@@ -653,7 +653,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     ///
     /// If you actually do use the inputs referenced by this command, you will either error out due to missing dependencies (if running actions remotely)
     /// or have untracked dependencies that will fail to rebuild when it should.
-    #[starlark(return_type = "cmd_args")]
+    #[starlark(return_type = "\"cmd_args\"")]
     fn ignore_artifacts<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.options_mut().ignore_artifacts = true;
         Ok(this)
@@ -669,7 +669,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     ///     original_script.relative_to(dir)
     /// ]
     /// ```
-    #[starlark(return_type = "cmd_args")]
+    #[starlark(return_type = "\"cmd_args\"")]
     fn relative_to<'v>(
         this: Value<'v>,
         #[starlark(type = "[artifact.type, \"cell_root\"]")] directory: Value<'v>,
@@ -691,7 +691,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// ```python
     /// cmd_args(script).absolute_prefix("$ROOT/")
     /// ```
-    #[starlark(return_type = "cmd_args")]
+    #[starlark(return_type = "\"cmd_args\"")]
     fn absolute_prefix<'v>(this: Value<'v>, prefix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.options_mut().absolute_prefix = Some(prefix);
         Ok(this)
@@ -712,7 +712,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     ///
     /// Typically used when the file name is passed one way, and the directory another,
     /// e.g. `cmd_args(artifact, format="-L{}").parent()`.
-    #[starlark(return_type = "cmd_args")]
+    #[starlark(return_type = "\"cmd_args\"")]
     fn parent<'v>(
         this: Value<'v>,
         #[starlark(require = pos, default = 1u32)] count: u32,
@@ -723,7 +723,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
 
     /// Replaces all parts matching pattern regular expression in each argument with replacement string.
     /// Several replacements can be added by multiple replace_regex calls.
-    #[starlark(return_type = "cmd_args")]
+    #[starlark(return_type = "\"cmd_args\"")]
     fn replace_regex<'v>(
         this: Value<'v>,
         pattern: StringValue<'v>,

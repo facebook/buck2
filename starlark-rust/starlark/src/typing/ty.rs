@@ -48,6 +48,12 @@ use crate::syntax::Dialect;
 use crate::typing::ctx::TypingContext;
 use crate::typing::oracle::traits::TypingAttr;
 
+#[derive(Debug, thiserror::Error)]
+enum TyError {
+    #[error("Could not parse type expression: `{0}`")]
+    ParseError(String),
+}
+
 /// A typing operation wasn't able to produce a precise result,
 /// so made some kind of approximation.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -804,6 +810,14 @@ impl Ty {
     }
 
     pub(crate) fn from_docs_type(ty: &Option<DocType>) -> Self {
+        match ty {
+            None => Ty::Any,
+            Some(x) => Ty::parse(&x.raw_type).unwrap_or_else(|_| Ty::Any),
+        }
+    }
+
+    /// Best attempt to parse serialized type.
+    pub fn parse(s: &str) -> anyhow::Result<Ty> {
         fn get_expr(x: &AstStmt) -> Option<&AstExpr> {
             match &x.node {
                 StmtP::Statements(x) if x.len() == 1 => get_expr(&x[0]),
@@ -812,18 +826,16 @@ impl Ty {
             }
         }
 
-        match ty {
-            None => Ty::Any,
-            Some(x) => {
-                if let Ok(ast) = AstModule::parse("type", x.raw_type.clone(), &Dialect::Standard) {
-                    if let Some(expr) = &get_expr(&ast.statement) {
-                        // We just ignore the approximations, given we ignore lots of other type details
-                        return Ty::from_expr(expr, &mut Vec::new());
-                    }
+        if let Ok(ast) = AstModule::parse("type", s.to_owned(), &Dialect::Standard) {
+            if let Some(expr) = &get_expr(&ast.statement) {
+                let approximations = &mut Vec::new();
+                let t = Ty::from_expr(expr, approximations);
+                if approximations.is_empty() {
+                    return Ok(t);
                 }
-                Ty::Any
             }
         }
+        Err(TyError::ParseError(s.to_owned()).into())
     }
 }
 

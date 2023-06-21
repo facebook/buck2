@@ -10,7 +10,7 @@ ResourceInfo = provider(fields = [
     # A map containing all resources from transitive dependencies.  The keys
     # are rule labels and the values are maps of resource names (the name used
     # to lookup the resource at runtime) and the actual resource artifact.
-    "resources",  # {"label": {str.type, ("artifact", ["hidden"])}}
+    "resources",  # {"label": {str.type: ("artifact", ["hidden"])}}
 ])
 
 def gather_resources(
