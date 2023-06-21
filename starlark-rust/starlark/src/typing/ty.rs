@@ -47,6 +47,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::ctx::TypingContext;
 use crate::typing::oracle::traits::TypingAttr;
+use crate::typing::TypingOracle;
 
 #[derive(Debug, thiserror::Error)]
 enum TyError {
@@ -646,36 +647,36 @@ impl Ty {
     }
 
     /// If you get to a point where these types are being checked, might they succeed
-    pub(crate) fn intersects(&self, other: &Self, ctx: Option<&TypingContext>) -> bool {
+    pub(crate) fn intersects(&self, other: &Self, oracle: Option<&dyn TypingOracle>) -> bool {
         if self.is_any() || self.is_void() || other.is_any() || other.is_void() {
             return true;
         }
 
         let equal_names = |x: &TyName, y: &TyName| {
             x == y
-                || match ctx {
+                || match oracle {
                     None => false,
-                    Some(ctx) => ctx.oracle.subtype(x, y) || ctx.oracle.subtype(y, x),
+                    Some(oracle) => oracle.subtype(x, y) || oracle.subtype(y, x),
                 }
         };
 
-        let itered = |ty: &Ty| ctx?.oracle.attribute(ty, TypingAttr::Iter)?.ok();
+        let itered = |ty: &Ty| oracle?.attribute(ty, TypingAttr::Iter)?.ok();
 
         for x in self.iter_union() {
             for y in other.iter_union() {
                 let b = match (x, y) {
                     (Ty::Name(x), Ty::Name(y)) => equal_names(x, y),
-                    (Ty::List(x), Ty::List(y)) => x.intersects(y, ctx),
+                    (Ty::List(x), Ty::List(y)) => x.intersects(y, oracle),
                     (Ty::Dict(x), Ty::Dict(y)) => {
-                        x.0.intersects(&y.0, ctx) && x.1.intersects(&y.1, ctx)
+                        x.0.intersects(&y.0, oracle) && x.1.intersects(&y.1, oracle)
                     }
                     (Ty::Tuple(_), t) | (Ty::Tuple(_), t) if t.is_name("tuple") => true,
                     (Ty::Tuple(xs), Ty::Tuple(ys)) if xs.len() == ys.len() => {
-                        std::iter::zip(xs, ys).all(|(x, y)| x.intersects(y, ctx))
+                        std::iter::zip(xs, ys).all(|(x, y)| x.intersects(y, oracle))
                     }
-                    (Ty::Iter(x), Ty::Iter(y)) => x.intersects(y, ctx),
+                    (Ty::Iter(x), Ty::Iter(y)) => x.intersects(y, oracle),
                     (Ty::Iter(x), y) | (y, Ty::Iter(x)) => match itered(y) {
-                        Some(yy) => x.intersects(&yy, ctx),
+                        Some(yy) => x.intersects(&yy, oracle),
                         None => false,
                     },
                     (Ty::Function(_), Ty::Function(_)) => true,

@@ -273,7 +273,7 @@ impl TypingContext<'_> {
     }
 
     pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {
-        if !got.intersects(require, Some(self)) {
+        if !got.intersects(require, Some(self.oracle)) {
             self.add_error(
                 span,
                 TypingError::IncompatibleType {
