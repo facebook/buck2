@@ -19,6 +19,10 @@ load(
     "breadth_first_traversal_by",
 )
 load(
+    "@prelude//utils:strings.bzl",
+    "strip_prefix",
+)
+load(
     "@prelude//utils:utils.bzl",
     "map_val",
     "value_or",
@@ -40,6 +44,16 @@ FilterType = enum(
     "pattern",
 )
 
+BuildTargetFilter = record(
+    pattern = field(BuildTargetPattern.type),
+    _type = field(FilterType.type, FilterType("pattern")),
+)
+
+LabelFilter = record(
+    regex = field("regex"),
+    _type = field(FilterType.type, FilterType("label")),
+)
+
 # Label for special group mapping which makes every target associated with it to be included in all groups
 MATCH_ALL_LABEL = "MATCH_ALL"
 
@@ -53,15 +67,8 @@ GroupMapping = record(
     root = field(["label", None], None),
     # The type of traversal to use.
     traversal = field(Traversal.type, Traversal("tree")),
-    # Optional filter type to apply to the traversal. If present,
-    # either `label_regex` or `build_target_pattern` is required.
-    filter_type = field([FilterType.type, None], None),
-    # Optional label regex filter to apply to the traversal. If present,
-    # the `filter_type` is required.
-    label_regex = field(["regex", None], None),
-    # Optional build target pattern to apply to the traversal. If present,
-    # the `filter_type` is required.
-    build_target_pattern = field([BuildTargetPattern.type, None], None),
+    # Optional filter type to apply to the traversal.
+    filters = field([[BuildTargetFilter.type, LabelFilter.type]], []),
     # Preferred linkage for this target when added to a link group.
     preferred_linkage = field([Linkage.type, None], None),
 )
@@ -131,13 +138,10 @@ def parse_groups_definitions(
         parsed_mappings = []
         for entry in mappings:
             traversal = _parse_traversal_from_mapping(entry[1])
-            filter_type, label_regex, build_target_pattern = _parse_filter_from_mapping(entry[2])
             mapping = GroupMapping(
                 root = map_val(parse_root, entry[0]),
                 traversal = traversal,
-                filter_type = filter_type,
-                label_regex = label_regex,
-                build_target_pattern = build_target_pattern,
+                filters = _parse_filter_from_mapping(entry[2]),
                 preferred_linkage = Linkage(entry[3]) if len(entry) > 3 and entry[3] else None,
             )
             parsed_mappings.append(mapping)
@@ -155,25 +159,31 @@ def _parse_traversal_from_mapping(entry: str.type) -> Traversal.type:
     else:
         fail("Unrecognized group traversal type: " + entry)
 
-def _parse_filter_from_mapping(entry: [str.type, None]) -> [(FilterType.type, "regex", None), (FilterType.type, None, BuildTargetPattern.type), (None, None, None)]:
-    filter_type = None
-    label_regex = None
-    build_target_pattern = None
-    if entry:
-        # We need the anchors "^"" and "$" because experimental_regex match anywhere in the text,
-        # while we want full text match for group label text.
-        if entry.startswith("label"):
-            filter_type = FilterType("label")
-            label_regex = experimental_regex("^{}$".format(entry[6:]))
-        elif entry.startswith("tag"):
-            filter_type = FilterType("label")
-            label_regex = experimental_regex("^{}$".format(entry[4:]))
-        elif entry.startswith("pattern"):
-            filter_type = FilterType("pattern")
-            build_target_pattern = parse_build_target_pattern(entry[8:])
-        else:
-            fail("Invalid group mapping filter: {}\nFilter must begin with `label:` or `pattern:`.".format(entry))
-    return filter_type, label_regex, build_target_pattern
+def _parse_filter(entry: str.type) -> [BuildTargetFilter.type, LabelFilter.type]:
+    for prefix in ("label:", "tag:"):
+        label_regex = strip_prefix(prefix, entry)
+        if label_regex != None:
+            # We need the anchors "^"" and "$" because experimental_regex match
+            # anywhere in the text, while we want full text match for group label
+            # text.
+            return LabelFilter(
+                regex = experimental_regex("^{}$".format(label_regex)),
+            )
+
+    pattern = strip_prefix("pattern:", entry)
+    if pattern != None:
+        return BuildTargetFilter(
+            pattern = parse_build_target_pattern(pattern),
+        )
+
+    fail("Invalid group mapping filter: {}\nFilter must begin with `label:`, `tag:`, or `pattern:`.".format(entry))
+
+def _parse_filter_from_mapping(entry: [[str.type], str.type, None]) -> [[BuildTargetFilter.type, LabelFilter.type]]:
+    if type(entry) == type([]):
+        return [_parse_filter(e) for e in entry]
+    if type(entry) == str.type:
+        return [_parse_filter(entry)]
+    return []
 
 def compute_mappings(groups: [Group.type], graph_map: {"label": "_b"}) -> {"label": str.type}:
     """
@@ -200,7 +210,7 @@ def _find_targets_in_mapping(
         graph_map: {"label": "_b"},
         mapping: GroupMapping.type) -> ["label"]:
     # If we have no filtering, we don't need to do any traversal to find targets to include.
-    if mapping.filter_type == None:
+    if not mapping.filters:
         if mapping.root == None:
             fail("no filter or explicit root given: {}", mapping)
         return [mapping.root]
@@ -208,17 +218,24 @@ def _find_targets_in_mapping(
     # Else find all dependencies that match the filter.
     matching_targets = {}
 
+    def any_labels_match(regex, labels):
+        # Use a for loop to avoid creating a temporary array in a BFS.
+        for label in labels:
+            if regex.match(label):
+                return True
+        return False
+
     def matches_target(
             target,  # "label"
             labels) -> bool.type:  # labels: [str.type]
-        if mapping.filter_type == FilterType("label"):
-            # Use a for loop to avoid creating a temporary array in a BFS.
-            for label in labels:
-                if mapping.label_regex.match(label):
-                    return True
-            return False
-        else:
-            return mapping.build_target_pattern.matches(target)
+        # All filters must match to select this node.
+        for filter in mapping.filters:
+            if filter._type == FilterType("label"):
+                if not any_labels_match(filter.regex, labels):
+                    return False
+            elif not filter.pattern.matches(target):
+                return False
+        return True
 
     def find_matching_targets(node):  # "label" -> ["label"]:
         graph_node = graph_map[node]

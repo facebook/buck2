@@ -53,15 +53,24 @@ def _v1_attrs(
 
     return attrs.list(
         attrs.tuple(
+            # name
             attrs.string(),
+            # list of mappings
             attrs.list(
+                # a single mapping
                 attrs.tuple(
+                    # root node
                     attrs_root,
+                    # traversal
                     attrs.enum(Traversal),
-                    attrs.option(attrs.string()),
+                    # filters, either `None`, a single filter, or a list of filters
+                    # (which must all match).
+                    attrs.option(attrs.one_of(attrs.list(attrs.string()), attrs.string())),
+                    # linkage
                     attrs.option(attrs.enum(Linkage)),
                 ),
             ),
+            # attributes
             attrs.option(
                 attrs.dict(key = attrs.string(), value = attrs.any(), sorted = False),
             ),
