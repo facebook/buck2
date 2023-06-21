@@ -257,7 +257,7 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
         def archive_linkable(lib):
             return ArchiveLinkable(
                 archive = Archive(artifact = lib),
-                linker_type = "unknown",
+                linker_type = "gnu",
             )
 
         def shared_linkable(lib):
@@ -610,6 +610,7 @@ def _make_package(
     return db
 
 def haskell_library_impl(ctx: "context") -> ["provider"]:
+    linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
     libname = repr(ctx.label.path).replace("//", "_").replace("/", "_") + "_" + ctx.label.name
     pkgname = libname.replace("_", "-")
 
@@ -697,7 +698,14 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
             lib = archive.artifact
             libs = [lib] + archive.external_objects
             link_infos[link_style] = LinkInfos(
-                default = LinkInfo(linkables = [ArchiveLinkable(archive = archive, linker_type = "unknown")]),
+                default = LinkInfo(
+                    linkables = [
+                        ArchiveLinkable(
+                            archive = archive,
+                            linker_type = linker_info.type,
+                        ),
+                    ],
+                ),
             )
 
         db = _make_package(ctx, link_style, pkgname, libstem, uniq_infos, compiled.hi, lib)
