@@ -181,6 +181,10 @@ impl StarlarkArtifactLike for StarlarkArtifact {
             }
         }
     }
+
+    fn get_artifact_group(&self) -> anyhow::Result<ArtifactGroup> {
+        Ok(ArtifactGroup::Artifact(self.get_bound_artifact()?))
+    }
 }
 
 impl CommandLineArgLike for StarlarkArtifact {

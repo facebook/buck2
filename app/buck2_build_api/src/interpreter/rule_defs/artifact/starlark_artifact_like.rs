@@ -18,6 +18,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::artifact_groups::promise::PromiseArtifactId;
+use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
@@ -70,6 +71,9 @@ pub trait StarlarkArtifactLike: Display {
         self.fingerprint().hash(hasher);
         Ok(())
     }
+
+    /// Gets the artifact group.
+    fn get_artifact_group(&self) -> anyhow::Result<ArtifactGroup>;
 }
 
 pub trait ValueAsArtifactLike<'v> {

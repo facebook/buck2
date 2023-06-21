@@ -84,7 +84,7 @@ impl UnregisteredSymlinkedDirAction {
             // TODO: Exclude other variants once they become available here. For now, this is a
             // noop.
             match g {
-                ArtifactGroup::Artifact(..) => {}
+                ArtifactGroup::Artifact(..) | ArtifactGroup::Promise(..) => {}
                 other => return Err(SymlinkedDirError::UnsupportedInput(other.dupe()).into()),
             };
         }
@@ -108,11 +108,10 @@ impl UnregisteredSymlinkedDirAction {
             .iter()
             .map(|(k, v)| {
                 let as_artifact = v.as_artifact().context("expecting dict value artifact")?;
-                let artifact = as_artifact.get_bound_artifact()?;
                 let associates = as_artifact.get_associated_artifacts();
                 anyhow::Ok((
                     (
-                        ArtifactGroup::Artifact(artifact),
+                        as_artifact.get_artifact_group()?,
                         ForwardRelativePathBuf::try_from(
                             k.unpack_str()
                                 .context("dict key must be a string")?
