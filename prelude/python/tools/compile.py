@@ -65,7 +65,6 @@ def main(argv):
         "--bytecode-manifest", required=True, type=argparse.FileType("w")
     )
     parser.add_argument("-f", "--format", default=DEFAULT_FORMAT)
-    parser.add_argument("-i", "--ignore-errors", action="store_true")
     parser.add_argument(
         "--invalidation-mode",
         type=str,
@@ -98,7 +97,7 @@ def main(argv):
                 src,
                 cfile=pyc,
                 dfile=get_py_path(module),
-                doraise=not args.ignore_errors,
+                doraise=True,
                 invalidation_mode=invalidation_mode,
             )
             bytecode_manifest.append((dest_pyc, pyc, src))

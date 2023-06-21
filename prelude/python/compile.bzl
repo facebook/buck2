@@ -26,8 +26,7 @@ def compile_manifests(
 def compile_manifests_for_mode(
         ctx: "context",
         manifests: [ManifestInfo.type],
-        invalidation_mode: PycInvalidationMode.type = PycInvalidationMode("UNCHECKED_HASH"),
-        ignore_errors: bool.type = False) -> ManifestInfo.type:
+        invalidation_mode: PycInvalidationMode.type = PycInvalidationMode("UNCHECKED_HASH")) -> ManifestInfo.type:
     output = ctx.actions.declare_output("bytecode_{}".format(invalidation_mode.value), dir = True)
     bytecode_manifest = ctx.actions.declare_output("bytecode_{}.manifest".format(invalidation_mode.value))
     cmd = cmd_args(ctx.attrs._python_toolchain[PythonToolchainInfo].host_interpreter)
@@ -35,8 +34,6 @@ def compile_manifests_for_mode(
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(cmd_args(bytecode_manifest.as_output(), format = "--bytecode-manifest={}"))
     cmd.add("--invalidation-mode={}".format(invalidation_mode.value))
-    if ignore_errors:
-        cmd.add("--ignore-errors")
 
     for manifest in manifests:
         cmd.add(manifest.manifest)
