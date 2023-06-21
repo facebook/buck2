@@ -239,7 +239,7 @@ def _prebuilt_item(
         return item
 
     if platform_items != None:
-        items = cxx_by_platform(ctx, platform_items)
+        items = dedupe(cxx_by_platform(ctx, platform_items))
         if len(items) == 0:
             return None
         if len(items) != 1:
