@@ -46,7 +46,19 @@ use crate::io::IoProvider;
 pub struct EdenIoProvider {
     manager: EdenConnectionManager,
     fs: FsIoProvider,
-    v2: bool,
+    version: Version,
+}
+
+#[derive(Allocative, Copy, Clone, Dupe)]
+enum Version {
+    V2(Digest),
+    V1,
+}
+
+#[derive(Allocative, Copy, Clone, Dupe)]
+enum Digest {
+    Sha1,
+    Blake3Keyed,
 }
 
 impl EdenIoProvider {
@@ -61,10 +73,26 @@ impl EdenIoProvider {
             return Ok(None);
         }
 
-        let min_eden_version = if v2 {
-            "20220905-214046"
+        let (version, min_eden_version) = if cas_digest_config.source_files_config().allows_sha1() {
+            if v2 {
+                (Version::V2(Digest::Sha1), "20220905-214046")
+            } else {
+                (Version::V1, "20220720-094125")
+            }
+        } else if cas_digest_config
+            .source_files_config()
+            .allows_blake3_keyed()
+        {
+            if v2 {
+                (Version::V2(Digest::Blake3Keyed), "20230612-191714")
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Enabling Blake3 for source files requires Eden I/O v2"
+                ));
+            }
         } else {
-            "20220720-094125"
+            tracing::warn!("Disabling Eden I/O: Digest config is not compatible with Eden version");
+            return Ok(None);
         };
 
         static EDEN_SEMAPHORE: EnvHelper<usize> = EnvHelper::new("BUCK2_EDEN_SEMAPHORE");
@@ -96,15 +124,10 @@ impl EdenIoProvider {
             tracing::warn!("You are using a development version of Eden, enabling Eden I/O");
         }
 
-        if !cas_digest_config.allows_sha1() {
-            tracing::warn!("Disabling Eden I/O: your digest config does not allow SHA1");
-            return Ok(None);
-        }
-
         Ok(Some(Self {
             manager,
             fs: FsIoProvider::new(fs.dupe(), cas_digest_config),
-            v2,
+            version,
         }))
     }
 
@@ -202,6 +225,7 @@ impl EdenIoProvider {
     async fn read_path_metadata_if_exists_v2(
         &self,
         path: ProjectRelativePathBuf,
+        digest: Digest,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         use edenfs::types::GetAttributesFromFilesParams;
 
@@ -212,8 +236,14 @@ impl EdenIoProvider {
 
         let _guard = IoCounterKey::StatEden.guard();
 
+        let hash_attribute = match digest {
+            Digest::Sha1 => FileAttributes::SHA1_HASH,
+            // The only digests we get out of Eden are Blake3-keyed.
+            Digest::Blake3Keyed => FileAttributes::BLAKE3_HASH,
+        };
+
         let requested_attributes = i64::from(
-            i32::from(FileAttributes::SHA1_HASH)
+            i32::from(hash_attribute)
                 | i32::from(FileAttributes::FILE_SIZE)
                 | i32::from(FileAttributes::SOURCE_CONTROL_TYPE),
         );
@@ -266,17 +296,31 @@ impl EdenIoProvider {
                     .try_into()
                     .context("Eden returned an invalid size")?;
 
-                let sha1 = data
-                    .sha1
-                    .context("Eden did not return a sha1")?
-                    .into_result()
-                    .context("Eden returned an error for sha1")?
-                    .try_into()
-                    .ok()
-                    .context("Eden returned an invalid sha1")?;
-
                 tracing::debug!("getAttributesFromFilesV2({}): ok", path,);
-                let digest = FileDigest::new_sha1(sha1, size);
+                let digest = match digest {
+                    Digest::Sha1 => {
+                        let sha1 = data
+                            .sha1
+                            .context("Eden did not return a sha1")?
+                            .into_result()
+                            .context("Eden returned an error for sha1")?
+                            .try_into()
+                            .ok()
+                            .context("Eden returned an invalid sha1")?;
+                        FileDigest::new_sha1(sha1, size)
+                    }
+                    Digest::Blake3Keyed => {
+                        let blake3 = data
+                            .blake3
+                            .context("Eden did not return a blake3")?
+                            .into_result()
+                            .context("Eden returned an error for blake3")?
+                            .try_into()
+                            .ok()
+                            .context("Eden returned an invalid blake3")?;
+                        FileDigest::new_blake3_keyed(blake3, size)
+                    }
+                };
 
                 let digest = TrackedFileDigest::new(digest, self.fs.cas_digest_config());
 
@@ -389,10 +433,9 @@ impl IoProvider for EdenIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        if self.v2 {
-            Self::read_path_metadata_if_exists_v2(self, path).await
-        } else {
-            Self::read_path_metadata_if_exists(self, path).await
+        match self.version {
+            Version::V2(digest) => Self::read_path_metadata_if_exists_v2(self, path, digest).await,
+            Version::V1 => Self::read_path_metadata_if_exists(self, path).await,
         }
     }
 

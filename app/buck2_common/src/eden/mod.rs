@@ -470,6 +470,8 @@ impl_eden_data_into_result!(SizeOrError, i64, size);
 
 impl_eden_data_into_result!(Sha1OrError, BinaryHash, sha1);
 
+impl_eden_data_into_result!(Blake3OrError, BinaryHash, blake3);
+
 impl_eden_data_into_result!(
     DirListAttributeDataOrError,
     SortedVectorMap<PathString, FileAttributeDataOrErrorV2>,
