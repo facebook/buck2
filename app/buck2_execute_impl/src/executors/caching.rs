@@ -23,12 +23,13 @@ use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
+use buck2_execute::execute::cache_uploader::CacheUploadInfo;
+use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
-use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
@@ -73,16 +74,11 @@ impl CacheUploader {
     /// The CacheUploader should only be used if cache uploads are enabled.
     async fn maybe_perform_cache_upload(
         &self,
-        request: &CommandExecutionRequest,
         target: &dyn CommandExecutionTarget,
         digest: &ActionDigest,
         result: &CommandExecutionResult,
         digest_config: DigestConfig,
     ) -> anyhow::Result<Option<CacheUploadOutcome>> {
-        if !request.allow_cache_upload() {
-            return Ok(None);
-        }
-
         let output_bytes = result.calc_output_size_bytes();
 
         match &result.report.status {
@@ -347,15 +343,17 @@ impl PreparedCommandExecutor for CacheUploader {
         let mut res = self.inner.exec_cmd(command, manager, cancellations).await;
 
         // TODO(bobyf, torozco) should these be critical sections?
-        let upload_res = self
-            .maybe_perform_cache_upload(
-                command.request,
+        let upload_res = if command.request.allow_cache_upload() {
+            self.maybe_perform_cache_upload(
                 command.target.dupe(),
                 &command.prepared_action.action,
                 &res,
                 command.digest_config,
             )
-            .await;
+            .await
+        } else {
+            Ok(None)
+        };
 
         match upload_res {
             Ok(Some(CacheUploadOutcome::Success)) => {
@@ -416,6 +414,49 @@ enum CacheUploadRejectionReason {
     SymlinkOutput,
     #[display(fmt = "OutputExceedsLimit({})", max_bytes)]
     OutputExceedsLimit { max_bytes: u64 },
+}
+
+#[async_trait]
+impl UploadCache for CacheUploader {
+    async fn upload(
+        &self,
+        info: &CacheUploadInfo<'_>,
+        res: &CommandExecutionResult,
+    ) -> anyhow::Result<bool> {
+        let error_on_cache_upload = match ERROR_ON_CACHE_UPLOAD.get_copied() {
+            Ok(r) => r.unwrap_or_default(),
+            Err(e) => return Err(e).context("cache_upload"),
+        };
+        let action = &info.action_digest;
+
+        // TODO(bobyf, torozco) should these be critical sections?
+        let upload_res = self
+            .maybe_perform_cache_upload(info.target.dupe(), action, res, info.digest_config)
+            .await;
+
+        match upload_res {
+            Ok(Some(CacheUploadOutcome::Success)) => {
+                tracing::info!("Cache upload for `{}` succeeded", action);
+                Ok(true)
+            }
+            Ok(Some(CacheUploadOutcome::Rejected(reason))) => {
+                tracing::info!("Cache upload for `{}` rejected: {:#}", action, reason);
+                Ok(false)
+            }
+            Ok(None) => {
+                tracing::info!("Cache upload for `{}` not attempted", action);
+                Ok(false)
+            }
+            Err(error) => {
+                if error_on_cache_upload {
+                    return Err(error).context("cache_upload");
+                } else {
+                    tracing::warn!("Cache upload for `{}` failed: {:#}", action, error);
+                }
+                Ok(false)
+            }
+        }
+    }
 }
 
 fn systemtime_to_ttimestamp(time: SystemTime) -> anyhow::Result<TTimestamp> {
