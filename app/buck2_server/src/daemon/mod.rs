@@ -13,6 +13,7 @@ pub mod daemon_tcp;
 pub mod dice_dump;
 pub mod disk_state;
 pub mod forkserver;
+pub(crate) mod io_provider;
 mod multi_event_stream;
 pub mod panic;
 pub mod server;

@@ -72,6 +72,7 @@ use crate::daemon::disk_state::delete_unknown_disk_state;
 use crate::daemon::disk_state::maybe_initialize_materializer_sqlite_db;
 use crate::daemon::disk_state::DiskStateOptions;
 use crate::daemon::forkserver::maybe_launch_forkserver;
+use crate::daemon::io_provider::create_io_provider;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
@@ -345,7 +346,7 @@ impl DaemonState {
             .roll();
 
         let (io, _, (materializer_db, materializer_state)) = futures::future::try_join3(
-            buck2_common::io::create_io_provider(
+            create_io_provider(
                 fb,
                 fs.dupe(),
                 legacy_configs.get(cells.root_cell()).ok(),
