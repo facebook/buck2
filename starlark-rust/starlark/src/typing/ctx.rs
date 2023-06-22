@@ -471,7 +471,15 @@ impl TypingContext<'_> {
                             Ty::Any
                         }
                     }
-                    Some(ResolvedIdent::Global(_)) => self.builtin(&x.node.0, x.span),
+                    Some(ResolvedIdent::Global(g)) => {
+                        if g.unpack_bool().is_some() {
+                            Ty::bool()
+                        } else if g.is_none() {
+                            Ty::none()
+                        } else {
+                            self.builtin(&x.node.0, x.span)
+                        }
+                    }
                     None => {
                         // All identifiers must be resolved at this point,
                         // but we don't stop after scope resolution error,
