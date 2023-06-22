@@ -9,10 +9,6 @@ rust_library(
         ["src/**/*.rs"],
     ),
     doctests = False,  # FIXME
-    named_deps = {
-        "edenfs": "//eden/fs/service:thrift-rust",
-        "fb303_core": "//fb303/thrift:fb303_core-rust",
-    },
     os_deps = [
         (
             "linux",
@@ -63,7 +59,6 @@ rust_library(
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:ipnetwork",
         "fbsource//third-party/rust:itertools",
-        "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:num_enum",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:parking_lot",
@@ -84,7 +79,6 @@ rust_library(
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-rustls",
         "fbsource//third-party/rust:tokio-util",
-        "fbsource//third-party/rust:toml",
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
@@ -102,8 +96,5 @@ rust_library(
         "//buck2/shed/more_futures:more_futures",
         # @oss-disable: "//common/rust/cpe:cpe", 
         "//common/rust/folly/memory:memory",
-        "//common/rust/shed/fbinit:fbinit",
-        "//common/rust/shed/sorted_vector_map:sorted_vector_map",
-        "//common/rust/thrift/bareclient:thriftclient",
     ],
 )

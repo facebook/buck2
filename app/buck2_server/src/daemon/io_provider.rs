@@ -38,7 +38,7 @@ pub async fn create_io_provider(
             .roll();
 
         if allow_eden_io {
-            if let Some(eden) = buck2_common::io::eden::EdenIoProvider::new(
+            if let Some(eden) = buck2_eden::io_provider::EdenIoProvider::new(
                 fb,
                 &project_fs,
                 cas_digest_config,

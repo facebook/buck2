@@ -1,0 +1,35 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_eden",
+    srcs = glob(["src/**/*.rs"]),
+    named_deps = {
+        "edenfs": "//eden/fs/service:thrift-rust",
+        "fb303_core": "//fb303/thrift:fb303_core-rust",
+    },
+    test_deps = [
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:compact_str",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:libc",
+        "fbsource//third-party/rust:parking_lot",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:toml",
+        "fbsource//third-party/rust:tracing",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_common:buck2_common",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/gazebo/dupe:dupe",
+        "//common/rust/shed/fbinit:fbinit",
+        "//common/rust/shed/sorted_vector_map:sorted_vector_map",
+        "//common/rust/thrift/bareclient:thriftclient",
+    ],
+)

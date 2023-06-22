@@ -25,7 +25,6 @@ hyper-rustls = { workspace = true }
 indexmap = { workspace = true }
 ipnetwork = { workspace = true }
 itertools = { workspace = true }
-libc = { workspace = true }
 once_cell = { workspace = true }
 pin-project = { workspace = true }
 prost-types = { workspace = true }
@@ -47,16 +46,12 @@ num_enum = { workspace = true }
 derivative = { workspace = true }
 parking_lot = { workspace = true }
 tokio-util = { workspace = true }
-toml = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
 
 allocative = { workspace = true }
 dice = { workspace = true }
-# @oss-disable: edenfs = { package = "thrift", path = "../../../eden/fs/service" }
-fbinit = { workspace = true }
-# @oss-disable: fb303_core = { package = "fb303_core", path = "../../../fb303/thrift" }
 gazebo = { workspace = true }
 dupe = { workspace = true }
 gazebo_lint.version = "0.1"
@@ -65,7 +60,6 @@ gazebo_lint.optional = true
 cmp_any = { workspace = true }
 internment_tweaks = { path = "../../shed/internment_tweaks" }
 more_futures = { workspace = true }
-sorted_vector_map = { workspace = true }
 
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }

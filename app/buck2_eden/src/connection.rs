@@ -18,6 +18,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_common::result::SharedResult;
 use buck2_core;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -44,8 +45,6 @@ use serde::Deserialize;
 use sorted_vector_map::SortedVectorMap;
 use thiserror::Error;
 use tokio::sync::Semaphore;
-
-use crate::result::SharedResult;
 
 #[derive(Allocative)]
 pub struct EdenConnectionManager {

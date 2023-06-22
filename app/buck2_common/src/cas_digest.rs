@@ -240,11 +240,9 @@ impl CasDigestConfig {
         )
     }
 
-    /// Access the config for source files. Note that:
-    ///
-    /// - This method isn't public because it really should only be called by methods in file_ops.
-    /// - There is no method to go back to the non-source config.
-    pub(crate) fn source_files_config(self) -> Self {
+    /// Access the config for source files. Note that there is no method to go back to the
+    /// non-source config.
+    pub fn source_files_config(self) -> Self {
         match &self.inner.source {
             SourceFilesConfig::UseSelf => self,
             SourceFilesConfig::UseThis(other) => Self { inner: other },

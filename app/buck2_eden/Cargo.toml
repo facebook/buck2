@@ -1,0 +1,30 @@
+[package]
+name = "buck2_eden"
+version = "0.1.0"
+edition = "2021"
+description = "Eden integration for Buck2"
+license = "MIT OR Apache-2.0"
+authors = ["Meta"]
+
+[dependencies]
+anyhow = { workspace = true }
+allocative = { workspace = true }
+async-trait = { workspace = true }
+buck2_common = { workspace = true }
+buck2_core = { workspace = true }
+compact_str = { workspace = true }
+dupe = { workspace = true }
+# @oss-disable: edenfs = { package = "thrift", path = "../../../eden/fs/service" }
+# @oss-disable: fb303_core = { package = "fb303_core", path = "../../../fb303/thrift" }
+fbinit = { workspace = true }
+futures = { workspace = true }
+libc = { workspace = true }
+parking_lot = { workspace = true }
+serde = { workspace = true }
+sorted_vector_map = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]

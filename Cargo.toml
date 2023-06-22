@@ -71,6 +71,7 @@ members = [
     "app/buck2_critical_path",
     "app/buck2_build_signals",
     "app/buck2_build_signals_impl",
+    "app/buck2_eden",
     "dice/dice",
     "dice/dice_examples",
     "dice/dice_tests",
@@ -362,6 +363,7 @@ buck2_wrapper_common = { path = "app/buck2_wrapper_common" }
 buck2_critical_path = { path = "app/buck2_critical_path" }
 buck2_build_signals = { path = "app/buck2_build_signals" }
 buck2_build_signals_impl = { path = "app/buck2_build_signals_impl" }
+buck2_eden = { path = "app/buck2_eden" }
 
 [profile.release]
 incremental = true

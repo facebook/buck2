@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-#[cfg(any(fbcode_build, cargo_internal_build))]
-pub mod eden;
-
 pub mod fs;
 pub mod trace;
 

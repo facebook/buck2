@@ -13,6 +13,15 @@
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::cas_digest::CasDigestConfig;
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::FileType;
+use buck2_common::file_ops::RawDirEntry;
+use buck2_common::file_ops::RawPathMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::io::fs::FsIoProvider;
+use buck2_common::io::IoProvider;
 use buck2_core;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
@@ -22,6 +31,7 @@ use buck2_core::soft_error;
 use compact_str::CompactString;
 use dupe::Dupe;
 use edenfs::types::FileAttributes;
+use edenfs::types::GetAttributesFromFilesParams;
 use edenfs::types::ReaddirParams;
 use edenfs::types::SourceControlType;
 use edenfs::types::SyncBehavior;
@@ -33,14 +43,9 @@ use libc::ENOENT;
 use libc::ENOTDIR;
 use tokio::sync::Semaphore;
 
-use crate::cas_digest::CasDigestConfig;
-use crate::eden::EdenConnectionManager;
-use crate::eden::EdenDataIntoResult;
-use crate::file_ops::FileType;
-use crate::file_ops::RawDirEntry;
-use crate::file_ops::RawPathMetadata;
-use crate::io::fs::FsIoProvider;
-use crate::io::IoProvider;
+use crate::connection::EdenConnectionManager;
+use crate::connection::EdenDataIntoResult;
+use crate::connection::EdenError;
 
 #[derive(Allocative)]
 pub struct EdenIoProvider {
@@ -135,13 +140,6 @@ impl EdenIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        use edenfs::types::GetAttributesFromFilesParams;
-
-        use crate::eden::EdenError;
-        use crate::file_ops::FileDigest;
-        use crate::file_ops::FileMetadata;
-        use crate::file_ops::TrackedFileDigest;
-
         let _guard = IoCounterKey::StatEden.guard();
 
         let requested_attributes = i64::from(
@@ -227,13 +225,6 @@ impl EdenIoProvider {
         path: ProjectRelativePathBuf,
         digest: Digest,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        use edenfs::types::GetAttributesFromFilesParams;
-
-        use crate::eden::EdenError;
-        use crate::file_ops::FileDigest;
-        use crate::file_ops::FileMetadata;
-        use crate::file_ops::TrackedFileDigest;
-
         let _guard = IoCounterKey::StatEden.guard();
 
         let hash_attribute = match digest {

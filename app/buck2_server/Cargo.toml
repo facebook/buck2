@@ -70,6 +70,7 @@ buck2_events = { workspace = true }
 buck2_server_starlark_debug = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
+buck2_eden = { workspace = true }
 host_sharing = { workspace = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]

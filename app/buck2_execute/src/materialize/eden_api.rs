@@ -14,12 +14,12 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_common::eden::EdenConnectionManager;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_eden::connection::EdenConnectionManager;
 use buck2_util::process::background_command;
 use edenfs::client::EdenService;
 use edenfs::CheckoutMode;
