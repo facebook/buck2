@@ -36,6 +36,7 @@ use crate::values::float::StarlarkFloat;
 use crate::values::int::INT_TYPE;
 use crate::values::list::AllocList;
 use crate::values::list::ListRef;
+use crate::values::never::StarlarkNever;
 use crate::values::none::NoneType;
 use crate::values::range::Range;
 use crate::values::string::STRING_TYPE;
@@ -149,8 +150,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// fail("oops", 1, False)  # fail: oops 1 False
     /// # "#, "oops 1 False");
     /// ```
-    #[starlark(return_type = "\"never\"")]
-    fn fail(#[starlark(args)] args: Vec<Value>) -> anyhow::Result<NoneType> {
+    fn fail(#[starlark(args)] args: Vec<Value>) -> anyhow::Result<StarlarkNever> {
         let mut s = String::new();
         for x in args {
             s.push(' ');
