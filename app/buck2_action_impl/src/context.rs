@@ -169,7 +169,7 @@ fn create_dir_tree<'v>(
     Ok(value)
 }
 
-fn copy_file<'v>(
+fn copy_file_impl<'v>(
     eval: &mut Evaluator<'v, '_>,
     this: &AnalysisActions<'v>,
     dest: Value<'v>,
@@ -480,7 +480,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
-        copy_file(
+        copy_file_impl(
             eval,
             this,
             dest,
@@ -500,7 +500,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
-        copy_file(
+        copy_file_impl(
             eval,
             this,
             dest,
@@ -518,7 +518,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        copy_file(eval, this, dest, src, CopyMode::Copy, OutputType::Directory)
+        copy_file_impl(eval, this, dest, src, CopyMode::Copy, OutputType::Directory)
     }
 
     /// Create a symlink to a directory.
@@ -529,7 +529,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        copy_file(
+        copy_file_impl(
             eval,
             this,
             dest,
