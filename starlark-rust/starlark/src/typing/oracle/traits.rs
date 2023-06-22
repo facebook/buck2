@@ -135,13 +135,6 @@ pub trait TypingOracle {
     }
 }
 
-/// Declare that there are no builtins, usually used at the end of a [`Vec`].
-#[cfg(test)]
-pub(crate) struct OracleNoBuiltins;
-
-#[cfg(test)]
-impl TypingOracle for OracleNoBuiltins {}
-
 /// Declare that there are no attributes, usually used at the end of a [`Vec`].
 #[cfg(test)]
 pub(crate) struct OracleNoAttributes;

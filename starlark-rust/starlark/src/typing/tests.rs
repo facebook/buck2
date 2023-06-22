@@ -28,7 +28,6 @@ use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::oracle::traits::OracleNoAttributes;
-use crate::typing::oracle::traits::OracleNoBuiltins;
 use crate::typing::oracle::traits::OracleSeq;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::ty::TyStruct;
@@ -44,11 +43,7 @@ fn mk_oracle() -> impl TypingOracle {
     static ORACLE: Lazy<OracleSeq<Box<dyn TypingOracle + Send + Sync + 'static>>> =
         Lazy::new(|| {
             let standard = OracleStandard::new(LibraryExtension::all());
-            OracleSeq(vec![
-                Box::new(standard),
-                Box::new(OracleNoBuiltins),
-                Box::new(OracleNoAttributes),
-            ])
+            OracleSeq(vec![Box::new(standard), Box::new(OracleNoAttributes)])
         });
     &*ORACLE
 }
