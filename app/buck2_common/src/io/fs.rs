@@ -16,6 +16,8 @@ use async_trait::async_trait;
 use buck2_core;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -153,6 +155,19 @@ impl IoProvider for FsIoProvider {
     }
 }
 
+/// A path and the corresponding absolute path.
+struct PathAndAbsPath {
+    path: ForwardRelativePathBuf,
+    abspath: AbsNormPathBuf,
+}
+
+impl PathAndAbsPath {
+    fn push(&mut self, name: &FileName) {
+        self.path.push(name);
+        self.abspath.push(name);
+    }
+}
+
 fn read_path_metadata<P: AsRef<AbsNormPath>>(
     root: P,
     relpath: &ForwardRelativePath,
@@ -170,40 +185,45 @@ fn read_path_metadata<P: AsRef<AbsNormPath>>(
 
     let curr_abspath_capacity = curr_abspath.capacity();
 
-    let mut curr_path = ForwardRelativePathBuf::with_capacity(curr_path_capacity);
+    let curr_path = ForwardRelativePathBuf::with_capacity(curr_path_capacity);
+
+    let mut curr = PathAndAbsPath {
+        path: curr_path,
+        abspath: curr_abspath,
+    };
 
     while let Some(c) = relpath_components.next() {
         // We track both paths so we don't need to convert the abspath back to a relative path if
         // we hit a symlink.
-        curr_abspath.push(c);
-        curr_path.push(c);
+        curr.push(c);
 
-        match fs_util::symlink_metadata_if_exists(&curr_abspath)? {
+        match fs_util::symlink_metadata_if_exists(&curr.abspath)? {
             Some(path_meta) => {
                 if path_meta.file_type().is_symlink() {
-                    let dest = curr_abspath.read_link()?;
+                    let dest = curr.abspath.read_link()?;
                     let rest = relpath_components.collect();
 
                     let out = if dest.is_absolute() {
                         RawPathMetadata::Symlink {
-                            at: curr_path,
+                            at: curr.path,
                             to: RawSymlink::External(Arc::new(ExternalSymlink::new(dest, rest)?)),
                         }
                     } else {
                         // Remove the symlink name.
-                        let mut link_path = curr_path
+                        let mut link_path = curr
+                            .path
                             .parent()
                             .expect("We pushed a component to this so it cannot be empty")
                             .join_system(&dest)
                             .with_context(|| {
-                                format!("Invalid symlink at `{}`: `{}`", curr_path, dest.display())
+                                format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
                             })?;
 
                         if let Some(rest) = rest {
                             link_path.push(&rest);
                         }
                         RawPathMetadata::Symlink {
-                            at: curr_path,
+                            at: curr.path,
                             to: RawSymlink::Relative(link_path),
                         }
                     };
@@ -225,8 +245,8 @@ fn read_path_metadata<P: AsRef<AbsNormPath>>(
     let meta = if meta.is_dir() {
         RawPathMetadata::Directory
     } else {
-        let digest = FileDigest::from_file(&curr_abspath, file_digest_config)
-            .with_context(|| format!("Error collecting file digest for `{}`", curr_path))?;
+        let digest = FileDigest::from_file(&curr.abspath, file_digest_config)
+            .with_context(|| format!("Error collecting file digest for `{}`", curr.path))?;
         let digest = TrackedFileDigest::new(digest, file_digest_config.as_cas_digest_config());
         RawPathMetadata::File(FileMetadata {
             digest,
@@ -235,8 +255,8 @@ fn read_path_metadata<P: AsRef<AbsNormPath>>(
     };
 
     if cfg!(test) {
-        assert!(curr_abspath.as_os_str().len() <= curr_abspath_capacity);
-        assert!(curr_path.as_str().len() <= curr_path_capacity);
+        assert!(curr.abspath.as_os_str().len() <= curr_abspath_capacity);
+        assert!(curr.path.as_str().len() <= curr_path_capacity);
     }
 
     Ok(Some(meta))
