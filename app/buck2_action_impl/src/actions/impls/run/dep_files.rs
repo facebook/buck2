@@ -19,6 +19,8 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::execute::action_execution_target::ActionExecutionTarget;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLineDigest;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -36,6 +38,7 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
+use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::expand_selector_for_dependencies;
@@ -56,6 +59,8 @@ use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 use thiserror::Error;
 use tracing::instrument;
+
+use crate::actions::impls::run::PreparedRunAction;
 
 #[allocative::root]
 static DEP_FILES: Lazy<DashMap<DepFilesKey, Arc<DepFileState>>> = Lazy::new(DashMap::new);
@@ -259,6 +264,74 @@ impl RunActionDepFiles {
         Self {
             labels: HashMap::new(),
         }
+    }
+}
+
+pub(crate) type LocalDepFileLookUpKey = (
+    DepFilesKey,
+    CommandDigests,
+    PartitionedInputs<Vec<ArtifactGroup>>,
+    DeclaredDepFiles,
+);
+
+pub(crate) fn make_local_dep_file_lookup_key(
+    ctx: &mut dyn ActionExecutionCtx,
+    visitor: DepFilesCommandLineVisitor<'_>,
+    prepared_action: &PreparedRunAction,
+) -> LocalDepFileLookUpKey {
+    let digests = CommandDigests {
+        cli: prepared_action.expanded.fingerprint(),
+        directory: prepared_action
+            .paths
+            .input_directory()
+            .fingerprint()
+            .data()
+            .dupe(),
+    };
+    let dep_files_key = DepFilesKey::from_action_execution_target(ctx.target());
+
+    let DepFilesCommandLineVisitor {
+        inputs: declared_inputs,
+        outputs: declared_dep_files,
+        ..
+    } = visitor;
+    (dep_files_key, digests, declared_inputs, declared_dep_files)
+}
+
+pub(crate) async fn check_local_dep_file_cache(
+    ctx: &mut dyn ActionExecutionCtx,
+    declared_outputs: &[BuildArtifact],
+    dep_files: &LocalDepFileLookUpKey,
+) -> anyhow::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
+    let (dep_files_key, digests, declared_inputs, declared_dep_files) = dep_files;
+
+    let matching_result = span_async(buck2_data::MatchDepFilesStart {}, async {
+        let res: anyhow::Result<_> = try {
+            match_or_clear_dep_file(
+                dep_files_key,
+                digests,
+                declared_inputs,
+                declared_outputs,
+                declared_dep_files,
+                ctx,
+            )
+            .await?
+        };
+
+        (res, buck2_data::MatchDepFilesEnd {})
+    })
+    .await?;
+
+    if let Some(matching_result) = matching_result {
+        Ok(Some((
+            matching_result,
+            ActionExecutionMetadata {
+                execution_kind: ActionExecutionKind::LocalDepFile,
+                timing: Default::default(),
+            },
+        )))
+    } else {
+        Ok(None)
     }
 }
 

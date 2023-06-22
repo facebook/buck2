@@ -16,7 +16,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
-use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLine;
@@ -34,10 +33,8 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::Category;
-use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::request::ActionMetadataBlob;
@@ -75,26 +72,16 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use thiserror::Error;
 
-use self::dep_files::DeclaredDepFiles;
-use self::dep_files::PartitionedInputs;
-use crate::actions::impls::run::dep_files::match_or_clear_dep_file;
+use crate::actions::impls::run::dep_files::check_local_dep_file_cache;
+use crate::actions::impls::run::dep_files::make_local_dep_file_lookup_key;
 use crate::actions::impls::run::dep_files::populate_dep_files;
-use crate::actions::impls::run::dep_files::CommandDigests;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
-use crate::actions::impls::run::dep_files::DepFilesKey;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::metadata::metadata_content;
 
 pub(crate) mod audit_dep_files;
 pub mod dep_files;
 mod metadata;
-
-type DepFileLookUpKey = (
-    DepFilesKey,
-    CommandDigests,
-    PartitionedInputs<Vec<ArtifactGroup>>,
-    DeclaredDepFiles,
-);
 
 #[derive(Debug, Error)]
 enum RunActionValidationError {
@@ -413,71 +400,9 @@ impl RunAction {
             worker,
         })
     }
-
-    fn make_dep_file_lookup_key(
-        &self,
-        ctx: &mut dyn ActionExecutionCtx,
-        visitor: DepFilesCommandLineVisitor<'_>,
-        prepared_action: &PreparedRunAction,
-    ) -> DepFileLookUpKey {
-        let digests = CommandDigests {
-            cli: prepared_action.expanded.fingerprint(),
-            directory: prepared_action
-                .paths
-                .input_directory()
-                .fingerprint()
-                .data()
-                .dupe(),
-        };
-        let dep_files_key = DepFilesKey::from_action_execution_target(ctx.target());
-
-        let DepFilesCommandLineVisitor {
-            inputs: declared_inputs,
-            outputs: declared_dep_files,
-            ..
-        } = visitor;
-        (dep_files_key, digests, declared_inputs, declared_dep_files)
-    }
-
-    async fn check_dep_files(
-        &self,
-        ctx: &mut dyn ActionExecutionCtx,
-        dep_files: &DepFileLookUpKey,
-    ) -> anyhow::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
-        let (dep_files_key, digests, declared_inputs, declared_dep_files) = dep_files;
-
-        let matching_result = span_async(buck2_data::MatchDepFilesStart {}, async {
-            let res: anyhow::Result<_> = try {
-                match_or_clear_dep_file(
-                    dep_files_key,
-                    digests,
-                    declared_inputs,
-                    self.outputs.as_slice(),
-                    declared_dep_files,
-                    ctx,
-                )
-                .await?
-            };
-
-            (res, buck2_data::MatchDepFilesEnd {})
-        })
-        .await?;
-
-        if let Some(matching_result) = matching_result {
-            Ok(Some((
-                matching_result,
-                ActionExecutionMetadata {
-                    execution_kind: ActionExecutionKind::LocalDepFile,
-                    timing: Default::default(),
-                },
-            )))
-        } else {
-            Ok(None)
-        }
-    }
 }
 
-struct PreparedRunAction {
+pub(crate) struct PreparedRunAction {
     expanded: ExpandedCommandLine,
     extra_env: Option<(String, String)>,
     paths: CommandExecutionPaths,
@@ -609,7 +534,7 @@ impl IncrementalActionExecutable for RunAction {
         } else {
             let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
             let prepared = self.prepare(&mut visitor, ctx)?;
-            let dep_files = self.make_dep_file_lookup_key(ctx, visitor, &prepared);
+            let dep_files = make_local_dep_file_lookup_key(ctx, visitor, &prepared);
             (prepared, Some(dep_files))
         };
 
@@ -635,7 +560,9 @@ impl IncrementalActionExecutable for RunAction {
                 ControlFlow::Break(res) => (res?, dep_files),
                 ControlFlow::Continue(manager) => {
                     let dep_files = if let Some(dep_files) = dep_files {
-                        match self.check_dep_files(ctx, &dep_files).await? {
+                        match check_local_dep_file_cache(ctx, self.outputs.as_slice(), &dep_files)
+                            .await?
+                        {
                             Some(m) => {
                                 // We have a dep_file based match, return early
                                 return Ok(m);
