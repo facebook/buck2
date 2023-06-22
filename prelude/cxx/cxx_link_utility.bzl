@@ -101,20 +101,9 @@ def make_link_args(
     args = cmd_args()
     hidden = []
 
-    filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
-    hidden.extend(filelists)
-
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
     linker_type = linker_info.type
-    if filelists:
-        if linker_type == "gnu":
-            fail("filelist populated for gnu linker")
-        elif linker_type == "darwin":
-            path = ctx.actions.write("filelist%s.txt" % suffix, filelists)
-            args.add(["-Xlinker", "-filelist", "-Xlinker", path])
-        else:
-            fail("Linker type {} not supported".format(linker_type))
 
     # On Apple platforms, DWARF data is contained in the object files
     # and executables contains paths to the object files (N_OSO stab).
@@ -158,6 +147,19 @@ def make_link_args(
 
     for link in links:
         args.add(unpack_link_args(link, is_shared, link_ordering = link_ordering))
+
+    filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
+    hidden.extend(filelists)
+    if filelists:
+        if linker_type == "gnu":
+            fail("filelist populated for gnu linker")
+        elif linker_type == "darwin":
+            # On Darwin, filelist args _must_ come last as there's semantical difference
+            # of the position.
+            path = ctx.actions.write("filelist%s.txt" % suffix, filelists)
+            args.add(["-Xlinker", "-filelist", "-Xlinker", path])
+        else:
+            fail("Linker type {} not supported".format(linker_type))
 
     return (args, [args] + hidden, dwo_dir, pdb_artifact)
 
