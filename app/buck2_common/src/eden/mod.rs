@@ -402,7 +402,7 @@ impl_has_error_handling_strategy!(ReaddirError);
 
 #[derive(Debug, Error)]
 pub enum EdenError {
-    #[error("Eden POSIX error: {}", .error.message)]
+    #[error("Eden POSIX error (code = {}): {}", .code, .error.message)]
     PosixError {
         error: edenfs::types::EdenError,
         code: i32,
