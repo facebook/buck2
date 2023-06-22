@@ -16,7 +16,6 @@ use buck2_client_ctx::argv::Argv;
 use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonCommandOptions;
-use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
@@ -35,6 +34,7 @@ use walkdir::WalkDir;
 
 use crate::commands::clean_stale::parse_clean_stale_args;
 use crate::commands::clean_stale::CleanStaleCommand;
+use crate::commands::kill::kill_command_impl;
 
 /// Delete generated files and caches.
 ///
@@ -95,12 +95,9 @@ impl CleanCommand {
             )
             .await
             .with_context(|| "Error locking buckd lifecycle.lock")?;
-            if let Ok(mut buckd) = ctx
-                .connect_buckd(BuckdConnectOptions::existing_only_no_console())
-                .await
-            {
-                buckd.kill("`buck2 clean` was invoked").await?;
-            }
+
+            kill_command_impl(&ctx, "`buck2 clean` was invoked").await?;
+
             clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
         })
     }
