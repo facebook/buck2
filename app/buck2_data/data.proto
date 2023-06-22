@@ -999,6 +999,9 @@ message CommandExecutionDetails {
   // We should probably get the some more fields from CommandExecutionMetadata
   // in there.
   optional CommandExecutionStats execution_stats = 10;
+
+  // Time to materialize inputs for this command.
+  google.protobuf.Duration input_materialization_duration = 35;
 }
 
 message CommandOutputsMissing {

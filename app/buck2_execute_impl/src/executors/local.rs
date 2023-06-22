@@ -218,13 +218,17 @@ impl LocalExecutor {
             return manager.error("no_args", LocalExecutionError::NoArgs);
         }
 
-        match executor_stage_async(
+        let input_materialization_duration = match executor_stage_async(
             buck2_data::LocalStage {
                 stage: Some(buck2_data::LocalMaterializeInputs {}.into()),
             },
             async {
+                let start = Instant::now();
+
                 let (r1, r2) = future::join(
-                    materialize_inputs(&self.artifact_fs, &self.materializer, request),
+                    async {
+                        materialize_inputs(&self.artifact_fs, &self.materializer, request).await
+                    },
                     async {
                         // When user requests to not perform a cleanup for a specific action
                         // output from previous run of that action could actually be used as the
@@ -242,12 +246,14 @@ impl LocalExecutor {
                     },
                 )
                 .await;
-                r1.and(r2)
+
+                r1.and(r2)?;
+                anyhow::Ok(start.elapsed())
             },
         )
         .await
         {
-            Ok(_) => {}
+            Ok(input_materialization_duration) => input_materialization_duration,
             Err(e) => return manager.error("materialize_inputs_failed", e),
         };
 
@@ -440,6 +446,7 @@ impl LocalExecutor {
                     execution_time,
                     start_time,
                     execution_stats: None, // We fill this in later if available.
+                    input_materialization_duration,
                 };
 
                 (timing, r)

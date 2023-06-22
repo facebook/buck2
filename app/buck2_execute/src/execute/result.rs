@@ -100,6 +100,9 @@ pub struct CommandExecutionMetadata {
 
     /// Additional stats.
     pub execution_stats: Option<buck2_data::CommandExecutionStats>,
+
+    /// How long it took to materialize the action's inputs.
+    pub input_materialization_duration: Duration,
 }
 
 impl Default for CommandExecutionMetadata {
@@ -110,6 +113,7 @@ impl Default for CommandExecutionMetadata {
             execution_time: Duration::default(),
             start_time: SystemTime::now(),
             execution_stats: None,
+            input_materialization_duration: Duration::default(),
         }
     }
 }
