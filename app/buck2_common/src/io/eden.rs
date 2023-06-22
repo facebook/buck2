@@ -302,7 +302,6 @@ impl EdenIoProvider {
                 // ENOTDIR, that means we tried to traverse a path component that was a
                 // symlink. In both cases, we need to both a) handle ExternalSymlink and b)
                 // look through to the target, so we do that.
-                // TODO: It would be better to read the link then ask Eden for the SHA1.
                 tracing::debug!("getAttributesFromFilesV2({}): fallthrough", path);
                 self.fs.read_path_metadata_if_exists(path).await
             }
