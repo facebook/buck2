@@ -13,7 +13,6 @@ use buck2_common::convert::ProstDurationExt;
 use buck2_data::ActionKind;
 use buck2_data::ActionName;
 use buck2_data::BuckEvent;
-use buck2_data::SpanEndEvent;
 use buck2_data::StarlarkUserEvent;
 use serde::Deserialize;
 use serde::Serialize;
@@ -43,7 +42,7 @@ pub struct UserEvent {
 pub enum UserEventData {
     StarlarkUserEvent(StarlarkUserEvent),
     ActionExecutionEvent(ActionExecutionEndSimple),
-    // TODO(T155789092) - final artifact materialization
+    BxlEnsureArtifactsEvent(BxlEnsureArtifactsEvent),
 }
 
 /// Simplified version of ActionExecutionEnd.
@@ -56,36 +55,9 @@ pub struct ActionExecutionEndSimple {
     // TODO(T155789058) - emit inputs materialization time
 }
 
-impl ActionExecutionEndSimple {
-    fn try_get_action_execution_end(span_end_event: &SpanEndEvent) -> anyhow::Result<Option<Self>> {
-        match span_end_event
-            .data
-            .as_ref()
-            .context(SerializeUserEventError::MissingData(
-                "SpanEndEvent".to_owned(),
-            ))? {
-            buck2_data::span_end_event::Data::ActionExecution(action_execution) => {
-                let duration_millis = span_end_event
-                    .duration
-                    .as_ref()
-                    .context(SerializeUserEventError::MissingTimestamp)?
-                    .try_into_duration()?
-                    .as_millis() as u64;
-
-                Ok(Some(Self {
-                    kind: action_execution.kind(),
-                    name: action_execution
-                        .name
-                        .as_ref()
-                        .context(SerializeUserEventError::MissingName)?
-                        .clone(),
-                    duration_millis,
-                    output_size: action_execution.output_size,
-                }))
-            }
-            _ => Ok(None),
-        }
-    }
+#[derive(Serialize, Deserialize, Allocative, Clone)]
+pub struct BxlEnsureArtifactsEvent {
+    duration_millis: u64,
 }
 
 pub fn try_get_user_event_for_read(
@@ -124,12 +96,45 @@ pub(crate) fn try_get_user_event(buck_event: &BuckEvent) -> anyhow::Result<Optio
             }
         }
         buck2_data::buck_event::Data::SpanEnd(ref span_end_event) => {
-            match ActionExecutionEndSimple::try_get_action_execution_end(span_end_event)? {
-                Some(action_execution_event) => Ok(Some(UserEvent {
-                    data: UserEventData::ActionExecutionEvent(action_execution_event),
-                    epoch_millis,
-                })),
-                None => Ok(None),
+            let duration_millis = span_end_event
+                .duration
+                .as_ref()
+                .context(SerializeUserEventError::MissingTimestamp)?
+                .try_into_duration()?
+                .as_millis() as u64;
+
+            match span_end_event
+                .data
+                .as_ref()
+                .context(SerializeUserEventError::MissingData(
+                    "SpanEndEvent".to_owned(),
+                ))? {
+                buck2_data::span_end_event::Data::ActionExecution(action_execution) => {
+                    let action_event = ActionExecutionEndSimple {
+                        kind: action_execution.kind(),
+                        name: action_execution
+                            .name
+                            .as_ref()
+                            .context(SerializeUserEventError::MissingName)?
+                            .clone(),
+                        duration_millis,
+                        output_size: action_execution.output_size,
+                    };
+
+                    Ok(Some(UserEvent {
+                        data: UserEventData::ActionExecutionEvent(action_event),
+                        epoch_millis,
+                    }))
+                }
+                buck2_data::span_end_event::Data::BxlEnsureArtifacts(_) => {
+                    let bxl_ensure_artifacts = BxlEnsureArtifactsEvent { duration_millis };
+
+                    Ok(Some(UserEvent {
+                        data: UserEventData::BxlEnsureArtifactsEvent(bxl_ensure_artifacts),
+                        epoch_millis,
+                    }))
+                }
+                _ => Ok(None),
             }
         }
         _ => Ok(None),
