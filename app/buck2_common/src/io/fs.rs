@@ -15,8 +15,8 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -158,7 +158,7 @@ impl IoProvider for FsIoProvider {
 /// A path and the corresponding absolute path.
 struct PathAndAbsPath {
     path: ForwardRelativePathBuf,
-    abspath: AbsNormPathBuf,
+    abspath: AbsPathBuf,
 }
 
 impl PathAndAbsPath {
@@ -168,7 +168,7 @@ impl PathAndAbsPath {
     }
 }
 
-fn read_path_metadata<P: AsRef<AbsNormPath>>(
+fn read_path_metadata<P: AsRef<AbsPath>>(
     root: P,
     relpath: &ForwardRelativePath,
     file_digest_config: FileDigestConfig,
@@ -294,7 +294,7 @@ mod tests {
 
         assert_matches!(
             read_path_metadata(
-                AbsNormPath::new(t.path())?,
+                AbsPath::new(t.path())?,
                 ForwardRelativePath::new("x")?,
                 FileDigestConfig::source(CasDigestConfig::testing_default())
             ),
@@ -311,7 +311,7 @@ mod tests {
         unix::fs::symlink("y/z", t.path().join("x"))?;
 
         assert_matches!(
-            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
+            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
             Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
                 assert_eq!(r, "y/z");
             }
@@ -329,7 +329,7 @@ mod tests {
         unix::fs::symlink("../y", t.join("x/xx/xxx"))?;
 
         assert_matches!(
-            read_path_metadata(AbsNormPath::new(t)?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
+            read_path_metadata(AbsPath::new(t)?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
             Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
                 assert_eq!(r, "x/y");
             }
@@ -345,7 +345,7 @@ mod tests {
         unix::fs::symlink("y", t.path().join("x"))?;
 
         assert_matches!(
-            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x/z/zz")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
+            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/z/zz")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
             Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
                 assert_eq!(r, "y/z/zz");
             }
@@ -361,7 +361,7 @@ mod tests {
         unix::fs::symlink("../y", t.path().join("x"))?;
 
         assert_matches!(
-            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
+            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
             Err(e) if format!("{:#}", e).contains("Invalid symlink")
         );
 

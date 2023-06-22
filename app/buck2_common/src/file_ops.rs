@@ -16,7 +16,7 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use cmp_any::PartialEqAny;
@@ -146,7 +146,7 @@ impl FileDigestConfig {
 
 impl FileDigest {
     /// Obtain the digest of the file if you can.
-    pub fn from_file(file: &AbsNormPath, config: FileDigestConfig) -> anyhow::Result<Self> {
+    pub fn from_file(file: &AbsPath, config: FileDigestConfig) -> anyhow::Result<Self> {
         static DISABLE_FILE_ATTR: EnvHelper<bool> = EnvHelper::new("BUCK2_DISABLE_FILE_ATTR");
 
         if !DISABLE_FILE_ATTR.get_copied()?.unwrap_or_default() {
@@ -160,7 +160,7 @@ impl FileDigest {
 
     /// Read the file from the xattr, or skip if it's not available.
     #[cfg(unix)]
-    fn from_file_attr(file: &AbsNormPath, config: FileDigestConfig) -> Option<Self> {
+    fn from_file_attr(file: &AbsPath, config: FileDigestConfig) -> Option<Self> {
         use buck2_core::fs::fs_util;
 
         use crate::cas_digest::RawDigest;
@@ -203,13 +203,13 @@ impl FileDigest {
 
     /// Windows doesn't support extended file attributes.
     #[cfg(windows)]
-    fn from_file_attr(_file: &AbsNormPath, _config: FileDigestConfig) -> Option<Self> {
+    fn from_file_attr(_file: &AbsPath, _config: FileDigestConfig) -> Option<Self> {
         None
     }
 
     /// Get the digest from disk. You should usually prefer `from_file`
     /// which also uses faster methods of getting the SHA1 if it can.
-    pub fn from_file_disk(file: &AbsNormPath, config: FileDigestConfig) -> anyhow::Result<Self> {
+    pub fn from_file_disk(file: &AbsPath, config: FileDigestConfig) -> anyhow::Result<Self> {
         let f = File::open(file.as_maybe_relativized())?;
         FileDigest::from_reader(f, config.as_cas_digest_config())
     }
