@@ -277,7 +277,6 @@ impl EdenIoProvider {
                 tracing::debug!("getAttributesFromFilesV2({}): ok", path,);
                 let digest = FileDigest::new_sha1(sha1, size);
 
-                // TODO (DigestConfig): Check that the config allows SHA1 earlier here.
                 let digest = TrackedFileDigest::new(digest, self.fs.cas_digest_config());
 
                 let is_executable = source_control_type == SourceControlType::EXECUTABLE_FILE;
