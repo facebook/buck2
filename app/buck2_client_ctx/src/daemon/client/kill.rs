@@ -35,7 +35,7 @@ enum KillError {
 const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 /// Kill request does not wait for the process to exit.
 const KILL_REQUEST_TIMEOUT: Duration = Duration::from_secs(3);
-const FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
+const FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub async fn kill(
     client: &mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
