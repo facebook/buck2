@@ -542,7 +542,13 @@ pub async fn establish_connection_existing(
     deadline
         .run(
             "establishing connection to existing Buck daemon",
-            async move { try_connect_existing_impl(daemon_dir).await?.upgrade().await },
+            async move {
+                BuckdProcessInfo::load(daemon_dir)?
+                    .create_channel()
+                    .await?
+                    .upgrade()
+                    .await
+            },
         )
         .await
 }
@@ -619,7 +625,7 @@ async fn establish_connection_inner(
             "connect to buckd after server start",
             Duration::from_millis(5),
             Duration::from_millis(100),
-            || async { try_connect_existing_impl(&paths.daemon_dir()?).await },
+            || async { BuckdProcessInfo::load_and_create_channel(&paths.daemon_dir()?).await },
         )
         .await?;
 
@@ -652,7 +658,7 @@ async fn try_connect_existing_before_daemon_restart(
     daemon_dir: &DaemonDir,
     constraints: &DaemonConstraintsRequest,
 ) -> anyhow::Result<ConnectBeforeRestart> {
-    match try_connect_existing_impl(&daemon_dir).await {
+    match BuckdProcessInfo::load_and_create_channel(daemon_dir).await {
         Ok(channel) => {
             let client = channel.upgrade().await?;
             if constraints.satisfied(&client.constraints) {
@@ -676,34 +682,51 @@ async fn try_connect_existing(
         .min(buckd_startup_timeout()?)?
         .run(
             "connect existing buckd",
-            try_connect_existing_impl(daemon_dir),
+            BuckdProcessInfo::load_and_create_channel(daemon_dir),
         )
         .await
 }
 
-async fn try_connect_existing_impl(daemon_dir: &DaemonDir) -> anyhow::Result<BuckdChannel> {
-    let location = daemon_dir.buckd_info();
-    let file = File::open(&location)
-        .with_context(|| format!("Trying to open buckd info, `{}`", location.display()))?;
-    let reader = BufReader::new(file);
-    let info: DaemonProcessInfo = serde_json::from_reader(reader).with_context(|| {
+struct BuckdProcessInfo<'a> {
+    info: DaemonProcessInfo,
+    daemon_dir: &'a DaemonDir,
+}
+
+impl<'a> BuckdProcessInfo<'a> {
+    /// Utility method for places that want to match on the overall result of those two operations.
+    async fn load_and_create_channel(daemon_dir: &'a DaemonDir) -> anyhow::Result<BuckdChannel> {
+        Self::load(daemon_dir)?.create_channel().await
+    }
+
+    fn load(daemon_dir: &'a DaemonDir) -> anyhow::Result<Self> {
+        let location = daemon_dir.buckd_info();
+        let file = File::open(&location)
+            .with_context(|| format!("Trying to open buckd info, `{}`", location.display()))?;
+        let reader = BufReader::new(file);
+        let info =serde_json::from_reader(reader).with_context(|| {
             format!(
-                "Parsing daemon info in `{}`. Try deleting that file and running `buck2 killall` before running your command again",
+                "Error parsing daemon info in `{}`. \
+                Try deleting that file and running `buck2 killall` before running your command again",
                 location.display(),
             )
         })?;
 
-    let connection_type = ConnectionType::parse(&info.endpoint)?;
+        Ok(Self { info, daemon_dir })
+    }
 
-    let client = new_daemon_api_client(connection_type, info.auth_token.clone())
-        .await
-        .context("Error connecting")?;
+    async fn create_channel(self) -> anyhow::Result<BuckdChannel> {
+        let connection_type = ConnectionType::parse(&self.info.endpoint)?;
 
-    Ok(BuckdChannel {
-        info,
-        daemon_dir: daemon_dir.clone(),
-        client,
-    })
+        let client = new_daemon_api_client(connection_type, self.info.auth_token.clone())
+            .await
+            .context("Error connecting")?;
+
+        Ok(BuckdChannel {
+            info: self.info,
+            daemon_dir: self.daemon_dir.clone(),
+            client,
+        })
+    }
 }
 
 async fn get_constraints(
