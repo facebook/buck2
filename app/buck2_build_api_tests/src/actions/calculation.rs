@@ -69,6 +69,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
 use buck2_execute::execute::blocking::SetBlockingExecutor;
+use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
 use buck2_execute::execute::dice_data::set_fallback_executor_config;
 use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
@@ -191,6 +192,7 @@ async fn make_default_dice_state(
                 executor,
                 cache_checker: Arc::new(NoOpCommandExecutor {}),
                 platform: Default::default(),
+                cache_uploader: Arc::new(NoOpCacheUploader {}),
             })
         }
     }

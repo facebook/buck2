@@ -28,7 +28,6 @@ use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::cache_uploader::CacheUploadInfo;
-use crate::execute::cache_uploader::NoOpCacheUploader;
 use crate::execute::cache_uploader::UploadCache;
 use crate::execute::executor_stage;
 use crate::execute::manager::CommandExecutionManager;
@@ -81,6 +80,7 @@ impl CommandExecutor {
     pub fn new(
         inner: Arc<dyn PreparedCommandExecutor>,
         cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
+        cache_uploader: Arc<dyn UploadCache>,
         artifact_fs: ArtifactFs,
         options: CommandGenerationOptions,
         re_platform: RE::Platform,
@@ -93,7 +93,7 @@ impl CommandExecutor {
             options,
             re_platform,
             enforce_re_timeouts,
-            cache_uploader: Arc::new(NoOpCacheUploader {}),
+            cache_uploader,
         }))
     }
 

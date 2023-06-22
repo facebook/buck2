@@ -26,6 +26,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
 use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::prepared::NoOpCommandExecutor;
@@ -155,6 +156,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 executor: Arc::new(local_executor_new(&LocalExecutorOptions::default())),
                 platform: Default::default(),
                 cache_checker: Arc::new(NoOpCommandExecutor {}),
+                cache_uploader: Arc::new(NoOpCacheUploader {}),
             });
         }
 
@@ -191,6 +193,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         executor: Arc::new(local_executor_new(local)),
                         platform: Default::default(),
                         cache_checker: Arc::new(NoOpCommandExecutor {}),
+                        cache_uploader: Arc::new(NoOpCacheUploader {}),
                     })
                 }
             }
@@ -202,7 +205,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 cache_upload_behavior,
                 remote_cache_enabled,
             } => {
-                let inner_executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor {
+                let executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor {
                     RemoteEnabledExecutor::Local(local) if !self.strategy.ban_local() => {
                         Some(Arc::new(local_executor_new(local)))
                     }
@@ -243,26 +246,13 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     .get_copied()?
                     .unwrap_or(self.skip_cache_read);
 
-                let (executor, cache_checker) = if disable_caching || !remote_cache_enabled {
-                    (inner_executor, Arc::new(NoOpCommandExecutor {}) as _)
+                let (cache_checker, cache_uploader) = if disable_caching || !remote_cache_enabled {
+                    (
+                        Arc::new(NoOpCommandExecutor {}) as _,
+                        Arc::new(NoOpCacheUploader {}) as _,
+                    )
                 } else {
-                    let executor =
-                        if let CacheUploadBehavior::Enabled { max_bytes } = cache_upload_behavior {
-                            inner_executor.map(|inner_executor| {
-                                Arc::new(CacheUploader {
-                                    inner: inner_executor,
-                                    artifact_fs: artifact_fs.clone(),
-                                    materializer: self.materializer.dupe(),
-                                    re_client: self.re_connection.get_client(),
-                                    re_use_case: *re_use_case,
-                                    knobs: self.executor_global_knobs.dupe(),
-                                    max_bytes: *max_bytes,
-                                }) as _
-                            })
-                        } else {
-                            inner_executor
-                        };
-                    let cacher = Arc::new(ActionCacheChecker {
+                    let cache_checker = Arc::new(ActionCacheChecker {
                         artifact_fs: artifact_fs.clone(),
                         materializer: self.materializer.dupe(),
                         re_client: self.re_connection.get_client(),
@@ -271,7 +261,20 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         upload_all_actions: self.upload_all_actions,
                         knobs: self.executor_global_knobs.dupe(),
                     }) as _;
-                    (executor, cacher)
+                    let cache_uploader =
+                        if let CacheUploadBehavior::Enabled { max_bytes } = cache_upload_behavior {
+                            Arc::new(CacheUploader {
+                                artifact_fs: artifact_fs.clone(),
+                                materializer: self.materializer.dupe(),
+                                re_client: self.re_connection.get_client(),
+                                re_use_case: *re_use_case,
+                                knobs: self.executor_global_knobs.dupe(),
+                                max_bytes: *max_bytes,
+                            }) as _
+                        } else {
+                            Arc::new(NoOpCacheUploader {}) as _
+                        };
+                    (cache_checker, cache_uploader)
                 };
 
                 let platform = RE::Platform {
@@ -288,6 +291,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     executor,
                     platform,
                     cache_checker,
+                    cache_uploader,
                 })
             }
         };

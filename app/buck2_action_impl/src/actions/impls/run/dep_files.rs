@@ -258,12 +258,12 @@ impl RunActionDepFiles {
     }
 }
 
-pub(crate) type LocalDepFileLookUpKey = (
-    DepFilesKey,
-    CommandDigests,
-    PartitionedInputs<Vec<ArtifactGroup>>,
-    DeclaredDepFiles,
-);
+pub(crate) struct LocalDepFileLookUpKey {
+    pub dep_files_key: DepFilesKey,
+    pub digests: CommandDigests,
+    pub declared_inputs: PartitionedInputs<Vec<ArtifactGroup>>,
+    pub declared_dep_files: DeclaredDepFiles,
+}
 
 pub(crate) fn make_local_dep_file_lookup_key(
     ctx: &mut dyn ActionExecutionCtx,
@@ -286,7 +286,12 @@ pub(crate) fn make_local_dep_file_lookup_key(
         outputs: declared_dep_files,
         ..
     } = visitor;
-    (dep_files_key, digests, declared_inputs, declared_dep_files)
+    LocalDepFileLookUpKey {
+        dep_files_key,
+        digests,
+        declared_inputs,
+        declared_dep_files,
+    }
 }
 
 pub(crate) async fn check_local_dep_file_cache(
@@ -294,7 +299,12 @@ pub(crate) async fn check_local_dep_file_cache(
     declared_outputs: &[BuildArtifact],
     dep_files: &LocalDepFileLookUpKey,
 ) -> anyhow::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
-    let (dep_files_key, digests, declared_inputs, declared_dep_files) = dep_files;
+    let LocalDepFileLookUpKey {
+        dep_files_key,
+        digests,
+        declared_inputs,
+        declared_dep_files,
+    } = dep_files;
 
     let matching_result = span_async(buck2_data::MatchDepFilesStart {}, async {
         let res: anyhow::Result<_> = try {

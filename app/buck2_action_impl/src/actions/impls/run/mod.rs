@@ -76,6 +76,7 @@ use crate::actions::impls::run::dep_files::check_local_dep_file_cache;
 use crate::actions::impls::run::dep_files::make_local_dep_file_lookup_key;
 use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
+use crate::actions::impls::run::dep_files::LocalDepFileLookUpKey;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::metadata::metadata_content;
 
@@ -555,7 +556,8 @@ impl IncrementalActionExecutable for RunAction {
         // First prepare the action, check the action cache, check dep_files if needed, and execute the command
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
-        let (result, dep_files) = match ctx.action_cache(manager, &req, &prepared_action).await {
+        let (mut result, dep_files) = match ctx.action_cache(manager, &req, &prepared_action).await
+        {
             ControlFlow::Break(res) => (res, dep_files),
             ControlFlow::Continue(manager) => {
                 let dep_files = if let Some(dep_files) = dep_files {
@@ -579,10 +581,21 @@ impl IncrementalActionExecutable for RunAction {
             }
         };
 
+        if self.inner.allow_cache_upload {
+            result.did_cache_upload = ctx
+                .cache_upload(prepared_action.action.dupe(), &result)
+                .await?;
+        }
+
         let (outputs, metadata) = ctx.unpack_command_execution_result(&req, result)?;
 
         if let Some(dep_files) = dep_files {
-            let (dep_files_key, digests, declared_inputs, declared_dep_files) = dep_files;
+            let LocalDepFileLookUpKey {
+                dep_files_key,
+                digests,
+                declared_inputs,
+                declared_dep_files,
+            } = dep_files;
 
             populate_dep_files(
                 dep_files_key,

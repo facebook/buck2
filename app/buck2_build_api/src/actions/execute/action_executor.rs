@@ -235,6 +235,7 @@ impl HasActionExecutor for DiceComputations {
             executor,
             platform,
             cache_checker,
+            cache_uploader,
         } = self.get_command_executor(&artifact_fs, executor_config)?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
@@ -249,6 +250,7 @@ impl HasActionExecutor for DiceComputations {
             CommandExecutor::new(
                 executor,
                 cache_checker,
+                cache_uploader,
                 artifact_fs,
                 executor_config.options,
                 platform,
@@ -687,6 +689,7 @@ mod tests {
     use buck2_execute::artifact_value::ArtifactValue;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
+    use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
     use buck2_execute::execute::clean_output_paths::cleanup_path;
     use buck2_execute::execute::command_executor::ActionExecutionTimingData;
     use buck2_execute::execute::command_executor::CommandExecutor;
@@ -719,7 +722,6 @@ mod tests {
     use crate::actions::RegisteredAction;
     use crate::artifact_groups::ArtifactGroup;
     use crate::artifact_groups::ArtifactGroupValues;
-
     #[tokio::test]
     async fn can_execute_some_action() {
         let cells = CellResolver::testing_with_name_and_path(
@@ -744,6 +746,7 @@ mod tests {
             CommandExecutor::new(
                 Arc::new(DryRunExecutor::new(tracker, artifact_fs.clone())),
                 Arc::new(NoOpCommandExecutor {}),
+                Arc::new(NoOpCacheUploader {}),
                 artifact_fs,
                 CommandGenerationOptions {
                     path_separator: PathSeparatorKind::Unix,

@@ -67,6 +67,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
+use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
 use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dice_data::CommandExecutorResponse;
@@ -681,12 +682,14 @@ impl<'b> BuckTestOrchestrator<'b> {
             executor,
             platform,
             cache_checker: _,
+            cache_uploader: _,
         } = self.dice.get_command_executor(fs, executor_config)?;
         let run_action_knobs = self.dice.per_transaction_data().get_run_action_knobs();
         let executor = CommandExecutor::new(
             executor,
             // Caching is not enabled for tests yet. Use the NoOp
             Arc::new(NoOpCommandExecutor {}),
+            Arc::new(NoOpCacheUploader {}),
             fs.clone(),
             executor_config.options,
             platform,
@@ -707,11 +710,13 @@ impl<'b> BuckTestOrchestrator<'b> {
             executor,
             platform,
             cache_checker: _,
+            cache_uploader: _,
         } = self.dice.get_command_executor(fs, &executor_config)?;
         let run_action_knobs = self.dice.per_transaction_data().get_run_action_knobs();
         let executor = CommandExecutor::new(
             executor,
             Arc::new(NoOpCommandExecutor {}),
+            Arc::new(NoOpCacheUploader {}),
             fs.clone(),
             executor_config.options,
             platform,

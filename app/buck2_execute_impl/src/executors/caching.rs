@@ -26,11 +26,6 @@ use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::kind::CommandExecutionKind;
-use buck2_execute::execute::manager::CommandExecutionManager;
-use buck2_execute::execute::manager::CommandExecutionManagerExt;
-use buck2_execute::execute::prepared::PreparedCommand;
-use buck2_execute::execute::prepared::PreparedCommandExecutor;
-use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::target::CommandExecutionTarget;
@@ -41,7 +36,6 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::future;
 use futures::future::FutureExt;
-use more_futures::cancellation::CancellationContext;
 use remote_execution::DigestWithStatus;
 use remote_execution::NamedDigest;
 use remote_execution::REClientError;
@@ -58,7 +52,6 @@ static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR
 
 /// A PreparedCommandExecutor that will write to cache after invoking the inner executor
 pub struct CacheUploader {
-    pub inner: Arc<dyn PreparedCommandExecutor>,
     pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
@@ -324,79 +317,6 @@ impl CacheUploader {
             .await?;
 
         Ok(CacheUploadOutcome::Success)
-    }
-}
-
-#[async_trait]
-impl PreparedCommandExecutor for CacheUploader {
-    async fn exec_cmd(
-        &self,
-        command: &PreparedCommand<'_, '_>,
-        manager: CommandExecutionManager,
-        cancellations: &CancellationContext,
-    ) -> CommandExecutionResult {
-        let error_on_cache_upload = match ERROR_ON_CACHE_UPLOAD.get_copied() {
-            Ok(r) => r.unwrap_or_default(),
-            Err(e) => return manager.error("cache_upload", e),
-        };
-
-        let mut res = self.inner.exec_cmd(command, manager, cancellations).await;
-
-        // TODO(bobyf, torozco) should these be critical sections?
-        let upload_res = if command.request.allow_cache_upload() {
-            self.maybe_perform_cache_upload(
-                command.target.dupe(),
-                &command.prepared_action.action,
-                &res,
-                command.digest_config,
-            )
-            .await
-        } else {
-            Ok(None)
-        };
-
-        match upload_res {
-            Ok(Some(CacheUploadOutcome::Success)) => {
-                tracing::info!(
-                    "Cache upload for `{}` succeeded",
-                    command.prepared_action.action
-                );
-                res.did_cache_upload = true;
-            }
-            Ok(Some(CacheUploadOutcome::Rejected(reason))) => {
-                tracing::info!(
-                    "Cache upload for `{}` rejected: {:#}",
-                    command.prepared_action.action,
-                    reason
-                );
-            }
-            Ok(None) => {
-                tracing::info!(
-                    "Cache upload for `{}` not attempted",
-                    command.prepared_action.action,
-                );
-            }
-            Err(error) => {
-                if error_on_cache_upload {
-                    res.report.status = CommandExecutionStatus::Error {
-                        stage: "cache_upload",
-                        error,
-                    };
-                } else {
-                    tracing::warn!(
-                        "Cache upload for `{}` failed: {:#}",
-                        command.prepared_action.action,
-                        error
-                    );
-                }
-            }
-        };
-
-        res
-    }
-
-    fn is_local_execution_possible(&self, executor_preference: ExecutorPreference) -> bool {
-        self.inner.is_local_execution_possible(executor_preference)
     }
 }
 
