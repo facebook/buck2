@@ -25,6 +25,7 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use dupe::Dupe;
 use edenfs::client::EdenService;
 use edenfs::errors::eden_service::ListMountsError;
+use edenfs::types::BinaryHash;
 use edenfs::types::EdenErrorType;
 use edenfs::types::FileAttributeData;
 use edenfs::types::FileAttributeDataOrErrorV2;
@@ -390,6 +391,7 @@ macro_rules! impl_has_error_handling_strategy {
 }
 
 impl_has_error_handling_strategy!(GetAttributesFromFilesError);
+impl_has_error_handling_strategy!(GetAttributesFromFilesV2Error);
 impl_has_error_handling_strategy!(GlobFilesError);
 impl_has_error_handling_strategy!(ListMountsError);
 impl_has_error_handling_strategy!(SynchronizeWorkingCopyError);
@@ -463,6 +465,10 @@ impl_eden_data_into_result!(
     FileAttributeDataV2,
     fileAttributeData
 );
+
+impl_eden_data_into_result!(SizeOrError, i64, size);
+
+impl_eden_data_into_result!(Sha1OrError, BinaryHash, sha1);
 
 impl_eden_data_into_result!(
     DirListAttributeDataOrError,

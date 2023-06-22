@@ -45,7 +45,7 @@ use crate::io::IoProvider;
 pub struct EdenIoProvider {
     manager: EdenConnectionManager,
     fs: FsIoProvider,
-    _v2: bool,
+    v2: bool,
 }
 
 impl EdenIoProvider {
@@ -60,7 +60,11 @@ impl EdenIoProvider {
             return Ok(None);
         }
 
-        const MINIMUM_SUPPORTED_EDEN_VERSION: &str = "20220720-094125";
+        let min_eden_version = if v2 {
+            "20220905-214046"
+        } else {
+            "20220720-094125"
+        };
 
         static EDEN_SEMAPHORE: EnvHelper<usize> = EnvHelper::new("BUCK2_EDEN_SEMAPHORE");
         let eden_semaphore = EDEN_SEMAPHORE.get_copied()?.unwrap_or(2048);
@@ -77,13 +81,13 @@ impl EdenIoProvider {
             .context("Error querying Eden version")?;
 
         if let Some(eden_version) = &eden_version {
-            if eden_version.as_str() < MINIMUM_SUPPORTED_EDEN_VERSION {
+            if eden_version.as_str() < min_eden_version {
                 tracing::warn!(
                     "Disabling Eden I/O: \
                     your Eden version ({}) is too old to support Eden I/O (minimum required: {}). \
                     Update Eden then restart Buck2 to use Eden I/O.",
                     eden_version,
-                    MINIMUM_SUPPORTED_EDEN_VERSION
+                    min_eden_version
                 );
                 return Ok(None);
             }
@@ -99,7 +103,7 @@ impl EdenIoProvider {
         Ok(Some(Self {
             manager,
             fs: FsIoProvider::new(fs.dupe(), cas_digest_config),
-            _v2: v2,
+            v2,
         }))
     }
 
@@ -193,6 +197,119 @@ impl EdenIoProvider {
             Err(err) => Err(err.into()),
         }
     }
+
+    async fn read_path_metadata_if_exists_v2(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+        use edenfs::types::GetAttributesFromFilesParams;
+
+        use crate::eden::EdenError;
+        use crate::file_ops::FileDigest;
+        use crate::file_ops::FileMetadata;
+        use crate::file_ops::TrackedFileDigest;
+
+        let _guard = IoCounterKey::StatEden.guard();
+
+        let requested_attributes = i64::from(
+            i32::from(FileAttributes::SHA1_HASH)
+                | i32::from(FileAttributes::FILE_SIZE)
+                | i32::from(FileAttributes::SOURCE_CONTROL_TYPE),
+        );
+
+        let params = GetAttributesFromFilesParams {
+            mountPoint: self.manager.get_mount_point(),
+            paths: vec![path.to_string().into_bytes()],
+            requestedAttributes: requested_attributes,
+            sync: no_sync(),
+            ..Default::default()
+        };
+
+        let attrs = self
+            .manager
+            .with_eden(|eden| {
+                tracing::trace!("getAttributesFromFilesV2({})", path);
+                eden.getAttributesFromFilesV2(&params)
+            })
+            .await?;
+
+        match attrs
+            .res
+            .into_iter()
+            .next()
+            .context("Eden did not return file info")?
+            .into_result()
+        {
+            Ok(data) => {
+                let source_control_type = data
+                    .sourceControlType
+                    .context("Eden did not return a type")?
+                    .into_result()
+                    .context("Eden returned an error for sourceControlType")?;
+
+                if source_control_type == SourceControlType::TREE {
+                    return Ok(Some(RawPathMetadata::Directory));
+                };
+
+                if source_control_type == SourceControlType::SYMLINK {
+                    // TODO: Ideally we would read *the link we just got*, instead of letting
+                    // read_path_metadata_if_exists do the traversal of the whole path
+                    return self.fs.read_path_metadata_if_exists(path).await;
+                };
+
+                let size = data
+                    .size
+                    .context("Eden did not return a size")?
+                    .into_result()
+                    .context("Eden returned an error for size")?
+                    .try_into()
+                    .context("Eden returned an invalid size")?;
+
+                let sha1 = data
+                    .sha1
+                    .context("Eden did not return a sha1")?
+                    .into_result()
+                    .context("Eden returned an error for sha1")?
+                    .try_into()
+                    .ok()
+                    .context("Eden returned an invalid sha1")?;
+
+                tracing::debug!("getAttributesFromFilesV2({}): ok", path,);
+                let digest = FileDigest::new_sha1(sha1, size);
+
+                // TODO (DigestConfig): Check that the config allows SHA1 earlier here.
+                let digest = TrackedFileDigest::new(digest, self.fs.cas_digest_config());
+
+                let is_executable = source_control_type == SourceControlType::EXECUTABLE_FILE;
+
+                let meta = FileMetadata {
+                    digest,
+                    is_executable,
+                };
+
+                Ok(Some(RawPathMetadata::File(meta)))
+            }
+            Err(EdenError::PosixError { code, .. }) if code == EISDIR => {
+                tracing::debug!("getAttributesFromFilesV2({}): EISDIR", path);
+                Ok(Some(RawPathMetadata::Directory))
+            }
+            Err(EdenError::PosixError { code, .. }) if code == ENOENT => {
+                tracing::debug!("getAttributesFromFilesV2({}): ENOENT", path);
+                Ok(None)
+            }
+            Err(EdenError::PosixError { code, .. }) if code == EINVAL || code == ENOTDIR => {
+                // If we get EINVAL it means the target wasn't a file, and since we know it
+                // existed and it wasn't a dir, then that means it must be a symlink. If we get
+                // ENOTDIR, that means we tried to traverse a path component that was a
+                // symlink. In both cases, we need to both a) handle ExternalSymlink and b)
+                // look through to the target, so we do that.
+                // TODO: It would be better to read the link then ask Eden for the SHA1.
+                tracing::debug!("getAttributesFromFilesV2({}): fallthrough", path);
+                self.fs.read_path_metadata_if_exists(path).await
+            }
+            Err(err) => Err(err.into()),
+        }
+    }
 }
 
 #[async_trait]
@@ -269,7 +386,11 @@ impl IoProvider for EdenIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        Self::read_path_metadata_if_exists(self, path).await
+        if self.v2 {
+            Self::read_path_metadata_if_exists_v2(self, path).await
+        } else {
+            Self::read_path_metadata_if_exists(self, path).await
+        }
     }
 
     async fn settle(&self) -> anyhow::Result<()> {
