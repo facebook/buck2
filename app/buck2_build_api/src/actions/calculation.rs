@@ -439,7 +439,6 @@ pub async fn command_details(
     });
 
     buck2_data::CommandExecutionDetails {
-        exit_code: signed_exit_code.and_then(|e| e.try_into().ok()), // To be deprecated in favor of signed_exit_code
         stdout,
         stderr,
         command: command_data,

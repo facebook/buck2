@@ -607,9 +607,7 @@ fn failure_reason_for_command_execution(
                 "{}command returned non-zero exit code {}",
                 locality,
                 OptionalExitCode {
-                    code: command
-                        .signed_exit_code
-                        .or_else(|| command.exit_code.and_then(|e| e.try_into().ok()))
+                    code: command.signed_exit_code
                 }
             )
         }
