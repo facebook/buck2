@@ -59,6 +59,7 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::dict::Dict;
 use starlark::values::none::NoneType;
 use starlark::values::structs::AllocStruct;
@@ -277,8 +278,8 @@ impl<'v> AllocValue<'v> for BxlContext<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v BxlContext<'v> {
-    fn starlark_type_repr() -> String {
-        BxlContext::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        BxlContext::get_type_starlark_repr()
     }
 }
 

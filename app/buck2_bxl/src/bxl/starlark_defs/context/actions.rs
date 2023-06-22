@@ -41,6 +41,7 @@ use starlark::environment::MethodsStatic;
 use starlark::environment::Module;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -241,8 +242,8 @@ impl<'v> AllocValue<'v> for BxlActions<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v BxlActions<'v> {
-    fn starlark_type_repr() -> String {
-        BxlActions::get_type_value_static().as_str().to_owned()
+    fn starlark_type_repr() -> Ty {
+        BxlActions::starlark_type_repr()
     }
 }
 

@@ -42,6 +42,7 @@ use crate::private::Private;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::starlark_type;
+use crate::typing::Ty;
 use crate::values::array::Array;
 use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;
@@ -242,7 +243,7 @@ impl<'a, 'v, V: 'a> StarlarkTypeRepr for &'a [V]
 where
     &'a V: AllocValue<'v> + StarlarkTypeRepr,
 {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Vec::<&'a V>::starlark_type_repr()
     }
 }

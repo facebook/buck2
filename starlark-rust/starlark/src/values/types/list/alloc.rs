@@ -17,6 +17,7 @@
 
 use std::iter;
 
+use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -50,7 +51,7 @@ where
     L: IntoIterator,
     L::Item: StarlarkTypeRepr,
 {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Vec::<L::Item>::starlark_type_repr()
     }
 }

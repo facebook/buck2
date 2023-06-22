@@ -38,6 +38,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
@@ -123,8 +124,8 @@ impl<'v> OutputStream<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v OutputStream<'v> {
-    fn starlark_type_repr() -> String {
-        OutputStream::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        OutputStream::get_type_starlark_repr()
     }
 }
 

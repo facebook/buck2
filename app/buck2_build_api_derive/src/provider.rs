@@ -191,7 +191,8 @@ impl ProviderCodegen {
                         let rust_type: proc_macro2::TokenStream = rust_type.parse()?;
                         Ok(quote! {
                             Some(starlark::docs::DocType {
-                                raw_type: <#rust_type>::starlark_type_repr(),
+                                // TODO(nga): do not convert to string, use `Ty`.
+                                raw_type: <#rust_type>::starlark_type_repr().to_string(),
                             })
                         })
                     } else {

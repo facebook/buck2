@@ -20,6 +20,7 @@ use std::marker::PhantomData;
 
 use starlark_map::small_map::SmallMap;
 
+use crate::typing::Ty;
 use crate::values::structs::value::Struct;
 use crate::values::structs::StructRef;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -37,8 +38,8 @@ pub struct StructOf<'v, V: UnpackValue<'v>> {
 }
 
 impl<'v, V: UnpackValue<'v>> StarlarkTypeRepr for StructOf<'v, V> {
-    fn starlark_type_repr() -> String {
-        Struct::TYPE.to_owned()
+    fn starlark_type_repr() -> Ty {
+        Ty::name(Struct::TYPE)
     }
 }
 

@@ -33,6 +33,7 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::none::NoneType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -110,8 +111,8 @@ impl<'v> AllocValue<'v> for BxlFilesystem<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v BxlFilesystem<'v> {
-    fn starlark_type_repr() -> String {
-        BxlFilesystem::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        BxlFilesystem::get_type_starlark_repr()
     }
 }
 

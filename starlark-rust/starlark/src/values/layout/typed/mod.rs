@@ -37,6 +37,7 @@ use crate::cast;
 use crate::cast::transmute;
 use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
+use crate::typing::Ty;
 use crate::values::alloc_value::AllocFrozenStringValue;
 use crate::values::alloc_value::AllocStringValue;
 use crate::values::int::PointerI32;
@@ -299,7 +300,7 @@ impl<'v, T: StarlarkValue<'v>> Deref for ValueTyped<'v, T> {
 }
 
 impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for ValueTyped<'v, T> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         T::starlark_type_repr()
     }
 }
@@ -327,7 +328,7 @@ impl<'v> AllocStringValue<'v> for StringValue<'v> {
 }
 
 impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for FrozenValueTyped<'v, T> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         T::starlark_type_repr()
     }
 }

@@ -18,6 +18,7 @@
 use dupe::Dupe;
 use either::Either;
 
+use crate::typing::Ty;
 use crate::values::none::NoneType;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
@@ -55,7 +56,7 @@ impl<T> NoneOr<T> {
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for NoneOr<T> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Either::<NoneType, T>::starlark_type_repr()
     }
 }

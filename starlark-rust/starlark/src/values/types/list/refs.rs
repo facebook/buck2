@@ -21,6 +21,7 @@ use std::ops::Deref;
 
 use crate as starlark;
 use crate::coerce::coerce;
+use crate::typing::Ty;
 use crate::values::list::value::display_list;
 use crate::values::list::value::FrozenListData;
 use crate::values::list::value::ListGen;
@@ -139,13 +140,13 @@ impl Display for FrozenListRef {
 }
 
 impl<'v> StarlarkTypeRepr for &'v ListRef<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Vec::<Value<'v>>::starlark_type_repr()
     }
 }
 
 impl<'v> StarlarkTypeRepr for &'v FrozenListRef {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Vec::<FrozenValue>::starlark_type_repr()
     }
 }

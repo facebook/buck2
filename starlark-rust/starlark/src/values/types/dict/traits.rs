@@ -19,6 +19,7 @@ use std::collections::BTreeMap;
 use std::hash::Hash;
 
 use crate::collections::SmallMap;
+use crate::typing::Ty;
 use crate::values::dict::AllocDict;
 use crate::values::dict::DictRef;
 use crate::values::type_repr::DictType;
@@ -67,13 +68,13 @@ where
 }
 
 impl<'a, K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for &'a SmallMap<K, V> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }
 }
 
 impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for SmallMap<K, V> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }
 }
@@ -130,13 +131,13 @@ where
 }
 
 impl<'a, K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for &'a BTreeMap<K, V> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }
 }
 
 impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for BTreeMap<K, V> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }
 }

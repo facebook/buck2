@@ -18,6 +18,7 @@
 use crate as starlark;
 use crate::coerce::coerce;
 use crate::coerce::Coerce;
+use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
@@ -96,14 +97,14 @@ impl FrozenTupleRef {
 }
 
 impl<'v> StarlarkTypeRepr for &'v TupleRef<'v> {
-    fn starlark_type_repr() -> String {
-        TupleRef::TYPE.to_owned()
+    fn starlark_type_repr() -> Ty {
+        Ty::name(TupleRef::TYPE)
     }
 }
 
 impl<'a> StarlarkTypeRepr for &'a FrozenTupleRef {
-    fn starlark_type_repr() -> String {
-        FrozenTupleRef::TYPE.to_owned()
+    fn starlark_type_repr() -> Ty {
+        Ty::name(FrozenTupleRef::TYPE)
     }
 }
 

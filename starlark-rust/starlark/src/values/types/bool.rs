@@ -78,8 +78,8 @@ impl AllocFrozenValue for bool {
 }
 
 impl StarlarkTypeRepr for bool {
-    fn starlark_type_repr() -> String {
-        StarlarkBool::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        StarlarkBool::get_type_starlark_repr()
     }
 }
 

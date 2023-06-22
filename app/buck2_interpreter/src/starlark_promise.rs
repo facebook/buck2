@@ -20,6 +20,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
+use starlark::typing::Ty;
 use starlark::values::tuple::AllocTuple;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -272,8 +273,8 @@ impl<'v> AllocValue<'v> for StarlarkPromise<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkPromise<'v> {
-    fn starlark_type_repr() -> String {
-        StarlarkPromise::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        StarlarkPromise::get_type_starlark_repr()
     }
 }
 

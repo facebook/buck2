@@ -19,6 +19,7 @@ use std::iter;
 
 use starlark_map::small_map::SmallMap;
 
+use crate::typing::Ty;
 use crate::values::dict::value::FrozenDictData;
 use crate::values::dict::Dict;
 use crate::values::layout::value::ValueLike;
@@ -64,7 +65,7 @@ where
     K: StarlarkTypeRepr,
     V: StarlarkTypeRepr,
 {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }
 }

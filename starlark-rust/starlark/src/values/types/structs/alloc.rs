@@ -19,6 +19,7 @@ use std::iter;
 
 use starlark_map::small_map::SmallMap;
 
+use crate::typing::Ty;
 use crate::values::alloc_value::AllocFrozenStringValue;
 use crate::values::alloc_value::AllocStringValue;
 use crate::values::structs::value::FrozenStruct;
@@ -62,7 +63,7 @@ where
     K: AllocStringValue<'v>,
     V: AllocValue<'v>,
 {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Struct::starlark_type_repr()
     }
 }

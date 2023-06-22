@@ -29,6 +29,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
@@ -237,8 +238,8 @@ impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
 }
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkDeclaredArtifact {
-    fn starlark_type_repr() -> String {
-        StarlarkDeclaredArtifact::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        StarlarkDeclaredArtifact::get_type_starlark_repr()
     }
 }
 

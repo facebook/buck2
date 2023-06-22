@@ -17,6 +17,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
@@ -62,10 +63,8 @@ impl<Node: QueryTarget> Freeze for StarlarkTargetSet<Node> {
 }
 
 impl<'v, Node: NodeLike> StarlarkTypeRepr for &'v StarlarkTargetSet<Node> {
-    fn starlark_type_repr() -> String {
-        StarlarkTargetSet::<Node>::get_type_value_static()
-            .as_str()
-            .to_owned()
+    fn starlark_type_repr() -> Ty {
+        StarlarkTargetSet::<Node>::starlark_type_repr()
     }
 }
 

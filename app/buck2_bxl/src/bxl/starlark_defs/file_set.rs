@@ -25,6 +25,7 @@ use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -75,7 +76,7 @@ impl<'a> FileSetExpr<'a> {
 }
 
 impl<'v> StarlarkTypeRepr for FileSetExpr<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Either::<String, StarlarkFileSet>::starlark_type_repr()
     }
 }

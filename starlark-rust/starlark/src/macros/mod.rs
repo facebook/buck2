@@ -65,8 +65,8 @@ macro_rules! starlark_complex_value {
 
             impl<'v> $crate::values::type_repr::StarlarkTypeRepr for &'v $x<'v> {
                 #[inline]
-                fn starlark_type_repr() -> String {
-                    <$x as $crate::values::StarlarkValue>::get_type_starlark_repr().to_string()
+                fn starlark_type_repr() -> $crate::typing::Ty {
+                    <$x as $crate::values::StarlarkValue>::get_type_starlark_repr()
                 }
             }
 
@@ -207,8 +207,8 @@ macro_rules! starlark_simple_value {
             }
 
             impl<'v> $crate::values::type_repr::StarlarkTypeRepr for &'v $x {
-                fn starlark_type_repr() -> String {
-                    <$x as $crate::values::StarlarkValue>::get_type_starlark_repr().to_string()
+                fn starlark_type_repr() -> $crate::typing::Ty {
+                    <$x as $crate::values::StarlarkValue>::get_type_starlark_repr()
                 }
             }
 

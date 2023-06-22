@@ -24,6 +24,7 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
+use crate::typing::Ty;
 use crate::values::dict::AllocDict;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::int_or_big::StarlarkInt;
@@ -35,7 +36,7 @@ use crate::values::Heap;
 use crate::values::Value;
 
 impl StarlarkTypeRepr for serde_json::Number {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Either::<i32, f64>::starlark_type_repr()
     }
 }
@@ -73,7 +74,7 @@ impl AllocFrozenValue for serde_json::Number {
 }
 
 impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for serde_json::Map<K, V> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         AllocDict::<SmallMap<K, V>>::starlark_type_repr()
     }
 }
@@ -93,7 +94,7 @@ impl AllocFrozenValue for serde_json::Map<String, serde_json::Value> {
 }
 
 impl StarlarkTypeRepr for serde_json::Value {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         // Any.
         Value::starlark_type_repr()
     }

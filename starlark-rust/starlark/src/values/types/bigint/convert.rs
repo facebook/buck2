@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::AllocFrozenValue;
@@ -26,7 +27,7 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 
 impl StarlarkTypeRepr for u32 {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         i32::starlark_type_repr()
     }
 }
@@ -46,7 +47,7 @@ impl AllocFrozenValue for u32 {
 }
 
 impl StarlarkTypeRepr for u64 {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         i32::starlark_type_repr()
     }
 }
@@ -66,7 +67,7 @@ impl AllocFrozenValue for u64 {
 }
 
 impl StarlarkTypeRepr for i64 {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         i32::starlark_type_repr()
     }
 }
@@ -86,7 +87,7 @@ impl AllocFrozenValue for i64 {
 }
 
 impl StarlarkTypeRepr for usize {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         i32::starlark_type_repr()
     }
 }
@@ -106,7 +107,7 @@ impl AllocFrozenValue for usize {
 }
 
 impl StarlarkTypeRepr for isize {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         i32::starlark_type_repr()
     }
 }

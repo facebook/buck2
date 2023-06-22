@@ -25,6 +25,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::structs::StructRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -63,8 +64,8 @@ pub struct AnalysisActions<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v AnalysisActions<'v> {
-    fn starlark_type_repr() -> String {
-        AnalysisActions::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        AnalysisActions::get_type_starlark_repr()
     }
 }
 
@@ -124,7 +125,7 @@ impl<'v> AllocValue<'v> for AnalysisActions<'v> {
 struct RefAnalysisAction<'v>(&'v AnalysisActions<'v>);
 
 impl<'v> StarlarkTypeRepr for RefAnalysisAction<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         AnalysisActions::starlark_type_repr()
     }
 }
@@ -220,7 +221,7 @@ impl<'v> AllocValue<'v> for AnalysisContext<'v> {
 struct RefAnalysisContext<'v>(&'v AnalysisContext<'v>);
 
 impl<'v> StarlarkTypeRepr for RefAnalysisContext<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         AnalysisContext::starlark_type_repr()
     }
 }

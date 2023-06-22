@@ -64,6 +64,7 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::sealed::Sealed;
+use crate::typing::Ty;
 use crate::values::demand::request_value_impl;
 use crate::values::dict::FrozenDictRef;
 use crate::values::enumeration::EnumType;
@@ -1037,14 +1038,14 @@ impl Serialize for FrozenValue {
 }
 
 impl<'v> StarlarkTypeRepr for Value<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         FrozenValue::starlark_type_repr()
     }
 }
 
 impl StarlarkTypeRepr for FrozenValue {
-    fn starlark_type_repr() -> String {
-        "\"\"".to_owned()
+    fn starlark_type_repr() -> Ty {
+        Ty::Any
     }
 }
 

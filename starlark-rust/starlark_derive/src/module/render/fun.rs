@@ -294,7 +294,8 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                         #heap_param_type
                     ) -> anyhow::Result<T>,
                 ) -> std::string::String {
-                    <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+                    // TODO(nga): return `Ty`.
+                    <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr().to_string()
                 }
                 get_impl(Self::invoke_impl)
             }

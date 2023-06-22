@@ -27,6 +27,7 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::slice_vec_ext::SliceExt;
 use crate::stdlib::string::fast_string::convert_str_indices;
+use crate::typing::Ty;
 use crate::values::none::NoneOr;
 use crate::values::string::dot_format;
 use crate::values::string::fast_string;
@@ -101,12 +102,8 @@ enum StringOrTuple<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for StringOrTuple<'v> {
-    fn starlark_type_repr() -> String {
-        format!(
-            "[{}, {}]",
-            String::starlark_type_repr(),
-            Tuple::starlark_type_repr()
-        )
+    fn starlark_type_repr() -> Ty {
+        Ty::union2(String::starlark_type_repr(), Tuple::starlark_type_repr())
     }
 }
 

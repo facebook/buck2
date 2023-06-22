@@ -222,7 +222,8 @@ pub(crate) fn render_starlark_type(
                 {
                     #[allow(clippy::extra_unused_lifetimes)]
                     fn get_type_string #lifetimes() -> String {
-                        <#typ as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+                        // TODO(nga): return `Ty`.
+                        <#typ as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr().to_string()
                     }
                     get_type_string()
                 }

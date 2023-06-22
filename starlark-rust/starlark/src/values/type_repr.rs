@@ -22,6 +22,7 @@ use std::marker::PhantomData;
 
 use either::Either;
 
+use crate::typing::Ty;
 use crate::values::none::NoneType;
 use crate::values::string::StarlarkStr;
 use crate::values::StarlarkValue;
@@ -29,7 +30,7 @@ use crate::values::StarlarkValue;
 /// Provides a starlark type representation, even if StarlarkValue is not implemented.
 pub trait StarlarkTypeRepr {
     /// The representation of a type that a user would use verbatim in starlark type annotations
-    fn starlark_type_repr() -> String;
+    fn starlark_type_repr() -> Ty;
 }
 
 /// A dict used just for display purposes.
@@ -44,51 +45,43 @@ pub struct DictType<K: StarlarkTypeRepr, V: StarlarkTypeRepr> {
 }
 
 impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for DictType<K, V> {
-    fn starlark_type_repr() -> String {
-        format!(
-            "{{{}: {}}}",
-            K::starlark_type_repr(),
-            V::starlark_type_repr()
-        )
+    fn starlark_type_repr() -> Ty {
+        Ty::dict(K::starlark_type_repr(), V::starlark_type_repr())
     }
 }
 
 impl<'v, T: StarlarkValue<'v> + ?Sized> StarlarkTypeRepr for T {
-    fn starlark_type_repr() -> String {
-        Self::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        Self::get_type_starlark_repr()
     }
 }
 
 impl StarlarkTypeRepr for String {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         StarlarkStr::starlark_type_repr()
     }
 }
 
 impl StarlarkTypeRepr for &str {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         StarlarkStr::starlark_type_repr()
     }
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for Option<T> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Either::<NoneType, T>::starlark_type_repr()
     }
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for Vec<T> {
-    fn starlark_type_repr() -> String {
-        format!("[{}]", T::starlark_type_repr())
+    fn starlark_type_repr() -> Ty {
+        Ty::list(T::starlark_type_repr())
     }
 }
 
 impl<TLeft: StarlarkTypeRepr, TRight: StarlarkTypeRepr> StarlarkTypeRepr for Either<TLeft, TRight> {
-    fn starlark_type_repr() -> String {
-        format!(
-            "[{}, {}]",
-            TLeft::starlark_type_repr(),
-            TRight::starlark_type_repr()
-        )
+    fn starlark_type_repr() -> Ty {
+        Ty::union2(TLeft::starlark_type_repr(), TRight::starlark_type_repr())
     }
 }

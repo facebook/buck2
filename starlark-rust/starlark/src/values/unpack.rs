@@ -22,6 +22,7 @@ use std::ops::Deref;
 use dupe::Dupe;
 use either::Either;
 
+use crate::typing::Ty;
 use crate::values::list::ListRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::Tuple;
@@ -35,7 +36,7 @@ use crate::values::ValueError;
 pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
     /// Description of values acceptable by `unpack_value`, e. g. `list or str`.
     fn expected() -> String {
-        Self::starlark_type_repr()
+        Self::starlark_type_repr().to_string()
     }
 
     /// Given a [`Value`], try and unpack it into the given type, which may involve some element of conversion.
@@ -119,7 +120,7 @@ impl<'v, T: UnpackValue<'v>> Deref for ValueOf<'v, T> {
 }
 
 impl<'v, T: UnpackValue<'v>> StarlarkTypeRepr for ValueOf<'v, T> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         T::starlark_type_repr()
     }
 }

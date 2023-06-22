@@ -25,6 +25,7 @@ use buck2_core::pattern::maybe_split_cell_alias_and_relative_path;
 use derive_more::Display;
 use dupe::Dupe;
 use either::Either;
+use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -115,7 +116,7 @@ impl<'v> UnpackValue<'v> for FileExpr<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for FileExpr<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Either::<String, StarlarkArtifact>::starlark_type_repr()
     }
 }

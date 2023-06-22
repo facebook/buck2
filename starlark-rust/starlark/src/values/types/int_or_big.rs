@@ -36,6 +36,7 @@ use num_traits::Signed;
 use num_traits::ToPrimitive;
 use num_traits::Zero;
 
+use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::inline_int::InlineInt;
@@ -378,7 +379,7 @@ impl<'v> StarlarkIntRef<'v> {
 }
 
 impl StarlarkTypeRepr for StarlarkInt {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         StarlarkBigInt::starlark_type_repr()
     }
 }
@@ -402,7 +403,7 @@ impl AllocFrozenValue for StarlarkInt {
 }
 
 impl<'v> StarlarkTypeRepr for StarlarkIntRef<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         StarlarkInt::starlark_type_repr()
     }
 }

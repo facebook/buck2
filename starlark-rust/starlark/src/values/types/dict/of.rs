@@ -23,6 +23,7 @@ use starlark_derive::Trace;
 use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
+use crate::typing::Ty;
 use crate::values::dict::DictRef;
 use crate::values::type_repr::DictType;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -71,7 +72,7 @@ impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> DictOf<'v, K, V> {
 }
 
 impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> StarlarkTypeRepr for DictOf<'v, K, V> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }
 }

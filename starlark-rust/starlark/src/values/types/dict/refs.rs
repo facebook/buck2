@@ -24,6 +24,7 @@ use std::ops::DerefMut;
 use either::Either;
 
 use crate::coerce::coerce;
+use crate::typing::Ty;
 use crate::values::dict::value::DictGen;
 use crate::values::dict::value::FrozenDictData;
 use crate::values::dict::Dict;
@@ -136,7 +137,7 @@ impl<'v> DerefMut for DictMut<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for DictRef<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Dict::<'v>::starlark_type_repr()
     }
 }

@@ -26,6 +26,7 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneOr;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -89,8 +90,8 @@ impl<'v> AllocValue<'v> for StarlarkUQueryCtx<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkUQueryCtx<'v> {
-    fn starlark_type_repr() -> String {
-        StarlarkUQueryCtx::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        StarlarkUQueryCtx::get_type_starlark_repr()
     }
 }
 

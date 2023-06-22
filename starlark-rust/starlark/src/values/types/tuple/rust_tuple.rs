@@ -17,6 +17,7 @@
 
 //! Bindings to/from Rust tuple types.
 
+use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::AllocValue;
@@ -49,31 +50,26 @@ impl<'v, T1: AllocValue<'v>, T2: AllocValue<'v>, T3: AllocValue<'v>> AllocValue<
 }
 
 impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr> StarlarkTypeRepr for (T1, T2) {
-    fn starlark_type_repr() -> String {
-        format!(
-            "({}, {})",
-            T1::starlark_type_repr(),
-            T2::starlark_type_repr()
-        )
+    fn starlark_type_repr() -> Ty {
+        Ty::tuple2(T1::starlark_type_repr(), T2::starlark_type_repr())
     }
 }
 
 impl<T1: StarlarkTypeRepr> StarlarkTypeRepr for (T1,) {
-    fn starlark_type_repr() -> String {
-        format!("({},)", T1::starlark_type_repr())
+    fn starlark_type_repr() -> Ty {
+        Ty::Tuple(vec![T1::starlark_type_repr()])
     }
 }
 
 impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr, T3: StarlarkTypeRepr> StarlarkTypeRepr
     for (T1, T2, T3)
 {
-    fn starlark_type_repr() -> String {
-        format!(
-            "({}, {}, {})",
+    fn starlark_type_repr() -> Ty {
+        Ty::Tuple(vec![
             T1::starlark_type_repr(),
             T2::starlark_type_repr(),
-            T3::starlark_type_repr()
-        )
+            T3::starlark_type_repr(),
+        ])
     }
 }
 

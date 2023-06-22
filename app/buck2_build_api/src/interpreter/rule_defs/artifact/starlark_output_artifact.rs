@@ -17,6 +17,7 @@ use dupe::Dupe;
 use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Coerce;
 use starlark::values::Demand;
@@ -85,7 +86,7 @@ impl Display for FrozenStarlarkOutputArtifact {
 pub struct StarlarkOutputOrDeclaredArtifact<'v>(pub StarlarkOutputArtifact<'v>);
 
 impl<'v> StarlarkTypeRepr for StarlarkOutputOrDeclaredArtifact<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Either::<StarlarkOutputArtifact, StarlarkDeclaredArtifact>::starlark_type_repr()
     }
 }

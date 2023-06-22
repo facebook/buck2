@@ -17,6 +17,7 @@
 
 use std::iter;
 
+use crate::typing::Ty;
 use crate::values::tuple::TupleRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
@@ -52,8 +53,8 @@ where
     T: IntoIterator,
     T::Item: AllocValue<'v>,
 {
-    fn starlark_type_repr() -> String {
-        TupleRef::TYPE.to_owned()
+    fn starlark_type_repr() -> Ty {
+        Ty::name(TupleRef::TYPE)
     }
 }
 

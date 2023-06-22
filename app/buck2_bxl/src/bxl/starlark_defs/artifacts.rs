@@ -37,6 +37,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -292,20 +293,20 @@ impl<'v> AllocValue<'v> for EnsuredArtifactGroupInner {
 }
 
 impl<'v> StarlarkTypeRepr for &'v EnsuredArtifact {
-    fn starlark_type_repr() -> String {
-        EnsuredArtifact::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        EnsuredArtifact::get_type_starlark_repr()
     }
 }
 
 impl<'v> StarlarkTypeRepr for &'v EnsuredArtifactGroup<'v> {
-    fn starlark_type_repr() -> String {
-        EnsuredArtifactGroup::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        EnsuredArtifactGroup::get_type_starlark_repr()
     }
 }
 
 impl<'v> StarlarkTypeRepr for &'v EnsuredArtifactGroupInner {
-    fn starlark_type_repr() -> String {
-        EnsuredArtifactGroupInner::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        EnsuredArtifactGroupInner::get_type_starlark_repr()
     }
 }
 

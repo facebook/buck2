@@ -22,6 +22,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::none::NoneType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -80,8 +81,8 @@ impl<'v> AllocValue<'v> for StarlarkAuditCtx<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkAuditCtx<'v> {
-    fn starlark_type_repr() -> String {
-        StarlarkAuditCtx::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        StarlarkAuditCtx::get_type_starlark_repr()
     }
 }
 

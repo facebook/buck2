@@ -55,6 +55,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::structs::AllocStruct;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -486,8 +487,8 @@ impl<'v> AllocValue<'v> for StarlarkLazyAttrs<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkLazyAttrs<'v> {
-    fn starlark_type_repr() -> String {
-        StarlarkLazyAttrs::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        StarlarkLazyAttrs::get_type_starlark_repr()
     }
 }
 
@@ -569,8 +570,8 @@ impl<'v> AllocValue<'v> for StarlarkLazyResolvedAttrs<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkLazyResolvedAttrs<'v> {
-    fn starlark_type_repr() -> String {
-        StarlarkLazyResolvedAttrs::get_type_starlark_repr().to_string()
+    fn starlark_type_repr() -> Ty {
+        StarlarkLazyResolvedAttrs::get_type_starlark_repr()
     }
 }
 

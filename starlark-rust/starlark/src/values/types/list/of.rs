@@ -21,6 +21,7 @@ use std::ops::Deref;
 use starlark_derive::Trace;
 
 use crate as starlark;
+use crate::typing::Ty;
 use crate::values::list::ListRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::UnpackValue;
@@ -46,7 +47,7 @@ impl<'v, V: UnpackValue<'v>> ListOf<'v, V> {
 }
 
 impl<'v, V: UnpackValue<'v>> StarlarkTypeRepr for ListOf<'v, V> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Vec::<V>::starlark_type_repr()
     }
 }

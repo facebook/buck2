@@ -44,6 +44,7 @@ use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::hint::unlikely;
 use crate::starlark_type;
+use crate::typing::Ty;
 use crate::values::comparison::equals_small_map;
 use crate::values::dict::refcell::unleak_borrow;
 use crate::values::dict::DictOf;
@@ -99,7 +100,7 @@ pub struct Dict<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for Dict<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         DictOf::<Value<'v>, Value<'v>>::starlark_type_repr()
     }
 }

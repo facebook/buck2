@@ -26,6 +26,7 @@ use dupe::Dupe;
 use either::Either;
 
 use crate::collections::StarlarkHashValue;
+use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::types::int_or_big::StarlarkInt;
@@ -63,13 +64,13 @@ pub(crate) enum Num {
 }
 
 impl<'v> StarlarkTypeRepr for NumRef<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         Either::<StarlarkIntRef, StarlarkFloat>::starlark_type_repr()
     }
 }
 
 impl StarlarkTypeRepr for Num {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         NumRef::starlark_type_repr()
     }
 }

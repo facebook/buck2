@@ -44,6 +44,7 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::starlark_type;
+use crate::typing::Ty;
 use crate::values::error::ValueError;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::Basic;
@@ -82,7 +83,7 @@ impl AllocFrozenValue for i32 {
 }
 
 impl StarlarkTypeRepr for i32 {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         PointerI32::starlark_type_repr()
     }
 }

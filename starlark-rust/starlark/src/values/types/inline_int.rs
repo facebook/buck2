@@ -30,6 +30,7 @@ use num_bigint::BigInt;
 use serde::Serialize;
 
 use crate::hint;
+use crate::typing::Ty;
 use crate::values::int::PointerI32;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
@@ -332,7 +333,7 @@ impl Rem for InlineInt {
 }
 
 impl StarlarkTypeRepr for InlineInt {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         PointerI32::starlark_type_repr()
     }
 }

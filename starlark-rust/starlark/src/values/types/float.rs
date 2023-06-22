@@ -34,6 +34,7 @@ use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::starlark_type;
+use crate::typing::Ty;
 use crate::values::num::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
@@ -208,7 +209,7 @@ impl StarlarkFloat {
 }
 
 impl StarlarkTypeRepr for f64 {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         StarlarkFloat::starlark_type_repr()
     }
 }

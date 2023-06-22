@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::typing::Ty;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -42,7 +43,7 @@ impl<'v> StructRef<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for StructRef<'v> {
-    fn starlark_type_repr() -> String {
+    fn starlark_type_repr() -> Ty {
         FrozenStruct::starlark_type_repr()
     }
 }
