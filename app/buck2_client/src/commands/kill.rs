@@ -38,7 +38,7 @@ impl KillCommand {
                 }
             };
 
-            let buckd = tokio::time::timeout(buckd_startup_timeout()?, async move {
+            let buckd = tokio::time::timeout(buckd_startup_timeout()?, async {
                 process.create_channel().await?.upgrade().await
             })
             .await;
@@ -49,12 +49,34 @@ impl KillCommand {
                     buckd.kill("`buck kill` was invoked").await?;
                 }
                 Ok(Err(e)) => {
-                    tracing::debug!("Connect failed: {:#}", e);
-                    buck2_client_ctx::eprintln!("no buckd server running")?;
+                    // No time out: we just errored out. This is likely indicative that there is no
+                    // buckd (i.e. our connection got rejected), so let's check for this and then
+                    // provide some information.
+
+                    if e.is::<tonic::transport::Error>() {
+                        // OK, looks like the server
+                        tracing::debug!("Connect failed with a Tonic error: {:#}", e);
+                        buck2_client_ctx::eprintln!("no buckd server running")?;
+                    } else {
+                        buck2_client_ctx::eprintln!(
+                            "unexpected error connecting to Buck2: {:#} \
+                            (no buckd server running?)",
+                            e
+                        )?;
+                    }
                 }
                 Err(e) => {
-                    tracing::debug!("Connect failed: {:#}", e);
-                    buck2_client_ctx::eprintln!("no buckd server running")?;
+                    tracing::debug!("Connect timed out: {:#}", e);
+
+                    // If we timeout, then considering the generous timeout we give ourselves, then
+                    // that must mean we're not getting a reply back from Buck, but that we did
+                    // succeed in opening a connection to it (because if we didn't, we'd have
+                    // errored out).
+                    //
+                    // This means the socket is probably open. We can reasonably got and kill this
+                    // process if both the PID and the port exist.
+                    buck2_client_ctx::eprintln!("killing unresponsive buckd server")?;
+                    process.hard_kill().await?;
                 }
             };
 

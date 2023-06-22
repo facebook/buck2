@@ -714,7 +714,7 @@ impl<'a> BuckdProcessInfo<'a> {
         Ok(Self { info, daemon_dir })
     }
 
-    pub async fn create_channel(self) -> anyhow::Result<BuckdChannel> {
+    pub async fn create_channel(&self) -> anyhow::Result<BuckdChannel> {
         let connection_type = ConnectionType::parse(&self.info.endpoint)?;
 
         let client = new_daemon_api_client(connection_type, self.info.auth_token.clone())
@@ -722,10 +722,14 @@ impl<'a> BuckdProcessInfo<'a> {
             .context("Error connecting")?;
 
         Ok(BuckdChannel {
-            info: self.info,
+            info: self.info.clone(),
             daemon_dir: self.daemon_dir.clone(),
             client,
         })
+    }
+
+    pub async fn hard_kill(&self) -> anyhow::Result<()> {
+        kill::hard_kill(&self.info).await
     }
 }
 

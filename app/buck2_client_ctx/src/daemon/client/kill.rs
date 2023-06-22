@@ -95,6 +95,15 @@ pub async fn kill(
     hard_kill_impl(pid, time_req_sent, time_to_kill).await
 }
 
+pub async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<()> {
+    let pid = info
+        .pid
+        .try_into()
+        .with_context(|| format!("Integer overflow converting pid {}", info.pid))?;
+
+    hard_kill_impl(pid, Instant::now(), FORCE_SHUTDOWN_TIMEOUT).await
+}
+
 async fn hard_kill_impl(pid: u32, start_at: Instant, deadline: Duration) -> anyhow::Result<()> {
     tracing::info!(
         "Killing PID {} with status {}",
