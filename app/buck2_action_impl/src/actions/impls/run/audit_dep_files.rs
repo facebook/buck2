@@ -23,6 +23,7 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceTransaction;
 
 use crate::actions::impls::run::dep_files::get_dep_files;
+use crate::actions::impls::run::dep_files::read_dep_files;
 use crate::actions::impls::run::dep_files::DepFilesKey;
 use crate::actions::impls::run::dep_files::StoredFingerprints;
 
@@ -43,14 +44,15 @@ async fn audit_dep_files(
 
     let state = get_dep_files(&key).context("Failed to find dep files")?;
 
-    let dep_files = state
-        .read_dep_files(
-            &ctx.get_artifact_fs().await?,
-            ctx.per_transaction_data().get_materializer().as_ref(),
-        )
-        .await
-        .context("Failed to read dep files")?
-        .context("Dep fils have expired")?;
+    let dep_files = read_dep_files(
+        state.has_signatures(),
+        state.declared_dep_files(),
+        &ctx.get_artifact_fs().await?,
+        ctx.per_transaction_data().get_materializer().as_ref(),
+    )
+    .await
+    .context("Failed to read dep files")?
+    .context("Dep fils have expired")?;
 
     let fingerprints = state.locked_compute_fingerprints(
         Cow::Owned(dep_files),

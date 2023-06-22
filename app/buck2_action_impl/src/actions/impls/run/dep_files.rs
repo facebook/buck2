@@ -131,6 +131,23 @@ enum DepFileStateInputSignatures {
     Computed(StoredFingerprints),
 }
 
+impl StoredFingerprints {
+    fn to_dep_file_state(
+        self,
+        digests: CommandDigests,
+        declared_dep_files: DeclaredDepFiles,
+        result: &ActionOutputs,
+    ) -> DepFileState {
+        let input_signatures = Mutex::new(DepFileStateInputSignatures::Computed(self));
+        DepFileState {
+            digests,
+            input_signatures,
+            declared_dep_files,
+            result: result.dupe(),
+        }
+    }
+}
+
 #[derive(Allocative)]
 pub enum StoredFingerprints {
     /// Store only digests. This is what we use in prod because it is small.
@@ -170,43 +187,20 @@ pub struct CommandDigests {
 }
 
 impl DepFileState {
-    /// Read the dep files for this DepFileState. This will return None if the dep files cannot be
-    /// materialized (because they e.g. expired).
-    pub async fn read_dep_files(
-        &self,
-        fs: &ArtifactFs,
-        materializer: &dyn Materializer,
-    ) -> anyhow::Result<Option<ConcreteDepFiles>> {
-        // NOTE: We only materialize if we haven't computed our signatures yet, since we know we
-        // can't have computed our signatures without having read the dep file already. In an ideal
-        // world this wouldn't be necessary, but in practice contention on the materializer makes
-        // this slower.
-        if !self.has_signatures() {
-            match self.declared_dep_files.materialize(fs, materializer).await {
-                Ok(()) => {}
-                Err(MaterializeDepFilesError::NotFound) => return Ok(None),
-                Err(e) => return Err(e.into()),
-            };
-        }
-
-        let dep_files = self
-            .declared_dep_files
-            .read(fs)
-            .context("Error reading dep files, verify that the action produced valid output")?;
-
-        Ok(dep_files)
-    }
-
-    fn has_signatures(&self) -> bool {
+    pub(crate) fn has_signatures(&self) -> bool {
         match *self.input_signatures.lock() {
             DepFileStateInputSignatures::Computed(..) => true,
             DepFileStateInputSignatures::Deferred(..) => false,
         }
     }
 
+    pub(crate) fn declared_dep_files(&self) -> &DeclaredDepFiles {
+        &self.declared_dep_files
+    }
+
     /// Compute the signature for this DepFileState, having provided the dep files from
     /// read_dep_files.
-    pub fn locked_compute_fingerprints<'a>(
+    pub(crate) fn locked_compute_fingerprints<'a>(
         &'a self,
         dep_files: Cow<'_, ConcreteDepFiles>,
         keep_directories: bool,
@@ -218,18 +212,15 @@ impl DepFileState {
         let mut guard = self.input_signatures.lock();
 
         if let DepFileStateInputSignatures::Deferred(ref mut directories) = *guard {
-            let directories = directories
-                .take()
-                .expect("Poisoned DepFileStateInputSignatures")
-                .unshare()
-                .filter(dep_files.into_owned())
-                .fingerprint(digest_config);
-
-            let fingerprints = if keep_directories {
-                StoredFingerprints::Dirs(directories)
-            } else {
-                StoredFingerprints::Digests(directories.as_fingerprints())
-            };
+            let fingerprints = compute_fingerprints(
+                directories
+                    .take()
+                    .expect("Poisoned DepFileStateInputSignatures")
+                    .unshare(),
+                dep_files.into_owned(),
+                digest_config,
+                keep_directories,
+            );
 
             *guard = DepFileStateInputSignatures::Computed(fingerprints);
         }
@@ -418,14 +409,18 @@ async fn dep_files_match(
         return Ok(true);
     }
 
-    let dep_files = previous_state
-        .read_dep_files(ctx.fs(), ctx.materializer())
-        .await
-        .context(
-            "Error reading persisted dep files. \
+    let dep_files = read_dep_files(
+        previous_state.has_signatures(),
+        previous_state.declared_dep_files(),
+        ctx.fs(),
+        ctx.materializer(),
+    )
+    .await
+    .context(
+        "Error reading persisted dep files. \
             Fix the command that produced an invalid dep file. \
             You may also use `buck2 debug flush-dep-files` to drop all dep file state.",
-        )?;
+    )?;
 
     let dep_files = match dep_files {
         Some(dep_files) => dep_files,
@@ -477,6 +472,66 @@ fn outputs_are_reusable(declared_outputs: &[BuildArtifact], outputs: &ActionOutp
     true
 }
 
+/// Read the dep files for this DepFileState. This will return None if the dep files cannot be
+/// materialized (because they e.g. expired).
+pub(crate) async fn read_dep_files(
+    has_signatures: bool,
+    declared_dep_files: &DeclaredDepFiles,
+    fs: &ArtifactFs,
+    materializer: &dyn Materializer,
+) -> anyhow::Result<Option<ConcreteDepFiles>> {
+    // NOTE: We only materialize if we haven't computed our signatures yet, since we know we
+    // can't have computed our signatures without having read the dep file already. In an ideal
+    // world this wouldn't be necessary, but in practice contention on the materializer makes
+    // this slower.
+    if !has_signatures {
+        match declared_dep_files.materialize(fs, materializer).await {
+            Ok(()) => {}
+            Err(MaterializeDepFilesError::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+    }
+
+    let dep_files = declared_dep_files
+        .read(fs)
+        .context("Error reading dep files, verify that the action produced valid output")?;
+
+    Ok(dep_files)
+}
+
+fn compute_fingerprints(
+    directories: PartitionedInputs<ActionDirectoryBuilder>,
+    dep_files: ConcreteDepFiles,
+    digest_config: DigestConfig,
+    keep_directories: bool,
+) -> StoredFingerprints {
+    let filtered_directories = directories.filter(dep_files).fingerprint(digest_config);
+    if keep_directories {
+        StoredFingerprints::Dirs(filtered_directories)
+    } else {
+        StoredFingerprints::Digests(filtered_directories.as_fingerprints())
+    }
+}
+
+pub(crate) async fn eagerly_compute_fingerprints(
+    declared_inputs: &PartitionedInputs<Vec<ArtifactGroup>>,
+    declared_dep_files: &DeclaredDepFiles,
+    ctx: &dyn ActionExecutionCtx,
+) -> anyhow::Result<StoredFingerprints> {
+    let directories = declared_inputs.to_directories(ctx)?;
+    let dep_files = read_dep_files(false, declared_dep_files, ctx.fs(), ctx.materializer())
+        .await?
+        .context("Dep file not found")?;
+
+    let fingerprints = compute_fingerprints(
+        directories,
+        dep_files,
+        ctx.digest_config(),
+        KEEP_DIRECTORIES.get_copied()?.unwrap_or_default(),
+    );
+    Ok(fingerprints)
+}
+
 /// Post-process the dep files produced by an action.
 pub(crate) async fn populate_dep_files(
     key: DepFilesKey,
@@ -486,36 +541,23 @@ pub(crate) async fn populate_dep_files(
     result: &ActionOutputs,
     ctx: &dyn ActionExecutionCtx,
 ) -> anyhow::Result<()> {
-    let has_no_dep_files = declared_dep_files.is_empty();
-
-    let directories = declared_inputs.to_directories(ctx)?;
-    let digest_config = ctx.digest_config();
-
-    let state = DepFileState {
-        digests,
-        input_signatures: Mutex::new(DepFileStateInputSignatures::Deferred(Some(
-            directories.share(digest_config),
-        ))),
-        declared_dep_files,
-        result: result.dupe(),
+    let state = if declared_dep_files.is_empty() || ctx.run_action_knobs().eager_dep_files {
+        let fingerprint =
+            eagerly_compute_fingerprints(&declared_inputs, &declared_dep_files, ctx).await?;
+        fingerprint.to_dep_file_state(digests, declared_dep_files, result)
+    } else {
+        let directories = declared_inputs.to_directories(ctx)?;
+        DepFileState {
+            digests,
+            input_signatures: Mutex::new(DepFileStateInputSignatures::Deferred(Some(
+                directories.share(ctx.digest_config()),
+            ))),
+            declared_dep_files,
+            result: result.dupe(),
+        }
     };
 
-    if has_no_dep_files || ctx.run_action_knobs().eager_dep_files {
-        let dep_files = state
-            .read_dep_files(ctx.fs(), ctx.materializer())
-            .await?
-            .context("Dep file not found")?;
-
-        // Evaluate the fingerprints, but release the lock immediately.
-        std::mem::drop(state.locked_compute_fingerprints(
-            Cow::Owned(dep_files),
-            KEEP_DIRECTORIES.get_copied()?.unwrap_or_default(),
-            digest_config,
-        ));
-    }
-
     DEP_FILES.insert(key, Arc::new(state));
-
     Ok(())
 }
 
