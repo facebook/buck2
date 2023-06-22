@@ -46,11 +46,7 @@ def main(argv):
     cmd.append("@" + argsfile.name)
 
     cmd.extend(args.srcs)
-    r = subprocess.call(cmd)
-    if r != 0:
-        sys.exit(r)
-
-    subprocess.check_call(cmd)
+    return subprocess.call(cmd)
 
 
 sys.exit(main(sys.argv))
