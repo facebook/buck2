@@ -40,6 +40,12 @@ impl<'a> PartialEqAny<'a> {
         }
     }
 
+    /// Get `TypeId` of the referenced type.
+    #[inline]
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
     /// gets an instance that always compares to false
     #[inline]
     pub fn always_false() -> Self {

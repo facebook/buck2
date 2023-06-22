@@ -36,6 +36,12 @@ impl<'a> OrdAny<'a> {
             _marker: PhantomData,
         }
     }
+
+    /// Get `TypeId` of the referenced type.
+    #[inline]
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
 }
 
 impl<'a> PartialEq for OrdAny<'a> {
