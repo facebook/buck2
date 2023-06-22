@@ -49,16 +49,15 @@ use buck2_common::io::IoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_file_watcher::mergebase::Mergebase;
@@ -207,13 +206,7 @@ pub trait ActionExecutionCtx: Send + Sync {
         manager: CommandExecutionManager,
         request: &CommandExecutionRequest,
         prepared_action: &PreparedAction,
-    ) -> ControlFlow<
-        anyhow::Result<(
-            IndexMap<BuckOutPath, ArtifactValue>,
-            ActionExecutionMetadata,
-        )>,
-        CommandExecutionManager,
-    >;
+    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager>;
 
     /// Executes a command
     /// TODO(bobyf) this seems like it deserves critical sections?
@@ -222,10 +215,13 @@ pub trait ActionExecutionCtx: Send + Sync {
         manager: CommandExecutionManager,
         request: &CommandExecutionRequest,
         prepared_action: &PreparedAction,
-    ) -> anyhow::Result<(
-        IndexMap<BuckOutPath, ArtifactValue>,
-        ActionExecutionMetadata,
-    )>;
+    ) -> CommandExecutionResult;
+
+    fn unpack_command_execution_result(
+        &mut self,
+        request: &CommandExecutionRequest,
+        result: CommandExecutionResult,
+    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>;
 
     /// Clean up all the output directories for this action. This requires a mutable reference
     /// because you shouldn't be doing anything else with the ActionExecutionCtx while cleaning the

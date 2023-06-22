@@ -555,32 +555,31 @@ impl IncrementalActionExecutable for RunAction {
         // First prepare the action, check the action cache, check dep_files if needed, and execute the command
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
-        let ((outputs, meta), dep_files) =
-            match ctx.action_cache(manager, &req, &prepared_action).await {
-                ControlFlow::Break(res) => (res?, dep_files),
-                ControlFlow::Continue(manager) => {
-                    let dep_files = if let Some(dep_files) = dep_files {
-                        match check_local_dep_file_cache(ctx, self.outputs.as_slice(), &dep_files)
-                            .await?
-                        {
-                            Some(m) => {
-                                // We have a dep_file based match, return early
-                                return Ok(m);
-                            }
-                            None => Some(dep_files),
+        let (result, dep_files) = match ctx.action_cache(manager, &req, &prepared_action).await {
+            ControlFlow::Break(res) => (res, dep_files),
+            ControlFlow::Continue(manager) => {
+                let dep_files = if let Some(dep_files) = dep_files {
+                    match check_local_dep_file_cache(ctx, self.outputs.as_slice(), &dep_files)
+                        .await?
+                    {
+                        Some(m) => {
+                            // We have a dep_file based match, return early
+                            return Ok(m);
                         }
-                    } else {
-                        None
-                    };
+                        None => Some(dep_files),
+                    }
+                } else {
+                    None
+                };
 
-                    (
-                        ctx.exec_cmd(manager, &req, &prepared_action).await?,
-                        dep_files,
-                    )
-                }
-            };
+                (
+                    ctx.exec_cmd(manager, &req, &prepared_action).await,
+                    dep_files,
+                )
+            }
+        };
 
-        let outputs = ActionOutputs::new(outputs);
+        let (outputs, metadata) = ctx.unpack_command_execution_result(&req, result)?;
 
         if let Some(dep_files) = dep_files {
             let (dep_files_key, digests, declared_inputs, declared_dep_files) = dep_files;
@@ -596,6 +595,6 @@ impl IncrementalActionExecutable for RunAction {
             .await?;
         }
 
-        Ok((outputs, meta))
+        Ok((outputs, metadata))
     }
 }

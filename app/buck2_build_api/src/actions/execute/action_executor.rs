@@ -315,54 +315,6 @@ struct BuckActionExecutionContext<'a> {
     cancellations: &'a CancellationContext<'a>,
 }
 
-impl BuckActionExecutionContext<'_> {
-    fn unpack_command_execution_result(
-        &mut self,
-        request: &CommandExecutionRequest,
-        result: CommandExecutionResult,
-    ) -> anyhow::Result<(
-        IndexMap<BuckOutPath, ArtifactValue>,
-        ActionExecutionMetadata,
-    )> {
-        let CommandExecutionResult {
-            outputs,
-            report,
-            rejected_execution,
-            did_cache_upload,
-            eligible_for_full_hybrid,
-        } = result;
-        // TODO (@torozco): The execution kind should be made to come via the command reports too.
-        let res = match &report.status {
-            CommandExecutionStatus::Success { execution_kind } => {
-                let result = (
-                    outputs
-                        .into_iter()
-                        .filter_map(|(output, value)| {
-                            Some((output.into_build_artifact()?.0, value))
-                        })
-                        .collect(),
-                    ActionExecutionMetadata {
-                        execution_kind: ActionExecutionKind::Command {
-                            kind: execution_kind.clone(),
-                            prefers_local: request.executor_preference().prefers_local(),
-                            requires_local: request.executor_preference().requires_local(),
-                            allows_cache_upload: request.allow_cache_upload(),
-                            did_cache_upload,
-                            eligible_for_full_hybrid,
-                        },
-                        timing: report.timing.into(),
-                    },
-                );
-                Ok(result)
-            }
-            _ => Err(CommandExecutionErrorMarker.into()),
-        };
-        self.command_reports.extend(rejected_execution.into_iter());
-        self.command_reports.push(report);
-        res
-    }
-}
-
 #[async_trait]
 impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn target(&self) -> ActionExecutionTarget<'_> {
@@ -435,16 +387,9 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         manager: CommandExecutionManager,
         request: &CommandExecutionRequest,
         prepared_action: &PreparedAction,
-    ) -> ControlFlow<
-        anyhow::Result<(
-            IndexMap<BuckOutPath, ArtifactValue>,
-            ActionExecutionMetadata,
-        )>,
-        CommandExecutionManager,
-    > {
+    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let action = self.target();
-        let cache_result = self
-            .executor
+        self.executor
             .command_executor
             .action_cache(
                 manager,
@@ -456,16 +401,53 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 },
                 self.cancellations,
             )
-            .await;
-        match cache_result {
-            ControlFlow::Continue(manager) => ControlFlow::Continue(manager),
-            ControlFlow::Break(result) => {
-                match self.unpack_command_execution_result(request, result) {
-                    Err(e) => ControlFlow::Break(Err(e)),
-                    Ok(res) => ControlFlow::Break(Ok(res)),
-                }
+            .await
+    }
+
+    fn unpack_command_execution_result(
+        &mut self,
+        request: &CommandExecutionRequest,
+        result: CommandExecutionResult,
+    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+        let CommandExecutionResult {
+            outputs,
+            report,
+            rejected_execution,
+            did_cache_upload,
+            eligible_for_full_hybrid,
+        } = result;
+        // TODO (@torozco): The execution kind should be made to come via the command reports too.
+        let res = match &report.status {
+            CommandExecutionStatus::Success { execution_kind } => {
+                let result = (
+                    // TODO(T156483516): We should also validate that the outputs match the expected outputs
+                    ActionOutputs::new(
+                        outputs
+                            .into_iter()
+                            .filter_map(|(output, value)| {
+                                Some((output.into_build_artifact()?.0, value))
+                            })
+                            .collect(),
+                    ),
+                    ActionExecutionMetadata {
+                        execution_kind: ActionExecutionKind::Command {
+                            kind: execution_kind.clone(),
+                            prefers_local: request.executor_preference().prefers_local(),
+                            requires_local: request.executor_preference().requires_local(),
+                            allows_cache_upload: request.allow_cache_upload(),
+                            did_cache_upload,
+                            eligible_for_full_hybrid,
+                        },
+                        timing: report.timing.into(),
+                    },
+                );
+                Ok(result)
             }
-        }
+            _ => Err(CommandExecutionErrorMarker.into()),
+        };
+        self.command_reports.extend(rejected_execution.into_iter());
+        self.command_reports.push(report);
+        res
     }
 
     async fn exec_cmd(
@@ -473,13 +455,9 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         manager: CommandExecutionManager,
         request: &CommandExecutionRequest,
         prepared_action: &PreparedAction,
-    ) -> anyhow::Result<(
-        IndexMap<BuckOutPath, ArtifactValue>,
-        ActionExecutionMetadata,
-    )> {
+    ) -> CommandExecutionResult {
         let action = self.target();
-        let result = self
-            .executor
+        self.executor
             .command_executor
             .exec_cmd(
                 manager,
@@ -491,9 +469,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 },
                 self.cancellations,
             )
-            .await;
-
-        self.unpack_command_execution_result(request, result)
+            .await
     }
 
     async fn cleanup_outputs(&mut self) -> anyhow::Result<()> {
@@ -856,7 +832,7 @@ mod tests {
                     ctx.fs().fs().write_file(&dest_path, "", false)?
                 }
 
-                res?;
+                ctx.unpack_command_execution_result(&req, res)?;
                 let outputs = self
                     .outputs
                     .iter()
