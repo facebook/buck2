@@ -107,3 +107,4 @@ pub mod type_repr;
 pub(crate) mod types;
 pub(crate) mod typing;
 mod unpack;
+pub(crate) mod value_of_unchecked;

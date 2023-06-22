@@ -44,6 +44,7 @@ use crate::values::tuple::TupleRef;
 use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::tuple::value::Tuple;
+use crate::values::value_of_unchecked::ValueOfUnchecked;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
 use crate::values::Heap;
@@ -598,16 +599,16 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// int(float("inf"))   # error: cannot be represented as exact integer
     /// # "#, "cannot be represented as exact integer");
     /// ```
-    #[starlark(dot_type = INT_TYPE, speculative_exec_safe, return_type = "int.type")]
+    #[starlark(dot_type = INT_TYPE, speculative_exec_safe)]
     fn int<'v>(
         #[starlark(require = pos, type = "[int.type, str.type, float.type, bool.type]")] a: Option<
             Value<'v>,
         >,
         base: Option<i32>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueOfUnchecked<'v, StarlarkInt>> {
         let Some(a) = a else {
-            return Ok(heap.alloc(0));
+            return Ok(ValueOfUnchecked::new(heap.alloc(0)));
         };
         if let Some(s) = a.unpack_str() {
             let base = base.unwrap_or(0);
@@ -665,18 +666,20 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
 
             let x = StarlarkInt::from_str_radix(s, base)?;
             let x = if negate { -x } else { x };
-            Ok(heap.alloc(x))
+            Ok(ValueOfUnchecked::new(heap.alloc(x)))
         } else if let Some(base) = base {
             Err(anyhow::anyhow!(
                 "int() cannot convert non-string with explicit base '{}'",
                 base
             ))
         } else if StarlarkIntRef::unpack_value(a).is_some() {
-            Ok(a)
+            Ok(ValueOfUnchecked::new(a))
         } else if let Some(f) = StarlarkFloat::unpack_value(a) {
-            Ok(heap.alloc(StarlarkInt::from_f64_exact(f.0.trunc())?))
+            Ok(ValueOfUnchecked::new(
+                heap.alloc(StarlarkInt::from_f64_exact(f.0.trunc())?),
+            ))
         } else if let Some(b) = a.unpack_bool() {
-            Ok(heap.alloc(b as i32))
+            Ok(ValueOfUnchecked::new(heap.alloc(b as i32)))
         } else {
             Err(ValueError::IncorrectParameterTypeWithExpected(
                 a.get_type().to_owned(),
@@ -730,12 +733,12 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// list("strings are not iterable") # error: not supported
     /// # "#, "not supported");
     /// ```
-    #[starlark(dot_type = ListRef::TYPE, speculative_exec_safe, return_type = "[\"\"]")]
+    #[starlark(dot_type = ListRef::TYPE, speculative_exec_safe)]
     fn list<'v>(
         #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        Ok(if let Some(a) = a {
+    ) -> anyhow::Result<ValueOfUnchecked<'v, &'v ListRef<'v>>> {
+        Ok(ValueOfUnchecked::new(if let Some(a) = a {
             if let Some(xs) = ListRef::from_value(a) {
                 heap.alloc_list(xs.content())
             } else {
@@ -744,7 +747,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
             }
         } else {
             heap.alloc(AllocList::EMPTY)
-        })
+        }))
     }
 
     /// [max](
@@ -1048,20 +1051,20 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// tuple([1,2,3]) == (1, 2, 3)
     /// # "#);
     /// ```
-    #[starlark(dot_type = Tuple::TYPE, speculative_exec_safe, return_type = "tuple.type")]
+    #[starlark(dot_type = Tuple::TYPE, speculative_exec_safe)]
     fn tuple<'v>(
         #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueOfUnchecked<'v, &'v TupleRef<'v>>> {
         if let Some(a) = a {
             if TupleRef::from_value(a).is_some() {
-                return Ok(a);
+                return Ok(ValueOfUnchecked::new(a));
             }
 
             let it = a.iterate(heap)?;
-            Ok(heap.alloc_tuple_iter(it))
+            Ok(ValueOfUnchecked::new(heap.alloc_tuple_iter(it)))
         } else {
-            Ok(heap.alloc(AllocTuple::EMPTY))
+            Ok(ValueOfUnchecked::new(heap.alloc(AllocTuple::EMPTY)))
         }
     }
 
