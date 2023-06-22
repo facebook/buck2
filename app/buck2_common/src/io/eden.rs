@@ -102,77 +102,6 @@ impl EdenIoProvider {
             _v2: v2,
         }))
     }
-}
-
-#[async_trait]
-impl IoProvider for EdenIoProvider {
-    async fn read_file_if_exists(
-        &self,
-        path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<String>> {
-        self.fs.read_file_if_exists(path).await
-    }
-
-    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
-        let _guard = IoCounterKey::ReadDirEden.guard();
-
-        let requested_attributes = i64::from(i32::from(FileAttributes::SOURCE_CONTROL_TYPE));
-
-        let params = ReaddirParams {
-            mountPoint: self.manager.get_mount_point(),
-            directoryPaths: vec![path.to_string().into_bytes()],
-            requestedAttributes: requested_attributes,
-            sync: no_sync(),
-            ..Default::default()
-        };
-
-        let res = self
-            .manager
-            .with_eden(|eden| {
-                tracing::trace!("readdir({})", path);
-                eden.readdir(&params)
-            })
-            .await?
-            .dirLists;
-
-        let data = res
-            .into_iter()
-            .next()
-            .context("Eden did not return a directory result")?
-            .into_result()?;
-
-        tracing::debug!("readdir({}): {} entries", path, data.len(),);
-
-        let entries = data
-            .into_iter()
-            .map(|(file_name, attrs)| {
-                let file_name =
-                    CompactString::from_utf8(file_name).context("Filename is not UTF-8")?;
-
-                let source_control_type = attrs
-                    .into_result()?
-                    .sourceControlType
-                    .context("Missing sourceControlType")?
-                    .into_result()?;
-
-                let file_type = match source_control_type {
-                    SourceControlType::TREE => FileType::Directory,
-                    SourceControlType::REGULAR_FILE | SourceControlType::EXECUTABLE_FILE => {
-                        FileType::File
-                    }
-                    SourceControlType::SYMLINK => FileType::Symlink,
-                    _ => FileType::Unknown,
-                };
-
-                anyhow::Ok(RawDirEntry {
-                    file_name,
-                    file_type,
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(entries)
-    }
 
     async fn read_path_metadata_if_exists(
         &self,
@@ -263,6 +192,84 @@ impl IoProvider for EdenIoProvider {
             }
             Err(err) => Err(err.into()),
         }
+    }
+}
+
+#[async_trait]
+impl IoProvider for EdenIoProvider {
+    async fn read_file_if_exists(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<String>> {
+        self.fs.read_file_if_exists(path).await
+    }
+
+    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
+        let _guard = IoCounterKey::ReadDirEden.guard();
+
+        let requested_attributes = i64::from(i32::from(FileAttributes::SOURCE_CONTROL_TYPE));
+
+        let params = ReaddirParams {
+            mountPoint: self.manager.get_mount_point(),
+            directoryPaths: vec![path.to_string().into_bytes()],
+            requestedAttributes: requested_attributes,
+            sync: no_sync(),
+            ..Default::default()
+        };
+
+        let res = self
+            .manager
+            .with_eden(|eden| {
+                tracing::trace!("readdir({})", path);
+                eden.readdir(&params)
+            })
+            .await?
+            .dirLists;
+
+        let data = res
+            .into_iter()
+            .next()
+            .context("Eden did not return a directory result")?
+            .into_result()?;
+
+        tracing::debug!("readdir({}): {} entries", path, data.len(),);
+
+        let entries = data
+            .into_iter()
+            .map(|(file_name, attrs)| {
+                let file_name =
+                    CompactString::from_utf8(file_name).context("Filename is not UTF-8")?;
+
+                let source_control_type = attrs
+                    .into_result()?
+                    .sourceControlType
+                    .context("Missing sourceControlType")?
+                    .into_result()?;
+
+                let file_type = match source_control_type {
+                    SourceControlType::TREE => FileType::Directory,
+                    SourceControlType::REGULAR_FILE | SourceControlType::EXECUTABLE_FILE => {
+                        FileType::File
+                    }
+                    SourceControlType::SYMLINK => FileType::Symlink,
+                    _ => FileType::Unknown,
+                };
+
+                anyhow::Ok(RawDirEntry {
+                    file_name,
+                    file_type,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(entries)
+    }
+
+    async fn read_path_metadata_if_exists(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+        Self::read_path_metadata_if_exists(self, path).await
     }
 
     async fn settle(&self) -> anyhow::Result<()> {
