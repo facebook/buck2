@@ -53,7 +53,6 @@ use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
-use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::resolved::ResolvedConfiguration;
 use crate::nodes::attributes::DEPS;
@@ -435,73 +434,6 @@ impl ConfiguredTargetNode {
         if let Some(tests) = self.get(TESTS_ATTRIBUTE_FIELD, AttrInspectOptions::All) {
             tests.traverse(self.label().pkg(), &mut traversal).unwrap();
         }
-        traversal.labels.into_iter()
-    }
-
-    /// Return the unconfigured `tests` declared for this target.
-    pub fn unconfigured_tests(&self) -> impl Iterator<Item = &ProvidersLabel> {
-        #[derive(Default)]
-        struct TestCollector<'a> {
-            labels: Vec<&'a ProvidersLabel>,
-        }
-
-        impl<'a> CoercedAttrTraversal<'a> for TestCollector<'a> {
-            fn dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn exec_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn toolchain_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn transition_dep(
-                &mut self,
-                _dep: &'a TargetLabel,
-                _tr: &Arc<TransitionId>,
-            ) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn split_transition_dep(
-                &mut self,
-                _dep: &'a TargetLabel,
-                _tr: &Arc<TransitionId>,
-            ) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn configuration_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn platform_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn input(&mut self, _input: BuckPathRef) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn label(&mut self, label: &'a ProvidersLabel) -> anyhow::Result<()> {
-                self.labels.push(label);
-                Ok(())
-            }
-        }
-
-        let mut traversal = TestCollector::default();
-
-        if let Some(tests) = self
-            .0
-            .target_node
-            .attr_or_none(TESTS_ATTRIBUTE_FIELD, AttrInspectOptions::All)
-        {
-            tests.traverse(self.label().pkg(), &mut traversal).unwrap();
-        }
-
         traversal.labels.into_iter()
     }
 

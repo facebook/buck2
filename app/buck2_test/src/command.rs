@@ -691,19 +691,17 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 let mut labels = vec![label];
 
                 // Look up `tests` in the the target we're testing, and if we find any tests, add them to the test backlog.
-                if state.resolve_tests_platform_independently {
-                    for test in node.unconfigured_tests() {
+                for test in node.tests() {
+                    if state.resolve_tests_platform_independently {
                         let label = state
                             .ctx
                             .get_configured_provider_label(
-                                test,
+                                &test.unconfigured(),
                                 state.global_target_platform.as_ref(),
                             )
                             .await?;
                         labels.push(label);
-                    }
-                } else {
-                    for test in node.tests() {
+                    } else {
                         labels.push(test);
                     }
                 }
