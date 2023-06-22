@@ -70,6 +70,8 @@ pub(crate) enum TypingError {
     UnexpectedNamedArgument { name: String },
     #[error("Too many positional arguments")]
     TooManyPositionalArguments,
+    #[error("Call arguments incompatible")]
+    CallArgumentsIncompatible,
 }
 
 pub(crate) struct TypingContext<'a> {
@@ -84,10 +86,13 @@ pub(crate) struct TypingContext<'a> {
 }
 
 impl TypingContext<'_> {
+    fn mk_error(&self, span: Span, err: TypingError) -> EvalException {
+        EvalException::new(err.into(), span, self.codemap)
+    }
+
     fn add_error(&self, span: Span, err: TypingError) -> Ty {
-        self.errors
-            .borrow_mut()
-            .push(EvalException::new(err.into(), span, &self.codemap));
+        let err = self.mk_error(span, err);
+        self.errors.borrow_mut().push(err);
         Ty::Never
     }
 
@@ -98,7 +103,12 @@ impl TypingContext<'_> {
         Ty::Any
     }
 
-    fn validate_args(&self, params: &[Param], args: &[Arg], span: Span) {
+    fn validate_args(
+        &self,
+        params: &[Param],
+        args: &[Arg],
+        span: Span,
+    ) -> Result<(), EvalException> {
         // Want to figure out which arguments go in which positions
         let mut param_args: Vec<Vec<&Ty>> = vec![vec![]; params.len()];
         // The next index a positional parameter might fill
@@ -110,8 +120,9 @@ impl TypingContext<'_> {
                 Arg::Pos(ty) => loop {
                     match params.get(param_pos) {
                         None => {
-                            self.add_error(span, TypingError::TooManyPositionalArguments);
-                            return;
+                            return Err(
+                                self.mk_error(span, TypingError::TooManyPositionalArguments)
+                            );
                         }
                         Some(param) => {
                             let found_index = param_pos;
@@ -135,10 +146,10 @@ impl TypingContext<'_> {
                         }
                     }
                     if !success {
-                        self.add_error(
+                        return Err(self.mk_error(
                             span,
                             TypingError::UnexpectedNamedArgument { name: name.clone() },
-                        );
+                        ));
                     }
                 }
                 Arg::Args(_) => {
@@ -158,24 +169,24 @@ impl TypingContext<'_> {
             if args.is_empty() {
                 // We assume that *args/**kwargs might have splatted things everywhere.
                 if !param.optional && !seen_vargs {
-                    self.add_error(
+                    return Err(self.mk_error(
                         span,
                         TypingError::MissingRequiredParameter {
                             name: param.name().to_owned(),
                         },
-                    );
+                    ));
                 }
                 continue;
             }
             match param.mode {
                 ParamMode::PosOnly | ParamMode::PosOrName(_) | ParamMode::NameOnly(_) => {
-                    self.validate_type(args[0], &param.ty, span)
+                    self.validate_type_result(args[0], &param.ty, span)?;
                 }
                 ParamMode::Args => {
                     for ty in args {
                         // For an arg, we require the type annotation to be inner value,
                         // rather than the outer (which is always a tuple)
-                        self.validate_type(ty, &param.ty, span);
+                        self.validate_type_result(ty, &param.ty, span)?;
                     }
                 }
                 ParamMode::Kwargs => {
@@ -191,135 +202,137 @@ impl TypingContext<'_> {
                     if !val_types.is_empty() {
                         let require = Ty::unions(val_types);
                         for ty in args {
-                            self.validate_type(ty, &require, span);
+                            self.validate_type_result(ty, &require, span)?;
                         }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_fn_call(
+        &self,
+        span: Span,
+        fun: &TyFunction,
+        args: &[Arg],
+    ) -> Result<Ty, EvalException> {
+        if let Some(res) = self.oracle.builtin_call(&fun.name, args) {
+            match res {
+                Ok(t) => Ok(t),
+                Err(reason) => Err(self.mk_error(
+                    span,
+                    TypingError::InvalidBuiltinCall {
+                        name: fun.name.to_owned(),
+                        reason,
+                    },
+                )),
+            }
+        } else {
+            self.validate_args(&fun.params, args, span)?;
+            Ok((*fun.result).clone())
+        }
+    }
+
+    /// Return `Result` instead of adding to `errors`.
+    #[allow(clippy::collapsible_else_if)]
+    fn validate_call_result(
+        &self,
+        span: Span,
+        fun: &Ty,
+        args: &[Arg],
+    ) -> Result<Ty, EvalException> {
+        match fun {
+            Ty::Never => Ok(Ty::Never),
+            Ty::Any => Ok(Ty::Any),
+            Ty::Name(n) => match self.oracle.as_function(n) {
+                None => {
+                    // Unknown type, may be callable.
+                    Ok(Ty::Any)
+                }
+                Some(Ok(f)) => self.validate_fn_call(span, &f, args),
+                Some(Err(())) => Err(self.mk_error(
+                    span,
+                    TypingError::CallToNonCallable {
+                        ty: fun.to_string(),
+                    },
+                )),
+            },
+            Ty::List(_) | Ty::Dict(_) | Ty::Tuple(_) | Ty::Struct { .. } => Err(self.mk_error(
+                span,
+                TypingError::CallToNonCallable {
+                    ty: fun.to_string(),
+                },
+            )),
+            Ty::Iter(_) => {
+                // Unknown type, may be callable.
+                Ok(Ty::Any)
+            }
+            Ty::Function(f) => self.validate_fn_call(span, f, args),
+            Ty::Custom(_) => Err(self.mk_error(
+                span,
+                TypingError::CallToNonCallable {
+                    ty: fun.to_string(),
+                },
+            )),
+            Ty::Union(variants) => {
+                let mut successful = Vec::new();
+                let mut errors = Vec::new();
+                for variant in variants.alternatives() {
+                    match self.validate_call_result(span, variant, args) {
+                        Ok(ty) => successful.push(ty),
+                        Err(e) => errors.push(e),
+                    }
+                }
+                if !successful.is_empty() {
+                    Ok(Ty::unions(successful))
+                } else {
+                    if errors.len() == 1 {
+                        Err(errors.pop().unwrap())
+                    } else {
+                        Err(self.mk_error(span, TypingError::CallArgumentsIncompatible))
                     }
                 }
             }
         }
     }
 
-    /// Try to get a function from a type.
-    /// * `Some` if callable
-    /// * `Err` if not callable
-    /// * `None` if unknown
-    fn unpack_function(&self, x: &Ty) -> Result<Option<TyFunction>, ()> {
-        match x {
-            Ty::Function(x) => Ok(Some(x.clone())),
-            Ty::Custom(_) => Ok(None),
-            Ty::Name(n) => self.oracle.as_function(n).transpose(),
-            Ty::Iter(_) => Ok(None),
-            Ty::Never => {
-                // Technically a function which returns void, but it is handled outside.
-                Ok(None)
-            }
-            Ty::Any => Ok(None),
-            Ty::Union(_) => {
-                // Should not be reachable because we unpack union earlier.
-                Ok(None)
-            }
-            Ty::List(_) => Err(()),
-            Ty::Tuple(_) => Err(()),
-            Ty::Dict(_) => Err(()),
-            Ty::Struct { .. } => Err(()),
-        }
-    }
-
     fn validate_call(&self, fun: &Ty, args: &[Arg], span: Span) -> Ty {
-        if fun.is_void() {
-            return Ty::Never;
-        }
-
-        // At least one variant is unknown which is possibly callable.
-        let mut seen_any_callable = false;
-        // All variants of the union are definitely not callable.
-        let mut all_not_callable = true;
-
-        let mut funs = Vec::new();
-        for variant in fun.iter_union() {
-            match self.unpack_function(variant) {
-                Ok(Some(f)) => {
-                    all_not_callable = false;
-                    funs.push(f);
-                }
-                Ok(None) => {
-                    all_not_callable = false;
-                    seen_any_callable = true
-                }
-                Err(()) => {}
+        match self.validate_call_result(span, fun, args) {
+            Ok(ty) => ty,
+            Err(e) => {
+                self.errors.borrow_mut().push(e);
+                Ty::Never
             }
         }
-        if all_not_callable {
-            return self.add_error(
-                span,
-                TypingError::CallToNonCallable {
-                    ty: fun.to_string(),
-                },
-            );
-        }
-        if seen_any_callable {
-            // At least one type is possibly callable.
-            return Ty::Any;
-        }
-
-        // We call validate_args on each function, which will either
-        // add to the errors state, or won't.
-        // We capture the length of errors before we start, and after one iteration,
-        // and if _any_ operation doesn't add to the errors, we are fine.
-        let errors_before_all = self.errors.borrow().len();
-        let mut errors_after_one = None;
-
-        let mut successful_return_types = Vec::new();
-        for fun in funs {
-            let errors_before_this = self.errors.borrow().len();
-            let return_type = if let Some(res) = self.oracle.builtin_call(&fun.name, args) {
-                match res {
-                    Ok(t) => t,
-                    Err(reason) => self.add_error(
-                        span,
-                        TypingError::InvalidBuiltinCall {
-                            name: fun.name.to_owned(),
-                            reason,
-                        },
-                    ),
-                }
-            } else {
-                self.validate_args(&fun.params, args, span);
-                (*fun.result).clone()
-            };
-            let errors_after_this = self.errors.borrow().len();
-            if errors_before_this == errors_after_this {
-                successful_return_types.push(return_type);
-            }
-            if errors_after_one.is_none() {
-                errors_after_one = Some(errors_after_this);
-            }
-        }
-        if successful_return_types.is_empty() {
-            // We definitely failed, but we might have failed many times, so just keep the errors
-            // from the first function call, since we don't want to duplicate lots of errors
-            assert!(errors_after_one.unwrap() > errors_before_all);
-            self.errors.borrow_mut().truncate(errors_after_one.unwrap());
-        } else {
-            // Since one succeeded, we don't need any errors
-            self.errors.borrow_mut().truncate(errors_before_all);
-        }
-        Ty::unions(successful_return_types)
     }
 
     fn from_iterated(&self, ty: &Ty, span: Span) -> Ty {
         self.expression_attribute(ty, TypingAttr::Iter, span)
     }
 
-    pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {
+    pub(crate) fn validate_type_result(
+        &self,
+        got: &Ty,
+        require: &Ty,
+        span: Span,
+    ) -> Result<(), EvalException> {
         if !got.intersects(require, Some(self.oracle)) {
-            self.add_error(
+            Err(self.mk_error(
                 span,
                 TypingError::IncompatibleType {
                     got: got.to_string(),
                     require: require.to_string(),
                 },
-            );
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {
+        if let Err(e) = self.validate_type_result(got, require, span) {
+            self.errors.borrow_mut().push(e);
         }
     }
 
