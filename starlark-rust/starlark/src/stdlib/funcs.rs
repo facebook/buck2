@@ -930,7 +930,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// reversed({"one": 1, "two": 2}.keys())  == ["two", "one"]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe, return_type = "[\"\"]")]
+    #[starlark(speculative_exec_safe)]
     fn reversed<'v>(
         #[starlark(require = pos, type = "iter(\"\")")] a: Value<'v>,
         heap: &'v Heap,
@@ -964,7 +964,6 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     // This function is not spec-safe, because it may call `key` function
     // which might be not spec-safe.
-    #[starlark(return_type = "[\"\"]")]
     fn sorted<'v>(
         #[starlark(require = pos, type = "iter(\"\")")] x: Value<'v>,
         #[starlark(require = named)] key: Option<Value<'v>>,
@@ -1102,7 +1101,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// zip(range(5), "abc".elems())    == [(0, "a"), (1, "b"), (2, "c")]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe, return_type = "[\"\"]")]
+    #[starlark(speculative_exec_safe)]
     fn zip<'v>(
         #[starlark(args)] args: Vec<Value<'v>>,
         heap: &'v Heap,
