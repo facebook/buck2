@@ -8,6 +8,7 @@
  */
 
 use std::ffi::OsString;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -197,46 +198,17 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
         // we hit a symlink.
         curr.push(c);
 
-        match fs_util::symlink_metadata_if_exists(&curr.abspath)? {
-            Some(path_meta) => {
-                if path_meta.file_type().is_symlink() {
-                    let dest = fs_util::read_link(&curr.abspath)?;
-                    let rest = relpath_components.collect();
-
-                    let out = if dest.is_absolute() {
-                        RawPathMetadata::Symlink {
-                            at: curr.path,
-                            to: RawSymlink::External(Arc::new(ExternalSymlink::new(dest, rest)?)),
-                        }
-                    } else {
-                        // Remove the symlink name.
-                        let mut link_path = curr
-                            .path
-                            .parent()
-                            .expect("We pushed a component to this so it cannot be empty")
-                            .join_system(&dest)
-                            .with_context(|| {
-                                format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
-                            })?;
-
-                        if let Some(rest) = rest {
-                            link_path.push(&rest);
-                        }
-                        RawPathMetadata::Symlink {
-                            at: curr.path,
-                            to: RawSymlink::Relative(link_path),
-                        }
-                    };
-
-                    return Ok(Some(out));
-                }
-
+        match ExactPathMetadata::from_exact_path(&curr)? {
+            ExactPathMetadata::DoesNotExist => return Ok(None),
+            ExactPathMetadata::Symlink(symlink) => {
+                return Ok(Some(
+                    symlink.to_raw_path_metadata(curr, relpath_components.collect())?,
+                ));
+            }
+            ExactPathMetadata::FileOrDirectory(path_meta) => {
                 meta = Some(path_meta);
             }
-            None => {
-                return Ok(None);
-            }
-        }
+        };
     }
 
     // If we get here that means we never hit a symlink. So, the metadata we have
@@ -260,6 +232,71 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
     }
 
     Ok(Some(meta))
+}
+
+enum ExactPathMetadata {
+    DoesNotExist,
+    Symlink(ExactPathSymlinkMetadata),
+    FileOrDirectory(std::fs::Metadata),
+}
+
+impl ExactPathMetadata {
+    fn from_exact_path(curr: &PathAndAbsPath) -> anyhow::Result<Self> {
+        Ok(match fs_util::symlink_metadata_if_exists(&curr.abspath)? {
+            Some(meta) if meta.file_type().is_symlink() => {
+                let dest = fs_util::read_link(&curr.abspath)?;
+
+                let out = if dest.is_absolute() {
+                    ExactPathSymlinkMetadata::ExternalSymlink(dest)
+                } else {
+                    // Remove the symlink name.
+                    let link_path = curr
+                        .path
+                        .parent()
+                        .expect("We pushed a component to this so it cannot be empty")
+                        .join_system(&dest)
+                        .with_context(|| {
+                            format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
+                        })?;
+
+                    ExactPathSymlinkMetadata::InternalSymlink(link_path)
+                };
+
+                ExactPathMetadata::Symlink(out)
+            }
+            Some(meta) => ExactPathMetadata::FileOrDirectory(meta),
+            None => ExactPathMetadata::DoesNotExist,
+        })
+    }
+}
+
+enum ExactPathSymlinkMetadata {
+    ExternalSymlink(PathBuf),
+    InternalSymlink(ForwardRelativePathBuf),
+}
+
+impl ExactPathSymlinkMetadata {
+    fn to_raw_path_metadata(
+        self,
+        curr: PathAndAbsPath,
+        rest: Option<ForwardRelativePathBuf>,
+    ) -> anyhow::Result<RawPathMetadata<ForwardRelativePathBuf>> {
+        Ok(match self {
+            Self::ExternalSymlink(link_path) => RawPathMetadata::Symlink {
+                at: curr.path,
+                to: RawSymlink::External(Arc::new(ExternalSymlink::new(link_path, rest)?)),
+            },
+            Self::InternalSymlink(mut link_path) => {
+                if let Some(rest) = rest {
+                    link_path.push(&rest);
+                }
+                RawPathMetadata::Symlink {
+                    at: curr.path,
+                    to: RawSymlink::Relative(link_path),
+                }
+            }
+        })
+    }
 }
 
 #[cfg(unix)]
