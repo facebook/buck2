@@ -30,6 +30,7 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::starlark_type;
+use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -88,6 +89,10 @@ impl<'v> StarlarkValue<'v> for NoneType {
     fn get_hash(&self, _private: Private) -> anyhow::Result<StarlarkHashValue> {
         // Just a random number.
         Ok(StarlarkHashValue::new_unchecked(0xf9c2263d))
+    }
+
+    fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
+        Some(Ty::none())
     }
 }
 

@@ -279,6 +279,13 @@ pub trait StarlarkValue<'v>:
         Self::get_methods().map(|methods| DocItem::Object(methods.documentation()))
     }
 
+    /// Type of this instance for typechecker.
+    /// Note this can be more precise than generic type.
+    #[doc(hidden)]
+    fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
+        None
+    }
+
     /// Return a string representation of self, as returned by the `repr()` function.
     /// Defaults to the `Display` instance - which should be fine for nearly all types.
     /// In many cases the `repr()` representation will also be a Starlark expression

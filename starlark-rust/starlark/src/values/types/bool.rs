@@ -143,4 +143,8 @@ impl StarlarkValue<'_> for StarlarkBool {
             ValueError::unsupported_with(self, "<>", other)
         }
     }
+
+    fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
+        Some(Ty::bool())
+    }
 }

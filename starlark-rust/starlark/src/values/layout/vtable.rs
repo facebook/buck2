@@ -321,6 +321,10 @@ impl<'v> AValueDyn<'v> {
         (self.vtable.starlark_value.documentation)(self.value)
     }
 
+    pub(crate) fn typechecker_ty(self) -> Option<Ty> {
+        (self.vtable.starlark_value.typechecker_ty)(self.value, Private)
+    }
+
     #[inline]
     pub(crate) fn get_methods(self) -> Option<&'static Methods> {
         (self.vtable.starlark_value.get_methods)()

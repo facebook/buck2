@@ -522,10 +522,8 @@ impl TypingContext<'_> {
                         }
                     }
                     Some(ResolvedIdent::Global(g)) => {
-                        if g.unpack_bool().is_some() {
-                            Ty::bool()
-                        } else if g.is_none() {
-                            Ty::none()
+                        if let Some(t) = g.to_value().get_ref().typechecker_ty() {
+                            t
                         } else {
                             self.builtin(&x.node.0, x.span)
                         }
