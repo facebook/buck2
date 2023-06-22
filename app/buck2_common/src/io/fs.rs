@@ -59,6 +59,31 @@ impl FsIoProvider {
     }
 }
 
+#[derive(Error, Debug)]
+enum ReadSymlinkAtExactPathError {
+    #[error("The path does not exist")]
+    DoesNotExist,
+    #[error("The path is not a symlink")]
+    NotASymlink,
+}
+
+impl FsIoProvider {
+    /// Read a symlink at a given path. This method DOES NOT check whether there are any symlinks
+    /// somewhere on intermediary components of `path`, so the expectation is that the caller
+    /// already has ascertained that there are not.
+    pub async fn read_unchecked_symlink(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<RawPathMetadata<ProjectRelativePathBuf>> {
+        let fs = self.fs.dupe();
+        let path = path.into_forward_relative_path_buf();
+        tokio::task::spawn_blocking(move || {
+            Ok(read_unchecked_symlink(fs.root(), path)?.map(ProjectRelativePathBuf::from))
+        })
+        .await?
+    }
+}
+
 #[derive(Debug, Error)]
 enum ReadDirError {
     #[error("File name `{0:?}` is not UTF-8")]
@@ -299,6 +324,26 @@ impl ExactPathSymlinkMetadata {
     }
 }
 
+fn read_unchecked_symlink<P: AsRef<AbsPath>>(
+    root: P,
+    relpath: ForwardRelativePathBuf,
+) -> anyhow::Result<RawPathMetadata<ForwardRelativePathBuf>> {
+    let abspath = root.as_ref().join(relpath.as_path());
+
+    let curr = PathAndAbsPath {
+        path: relpath,
+        abspath,
+    };
+
+    match ExactPathMetadata::from_exact_path(&curr)? {
+        ExactPathMetadata::DoesNotExist => Err(ReadSymlinkAtExactPathError::DoesNotExist.into()),
+        ExactPathMetadata::FileOrDirectory(..) => {
+            Err(ReadSymlinkAtExactPathError::NotASymlink.into())
+        }
+        ExactPathMetadata::Symlink(link) => link.to_raw_path_metadata(curr, None),
+    }
+}
+
 #[cfg(unix)]
 fn is_executable(meta: &std::fs::Metadata) -> bool {
     use std::os::unix::fs::PermissionsExt;
@@ -400,6 +445,47 @@ mod tests {
         assert_matches!(
             read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
             Err(e) if format!("{:#}", e).contains("Invalid symlink")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_unchecked_symlink() -> anyhow::Result<()> {
+        let t = TempDir::new()?;
+        let root = AbsPath::new(t.path())?;
+
+        unix::fs::symlink("x", t.path().join("link"))?;
+        unix::fs::symlink("/x", t.path().join("abs_link"))?;
+        fs_util::write(root.join("file"), "xx")?;
+
+        assert_matches!(
+            read_unchecked_symlink(root, ForwardRelativePathBuf::new("link".to_owned())?),
+            Ok(RawPathMetadata::Symlink {
+                to: RawSymlink::Relative(..),
+                ..
+            })
+        );
+
+        assert_matches!(
+            read_unchecked_symlink(root, ForwardRelativePathBuf::new("abs_link".to_owned())?),
+            Ok(RawPathMetadata::Symlink {
+                to: RawSymlink::External(..),
+                ..
+            })
+        );
+
+        assert_matches!(
+            read_unchecked_symlink(root, ForwardRelativePathBuf::new("file".to_owned())?),
+            Err(..)
+        );
+
+        assert_matches!(
+            read_unchecked_symlink(
+                root,
+                ForwardRelativePathBuf::new("does_not_exist".to_owned())?
+            ),
+            Err(..)
         );
 
         Ok(())
