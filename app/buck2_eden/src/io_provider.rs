@@ -276,7 +276,19 @@ impl EdenIoProvider {
                 if source_control_type == SourceControlType::SYMLINK {
                     // TODO: Ideally we would read *the link we just got*, instead of letting
                     // read_path_metadata_if_exists do the traversal of the whole path
-                    return self.fs.read_path_metadata_if_exists(path).await;
+                    let meta = self
+                        .fs
+                        .read_unchecked_symlink(path.clone())
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "Eden returned that `{}` was a symlink, but it was not.  \
+                                This path may have changed during the build",
+                                path
+                            )
+                        })?;
+
+                    return Ok(Some(meta));
                 };
 
                 let size = data
