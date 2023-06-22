@@ -120,4 +120,8 @@ impl WinapiProcessHandle {
     pub(crate) fn has_exited(&self) -> anyhow::Result<bool> {
         Ok(self.exit_code()?.is_some())
     }
+
+    pub(crate) fn pid(&self) -> u32 {
+        self.pid
+    }
 }

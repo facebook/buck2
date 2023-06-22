@@ -25,6 +25,27 @@ pub fn kill(pid: u32) -> anyhow::Result<Box<dyn KilledProcessHandle>> {
 
 pub trait KilledProcessHandle {
     fn has_exited(&self) -> anyhow::Result<bool>;
+
+    fn status(&self) -> Option<String>;
+}
+
+/// Get the status of a given process according to sysinfo.
+pub fn get_sysinfo_status(pid: impl TryInto<u32>) -> Option<String> {
+    use sysinfo::Pid;
+    use sysinfo::PidExt;
+    use sysinfo::ProcessExt;
+    use sysinfo::ProcessRefreshKind;
+    use sysinfo::System;
+    use sysinfo::SystemExt;
+
+    let pid = pid.try_into().ok()?;
+    let pid = Pid::from_u32(pid);
+
+    let mut system = System::new();
+    system.refresh_process_specifics(pid, ProcessRefreshKind::new());
+
+    let proc = system.process(pid)?;
+    Some(proc.status().to_string())
 }
 
 /// Returned when os_specific::kill reports that nothing was killed because the process wasn't even
@@ -35,6 +56,10 @@ impl KilledProcessHandle for NoProcess {
     fn has_exited(&self) -> anyhow::Result<bool> {
         Ok(true)
     }
+
+    fn status(&self) -> Option<String> {
+        Some("NoProcess".to_owned())
+    }
 }
 
 #[cfg(unix)]
@@ -42,6 +67,7 @@ mod os_specific {
     use anyhow::Context;
     use nix::sys::signal::Signal;
 
+    use crate::kill::get_sysinfo_status;
     use crate::kill::KilledProcessHandle;
 
     pub(crate) fn process_exists(pid: u32) -> anyhow::Result<bool> {
@@ -87,6 +113,10 @@ mod os_specific {
         fn has_exited(&self) -> anyhow::Result<bool> {
             Ok(!process_exists_impl(self.pid)?)
         }
+
+        fn status(&self) -> Option<String> {
+            get_sysinfo_status(self.pid.as_raw())
+        }
     }
 }
 
@@ -94,6 +124,7 @@ mod os_specific {
 pub mod os_specific {
     use std::time::Duration;
 
+    use crate::kill::get_sysinfo_status;
     use crate::kill::KilledProcessHandle;
     use crate::winapi_process::WinapiProcessHandle;
 
@@ -121,6 +152,11 @@ pub mod os_specific {
     impl KilledProcessHandle for WindowsKilledProcessHandle {
         fn has_exited(&self) -> anyhow::Result<bool> {
             self.handle.has_exited()
+        }
+
+        fn status(&self) -> Option<String> {
+            // Maybe there is a better way to get this via the handle, but for now this'll do.
+            get_sysinfo_status(self.handle.pid())
         }
     }
 
