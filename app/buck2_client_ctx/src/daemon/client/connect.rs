@@ -191,7 +191,7 @@ pub async fn new_daemon_api_client(
     .max_decoding_message_size(usize::MAX))
 }
 
-fn buckd_startup_timeout() -> anyhow::Result<Duration> {
+pub fn buckd_startup_timeout() -> anyhow::Result<Duration> {
     Ok(Duration::from_secs(
         BUCKD_STARTUP_TIMEOUT.get_copied()?.unwrap_or(10),
     ))
@@ -412,7 +412,7 @@ impl<'a> BuckdLifecycle<'a> {
 /// Represents an established connection to the daemon. We then upgrade it into a
 /// BootstrapBuckdClient by querying constraints. This is a separate step so that we retry
 /// establishing the channel but not querying constraints.
-struct BuckdChannel {
+pub struct BuckdChannel {
     info: DaemonProcessInfo,
     daemon_dir: DaemonDir,
     client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
@@ -420,7 +420,7 @@ struct BuckdChannel {
 
 impl BuckdChannel {
     /// Upgrade this BuckdChannel to a BootstrapBuckdClient.
-    async fn upgrade(self) -> anyhow::Result<BootstrapBuckdClient> {
+    pub async fn upgrade(self) -> anyhow::Result<BootstrapBuckdClient> {
         let Self {
             info,
             daemon_dir,
@@ -492,13 +492,13 @@ impl BootstrapBuckdClient {
         }
     }
 
+    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
+        kill::kill(&mut self.client, &self.info, reason).await
+    }
+
     async fn kill_for_constraints_mismatch(&mut self) -> anyhow::Result<()> {
-        kill::kill(
-            &mut self.client,
-            &self.info,
-            "client expected different buckd constraints",
-        )
-        .await
+        self.kill("client expected different buckd constraints")
+            .await
     }
 }
 
@@ -687,7 +687,7 @@ async fn try_connect_existing(
         .await
 }
 
-struct BuckdProcessInfo<'a> {
+pub struct BuckdProcessInfo<'a> {
     info: DaemonProcessInfo,
     daemon_dir: &'a DaemonDir,
 }
@@ -698,7 +698,7 @@ impl<'a> BuckdProcessInfo<'a> {
         Self::load(daemon_dir)?.create_channel().await
     }
 
-    fn load(daemon_dir: &'a DaemonDir) -> anyhow::Result<Self> {
+    pub fn load(daemon_dir: &'a DaemonDir) -> anyhow::Result<Self> {
         let location = daemon_dir.buckd_info();
         let file = File::open(&location)
             .with_context(|| format!("Trying to open buckd info, `{}`", location.display()))?;
@@ -714,7 +714,7 @@ impl<'a> BuckdProcessInfo<'a> {
         Ok(Self { info, daemon_dir })
     }
 
-    async fn create_channel(self) -> anyhow::Result<BuckdChannel> {
+    pub async fn create_channel(self) -> anyhow::Result<BuckdChannel> {
         let connection_type = ConnectionType::parse(&self.info.endpoint)?;
 
         let client = new_daemon_api_client(connection_type, self.info.auth_token.clone())

@@ -99,10 +99,7 @@ impl CleanCommand {
                 .connect_buckd(BuckdConnectOptions::existing_only_no_console())
                 .await
             {
-                buckd
-                    .with_flushing()
-                    .kill("`buck2 clean` was invoked")
-                    .await?;
+                buckd.kill("`buck2 clean` was invoked").await?;
             }
             clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
         })

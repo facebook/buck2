@@ -69,6 +69,10 @@ impl<'a> BuckdClientConnector<'a> {
         &self.client.constraints
     }
 
+    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
+        kill::kill(&mut self.client.client, &self.client.info, reason).await
+    }
+
     pub fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
         self.client
             .events_ctx
@@ -242,10 +246,6 @@ impl<'a> BuckdClient<'a> {
                 console_interaction,
             )
             .await
-    }
-
-    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
-        kill::kill(&mut self.client, &self.info, reason).await
     }
 
     pub async fn status(&mut self, snapshot: bool) -> anyhow::Result<StatusResponse> {
@@ -567,7 +567,6 @@ impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
         UnstableDiceDumpResponse
     );
 
-    wrap_method!(kill(reason: &str), ());
     wrap_method!(status(snapshot: bool), StatusResponse);
     wrap_method!(set_log_filter(log_filter: SetLogFilterRequest), ());
     stream_method!(trace_io, TraceIoRequest, TraceIoResponse, NoPartialResult);

@@ -10,7 +10,8 @@
 use buck2_client_ctx::argv::Argv;
 use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
+use buck2_client_ctx::daemon::client::connect::buckd_startup_timeout;
+use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitResult;
 
 /// Kill the buck daemon.
@@ -26,23 +27,37 @@ pub struct KillCommand {}
 impl KillCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.instant_command("kill", async move |ctx| {
-            match ctx
-                .connect_buckd(BuckdConnectOptions::existing_only_no_console())
-                .await
-            {
+            let paths = ctx.paths()?;
+            let daemon_dir = paths.daemon_dir()?;
+            let process = match BuckdProcessInfo::load(&daemon_dir) {
+                Ok(p) => p,
                 Err(e) => {
-                    // Need to downcast and see if it's a connect error.
+                    tracing::debug!("No BuckdProcessInfo: {:#}", e);
+                    buck2_client_ctx::eprintln!("no buckd server running")?;
+                    return Ok(());
+                }
+            };
+
+            let buckd = tokio::time::timeout(buckd_startup_timeout()?, async move {
+                process.create_channel().await?.upgrade().await
+            })
+            .await;
+
+            match buckd {
+                Ok(Ok(mut buckd)) => {
+                    buck2_client_ctx::eprintln!("killing buckd server")?;
+                    buckd.kill("`buck kill` was invoked").await?;
+                }
+                Ok(Err(e)) => {
                     tracing::debug!("Connect failed: {:#}", e);
                     buck2_client_ctx::eprintln!("no buckd server running")?;
                 }
-                Ok(mut client) => {
-                    buck2_client_ctx::eprintln!("killing buckd server")?;
-                    client
-                        .with_flushing()
-                        .kill("`buck kill` was invoked")
-                        .await?;
+                Err(e) => {
+                    tracing::debug!("Connect failed: {:#}", e);
+                    buck2_client_ctx::eprintln!("no buckd server running")?;
                 }
-            }
+            };
+
             Ok(())
         })
     }
