@@ -216,3 +216,13 @@ Sample:
   "epoch_millis": 123456789 # when the event was emitted
 }
 ```
+
+**Ensure artifact event**
+```python
+{
+  "BxlEnsureArtifactsEvent": {
+    "duration_millis": 0, # duration of ensuring the artifact
+  },
+  "epoch_millis": 123456789 # when the event was emitted
+}
+```
