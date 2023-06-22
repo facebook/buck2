@@ -199,30 +199,67 @@ impl TypingContext<'_> {
         }
     }
 
-    fn unpack_function(&self, x: &Ty) -> Option<TyFunction> {
+    /// Try to get a function from a type.
+    /// * `Some` if callable
+    /// * `Err` if not callable
+    /// * `None` if unknown
+    fn unpack_function(&self, x: &Ty) -> Result<Option<TyFunction>, ()> {
         match x {
-            Ty::Function(x) => Some(x.clone()),
-            Ty::Name(n) => self.oracle.as_function(n).and_then(|x| x.ok()),
-            _ => None,
+            Ty::Function(x) => Ok(Some(x.clone())),
+            Ty::Custom(_) => Ok(None),
+            Ty::Name(n) => self.oracle.as_function(n).transpose(),
+            Ty::Iter(_) => Ok(None),
+            Ty::Never => {
+                // Technically a function which returns void, but it is handled outside.
+                Ok(None)
+            }
+            Ty::Any => Ok(None),
+            Ty::Union(_) => {
+                // Should not be reachable because we unpack union earlier.
+                Ok(None)
+            }
+            Ty::List(_) => Err(()),
+            Ty::Tuple(_) => Err(()),
+            Ty::Dict(_) => Err(()),
+            Ty::Struct { .. } => Err(()),
         }
     }
 
     fn validate_call(&self, fun: &Ty, args: &[Arg], span: Span) -> Ty {
-        if fun.is_any() || fun.is_void() {
-            return fun.clone(); // Everything is valid
+        if fun.is_void() {
+            return Ty::Never;
         }
-        let funs: Vec<_> = fun
-            .iter_union()
-            .iter()
-            .filter_map(|f| self.unpack_function(f))
-            .collect();
-        if funs.is_empty() {
+
+        // At least one variant is unknown which is possibly callable.
+        let mut seen_any_callable = false;
+        // All variants of the union are definitely not callable.
+        let mut all_not_callable = true;
+
+        let mut funs = Vec::new();
+        for variant in fun.iter_union() {
+            match self.unpack_function(variant) {
+                Ok(Some(f)) => {
+                    all_not_callable = false;
+                    funs.push(f);
+                }
+                Ok(None) => {
+                    all_not_callable = false;
+                    seen_any_callable = true
+                }
+                Err(()) => {}
+            }
+        }
+        if all_not_callable {
             return self.add_error(
                 span,
                 TypingError::CallToNonCallable {
                     ty: fun.to_string(),
                 },
             );
+        }
+        if seen_any_callable {
+            // At least one type is possibly callable.
+            return Ty::Any;
         }
 
         // We call validate_args on each function, which will either

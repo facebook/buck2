@@ -24,6 +24,8 @@ use once_cell::sync::Lazy;
 use crate::codemap::ResolvedFileSpan;
 use crate::environment::Globals;
 use crate::eval::compiler::EvalException;
+use crate::slice_vec_ext::SliceExt;
+use crate::slice_vec_ext::VecExt;
 use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
@@ -143,6 +145,12 @@ impl TypeCheck {
                 });
                 good = good && before == got.len() + 1;
             }
+
+            let want = want.map(|(err, loc)| (err, loc.to_string()));
+            let got = got.into_map(|x| {
+                let loc = EvalException::testing_loc(&x);
+                (x, loc.to_string())
+            });
             assert!(good, "Wanted:\n{want:?}\nGot:\n{got:?}");
         }
 
@@ -277,4 +285,69 @@ fn test_special_function_struct() {
 x = struct(a = 1, b = "test")
 "#,
         );
+}
+
+#[test]
+fn test_call_callable() {
+    TypeCheck::new().check(
+        r#"
+def foo(x: "function"):
+    x()
+"#,
+    );
+}
+
+#[test]
+fn test_call_not_callable() {
+    TypeCheck::new()
+        .error("Call to a non-callable type `[\"\"]`", "filename:3:5-8")
+        .check(
+            r#"
+def foo(x: [""]):
+    x()
+"#,
+        );
+}
+
+#[test]
+fn test_call_unknown() {
+    TypeCheck::new().check(
+        r#"
+def foo(x: "unknown"):
+    x()
+"#,
+    );
+}
+
+#[test]
+fn test_call_callable_or_not_callable() {
+    TypeCheck::new().check(
+        r#"
+def foo(x: ["function", str.type], y: [str.type, "function"]):
+    x()
+    y()
+"#,
+    );
+}
+
+#[test]
+fn test_call_callable_or_unknown() {
+    TypeCheck::new().check(
+        r#"
+def foo(x: ["function", "unknown"], y: ["unknown", "function"]):
+    x()
+    y()
+"#,
+    );
+}
+
+#[test]
+fn test_call_not_callable_or_unknown() {
+    TypeCheck::new().check(
+        r#"
+def foo(x: [str.type, "unknown"], y: ["unknown", str.type]):
+    x()
+    y()
+"#,
+    );
 }
