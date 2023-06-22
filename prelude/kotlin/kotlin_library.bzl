@@ -352,6 +352,7 @@ def build_kotlin_library(
                 friend_paths = ctx.attrs.friend_paths,
                 kotlin_compiler_plugins = ctx.attrs.kotlin_compiler_plugins,
                 extra_kotlinc_arguments = ctx.attrs.extra_kotlinc_arguments,
+                extra_non_source_only_abi_kotlinc_arguments = ctx.attrs.extra_non_source_only_abi_kotlinc_arguments,
             )
 
             if outputs and outputs.annotation_processor_output:

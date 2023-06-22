@@ -61,7 +61,8 @@ def create_jar_artifact_kotlincd(
         is_building_android_binary: bool.type,
         friend_paths: ["dependency"],
         kotlin_compiler_plugins: dict.type,
-        extra_kotlinc_arguments: [str.type]) -> "JavaCompileOutputs":
+        extra_kotlinc_arguments: [str.type],
+        extra_non_source_only_abi_kotlinc_arguments: [str.type]) -> "JavaCompileOutputs":
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -110,6 +111,7 @@ def create_jar_artifact_kotlincd(
             shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
             shouldGenerateAnnotationProcessingStats = True,
             extraKotlincArguments = extra_kotlinc_arguments,
+            extraNonSourceOnlyAbiKotlincArguments = extra_non_source_only_abi_kotlinc_arguments,
             shouldRemoveKotlinCompilerFromClassPath = True,
         )
 
