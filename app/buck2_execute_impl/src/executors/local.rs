@@ -30,7 +30,8 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::tag_error;
 use buck2_core::tag_result;
-use buck2_events::dispatch::get_dispatcher;
+use buck2_events::dispatch::get_dispatcher_opt;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::extract_artifact_value;
@@ -344,7 +345,13 @@ impl LocalExecutor {
             .collect();
 
         let daemon_uuid: &str = &buck2_events::daemon_id::DAEMON_UUID.to_string();
-        let build_id: &str = &get_dispatcher().trace_id().to_string();
+        let dispatcher = match get_dispatcher_opt() {
+            Some(dispatcher) => dispatcher,
+            None => {
+                return manager.error("no_dispatcher", anyhow::anyhow!("No dispatcher available"));
+            }
+        };
+        let build_id: &str = &dispatcher.trace_id().to_string();
 
         let iter_env = || {
             tmpdirs
@@ -368,7 +375,7 @@ impl LocalExecutor {
         };
         let liveliness_observer = manager.liveliness_observer.dupe().and(cancellation);
 
-        let (worker, manager) = self.initialize_worker(request, manager).await?;
+        let (worker, manager) = self.initialize_worker(request, manager, dispatcher).await?;
 
         let execution_kind = match worker {
             None => CommandExecutionKind::Local {
@@ -581,6 +588,7 @@ impl LocalExecutor {
         &self,
         request: &CommandExecutionRequest,
         manager: CommandExecutionManagerWithClaim,
+        dispatcher: EventDispatcher,
     ) -> ControlFlow<
         CommandExecutionResult,
         (Option<Arc<WorkerHandle>>, CommandExecutionManagerWithClaim),
@@ -617,7 +625,13 @@ impl LocalExecutor {
                         .iter()
                         .map(|(k, v)| (OsString::from(k), OsString::from(v)));
                     worker_pool
-                        .get_or_create_worker(worker_spec, env, &self.root, forkserver.clone())
+                        .get_or_create_worker(
+                            worker_spec,
+                            env,
+                            &self.root,
+                            forkserver.clone(),
+                            dispatcher,
+                        )
                         .await
                 },
             )

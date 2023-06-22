@@ -16,10 +16,11 @@ use buck2_common::client_utils::get_channel_uds;
 use buck2_common::client_utils::retrying;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_common::result::SharedError;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
-use buck2_events::dispatch::get_dispatcher_opt;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
@@ -35,6 +36,9 @@ use buck2_worker_proto::execute_command::EnvironmentEntry;
 use buck2_worker_proto::worker_client::WorkerClient;
 use buck2_worker_proto::ExecuteCommand;
 use buck2_worker_proto::ExecuteResponse;
+use futures::future::BoxFuture;
+use futures::future::Shared;
+use futures::FutureExt;
 use indexmap::IndexMap;
 use tokio::task::JoinHandle;
 use tonic::transport::Channel;
@@ -53,12 +57,12 @@ pub enum WorkerInitError {
     ConnectionTimeout(f64, String),
     /// Any error not related to worker behavior
     #[error("Error initializing worker `{0}`")]
-    InternalError(anyhow::Error),
+    InternalError(SharedError),
 }
 
 impl WorkerInitError {
     pub(crate) fn to_command_execution_result(
-        self,
+        &self,
         request: &CommandExecutionRequest,
         manager: CommandExecutionManagerWithClaim,
     ) -> CommandExecutionResult {
@@ -75,8 +79,8 @@ impl WorkerInitError {
                 stderr,
             } => {
                 let std_streams = CommandStdStreams::Local {
-                    stdout: stdout.into(),
-                    stderr: stderr.into(),
+                    stdout: stdout.to_owned().into(),
+                    stderr: stderr.to_owned().into(),
                 };
                 // TODO(ctolliday) this should be a new failure type (worker_init_failure), not conflated with a "command failure" which
                 // implies that it is the primary command and that exit code != 0
@@ -84,7 +88,7 @@ impl WorkerInitError {
                     execution_kind,
                     IndexMap::default(),
                     std_streams,
-                    exit_code,
+                    *exit_code,
                     CommandExecutionMetadata::default(),
                 )
             }
@@ -100,7 +104,9 @@ impl WorkerInitError {
                     None,
                     CommandExecutionMetadata::default(),
                 ),
-            WorkerInitError::InternalError(error) => manager.error("get_worker_failed", error),
+            WorkerInitError::InternalError(error) => {
+                manager.error("get_worker_failed", error.clone())
+            }
         }
     }
 }
@@ -171,33 +177,29 @@ fn spawn_via_forkserver(
 }
 
 async fn spawn_worker(
-    args: &[String],
+    worker_spec: &WorkerSpec,
     env: impl IntoIterator<Item = (OsString, OsString)>,
-    worker: &WorkerSpec,
     root: &AbsNormPathBuf,
     forkserver: ForkserverClient,
+    dispatcher: EventDispatcher,
 ) -> Result<WorkerHandle, WorkerInitError> {
-    let dispatcher = get_dispatcher_opt().ok_or(WorkerInitError::InternalError(
-        anyhow::anyhow!("No dispatcher"),
-    ))?;
     // Use fixed length path at /tmp to avoid 108 character limit for unix domain sockets
-    let dir_name = format!("{}-{}", dispatcher.trace_id(), worker.id);
+    let dir_name = format!("{}-{}", dispatcher.trace_id(), worker_spec.id);
     let worker_dir = AbsNormPathBuf::from("/tmp/buck2_worker".to_owned())
-        .map_err(WorkerInitError::InternalError)?
+        .map_err(|e| WorkerInitError::InternalError(e.into()))?
         .join(FileName::unchecked_new(&dir_name));
     let socket_path = worker_dir.join(FileName::unchecked_new("socket"));
-    if fs_util::try_exists(&worker_dir).map_err(WorkerInitError::InternalError)? {
-        return Err(WorkerInitError::InternalError(anyhow::anyhow!(
-            "Directory for worker already exists: {:?}",
-            worker_dir
-        )));
+    if fs_util::try_exists(&worker_dir).map_err(|e| WorkerInitError::InternalError(e.into()))? {
+        return Err(WorkerInitError::InternalError(
+            anyhow::anyhow!("Directory for worker already exists: {:?}", worker_dir).into(),
+        ));
     }
     // TODO(ctolliday) put these in buck-out/<iso>/workers and only use /tmp dir for sockets
     let stdout_path = worker_dir.join(FileName::unchecked_new("stdout"));
     let stderr_path = worker_dir.join(FileName::unchecked_new("stderr"));
-    fs_util::create_dir_all(&worker_dir).map_err(WorkerInitError::InternalError)?;
+    fs_util::create_dir_all(&worker_dir).map_err(|e| WorkerInitError::InternalError(e.into()))?;
 
-    let args = args.to_vec();
+    let args = worker_spec.exe.to_vec();
     tracing::info!(
         "Starting worker with logs at {}:\n$ {}\n",
         worker_dir,
@@ -258,9 +260,9 @@ async fn spawn_worker(
                 Ok(GatherOutputStatus::SpawnFailed(e)) => WorkerInitError::SpawnFailed(e),
                 Ok(GatherOutputStatus::Finished { exit_code, .. }) => {
                     let stdout = fs_util::read_to_string(stdout_path)
-                        .map_err(WorkerInitError::InternalError)?;
+                        .map_err(|e| WorkerInitError::InternalError(e.into()))?;
                     let stderr = fs_util::read_to_string(stderr_path)
-                        .map_err(WorkerInitError::InternalError)?;
+                        .map_err(|e| WorkerInitError::InternalError(e.into()))?;
                     WorkerInitError::EarlyExit {
                         exit_code: Some(exit_code),
                         stdout,
@@ -268,9 +270,11 @@ async fn spawn_worker(
                     }
                 }
                 Ok(GatherOutputStatus::Cancelled | GatherOutputStatus::TimedOut(_)) => {
-                    WorkerInitError::InternalError(anyhow::anyhow!("Worker cancelled by buck"))
+                    WorkerInitError::InternalError(
+                        anyhow::anyhow!("Worker cancelled by buck").into(),
+                    )
                 }
-                Err(e) => WorkerInitError::InternalError(e),
+                Err(e) => WorkerInitError::InternalError(e.into()),
             }),
         }?
     };
@@ -285,36 +289,47 @@ async fn spawn_worker(
     })
 }
 
+type WorkerFuture = Shared<BoxFuture<'static, Result<Arc<WorkerHandle>, Arc<WorkerInitError>>>>;
+
 pub struct WorkerPool {
-    workers: Arc<tokio::sync::Mutex<HashMap<WorkerId, Arc<WorkerHandle>>>>,
+    workers: Arc<parking_lot::Mutex<HashMap<WorkerId, WorkerFuture>>>,
 }
 
 impl WorkerPool {
     pub fn new() -> WorkerPool {
         tracing::info!("Creating new WorkerPool");
         WorkerPool {
-            workers: Arc::new(tokio::sync::Mutex::new(HashMap::default())),
+            workers: Arc::new(parking_lot::Mutex::new(HashMap::default())),
         }
     }
 
-    pub async fn get_or_create_worker(
+    pub fn get_or_create_worker(
         &self,
         worker_spec: &WorkerSpec,
         env: impl IntoIterator<Item = (OsString, OsString)>,
         root: &AbsNormPathBuf,
         forkserver: ForkserverClient,
-    ) -> Result<Arc<WorkerHandle>, WorkerInitError> {
-        let mut workers = self.workers.lock().await;
-        if let Some(worker_handle) = workers.get(&worker_spec.id) {
-            Ok(worker_handle.clone())
+        dispatcher: EventDispatcher,
+    ) -> WorkerFuture {
+        let mut workers = self.workers.lock();
+        if let Some(worker_fut) = workers.get(&worker_spec.id) {
+            worker_fut.clone()
         } else {
-            // TODO(ctolliday) keep track of workers that fail to start and don't try to spawn them again
-            // TODO(ctolliday) do not lock the entire workers map while spawning/connecting
-            let worker_handle =
-                spawn_worker(&worker_spec.exe, env, worker_spec, root, forkserver).await?;
-            let worker_handle = Arc::new(worker_handle);
-            workers.insert(worker_spec.id, worker_handle.clone());
-            Ok(worker_handle)
+            let worker_id = worker_spec.id;
+            let worker_spec = worker_spec.clone();
+            let root = root.clone();
+            let env: Vec<(OsString, OsString)> = env.into_iter().collect();
+            let fut = async move {
+                match spawn_worker(&worker_spec, env, &root, forkserver, dispatcher).await {
+                    Ok(worker) => Ok(Arc::new(worker)),
+                    Err(e) => Err(Arc::new(e)),
+                }
+            }
+            .boxed()
+            .shared();
+
+            workers.insert(worker_id, fut.clone());
+            fut
         }
     }
 }
