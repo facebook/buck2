@@ -45,6 +45,7 @@ use crate::io::IoProvider;
 pub struct EdenIoProvider {
     manager: EdenConnectionManager,
     fs: FsIoProvider,
+    _v2: bool,
 }
 
 impl EdenIoProvider {
@@ -52,6 +53,7 @@ impl EdenIoProvider {
         fb: FacebookInit,
         fs: &ProjectRoot,
         cas_digest_config: CasDigestConfig,
+        v2: bool,
     ) -> anyhow::Result<Option<Self>> {
         if cfg!(not(fbcode_build)) {
             tracing::warn!("Disabling Eden I/O: Cargo build detected");
@@ -97,6 +99,7 @@ impl EdenIoProvider {
         Ok(Some(Self {
             manager,
             fs: FsIoProvider::new(fs.dupe(), cas_digest_config),
+            _v2: v2,
         }))
     }
 }

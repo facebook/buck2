@@ -334,6 +334,16 @@ impl DaemonState {
             }
         };
 
+        let eden_io_v2 = init_ctx
+            .daemon_startup_config
+            .eden_io_v2
+            .as_deref()
+            .map(RolloutPercentage::from_str)
+            .transpose()
+            .context("Invalid eden_io_v2")?
+            .unwrap_or_else(RolloutPercentage::never)
+            .roll();
+
         let (io, _, (materializer_db, materializer_state)) = futures::future::try_join3(
             buck2_common::io::create_io_provider(
                 fb,
@@ -341,6 +351,7 @@ impl DaemonState {
                 legacy_configs.get(cells.root_cell()).ok(),
                 digest_config.cas_digest_config(),
                 init_ctx.enable_trace_io,
+                eden_io_v2,
             ),
             (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
                 // Using `execute_io_inline` is just out of convenience.

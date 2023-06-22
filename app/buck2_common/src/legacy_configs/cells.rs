@@ -435,6 +435,7 @@ pub struct DaemonStartupConfig {
     pub cwd_buck_out: Option<String>,
     pub digest_algorithms: Option<String>,
     pub source_digest_algorithm: Option<String>,
+    pub eden_io_v2: Option<String>,
 }
 
 impl DaemonStartupConfig {
@@ -448,6 +449,7 @@ impl DaemonStartupConfig {
             source_digest_algorithm: config
                 .get("buck2", "source_digest_algorithm")
                 .map(ToOwned::to_owned),
+            eden_io_v2: config.get("buck2", "eden_io_v2").map(ToOwned::to_owned),
         }
     }
 
@@ -466,6 +468,7 @@ impl DaemonStartupConfig {
             cwd_buck_out: None,
             digest_algorithms: None,
             source_digest_algorithm: None,
+            eden_io_v2: None,
         }
     }
 }

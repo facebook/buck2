@@ -143,6 +143,7 @@ pub enum DesiredTraceIoState {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum BuckdConnectConstraints {
     ExistingOnly,
     Constraints(DaemonConstraintsRequest),
