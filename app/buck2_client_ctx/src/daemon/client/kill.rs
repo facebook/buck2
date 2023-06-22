@@ -28,8 +28,8 @@ use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 
 #[derive(Debug, thiserror::Error)]
 enum KillError {
-    #[error("Daemon pid {} did not die after kill within {:.1}s", _0, _1.as_secs_f32())]
-    DidNotDie(u32, Duration),
+    #[error("Daemon pid {} did not die after kill within {:.1}s (status: {})", _0, _1.as_secs_f32(), _2)]
+    DidNotDie(u32, Duration, String),
 }
 
 const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
@@ -92,6 +92,14 @@ pub async fn kill(
         }
     };
 
+    tracing::info!(
+        "Killing PID {} with status {}",
+        pid,
+        kill::get_sysinfo_status(pid)
+            .as_deref()
+            .unwrap_or("<unknown>")
+    );
+
     let handle = kill::kill(pid)?;
     let timestamp_after_kill = Instant::now();
     while time_req_sent.elapsed() < time_to_kill {
@@ -100,7 +108,15 @@ pub async fn kill(
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    Err(KillError::DidNotDie(pid, timestamp_after_kill.elapsed()).into())
+
+    // Last chance: we do logging this time.
+    let status = kill::get_sysinfo_status(pid);
+    let status = status.unwrap_or_else(|| "<unknown>".to_owned());
+    if handle.has_exited()? {
+        return Ok(());
+    }
+
+    Err(KillError::DidNotDie(pid, timestamp_after_kill.elapsed(), status).into())
 }
 
 #[cfg(unix)]
