@@ -21,6 +21,8 @@ use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
 use crate::typing::oracle::traits::TypingAttr;
+use crate::typing::ty::TyStruct;
+use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
 
@@ -83,6 +85,20 @@ impl OracleDocs {
     pub fn known_object(&self, name: &str) -> bool {
         self.objects.contains_key(name)
     }
+
+    pub(crate) fn builtin(&self, name: &str) -> Result<Ty, ()> {
+        Ok(match name {
+            "None" => Ty::none(),
+            "True" | "False" => Ty::bool(),
+            "zip" => Ty::special_function("zip", vec![Param::args(Ty::Any)], Ty::list(Ty::Any)),
+            "struct" => Ty::special_function(
+                "struct",
+                vec![Param::kwargs(Ty::Any)],
+                Ty::Struct(TyStruct::any()),
+            ),
+            _ => self.functions.get(name).ok_or(())?.clone(),
+        })
+    }
 }
 
 impl TypingOracle for OracleDocs {
@@ -97,9 +113,5 @@ impl TypingOracle for OracleDocs {
                 return None;
             }
         }
-    }
-
-    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
-        Some(Ok(self.functions.get(name)?.clone()))
     }
 }

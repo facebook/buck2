@@ -123,17 +123,7 @@ pub trait TypingOracle {
         None
     }
 
-    /// Given a symbol in the global environment, what is its type.
-    /// Return [`Err`] if we _know_ this isn't a valid builtin.
-    /// Return [`None`] if we aren't sure.
-    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
-        None
-    }
-
-    /// A call to a builtin function. Only used for functions where the return type
-    /// is dependent on the arguments in a way that can't be expressed by [`TypingOracle::builtin`].
-    /// Return [`None`] to defer to [`TypingOracle::builtin`].
-    /// Return [`Err`] with a message if these arguments are type-incorrect.
+    /// A call to a builtin function.
     fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
         None
     }
@@ -150,11 +140,7 @@ pub trait TypingOracle {
 pub(crate) struct OracleNoBuiltins;
 
 #[cfg(test)]
-impl TypingOracle for OracleNoBuiltins {
-    fn builtin(&self, _name: &str) -> Option<Result<Ty, ()>> {
-        Some(Err(()))
-    }
-}
+impl TypingOracle for OracleNoBuiltins {}
 
 /// Declare that there are no attributes, usually used at the end of a [`Vec`].
 #[cfg(test)]
@@ -181,10 +167,6 @@ impl<T: TypingOracle> TypingOracle for OracleSeq<T> {
         self.0.iter().find_map(|oracle| oracle.as_function(ty))
     }
 
-    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
-        self.0.iter().find_map(|oracle| oracle.builtin(name))
-    }
-
     fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
         self.0
             .iter()
@@ -205,9 +187,6 @@ impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
         (*self).as_function(ty)
     }
-    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
-        (*self).builtin(name)
-    }
     fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
         (*self).builtin_call(name, args)
     }
@@ -222,9 +201,6 @@ impl<T: TypingOracle + ?Sized> TypingOracle for Box<T> {
     }
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
         self.as_ref().as_function(ty)
-    }
-    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
-        self.as_ref().builtin(name)
     }
     fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
         self.as_ref().builtin_call(name, args)

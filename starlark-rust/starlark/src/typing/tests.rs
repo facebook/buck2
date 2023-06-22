@@ -33,6 +33,7 @@ use crate::typing::oracle::traits::OracleSeq;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::ty::TyStruct;
 use crate::typing::Interface;
+use crate::typing::OracleDocs;
 use crate::typing::OracleStandard;
 use crate::typing::Param;
 use crate::typing::Ty;
@@ -55,6 +56,10 @@ fn mk_oracle() -> impl TypingOracle {
 #[test]
 fn test_oracle() {
     let o = mk_oracle();
+
+    let mut b = OracleDocs::new();
+    b.add_module(&Globals::extended().documentation());
+
     assert_eq!(
         o.attribute(&Ty::string(), TypingAttr::Regular("removeprefix")),
         Some(Ok(Ty::function(
@@ -63,36 +68,33 @@ fn test_oracle() {
         )))
     );
     assert_eq!(
-        o.builtin("hash"),
-        Some(Ok(Ty::function(
-            vec![Param::pos_only(Ty::string())],
-            Ty::int()
-        )))
+        b.builtin("hash"),
+        Ok(Ty::function(vec![Param::pos_only(Ty::string())], Ty::int()))
     );
     assert_eq!(
-        o.builtin("any"),
-        Some(Ok(Ty::function(
+        b.builtin("any"),
+        Ok(Ty::function(
             vec![Param::pos_only(Ty::iter(Ty::Any))],
             Ty::bool()
-        )))
+        ))
     );
     assert_eq!(
-        o.builtin("fail"),
-        Some(Ok(Ty::function(vec![Param::args(Ty::Any)], Ty::Never)))
+        b.builtin("fail"),
+        Ok(Ty::function(vec![Param::args(Ty::Any)], Ty::Never))
     );
-    assert_eq!(o.builtin("not_a_symbol"), Some(Err(())));
+    assert_eq!(b.builtin("not_a_symbol"), Err(()));
 
-    fn get_type(x: &Option<Result<Ty, ()>>) -> &str {
+    fn get_type(x: &Result<Ty, ()>) -> &str {
         match x {
-            Some(Ok(Ty::Function(TyFunction { type_attr, .. }))) => type_attr.as_str(),
+            Ok(Ty::Function(TyFunction { type_attr, .. })) => type_attr.as_str(),
             _ => "",
         }
     }
 
-    assert_eq!(get_type(&o.builtin("int")), "int");
-    assert_eq!(get_type(&o.builtin("str")), "string");
-    assert_eq!(get_type(&o.builtin("list")), "list");
-    assert_eq!(get_type(&o.builtin("hash")), "");
+    assert_eq!(get_type(&b.builtin("int")), "int");
+    assert_eq!(get_type(&b.builtin("str")), "string");
+    assert_eq!(get_type(&b.builtin("list")), "list");
+    assert_eq!(get_type(&b.builtin("hash")), "");
 }
 
 #[derive(Default)]

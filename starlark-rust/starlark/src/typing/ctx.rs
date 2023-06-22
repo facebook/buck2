@@ -50,6 +50,7 @@ use crate::typing::ty::Param;
 use crate::typing::ty::ParamMode;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyFunction;
+use crate::typing::OracleDocs;
 
 #[derive(Error, Debug)]
 pub(crate) enum TypingError {
@@ -74,6 +75,7 @@ pub(crate) enum TypingError {
 pub(crate) struct TypingContext<'a> {
     pub(crate) codemap: &'a CodeMap,
     pub(crate) oracle: &'a dyn TypingOracle,
+    pub(crate) global_docs: OracleDocs,
     // We'd prefer this to be a &mut self,
     // but that makes writing the code more fiddly, so just RefCell the errors
     pub(crate) errors: RefCell<Vec<EvalException>>,
@@ -285,15 +287,14 @@ impl TypingContext<'_> {
     }
 
     fn builtin(&self, name: &str, span: Span) -> Ty {
-        match self.oracle.builtin(name) {
-            Some(Ok(x)) => x,
-            Some(Err(())) => self.add_error(
+        match self.global_docs.builtin(name) {
+            Ok(x) => x,
+            Err(()) => self.add_error(
                 span,
                 TypingError::UnknownBuiltin {
                     name: name.to_owned(),
                 },
             ),
-            None => self.approximation("oracle.builtin", name),
         }
     }
 

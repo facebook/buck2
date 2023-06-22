@@ -255,20 +255,6 @@ impl TypingOracle for OracleStandard {
         }))
     }
 
-    fn builtin(&self, name: &str) -> Option<Result<Ty, ()>> {
-        Some(Ok(match name {
-            "None" => Ty::none(),
-            "True" | "False" => Ty::bool(),
-            "zip" => Ty::special_function("zip", vec![Param::args(Ty::Any)], Ty::list(Ty::Any)),
-            "struct" => Ty::special_function(
-                "struct",
-                vec![Param::kwargs(Ty::Any)],
-                Ty::Struct(TyStruct::any()),
-            ),
-            _ => return self.fallback.builtin(name),
-        }))
-    }
-
     fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
         match name {
             "struct" => {
