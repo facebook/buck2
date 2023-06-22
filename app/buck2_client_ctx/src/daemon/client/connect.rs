@@ -715,6 +715,7 @@ impl<'a> BuckdProcessInfo<'a> {
     }
 
     pub async fn create_channel(&self) -> anyhow::Result<BuckdChannel> {
+        tracing::debug!("Creating channel to: {}", self.info.endpoint);
         let connection_type = ConnectionType::parse(&self.info.endpoint)?;
 
         let client = new_daemon_api_client(connection_type, self.info.auth_token.clone())
