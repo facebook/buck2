@@ -30,7 +30,9 @@ impl KillCommand {
                 .connect_buckd(BuckdConnectOptions::existing_only_no_console())
                 .await
             {
-                Err(_) => {
+                Err(e) => {
+                    // Need to downcast and see if it's a connect error.
+                    tracing::debug!("Connect failed: {:#}", e);
                     buck2_client_ctx::eprintln!("no buckd server running")?;
                 }
                 Ok(mut client) => {

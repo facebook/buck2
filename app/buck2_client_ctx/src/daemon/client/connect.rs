@@ -661,7 +661,10 @@ async fn try_connect_existing_before_daemon_restart(
                 Ok(ConnectBeforeRestart::Rejected)
             }
         }
-        Err(_) => Ok(ConnectBeforeRestart::Rejected),
+        Err(e) => {
+            tracing::debug!("Connect failed: {:#}", e);
+            Ok(ConnectBeforeRestart::Rejected)
+        }
     }
 }
 
