@@ -17,6 +17,8 @@
 
 //! This mod defines utilities to easily create Rust values as Starlark values.
 
+use either::Either;
+
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
@@ -65,6 +67,26 @@ where
         match self {
             Some(v) => v.alloc_value(heap),
             None => Value::new_none(),
+        }
+    }
+}
+
+impl<'v, A: AllocValue<'v>, B: AllocValue<'v>> AllocValue<'v> for Either<A, B> {
+    #[inline]
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        match self {
+            Either::Left(a) => a.alloc_value(heap),
+            Either::Right(b) => b.alloc_value(heap),
+        }
+    }
+}
+
+impl<A: AllocFrozenValue, B: AllocFrozenValue> AllocFrozenValue for Either<A, B> {
+    #[inline]
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        match self {
+            Either::Left(a) => a.alloc_frozen_value(heap),
+            Either::Right(b) => b.alloc_frozen_value(heap),
         }
     }
 }
