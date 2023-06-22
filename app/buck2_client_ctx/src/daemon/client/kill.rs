@@ -92,6 +92,10 @@ pub async fn kill(
         }
     };
 
+    hard_kill_impl(pid, time_req_sent, time_to_kill).await
+}
+
+async fn hard_kill_impl(pid: u32, start_at: Instant, deadline: Duration) -> anyhow::Result<()> {
     tracing::info!(
         "Killing PID {} with status {}",
         pid,
@@ -102,7 +106,7 @@ pub async fn kill(
 
     let handle = kill::kill(pid)?;
     let timestamp_after_kill = Instant::now();
-    while time_req_sent.elapsed() < time_to_kill {
+    while start_at.elapsed() < deadline {
         if handle.has_exited()? {
             return Ok(());
         }
