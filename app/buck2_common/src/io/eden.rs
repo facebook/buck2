@@ -18,6 +18,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;
+use buck2_core::soft_error;
 use compact_str::CompactString;
 use dupe::Dupe;
 use edenfs::types::FileAttributes;
@@ -290,6 +291,10 @@ impl EdenIoProvider {
             }
             Err(EdenError::PosixError { code, .. }) if code == EISDIR => {
                 tracing::debug!("getAttributesFromFilesV2({}): EISDIR", path);
+                soft_error!(
+                    "eden_io_eisdir",
+                    anyhow::anyhow!("Eden returned EISDIR for {}", path)
+                )?;
                 Ok(Some(RawPathMetadata::Directory))
             }
             Err(EdenError::PosixError { code, .. }) if code == ENOENT => {
