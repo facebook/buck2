@@ -200,7 +200,7 @@ fn read_path_metadata<P: AsRef<AbsNormPath>>(
         match fs_util::symlink_metadata_if_exists(&curr.abspath)? {
             Some(path_meta) => {
                 if path_meta.file_type().is_symlink() {
-                    let dest = curr.abspath.read_link()?;
+                    let dest = fs_util::read_link(&curr.abspath)?;
                     let rest = relpath_components.collect();
 
                     let out = if dest.is_absolute() {
