@@ -23,6 +23,7 @@ use cmp_any::PartialEqAny;
 use compact_str::CompactString;
 use derive_more::Display;
 use dupe::Dupe;
+use gazebo::variants::VariantName;
 
 use crate::cas_digest::CasDigest;
 use crate::cas_digest::CasDigestConfig;
@@ -242,14 +243,14 @@ pub enum PathMetadata {
     Directory,
 }
 
-#[derive(Debug, PartialEq, Dupe, Eq, Clone, Allocative)]
+#[derive(Debug, PartialEq, Dupe, Eq, Clone, Allocative, VariantName)]
 pub enum RawPathMetadata<T = Arc<CellPath>> {
     Symlink { at: T, to: RawSymlink<T> },
     File(FileMetadata),
     Directory,
 }
 
-#[derive(Debug, Dupe, Hash, PartialEq, Eq, Clone, Allocative)]
+#[derive(Debug, Dupe, Hash, PartialEq, Eq, Clone, Allocative, VariantName)]
 pub enum RawSymlink<T> {
     Relative(T),
     External(Arc<ExternalSymlink>),

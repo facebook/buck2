@@ -7,28 +7,24 @@
  * of this source tree.
  */
 
+use std::fmt;
 use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
 
-use anyhow::Context;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
-use buck2_common::file_ops::FileDigest;
-use buck2_common::file_ops::FileDigestConfig;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::file_ops::RawSymlink;
-use buck2_common::file_ops::SimpleDirEntry;
+use buck2_common::io::fs::FsIoProvider;
+use buck2_common::io::IoProvider;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -36,9 +32,10 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::stderr_output_guard::StderrOutputGuard;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_util::commas::commas;
 use dice::DiceTransaction;
-use itertools::Itertools;
-use thiserror::Error;
+use dupe::Dupe;
+use gazebo::variants::VariantName;
 
 use crate::ctx::ServerCommandContext;
 
@@ -74,19 +71,40 @@ impl FileStatusResult<'_> {
         self.checked += 1;
     }
 
-    fn mismatch(&mut self, err: Mismatch) -> anyhow::Result<()> {
-        writeln!(self.stderr, "MISMATCH: {}", err)?;
-        self.bad += 1;
+    fn report<T>(
+        &mut self,
+        kind: &str,
+        path: &ProjectRelativePath,
+        fs: &T,
+        dice: &T,
+    ) -> anyhow::Result<()>
+    where
+        T: PartialEq + fmt::Display + ?Sized,
+    {
+        if fs != dice {
+            writeln!(
+                self.stderr,
+                "MISMATCH: {} at {}: fs = {}, dice = {}",
+                kind, path, fs, dice,
+            )?;
+            self.bad += 1;
+        } else if self.verbose {
+            writeln!(self.stderr, "Match: {} at {}: {}", kind, path, fs)?;
+        }
+
         Ok(())
     }
+}
 
-    fn report_match(
-        &mut self,
-        path: &ProjectRelativePath,
-        digest: &FileDigest,
-    ) -> anyhow::Result<()> {
-        if self.verbose {
-            writeln!(self.stderr, "Match: {} {}", path, digest)?;
+#[derive(PartialEq)]
+struct DirList(Vec<FileNameBuf>);
+
+impl fmt::Display for DirList {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut comma = commas();
+        for path in &self.0 {
+            comma(f)?;
+            write!(f, "{}", path)?;
         }
         Ok(())
     }
@@ -109,6 +127,9 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         let cell_resolver = ctx.get_cell_resolver().await?;
         let project_root = server_ctx.project_root();
         let digest_config = ctx.global_data().get_digest_config();
+
+        let io = FsIoProvider::new(project_root.dupe(), digest_config.cas_digest_config());
+
         let mut result = FileStatusResult {
             checked: 0,
             bad: 0,
@@ -119,15 +140,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         for path in &self.req.paths {
             let path = project_root.relativize_any(AbsPath::new(Path::new(path))?)?;
             writeln!(result.stderr, "Check file status: {}", path)?;
-            check_file_status(
-                &file_ops,
-                &cell_resolver,
-                project_root,
-                digest_config,
-                &path,
-                &mut result,
-            )
-            .await?;
+            check_file_status(&file_ops, &cell_resolver, &io, &path, &mut result).await?;
         }
         if result.bad != 0 {
             Err(anyhow::anyhow!("Failed with {} mismatches", result.bad))
@@ -147,32 +160,11 @@ impl ServerCommandTemplate for FileStatusServerCommand {
     }
 }
 
-#[derive(Debug, Error)]
-enum Mismatch {
-    #[error("Existence of {0}, fs={1}, dice={2}")]
-    Existence(ProjectRelativePathBuf, bool, bool),
-    #[error("Symlink destination of {0}, fs={1}, dice={2}")]
-    SymlinkTarget(ProjectRelativePathBuf, PathBuf, PathBuf),
-    #[error("Entry {0} disagrees on the type, dice={1}")]
-    FileType(ProjectRelativePathBuf, &'static str),
-    #[error("Directory {0} disagrees on the contents, fs={}, dice={}", display_filenames(.1), display_filenames(.2))]
-    DirContents(ProjectRelativePathBuf, Vec<String>, Vec<String>),
-    #[error("File {0} disagrees on file size, fs={1}, dice={2}")]
-    FileSize(ProjectRelativePathBuf, u64, u64),
-    #[error("File {0} disagrees on file digest, fs={1}, dice={2}")]
-    FileDigest(ProjectRelativePathBuf, FileDigest, FileDigest),
-}
-
-fn display_filenames(files: &[impl AsRef<str>]) -> String {
-    files.iter().map(|x| x.as_ref()).join(",")
-}
-
 #[async_recursion]
 async fn check_file_status(
     file_ops: &dyn FileOps,
     cell_resolver: &CellResolver,
-    project_root: &ProjectRoot,
-    digest_config: DigestConfig,
+    io: &FsIoProvider,
     path: &ProjectRelativePath,
     result: &mut FileStatusResult,
 ) -> anyhow::Result<()> {
@@ -183,115 +175,97 @@ async fn check_file_status(
         return Ok(());
     }
 
-    let abs_path = project_root.resolve(path);
-    let fs_metadata = fs_util::symlink_metadata_if_exists(&abs_path)?;
+    let fs_metadata = io.read_path_metadata_if_exists(path.to_owned()).await?;
+
     let dice_metadata = file_ops
         .read_path_metadata_if_exists(cell_path.as_ref())
         .await?;
 
-    match (&fs_metadata, &dice_metadata) {
-        (None, None) => {}
-        (Some(fs_metadata), Some(dice_metadata)) => match dice_metadata {
-            RawPathMetadata::Symlink { at: _, to: dice_to } => {
-                if !fs_metadata.is_symlink() {
-                    result.mismatch(Mismatch::FileType(path.to_owned(), "symlink"))?;
-                } else {
-                    // Canonicalize isn't quite right here, but it's close enough
-                    // given we encourage to have very few symlinks.
-                    // Some paths have broken symlinks, in which case canonicalize fails,
-                    // so we skip if we get a failure.
-                    if let Ok(fs_to) = fs_util::canonicalize(&abs_path) {
-                        let dice_to = match dice_to {
-                            RawSymlink::Relative(x) => project_root
-                                .resolve(&cell_resolver.resolve_path(x.as_ref().as_ref())?)
-                                .as_path()
-                                .to_owned(),
-                            RawSymlink::External(x) => x.to_path_buf(),
-                        };
-                        if fs_to.as_path() != dice_to.as_path() {
-                            result.mismatch(Mismatch::SymlinkTarget(
-                                path.to_owned(),
-                                fs_to.into_path_buf(),
-                                dice_to,
-                            ))?;
-                        }
-                    }
+    let (fs_metadata, dice_metadata) = match (&fs_metadata, &dice_metadata) {
+        (Some(fs), Some(dice)) => (fs, dice),
+        (fs, dice) => {
+            result.report("existence", path, &fs.is_some(), &dice.is_some())?;
+            return Ok(());
+        }
+    };
+
+    result.report(
+        "entry kind",
+        path,
+        fs_metadata.variant_name(),
+        dice_metadata.variant_name(),
+    )?;
+
+    match (fs_metadata, dice_metadata) {
+        (
+            RawPathMetadata::Symlink {
+                at: fs_at,
+                to: fs_to,
+            },
+            RawPathMetadata::Symlink {
+                at: dice_at,
+                to: dice_to,
+            },
+        ) => {
+            let dice_at = cell_resolver.resolve_path(dice_at.as_ref().as_ref())?;
+            result.report("symlink component location", path, fs_at, &dice_at)?;
+
+            result.report(
+                "symlink destination kind",
+                path,
+                fs_to.variant_name(),
+                dice_to.variant_name(),
+            )?;
+
+            match (fs_to, dice_to) {
+                (RawSymlink::Relative(fs_rel), RawSymlink::Relative(dice_rel)) => {
+                    let dice_rel = cell_resolver.resolve_path(dice_rel.as_ref().as_ref())?;
+                    result.report("relative symlink destination", path, fs_rel, &dice_rel)?;
                 }
-            }
-            RawPathMetadata::File(dice_metadata) => {
-                if !fs_metadata.is_file() {
-                    result.mismatch(Mismatch::FileType(path.to_owned(), "file"))?;
-                } else {
-                    // We don't check is_executable as there are multiple definitions of this,
-                    // and it usually isn't too important.
-                    if fs_metadata.len() != dice_metadata.digest.size() {
-                        result.mismatch(Mismatch::FileSize(
-                            path.to_owned(),
-                            fs_metadata.len(),
-                            dice_metadata.digest.size(),
-                        ))?;
-                    } else {
-                        let fs_digest = FileDigest::from_file_disk(
-                            &abs_path,
-                            FileDigestConfig::source(digest_config.cas_digest_config()),
-                        )?;
-                        if &fs_digest != dice_metadata.digest.data() {
-                            result.mismatch(Mismatch::FileDigest(
-                                path.to_owned(),
-                                fs_digest,
-                                dice_metadata.digest.data().to_owned(),
-                            ))?;
-                        } else {
-                            result.report_match(path, &fs_digest)?;
-                        }
-                    }
+                (RawSymlink::External(fs_ext), RawSymlink::External(dice_ext)) => {
+                    result.report("external symlink destination", path, fs_ext, dice_ext)?;
                 }
-            }
-            RawPathMetadata::Directory => {
-                if !fs_metadata.is_dir() {
-                    result.mismatch(Mismatch::FileType(path.to_owned(), "directory"))?;
-                } else {
-                    let mut fs_list: Vec<String> = Vec::new();
-                    for entry in fs_util::read_dir(&abs_path)? {
-                        fs_list.push(entry?.file_name().into_string().ok().context("not UTF-8")?);
-                    }
-                    let dice_read_dir = file_ops.read_dir(cell_path.as_ref()).await?;
-                    let mut dice_list: Vec<String> = dice_read_dir
-                        .included
-                        .iter()
-                        .map(|SimpleDirEntry { file_name, .. }| file_name.as_str().to_owned())
-                        .collect();
-                    fs_list.sort();
-                    dice_list.sort();
-                    if fs_list != dice_list {
-                        result.mismatch(Mismatch::DirContents(
-                            path.to_owned(),
-                            fs_list,
-                            dice_list,
-                        ))?;
-                    } else {
-                        for file in &*dice_read_dir.included {
-                            let mut path = path.to_owned();
-                            path.push(&file.file_name);
-                            check_file_status(
-                                file_ops,
-                                cell_resolver,
-                                project_root,
-                                digest_config,
-                                &path,
-                                result,
-                            )
-                            .await?;
-                        }
-                    }
+                _ => {
+                    // Reported earlier
                 }
+            };
+        }
+        (RawPathMetadata::File(fs_file), RawPathMetadata::File(dice_file)) => {
+            result.report("file metadata", path, fs_file, dice_file)?;
+        }
+        (RawPathMetadata::Directory, RawPathMetadata::Directory) => {
+            let fs_read_dir = io.read_dir(path.to_owned()).await?;
+            let dice_read_dir = file_ops.read_dir(cell_path.as_ref()).await?;
+
+            // No point checking file types here, we'll do that when we inspect them.
+            let mut fs_names = fs_read_dir
+                .iter()
+                .map(|f| anyhow::Ok(FileName::new(&f.file_name)?.to_owned()))
+                .collect::<Result<Vec<_>, _>>()?;
+
+            let mut dice_names = dice_read_dir
+                .included
+                .iter()
+                .map(|e| e.file_name.clone())
+                .collect::<Vec<_>>();
+
+            fs_names.sort();
+            dice_names.sort();
+
+            let fs_names = DirList(fs_names);
+            let dice_names = DirList(dice_names);
+
+            result.report("directory contents", path, &fs_names, &dice_names)?;
+
+            for file_name in &fs_names.0 {
+                check_file_status(file_ops, cell_resolver, io, &path.join(file_name), result)
+                    .await?;
             }
-        },
-        _ => result.mismatch(Mismatch::Existence(
-            path.to_owned(),
-            fs_metadata.is_some(),
-            dice_metadata.is_some(),
-        ))?,
+        }
+        (_, _) => {
+            // Reported earlier
+        }
     }
+
     Ok(())
 }
