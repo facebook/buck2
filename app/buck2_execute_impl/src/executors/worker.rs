@@ -115,6 +115,7 @@ fn spawn_via_forkserver(
     liveliness_observer: impl LivelinessObserver + 'static,
     stdout_path: &AbsNormPathBuf,
     stderr_path: &AbsNormPathBuf,
+    socket_path: &AbsNormPathBuf,
 ) -> JoinHandle<anyhow::Result<GatherOutputStatus>> {
     use std::os::unix::ffi::OsStrExt;
 
@@ -123,6 +124,7 @@ fn spawn_via_forkserver(
     let stdout_path = stdout_path.clone();
     let stderr_path = stderr_path.clone();
 
+    let socket_path = socket_path.clone();
     tokio::spawn(async move {
         let mut req = buck2_forkserver_proto::CommandRequest {
             exe: exe.as_bytes().into(),
@@ -139,10 +141,17 @@ fn spawn_via_forkserver(
             }),
         };
         apply_local_execution_environment(&mut req, &working_directory, env, None);
-        forkserver
+        let res = forkserver
             .execute(req, async move { liveliness_observer.while_alive().await })
             .await
-            .map(|(status, _, _)| status)
+            .map(|(status, _, _)| status);
+
+        // Socket is created by worker so won't exist if initialization fails.
+        if fs_util::try_exists(&socket_path)? {
+            // TODO(ctolliday) delete directory (after logs are moved to buck-out)
+            fs_util::remove_file(&socket_path)?;
+        }
+        res
     })
 }
 
@@ -156,6 +165,7 @@ fn spawn_via_forkserver(
     _liveliness_observer: impl LivelinessObserver + 'static,
     _stdout_path: &AbsNormPathBuf,
     _stderr_path: &AbsNormPathBuf,
+    _socket_path: &AbsNormPathBuf,
 ) -> JoinHandle<anyhow::Result<GatherOutputStatus>> {
     unreachable!("workers should not be initialized off unix")
 }
@@ -166,7 +176,7 @@ async fn spawn_worker(
     worker: &WorkerSpec,
     root: &AbsNormPathBuf,
     forkserver: ForkserverClient,
-) -> Result<(WorkerCommandHandle, WorkerCleanupHandle), WorkerInitError> {
+) -> Result<WorkerHandle, WorkerInitError> {
     let dispatcher = get_dispatcher_opt().ok_or(WorkerInitError::InternalError(
         anyhow::anyhow!("No dispatcher"),
     ))?;
@@ -210,6 +220,7 @@ async fn spawn_worker(
         liveliness_observer,
         &stdout_path,
         &stderr_path,
+        &socket_path,
     );
 
     let initial_delay = Duration::from_millis(50);
@@ -266,37 +277,16 @@ async fn spawn_worker(
 
     tracing::info!("Connected to socket for spawned worker: {}", socket_path);
     let client = WorkerClient::new(channel);
-    Ok((
-        WorkerCommandHandle {
-            client,
-            stdout_path,
-            stderr_path,
-        },
-        WorkerCleanupHandle {
-            socket_path,
-            _liveliness_guard: liveliness_guard,
-        },
-    ))
+    Ok(WorkerHandle {
+        client,
+        stdout_path,
+        stderr_path,
+        _liveliness_guard: liveliness_guard,
+    })
 }
 
 pub struct WorkerPool {
-    workers: Arc<tokio::sync::Mutex<HashMap<WorkerId, Arc<WorkerCommandHandle>>>>,
-    cleanup: Arc<parking_lot::Mutex<Vec<WorkerCleanupHandle>>>,
-}
-
-impl Drop for WorkerPool {
-    fn drop(&mut self) {
-        tracing::info!("Dropping WorkerPool");
-        // Liveliness guards in handles being dropped should trigger worker process to be killed.
-        let cleanup_handles: Vec<WorkerCleanupHandle> = self.cleanup.lock().drain(..).collect();
-        tokio::spawn({
-            async move {
-                for WorkerCleanupHandle { socket_path, .. } in cleanup_handles {
-                    let _unused = fs_util::remove_file(&socket_path);
-                }
-            }
-        });
-    }
+    workers: Arc<tokio::sync::Mutex<HashMap<WorkerId, Arc<WorkerHandle>>>>,
 }
 
 impl WorkerPool {
@@ -304,7 +294,6 @@ impl WorkerPool {
         tracing::info!("Creating new WorkerPool");
         WorkerPool {
             workers: Arc::new(tokio::sync::Mutex::new(HashMap::default())),
-            cleanup: Arc::new(parking_lot::Mutex::new(Vec::new())),
         }
     }
 
@@ -314,31 +303,26 @@ impl WorkerPool {
         env: impl IntoIterator<Item = (OsString, OsString)>,
         root: &AbsNormPathBuf,
         forkserver: ForkserverClient,
-    ) -> Result<Arc<WorkerCommandHandle>, WorkerInitError> {
+    ) -> Result<Arc<WorkerHandle>, WorkerInitError> {
         let mut workers = self.workers.lock().await;
         if let Some(worker_handle) = workers.get(&worker_spec.id) {
             Ok(worker_handle.clone())
         } else {
             // TODO(ctolliday) keep track of workers that fail to start and don't try to spawn them again
             // TODO(ctolliday) do not lock the entire workers map while spawning/connecting
-            let (worker_handle, cleanup_handle) =
+            let worker_handle =
                 spawn_worker(&worker_spec.exe, env, worker_spec, root, forkserver).await?;
             let worker_handle = Arc::new(worker_handle);
             workers.insert(worker_spec.id, worker_handle.clone());
-            self.cleanup.lock().push(cleanup_handle);
             Ok(worker_handle)
         }
     }
 }
 
-pub struct WorkerCommandHandle {
+pub struct WorkerHandle {
     client: WorkerClient<Channel>,
     stdout_path: AbsNormPathBuf,
     stderr_path: AbsNormPathBuf,
-}
-
-pub struct WorkerCleanupHandle {
-    socket_path: AbsNormPathBuf,
     _liveliness_guard: LivelinessGuard,
 }
 
@@ -358,7 +342,7 @@ fn env_entries(_env: &[(OsString, OsString)]) -> Vec<EnvironmentEntry> {
     unreachable!("worker should not exist off unix")
 }
 
-impl WorkerCommandHandle {
+impl WorkerHandle {
     pub async fn exec_cmd(
         &self,
         args: &[String],

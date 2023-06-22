@@ -79,7 +79,7 @@ use more_futures::cancellation::CancellationContext;
 use thiserror::Error;
 use tracing::info;
 
-use crate::executors::worker::WorkerCommandHandle;
+use crate::executors::worker::WorkerHandle;
 use crate::executors::worker::WorkerPool;
 
 #[derive(Debug, Error)]
@@ -583,10 +583,7 @@ impl LocalExecutor {
         manager: CommandExecutionManagerWithClaim,
     ) -> ControlFlow<
         CommandExecutionResult,
-        (
-            Option<Arc<WorkerCommandHandle>>,
-            CommandExecutionManagerWithClaim,
-        ),
+        (Option<Arc<WorkerHandle>>, CommandExecutionManagerWithClaim),
     > {
         if let (Some(worker_spec), Some(worker_pool), Some(forkserver), true) = (
             request.worker(),
