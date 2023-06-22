@@ -15,7 +15,7 @@ use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
-use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -65,7 +65,7 @@ impl StreamingCommand for FileStatusCommand {
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),
-                &mut NoPartialResultHandler,
+                &mut StdoutPartialResultHandler,
             )
             .await??;
 

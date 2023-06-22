@@ -516,7 +516,7 @@ impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
         file_status,
         FileStatusRequest,
         GenericResponse,
-        NoPartialResult
+        buck2_cli_proto::StdoutBytes
     );
     stream_method!(
         unstable_docs,

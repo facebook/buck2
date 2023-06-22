@@ -27,9 +27,8 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::stderr_output_guard::StderrOutputGuard;
+use buck2_server_ctx::stdout_partial_output::StdoutPartialOutput;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_util::commas::commas;
@@ -41,7 +40,7 @@ use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn file_status_command(
     ctx: &ServerCommandContext<'_>,
-    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+    partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::FileStatusRequest,
 ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
     run_server_command(
@@ -62,8 +61,7 @@ struct FileStatusResult<'a> {
     bad: usize,
     /// Whether to write matches
     verbose: bool,
-    /// Handle for writing output
-    stderr: StderrOutputGuard<'a>,
+    stdout: StdoutPartialOutput<'a>,
 }
 
 impl FileStatusResult<'_> {
@@ -83,13 +81,13 @@ impl FileStatusResult<'_> {
     {
         if fs != dice {
             writeln!(
-                self.stderr,
+                self.stdout,
                 "MISMATCH: {} at {}: fs = {}, dice = {}",
                 kind, path, fs, dice,
             )?;
             self.bad += 1;
         } else if self.verbose {
-            writeln!(self.stderr, "Match: {} at {}: {}", kind, path, fs)?;
+            writeln!(self.stdout, "Match: {} at {}: {}", kind, path, fs)?;
         }
 
         Ok(())
@@ -115,12 +113,12 @@ impl ServerCommandTemplate for FileStatusServerCommand {
     type StartEvent = buck2_data::FileStatusCommandStart;
     type EndEvent = buck2_data::FileStatusCommandEnd;
     type Response = buck2_cli_proto::GenericResponse;
-    type PartialResult = NoPartialResult;
+    type PartialResult = buck2_cli_proto::StdoutBytes;
 
     async fn command(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
-        _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
+        mut stdout: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         let file_ops = ctx.file_ops();
@@ -129,24 +127,27 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         let digest_config = ctx.global_data().get_digest_config();
 
         let io = FsIoProvider::new(project_root.dupe(), digest_config.cas_digest_config());
+        let stdout = stdout.as_writer();
 
         let mut result = FileStatusResult {
             checked: 0,
             bad: 0,
             verbose: self.req.verbose,
-            stderr: server_ctx.stderr()?,
+            stdout,
         };
+
+        let mut stderr = server_ctx.stderr()?;
 
         for path in &self.req.paths {
             let path = project_root.relativize_any(AbsPath::new(Path::new(path))?)?;
-            writeln!(result.stderr, "Check file status: {}", path)?;
+            writeln!(&mut stderr, "Check file status: {}", path)?;
             check_file_status(&file_ops, &cell_resolver, &io, &path, &mut result).await?;
         }
         if result.bad != 0 {
             Err(anyhow::anyhow!("Failed with {} mismatches", result.bad))
         } else {
             writeln!(
-                result.stderr,
+                &mut stderr,
                 "No mismatches detected ({} entries checked)",
                 result.checked
             )?;
