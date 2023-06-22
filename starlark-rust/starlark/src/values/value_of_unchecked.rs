@@ -31,7 +31,7 @@ use crate::values::Value;
 /// Note this type does not actually check the type of the value.
 /// Providing incorrect type annotation will result
 /// in incorrect error reporting by the type checker.
-pub(crate) struct ValueOfUnchecked<'v, T: StarlarkTypeRepr>(Value<'v>, PhantomData<T>);
+pub struct ValueOfUnchecked<'v, T: StarlarkTypeRepr>(Value<'v>, PhantomData<T>);
 
 impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
     /// New.

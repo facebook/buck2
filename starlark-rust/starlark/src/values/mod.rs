@@ -87,6 +87,7 @@ pub use crate::values::types::structs;
 pub use crate::values::types::tuple;
 pub use crate::values::unpack::UnpackValue;
 pub use crate::values::unpack::ValueOf;
+pub use crate::values::value_of_unchecked::ValueOfUnchecked;
 
 mod alloc_value;
 mod comparison;
