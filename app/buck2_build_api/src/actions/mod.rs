@@ -53,6 +53,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
@@ -207,6 +208,12 @@ pub trait ActionExecutionCtx: Send + Sync {
         request: &CommandExecutionRequest,
         prepared_action: &PreparedAction,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager>;
+
+    async fn cache_upload(
+        &mut self,
+        action_digest: ActionDigest,
+        execution_result: &CommandExecutionResult,
+    ) -> anyhow::Result<bool>;
 
     /// Executes a command
     /// TODO(bobyf) this seems like it deserves critical sections?

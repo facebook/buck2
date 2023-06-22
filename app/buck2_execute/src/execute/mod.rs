@@ -10,6 +10,7 @@
 pub mod action_digest;
 pub mod blobs;
 pub mod blocking;
+pub mod cache_uploader;
 pub mod claim;
 pub mod clean_output_paths;
 pub mod command_executor;

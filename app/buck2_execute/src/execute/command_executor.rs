@@ -27,6 +27,9 @@ use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
 use crate::execute::blobs::ActionBlobs;
+use crate::execute::cache_uploader::CacheUploadInfo;
+use crate::execute::cache_uploader::NoOpCacheUploader;
+use crate::execute::cache_uploader::UploadCache;
 use crate::execute::executor_stage;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::prepared::PreparedAction;
@@ -71,6 +74,7 @@ struct CommandExecutorData {
     options: CommandGenerationOptions,
     re_platform: RE::Platform,
     enforce_re_timeouts: bool,
+    cache_uploader: Arc<dyn UploadCache>,
 }
 
 impl CommandExecutor {
@@ -89,6 +93,7 @@ impl CommandExecutor {
             options,
             re_platform,
             enforce_re_timeouts,
+            cache_uploader: Arc::new(NoOpCacheUploader {}),
         }))
     }
 
@@ -111,6 +116,14 @@ impl CommandExecutor {
             .cache_checker
             .maybe_execute(prepared_command, manager, cancellations)
             .await
+    }
+
+    pub async fn cache_upload(
+        &self,
+        info: &CacheUploadInfo<'_>,
+        execution_result: &CommandExecutionResult,
+    ) -> anyhow::Result<bool> {
+        self.0.cache_uploader.upload(info, execution_result).await
     }
 
     /// Execute a command.

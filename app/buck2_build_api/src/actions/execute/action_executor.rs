@@ -29,8 +29,10 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
+use buck2_execute::execute::cache_uploader::CacheUploadInfo;
 use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -468,6 +470,25 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                     digest_config: self.digest_config(),
                 },
                 self.cancellations,
+            )
+            .await
+    }
+
+    async fn cache_upload(
+        &mut self,
+        action_digest: ActionDigest,
+        execution_result: &CommandExecutionResult,
+    ) -> anyhow::Result<bool> {
+        let action = self.target();
+        self.executor
+            .command_executor
+            .cache_upload(
+                &CacheUploadInfo {
+                    target: &action as _,
+                    action_digest,
+                    digest_config: self.digest_config(),
+                },
+                execution_result,
             )
             .await
     }
