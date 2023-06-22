@@ -233,6 +233,13 @@ impl CasDigestConfig {
         self.inner.digest256 == Some(DigestAlgorithm::Sha256)
     }
 
+    pub fn allows_blake3_keyed(self) -> bool {
+        matches!(
+            self.inner.digest256,
+            Some(DigestAlgorithm::Blake3Keyed { .. })
+        )
+    }
+
     /// Access the config for source files. Note that:
     ///
     /// - This method isn't public because it really should only be called by methods in file_ops.

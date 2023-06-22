@@ -165,9 +165,18 @@ impl FileDigest {
 
         use crate::cas_digest::RawDigest;
 
-        if !config.as_cas_digest_config().allows_sha1() {
-            return None;
+        enum Digest {
+            Sha1,
+            Blake3Keyed,
         }
+
+        let digest = if config.as_cas_digest_config().allows_sha1() {
+            Digest::Sha1
+        } else if config.as_cas_digest_config().allows_blake3_keyed() {
+            Digest::Blake3Keyed
+        } else {
+            return None;
+        };
 
         let meta = fs_util::symlink_metadata(file).ok()?;
 
@@ -177,14 +186,19 @@ impl FileDigest {
             return None;
         }
 
-        match xattr::get(file.as_maybe_relativized(), "user.sha1") {
-            Ok(Some(v)) => {
-                let sha1 = RawDigest::parse_sha1(&v).ok()?;
-                let size = meta.len();
-                Some(Self::new(sha1, size))
-            }
-            _ => None,
-        }
+        let raw_digest = match digest {
+            Digest::Sha1 => xattr::get(file.as_maybe_relativized(), "user.sha1")
+                .ok()
+                .flatten()
+                .and_then(|v| RawDigest::parse_sha1(&v).ok()),
+            // NOTE: Eden returns *keyed* blake3 in user.blake3, so we use that.
+            Digest::Blake3Keyed => xattr::get(file.as_maybe_relativized(), "user.blake3")
+                .ok()
+                .flatten()
+                .and_then(|v| RawDigest::parse_blake3_keyed(&v).ok()),
+        };
+
+        raw_digest.map(|raw| Self::new(raw, meta.len()))
     }
 
     /// Windows doesn't support extended file attributes.
