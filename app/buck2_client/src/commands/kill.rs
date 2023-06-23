@@ -56,10 +56,10 @@ pub(crate) async fn kill_command_impl(
     })
     .await;
 
-    match buckd {
+    let response = match buckd {
         Ok(Ok(mut buckd)) => {
             buck2_client_ctx::eprintln!("killing buckd server")?;
-            buckd.kill(reason).await?;
+            Some(buckd.kill(reason).await?)
         }
         Ok(Err(e)) => {
             // No time out: we just errored out. This is likely indicative that there is no
@@ -77,6 +77,8 @@ pub(crate) async fn kill_command_impl(
                     e
                 )?;
             }
+
+            None
         }
         Err(e) => {
             tracing::debug!("Connect timed out: {:#}", e);
@@ -89,9 +91,13 @@ pub(crate) async fn kill_command_impl(
             // This means the socket is probably open. We can reasonably got and kill this
             // process if both the PID and the port exist.
             buck2_client_ctx::eprintln!("killing unresponsive buckd server")?;
-            process.hard_kill().await?;
+            Some(process.hard_kill().await?)
         }
     };
+
+    if let Some(response) = response {
+        response.log()?;
+    }
 
     Ok(())
 }

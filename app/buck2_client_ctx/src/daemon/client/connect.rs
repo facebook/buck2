@@ -493,11 +493,11 @@ impl BootstrapBuckdClient {
         }
     }
 
-    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
+    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<kill::KillResponse> {
         kill::kill(&mut self.client, &self.info, reason).await
     }
 
-    async fn kill_for_constraints_mismatch(&mut self) -> anyhow::Result<()> {
+    async fn kill_for_constraints_mismatch(&mut self) -> anyhow::Result<kill::KillResponse> {
         self.kill("client expected different buckd constraints")
             .await
     }
@@ -730,7 +730,7 @@ impl<'a> BuckdProcessInfo<'a> {
         })
     }
 
-    pub async fn hard_kill(&self) -> anyhow::Result<()> {
+    pub async fn hard_kill(&self) -> anyhow::Result<kill::KillResponse> {
         kill::hard_kill(&self.info).await
     }
 }

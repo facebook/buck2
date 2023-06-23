@@ -37,11 +37,22 @@ const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 const KILL_REQUEST_TIMEOUT: Duration = Duration::from_secs(3);
 const FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
+pub struct KillResponse {
+    pid: u32,
+}
+
+impl KillResponse {
+    pub fn log(&self) -> anyhow::Result<()> {
+        crate::eprintln!("Buck2 daemon pid {} has exited", self.pid)?;
+        Ok(())
+    }
+}
+
 pub async fn kill(
     client: &mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     info: &DaemonProcessInfo,
     reason: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<KillResponse> {
     let pid = info.pid;
     let pid: u32 = pid
         .try_into()
@@ -61,7 +72,7 @@ pub async fn kill(
             match inner_result {
                 Ok(_) => loop {
                     if !kill::process_exists(pid)? {
-                        return Ok(());
+                        return Ok(KillResponse { pid });
                     }
                     if time_req_sent.elapsed() > GRACEFUL_SHUTDOWN_TIMEOUT {
                         crate::eprintln!(
@@ -95,7 +106,7 @@ pub async fn kill(
     hard_kill_impl(pid, time_req_sent, time_to_kill).await
 }
 
-pub async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<()> {
+pub async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<KillResponse> {
     let pid = info
         .pid
         .try_into()
@@ -104,7 +115,11 @@ pub async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<()> {
     hard_kill_impl(pid, Instant::now(), FORCE_SHUTDOWN_TIMEOUT).await
 }
 
-async fn hard_kill_impl(pid: u32, start_at: Instant, deadline: Duration) -> anyhow::Result<()> {
+async fn hard_kill_impl(
+    pid: u32,
+    start_at: Instant,
+    deadline: Duration,
+) -> anyhow::Result<KillResponse> {
     tracing::info!(
         "Killing PID {} with status {}",
         pid,
@@ -117,7 +132,7 @@ async fn hard_kill_impl(pid: u32, start_at: Instant, deadline: Duration) -> anyh
     let timestamp_after_kill = Instant::now();
     while start_at.elapsed() < deadline {
         if handle.has_exited()? {
-            return Ok(());
+            return Ok(KillResponse { pid });
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
@@ -126,7 +141,7 @@ async fn hard_kill_impl(pid: u32, start_at: Instant, deadline: Duration) -> anyh
     let status = kill::get_sysinfo_status(pid);
     let status = status.unwrap_or_else(|| "<unknown>".to_owned());
     if handle.has_exited()? {
-        return Ok(());
+        return Ok(KillResponse { pid });
     }
 
     Err(KillError::DidNotDie(pid, timestamp_after_kill.elapsed(), status).into())

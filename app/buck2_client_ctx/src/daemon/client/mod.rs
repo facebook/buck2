@@ -69,7 +69,7 @@ impl<'a> BuckdClientConnector<'a> {
         &self.client.constraints
     }
 
-    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
+    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<kill::KillResponse> {
         kill::kill(&mut self.client.client, &self.client.info, reason).await
     }
 
