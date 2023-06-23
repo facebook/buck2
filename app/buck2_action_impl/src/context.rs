@@ -154,7 +154,7 @@ fn create_dir_tree<'v>(
     output: Value<'v>,
     srcs: Value<'v>,
     copy: bool,
-) -> anyhow::Result<Value<'v>> {
+) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
     // validate that the moves are valid, and move them into inputs
     let action = UnregisteredSymlinkedDirAction::new(copy, srcs)?;
     let inputs = action.inputs();
@@ -165,10 +165,7 @@ fn create_dir_tree<'v>(
         this.get_or_declare_output(eval, output, "output", OutputType::Directory)?;
     this.register_action(inputs, indexset![output_artifact], action, None)?;
 
-    let value = declaration
-        .into_declared_artifact(unioned_associated_artifacts)
-        .to_value();
-    Ok(value)
+    Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
 }
 
 fn copy_file_impl<'v>(
@@ -178,7 +175,7 @@ fn copy_file_impl<'v>(
     src: Value<'v>,
     copy: CopyMode,
     output_type: OutputType,
-) -> anyhow::Result<Value<'v>> {
+) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
     let src = src
         .as_artifact()
         .ok_or_else(|| ValueError::IncorrectParameterTypeNamed("src".to_owned()))?;
@@ -196,12 +193,11 @@ fn copy_file_impl<'v>(
         None,
     )?;
 
-    let value = declaration.into_declared_artifact(
+    Ok(declaration.into_declared_artifact(
         associated_artifacts
             .duped()
             .unwrap_or_else(AssociatedArtifacts::new),
-    );
-    Ok(value.to_value())
+    ))
 }
 
 // Type literals that we use
@@ -481,13 +477,12 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
 
     /// Copies the source `artifact` to the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`.
     /// The copy works for files or directories.
-    #[starlark(return_type = TYPE_ARTIFACT)]
     fn copy_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
         #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
         copy_file_impl(
             eval,
@@ -501,13 +496,12 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
 
     /// Creates a symlink to the source `artifact` at the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`.
     /// The symlink works for files or directories.
-    #[starlark(return_type = TYPE_ARTIFACT)]
     fn symlink_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
         #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
         copy_file_impl(
             eval,
@@ -520,24 +514,22 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     }
 
     /// Make a copy of a directory.
-    #[starlark(return_type = TYPE_ARTIFACT)]
     fn copy_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
         #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         copy_file_impl(eval, this, dest, src, CopyMode::Copy, OutputType::Directory)
     }
 
     /// Create a symlink to a directory.
-    #[starlark(return_type = TYPE_ARTIFACT)]
     fn symlink_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
         #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         copy_file_impl(
             eval,
             this,
@@ -550,25 +542,23 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
 
     /// Returns an `artifact` that is a directory containing symlinks.
     /// The srcs must be a dictionary of path (as string, relative to the result directory) to bound `artifact`, which will be laid out in the directory.
-    #[starlark(return_type = TYPE_ARTIFACT)]
     fn symlinked_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
         #[starlark(require = pos, type = "{str.type: \"artifact\"}")] srcs: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         create_dir_tree(eval, this, output, srcs, false)
     }
 
     /// Returns an `artifact` which is a directory containing copied files.
     /// The srcs must be a dictionary of path (as string, relative to the result directory) to the bound `artifact`, which will be laid out in the directory.
-    #[starlark(return_type = TYPE_ARTIFACT)]
     fn copied_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
         #[starlark(require = pos, type = "{str.type: \"artifact\"}")] srcs: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         create_dir_tree(eval, this, output, srcs, true)
     }
 
@@ -815,7 +805,6 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// The file at the URL must have the given sha1 or the command will fail.
     /// The optional parameter is_executable indicates whether the resulting file should be marked with executable permissions.
     /// (Meta-internal) The optional parameter vpnless_url indicates a url from which this resource can be downloaded off VPN; this has the same restrictions as `url` above.
-    #[starlark(return_type = TYPE_ARTIFACT)]
     fn download_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
@@ -826,7 +815,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] is_deferrable: bool,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         let mut this = this.state();
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, "output", OutputType::File)?;
@@ -854,10 +843,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             None,
         )?;
 
-        let value = declaration
-            .into_declared_artifact(AssociatedArtifacts::new())
-            .to_value();
-        Ok(value)
+        Ok(declaration.into_declared_artifact(AssociatedArtifacts::new()))
     }
 
     /// Downloads a CAS artifact to an output
@@ -866,7 +852,6 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// * `use_case`: your RE use case
     /// * `expires_after_timestamp`: must be a UNIX timestamp. Your digest's TTL must exceed this timestamp. Your build will break once the digest expires, so make sure the expiry is long enough (preferably, in years).
     /// * `is_executable` (optional): indicates the resulting file should be marked with executable permissions
-    #[starlark(return_type = TYPE_ARTIFACT)]
     fn cas_artifact<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
@@ -877,7 +862,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] is_tree: bool,
         #[starlark(require = named, default = false)] is_directory: bool,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         let mut registry = this.state();
 
         let digest = CasDigest::parse_digest(digest, this.digest_config.cas_digest_config())
@@ -915,9 +900,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             None,
         )?;
 
-        Ok(output_value
-            .into_declared_artifact(AssociatedArtifacts::new())
-            .to_value())
+        Ok(output_value.into_declared_artifact(AssociatedArtifacts::new()))
     }
 
     /// Creates a new transitive set. For details, see https://buck2.build/docs/rule_authors/transitive_sets/.
