@@ -27,12 +27,14 @@ use starlark_derive::Trace;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
+use crate::values::iter_type::StarlarkIter;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::StringValueLike;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::ValueOfUnchecked;
 
 /// An opaque iterator over a string, produced by elems/codepoints
 #[derive(
@@ -52,18 +54,24 @@ struct StringIterableGen<'v, V: ValueLike<'v>> {
     produce_char: bool, // if not char, then int
 }
 
-pub(crate) fn iterate_chars<'v>(string: StringValue<'v>, heap: &'v Heap) -> Value<'v> {
-    heap.alloc_complex(StringIterableGen::<'v, Value<'v>> {
+pub(crate) fn iterate_chars<'v>(
+    string: StringValue<'v>,
+    heap: &'v Heap,
+) -> ValueOfUnchecked<'v, StarlarkIter<String>> {
+    ValueOfUnchecked::new(heap.alloc_complex(StringIterableGen::<'v, Value<'v>> {
         string,
         produce_char: true,
-    })
+    }))
 }
 
-pub(crate) fn iterate_codepoints<'v>(string: StringValue<'v>, heap: &'v Heap) -> Value<'v> {
-    heap.alloc_complex(StringIterableGen::<'v, Value<'v>> {
+pub(crate) fn iterate_codepoints<'v>(
+    string: StringValue<'v>,
+    heap: &'v Heap,
+) -> ValueOfUnchecked<'v, StarlarkIter<String>> {
+    ValueOfUnchecked::new(heap.alloc_complex(StringIterableGen::<'v, Value<'v>> {
         string,
         produce_char: false,
-    })
+    }))
 }
 
 #[starlark_value(type = "iterator")]

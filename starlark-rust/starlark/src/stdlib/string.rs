@@ -28,6 +28,8 @@ use crate::eval::Evaluator;
 use crate::slice_vec_ext::SliceExt;
 use crate::stdlib::string::fast_string::convert_str_indices;
 use crate::typing::Ty;
+use crate::values::iter_type::StarlarkIter;
+use crate::values::list::ListOf;
 use crate::values::none::NoneOr;
 use crate::values::string::dot_format;
 use crate::values::string::fast_string;
@@ -40,6 +42,7 @@ use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 
 // This does not exists in rust, split would cut the string incorrectly and
 // split_whitespace cannot take a n parameter.
@@ -144,8 +147,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     ///     "H", "e", "l", "l", "o", ",", " ", "世", "界"]
     /// # "#);
     /// ```
-    #[starlark(return_type = "iter(str.type)")]
-    fn elems<'v>(this: StringValue<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn elems<'v>(
+        this: StringValue<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<ValueOfUnchecked<'v, StarlarkIter<String>>> {
         Ok(iterate_chars(this, heap))
     }
 
@@ -190,8 +195,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// list("Hello, 世界".codepoints()) == [72, 101, 108, 108, 111, 44, 32, 19990, 30028]
     /// # "#);
     /// ```
-    #[starlark(return_type = "iter(str.type)")]
-    fn codepoints<'v>(this: StringValue<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn codepoints<'v>(
+        this: StringValue<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<ValueOfUnchecked<'v, StarlarkIter<String>>> {
         Ok(iterate_codepoints(this, heap))
     }
 
@@ -630,12 +637,12 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// "a".join("ctmrn".elems()) == "catamaran"
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe, return_type = "str.type")]
+    #[starlark(speculative_exec_safe)]
     fn join<'v>(
         this: &str,
         #[starlark(require = pos, type = "iter(str.type)")] to_join: Value<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueOfUnchecked<'v, String>> {
         #[inline(always)]
         fn as_str<'v>(x: Value<'v>) -> anyhow::Result<&'v str> {
             <&str>::unpack_named_param(x, "to_join")
@@ -643,13 +650,13 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
 
         let mut it = to_join.iterate(heap)?;
         match it.next() {
-            None => Ok(Value::new_empty_string()),
+            None => Ok(ValueOfUnchecked::new(Value::new_empty_string())),
             Some(x1) => {
                 match it.next() {
                     None => {
                         as_str(x1)?;
                         // If there is a singleton we can avoid reallocation
-                        Ok(x1)
+                        Ok(ValueOfUnchecked::new(x1))
                     }
                     Some(x2) => {
                         let s1 = as_str(x1)?;
@@ -667,7 +674,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                             r.push_str(this);
                             r.push_str(as_str(x)?);
                         }
-                        Ok(heap.alloc(r))
+                        Ok(ValueOfUnchecked::new(heap.alloc(r)))
                     }
                 }
             }
@@ -924,13 +931,13 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// "one two  three".rsplit(None, 1) == ["one two", "three"]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe, return_type = "[str.type]")]
+    #[starlark(speculative_exec_safe)]
     fn rsplit<'v>(
         this: &str,
         #[starlark(require = pos, default = NoneOr::None)] sep: NoneOr<&str>,
         #[starlark(require = pos, default = NoneOr::None)] maxsplit: NoneOr<i32>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueOfUnchecked<'v, ListOf<'v, String>>> {
         let maxsplit = match maxsplit.into_option() {
             None => None,
             Some(v) => {
@@ -941,20 +948,24 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                 }
             }
         };
-        Ok(heap.alloc_list(&match sep.into_option() {
-            None => match maxsplit {
-                None => this.split_whitespace().map(|x| heap.alloc(x)).collect(),
-                Some(maxsplit) => rsplitn_whitespace(this, maxsplit).map(|x| heap.alloc(x)),
+        Ok(ValueOfUnchecked::new(heap.alloc_list(
+            &match sep.into_option() {
+                None => match maxsplit {
+                    None => this.split_whitespace().map(|x| heap.alloc(x)).collect(),
+                    Some(maxsplit) => rsplitn_whitespace(this, maxsplit).map(|x| heap.alloc(x)),
+                },
+                Some(sep) => {
+                    let mut v: Vec<_> = match maxsplit {
+                        None => this.rsplit(sep).map(|x| heap.alloc(x)).collect(),
+                        Some(maxsplit) => {
+                            this.rsplitn(maxsplit, sep).map(|x| heap.alloc(x)).collect()
+                        }
+                    };
+                    v.reverse();
+                    v
+                }
             },
-            Some(sep) => {
-                let mut v: Vec<_> = match maxsplit {
-                    None => this.rsplit(sep).map(|x| heap.alloc(x)).collect(),
-                    Some(maxsplit) => this.rsplitn(maxsplit, sep).map(|x| heap.alloc(x)).collect(),
-                };
-                v.reverse();
-                v
-            }
-        }))
+        )))
     }
 
     /// [string.rstrip](
@@ -1019,13 +1030,13 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// "banana".split("n", 1) == ["ba", "ana"]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe, return_type = "[str.type]")]
+    #[starlark(speculative_exec_safe)]
     fn split<'v>(
         this: &str,
         #[starlark(require = pos, default = NoneOr::None)] sep: NoneOr<&str>,
         #[starlark(require = pos, default = NoneOr::None)] maxsplit: NoneOr<i32>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueOfUnchecked<'v, ListOf<'v, String>>> {
         let maxsplit = match maxsplit.into_option() {
             None => None,
             Some(v) => {
@@ -1036,31 +1047,33 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                 }
             }
         };
-        Ok(heap.alloc_list(&match (sep.into_option(), maxsplit) {
-            (None, None) => this.split_whitespace().map(|x| heap.alloc(x)).collect(),
-            (None, Some(maxsplit)) => splitn_whitespace(this, maxsplit).map(|x| heap.alloc(x)),
-            (Some(sep), None) => {
-                if sep.len() == 1 {
-                    // If we are searching for a 1-byte string, we can provide a much faster path.
-                    // Since it is one byte, given how UTF8 works, all the resultant slices must be UTF8 too.
-                    let b = sep.as_bytes()[0];
-                    let count = fast_string::count_matches_byte(this, b);
-                    let mut res = Vec::with_capacity(count + 1);
-                    res.extend(
-                        this.as_bytes()
-                            .split(|x| *x == b)
-                            .map(|x| heap.alloc(unsafe { std::str::from_utf8_unchecked(x) })),
-                    );
-                    debug_assert_eq!(res.len(), count + 1);
-                    res
-                } else {
-                    this.split(sep).map(|x| heap.alloc(x)).collect()
+        Ok(ValueOfUnchecked::new(heap.alloc_list(
+            &match (sep.into_option(), maxsplit) {
+                (None, None) => this.split_whitespace().map(|x| heap.alloc(x)).collect(),
+                (None, Some(maxsplit)) => splitn_whitespace(this, maxsplit).map(|x| heap.alloc(x)),
+                (Some(sep), None) => {
+                    if sep.len() == 1 {
+                        // If we are searching for a 1-byte string, we can provide a much faster path.
+                        // Since it is one byte, given how UTF8 works, all the resultant slices must be UTF8 too.
+                        let b = sep.as_bytes()[0];
+                        let count = fast_string::count_matches_byte(this, b);
+                        let mut res = Vec::with_capacity(count + 1);
+                        res.extend(
+                            this.as_bytes()
+                                .split(|x| *x == b)
+                                .map(|x| heap.alloc(unsafe { std::str::from_utf8_unchecked(x) })),
+                        );
+                        debug_assert_eq!(res.len(), count + 1);
+                        res
+                    } else {
+                        this.split(sep).map(|x| heap.alloc(x)).collect()
+                    }
                 }
-            }
-            (Some(sep), Some(maxsplit)) => {
-                this.splitn(maxsplit, sep).map(|x| heap.alloc(x)).collect()
-            }
-        }))
+                (Some(sep), Some(maxsplit)) => {
+                    this.splitn(maxsplit, sep).map(|x| heap.alloc(x)).collect()
+                }
+            },
+        )))
     }
 
     /// [string.splitlines](
@@ -1082,14 +1095,14 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// "a\nb".splitlines() == ["a", "b"]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe, return_type = "[str.type]")]
+    #[starlark(speculative_exec_safe)]
     fn splitlines<'v>(
         this: &str,
         #[starlark(require = pos, default = false)] keepends: bool,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<Vec<StringValue<'v>>> {
         let mut s = this;
-        let mut lines = Vec::new();
+        let mut lines: Vec<StringValue> = Vec::new();
         loop {
             if let Some(x) = s.find(|x| x == '\n' || x == '\r') {
                 let y = x;
@@ -1098,19 +1111,19 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                     _ => y + 1,
                 };
                 if keepends {
-                    lines.push(heap.alloc(s.get(..x).unwrap()))
+                    lines.push(heap.alloc_str(s.get(..x).unwrap()))
                 } else {
-                    lines.push(heap.alloc(s.get(..y).unwrap()))
+                    lines.push(heap.alloc_str(s.get(..y).unwrap()))
                 }
                 if x == s.len() {
-                    return Ok(heap.alloc_list(&lines));
+                    return Ok(lines);
                 }
                 s = s.get(x..).unwrap();
             } else {
                 if !s.is_empty() {
-                    lines.push(heap.alloc(s));
+                    lines.push(heap.alloc_str(s));
                 }
-                return Ok(heap.alloc_list(&lines));
+                return Ok(lines);
             }
         }
     }
