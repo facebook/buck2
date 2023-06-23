@@ -608,7 +608,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] weight: Option<i32>,
         #[starlark(require = named)] weight_percentage: Option<i32>,
         #[starlark(require = named, type = "{str.type: \"artifact_tag\"}")] dep_files: Option<
-            ValueOf<'v, SmallMap<&'v str, Value<'v>>>,
+            SmallMap<&'v str, Value<'v>>,
         >,
         #[starlark(require = named)] metadata_env_var: Option<String>,
         #[starlark(require = named)] metadata_path: Option<String>,
@@ -730,7 +730,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         let mut dep_files_configuration = RunActionDepFiles::new();
 
         if let Some(dep_files) = dep_files {
-            for (key, value) in dep_files.typed.iter() {
+            for (key, value) in dep_files.iter() {
                 let tag = value.downcast_ref::<ArtifactTag>().ok_or_else(|| {
                     RunActionError::InvalidDepFileTag {
                         key: (*key).to_owned(),
