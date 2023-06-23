@@ -56,14 +56,12 @@ impl TypingOracle for CustomBuck {
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
         match ty.as_str() {
             "provider_callable" => Some(Ok(TyFunction {
-                name: "provider_callable".to_owned(),
                 type_attr: "".to_owned(),
                 params: vec![Param::kwargs(Ty::Any)],
                 // TODO(nga): this should be more precise.
                 result: Box::new(Ty::Any),
             })),
             "rule" => Some(Ok(TyFunction {
-                name: "rule".to_owned(),
                 type_attr: "".to_owned(),
                 params: vec![Param::kwargs(Ty::Any)],
                 result: Box::new(Ty::none()),

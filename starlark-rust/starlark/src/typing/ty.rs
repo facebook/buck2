@@ -427,9 +427,6 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 /// A function.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
 pub struct TyFunction {
-    /// The name of the function. Typically `""`, but it is used
-    /// to handle special builtin functions.
-    pub name: String,
     /// The `.type` property of the function, often `""`.
     pub type_attr: String,
     /// The parameters to the function.
@@ -440,13 +437,8 @@ pub struct TyFunction {
 
 impl Display for TyFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let TyFunction {
-            name,
-            params,
-            result,
-            ..
-        } = self;
-        write!(f, "def{}{}(", if name.is_empty() { "" } else { " " }, name)?;
+        let TyFunction { params, result, .. } = self;
+        write!(f, "def(")?;
         let mut first = true;
         for param in params {
             if !first {
@@ -609,7 +601,6 @@ impl Ty {
     /// Create a function type.
     pub fn function(params: Vec<Param>, result: Ty) -> Self {
         Self::Function(TyFunction {
-            name: String::new(),
             type_attr: String::new(),
             params,
             result: Box::new(result),
@@ -619,18 +610,7 @@ impl Ty {
     /// Create a function, where the first argument is the result of `.type`.
     pub fn ctor_function(type_attr: &str, params: Vec<Param>, result: Ty) -> Self {
         Self::Function(TyFunction {
-            name: String::new(),
             type_attr: type_attr.to_owned(),
-            params,
-            result: Box::new(result),
-        })
-    }
-
-    /// Create a function, where the function has a name that is tracked and passed to `builtin_call`.
-    pub fn special_function(name: &str, params: Vec<Param>, result: Ty) -> Self {
-        Self::Function(TyFunction {
-            name: name.to_owned(),
-            type_attr: String::new(),
             params,
             result: Box::new(result),
         })
