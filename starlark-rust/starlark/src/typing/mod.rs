@@ -47,5 +47,6 @@ pub use ty::ParamMode;
 pub use ty::Ty;
 pub use ty::TyFunction;
 pub use ty::TyName;
+pub use ty::TyStruct;
 pub use ty::TyUnion;
 pub use typecheck::TypeMap;

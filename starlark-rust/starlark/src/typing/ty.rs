@@ -462,7 +462,7 @@ pub struct TyStruct {
 
 impl TyStruct {
     /// Any struct.
-    pub(crate) fn any() -> TyStruct {
+    pub fn any() -> TyStruct {
         TyStruct {
             fields: BTreeMap::new(),
             extra: true,
