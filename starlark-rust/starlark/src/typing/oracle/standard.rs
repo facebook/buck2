@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeMap;
-
 use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::environment::Globals;
@@ -255,32 +253,8 @@ impl TypingOracle for OracleStandard {
         }))
     }
 
-    fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
-        match name {
-            "struct" => {
-                let mut fields = BTreeMap::new();
-                let mut extra = false;
-                for x in args {
-                    match x {
-                        Arg::Pos(_) => {
-                            return Some(Err("Positional arguments not allowed".to_owned()));
-                        }
-                        Arg::Args(_) => {
-                            // Args can be empty, and this is valid call:
-                            // ```
-                            // struct(*[], **{})
-                            // ```
-                        }
-                        Arg::Name(name, val) => {
-                            fields.insert(name.clone(), val.clone());
-                        }
-                        Arg::Kwargs(_) => extra = true,
-                    }
-                }
-                Some(Ok(Ty::Struct(TyStruct { fields, extra })))
-            }
-            _ => None,
-        }
+    fn builtin_call(&self, _name: &str, _args: &[Arg]) -> Option<Result<Ty, String>> {
+        None
     }
 
     fn subtype(&self, _require: &TyName, _got: &TyName) -> bool {

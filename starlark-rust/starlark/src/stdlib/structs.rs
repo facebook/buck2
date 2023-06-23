@@ -16,17 +16,57 @@
  */
 
 //! Implementation of `struct` function.
+use std::collections::BTreeMap;
+
+use allocative::Allocative;
+use dupe::Dupe;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
+use crate::typing::ty::TyCustomFunctionImpl;
+use crate::typing::ty::TyStruct;
+use crate::typing::Arg;
+use crate::typing::Ty;
+use crate::typing::TypingOracle;
 use crate::values::structs::value::Struct;
 use crate::values::Heap;
 
+#[derive(Allocative, Clone, Copy, Dupe, Debug, Eq, PartialEq, Ord, PartialOrd)]
+struct StructType;
+
+impl TyCustomFunctionImpl for StructType {
+    fn validate_call(&self, args: &[Arg], _oracle: &dyn TypingOracle) -> Result<Ty, String> {
+        let mut fields = BTreeMap::new();
+        let mut extra = false;
+        for x in args {
+            match x {
+                Arg::Pos(_) => {
+                    return Err("Positional arguments not allowed".to_owned());
+                }
+                Arg::Args(_) => {
+                    // Args can be empty, and this is valid call:
+                    // ```
+                    // struct(*[], **{})
+                    // ```
+                }
+                Arg::Name(name, val) => {
+                    fields.insert(name.clone(), val.clone());
+                }
+                Arg::Kwargs(_) => extra = true,
+            }
+        }
+        Ok(Ty::Struct(TyStruct { fields, extra }))
+    }
+}
+
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
-    #[starlark(dot_type = Struct::TYPE)]
+    #[starlark(
+        ty_custom_function = StructType,
+        dot_type = Struct::TYPE,
+    )]
     fn r#struct<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> anyhow::Result<Struct<'v>> {
         args.no_positional_args(heap)?;
         // TODO(nga): missing optimization: practically most `struct` invocations are

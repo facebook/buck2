@@ -21,8 +21,6 @@ use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
 use crate::typing::oracle::traits::TypingAttr;
-use crate::typing::ty::TyStruct;
-use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
 
@@ -87,14 +85,7 @@ impl OracleDocs {
     }
 
     pub(crate) fn builtin(&self, name: &str) -> Result<Ty, ()> {
-        Ok(match name {
-            "struct" => Ty::special_function(
-                "struct",
-                vec![Param::kwargs(Ty::Any)],
-                Ty::Struct(TyStruct::any()),
-            ),
-            _ => self.functions.get(name).ok_or(())?.clone(),
-        })
+        Ok(self.functions.get(name).ok_or(())?.clone())
     }
 }
 
