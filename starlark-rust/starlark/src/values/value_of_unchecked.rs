@@ -19,6 +19,10 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
 
+use dupe::Clone_;
+use dupe::Copy_;
+use dupe::Dupe_;
+
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
@@ -35,6 +39,7 @@ use crate::values::Value;
 /// Note this type does not actually check the type of the value.
 /// Providing incorrect type annotation will result
 /// in incorrect error reporting by the type checker.
+#[derive(Clone_, Copy_, Dupe_)]
 pub struct ValueOfUnchecked<'v, T: StarlarkTypeRepr>(Value<'v>, PhantomData<T>);
 
 impl<'v, T: StarlarkTypeRepr> Debug for ValueOfUnchecked<'v, T> {
