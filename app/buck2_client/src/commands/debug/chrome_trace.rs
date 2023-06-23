@@ -706,6 +706,10 @@ impl ChromeTraceWriter {
                             name: "file_watcher_sync".into(),
                         }
                     }
+                    _ if on_critical_path => Categorization::Show {
+                        category: Self::CRITICAL_PATH,
+                        name: "<unknown>".into(),
+                    },
                     _ => Categorization::Omit,
                 };
 
