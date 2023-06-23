@@ -46,6 +46,7 @@ use display_container::fmt_container;
 use either::Either;
 use serde::Serialize;
 use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkDocs;
 use starlark_map::Equivalent;
@@ -62,7 +63,6 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::starlark_complex_value;
 use crate::starlark_complex_values;
-use crate::starlark_type;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::index::convert_index;
 use crate::values::types::exported_name::ExportedName;
@@ -213,14 +213,13 @@ where
     }
 }
 
+#[starlark_value(type = FUNCTION_TYPE)]
 impl<'v, Typ: Allocative + 'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for EnumTypeGen<V, Typ>
 where
     Self: ProvidesStaticType<'v>,
     Typ: ExportedName,
     Value<'v>: Equivalent<V>,
 {
-    starlark_type!(FUNCTION_TYPE);
-
     fn invoke(
         &self,
         _me: Value<'v>,
@@ -320,12 +319,11 @@ fn enum_type_methods(builder: &mut MethodsBuilder) {
     }
 }
 
+#[starlark_value(type = EnumValue::TYPE)]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for EnumValueGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!(EnumValue::TYPE);
-
     fn matches_type(&self, ty: &str) -> bool {
         if ty == EnumValue::TYPE {
             return true;

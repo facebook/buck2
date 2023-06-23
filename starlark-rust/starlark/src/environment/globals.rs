@@ -558,13 +558,13 @@ fn common_documentation<'a>(
 #[cfg(test)]
 mod tests {
     use derive_more::Display;
+    use starlark_derive::starlark_value;
 
     use super::*;
     use crate as starlark;
     use crate::any::ProvidesStaticType;
     use crate::assert::Assert;
     use crate::starlark_simple_value;
-    use crate::starlark_type;
     use crate::values::NoSerialize;
     use crate::values::StarlarkValue;
 
@@ -581,8 +581,9 @@ mod tests {
         #[display(fmt = "Magic")]
         struct Magic;
         starlark_simple_value!(Magic);
+
+        #[starlark_value(type = "magic")]
         impl<'v> StarlarkValue<'v> for Magic {
-            starlark_type!("magic");
             fn get_methods() -> Option<&'static Methods> {
                 static RES: MethodsStatic = MethodsStatic::new();
                 RES.methods(|x| {

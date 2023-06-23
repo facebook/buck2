@@ -136,6 +136,7 @@ mod tests {
     use derive_more::Display;
     use dupe::Dupe;
     use starlark_derive::starlark_module;
+    use starlark_derive::starlark_value;
     use starlark_derive::NoSerialize;
 
     use crate as starlark;
@@ -146,7 +147,6 @@ mod tests {
     use crate::environment::MethodsBuilder;
     use crate::environment::MethodsStatic;
     use crate::starlark_simple_value;
-    use crate::starlark_type;
     use crate::values::none::NoneType;
     use crate::values::StarlarkValue;
     use crate::values::UnpackValue;
@@ -182,9 +182,8 @@ mod tests {
         struct Bool2(bool);
         starlark_simple_value!(Bool2);
 
+        #[starlark_value(type = "bool2")]
         impl<'v> StarlarkValue<'v> for Bool2 {
-            starlark_type!("bool2");
-
             fn get_methods() -> Option<&'static Methods> {
                 static RES: MethodsStatic = MethodsStatic::new();
                 RES.methods(methods)

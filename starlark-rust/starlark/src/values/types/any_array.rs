@@ -23,11 +23,11 @@ use std::mem;
 use std::ptr;
 
 use allocative::Allocative;
+use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::starlark_type;
 use crate::values::StarlarkValue;
 
 #[derive(derive_more::Display, ProvidesStaticType, NoSerialize, Allocative)]
@@ -79,9 +79,8 @@ impl<T: Debug + 'static> Drop for AnyArray<T> {
 // This struct has zero length array of `T`, so check it actually declares it has drop.
 const _: () = assert!(mem::needs_drop::<AnyArray<String>>());
 
-impl<'v, T: Debug + 'static> StarlarkValue<'v> for AnyArray<T> {
-    starlark_type!("AnyArray");
-}
+#[starlark_value(type = "AnyArray")]
+impl<'v, T: Debug + 'static> StarlarkValue<'v> for AnyArray<T> {}
 
 #[cfg(test)]
 mod tests {

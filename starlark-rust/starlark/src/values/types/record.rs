@@ -51,6 +51,7 @@ use display_container::fmt_keyed_container;
 use dupe::Dupe;
 use either::Either;
 use serde::Serialize;
+use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkDocs;
 
@@ -66,7 +67,6 @@ use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::starlark_complex_value;
 use crate::starlark_complex_values;
-use crate::starlark_type;
 use crate::values::comparison::equals_slice;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::types::exported_name::ExportedName;
@@ -226,12 +226,11 @@ impl<'v, V: ValueLike<'v>> RecordGen<V> {
     }
 }
 
+#[starlark_value(type = "field")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for FieldGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("field");
-
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         self.typ.write_hash(hasher)?;
         self.default.is_some().hash(hasher);
@@ -253,14 +252,13 @@ impl<'v> Freeze for RecordType<'v> {
     }
 }
 
+#[starlark_value(type = FUNCTION_TYPE)]
 impl<'v, Typ: Allocative + 'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for RecordTypeGen<V, Typ>
 where
     Self: ProvidesStaticType<'v>,
     FieldGen<V>: ProvidesStaticType<'v>,
     Typ: ExportedName,
 {
-    starlark_type!(FUNCTION_TYPE);
-
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         for (name, typ) in &self.fields {
             name.hash(hasher);
@@ -367,12 +365,11 @@ where
     }
 }
 
+#[starlark_value(type = Record::TYPE)]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for RecordGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!(Record::TYPE);
-
     fn matches_type(&self, ty: &str) -> bool {
         if ty == Record::TYPE {
             return true;

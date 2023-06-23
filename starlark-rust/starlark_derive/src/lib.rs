@@ -35,6 +35,7 @@ mod for_each_field;
 mod freeze;
 mod module;
 mod serde;
+mod starlark_value;
 mod trace;
 mod visit_span;
 mod vtable;
@@ -197,6 +198,16 @@ pub fn derive_starlark_docs(input: proc_macro::TokenStream) -> proc_macro::Token
 #[proc_macro]
 pub fn starlark_attrs(_: proc_macro::TokenStream) -> proc_macro::TokenStream {
     attrs::starlark_attrs()
+}
+
+/// Generate missing elements of `StarlarkValue` trait when this attribute
+/// is applied to an impl block of `StarlarkValue`.
+#[proc_macro_attribute]
+pub fn starlark_value(
+    attr: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    starlark_value::derive_starlark_value(attr, input)
 }
 
 /// Derive the `ProvidesStaticType` trait. Requires the type has no type arguments, no constant arguments,

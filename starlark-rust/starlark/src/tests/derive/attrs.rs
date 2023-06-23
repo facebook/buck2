@@ -18,13 +18,13 @@
 use allocative::Allocative;
 use derive_more::Display;
 use starlark_derive::starlark_attrs;
+use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::assert::Assert;
 use crate::starlark_simple_value;
-use crate::starlark_type;
 use crate::values::StarlarkAttrs;
 use crate::values::StarlarkValue;
 
@@ -47,8 +47,9 @@ fn test_derive_attrs() {
         nested: Nested,
     }
     starlark_simple_value!(Example);
+
+    #[starlark_value(type = "example")]
     impl<'v> StarlarkValue<'v> for Example {
-        starlark_type!("example");
         starlark_attrs!();
     }
 
@@ -66,8 +67,9 @@ fn test_derive_attrs() {
         foo: String,
     }
     starlark_simple_value!(Nested);
+
+    #[starlark_value(type = "nested")]
     impl<'v> StarlarkValue<'v> for Nested {
-        starlark_type!("nested");
         starlark_attrs!();
     }
 

@@ -19,6 +19,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use serde::Serialize;
 use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -31,7 +32,6 @@ use crate::environment::GlobalsBuilder;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
-use crate::starlark_type;
 use crate::tests::docs::golden::docs_golden_test;
 use crate::values::none::NoneType;
 use crate::values::Heap;
@@ -159,9 +159,8 @@ fn module(builder: &mut GlobalsBuilder) {
 #[display(format = "obj")]
 struct Obj;
 
+#[starlark_value(type = "obj")]
 impl<'v> StarlarkValue<'v> for Obj {
-    starlark_type!("obj");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(object)

@@ -78,17 +78,17 @@ use crate::values::ValueError;
 /// use starlark::{starlark_complex_value, starlark_type};
 /// use derive_more::Display;
 /// use allocative::Allocative;
+/// use starlark_derive::starlark_value;
 ///
 /// #[derive(Debug, Trace, Coerce, Display, ProvidesStaticType, NoSerialize, Allocative)]
 /// #[repr(C)]
 /// struct OneGen<V>(V);
 /// starlark_complex_value!(One);
 ///
+/// #[starlark_value(type = "one")]
 /// impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for OneGen<V>
 ///     where Self: ProvidesStaticType<'v>,
 /// {
-///     starlark_type!("one");
-///
 ///     // To implement methods which work for both `One` and `FrozenOne`,
 ///     // use the `ValueLike` trait.
 /// }
@@ -143,7 +143,7 @@ use crate::values::ValueError;
 /// If the types are different between the frozen and non-frozen values you can define your own
 /// type specialisations as `type One<'v> = OneGen<Value<'v>>` and `type FrozenOne = OneGen<String>`
 /// and use [`starlark_complex_values!`](crate::starlark_complex_values!) which will provide similar facilities to
-/// [`starlark_complex_value!`](crate::starlark_type!).
+/// [`starlark_complex_value!`](crate::starlark_simple_value!).
 ///
 /// ## Other types
 ///
@@ -181,7 +181,8 @@ where
 /// There are only two required members of [`StarlarkValue`], namely
 /// [`TYPE`](StarlarkValue::TYPE)
 /// and [`get_type_value_static`](StarlarkValue::get_type_value_static).
-/// Both these should be implemented with the [`starlark_type!`](crate::starlark_type!) macro:
+/// Both these should be implemented with the [`starlark_value`](crate::values::starlark_value)
+/// proc macro:
 ///
 /// ```
 /// use starlark::values::StarlarkValue;
@@ -191,13 +192,14 @@ where
 /// use starlark::starlark_type;
 /// use derive_more::Display;
 /// use allocative::Allocative;
+/// use starlark_derive::starlark_value;
 ///
 /// #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
 /// #[display(fmt = "Foo")]
 /// struct Foo;
 /// # starlark_simple_value!(Foo);
+/// #[starlark_value(type = "foo")]
 /// impl<'v> StarlarkValue<'v> for Foo {
-///     starlark_type!("foo");
 /// }
 /// ```
 ///
@@ -215,26 +217,30 @@ pub trait StarlarkValue<'v>:
     /// Return a string describing the type of self, as returned by the type()
     /// function.
     ///
-    /// This can be only implemented by the [`starlark_type!`](crate::starlark_type!) macro.
+    /// This can be only implemented by the [`#[starlark_value]`](crate::values::starlark_value)
+    /// proc macro.
     const TYPE: &'static str;
 
     /// Like [`TYPE`](Self::TYPE), but returns a reusable [`FrozenStringValue`]
     /// pointer to it. This function deliberately doesn't take a heap,
     /// as it would not be performant to allocate a new value each time.
     ///
-    /// This can be only implemented by the [`starlark_type!`](crate::starlark_type!) macro.
+    /// This can be only implemented by the [`#[starlark_value]`](crate::values::starlark_value)
+    /// proc macro.
     fn get_type_value_static() -> FrozenStringValue;
 
     /// Return a string that is the representation of a type that a user would use in
     /// type annotations. This often will be the same as [`Self::TYPE`], but in
     /// some instances it might be slightly different than what is returned by `TYPE`.
     ///
-    /// This can be only implemented by the [`starlark_type!`](crate::starlark_type!) macro.
+    /// This can be only implemented by the [`#[starlark_value]`](crate::values::starlark_value)
+    /// proc macro.
     fn get_type_starlark_repr() -> Ty {
         Ty::name(Self::TYPE)
     }
 
-    /// Please do not implement this method or `get_type`, but use `starlark_type!` macro.
+    /// Please do not implement this method or `get_type`,
+    /// but use [`#[starlark_value]`](crate::values::starlark_value) proc macro.
     #[doc(hidden)]
     fn please_use_starlark_type_macro();
 

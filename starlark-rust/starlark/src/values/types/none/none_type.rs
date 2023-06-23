@@ -22,6 +22,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_derive::starlark_value;
 use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
@@ -29,7 +30,6 @@ use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
-use crate::starlark_type;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -60,9 +60,8 @@ impl NoneType {
 }
 
 /// Define the NoneType type
+#[starlark_value(type = NoneType::TYPE)]
 impl<'v> StarlarkValue<'v> for NoneType {
-    starlark_type!(NoneType::TYPE);
-
     fn is_special(_: Private) -> bool
     where
         Self: Sized,

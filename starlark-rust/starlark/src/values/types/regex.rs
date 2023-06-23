@@ -22,6 +22,7 @@ use std::fmt::Display;
 use allocative::Allocative;
 use fancy_regex::Regex;
 use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkDocs;
 
@@ -31,7 +32,6 @@ use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::starlark_simple_value;
-use crate::starlark_type;
 use crate::values::StarlarkValue;
 
 /// A type that can be passed around as a StarlarkRegex, which wraps Rust value
@@ -40,9 +40,8 @@ use crate::values::StarlarkValue;
 #[starlark_docs(builtin = "extension")]
 pub struct StarlarkRegex(#[allocative(skip)] pub Regex);
 
+#[starlark_value(type = StarlarkRegex::TYPE)]
 impl StarlarkValue<'_> for StarlarkRegex {
-    starlark_type!(StarlarkRegex::TYPE);
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(regex_type_methods)

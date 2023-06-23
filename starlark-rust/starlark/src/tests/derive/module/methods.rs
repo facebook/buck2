@@ -17,6 +17,7 @@
 
 use allocative::Allocative;
 use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 
 use crate as starlark;
@@ -25,7 +26,6 @@ use crate::assert::Assert;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
-use crate::starlark_type;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
@@ -53,9 +53,8 @@ fn methods(builder: &mut MethodsBuilder) {
     }
 }
 
+#[starlark_value(type = "applaud")]
 impl<'v> StarlarkValue<'v> for Applaud {
-    starlark_type!("applaud");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(methods)

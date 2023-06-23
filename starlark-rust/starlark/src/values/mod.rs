@@ -31,6 +31,7 @@
 //!   so may serve as interesting inspiration for writing your own values, in addition to occurring in Starlark programs.
 
 pub use starlark_derive::starlark_attrs;
+pub use starlark_derive::starlark_value;
 pub use starlark_derive::Freeze;
 pub use starlark_derive::NoSerialize;
 pub use starlark_derive::StarlarkAttrs;

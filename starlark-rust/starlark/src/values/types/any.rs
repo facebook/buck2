@@ -73,11 +73,11 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::starlark_type;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -94,9 +94,8 @@ pub struct StarlarkAny<T: Debug + Display + Send + Sync + 'static>(
     pub  T,
 );
 
-impl<'v, T: Debug + Display + Send + Sync + 'static> StarlarkValue<'v> for StarlarkAny<T> {
-    starlark_type!("any");
-}
+#[starlark_value(type = "any")]
+impl<'v, T: Debug + Display + Send + Sync + 'static> StarlarkValue<'v> for StarlarkAny<T> {}
 
 impl<'v, T: Debug + Display + Send + Sync + 'static> AllocValue<'v> for StarlarkAny<T> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {

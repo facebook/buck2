@@ -23,6 +23,7 @@ use std::sync::Mutex;
 use allocative::Allocative;
 use derive_more::Display;
 use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
 use starlark_derive::Trace;
 
 use crate as starlark;
@@ -33,7 +34,6 @@ use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
 use crate::eval::Evaluator;
-use crate::starlark_type;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::any::StarlarkAny;
@@ -73,12 +73,11 @@ fn test_export_as() {
         }
     }
 
+    #[starlark_value(type = "exporter")]
     impl<'v, T: ExportedName> StarlarkValue<'v> for Exporter<T>
     where
         Self: ProvidesStaticType<'v>,
     {
-        starlark_type!("exporter");
-
         fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
             self.named.try_export_as(variable_name);
         }
@@ -188,9 +187,8 @@ fn test_load_symbols_extra() -> anyhow::Result<()> {
     #[display(fmt = "{:?}", self)]
     struct Extra<'v>(Arc<Mutex<SmallMap<String, Value<'v>>>>);
 
-    impl<'v> StarlarkValue<'v> for Extra<'v> {
-        starlark_type!("Extra");
-    }
+    #[starlark_value(type = "Extra")]
+    impl<'v> StarlarkValue<'v> for Extra<'v> {}
 
     let modu = Module::new();
     let globals = GlobalsBuilder::extended().with(module).build();

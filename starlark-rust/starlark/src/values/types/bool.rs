@@ -27,6 +27,7 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use serde::Serialize;
+use starlark_derive::starlark_value;
 use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
@@ -34,7 +35,6 @@ use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
-use crate::starlark_type;
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
@@ -91,9 +91,8 @@ impl UnpackValue<'_> for bool {
 }
 
 /// Define the bool type
+#[starlark_value(type = BOOL_TYPE)]
 impl StarlarkValue<'_> for StarlarkBool {
-    starlark_type!(BOOL_TYPE);
-
     fn is_special(_: Private) -> bool
     where
         Self: Sized,

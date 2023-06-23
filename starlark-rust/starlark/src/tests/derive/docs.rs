@@ -21,6 +21,7 @@ use maplit::hashmap;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
 use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkDocs;
@@ -39,7 +40,6 @@ use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::starlark_complex_value;
 use crate::starlark_simple_value;
-use crate::starlark_type;
 use crate::values::StarlarkValue;
 use crate::values::ValueLike;
 use crate::wasm::is_wasm;
@@ -66,9 +66,8 @@ struct TestExample {}
 
 starlark_simple_value!(TestExample);
 
+#[starlark_value(type = "TestExample")]
 impl<'v> StarlarkValue<'v> for TestExample {
-    starlark_type!("TestExample");
-
     fn get_methods() -> Option<&'static Methods>
     where
         Self: Sized,
@@ -106,13 +105,12 @@ where
 
 starlark_complex_value!(ComplexTestExample);
 
+#[starlark_value(type = "ComplexTestExample")]
 impl<'v, T: ValueLike<'v> + 'v + ProvidesStaticType<'v>> StarlarkValue<'v>
     for ComplexTestExampleGen<T>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("ComplexTestExample");
-
     fn get_methods() -> Option<&'static Methods>
     where
         Self: Sized,
@@ -206,9 +204,8 @@ struct TestAttrExample {}
 
 starlark_simple_value!(TestAttrExample);
 
+#[starlark_value(type = "TestAttrExample")]
 impl<'v> StarlarkValue<'v> for TestAttrExample {
-    starlark_type!("TestAttrExample");
-
     fn get_methods() -> Option<&'static Methods>
     where
         Self: Sized,

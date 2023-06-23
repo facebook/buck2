@@ -35,6 +35,7 @@ use std::sync::atomic;
 use allocative::Allocative;
 use dupe::Dupe;
 use serde::Serialize;
+use starlark_derive::starlark_value;
 use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
@@ -46,7 +47,6 @@ use crate::collections::StarlarkHasher;
 use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
-use crate::starlark_type;
 use crate::values::index::apply_slice;
 use crate::values::string::repr::string_repr;
 use crate::values::types::none::NoneOr;
@@ -241,9 +241,8 @@ pub(crate) fn str_methods() -> Option<&'static Methods> {
     RES.methods(crate::stdlib::string::string_methods)
 }
 
+#[starlark_value(type = STRING_TYPE)]
 impl<'v> StarlarkValue<'v> for StarlarkStr {
-    starlark_type!(STRING_TYPE);
-
     fn is_special(_: Private) -> bool
     where
         Self: Sized,

@@ -30,6 +30,7 @@ use std::ops::Deref;
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
+use starlark_derive::starlark_value;
 use starlark_derive::StarlarkDocs;
 use starlark_map::Equivalent;
 
@@ -43,7 +44,6 @@ use crate::collections::SmallMap;
 use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::hint::unlikely;
-use crate::starlark_type;
 use crate::typing::Ty;
 use crate::values::comparison::equals_small_map;
 use crate::values::dict::refcell::unleak_borrow;
@@ -375,12 +375,11 @@ pub(crate) fn dict_methods() -> Option<&'static Methods> {
     RES.methods(crate::stdlib::dict::dict_methods)
 }
 
+#[starlark_value(type = Dict::TYPE)]
 impl<'v, T: DictLike<'v> + 'v> StarlarkValue<'v> for DictGen<T>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!(Dict::TYPE);
-
     fn get_methods() -> Option<&'static Methods> {
         dict_methods()
     }

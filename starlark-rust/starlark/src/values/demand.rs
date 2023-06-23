@@ -60,12 +60,12 @@ pub(crate) fn request_value_impl<'v, T: AnyLifetime<'v>>(value: Value<'v>) -> Op
 #[cfg(test)]
 mod tests {
     use allocative::Allocative;
+    use starlark_derive::starlark_value;
     use starlark_derive::NoSerialize;
 
     use crate as starlark;
     use crate::any::ProvidesStaticType;
     use crate::starlark_simple_value;
-    use crate::starlark_type;
     use crate::values::demand::Demand;
     use crate::values::Heap;
     use crate::values::StarlarkValue;
@@ -99,9 +99,8 @@ mod tests {
 
     starlark_simple_value!(MyValue);
 
+    #[starlark_value(type = "MyValue")]
     impl<'v> StarlarkValue<'v> for MyValue {
-        starlark_type!("MyValue");
-
         fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
             demand.provide_value::<&dyn SomeTrait>(self);
         }

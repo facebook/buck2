@@ -299,6 +299,7 @@
 //! use starlark::{starlark_type, starlark_simple_value};
 //! use std::fmt::{self, Display, Write};
 //! use allocative::Allocative;
+//! use starlark_derive::starlark_value;
 //!
 //! // Define complex numbers
 //! #[derive(Debug, PartialEq, Eq, ProvidesStaticType, NoSerialize, Allocative)]
@@ -314,9 +315,8 @@
 //!     }
 //! }
 //!
+//! #[starlark_value(type = "complex")]
 //! impl<'v> StarlarkValue<'v> for Complex {
-//!     starlark_type!("complex");
-//!
 //!     // How we add them
 //!     fn add(&self, rhs: Value<'v>, heap: &'v Heap)
 //!             -> Option<anyhow::Result<Value<'v>>> {

@@ -34,6 +34,7 @@ use allocative::Allocative;
 use num_bigint::BigInt;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_derive::starlark_value;
 use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
@@ -43,7 +44,6 @@ use crate::cast;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
-use crate::starlark_type;
 use crate::typing::Ty;
 use crate::values::error::ValueError;
 use crate::values::layout::avalue::AValueImpl;
@@ -175,9 +175,8 @@ impl Display for PointerI32 {
 }
 
 /// Define the int type
+#[starlark_value(type = INT_TYPE)]
 impl<'v> StarlarkValue<'v> for PointerI32 {
-    starlark_type!(INT_TYPE);
-
     fn is_special(_: Private) -> bool
     where
         Self: Sized,

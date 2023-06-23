@@ -29,11 +29,11 @@ use std::slice;
 
 use allocative::Allocative;
 use serde::Serialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::private::Private;
-use crate::starlark_type;
 use crate::values::types::list::value::display_list;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -254,9 +254,8 @@ impl<'v> Display for Array<'v> {
     }
 }
 
+#[starlark_value(type = "array")]
 impl<'v> StarlarkValue<'v> for Array<'v> {
-    starlark_type!("array");
-
     fn is_special(_: Private) -> bool
     where
         Self: Sized,

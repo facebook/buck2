@@ -26,6 +26,7 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use dupe::Dupe;
 use serde::Serialize;
+use starlark_derive::starlark_value;
 use starlark_derive::StarlarkDocs;
 use starlark_map::StarlarkHashValue;
 
@@ -33,7 +34,6 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
-use crate::starlark_type;
 use crate::typing::Ty;
 use crate::values::num::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -258,9 +258,8 @@ impl Display for StarlarkFloat {
     }
 }
 
+#[starlark_value(type = StarlarkFloat::TYPE)]
 impl<'v> StarlarkValue<'v> for StarlarkFloat {
-    starlark_type!(StarlarkFloat::TYPE);
-
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
         Ok(Some(NumRef::Float(self.0)) == other.unpack_num())
     }

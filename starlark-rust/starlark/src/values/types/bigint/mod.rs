@@ -27,11 +27,11 @@ use num_bigint::BigInt;
 use num_bigint::Sign;
 use num_traits::cast::ToPrimitive;
 use serde::Serialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
-use crate::starlark_type;
 use crate::values::num::NumRef;
 use crate::values::types::inline_int::InlineInt;
 use crate::values::types::int_or_big::StarlarkInt;
@@ -148,9 +148,8 @@ impl AllocFrozenValue for StarlarkBigInt {
     }
 }
 
+#[starlark_value(type = "int")]
 impl<'v> StarlarkValue<'v> for StarlarkBigInt {
-    starlark_type!("int");
-
     fn to_bool(&self) -> bool {
         // `StarlarkBigInt` is non-zero.
         true

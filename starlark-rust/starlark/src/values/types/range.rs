@@ -23,13 +23,13 @@ use std::num::NonZeroI32;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::starlark_simple_value;
-use crate::starlark_type;
 use crate::values::index::convert_index;
 use crate::values::index::convert_slice_indices;
 use crate::values::Heap;
@@ -114,9 +114,8 @@ impl Range {
     }
 }
 
+#[starlark_value(type = Range::TYPE)]
 impl<'v> StarlarkValue<'v> for Range {
-    starlark_type!(Range::TYPE);
-
     fn to_bool(&self) -> bool {
         (self.start < self.stop && self.step.get() > 0)
             || (self.start > self.stop && self.step.get() < 0)

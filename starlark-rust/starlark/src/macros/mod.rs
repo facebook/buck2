@@ -147,13 +147,14 @@ macro_rules! starlark_complex_values {
 /// use starlark::{starlark_simple_value, starlark_type};
 /// use derive_more::Display;
 /// use allocative::Allocative;
+/// use starlark_derive::starlark_value;
 ///
 /// #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
 /// struct MyObject(String);
 /// starlark_simple_value!(MyObject);
-/// impl<'v> StarlarkValue<'v> for MyObject {
-///     starlark_type!("my_object");
 ///
+/// #[starlark_value(type = "my_object")]
+/// impl<'v> StarlarkValue<'v> for MyObject {
 ///     // We can choose to implement whichever methods we want.
 ///     // All other operations will result in runtime errors.
 ///     fn plus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

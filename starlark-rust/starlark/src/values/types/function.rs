@@ -22,6 +22,7 @@ use std::collections::HashMap;
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
+use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 
 use crate as starlark;
@@ -40,7 +41,6 @@ use crate::eval::ParametersSpec;
 use crate::private::Private;
 use crate::starlark_complex_value;
 use crate::starlark_simple_value;
-use crate::starlark_type;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -230,9 +230,8 @@ impl<'v> AllocValue<'v> for NativeFunction {
 }
 
 /// Define the function type
+#[starlark_value(type = FUNCTION_TYPE)]
 impl<'v> StarlarkValue<'v> for NativeFunction {
-    starlark_type!(FUNCTION_TYPE);
-
     fn invoke(
         &self,
         _me: Value<'v>,
@@ -291,9 +290,9 @@ pub(crate) struct NativeMethod {
 }
 
 starlark_simple_value!(NativeMethod);
-impl<'v> StarlarkValue<'v> for NativeMethod {
-    starlark_type!("native_method");
 
+#[starlark_value(type = "native_method")]
+impl<'v> StarlarkValue<'v> for NativeMethod {
     fn invoke_method(
         &self,
         _me: Value<'v>,
@@ -333,9 +332,8 @@ impl NativeAttribute {
     }
 }
 
+#[starlark_value(type = "attribute")]
 impl<'v> StarlarkValue<'v> for NativeAttribute {
-    starlark_type!("attribute");
-
     fn invoke_method(
         &self,
         _me: Value<'v>,
@@ -389,12 +387,11 @@ impl<'v, V: ValueLike<'v>> BoundMethodGen<V> {
     }
 }
 
+#[starlark_value(type = FUNCTION_TYPE)]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for BoundMethodGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!(FUNCTION_TYPE);
-
     fn invoke(
         &self,
         _me: Value<'v>,

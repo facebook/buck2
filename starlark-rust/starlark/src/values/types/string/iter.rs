@@ -19,6 +19,7 @@
 
 use allocative::Allocative;
 use derive_more::Display;
+use starlark_derive::starlark_value;
 use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
 use starlark_derive::Trace;
@@ -26,7 +27,6 @@ use starlark_derive::Trace;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
-use crate::starlark_type;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
@@ -66,12 +66,11 @@ pub(crate) fn iterate_codepoints<'v>(string: StringValue<'v>, heap: &'v Heap) ->
     })
 }
 
+#[starlark_value(type = "iterator")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StringIterableGen<'v, V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("iterator");
-
     unsafe fn iterate(&self, _me: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         // Lazy implementation: we allocate a tuple and then iterate over it.
         let iter = if self.produce_char {

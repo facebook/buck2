@@ -24,6 +24,7 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
+use starlark_derive::starlark_value;
 use starlark_derive::Freeze;
 use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
@@ -40,7 +41,6 @@ use crate::docs::DocMember;
 use crate::docs::DocObject;
 use crate::docs::DocProperty;
 use crate::starlark_complex_value;
-use crate::starlark_type;
 use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
 use crate::values::structs::unordered_hasher::UnorderedHasher;
@@ -107,12 +107,11 @@ impl<'v, V: ValueLike<'v>> Display for StructGen<'v, V> {
     }
 }
 
+#[starlark_value(type = Struct::TYPE)]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StructGen<'v, V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!(Struct::TYPE);
-
     fn collect_repr_cycle(&self, collector: &mut String) {
         collector.push_str("struct(...)");
     }

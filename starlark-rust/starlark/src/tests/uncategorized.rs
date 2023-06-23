@@ -22,6 +22,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use derive_more::Display;
 use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -34,7 +35,6 @@ use crate::environment::Module;
 use crate::errors::Diagnostic;
 use crate::eval::Evaluator;
 use crate::starlark_simple_value;
-use crate::starlark_type;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::none::NoneType;
@@ -303,8 +303,8 @@ fn test_radd() {
         }
     }
 
+    #[starlark_value(type = "select")]
     impl<'v> StarlarkValue<'v> for Select {
-        starlark_type!("select");
         fn radd(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
             let lhs: Select = UnpackValue::unpack_value(lhs).unwrap();
             Some(Ok(heap.alloc(lhs.add(self))))
@@ -782,9 +782,8 @@ fn test_label_assign() {
     #[display(fmt = "{:?}", self)]
     struct Wrapper<'v>(RefCell<SmallMap<String, Value<'v>>>);
 
+    #[starlark_value(type = "wrapper")]
     impl<'v> StarlarkValue<'v> for Wrapper<'v> {
-        starlark_type!("wrapper");
-
         fn get_attr(&self, attribute: &str, _heap: &'v Heap) -> Option<Value<'v>> {
             Some(*self.0.borrow().get(attribute).unwrap())
         }
@@ -799,9 +798,8 @@ fn test_label_assign() {
     #[display(fmt = "FrozenWrapper")]
     struct FrozenWrapper;
 
-    impl<'v> StarlarkValue<'v> for FrozenWrapper {
-        starlark_type!("wrapper");
-    }
+    #[starlark_value(type = "wrapper")]
+    impl<'v> StarlarkValue<'v> for FrozenWrapper {}
 
     impl<'v> Freeze for Wrapper<'v> {
         type Frozen = FrozenWrapper;

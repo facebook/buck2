@@ -26,6 +26,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use dupe::Dupe;
 use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 use thiserror::Error;
 
@@ -38,7 +39,6 @@ use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
 use crate::slice_vec_ext::SliceExt;
-use crate::starlark_type;
 use crate::typing::Ty;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
@@ -104,13 +104,12 @@ where
     }
 }
 
+#[starlark_value(type = "eval_type")]
 impl<'v, T> StarlarkValue<'v> for TypeCompiledImplAsStarlarkValue<T>
 where
     T: TypeCompiledImpl<'v> + Hash + Eq,
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("eval_type");
-
     fn type_matches_value(&self, value: Value<'v>, _private: Private) -> bool {
         self.0.matches(value)
     }

@@ -30,6 +30,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
+use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::VisitSpanMut;
 
@@ -74,7 +75,6 @@ use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Arguments;
 use crate::slice_vec_ext::SliceExt;
 use crate::starlark_complex_values;
-use crate::starlark_type;
 use crate::syntax::ast::ParameterP;
 use crate::values::frozen_ref::AtomicFrozenRefOption;
 use crate::values::function::FUNCTION_TYPE;
@@ -608,12 +608,11 @@ impl<'v> DefLike<'v> for DefGen<FrozenValue> {
     const FROZEN: bool = true;
 }
 
+#[starlark_value(type = FUNCTION_TYPE)]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for DefGen<V>
 where
     Self: ProvidesStaticType<'v> + DefLike<'v>,
 {
-    starlark_type!(FUNCTION_TYPE);
-
     fn name_for_call_stack(&self, _me: Value<'v>) -> String {
         self.def_info.name.as_str().to_owned()
     }

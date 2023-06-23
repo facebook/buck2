@@ -24,12 +24,12 @@ use std::cell::Cell;
 
 use allocative::Allocative;
 use derive_more::Display;
+use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::Trace;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::starlark_type;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
@@ -48,13 +48,11 @@ pub(crate) struct ValueCaptured<'v>(Cell<Option<Value<'v>>>);
 #[repr(transparent)]
 pub(crate) struct FrozenValueCaptured(Option<FrozenValue>);
 
-impl<'v> StarlarkValue<'v> for ValueCaptured<'v> {
-    starlark_type!("value_captured");
-}
+#[starlark_value(type = "value_captured")]
+impl<'v> StarlarkValue<'v> for ValueCaptured<'v> {}
 
-impl<'v> StarlarkValue<'v> for FrozenValueCaptured {
-    starlark_type!("value_captured");
-}
+#[starlark_value(type = "value_captured")]
+impl<'v> StarlarkValue<'v> for FrozenValueCaptured {}
 
 impl<'v> ValueCaptured<'v> {
     pub(crate) fn new(payload: Option<Value<'v>>) -> ValueCaptured<'v> {
