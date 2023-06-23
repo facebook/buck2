@@ -302,7 +302,6 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// * `is_executable` (optional): indicates whether the resulting file should be marked with executable permissions
     /// * `allow_args` (optional): must be set to `True` if you want to write parameter arguments to the file (in particular, macros that write to file)
     ///     * If it is true, the result will be a pair of the `artifact` containing content and a list of artifact values that were written by macros, which should be used in hidden fields or similar
-    #[starlark(return_type = "[\"artifact\", (\"artifact\", [\"artifact\"])]")]
     fn write<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
@@ -312,7 +311,15 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         // If set, add artifacts in content as associated artifacts of the output. This will only work for bound artifacts.
         #[starlark(require = named, default = false)] with_inputs: bool,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<
+        Either<
+            ValueTyped<'v, StarlarkDeclaredArtifact>,
+            (
+                ValueTyped<'v, StarlarkDeclaredArtifact>,
+                Vec<StarlarkDeclaredArtifact>,
+            ),
+        >,
+    > {
         fn count_write_to_file_macros(
             args_allowed: bool,
             cli: &dyn CommandLineArgLike,
@@ -455,18 +462,17 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             }
         }
 
-        let value = declaration
-            .into_declared_artifact(AssociatedArtifacts::from(associated_artifacts))
-            .to_value();
+        let value =
+            declaration.into_declared_artifact(AssociatedArtifacts::from(associated_artifacts));
         if allow_args {
             let macro_files: Vec<StarlarkDeclaredArtifact> = written_macro_files
                 .into_iter()
                 .map(|a| StarlarkDeclaredArtifact::new(None, a, AssociatedArtifacts::new()))
                 .collect();
-            Ok(eval.heap().alloc((value, macro_files)))
+            Ok(Either::Right((value, macro_files)))
         } else {
             // Prefer simpler API when there is no possibility for write-to-file macros to be present in a content
-            Ok(value)
+            Ok(Either::Left(value))
         }
     }
 
