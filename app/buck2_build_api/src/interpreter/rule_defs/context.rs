@@ -36,6 +36,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 
 use crate::analysis::registry::AnalysisRegistry;
@@ -247,9 +248,9 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// Returns the attributes of the target as a Starlark struct with a field for each attribute, which varies per rule.
     /// As an example, given a rule with the `attrs` argument of `{"foo": attrs.string()}`, this field will be
     /// a `struct` containing a field `foo` of type string.
-    #[starlark(attribute, return_type = "struct.type")]
-    fn attrs<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
-        Ok(this.0.attrs)
+    #[starlark(attribute)]
+    fn attrs<'v>(this: RefAnalysisContext) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
+        Ok(ValueOfUnchecked::new(this.0.attrs))
     }
 
     /// Returns an `actions` value containing functions to define actual actions that are run.
