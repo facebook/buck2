@@ -53,6 +53,14 @@ impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> DictOf<'v, K, V> {
             })
             .collect()
     }
+
+    /// Number of entries.
+    #[inline]
+    pub fn len(&self) -> usize {
+        DictRef::from_value(self.value)
+            .expect("already validated as a dict")
+            .len()
+    }
 }
 
 impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> DictOf<'v, K, V> {
