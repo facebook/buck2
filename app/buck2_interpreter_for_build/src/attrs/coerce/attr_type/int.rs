@@ -11,6 +11,7 @@ use buck2_node::attrs::attr_type::int::IntAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use starlark::typing::Ty;
 use starlark::values::Value;
 
 use crate::attrs::coerce::error::CoercionError;
@@ -29,7 +30,7 @@ impl AttrTypeCoerce for IntAttrType {
         }
     }
 
-    fn starlark_type(&self) -> String {
-        "int.type".to_owned()
+    fn starlark_type(&self) -> Ty {
+        Ty::int()
     }
 }

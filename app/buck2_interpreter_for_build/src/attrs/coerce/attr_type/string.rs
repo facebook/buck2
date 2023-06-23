@@ -12,6 +12,7 @@ use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use starlark::typing::Ty;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
@@ -34,7 +35,7 @@ impl AttrTypeCoerce for StringAttrType {
         }
     }
 
-    fn starlark_type(&self) -> String {
-        "str.type".to_owned()
+    fn starlark_type(&self) -> Ty {
+        Ty::string()
     }
 }

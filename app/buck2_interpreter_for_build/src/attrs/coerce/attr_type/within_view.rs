@@ -12,6 +12,7 @@ use buck2_node::attrs::attr_type::within_view::WithinViewAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use starlark::typing::Ty;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::visibility::parse_visibility_with_view;
@@ -38,7 +39,7 @@ impl AttrTypeCoerce for WithinViewAttrType {
         ))
     }
 
-    fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> Ty {
         // Starlark type of the attribute is the same.
         VisibilityAttrType.starlark_type()
     }

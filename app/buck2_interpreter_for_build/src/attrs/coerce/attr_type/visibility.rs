@@ -14,6 +14,7 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityWithinViewBuilder;
+use starlark::typing::Ty;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::list::coerce_list;
@@ -46,7 +47,7 @@ impl AttrTypeCoerce for VisibilityAttrType {
         ))
     }
 
-    fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> Ty {
         AttrType::list(AttrType::string()).starlark_type()
     }
 }

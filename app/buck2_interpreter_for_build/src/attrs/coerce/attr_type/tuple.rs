@@ -15,7 +15,8 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::IterDupedExt;
-use itertools::Itertools;
+use gazebo::prelude::SliceExt;
+use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
 use starlark::values::Value;
@@ -63,7 +64,7 @@ impl AttrTypeCoerce for TupleAttrType {
         }
     }
 
-    fn starlark_type(&self) -> String {
-        format!("({})", self.xs.iter().map(|x| x.starlark_type()).join(", "))
+    fn starlark_type(&self) -> Ty {
+        Ty::Tuple(self.xs.map(|x| x.starlark_type()))
     }
 }

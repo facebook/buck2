@@ -11,7 +11,8 @@ use buck2_node::attrs::attr_type::one_of::OneOfAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use itertools::Itertools;
+use gazebo::prelude::SliceExt;
+use starlark::typing::Ty;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
@@ -39,7 +40,7 @@ impl AttrTypeCoerce for OneOfAttrType {
         Err(CoercionError::one_of_many(errs))
     }
 
-    fn starlark_type(&self) -> String {
-        format!("[{}]", self.xs.iter().map(|x| x.starlark_type()).join(", "))
+    fn starlark_type(&self) -> Ty {
+        Ty::unions(self.xs.map(|x| x.starlark_type()))
     }
 }

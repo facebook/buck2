@@ -20,6 +20,7 @@ use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::provider_id_set::ProviderIdSet;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::parse_expr;
+use starlark::typing::Ty;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
@@ -98,7 +99,7 @@ impl AttrTypeCoerce for QueryAttrType {
         })))
     }
 
-    fn starlark_type(&self) -> String {
-        "str.type".to_owned()
+    fn starlark_type(&self) -> Ty {
+        Ty::string()
     }
 }

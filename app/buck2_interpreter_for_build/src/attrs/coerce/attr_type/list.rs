@@ -13,6 +13,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::prelude::*;
+use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
 use starlark::values::Value;
@@ -34,8 +35,8 @@ impl AttrTypeCoerce for ListAttrType {
         ))))
     }
 
-    fn starlark_type(&self) -> String {
-        format!("[{}]", self.inner.starlark_type())
+    fn starlark_type(&self) -> Ty {
+        Ty::list(self.inner.starlark_type())
     }
 }
 

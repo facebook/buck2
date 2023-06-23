@@ -16,6 +16,7 @@ use buck2_node::attrs::attr_type::tuple::TupleLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use starlark::typing::Ty;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
@@ -81,7 +82,7 @@ impl AttrTypeCoerce for AnyAttrType {
         to_literal(value, ctx)
     }
 
-    fn starlark_type(&self) -> String {
-        "\"\"".to_owned()
+    fn starlark_type(&self) -> Ty {
+        Ty::Any
     }
 }

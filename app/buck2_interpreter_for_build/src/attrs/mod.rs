@@ -14,6 +14,7 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
+use starlark::typing::Ty;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
@@ -40,7 +41,7 @@ pub trait AttributeCoerceExt {
 
     fn docstring(&self) -> Option<DocString>;
 
-    fn starlark_type(&self) -> String;
+    fn starlark_type(&self) -> Ty;
 }
 
 impl AttributeCoerceExt for Attribute {
@@ -81,7 +82,7 @@ impl AttributeCoerceExt for Attribute {
         DocString::from_docstring(DocStringKind::Starlark, self.doc())
     }
 
-    fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> Ty {
         self.coercer().starlark_type()
     }
 }

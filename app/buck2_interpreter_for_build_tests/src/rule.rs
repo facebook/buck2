@@ -341,14 +341,7 @@ fn returns_documentation() -> anyhow::Result<()> {
             .starlark_types()
             .into_iter()
             .enumerate()
-            .map(|(i, ds)| {
-                (
-                    i,
-                    DocType {
-                        raw_type: Ty::parse(&ds).unwrap(),
-                    },
-                )
-            })
+            .map(|(i, raw_type)| (i, DocType { raw_type }))
             .collect(),
         empty_spec.docstrings(),
     );

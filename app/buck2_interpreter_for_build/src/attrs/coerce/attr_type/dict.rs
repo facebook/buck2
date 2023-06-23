@@ -14,6 +14,7 @@ use buck2_node::attrs::attr_type::dict::DictLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use starlark::typing::Ty;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::Value;
@@ -60,11 +61,7 @@ impl AttrTypeCoerce for DictAttrType {
         }
     }
 
-    fn starlark_type(&self) -> String {
-        format!(
-            "{{{}: {}}}",
-            self.key.starlark_type(),
-            self.value.starlark_type()
-        )
+    fn starlark_type(&self) -> Ty {
+        Ty::dict(self.key.starlark_type(), self.value.starlark_type())
     }
 }

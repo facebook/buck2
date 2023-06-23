@@ -26,6 +26,7 @@ use dupe::Dupe;
 use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
+use starlark::typing::Ty;
 use starlark::values::Value;
 
 use crate::attrs::AttributeCoerceExt;
@@ -42,7 +43,7 @@ pub trait AttributeSpecExt {
     /// Returns a starlark Parameters for the rule callable.
     fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>>;
 
-    fn starlark_types(&self) -> Vec<String>;
+    fn starlark_types(&self) -> Vec<Ty>;
 
     fn docstrings(&self) -> HashMap<String, Option<DocString>>;
 }
@@ -148,7 +149,7 @@ impl AttributeSpecExt for AttributeSpec {
         signature.finish()
     }
 
-    fn starlark_types(&self) -> Vec<String> {
+    fn starlark_types(&self) -> Vec<Ty> {
         self.attr_specs()
             .map(|(_, _, a)| a.starlark_type())
             .collect()

@@ -29,6 +29,7 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use maplit::hashset;
 use once_cell::sync::Lazy;
+use starlark::typing::Ty;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 use thiserror::Error;
@@ -112,8 +113,8 @@ impl AttrTypeCoerce for ArgAttrType {
         )))
     }
 
-    fn starlark_type(&self) -> String {
-        "str.type".to_owned()
+    fn starlark_type(&self) -> Ty {
+        Ty::string()
     }
 }
 

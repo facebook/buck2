@@ -10,6 +10,7 @@
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use starlark::typing::Ty;
 use starlark::values::Value;
 
 mod arc_str_interner;
@@ -29,5 +30,5 @@ pub trait AttrTypeCoerce {
         value: Value,
     ) -> anyhow::Result<CoercedAttr>;
 
-    fn starlark_type(&self) -> String;
+    fn starlark_type(&self) -> Ty;
 }

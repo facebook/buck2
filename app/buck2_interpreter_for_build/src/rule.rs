@@ -153,15 +153,7 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
             .starlark_types()
             .into_iter()
             .enumerate()
-            .map(|(i, t)| {
-                (
-                    i,
-                    // TODO(nga): do not unwrap.
-                    DocType {
-                        raw_type: Ty::parse(&t).unwrap(),
-                    },
-                )
-            })
+            .map(|(i, raw_type)| (i, DocType { raw_type }))
             .collect();
         let parameter_docs = self.attributes.docstrings();
         let function_docs = DocFunction::from_docstring(

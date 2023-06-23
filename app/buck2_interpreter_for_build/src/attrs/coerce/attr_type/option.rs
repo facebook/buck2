@@ -11,6 +11,7 @@ use buck2_node::attrs::attr_type::option::OptionAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use starlark::typing::Ty;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
@@ -30,7 +31,7 @@ impl AttrTypeCoerce for OptionAttrType {
         }
     }
 
-    fn starlark_type(&self) -> String {
-        format!("[None, {}]", self.inner.starlark_type())
+    fn starlark_type(&self) -> Ty {
+        Ty::union2(Ty::none(), self.inner.starlark_type())
     }
 }

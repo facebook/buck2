@@ -12,6 +12,7 @@ use buck2_node::attrs::attr_type::AttrTypeInner;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use starlark::typing::Ty;
 use starlark::values::Value;
 
 use crate::attrs::coerce::coerced_attr::CoercedAttrExr;
@@ -68,7 +69,7 @@ pub trait AttrTypeExt {
         CoercedAttr::coerce(self.this(), configurable, ctx, value, default)
     }
 
-    fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> Ty {
         self.this().0.starlark_type()
     }
 }
@@ -87,7 +88,7 @@ pub trait AttrTypeInnerExt {
         value: Value,
     ) -> anyhow::Result<CoercedAttr>;
 
-    fn starlark_type(&self) -> String;
+    fn starlark_type(&self) -> Ty;
 }
 
 impl AttrTypeInnerExt for AttrTypeInner {
@@ -123,7 +124,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
 
     /// Returns a starlark-compatible typing string, e.g. `[str.type]` for values coerced by this
     /// attr.
-    fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> Ty {
         match self {
             AttrTypeInner::Any(x) => x.starlark_type(),
             AttrTypeInner::Arg(x) => x.starlark_type(),
