@@ -26,9 +26,13 @@ use crate::environment::MethodsBuilder;
 use crate::hint::unlikely;
 use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;
+use crate::values::list::AllocList;
+use crate::values::list::ListOf;
+use crate::values::list::ListRef;
 use crate::values::none::NoneType;
 use crate::values::Heap;
 use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 
 #[starlark_module]
 pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
@@ -100,9 +104,13 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// x.items() == [("one", 1), ("two", 2)]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe, return_type = "[(\"\", \"\")]")]
-    fn items<'v>(this: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc_list_iter(this.iter().map(|(k, v)| heap.alloc((k, v)))))
+    fn items<'v>(
+        this: DictRef<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<ValueOfUnchecked<'v, ListOf<'v, (Value<'v>, Value<'v>)>>> {
+        Ok(ValueOfUnchecked::new(heap.alloc_list_iter(
+            this.iter().map(|(k, v)| heap.alloc((k, v))),
+        )))
     }
 
     /// [dict.keys](
@@ -118,9 +126,12 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// x.keys() == ["one", "two"]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe, return_type = "[\"\"]")]
-    fn keys<'v>(this: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc_list_iter(this.keys()))
+    #[starlark(speculative_exec_safe)]
+    fn keys<'v>(
+        this: DictRef<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<ValueOfUnchecked<'v, &'v ListRef<'v>>> {
+        Ok(ValueOfUnchecked::new(heap.alloc(AllocList(this.keys()))))
     }
 
     /// [dict.pop](
@@ -346,9 +357,12 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// x.values() == [1, 2]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe, return_type = "[\"\"]")]
-    fn values<'v>(this: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc_list_iter(this.values()))
+    #[starlark(speculative_exec_safe)]
+    fn values<'v>(
+        this: DictRef<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<ValueOfUnchecked<'v, &'v ListRef<'v>>> {
+        Ok(ValueOfUnchecked::new(heap.alloc_list_iter(this.values())))
     }
 }
 
