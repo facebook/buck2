@@ -12,7 +12,8 @@ use starlark::environment::LibraryExtension;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::list::AllocList;
-use starlark::values::Value;
+use starlark::values::list::ListOf;
+use starlark::values::ValueOfUnchecked;
 
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::functions::dedupe::register_dedupe;
@@ -51,16 +52,15 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
     ///
     /// Currently `glob` is evaluated case-insensitively on all file systems, but we expect
     /// that to change to case sensitive in the near future.
-    #[starlark(return_type = "[str.type]")]
     fn glob<'v>(
         include: Vec<String>,
         #[starlark(require = named, default=Vec::new())] exclude: Vec<String>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueOfUnchecked<'v, ListOf<'v, String>>> {
         let extra = ModuleInternals::from_context(eval, "glob")?;
         let spec = GlobSpec::new(&include, &exclude)?;
         let res = extra.resolve_glob(&spec).map(|path| path.as_str());
-        Ok(eval.heap().alloc(AllocList(res)))
+        Ok(ValueOfUnchecked::new(eval.heap().alloc(AllocList(res))))
     }
 
     /// `package_name()` can only be called in `BUCK` files, and returns the name of the package.
