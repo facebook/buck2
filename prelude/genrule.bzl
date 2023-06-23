@@ -284,7 +284,7 @@ def process_genrule(
         allow_args = True,
     )
     if is_windows:
-        script_args = ["cmd.exe", "/c", sh_script]
+        script_args = ["cmd.exe", "/v:off", "/c", sh_script]
     else:
         script_args = ["/bin/bash", "-e", sh_script]
 
