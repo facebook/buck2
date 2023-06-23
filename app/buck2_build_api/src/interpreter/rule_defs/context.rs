@@ -262,9 +262,9 @@ fn register_context(builder: &mut MethodsBuilder) {
 
     /// Returns a `label` representing the target, or `None` if being invoked from a
     /// `dynamic_output` in Bxl.
-    #[starlark(attribute, return_type = "[None, \"label\"]")]
-    fn label<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
-        Ok(this.0.label.map_or(Value::new_none(), |v| v.to_value()))
+    #[starlark(attribute)]
+    fn label<'v>(this: RefAnalysisContext) -> anyhow::Result<Option<ValueTyped<'v, Label>>> {
+        Ok(this.0.label)
     }
 }
 
