@@ -801,7 +801,7 @@ message LspCommandEnd {}
 message StarlarkDebugAttachCommandEnd {}
 
 message TargetsCommandEnd {
-  // TODO(swgillespie) fill this with useful fields
+  repeated TargetPattern unresolved_target_patterns = 1;
 }
 
 message ConfiguredTargetsCommandEnd {}

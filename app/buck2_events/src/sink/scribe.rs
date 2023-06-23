@@ -250,6 +250,9 @@ mod fbcode {
                 Some(Data::Install(install_command_end)) => {
                     Some(&mut install_command_end.unresolved_target_patterns)
                 }
+                Some(Data::Targets(targets_command_end)) => {
+                    Some(&mut targets_command_end.unresolved_target_patterns)
+                }
                 _ => None,
             } {
                 if clear_target_patterns {

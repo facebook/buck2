@@ -146,6 +146,12 @@ impl ServerCommandTemplate for TargetsServerCommand {
         // No response if we failed.
         true
     }
+
+    fn end_event(&self, _response: &anyhow::Result<Self::Response>) -> Self::EndEvent {
+        buck2_data::TargetsCommandEnd {
+            unresolved_target_patterns: self.req.target_patterns.clone(),
+        }
+    }
 }
 
 async fn targets(

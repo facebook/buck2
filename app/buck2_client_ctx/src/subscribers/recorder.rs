@@ -475,6 +475,9 @@ mod imp {
                     buck2_data::command_end::Data::Install(cmd) => {
                         self.build_count(&cmd.unresolved_target_patterns).await?
                     }
+                    buck2_data::command_end::Data::Targets(cmd) => {
+                        self.build_count(&cmd.unresolved_target_patterns).await?
+                    }
                     // other events don't have target patterns
                     _ => 0,
                 };
