@@ -793,9 +793,3 @@ pub trait StarlarkValue<'v>:
         let _ = demand;
     }
 }
-
-/// Trait implemented by a value stored in arena which delegates
-/// it's operations to contained [`StarlarkValue`].
-pub(crate) trait StarlarkValueDyn<'v>: 'v + Serialize {
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()>;
-}

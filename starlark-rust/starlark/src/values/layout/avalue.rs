@@ -33,7 +33,6 @@ use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::StarlarkHashValue;
-use crate::collections::StarlarkHasher;
 use crate::eval::compiler::def::FrozenDef;
 use crate::private::Private;
 use crate::slice_vec_ext::SliceExt;
@@ -51,7 +50,6 @@ use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::ListGen;
 use crate::values::none::NoneType;
 use crate::values::string::StarlarkStr;
-use crate::values::traits::StarlarkValueDyn;
 use crate::values::types::any_array::AnyArray;
 use crate::values::types::array::Array;
 use crate::values::types::list::value::FrozenListData;
@@ -133,7 +131,7 @@ enum AValueError {
 }
 
 /// Sized counterpart of [`AValueDyn`].
-pub(crate) trait AValue<'v>: StarlarkValueDyn<'v> + Sized {
+pub(crate) trait AValue<'v>: Sized + 'v {
     /// Unwrapped type.
     type StarlarkValue: StarlarkValue<'v>;
 
@@ -744,12 +742,6 @@ impl Serialize for BlackHole {
         S: Serializer,
     {
         panic!()
-    }
-}
-
-impl<'v, Mode: AValueMode, T: StarlarkValue<'v>> StarlarkValueDyn<'v> for AValueImpl<Mode, T> {
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        self.1.write_hash(hasher)
     }
 }
 
