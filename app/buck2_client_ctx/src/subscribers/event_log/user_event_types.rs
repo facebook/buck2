@@ -25,6 +25,10 @@ pub(crate) enum SerializeUserEventError {
     MissingData(String),
     #[error("Internal error: Missing `timestamp` in `BuckEvent`")]
     MissingTimestamp,
+    #[error(
+        "Internal error: Missing `input_materialization_duration` in `CommandExecutionDetails`"
+    )]
+    MissingInputMaterializationDuration,
     #[error("Internal error: Missing `name` in `ActionExecutionEnd`")]
     MissingName,
 }
@@ -52,7 +56,7 @@ pub struct ActionExecutionEndSimple {
     name: ActionName,
     duration_millis: u64,
     output_size: u64,
-    // TODO(T155789058) - emit inputs materialization time
+    input_materialization_duration_millis: u64,
 }
 
 #[derive(Serialize, Deserialize, Allocative, Clone)]
@@ -110,6 +114,23 @@ pub(crate) fn try_get_user_event(buck_event: &BuckEvent) -> anyhow::Result<Optio
                     "SpanEndEvent".to_owned(),
                 ))? {
                 buck2_data::span_end_event::Data::ActionExecution(action_execution) => {
+                    let mut input_materialization_duration_millis = 0;
+
+                    // Take the last command report's input materialization duration
+                    if let Some(command) = action_execution.commands.last() {
+                        if let Some(details) = &command.details {
+                            input_materialization_duration_millis = details
+                                .input_materialization_duration
+                                .as_ref()
+                                .context(
+                                    SerializeUserEventError::MissingInputMaterializationDuration,
+                                )?
+                                .try_into_duration()?
+                                .as_millis()
+                                as u64;
+                        }
+                    }
+
                     let action_event = ActionExecutionEndSimple {
                         kind: action_execution.kind(),
                         name: action_execution
@@ -119,6 +140,7 @@ pub(crate) fn try_get_user_event(buck_event: &BuckEvent) -> anyhow::Result<Optio
                             .clone(),
                         duration_millis,
                         output_size: action_execution.output_size,
+                        input_materialization_duration_millis,
                     };
 
                     Ok(Some(UserEvent {
