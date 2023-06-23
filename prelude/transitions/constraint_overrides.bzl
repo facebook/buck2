@@ -5,8 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @oss-disable: load("@prelude//meta_only:third_party_version_constraints.bzl", _CONSTRAINTS = "constraints") 
+# @oss-disable: load("@prelude//meta_only:product_constraints.bzl", _PRODUCT_CONSTRAINTS = "constraints") 
+# @oss-disable: load("@prelude//meta_only:third_party_version_constraints.bzl", _VERSION_CONSTRAINTS = "constraints") 
 
+# @oss-disable: _CONSTRAINTS = _PRODUCT_CONSTRAINTS + _VERSION_CONSTRAINTS 
 _CONSTRAINTS = [] # @oss-enable
 
 # Apparently, `==` doesn't do value comparison for `ConstraintValueInfo`, so

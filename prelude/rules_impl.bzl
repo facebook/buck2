@@ -573,6 +573,7 @@ extra_attributes = struct(**all_extra_attributes)
 
 # Configuration transitions to pass `cfg` for builtin rules.
 transitions = {
+    "android_binary": constraint_overrides_transition,
     "python_binary": constraint_overrides_transition,
     "python_test": constraint_overrides_transition,
 }
