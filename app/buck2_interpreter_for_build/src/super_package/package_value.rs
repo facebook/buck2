@@ -108,7 +108,6 @@ pub fn register_read_package_value(globals: &mut GlobalsBuilder) {
     /// Read value specified in the `PACKAGE` file.
     ///
     /// Returns `None` if value is not set.
-    #[starlark(return_type = "[None, str.type]")]
     fn read_package_value<'v>(
         #[starlark(require = pos)] key: &str,
         eval: &mut Evaluator<'v, '_>,
