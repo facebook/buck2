@@ -412,6 +412,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         &mut self,
         request: &CommandExecutionRequest,
         result: CommandExecutionResult,
+        allows_cache_upload: bool,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let CommandExecutionResult {
             outputs,
@@ -438,7 +439,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                             kind: execution_kind.clone(),
                             prefers_local: request.executor_preference().prefers_local(),
                             requires_local: request.executor_preference().requires_local(),
-                            allows_cache_upload: request.allow_cache_upload(),
+                            allows_cache_upload,
                             did_cache_upload,
                             eligible_for_full_hybrid,
                         },
@@ -856,7 +857,7 @@ mod tests {
                     ctx.fs().fs().write_file(&dest_path, "", false)?
                 }
 
-                ctx.unpack_command_execution_result(&req, res)?;
+                ctx.unpack_command_execution_result(&req, res, false)?;
                 let outputs = self
                     .outputs
                     .iter()

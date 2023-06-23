@@ -548,7 +548,6 @@ impl IncrementalActionExecutable for RunAction {
             .with_executor_preference(self.inner.executor_preference)
             .with_host_sharing_requirements(host_sharing_requirements)
             .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
-            .with_allow_cache_upload(self.inner.allow_cache_upload)
             .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions())
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
             .with_custom_tmpdir(ctx.target().custom_tmpdir());
@@ -587,7 +586,8 @@ impl IncrementalActionExecutable for RunAction {
                 .await?;
         }
 
-        let (outputs, metadata) = ctx.unpack_command_execution_result(&req, result)?;
+        let (outputs, metadata) =
+            ctx.unpack_command_execution_result(&req, result, self.inner.allow_cache_upload)?;
 
         if let Some(dep_files) = dep_files {
             let LocalDepFileLookUpKey {
