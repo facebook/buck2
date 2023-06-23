@@ -39,12 +39,11 @@ pub fn filter(builder: &mut GlobalsBuilder) {
     /// filter(None, [True, None, False]) == [True, False]
     /// # "#);
     /// ```
-    #[starlark(return_type = "[\"\"]")]
     fn filter<'v>(
         #[starlark(require = pos, type = "[\"function\", None]")] func: Value<'v>,
         #[starlark(require = pos, type = "iter(\"\")")] seq: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<Vec<Value<'v>>> {
         let mut res = Vec::new();
 
         for v in seq.iterate(eval.heap())? {
@@ -56,7 +55,7 @@ pub fn filter(builder: &mut GlobalsBuilder) {
                 res.push(v);
             }
         }
-        Ok(eval.heap().alloc_list(&res))
+        Ok(res)
     }
 }
 
@@ -70,18 +69,17 @@ pub fn map(builder: &mut GlobalsBuilder) {
     /// map(lambda x: x * 2, [1, 2, 3, 4]) == [2, 4, 6, 8]
     /// # "#);
     /// ```
-    #[starlark(return_type = "[\"\"]")]
     fn map<'v>(
         #[starlark(require = pos, type = "\"function\"")] func: Value<'v>,
         #[starlark(require = pos, type = "iter(\"\")")] seq: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<Vec<Value<'v>>> {
         let it = seq.iterate(eval.heap())?;
         let mut res = Vec::with_capacity(it.size_hint().0);
         for v in it {
             res.push(func.invoke_pos(&[v], eval)?);
         }
-        Ok(eval.heap().alloc_list(&res))
+        Ok(res)
     }
 }
 
