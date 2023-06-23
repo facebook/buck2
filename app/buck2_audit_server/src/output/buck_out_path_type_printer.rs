@@ -8,25 +8,8 @@
  */
 
 use std::io::Write;
-use std::iter::Peekable;
 
-use anyhow::Context;
-use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::CellResolver;
-use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::package::PackageLabel;
-use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetNameRef;
-use buck2_core::target::name::EQ_SIGN_SUBST;
-use buck2_interpreter::path::BxlFilePath;
-use dupe::Dupe;
 use indexmap::IndexMap;
-use itertools::Itertools;
 use regex::RegexSet;
 
 use super::buck_out_path_parser::BuckOutPathType;

@@ -40,7 +40,6 @@ pub(crate) struct BuckOutPathTypeCommon {
     pub(crate) config_hash: String,
     /// The path starting from cell to the artifact, without the configuration hash. For example, in
     /// `buck-out/v2/gen/cell/<CONFIG_HASH>/path/to/__target_name__/target`, it would be `cell/path/to/__target_name__/target`.
-    #[allow(unused)] // TODO(wendyy) temporary
     pub(crate) raw_path_to_output: ForwardRelativePathBuf,
 }
 
