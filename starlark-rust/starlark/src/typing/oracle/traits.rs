@@ -20,7 +20,6 @@
 
 use dupe::Dupe;
 
-use crate::typing::ty::Arg;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
 use crate::typing::TyFunction;
@@ -123,11 +122,6 @@ pub trait TypingOracle {
         None
     }
 
-    /// A call to a builtin function.
-    fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
-        None
-    }
-
     /// If we require the first type, but got the second type, is that OK?
     /// Usually its OK if the requirement is a subtype of the one we got.
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
@@ -160,12 +154,6 @@ impl<T: TypingOracle> TypingOracle for OracleSeq<T> {
         self.0.iter().find_map(|oracle| oracle.as_function(ty))
     }
 
-    fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
-        self.0
-            .iter()
-            .find_map(|oracle| oracle.builtin_call(name, args))
-    }
-
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
         self.0.iter().any(|oracle| oracle.subtype(require, got))
     }
@@ -180,9 +168,6 @@ impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
         (*self).as_function(ty)
     }
-    fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
-        (*self).builtin_call(name, args)
-    }
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
         (*self).subtype(require, got)
     }
@@ -194,9 +179,6 @@ impl<T: TypingOracle + ?Sized> TypingOracle for Box<T> {
     }
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
         self.as_ref().as_function(ty)
-    }
-    fn builtin_call(&self, name: &str, args: &[Arg]) -> Option<Result<Ty, String>> {
-        self.as_ref().builtin_call(name, args)
     }
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
         self.as_ref().subtype(require, got)

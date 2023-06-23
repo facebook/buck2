@@ -58,8 +58,6 @@ pub(crate) enum TypingError {
     AttributeNotAvailable { typ: String, attr: String },
     #[error("The builtin `{name}` is not known")]
     UnknownBuiltin { name: String },
-    #[error("The call to `{name}` is invalid because {reason}")]
-    InvalidBuiltinCall { name: String, reason: String },
     #[error("Expected type `{require}` but got `{got}`")]
     IncompatibleType { got: String, require: String },
     #[error("Call to a non-callable type `{ty}`")]
@@ -217,21 +215,8 @@ impl TypingContext<'_> {
         fun: &TyFunction,
         args: &[Arg],
     ) -> Result<Ty, EvalException> {
-        if let Some(res) = self.oracle.builtin_call(&fun.name, args) {
-            match res {
-                Ok(t) => Ok(t),
-                Err(reason) => Err(self.mk_error(
-                    span,
-                    TypingError::InvalidBuiltinCall {
-                        name: fun.name.to_owned(),
-                        reason,
-                    },
-                )),
-            }
-        } else {
-            self.validate_args(&fun.params, args, span)?;
-            Ok((*fun.result).clone())
-        }
+        self.validate_args(&fun.params, args, span)?;
+        Ok((*fun.result).clone())
     }
 
     /// Return `Result` instead of adding to `errors`.

@@ -427,8 +427,8 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 /// A function.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
 pub struct TyFunction {
-    /// The name of the function. Typically `""`, but for a few special builtin functions the name
-    /// is used later to call [`TypingOracle::builtin_call`](crate::typing::TypingOracle::builtin_call).
+    /// The name of the function. Typically `""`, but it is used
+    /// to handle special builtin functions.
     pub name: String,
     /// The `.type` property of the function, often `""`.
     pub type_attr: String,

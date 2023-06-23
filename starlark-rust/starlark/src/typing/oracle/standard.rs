@@ -24,7 +24,6 @@ use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::oracle::traits::TypingUnOp;
-use crate::typing::ty::Arg;
 use crate::typing::ty::Param;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
@@ -251,10 +250,6 @@ impl TypingOracle for OracleStandard {
                 }
             }
         }))
-    }
-
-    fn builtin_call(&self, _name: &str, _args: &[Arg]) -> Option<Result<Ty, String>> {
-        None
     }
 
     fn subtype(&self, _require: &TyName, _got: &TyName) -> bool {
