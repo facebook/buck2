@@ -58,7 +58,6 @@ prebuilt_rust_library = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "link_style": attrs.option(attrs.enum(LinkableDepType), default = None),
             "proc_macro": attrs.bool(default = False),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         } |
         rust_common.toolchains_args()
     ),
@@ -149,7 +148,6 @@ rust_binary = prelude_rule(
             "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
             "rustdoc_flags": attrs.list(attrs.arg(), default = []),
             "version_universe": attrs.option(attrs.string(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_target_os_type": buck.target_os_type_arg(),
         } |
@@ -238,7 +236,6 @@ rust_library = prelude_rule(
             "rustdoc_flags": attrs.list(attrs.arg(), default = []),
             "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
             "version_universe": attrs.option(attrs.string(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_omnibus_environment": omnibus_environment_attr(),
             "_target_os_type": buck.target_os_type_arg(),
@@ -330,7 +327,6 @@ rust_test = prelude_rule(
             "rpath": attrs.bool(default = False),
             "rustdoc_flags": attrs.list(attrs.arg(), default = []),
             "version_universe": attrs.option(attrs.string(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_target_os_type": buck.target_os_type_arg(),
         } | rust_common.toolchains_args()

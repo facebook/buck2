@@ -27,7 +27,6 @@ legacy_toolchain = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "toolchain_name": attrs.string(default = ""),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -49,7 +48,6 @@ ndk_toolchain = prelude_rule(
             "objdump": attrs.source(),
             "shared_runtime_path": attrs.option(attrs.source(), default = None),
             "strip_apk_libs_flags": attrs.option(attrs.list(attrs.arg()), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )

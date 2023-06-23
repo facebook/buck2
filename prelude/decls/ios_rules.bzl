@@ -76,7 +76,6 @@ apple_asset_catalog = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -222,7 +221,6 @@ apple_binary = prelude_rule(
             "uses_cxx_explicit_modules": attrs.bool(default = False),
             "uses_explicit_modules": attrs.bool(default = False),
             "uses_modules": attrs.bool(default = False),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "xcode_private_headers_symlinks": attrs.option(attrs.bool(), default = None),
             "xcode_public_headers_symlinks": attrs.option(attrs.bool(), default = None),
         }
@@ -370,7 +368,6 @@ apple_bundle = prelude_rule(
             "resource_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()))))), default = None),
             "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
             "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "xcode_product_type": attrs.option(attrs.string(), default = None),
         }
     ),
@@ -511,7 +508,6 @@ apple_library = prelude_rule(
             "uses_cxx_explicit_modules": attrs.bool(default = False),
             "uses_explicit_modules": attrs.bool(default = False),
             "uses_modules": attrs.bool(default = False),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "xcode_private_headers_symlinks": attrs.option(attrs.bool(), default = None),
             "xcode_public_headers_symlinks": attrs.option(attrs.bool(), default = None),
         }
@@ -554,7 +550,6 @@ apple_package = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "need_android_tools": attrs.bool(default = False),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -627,7 +622,6 @@ apple_resource = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -780,7 +774,6 @@ apple_test = prelude_rule(
             "uses_cxx_explicit_modules": attrs.bool(default = False),
             "uses_explicit_modules": attrs.bool(default = False),
             "uses_modules": attrs.bool(default = False),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "xcode_private_headers_symlinks": attrs.option(attrs.bool(), default = None),
             "xcode_product_type": attrs.option(attrs.string(), default = None),
             "xcode_public_headers_symlinks": attrs.option(attrs.bool(), default = None),
@@ -822,7 +815,6 @@ apple_toolchain = prelude_rule(
             "swift_toolchain": attrs.option(attrs.dep(), default = None),
             "version": attrs.string(default = ""),
             "watch_kit_stub_binary": attrs.option(attrs.source(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "work_around_dsymutil_lto_stack_overflow_bug": attrs.option(attrs.bool(), default = None),
             "xcode_build_version": attrs.string(default = ""),
             "xcode_version": attrs.string(default = ""),
@@ -844,7 +836,6 @@ apple_toolchain_set = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -877,7 +868,6 @@ core_data_model = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -927,7 +917,6 @@ prebuilt_apple_framework = prelude_rule(
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -945,7 +934,6 @@ scene_kit_assets = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "path": attrs.source(),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -978,7 +966,6 @@ swift_library = prelude_rule(
             "target_sdk_version": attrs.option(attrs.string(), default = None),
             "uses_explicit_modules": attrs.bool(default = False),
             "version": attrs.option(attrs.string(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -1010,7 +997,6 @@ swift_toolchain = prelude_rule(
             "swift_stdlib_tool_flags": attrs.list(attrs.arg(), default = []),
             "swiftc": attrs.source(),
             "swiftc_flags": attrs.list(attrs.arg(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -1033,7 +1019,6 @@ xcode_postbuild_script = prelude_rule(
             "output_file_lists": attrs.list(attrs.string(), default = []),
             "outputs": attrs.list(attrs.string(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -1056,7 +1041,6 @@ xcode_prebuild_script = prelude_rule(
             "output_file_lists": attrs.list(attrs.string(), default = []),
             "outputs": attrs.list(attrs.string(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -1087,7 +1071,6 @@ xcode_workspace_config = prelude_rule(
             "src_target": attrs.option(attrs.dep(), default = None),
             "was_created_for_app_extension": attrs.option(attrs.bool(), default = None),
             "watch_interface": attrs.option(attrs.enum(WatchInterface), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "workspace_name": attrs.option(attrs.string(), default = None),
         }
     ),

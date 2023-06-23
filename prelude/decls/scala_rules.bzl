@@ -46,7 +46,6 @@ scala_library = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
             "target": attrs.option(attrs.string(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -104,7 +103,6 @@ scala_test = prelude_rule(
             "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
             "vm_args": attrs.list(attrs.arg(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )

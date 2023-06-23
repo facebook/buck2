@@ -125,7 +125,6 @@ cxx_binary = prelude_rule(
             "thin_lto": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -375,7 +374,6 @@ cxx_genrule = prelude_rule(
             "need_android_tools": attrs.bool(default = False),
             "outs": attrs.option(attrs.dict(key = attrs.string(), value = attrs.set(attrs.string(), sorted = False), sorted = False), default = None),
             "remote": attrs.option(attrs.bool(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -584,7 +582,6 @@ cxx_library = prelude_rule(
             "uses_explicit_modules": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "xcode_private_headers_symlinks": attrs.option(attrs.bool(), default = None),
             "xcode_public_headers_symlinks": attrs.option(attrs.bool(), default = None),
         }
@@ -725,7 +722,6 @@ cxx_precompiled_header = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "version_universe": attrs.option(attrs.string(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -848,7 +844,6 @@ cxx_test = prelude_rule(
             "use_default_test_main": attrs.option(attrs.bool(), default = None),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -934,7 +929,6 @@ cxx_toolchain = prelude_rule(
             "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
             "use_arg_file": attrs.bool(default = False),
             "use_header_map": attrs.bool(default = False),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -1094,7 +1088,6 @@ prebuilt_cxx_library = prelude_rule(
             "versioned_soname": attrs.option(attrs.versioned(attrs.string()), default = None),
             "versioned_static_lib": attrs.option(attrs.versioned(attrs.source()), default = None),
             "versioned_static_pic_lib": attrs.option(attrs.versioned(attrs.source()), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -1202,7 +1195,6 @@ prebuilt_cxx_library_group = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )

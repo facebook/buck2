@@ -66,7 +66,6 @@ def ocaml_object_attributes() -> dict.type:
         "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
         "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None),
         "warnings_flags": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string()), default = None),
         "_cxx_toolchain": _cxx_toolchain(),
         "_ocaml_toolchain": _ocaml_toolchain(),
     }
@@ -87,7 +86,6 @@ def ocaml_shared_attributes() -> dict.type:
         "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
         "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None),
         "warnings_flags": attrs.option(attrs.string(), default = None),
-        "within_view": attrs.option(attrs.list(attrs.string()), default = None),
         "_cxx_toolchain": _cxx_toolchain(),
         "_ocaml_toolchain": _ocaml_toolchain(),
     }

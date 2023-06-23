@@ -109,7 +109,6 @@ cxx_python_extension = prelude_rule(
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
             "type_stub": attrs.option(attrs.source(), default = None),
             "version_universe": attrs.option(attrs.string(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -186,7 +185,6 @@ prebuilt_python_library = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "ignore_compile_errors": attrs.bool(default = False),
             "licenses": attrs.list(attrs.source(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -301,7 +299,6 @@ python_binary = prelude_rule(
             "platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = False)), default = []),
             "prefer_stripped_native_objects": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
         }
     ),
@@ -406,7 +403,6 @@ python_library = prelude_rule(
             "version_universe": attrs.option(attrs.string(), default = None),
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
         }
     ),
@@ -564,7 +560,6 @@ python_test = prelude_rule(
             "version_universe": attrs.option(attrs.string(), default = None),
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
         }
     ),
@@ -584,7 +579,6 @@ python_test_runner = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "main_module": attrs.string(default = ""),
             "src": attrs.source(),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )

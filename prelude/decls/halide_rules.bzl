@@ -115,7 +115,6 @@ halide_library = prelude_rule(
             "thin_lto": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )

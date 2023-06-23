@@ -80,7 +80,6 @@ sh_binary = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "_target_os_type": buck.target_os_type_arg(),
         }
     ),
@@ -188,7 +187,6 @@ sh_test = prelude_rule(
             "run_env": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "run_test_separately": attrs.bool(default = False),
             "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )

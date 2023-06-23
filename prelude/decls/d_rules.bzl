@@ -64,7 +64,6 @@ d_binary = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -108,7 +107,6 @@ d_library = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "linker_flags": attrs.list(attrs.string(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -154,7 +152,6 @@ d_test = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
             "linker_flags": attrs.list(attrs.string(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )

@@ -31,7 +31,6 @@ js_bundle = prelude_rule(
             "fallback_transform_profile": attrs.option(attrs.string(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "worker": attrs.dep(),
         }
     ),
@@ -65,7 +64,6 @@ js_bundle_genrule = prelude_rule(
             "rewrite_sourcemap": attrs.bool(default = False),
             "skip_resources": attrs.bool(default = False),
             "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
     ),
 )
@@ -89,7 +87,6 @@ js_library = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "srcs": attrs.list(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.string())), default = []),
-            "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "worker": attrs.dep(),
         }
     ),
