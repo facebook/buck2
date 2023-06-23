@@ -59,7 +59,7 @@ pub struct AnalysisActions<'v> {
     /// we can take the internal state without having to clone it.
     pub state: RefCell<Option<AnalysisRegistry<'v>>>,
     /// Copies from the ctx, so we can capture them for `dynamic`.
-    pub attributes: Value<'v>,
+    pub attributes: ValueOfUnchecked<'v, StructRef<'v>>,
     /// Digest configuration to use when interpreting digests passed in analysis.
     pub digest_config: DigestConfig,
 }
@@ -147,7 +147,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
     StarlarkDocs
 )]
 pub struct AnalysisContext<'v> {
-    attrs: Value<'v>, // A struct
+    attrs: ValueOfUnchecked<'v, StructRef<'v>>,
     pub actions: ValueTyped<'v, AnalysisActions<'v>>,
     /// Only `None` when running a `dynamic_output` action from Bxl.
     label: Option<ValueTyped<'v, Label>>,
@@ -175,8 +175,7 @@ impl<'v> AnalysisContext<'v> {
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
     ) -> Self {
-        // Check the types match what the user expects.
-        assert!(StructRef::from_value(attrs).is_some());
+        let attrs = ValueOfUnchecked::new_checked(attrs).unwrap();
 
         Self {
             attrs,
@@ -248,7 +247,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// a `struct` containing a field `foo` of type string.
     #[starlark(attribute)]
     fn attrs<'v>(this: RefAnalysisContext) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
-        Ok(ValueOfUnchecked::new(this.0.attrs))
+        Ok(this.0.attrs)
     }
 
     /// Returns an `actions` value containing functions to define actual actions that are run.

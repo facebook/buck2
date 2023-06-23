@@ -73,6 +73,7 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
@@ -170,7 +171,8 @@ impl<'v> BxlContext<'v> {
             async_ctx: async_ctx.clone(),
             state: heap.alloc_typed(AnalysisActions {
                 state: RefCell::new(None),
-                attributes: heap.alloc(AllocStruct::EMPTY),
+                // TODO(nga): attributes struct should not be accessible to BXL.
+                attributes: ValueOfUnchecked::new_checked(heap.alloc(AllocStruct::EMPTY)).unwrap(),
                 digest_config,
             }),
             output_stream: heap.alloc_typed(OutputStream::new(
