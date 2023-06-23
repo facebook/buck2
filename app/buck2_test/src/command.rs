@@ -302,6 +302,10 @@ async fn test(
         force_run_from_project_root: options.force_run_from_project_root,
     });
 
+    let build_opts = request
+        .build_opts
+        .as_ref()
+        .expect("should have build options");
     let test_outcome = test_targets(
         ctx,
         resolved_pattern,
@@ -317,6 +321,7 @@ async fn test(
         session,
         cell_resolver,
         working_dir_cell,
+        build_opts.skip_incompatible_targets,
     )
     .await?;
 
@@ -388,6 +393,7 @@ async fn test_targets(
     session: TestSession,
     cell_resolver: CellResolver,
     working_dir_cell: CellName,
+    skip_incompatible_targets: bool,
 ) -> anyhow::Result<TestOutcome> {
     let session = Arc::new(session);
     let (liveliness_observer, _guard) = LivelinessGuard::create();
@@ -426,101 +432,103 @@ async fn test_targets(
 
     let (test_status_sender, test_status_receiver) = mpsc::unbounded();
 
-    let test_server =
-        tokio::spawn({
-            let test_status_sender = test_status_sender.clone();
-            with_dispatcher_async(
-                ctx.per_transaction_data().get_dispatcher().dupe(),
-                // NOTE: This is will cancel if the liveliness guard indicates we should.
-                async move {
-                    // Spawn our server to listen to the test runner's requests for execution.
+    let test_server = tokio::spawn({
+        let test_status_sender = test_status_sender.clone();
+        with_dispatcher_async(
+            ctx.per_transaction_data().get_dispatcher().dupe(),
+            // NOTE: This is will cancel if the liveliness guard indicates we should.
+            async move {
+                // Spawn our server to listen to the test runner's requests for execution.
 
-                    let local_resource_registry = Arc::new(LocalResourceRegistry::new());
+                let local_resource_registry = Arc::new(LocalResourceRegistry::new());
 
-                    let orchestrator = BuckTestOrchestrator::new(
-                        ctx.dupe(),
-                        session.dupe(),
-                        liveliness_observer.dupe(),
-                        test_status_sender,
-                        CancellationContext::never_cancelled(), // sending the orchestrator directly to be spawned by make_server, which never calls it.
-                        local_resource_registry.dupe(),
+                let orchestrator = BuckTestOrchestrator::new(
+                    ctx.dupe(),
+                    session.dupe(),
+                    liveliness_observer.dupe(),
+                    test_status_sender,
+                    CancellationContext::never_cancelled(), // sending the orchestrator directly to be spawned by make_server, which never calls it.
+                    local_resource_registry.dupe(),
+                )
+                .await
+                .context("Failed to create a BuckTestOrchestrator")?;
+
+                let server_handle = make_server(orchestrator, BuckTestDownwardApi);
+
+                let resolve_tests_platform_independently = ctx
+                    .parse_legacy_config_property(
+                        cell_resolver.root_cell(),
+                        "buck2",
+                        "independent_tests_platform_resolution",
                     )
-                    .await
-                    .context("Failed to create a BuckTestOrchestrator")?;
+                    .await?
+                    .unwrap_or(false);
 
-                    let server_handle = make_server(orchestrator, BuckTestDownwardApi);
+                let mut driver = TestDriver::new(TestDriverState {
+                    ctx: &ctx,
+                    label_filtering: &label_filtering,
+                    global_target_platform: &global_target_platform,
+                    session: &session,
+                    test_executor: &test_executor,
+                    cell_resolver: &cell_resolver,
+                    working_dir_cell,
+                    resolve_tests_platform_independently,
+                });
 
-                    let resolve_tests_platform_independently = ctx
-                        .parse_legacy_config_property(
-                            cell_resolver.root_cell(),
-                            "buck2",
-                            "independent_tests_platform_resolution",
-                        )
-                        .await?
-                        .unwrap_or(false);
+                driver.push_pattern(
+                    pattern
+                        .convert_pattern()
+                        .context("Test with explicit configuration pattern is not supported yet")?,
+                    skip_incompatible_targets,
+                );
 
-                    let mut driver = TestDriver::new(TestDriverState {
-                        ctx: &ctx,
-                        label_filtering: &label_filtering,
-                        global_target_platform: &global_target_platform,
-                        session: &session,
-                        test_executor: &test_executor,
-                        cell_resolver: &cell_resolver,
-                        working_dir_cell,
-                        resolve_tests_platform_independently,
-                    });
-
-                    driver.push_pattern(pattern.convert_pattern().context(
-                        "Test with explicit configuration pattern is not supported yet",
-                    )?);
-
-                    {
-                        let drive = driver.drive_to_completion();
-                        let alive = liveliness_observer.while_alive();
-                        futures::pin_mut!(drive);
-                        futures::pin_mut!(alive);
-                        match futures::future::select(drive, alive).await {
-                            futures::future::Either::Left(..) => {}
-                            futures::future::Either::Right(..) => {
-                                tracing::warn!("Test run was cancelled");
-                            }
+                {
+                    let drive = driver.drive_to_completion();
+                    let alive = liveliness_observer.while_alive();
+                    futures::pin_mut!(drive);
+                    futures::pin_mut!(alive);
+                    match futures::future::select(drive, alive).await {
+                        futures::future::Either::Left(..) => {}
+                        futures::future::Either::Right(..) => {
+                            tracing::warn!("Test run was cancelled");
                         }
                     }
+                }
 
-                    test_executor
-                        .end_of_test_requests()
-                        .await
-                        .context("Failed to notify test executor of end-of-tests")?;
+                test_executor
+                    .end_of_test_requests()
+                    .await
+                    .context("Failed to notify test executor of end-of-tests")?;
 
-                    // Wait for the tests to finish running.
+                // Wait for the tests to finish running.
 
-                    let test_statuses = test_status_receiver
-                        .try_fold(ExecutorReport::default(), |mut acc, result| {
-                            acc.ingest(&result);
-                            future::ready(Ok(acc))
-                        })
-                        .await
-                        .context("Did not receive all results from executor")?;
+                let test_statuses = test_status_receiver
+                    .try_fold(ExecutorReport::default(), |mut acc, result| {
+                        acc.ingest(&result);
+                        future::ready(Ok(acc))
+                    })
+                    .await
+                    .context("Did not receive all results from executor")?;
 
-                    // Shutdown our server. This is technically not *required* since dropping it would shut it
-                    // down implicitly, but let's do it anyway so we can collect any errors.
+                // Shutdown our server. This is technically not *required* since dropping it would shut it
+                // down implicitly, but let's do it anyway so we can collect any errors.
 
-                    server_handle
-                        .shutdown()
-                        .await
-                        .context("Failed to shutdown orchestrator")?;
+                server_handle
+                    .shutdown()
+                    .await
+                    .context("Failed to shutdown orchestrator")?;
 
-                    local_resource_registry
-                        .release_all_resources()
-                        .await
-                        .context("Failed to release local resources")?;
+                local_resource_registry
+                    .release_all_resources()
+                    .await
+                    .context("Failed to release local resources")?;
 
-                    // And finally return our results;
+                // And finally return our results;
 
-                    anyhow::Ok((driver.build_errors, test_statuses))
-                },
-            )
-        });
+                anyhow::Ok((driver.build_errors, test_statuses))
+            },
+        )
+    });
 
     let executor_output = executor_handle
         .await
@@ -557,6 +565,7 @@ enum TestDriverTask {
     InterpretTarget {
         package: PackageLabel,
         spec: PackageSpec<ProvidersPatternExtra>,
+        skip_incompatible_targets: bool,
     },
     ConfigureTargets {
         labels: Vec<ProvidersLabel>,
@@ -599,11 +608,16 @@ impl<'a, 'e> TestDriver<'a, 'e> {
     }
 
     /// Add new patterns for the test driver to process.
-    fn push_pattern(&mut self, pattern: ResolvedPattern<ProvidersPatternExtra>) {
+    fn push_pattern(
+        &mut self,
+        pattern: ResolvedPattern<ProvidersPatternExtra>,
+        skip_incompatible_targets: bool,
+    ) {
         for (package, spec) in pattern.specs.into_iter() {
             let fut = future::ready(anyhow::Ok(TestDriverTask::InterpretTarget {
                 package,
                 spec,
+                skip_incompatible_targets,
             }))
             .boxed();
 
@@ -615,8 +629,12 @@ impl<'a, 'e> TestDriver<'a, 'e> {
     async fn drive_to_completion(&mut self) {
         while let Some(task) = self.work.next().await {
             match task {
-                Ok(TestDriverTask::InterpretTarget { package, spec }) => {
-                    self.interpret_targets(package, spec);
+                Ok(TestDriverTask::InterpretTarget {
+                    package,
+                    spec,
+                    skip_incompatible_targets,
+                }) => {
+                    self.interpret_targets(package, spec, skip_incompatible_targets);
                 }
                 Ok(TestDriverTask::ConfigureTargets { labels, skippable }) => {
                     self.configure_targets(labels, skippable);
@@ -639,13 +657,15 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         &mut self,
         package: PackageLabel,
         spec: PackageSpec<ProvidersPatternExtra>,
+        skip_incompatible_targets: bool,
     ) {
         let state = self.state;
 
         self.work.push(
             async move {
                 let res = state.ctx.get_interpreter_results(package.dupe()).await?;
-                let SpecTargets { labels, skippable } = spec_to_targets(spec, res)?;
+                let SpecTargets { labels, skippable } =
+                    spec_to_targets(spec, res, skip_incompatible_targets)?;
 
                 let labels = labels.into_map(|(target_name, providers_pattern)| {
                     providers_pattern.into_providers_label(package.dupe(), target_name.as_ref())
@@ -750,8 +770,12 @@ struct SpecTargets {
 fn spec_to_targets(
     spec: PackageSpec<ProvidersPatternExtra>,
     res: Arc<EvaluationResult>,
+    skip_incompatible_targets: bool,
 ) -> anyhow::Result<SpecTargets> {
-    let skippable = matches!(spec, PackageSpec::All);
+    let skippable = match spec {
+        PackageSpec::Targets(..) => skip_incompatible_targets,
+        PackageSpec::All => true,
+    };
 
     let (targets, missing_targets) = res.apply_spec(spec);
     if let Some(missing_targets) = missing_targets {
