@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::fmt::Debug;
+use std::fmt::Formatter;
 use std::marker::PhantomData;
 
 use crate::typing::Ty;
@@ -34,6 +36,12 @@ use crate::values::Value;
 /// Providing incorrect type annotation will result
 /// in incorrect error reporting by the type checker.
 pub struct ValueOfUnchecked<'v, T: StarlarkTypeRepr>(Value<'v>, PhantomData<T>);
+
+impl<'v, T: StarlarkTypeRepr> Debug for ValueOfUnchecked<'v, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ValueOfUnchecked").field(&self.0).finish()
+    }
+}
 
 impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
     /// New.
