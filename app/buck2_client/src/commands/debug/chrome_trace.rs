@@ -700,6 +700,16 @@ impl ChromeTraceWriter {
                         self.span_counters.bump_counter_while_span(event, name, 1)?;
                         Categorization::ShowIfParent { name: name.into() }
                     }
+                    buck2_data::span_start_event::Data::FinalMaterialization(..) => {
+                        if on_critical_path {
+                            Categorization::Show {
+                                category: Self::CRITICAL_PATH,
+                                name: "materialization".into(),
+                            }
+                        } else {
+                            Categorization::Omit
+                        }
+                    }
                     buck2_data::span_start_event::Data::FileWatcher(_file_watcher) => {
                         Categorization::Show {
                             category: Self::CRITICAL_PATH,
