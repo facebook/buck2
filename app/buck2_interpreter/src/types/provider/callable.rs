@@ -22,6 +22,7 @@ use starlark::docs::DocReturn;
 use starlark::docs::DocString;
 use starlark::docs::DocType;
 use starlark::environment::GlobalsBuilder;
+use starlark::typing::Ty;
 use starlark::values::ValueLike;
 
 #[derive(Debug, thiserror::Error)]
@@ -109,7 +110,11 @@ pub trait ProviderCallableLike {
                     Some("Provides a number of fields that can be accessed:".to_owned()),
                 ];
                 for (name, member) in members {
-                    let typ = member.typ.map_or_else(|| "\"\"".to_owned(), |x| x.raw_type);
+                    let typ = member
+                        .typ
+                        .as_ref()
+                        .map_or(&Ty::Any, |x| &x.raw_type)
+                        .to_string();
                     let description = member.docs.map_or_else(
                         || "field".to_owned(),
                         |x| x.summary + &x.details.unwrap_or_default(),
@@ -123,7 +128,7 @@ pub trait ProviderCallableLike {
                 let ret = DocReturn {
                     docs: ret.docs,
                     typ: Some(DocType {
-                        raw_type: format!("{name}.type"),
+                        raw_type: Ty::name(&name),
                     }),
                 };
                 Some(DocItem::Function(DocFunction {

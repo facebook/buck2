@@ -41,6 +41,7 @@ use starlark::eval::ParametersSpec;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
+use starlark::typing::Ty;
 use starlark::values::dict::DictOf;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
@@ -152,14 +153,22 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
             .starlark_types()
             .into_iter()
             .enumerate()
-            .map(|(i, t)| (i, DocType { raw_type: t }))
+            .map(|(i, t)| {
+                (
+                    i,
+                    // TODO(nga): do not unwrap.
+                    DocType {
+                        raw_type: Ty::parse(&t).unwrap(),
+                    },
+                )
+            })
             .collect();
         let parameter_docs = self.attributes.docstrings();
         let function_docs = DocFunction::from_docstring(
             DocStringKind::Starlark,
             parameters_spec.documentation(parameter_types, parameter_docs),
             Some(DocType {
-                raw_type: Value::new_none().to_string(),
+                raw_type: Ty::none(),
             }),
             self.docs.as_deref(),
             None,

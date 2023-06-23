@@ -27,6 +27,7 @@ use starlark::docs::DocReturn;
 use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
 use starlark::docs::DocType;
+use starlark::typing::Ty;
 
 fn rule_tester() -> Tester {
     let mut tester = Tester::new().unwrap();
@@ -326,7 +327,8 @@ fn returns_documentation() -> anyhow::Result<()> {
             name: name.to_owned(),
             docs: DocString::from_docstring(DocStringKind::Starlark, &format!("{} docs", name)),
             typ: Some(DocType {
-                raw_type: type_string.to_owned(),
+                // TODO(nga): do not unwrap.
+                raw_type: Ty::parse(type_string).unwrap(),
             }),
             default_value: default.map(String::from),
         }
@@ -339,7 +341,14 @@ fn returns_documentation() -> anyhow::Result<()> {
             .starlark_types()
             .into_iter()
             .enumerate()
-            .map(|(i, ds)| (i, DocType { raw_type: ds }))
+            .map(|(i, ds)| {
+                (
+                    i,
+                    DocType {
+                        raw_type: Ty::parse(&ds).unwrap(),
+                    },
+                )
+            })
             .collect(),
         empty_spec.docstrings(),
     );
@@ -368,7 +377,7 @@ fn returns_documentation() -> anyhow::Result<()> {
         ret: DocReturn {
             docs: None,
             typ: Some(DocType {
-                raw_type: "None".to_owned(),
+                raw_type: Ty::none(),
             }),
         },
         dot_type: None,

@@ -788,6 +788,7 @@ mod tests {
     use crate::eval::compiler::def::FrozenDef;
     use crate::eval::runtime::params::ParameterKind;
     use crate::eval::ParametersSpec;
+    use crate::typing::Ty;
     use crate::values::FrozenValue;
 
     #[test]
@@ -865,7 +866,7 @@ mod tests {
                 name: "a".to_owned(),
                 docs: None,
                 typ: Some(DocType {
-                    raw_type: "int".to_owned(),
+                    raw_type: Ty::int(),
                 }),
                 default_value: Some("_".to_owned()),
             },
@@ -880,7 +881,7 @@ mod tests {
         types.insert(
             1,
             DocType {
-                raw_type: "int".to_owned(),
+                raw_type: Ty::int(),
             },
         );
         let mut docs = HashMap::new();

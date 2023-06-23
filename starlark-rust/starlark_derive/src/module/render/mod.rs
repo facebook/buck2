@@ -221,9 +221,8 @@ pub(crate) fn render_starlark_type(
             quote_spanned! {span=>
                 {
                     #[allow(clippy::extra_unused_lifetimes)]
-                    fn get_type_string #lifetimes() -> String {
-                        // TODO(nga): return `Ty`.
-                        <#typ as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr().to_string()
+                    fn get_type_string #lifetimes() -> starlark::typing::Ty {
+                        <#typ as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
                     }
                     get_type_string()
                 }
@@ -231,11 +230,7 @@ pub(crate) fn render_starlark_type(
         }
         Some(t) => {
             quote_spanned! {span=>
-                {
-                    // TODO(nga): return `Ty`.
-                    let ty = starlark::typing::Ty::parse(#t).unwrap();
-                    ty.to_string()
-                }
+                starlark::typing::Ty::parse(#t).unwrap()
             }
         }
     }
@@ -254,11 +249,9 @@ pub(crate) fn render_starlark_return_type(
             }
         }
         Some(t) => {
-            quote_spanned! {fun.span()=> {
-                // TODO(nga): return `Ty`.
-                let ty = starlark::typing::Ty::parse(#t).unwrap();
-                ty.to_string()
-            }}
+            quote_spanned! {fun.span()=>
+                starlark::typing::Ty::parse(#t).unwrap()
+            }
         }
     }
 }

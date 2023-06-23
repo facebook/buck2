@@ -551,14 +551,14 @@ impl<'v, T1: ValueLike<'v>> DefGen<T1> {
                 (
                     idx.0 as usize,
                     DocType {
-                        raw_type: TypeCompiled::to_string(ty),
+                        raw_type: ty.as_ty(),
                     },
                 )
             })
             .collect();
 
         let return_type = self.return_type.map(|r| DocType {
-            raw_type: TypeCompiled::to_string(&r),
+            raw_type: r.as_ty(),
         });
 
         let function_docs = DocFunction::from_docstring(

@@ -34,6 +34,6 @@ impl AttrTypeCoerce for LabelAttrType {
     }
 
     fn starlark_type(&self) -> String {
-        "label".to_owned()
+        "\"label\"".to_owned()
     }
 }

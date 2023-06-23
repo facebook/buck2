@@ -649,8 +649,8 @@ impl<'v> Value<'v> {
     }
 
     /// The literal string that a user would need to use this in type annotations.
-    pub fn get_type_starlark_repr(self) -> String {
-        self.get_ref().get_type_starlark_repr().to_string()
+    pub(crate) fn get_type_starlark_repr(self) -> Ty {
+        self.get_ref().get_type_starlark_repr()
     }
 
     /// Add two [`Value`]s together. Will first try using [`radd`](StarlarkValue::radd),

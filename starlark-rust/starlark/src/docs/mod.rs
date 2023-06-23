@@ -43,6 +43,7 @@ use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::StmtP;
+use crate::typing::Ty;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
@@ -338,10 +339,10 @@ pub struct Identifier {
 }
 
 /// The type of a given parameter, field, etc.
-#[derive(Debug, Clone, PartialEq, Serialize, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Serialize, Allocative)]
 pub struct DocType {
     /// The type string that one would find in a starlark expression.
-    pub raw_type: String,
+    pub raw_type: Ty,
 }
 
 /// Documents a full module.
@@ -1167,7 +1168,7 @@ mod tests {
 
         let kind = DocStringKind::Starlark;
         let return_type = Some(DocType {
-            raw_type: "int".to_owned(),
+            raw_type: Ty::int(),
         });
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),
@@ -1245,7 +1246,7 @@ mod tests {
 
         let kind = DocStringKind::Rust;
         let return_type = Some(DocType {
-            raw_type: "int".to_owned(),
+            raw_type: Ty::int(),
         });
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),

@@ -288,7 +288,7 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
     fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         fn raw_type(t: &Option<DocType>) -> String {
             match t {
-                Some(t) if !t.raw_type.is_empty() => t.raw_type.clone(),
+                Some(t) => t.raw_type.to_string(),
                 _ => "\"\"".to_owned(),
             }
         }

@@ -41,6 +41,7 @@ use crate::private::Private;
 use crate::starlark_complex_value;
 use crate::starlark_simple_value;
 use crate::starlark_type;
+use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
@@ -315,7 +316,7 @@ pub(crate) struct NativeAttribute {
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     pub(crate) docstring: Option<String>,
-    pub(crate) typ: String,
+    pub(crate) typ: Ty,
 }
 
 starlark_simple_value!(NativeAttribute);
@@ -347,7 +348,7 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
             .as_ref()
             .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
         let typ = Some(DocType {
-            raw_type: self.typ.to_owned(),
+            raw_type: self.typ.clone(),
         });
         Some(DocItem::Property(DocProperty { docs: ds, typ }))
     }

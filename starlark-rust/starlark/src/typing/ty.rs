@@ -885,7 +885,7 @@ impl Ty {
     pub(crate) fn from_docs_type(ty: &Option<DocType>) -> Self {
         match ty {
             None => Ty::Any,
-            Some(x) => Ty::parse(&x.raw_type).unwrap_or_else(|_| Ty::Any),
+            Some(x) => x.raw_type.clone(),
         }
     }
 

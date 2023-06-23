@@ -285,7 +285,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
             // https://github.com/rust-lang/rfcs/pull/2515
             // Until then we use this hack as a workaround.
             #[allow(dead_code)] // Function is not used when return type is specified explicitly.
-            fn return_type_starlark_type_repr() -> std::string::String {
+            fn return_type_starlark_type_repr() -> starlark::typing::Ty {
                 fn get_impl<'v, T: starlark::values::AllocValue<'v>>(
                     _f: fn(
                         #this_param_type
@@ -293,9 +293,8 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                         #eval_param_type
                         #heap_param_type
                     ) -> anyhow::Result<T>,
-                ) -> std::string::String {
-                    // TODO(nga): return `Ty`.
-                    <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr().to_string()
+                ) -> starlark::typing::Ty {
+                    <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
                 }
                 get_impl(Self::invoke_impl)
             }

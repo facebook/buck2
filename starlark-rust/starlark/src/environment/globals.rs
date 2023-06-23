@@ -34,6 +34,7 @@ use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::stdlib;
 pub use crate::stdlib::LibraryExtension;
+use crate::typing::Ty;
 use crate::values::function::NativeAttribute;
 use crate::values::function::NativeCallableRawDocs;
 use crate::values::function::NativeFunc;
@@ -387,7 +388,7 @@ impl MethodsBuilder {
             name,
             true,
             docstring,
-            value.to_value().describe(name),
+            Ty::name(value.to_value().get_type()),
             move |_, _| Ok(value.to_value()),
         );
     }
@@ -399,7 +400,7 @@ impl MethodsBuilder {
         name: &str,
         speculative_exec_safe: bool,
         docstring: Option<String>,
-        typ: String,
+        typ: Ty,
         f: F,
     ) where
         F: for<'v> Fn(Value<'v>, &'v Heap) -> anyhow::Result<Value<'v>> + Send + Sync + 'static,
