@@ -212,6 +212,7 @@ Sample:
     },
     "duration_millis": 0, # duration of the action in millis, excluding input materialization time
     "output_size": 10, # size in bytes of the action's outputs
+    "input_materialization_duration_millis": 0 # how long it took to materialize any inputs to the action
   },
   "epoch_millis": 123456789 # when the event was emitted
 }
