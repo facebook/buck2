@@ -169,6 +169,7 @@ pub struct NativeFunction {
     pub(crate) name: String,
     /// `.type` attribute.
     pub(crate) typ: Option<FrozenStringValue>,
+    pub(crate) ty: Option<Ty>,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
@@ -196,6 +197,7 @@ impl NativeFunction {
             function: Box::new(function),
             name,
             typ: None,
+            ty: None,
             speculative_exec_safe: false,
             raw_docs: None,
         }
@@ -266,6 +268,10 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         self.raw_docs
             .as_ref()
             .map(|raw_docs| DocItem::Function(raw_docs.documentation()))
+    }
+
+    fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
+        self.ty.clone()
     }
 }
 

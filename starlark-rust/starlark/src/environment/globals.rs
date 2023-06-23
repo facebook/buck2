@@ -300,6 +300,7 @@ impl GlobalsBuilder {
         speculative_exec_safe: bool,
         raw_docs: NativeCallableRawDocs,
         typ: Option<FrozenStringValue>,
+        ty: Option<Ty>,
         f: F,
     ) where
         F: NativeFunc,
@@ -311,6 +312,7 @@ impl GlobalsBuilder {
                 name: name.to_owned(),
                 speculative_exec_safe,
                 typ,
+                ty,
                 raw_docs: Some(raw_docs),
             },
         )

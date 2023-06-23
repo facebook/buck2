@@ -88,7 +88,6 @@ impl OracleDocs {
 
     pub(crate) fn builtin(&self, name: &str) -> Result<Ty, ()> {
         Ok(match name {
-            "zip" => Ty::special_function("zip", vec![Param::args(Ty::Any)], Ty::list(Ty::Any)),
             "struct" => Ty::special_function(
                 "struct",
                 vec![Param::kwargs(Ty::Any)],

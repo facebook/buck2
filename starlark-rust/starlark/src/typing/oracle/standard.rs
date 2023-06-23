@@ -279,25 +279,6 @@ impl TypingOracle for OracleStandard {
                 }
                 Some(Ok(Ty::Struct(TyStruct { fields, extra })))
             }
-            "zip" => {
-                let mut res = Vec::new();
-                for x in args {
-                    match x {
-                        Arg::Pos(x) => match self.attribute(x, TypingAttr::Iter) {
-                            Some(Err(_)) => {
-                                return Some(Err("Argument does not allow iteration".to_owned()));
-                            }
-                            Some(Ok(t)) => res.push(t),
-                            // We are only asking our own oracle, not all the oracles about the iter attribute.
-                            // So will get to this approximation even if an externally defined iterable type exists.
-                            None => res.push(Ty::Any),
-                        },
-                        Arg::Args(_) => return Some(Ok(Ty::name("tuple"))),
-                        _ => return Some(Err("Named arguments not allowed".to_owned())),
-                    }
-                }
-                Some(Ok(Ty::list(Ty::Tuple(res))))
-            }
             _ => None,
         }
     }

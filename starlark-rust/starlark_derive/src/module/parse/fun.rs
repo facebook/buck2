@@ -54,6 +54,7 @@ struct FnAttrs {
     is_attribute: bool,
     type_attribute: Option<Expr>,
     starlark_return_type: Option<Expr>,
+    starlark_ty_custom_function: Option<Expr>,
     speculative_exec_safe: bool,
     docstring: Option<String>,
     /// Rest attributes
@@ -180,11 +181,16 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
                 parser.parse::<Token![=]>()?;
                 attrs.starlark_return_type = Some(parser.parse::<Expr>()?);
                 continue;
+            } else if ident == "ty_custom_function" {
+                parser.parse::<Token![=]>()?;
+                attrs.starlark_ty_custom_function = Some(parser.parse::<Expr>()?);
+                continue;
             }
             return Err(syn::Error::new(
                 ident.span(),
                 "Expecting \
                     `#[starlark(type = \"ty\")]`, \
+                    `#[starlark(ty_custom_function = MyTy)]`, \
                     `#[starlark(attribute)]`, \
                     `#[starlark(return_type = \"type\")]`, \
                     `#[starlark(speculative_exec_safe)]` attribute",
@@ -273,6 +279,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
         speculative_exec_safe,
         docstring,
         starlark_return_type,
+        starlark_ty_custom_function,
         attrs,
     } = parse_fn_attrs(func.span(), func.attrs)?;
 
@@ -344,6 +351,12 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
                 "Attribute function `this` parameter have no default value",
             ));
         }
+        if starlark_ty_custom_function.is_some() {
+            return Err(syn::Error::new(
+                sig_span,
+                "Attribute function cannot types are not implemented",
+            ));
+        }
         Ok(StarStmt::Attr(StarAttr {
             name: func.sig.ident,
             arg: arg.ty,
@@ -365,6 +378,13 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
             ));
         }
 
+        if is_method && starlark_ty_custom_function.is_some() {
+            return Err(syn::Error::new(
+                sig_span,
+                "Custom types are not implemented for methods",
+            ));
+        }
+
         let source = resolve_args(&mut args)?;
 
         let fun = StarFun {
@@ -376,6 +396,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
             eval,
             return_type,
             starlark_return_type,
+            starlark_ty_custom_function,
             speculative_exec_safe,
             body: *func.block,
             source,

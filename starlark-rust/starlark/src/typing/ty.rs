@@ -310,13 +310,15 @@ impl TyUnion {
 /// Custom type implementation. [`Display`] must implement the representation of the type.
 pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync + 'static {
     fn as_name(&self) -> Option<&str>;
+    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String>;
 }
 
-trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {
+pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {
     fn eq_token(&self) -> PartialEqAny;
     fn cmp_token(&self) -> OrdAny;
     fn clone_box(&self) -> Box<dyn TyCustomDyn>;
     fn as_name(&self) -> Option<&str>;
+    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String>;
 }
 
 impl<T: TyCustomImpl> TyCustomDyn for T {
@@ -335,10 +337,14 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
     fn as_name(&self) -> Option<&str> {
         self.as_name()
     }
+
+    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String> {
+        self.validate_call(args, oracle)
+    }
 }
 
 #[derive(Debug, derive_more::Display, Allocative)]
-pub struct TyCustom(Box<dyn TyCustomDyn>);
+pub struct TyCustom(pub(crate) Box<dyn TyCustomDyn>);
 
 impl TyCustom {
     pub(crate) fn as_name(&self) -> Option<&str> {
@@ -369,6 +375,36 @@ impl Ord for TyCustom {
 impl Clone for TyCustom {
     fn clone(&self) -> TyCustom {
         TyCustom(self.0.clone_box())
+    }
+}
+
+/// Custom function typechecker.
+pub trait TyCustomFunctionImpl:
+    Clone + Debug + Eq + Ord + Allocative + Send + Sync + 'static
+{
+    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String>;
+}
+
+#[derive(
+    Allocative,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Debug,
+    Clone,
+    derive_more::Display
+)]
+#[display(fmt = "\"function\"")]
+pub struct TyCustomFunction<F: TyCustomFunctionImpl>(pub F);
+
+impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
+    fn as_name(&self) -> Option<&str> {
+        Some("function")
+    }
+
+    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String> {
+        self.0.validate_call(args, oracle)
     }
 }
 
@@ -665,6 +701,17 @@ impl Ty {
     /// Create a union of two entries.
     pub fn union2(a: Self, b: Self) -> Self {
         Self::unions(vec![a, b])
+    }
+
+    /// Create a custom type.
+    /// This is called from generated code.
+    pub fn custom(t: impl TyCustomImpl) -> Self {
+        Ty::Custom(TyCustom(Box::new(t)))
+    }
+
+    /// Create a custom function type.
+    pub fn custom_function(f: impl TyCustomFunctionImpl) -> Self {
+        Ty::custom(TyCustomFunction(f))
     }
 
     /// If I do `self[i]` what will the resulting type be.

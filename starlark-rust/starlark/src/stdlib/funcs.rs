@@ -22,6 +22,7 @@ use std::char;
 use std::cmp::Ordering;
 use std::num::NonZeroI32;
 
+use allocative::Allocative;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
@@ -29,6 +30,11 @@ use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::typing::ty::TyCustomFunctionImpl;
+use crate::typing::Arg;
+use crate::typing::Ty;
+use crate::typing::TypingAttr;
+use crate::typing::TypingOracle;
 use crate::values::bool::BOOL_TYPE;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
@@ -125,6 +131,42 @@ fn min_max<'v>(
         min_max_iter(it, key, eval, min)
     } else {
         min_max_iter(args.into_iter(), key, eval, min)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+struct ZipType;
+
+impl TyCustomFunctionImpl for ZipType {
+    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String> {
+        let mut iter_item_types: Vec<Ty> = Vec::new();
+        let mut seen_star_args = false;
+        for arg in args {
+            match arg {
+                Arg::Pos(pos) => match oracle.attribute(pos, TypingAttr::Iter) {
+                    Some(Err(_)) => {
+                        return Err("Argument does not allow iteration".to_owned());
+                    }
+                    Some(Ok(t)) => iter_item_types.push(t),
+                    None => iter_item_types.push(Ty::Any),
+                },
+                Arg::Name(_, _) => {
+                    return Err("`zip()` does not accept keyword arguments".to_owned());
+                }
+                Arg::Args(_) => {
+                    seen_star_args = true;
+                }
+                Arg::Kwargs(_) => {
+                    // `zip()` does not accept keyword args,
+                    // but if `**kwargs` is empty, the call is valid.
+                }
+            }
+        }
+        if seen_star_args {
+            Ok(Ty::list(Ty::Any))
+        } else {
+            Ok(Ty::list(Ty::Tuple(iter_item_types)))
+        }
     }
 }
 
@@ -1104,7 +1146,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// zip(range(5), "abc".elems())    == [(0, "a"), (1, "b"), (2, "c")]
     /// # "#);
     /// ```
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, ty_custom_function = ZipType)]
     fn zip<'v>(
         #[starlark(args)] args: Vec<Value<'v>>,
         heap: &'v Heap,

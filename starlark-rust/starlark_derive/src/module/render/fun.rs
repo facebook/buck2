@@ -54,6 +54,21 @@ impl StarFun {
         }
     }
 
+    fn ty_custom_expr(&self) -> TokenStream {
+        match &self.starlark_ty_custom_function {
+            Some(x) => quote_spanned! {
+                self.span()=>
+                std::option::Option::Some(starlark::typing::Ty::custom_function(#x))
+            },
+            None => {
+                quote_spanned! {
+                    self.span()=>
+                    std::option::Option::None
+                }
+            }
+        }
+    }
+
     fn type_str(&self) -> TokenStream {
         match &self.type_attribute {
             Some(x) => quote_spanned! {
@@ -203,6 +218,7 @@ impl StarFun {
         let name_str = self.name_str();
         let speculative_exec_safe = self.speculative_exec_safe;
         let typ = self.type_expr();
+        let ty_custom = self.ty_custom_expr();
         let struct_name = self.struct_name();
 
         if self.is_method() {
@@ -226,6 +242,7 @@ impl StarFun {
                     #speculative_exec_safe,
                     #documentation_var,
                     #typ,
+                    #ty_custom,
                     #struct_name {
                         #struct_fields_init
                     },

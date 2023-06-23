@@ -269,12 +269,10 @@ impl TypingContext<'_> {
                 Ok(Ty::Any)
             }
             Ty::Function(f) => self.validate_fn_call(span, f, args),
-            Ty::Custom(_) => Err(self.mk_error(
-                span,
-                TypingError::CallToNonCallable {
-                    ty: fun.to_string(),
-                },
-            )),
+            Ty::Custom(t) => {
+                t.0.validate_call(args, &self.oracle)
+                    .map_err(|e| EvalException::new(anyhow::Error::msg(e), span, self.codemap))
+            }
             Ty::Union(variants) => {
                 let mut successful = Vec::new();
                 let mut errors = Vec::new();
