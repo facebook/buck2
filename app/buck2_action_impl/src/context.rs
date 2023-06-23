@@ -579,6 +579,19 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///     * `metadata_path`: defines a path relative to the result directory for a file with action metadata, which will be created right before the command will be run.
     ///     * Metadata contains the path relative to the Buck2 project root and hash digest for every action input (this excludes symlinks as they could be resolved by a user script if needed). The resolved path relative to the Buck2 project for the metadata file will be passed to command from arguments, via the environment variable, with its name set by `metadata_env_var`
     ///     * Both `metadata_env_var` and `metadata_path` are useful when making actions behave in an incremental manner (for details, see [Incremental Actions](https://buck2.build/docs/rule_authors/incremental_actions/))
+    /// * The `prefer_local`, `prefer_remote` and `local_only` options allow selecting where the
+    /// action should run if the executor selected for this target is a hybrid executor.
+    ///     * All those options disable concurrent execution: the action will run on the preferred
+    ///     platform first (concurrent execution only happens with a "full" hybrid executor).
+    ///     * Execution may be retried on the "non-preferred" platform if it fails due to a
+    ///     transient error, except for `local_only`, which does not allow this.
+    ///     * If the executor selected is a remote-only executor and you use `local_only`, that's
+    ///     an error. The other options will not raise errors.
+    ///     * Setting more than one of those options is an error.
+    ///     * Those flags behave the same way as the equivalent `--prefer-remote`, `--prefer-local`
+    ///     and `--local-only` CLI flags. The CLI flags take precedence.
+    ///     * The `force_full_hybrid_if_capable` option overrides the `use_limited_hybrid` hybrid.
+    ///     The options listed above take precedence if set.
     fn run<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_CMD_ARG_LIKE)] arguments: Value<'v>,
