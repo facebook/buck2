@@ -156,6 +156,9 @@ pub struct DaemonStateData {
 
     /// Are we using buck-out as our cwd?
     pub cwd_buck_out: bool,
+
+    /// Did we enable eden I/O v2?
+    pub eden_io_v2: bool,
 }
 
 impl DaemonStateData {
@@ -488,6 +491,7 @@ impl DaemonState {
             enable_restarter,
             http_client,
             cwd_buck_out,
+            eden_io_v2,
         }))
     }
 
@@ -651,6 +655,7 @@ impl DaemonState {
                 data.disk_state_options.sqlite_materializer_state
             ),
             format!("cwd-buck-out:{}", data.cwd_buck_out),
+            format!("eden-io-v2:{}", data.eden_io_v2),
         ];
 
         dispatcher.instant_event(buck2_data::TagEvent { tags });
