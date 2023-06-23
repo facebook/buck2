@@ -65,8 +65,7 @@ impl EvalException {
         EvalException(Diagnostic::new(error, span, codemap))
     }
 
-    #[cfg(test)]
-    pub(crate) fn testing_loc(mut err: &anyhow::Error) -> crate::codemap::ResolvedFileSpan {
+    pub(crate) fn _testing_loc(mut err: &anyhow::Error) -> crate::codemap::ResolvedFileSpan {
         if let Some(eval_exc) = err.downcast_ref::<EvalException>() {
             err = &eval_exc.0;
         }

@@ -1,0 +1,13 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+x = zip([1,2], [True, False], ["a", "b"])
+
+No errors.
+
+Interfaces:
+x: [(int.type, bool.type, str.type)]

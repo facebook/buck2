@@ -1,0 +1,14 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+load("foo.bzl", "foo")
+res = [foo([])]
+
+No errors.
+
+Interfaces:
+res: [str.type]

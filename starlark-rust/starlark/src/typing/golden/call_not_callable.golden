@@ -1,0 +1,17 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+def foo(x: [""]):
+    x()
+
+Error:
+error: Call to a non-callable type `[""]`
+ --> filename:3:5
+  |
+3 |     x()
+  |     ^^^
+  |

@@ -409,8 +409,7 @@ pub(crate) struct LineCol {
 }
 
 impl LineCol {
-    #[cfg(test)]
-    fn testing_parse(line_col: &str) -> LineCol {
+    fn _testing_parse(line_col: &str) -> LineCol {
         let (line, col) = line_col.split_once(':').unwrap();
         LineCol {
             line: line.parse::<usize>().unwrap().checked_sub(1).unwrap(),
@@ -579,17 +578,16 @@ impl ResolvedSpan {
         }
     }
 
-    #[cfg(test)]
-    fn testing_parse(span: &str) -> ResolvedSpan {
+    fn _testing_parse(span: &str) -> ResolvedSpan {
         match span.split_once('-') {
             None => {
-                let line_col = LineCol::testing_parse(span);
+                let line_col = LineCol::_testing_parse(span);
                 ResolvedSpan::from_span(line_col, line_col)
             }
             Some((begin, end)) => {
-                let begin = LineCol::testing_parse(begin);
+                let begin = LineCol::_testing_parse(begin);
                 if end.contains(':') {
-                    let end = LineCol::testing_parse(end);
+                    let end = LineCol::_testing_parse(end);
                     ResolvedSpan::from_span(begin, end)
                 } else {
                     let end_col = end.parse::<usize>().unwrap().checked_sub(1).unwrap();
@@ -616,12 +614,11 @@ pub struct ResolvedFileSpan {
 }
 
 impl ResolvedFileSpan {
-    #[cfg(test)]
-    pub(crate) fn testing_parse(span: &str) -> ResolvedFileSpan {
+    pub(crate) fn _testing_parse(span: &str) -> ResolvedFileSpan {
         let (file, span) = span.split_once(':').unwrap();
         ResolvedFileSpan {
             file: file.to_owned(),
-            span: ResolvedSpan::testing_parse(span),
+            span: ResolvedSpan::_testing_parse(span),
         }
     }
 }

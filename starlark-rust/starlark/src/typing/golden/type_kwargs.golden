@@ -1,0 +1,18 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+def foo(**kwargs):
+    pass
+foo(**{1: "x"})
+
+Error:
+error: Expected type `{str.type: ""}` but got `{int.type: str.type}`
+ --> filename:4:7
+  |
+4 | foo(**{1: "x"})
+  |       ^^^^^^^^
+  |

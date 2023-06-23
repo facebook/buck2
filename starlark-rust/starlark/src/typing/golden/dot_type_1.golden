@@ -1,0 +1,26 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+def foo(x: list.type) -> bool.type:
+    return type(x) == []
+foo(True)
+
+Error:
+error: Expected type `[""]` but got `bool.type`
+ --> filename:4:1
+  |
+4 | foo(True)
+  | ^^^^^^^^^
+  |
+
+Error:
+error: Expected type `["never"]` but got `str.type`
+ --> filename:3:12
+  |
+3 |     return type(x) == []
+  |            ^^^^^^^^^^^^^
+  |

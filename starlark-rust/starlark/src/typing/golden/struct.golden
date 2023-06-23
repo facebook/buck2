@@ -1,0 +1,13 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+x = struct(a = 1, b = "test")
+
+No errors.
+
+Interfaces:
+x: struct(a = int.type, b = str.type)

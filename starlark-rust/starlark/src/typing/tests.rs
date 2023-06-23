@@ -16,23 +16,18 @@
  */
 
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::Write;
 
-use maplit::btreemap;
 use once_cell::sync::Lazy;
 
-use crate::codemap::ResolvedFileSpan;
 use crate::environment::Globals;
-use crate::eval::compiler::EvalException;
-use crate::slice_vec_ext::SliceExt;
-use crate::slice_vec_ext::VecExt;
 use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::tests::golden_test_template::golden_test_template;
 use crate::typing::oracle::traits::OracleNoAttributes;
 use crate::typing::oracle::traits::OracleSeq;
 use crate::typing::oracle::traits::TypingAttr;
-use crate::typing::ty::TyStruct;
 use crate::typing::Interface;
 use crate::typing::OracleDocs;
 use crate::typing::OracleStandard;
@@ -96,9 +91,7 @@ fn test_oracle() {
 
 #[derive(Default)]
 struct TypeCheck {
-    expect_errors: Vec<(String, ResolvedFileSpan)>,
-    expect_approximations: Vec<String>,
-    expect_interface: Vec<(String, Ty)>,
+    expect_interface: Vec<String>,
     loads: HashMap<String, Interface>,
 }
 
@@ -107,14 +100,8 @@ impl TypeCheck {
         Self::default()
     }
 
-    fn error(mut self, err: &str, loc: &str) -> Self {
-        self.expect_errors
-            .push((err.to_owned(), ResolvedFileSpan::testing_parse(loc)));
-        self
-    }
-
-    fn ty(mut self, name: &str, ty: Ty) -> Self {
-        self.expect_interface.push((name.to_owned(), ty));
+    fn ty(mut self, name: &str) -> Self {
+        self.expect_interface.push(name.to_owned());
         self
     }
 
@@ -123,53 +110,56 @@ impl TypeCheck {
         self
     }
 
-    fn check(&self, code: &str) -> Interface {
-        fn assert_list<T: Display>(got: Vec<T>, want: &[String]) {
-            let mut got = got.iter().map(|x| format!("{x:#}")).collect::<Vec<_>>();
-            let mut good = got.len() == want.len();
-            for w in want {
-                let before = got.len();
-                got.retain(|x| !x.contains(w));
-                good = good && before == got.len() + 1;
-            }
-            assert!(good, "Wanted:\n{want:?}\nGot:\n{got:?}");
-        }
-
-        fn assert_error_list(mut got: Vec<anyhow::Error>, want: &[(String, ResolvedFileSpan)]) {
-            let mut good = got.len() == want.len();
-            for (expect_err, expect_loc) in want {
-                let before = got.len();
-                got.retain(|x| {
-                    !(x.to_string().contains(expect_err)
-                        && EvalException::testing_loc(x) == *expect_loc)
-                });
-                good = good && before == got.len() + 1;
-            }
-
-            let want = want.map(|(err, loc)| (err, loc.to_string()));
-            let got = got.into_map(|x| {
-                let loc = EvalException::testing_loc(&x);
-                (x, loc.to_string())
-            });
-            assert!(good, "Wanted:\n{want:?}\nGot:\n{got:?}");
-        }
-
+    fn check(&self, test_name: &str, code: &str) -> Interface {
         let (errors, _, interface, approximations) =
             AstModule::parse("filename", code.to_owned(), &Dialect::Extended)
                 .unwrap()
                 .typecheck(&mk_oracle(), &Globals::extended(), &self.loads);
-        assert_list(approximations, &self.expect_approximations);
-        assert_error_list(errors, &self.expect_errors);
-        for (k, v) in &self.expect_interface {
-            assert_eq!(interface.get(k), Some(v));
+
+        let mut output = String::new();
+        writeln!(output, "Code:").unwrap();
+        writeln!(output, "{}", code.trim()).unwrap();
+        if errors.is_empty() {
+            writeln!(output).unwrap();
+            writeln!(output, "No errors.").unwrap();
+        } else {
+            for error in errors {
+                writeln!(output).unwrap();
+                writeln!(output, "Error:").unwrap();
+                // Note we are using `:#` here instead of `:?` because
+                // `:?` includes rust backtrace.
+                // The issue: https://github.com/dtolnay/anyhow/issues/300
+                writeln!(output, "{}", format!("{:#}", error).trim_end()).unwrap();
+            }
         }
+
+        if !approximations.is_empty() {
+            writeln!(output).unwrap();
+            writeln!(output, "Approximations:").unwrap();
+            for appox in approximations {
+                writeln!(output, "{}", appox).unwrap();
+            }
+        }
+
+        if !self.expect_interface.is_empty() {
+            writeln!(output).unwrap();
+            writeln!(output, "Interfaces:").unwrap();
+            for k in &self.expect_interface {
+                let intf = interface.get(k).expect("no interface for key");
+                writeln!(output, "{}: {}", k, intf).unwrap();
+            }
+        }
+
+        golden_test_template(&format!("src/typing/golden/{}.golden", test_name), &output);
+
         interface
     }
 }
 
 #[test]
 fn test_success() {
-    TypeCheck::default().ty("y", Ty::int()).check(
+    TypeCheck::default().ty("y").check(
+        "success",
         r#"
 def foo(x: str.type) -> str.type:
     return x.removeprefix("test")
@@ -180,116 +170,92 @@ y = hash(foo("magic"))
 
 #[test]
 fn test_failure() {
-    TypeCheck::new()
-        .error(
-            r#"Expected type `str.type` but got `int.type`"#,
-            "filename:1:1-8",
-        )
-        .check(r#"hash(1)"#);
+    TypeCheck::new().check("failure", r#"hash(1)"#);
 }
 
 #[test]
 fn test_load() {
     let interface = TypeCheck::new().check(
+        "load_0",
         r#"
 def foo(x: [bool.type]) -> str.type:
     return "test"
    "#,
     );
-    TypeCheck::new()
-        .load("foo.bzl", interface)
-        .ty("res", Ty::list(Ty::string()))
-        .check(
-            r#"
+    TypeCheck::new().load("foo.bzl", interface).ty("res").check(
+        "load_1",
+        r#"
 load("foo.bzl", "foo")
 res = [foo([])]
 "#,
-        );
+    );
 }
 
 /// Test things that have previous claimed incorrectly they were type errors
 #[test]
 fn test_false_negative() {
-    TypeCheck::new().check(r#"fail("Expected variable expansion in string: `{}`".format("x"))"#);
+    TypeCheck::new().check(
+        "false_negative",
+        r#"fail("Expected variable expansion in string: `{}`".format("x"))"#,
+    );
 }
 
 #[test]
 fn test_type_kwargs() {
-    TypeCheck::new()
-        .error(
-            r#"Expected type `{str.type: ""}` but got `{int.type: str.type}`"#,
-            "filename:4:7-15",
-        )
-        .check(
-            r#"
+    TypeCheck::new().check(
+        "type_kwargs",
+        r#"
 def foo(**kwargs):
     pass
 foo(**{1: "x"})
 "#,
-        );
+    );
 }
 
 #[test]
 fn test_dot_type() {
     TypeCheck::new().check(
+        "dot_type_0",
         r#"
 def foo(x: list.type) -> bool.type:
     return type(x) == list.type
 foo([1,2,3])
 "#,
     );
-    TypeCheck::new()
-        .error(
-            r#"Expected type `[""]` but got `bool.type`"#,
-            "filename:4:1-10",
-        )
-        .error(
-            r#"Expected type `["never"]` but got `str.type`"#,
-            "filename:3:12-25",
-        )
-        .check(
-            r#"
+    TypeCheck::new().check(
+        "dot_type_1",
+        r#"
 def foo(x: list.type) -> bool.type:
     return type(x) == []
 foo(True)
 "#,
-        );
+    );
 }
 
 #[test]
 fn test_special_function_zip() {
-    TypeCheck::new()
-        .ty(
-            "x",
-            Ty::list(Ty::Tuple(vec![Ty::int(), Ty::bool(), Ty::string()])),
-        )
-        .check(
-            r#"
+    TypeCheck::new().ty("x").check(
+        "zip",
+        r#"
 x = zip([1,2], [True, False], ["a", "b"])
 "#,
-        );
+    );
 }
 
 #[test]
 fn test_special_function_struct() {
-    TypeCheck::new()
-        .ty(
-            "x",
-            Ty::Struct(TyStruct {
-                fields: btreemap! {"a".to_owned() => Ty::int(), "b".to_owned() => Ty::string()},
-                extra: false,
-            }),
-        )
-        .check(
-            r#"
+    TypeCheck::new().ty("x").check(
+        "struct",
+        r#"
 x = struct(a = 1, b = "test")
 "#,
-        );
+    );
 }
 
 #[test]
 fn test_call_callable() {
     TypeCheck::new().check(
+        "call_callable",
         r#"
 def foo(x: "function"):
     x()
@@ -299,19 +265,19 @@ def foo(x: "function"):
 
 #[test]
 fn test_call_not_callable() {
-    TypeCheck::new()
-        .error("Call to a non-callable type `[\"\"]`", "filename:3:5-8")
-        .check(
-            r#"
+    TypeCheck::new().check(
+        "call_not_callable",
+        r#"
 def foo(x: [""]):
     x()
 "#,
-        );
+    );
 }
 
 #[test]
 fn test_call_unknown() {
     TypeCheck::new().check(
+        "call_unknown",
         r#"
 def foo(x: "unknown"):
     x()
@@ -322,6 +288,7 @@ def foo(x: "unknown"):
 #[test]
 fn test_call_callable_or_not_callable() {
     TypeCheck::new().check(
+        "call_callable_or_not_callable",
         r#"
 def foo(x: ["function", str.type], y: [str.type, "function"]):
     x()
@@ -333,6 +300,7 @@ def foo(x: ["function", str.type], y: [str.type, "function"]):
 #[test]
 fn test_call_callable_or_unknown() {
     TypeCheck::new().check(
+        "call_callable_or_unknown",
         r#"
 def foo(x: ["function", "unknown"], y: ["unknown", "function"]):
     x()
@@ -344,6 +312,7 @@ def foo(x: ["function", "unknown"], y: ["unknown", "function"]):
 #[test]
 fn test_call_not_callable_or_unknown() {
     TypeCheck::new().check(
+        "call_not_callable_or_unknown",
         r#"
 def foo(x: [str.type, "unknown"], y: ["unknown", str.type]):
     x()
