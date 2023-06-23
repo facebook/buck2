@@ -22,6 +22,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkOutputOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -66,6 +67,7 @@ use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -264,14 +266,15 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///     * An artifact will be written as a string containing the path
     ///     * A command line will be written as a list of strings, unless `joined=True` is set, in which case it will be a string
     /// * If you pass `with_inputs = True`, you'll get back a `cmd_args` that expands to the JSON file but carries all the underlying inputs as dependencies (so you don't have to use, for example, `hidden` for them to be added to an action that already receives the JSON file)
-    #[starlark(return_type = "[\"artifact\", \"cmd_args\"]")]
     fn write_json<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
         #[starlark(require = pos)] content: Value<'v>,
         #[starlark(require = named, default = false)] with_inputs: bool,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<
+        Either<ValueTyped<'v, StarlarkDeclaredArtifact>, ValueOfUnchecked<'v, CommandLineArg<'v>>>,
+    > {
         let mut this = this.state();
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, "output", OutputType::File)?;
@@ -284,16 +287,16 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             Some(content),
         )?;
 
-        let value = declaration
-            .into_declared_artifact(AssociatedArtifacts::new())
-            .to_value();
+        let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
         // TODO(cjhopman): The with_inputs thing can go away once we have artifact dependencies (we'll still
         // need the UnregisteredWriteJsonAction::cli() to represent the dependency though).
         if with_inputs {
-            let cli = UnregisteredWriteJsonAction::cli(value, content)?;
-            Ok(eval.heap().alloc(cli))
+            let cli = UnregisteredWriteJsonAction::cli(value.to_value(), content)?;
+            // Note we are using `ValueOfUnchecked` here because
+            // we want to declare return type as `cmd_args`, not `write_json_cli_args`.
+            Ok(Either::Right(ValueOfUnchecked::new(eval.heap().alloc(cli))))
         } else {
-            Ok(value)
+            Ok(Either::Left(value))
         }
     }
 

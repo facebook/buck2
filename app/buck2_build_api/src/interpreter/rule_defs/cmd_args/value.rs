@@ -14,6 +14,8 @@ use dupe::Dupe;
 use serde::Serializer;
 use starlark::__derive_refs::serde::Serialize;
 use starlark::coerce::Coerce;
+use starlark::typing::Ty;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -49,7 +51,7 @@ where
 )]
 #[serde(transparent)]
 #[repr(transparent)]
-pub(crate) struct CommandLineArg<'v>(#[serde(serialize_with = "serialize_as_display")] Value<'v>);
+pub struct CommandLineArg<'v>(#[serde(serialize_with = "serialize_as_display")] Value<'v>);
 
 impl<'v> Freeze for CommandLineArg<'v> {
     type Frozen = FrozenCommandLineArg;
@@ -69,6 +71,12 @@ impl<'v> CommandLineArg<'v> {
         self.0
             .as_command_line_err()
             .expect("checked type in constructor")
+    }
+}
+
+impl<'v> StarlarkTypeRepr for CommandLineArg<'v> {
+    fn starlark_type_repr() -> Ty {
+        Ty::name("cmd_args")
     }
 }
 
