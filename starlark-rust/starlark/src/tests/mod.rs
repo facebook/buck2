@@ -26,6 +26,7 @@ mod docs;
 mod for_loop;
 mod freeze_access_value;
 mod go;
+pub(crate) mod golden_test_template;
 mod interop;
 mod opt;
 mod runtime;

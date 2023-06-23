@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-use std::env;
 use std::fmt::Write;
-use std::fs;
 use std::mem;
-
-use anyhow::Context;
 
 use crate::assert::Assert;
 use crate::eval::compiler::def::FrozenDef;
+use crate::tests::golden_test_template::golden_test_template;
 
-const REGENERATE_VAR_NAME: &str = "STARLARK_RUST_REGENERATE_BC_TESTS";
-
-#[allow(clippy::write_literal)] // We mark generated files as generated, but not this file.
-fn make_golden(program: &str) -> String {
+fn test_function_bytecode(program: &str) -> String {
     let program = program.trim();
 
     let mut a = Assert::new();
@@ -40,16 +34,6 @@ fn make_golden(program: &str) -> String {
         .unwrap();
 
     let mut golden = String::new();
-    writeln!(golden, "# {at}generated", at = "@").unwrap();
-    writeln!(golden, "# To regenerate, run:").unwrap();
-    writeln!(golden, "# ```").unwrap();
-    writeln!(
-        golden,
-        "# {REGENERATE_VAR_NAME}=1 cargo test -p starlark --lib tests"
-    )
-    .unwrap();
-    writeln!(golden, "# ```").unwrap();
-    writeln!(golden).unwrap();
     writeln!(golden, "{}", program).unwrap();
     writeln!(golden).unwrap();
     writeln!(golden, "# Bytecode:").unwrap();
@@ -61,28 +45,11 @@ fn make_golden(program: &str) -> String {
 pub(crate) fn bc_golden_test(test_name: &str, program: &str) {
     if mem::size_of::<usize>() != mem::size_of::<u64>() {
         // Bytecode addresses are different on 32-bit platforms.
+        // TODO(nga): still run evaluation on 32-bit platforms, without comparison.
         return;
     }
 
-    let manifest_dir =
-        env::var("CARGO_MANIFEST_DIR").expect("`CARGO_MANIFEST_DIR` variable must be set");
+    let output = test_function_bytecode(program);
 
-    let golden_file_name = format!("{manifest_dir}/src/tests/bc/golden/{test_name}.golden");
-
-    let actual = make_golden(program);
-    if env::var(REGENERATE_VAR_NAME).is_ok() {
-        fs::write(golden_file_name, &actual).unwrap();
-    } else {
-        let expected = fs::read_to_string(&golden_file_name)
-            .with_context(|| format!("Reading `{golden_file_name}`"))
-            .unwrap();
-        let expected = if cfg!(target_os = "windows") {
-            // Git may check out files on Windows with \r\n as line separator.
-            // We could configure git, but it's more reliable to handle it in the test.
-            expected.replace("\r\n", "\n")
-        } else {
-            expected
-        };
-        assert_eq!(expected, actual);
-    }
+    golden_test_template(&format!("src/tests/bc/golden/{test_name}.golden"), &output);
 }

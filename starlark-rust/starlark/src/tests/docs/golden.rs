@@ -15,60 +15,19 @@
  * limitations under the License.
  */
 
-use std::env;
-use std::fmt::Write;
-use std::fs;
-
-use anyhow::Context;
-
 use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::MarkdownFlavor;
 use crate::docs::RenderMarkdown;
-
-const REGENERATE_VAR_NAME: &str = "STARLARK_RUST_REGENERATE_DOC_TESTS";
-
-#[allow(clippy::write_literal)] // We mark generated files as generated, but not this file.
-fn make_golden(item: DocItem) -> String {
-    let doc = Doc::named_item("name".to_owned(), item);
-    let markdown = doc.render_markdown(MarkdownFlavor::DocFile);
-
-    let mut golden = String::new();
-    writeln!(golden, "# {at}generated", at = "@").unwrap();
-    writeln!(golden, "# To regenerate, run:").unwrap();
-    writeln!(golden, "# ```").unwrap();
-    writeln!(
-        golden,
-        "# {REGENERATE_VAR_NAME}=1 cargo test -p starlark --lib tests"
-    )
-    .unwrap();
-    writeln!(golden, "# ```").unwrap();
-    writeln!(golden).unwrap();
-    writeln!(golden, "{}", markdown).unwrap();
-    golden
-}
+use crate::tests::golden_test_template::golden_test_template;
 
 pub(crate) fn docs_golden_test(test_name: &str, doc: DocItem) -> String {
-    let manifest_dir =
-        env::var("CARGO_MANIFEST_DIR").expect("`CARGO_MANIFEST_DIR` variable must be set");
+    let output = Doc::named_item("name".to_owned(), doc).render_markdown(MarkdownFlavor::DocFile);
 
-    let golden_file_name = format!("{manifest_dir}/src/tests/docs/golden/{test_name}.golden.md");
+    golden_test_template(
+        &format!("src/tests/docs/golden/{test_name}.golden.md"),
+        &output,
+    );
 
-    let actual = make_golden(doc);
-    if env::var(REGENERATE_VAR_NAME).is_ok() {
-        fs::write(golden_file_name, &actual).unwrap();
-    } else {
-        let expected = fs::read_to_string(&golden_file_name)
-            .with_context(|| format!("Reading `{golden_file_name}`"))
-            .unwrap();
-        let expected = if cfg!(target_os = "windows") {
-            // Git may check out files on Windows with \r\n as line separator.
-            // We could configure git, but it's more reliable to handle it in the test.
-            expected.replace("\r\n", "\n")
-        } else {
-            expected
-        };
-        assert_eq!(expected, actual);
-    }
-    actual
+    output
 }
