@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::any;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -315,7 +316,8 @@ pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync
 
 pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {
     fn eq_token(&self) -> PartialEqAny;
-    fn cmp_token(&self) -> OrdAny;
+    fn cmp_token(&self) -> (OrdAny, &'static str);
+
     fn clone_box(&self) -> Box<dyn TyCustomDyn>;
     fn as_name(&self) -> Option<&str>;
     fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String>;
@@ -326,8 +328,8 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         PartialEqAny::new(self)
     }
 
-    fn cmp_token(&self) -> OrdAny {
-        OrdAny::new(self)
+    fn cmp_token(&self) -> (OrdAny, &'static str) {
+        (OrdAny::new(self), any::type_name::<Self>())
     }
 
     fn clone_box(&self) -> Box<dyn TyCustomDyn> {
@@ -368,7 +370,21 @@ impl PartialOrd for TyCustom {
 
 impl Ord for TyCustom {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.0.cmp_token().cmp(&other.0.cmp_token())
+        let (a_cmp, a_type_name) = self.0.cmp_token();
+        let (b_cmp, b_type_name) = other.0.cmp_token();
+
+        // Type ids are comparable, but we want comparison independent of hashing.
+        if a_cmp.type_id() != b_cmp.type_id() {
+            let type_name_cmp = a_type_name.cmp(b_type_name);
+            if type_name_cmp != Ordering::Equal {
+                return type_name_cmp;
+            }
+
+            // This is unreachable: if the type names are the same,
+            // the type ids should be the same.
+        }
+
+        a_cmp.cmp(&b_cmp)
     }
 }
 
