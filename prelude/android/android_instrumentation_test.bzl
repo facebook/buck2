@@ -74,8 +74,7 @@ def android_instrumentation_test_impl(ctx: "context"):
         type = "android_instrumentation",
         command = cmd,
         env = ctx.attrs.env,
-        # TODO(T122022107) support static listing
-        labels = ctx.attrs.labels + ["tpx::dynamic_listing_instrumentation_test"],
+        labels = ctx.attrs.labels,
         contacts = ctx.attrs.contacts,
         run_from_project_root = True,
         use_project_relative_paths = True,
@@ -89,7 +88,14 @@ def android_instrumentation_test_impl(ctx: "context"):
                 },
                 remote_execution_use_case = "instrumentation-tests",
             ),
-            "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
+            "static-listing": CommandExecutorConfig(
+                local_enabled = True,
+                remote_enabled = True,
+                remote_execution_properties = {
+                    "platform": "linux-remote-execution",
+                },
+                remote_execution_use_case = "buck2-default",
+            ),
         },
         local_resources = {
             "android_emulator": None,
