@@ -322,14 +322,11 @@ fn returns_documentation() -> anyhow::Result<()> {
         "#
     );
 
-    fn arg(name: &str, type_string: &str, default: Option<&str>) -> DocParam {
+    fn arg(name: &str, raw_type: Ty, default: Option<&str>) -> DocParam {
         DocParam::Arg {
             name: name.to_owned(),
             docs: DocString::from_docstring(DocStringKind::Starlark, &format!("{} docs", name)),
-            typ: Some(DocType {
-                // TODO(nga): do not unwrap.
-                raw_type: Ty::parse(type_string).unwrap(),
-            }),
+            typ: Some(DocType { raw_type }),
             default_value: default.map(String::from),
         }
     }
@@ -346,19 +343,19 @@ fn returns_documentation() -> anyhow::Result<()> {
         empty_spec.docstrings(),
     );
     params.extend(vec![
-        arg("any", "\"\"", None),
-        arg("arg", "str.type", Some("_")),
-        arg("bool", "bool.type", Some("_")),
-        arg("default_only", "str.type", Some("_")),
-        arg("dep", "str.type", Some("_")),
-        arg("dict", "{str.type: bool.type}", Some("_")),
-        arg("list", "[str.type]", Some("_")),
-        arg("one_of", "[bool.type, str.type]", Some("_")),
-        arg("option", "[None, str.type]", Some("_")),
-        arg("query", "str.type", None),
-        arg("source", "str.type", Some("_")),
-        arg("string", "str.type", Some("_")),
-        arg("tuple", "(bool.type, str.type)", Some("_")),
+        arg("any", Ty::Any, None),
+        arg("arg", Ty::string(), Some("_")),
+        arg("bool", Ty::bool(), Some("_")),
+        arg("default_only", Ty::string(), Some("_")),
+        arg("dep", Ty::string(), Some("_")),
+        arg("dict", Ty::dict(Ty::string(), Ty::bool()), Some("_")),
+        arg("list", Ty::list(Ty::string()), Some("_")),
+        arg("one_of", Ty::union2(Ty::bool(), Ty::string()), Some("_")),
+        arg("option", Ty::union2(Ty::none(), Ty::string()), Some("_")),
+        arg("query", Ty::string(), None),
+        arg("source", Ty::string(), Some("_")),
+        arg("string", Ty::string(), Some("_")),
+        arg("tuple", Ty::tuple2(Ty::bool(), Ty::string()), Some("_")),
     ]);
 
     let expected_docs = DocItem::Function(DocFunction {
