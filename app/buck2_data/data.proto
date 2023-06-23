@@ -184,7 +184,7 @@ message InstantEvent {
     TagEvent tag_event = 14;
 
     // Sent when the target pattern gets resolved to update the invocation info
-    ResolvedTargetPatterns target_patterns = 15;
+    ParsedTargetPatterns target_patterns = 15;
 
     // Check DICE equality in critical section
     DiceEqualityCheck dice_equality_check = 16;
@@ -1483,7 +1483,7 @@ message TagEvent {
 // directly provided to the buck2 command-line; rather, these patterns have
 // been disambiguated using the client's working directory and cell
 // configuration.
-message ResolvedTargetPatterns {
+message ParsedTargetPatterns {
   repeated TargetPattern target_patterns = 1;
 }
 
@@ -1546,8 +1546,8 @@ message InvocationRecord {
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
   CommandCriticalEnd command_critical_end = 28;
-  // The target pattern for the command, fully resolved
-  ResolvedTargetPatterns resolved_target_patterns = 29;
+  // Resolved target pattern for the command. Codebase considers these "parsed."
+  ParsedTargetPatterns parsed_target_patterns = 29;
   // Whether repository is Eden filesystem / mount (EdenFS)
   string filesystem = 30;
   // Test session

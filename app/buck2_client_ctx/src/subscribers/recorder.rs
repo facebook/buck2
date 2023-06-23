@@ -83,7 +83,7 @@ mod imp {
         min_build_count_since_rebase: u64,
         cache_upload_count: u64,
         cache_upload_attempt_count: u64,
-        resolved_target_patterns: Option<buck2_data::ResolvedTargetPatterns>,
+        parsed_target_patterns: Option<buck2_data::ParsedTargetPatterns>,
         #[allow(dead_code)]
         invocation_root_path: AbsNormPathBuf,
         filesystem: Option<String>,
@@ -180,7 +180,7 @@ mod imp {
                 min_build_count_since_rebase: 0,
                 cache_upload_count: 0,
                 cache_upload_attempt_count: 0,
-                resolved_target_patterns: None,
+                parsed_target_patterns: None,
                 invocation_root_path,
                 filesystem: None,
                 watchman_version: None,
@@ -242,7 +242,7 @@ mod imp {
                         .build_count_manager
                         .min_build_count(
                             merge_base,
-                            self.resolved_target_patterns
+                            self.parsed_target_patterns
                                 .as_ref()
                                 .map_or(target_patterns, |d| &d.target_patterns[..]),
                         )
@@ -311,7 +311,7 @@ mod imp {
                 min_build_count_since_rebase: self.min_build_count_since_rebase,
                 cache_upload_count: self.cache_upload_count,
                 cache_upload_attempt_count: self.cache_upload_attempt_count,
-                resolved_target_patterns: self.resolved_target_patterns.take(),
+                parsed_target_patterns: self.parsed_target_patterns.take(),
                 filesystem: self.filesystem.take().unwrap_or_default(),
                 watchman_version: self.watchman_version.take(),
                 eden_version: self.eden_version.take(),
@@ -806,11 +806,11 @@ mod imp {
             Ok(())
         }
 
-        fn handle_resolved_target_patterns(
+        fn handle_parsed_target_patterns(
             &mut self,
-            patterns: &buck2_data::ResolvedTargetPatterns,
+            patterns: &buck2_data::ParsedTargetPatterns,
         ) -> anyhow::Result<()> {
-            self.resolved_target_patterns = Some(patterns.clone());
+            self.parsed_target_patterns = Some(patterns.clone());
             Ok(())
         }
 
@@ -941,7 +941,7 @@ mod imp {
                             self.handle_io_provider_info(io_provider_info)
                         }
                         buck2_data::instant_event::Data::TargetPatterns(tag) => {
-                            self.handle_resolved_target_patterns(tag)
+                            self.handle_parsed_target_patterns(tag)
                         }
                         buck2_data::instant_event::Data::MaterializerStateInfo(
                             materializer_state,

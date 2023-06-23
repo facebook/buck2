@@ -906,7 +906,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         });
 
         self.events()
-            .instant_event(buck2_data::ResolvedTargetPatterns {
+            .instant_event(buck2_data::ParsedTargetPatterns {
                 target_patterns: patterns,
             })
     }

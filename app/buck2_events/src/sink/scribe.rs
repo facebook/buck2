@@ -187,7 +187,7 @@ mod fbcode {
                             Self::truncate_file_watcher_stats(file_watcher_stats);
                         }
                         if let Some(ref mut resolved_target_patterns) =
-                            invocation_record.resolved_target_patterns
+                            invocation_record.parsed_target_patterns
                         {
                             Self::truncate_target_patterns(
                                 &mut resolved_target_patterns.target_patterns,
@@ -449,11 +449,11 @@ mod fbcode {
             let resolved_target_patterns = vec![buck2_data::TargetPattern {
                 value: "some_resolved_target".to_owned(),
             }];
-            record.resolved_target_patterns = Some(buck2_data::ResolvedTargetPatterns {
+            record.parsed_target_patterns = Some(buck2_data::ParsedTargetPatterns {
                 target_patterns: resolved_target_patterns.clone(),
             });
             // resolved_target_patterns is expected to be unchanged.
-            record_expected.resolved_target_patterns = Some(buck2_data::ResolvedTargetPatterns {
+            record_expected.parsed_target_patterns = Some(buck2_data::ParsedTargetPatterns {
                 target_patterns: resolved_target_patterns,
             });
 
@@ -478,8 +478,8 @@ mod fbcode {
             let mut record = buck2_data::InvocationRecord::default();
             let mut record_expected = record.clone();
 
-            record.resolved_target_patterns = None;
-            record_expected.resolved_target_patterns = None;
+            record.parsed_target_patterns = None;
+            record_expected.parsed_target_patterns = None;
 
             let unresolved_target_patterns = vec![buck2_data::TargetPattern {
                 value: "some_unresolved_target".to_owned(),
