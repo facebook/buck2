@@ -469,7 +469,6 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// `target_platform` - The intended target platform for your toolchains
     /// `exec_compatible_with` - Explicit list of configuration nodes (like platforms or constraints)
     /// that these actions are compatible with. This is the 'exec_compatible_with' attribute of a target.
-    #[starlark(return_type = "\"bxl_actions\"")]
     fn bxl_actions<'v>(
         this: &'v BxlContext<'v>,
         #[starlark(require = named, default = NoneType)] exec_deps: Value<'v>,
@@ -477,7 +476,7 @@ fn register_context(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneType)] target_platform: Value<'v>,
         #[starlark(require = named, default = NoneType)] exec_compatible_with: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<BxlActions<'v>> {
         let execution_resolution = this.async_ctx.via_dice(|ctx| async {
             let target_platform = target_platform.parse_target_platforms(
                 &this.target_alias_resolver,
@@ -559,9 +558,7 @@ fn register_context(builder: &mut MethodsBuilder) {
                 .collect::<anyhow::Result<_>>()?,
         ));
 
-        Ok(eval
-            .heap()
-            .alloc(BxlActions::new(this.state, exec_deps, toolchains)))
+        Ok(BxlActions::new(this.state, exec_deps, toolchains))
     }
 
     /// Returns the action context for creating and running actions.
