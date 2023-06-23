@@ -25,6 +25,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::dict::Dict;
+use starlark::values::starlark_value;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -55,9 +56,8 @@ impl StarlarkArtifactValue {
     }
 }
 
+#[starlark_value(type = "artifact_value")]
 impl<'v> StarlarkValue<'v> for StarlarkArtifactValue {
-    starlark_type!("artifact_value");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(artifact_value_methods)

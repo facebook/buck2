@@ -27,6 +27,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersParser;
+use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::FrozenRef;
@@ -77,12 +78,11 @@ impl<'v, V: ValueLike<'v>> Display for UserProviderGen<'v, V> {
     }
 }
 
+#[starlark_value(type = "provider")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for UserProviderGen<'v, V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("provider");
-
     fn matches_type(&self, ty: &str) -> bool {
         ty == "provider" || ty == self.callable.provider_id.name
     }

@@ -36,8 +36,8 @@ use starlark::docs::StarlarkDocs;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::starlark_type;
 use starlark::values::list::ListRef;
+use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -414,9 +414,8 @@ impl<'v> StarlarkCommandLine<'v> {
     }
 }
 
+#[starlark_value(type = "cmd_args")]
 impl<'v> StarlarkValue<'v> for StarlarkCommandLine<'v> {
-    starlark_type!("cmd_args");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(command_line_builder_methods)
@@ -427,9 +426,8 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandLine<'v> {
     }
 }
 
+#[starlark_value(type = "cmd_args")]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkCommandLine {
-    starlark_type!("cmd_args");
-
     fn get_methods() -> Option<&'static Methods> {
         // We return the same methods for frozen command lines, even though some of them fail,
         // so the methods remain consistent during freezing
@@ -801,9 +799,8 @@ impl Display for StarlarkCommandLineInputs {
     }
 }
 
+#[starlark_value(type = "command_line_inputs")]
 impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
-    starlark_type!("command_line_inputs");
-
     fn length(&self) -> anyhow::Result<i32> {
         Ok(self.inputs.len().try_into()?)
     }

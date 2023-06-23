@@ -25,7 +25,7 @@ use starlark::docs::StarlarkDocs;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -84,12 +84,11 @@ impl Label {
     }
 }
 
+#[starlark_value(type = "label")]
 impl<'v> StarlarkValue<'v> for Label
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("label");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(configured_label_methods)
@@ -205,12 +204,11 @@ impl StarlarkProvidersLabel {
     }
 }
 
+#[starlark_value(type = "providers_label")]
 impl<'v> StarlarkValue<'v> for StarlarkProvidersLabel
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("providers_label");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(label_methods)

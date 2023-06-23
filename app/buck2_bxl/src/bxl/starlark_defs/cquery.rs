@@ -27,9 +27,9 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::starlark_type;
 use starlark::typing::Ty;
 use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -73,9 +73,8 @@ pub struct StarlarkCQueryCtx<'v> {
     target_platform: Option<TargetLabel>,
 }
 
+#[starlark_value(type = "cqueryctx")]
 impl<'v> StarlarkValue<'v> for StarlarkCQueryCtx<'v> {
-    starlark_type!("cqueryctx");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(register_cquery)

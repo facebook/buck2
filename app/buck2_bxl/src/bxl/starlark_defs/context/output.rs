@@ -37,13 +37,13 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
-use starlark::starlark_type;
 use starlark::typing::Ty;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
 use starlark::values::record::Record;
+use starlark::values::starlark_value;
 use starlark::values::structs::StructRef;
 use starlark::values::tuple::TupleRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -135,9 +135,8 @@ impl<'v> UnpackValue<'v> for &'v OutputStream<'v> {
     }
 }
 
+#[starlark_value(type = "bxl_output_stream")]
 impl<'v> StarlarkValue<'v> for OutputStream<'v> {
-    starlark_type!("bxl_output_stream");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(register_output_stream)

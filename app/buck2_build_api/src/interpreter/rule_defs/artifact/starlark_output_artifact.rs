@@ -16,8 +16,8 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use dupe::Dupe;
 use either::Either;
 use starlark::any::ProvidesStaticType;
-use starlark::starlark_type;
 use starlark::typing::Ty;
+use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Coerce;
 use starlark::values::Demand;
@@ -159,12 +159,11 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
     }
 }
 
+#[starlark_value(type = "output_artifact")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
 where
     Self: ProvidesStaticType<'v> + Display + CommandLineArgLike,
 {
-    starlark_type!("output_artifact");
-
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
     }

@@ -27,7 +27,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::starlark_complex_value;
 use starlark::starlark_simple_value;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -62,12 +62,11 @@ impl<V: Display> Display for StarlarkTargetNodeCoercedAttributesGen<V> {
 
 starlark_complex_value!(pub StarlarkTargetNodeCoercedAttributes);
 
+#[starlark_value(type = "starlark_attributes")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkTargetNodeCoercedAttributesGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("starlark_attributes");
-
     fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
         let starlark_target_node = self
             .inner
@@ -118,6 +117,5 @@ impl Serialize for StarlarkCoercedAttr {
 }
 
 /// Coerced attr from an unconfigured target node.
-impl<'v> StarlarkValue<'v> for StarlarkCoercedAttr {
-    starlark_type!("coerced_attr");
-}
+#[starlark_value(type = "coerced_attr")]
+impl<'v> StarlarkValue<'v> for StarlarkCoercedAttr {}

@@ -57,9 +57,9 @@ use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
 use starlark::coerce::Coerce;
 use starlark::starlark_complex_value;
-use starlark::starlark_type;
 use starlark::values::dict::DictRef;
 use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
@@ -196,11 +196,10 @@ pub(crate) struct StarlarkRunActionValuesGen<V> {
     pub(crate) worker: V,
 }
 
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkRunActionValuesGen<V>
-where
-    Self: ProvidesStaticType<'v>,
+#[starlark_value(type = "run_action_values")]
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkRunActionValuesGen<V> where
+    Self: ProvidesStaticType<'v>
 {
-    starlark_type!("run_action_values");
 }
 
 starlark_complex_value!(pub(crate) StarlarkRunActionValues);

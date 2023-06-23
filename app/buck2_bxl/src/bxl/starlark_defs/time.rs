@@ -15,7 +15,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
@@ -92,9 +92,8 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
 
 starlark_simple_value!(StarlarkInstant);
 
+#[starlark_value(type = "instant")]
 impl<'v> StarlarkValue<'v> for StarlarkInstant {
-    starlark_type!("instant");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(starlark_instant_methods)

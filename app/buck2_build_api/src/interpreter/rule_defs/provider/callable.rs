@@ -27,6 +27,7 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
+use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -202,9 +203,8 @@ impl Freeze for UserProviderCallable {
     }
 }
 
+#[starlark_value(type = "provider_callable")]
 impl<'v> StarlarkValue<'v> for UserProviderCallable {
-    starlark_type!("provider_callable");
-
     fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) {
         // First export wins
         self.id.get_or_init(|| {
@@ -314,9 +314,8 @@ impl ProviderCallableLike for FrozenUserProviderCallable {
     }
 }
 
+#[starlark_value(type = "provider_callable")]
 impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
-    starlark_type!("provider_callable");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(provider_callable_methods)

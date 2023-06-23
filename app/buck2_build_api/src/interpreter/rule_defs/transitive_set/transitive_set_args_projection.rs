@@ -23,6 +23,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::list::ListRef;
+use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -178,12 +179,11 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
 
 starlark_complex_value!(pub TransitiveSetArgsProjection);
 
+#[starlark_value(type = "transitive_set_args_projection")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetArgsProjectionGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("transitive_set_args_projection");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(transitive_set_args_projection_methods)

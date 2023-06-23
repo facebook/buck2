@@ -32,9 +32,9 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::starlark_type;
 use starlark::typing::Ty;
 use starlark::values::none::NoneType;
+use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -95,9 +95,8 @@ impl<'v> BxlFilesystem<'v> {
     }
 }
 
+#[starlark_value(type = "fs")]
 impl<'v> StarlarkValue<'v> for BxlFilesystem<'v> {
-    starlark_type!("fs");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(fs_operations)

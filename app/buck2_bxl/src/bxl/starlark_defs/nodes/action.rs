@@ -21,7 +21,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
@@ -36,9 +36,8 @@ pub struct StarlarkAction(pub Arc<RegisteredAction>);
 
 starlark_simple_value!(StarlarkAction);
 
+#[starlark_value(type = "action")]
 impl<'v> StarlarkValue<'v> for StarlarkAction {
-    starlark_type!("action");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(action_methods)

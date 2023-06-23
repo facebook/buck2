@@ -15,8 +15,8 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::starlark_type;
 use starlark::values::none::NoneType;
+use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
@@ -58,9 +58,8 @@ pub(crate) struct PackageValues<'v> {
     pub(crate) values: RefCell<SmallMap<String, Value<'v>>>,
 }
 
-impl<'v> StarlarkValue<'v> for PackageValues<'v> {
-    starlark_type!("PackageValues");
-}
+#[starlark_value(type = "PackageValues")]
+impl<'v> StarlarkValue<'v> for PackageValues<'v> {}
 
 #[starlark_module]
 pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {

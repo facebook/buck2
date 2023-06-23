@@ -32,6 +32,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::list::ListRef;
+use starlark::values::starlark_value;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenRef;
@@ -274,12 +275,11 @@ fn provider_collection_methods(builder: &mut MethodsBuilder) {
     }
 }
 
+#[starlark_value(type = "provider_collection")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for ProviderCollectionGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("provider_collection");
-
     fn at(&self, index: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self.get_impl(index, GetOp::At)? {
             Either::Left(v) => Ok(v),

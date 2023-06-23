@@ -30,8 +30,8 @@ use starlark::collections::SmallSet;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_simple_value;
-use starlark::starlark_type;
 use starlark::values::dict::DictOf;
+use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -163,9 +163,8 @@ impl<'v> AllocValue<'v> for BxlFunction<'v> {
     }
 }
 
+#[starlark_value(type = "bxl")]
 impl<'v> StarlarkValue<'v> for BxlFunction<'v> {
-    starlark_type!("bxl");
-
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
         *self.id.borrow_mut() = Some(BxlFunctionLabel {
             bxl_path: self.bxl_path.clone(),
@@ -204,9 +203,8 @@ pub struct FrozenBxlFunction {
 }
 starlark_simple_value!(FrozenBxlFunction);
 
-impl<'v> StarlarkValue<'v> for FrozenBxlFunction {
-    starlark_type!("bxl");
-}
+#[starlark_value(type = "bxl")]
+impl<'v> StarlarkValue<'v> for FrozenBxlFunction {}
 
 impl FrozenBxlFunction {
     pub fn implementation(&self) -> FrozenValue {

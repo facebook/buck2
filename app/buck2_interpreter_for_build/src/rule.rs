@@ -40,9 +40,9 @@ use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::starlark_type;
 use starlark::typing::Ty;
 use starlark::values::dict::DictOf;
+use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -119,9 +119,8 @@ impl<'v> AllocValue<'v> for RuleCallable<'v> {
     }
 }
 
+#[starlark_value(type = "rule")]
 impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
-    starlark_type!("rule");
-
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
         *self.id.borrow_mut() = Some(StarlarkRuleType {
             import_path: self.import_path.clone(),
@@ -235,9 +234,8 @@ impl FrozenRuleCallable {
     }
 }
 
+#[starlark_value(type = "rule")]
 impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
-    starlark_type!("rule");
-
     fn invoke(
         &self,
         _me: Value<'v>,

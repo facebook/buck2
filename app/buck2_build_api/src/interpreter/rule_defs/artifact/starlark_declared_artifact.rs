@@ -28,8 +28,8 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::starlark_type;
 use starlark::typing::Ty;
+use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
@@ -216,9 +216,8 @@ impl<'v> AllocValue<'v> for StarlarkDeclaredArtifact {
     }
 }
 
+#[starlark_value(type = "artifact")]
 impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
-    starlark_type!("artifact");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(artifact_methods)

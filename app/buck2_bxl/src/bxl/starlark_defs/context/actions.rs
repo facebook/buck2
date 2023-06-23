@@ -40,8 +40,8 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::environment::Module;
 use starlark::starlark_module;
-use starlark::starlark_type;
 use starlark::typing::Ty;
+use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -226,9 +226,8 @@ impl<'v> BxlActions<'v> {
     }
 }
 
+#[starlark_value(type = "bxl_actions")]
 impl<'v> StarlarkValue<'v> for BxlActions<'v> {
-    starlark_type!("bxl_actions");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(bxl_actions_methods)

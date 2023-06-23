@@ -17,7 +17,7 @@ use allocative::Allocative;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_util::arc_str::ArcStr;
 use starlark::any::ProvidesStaticType;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::FrozenRef;
 use starlark::values::NoSerialize;
@@ -286,9 +286,8 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
     }
 }
 
+#[starlark_value(type = "resolved_macro")]
 impl<'v> StarlarkValue<'v> for ResolvedStringWithMacros {
-    starlark_type!("resolved_macro");
-
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
         match ResolvedStringWithMacros::from_value(other) {
             None => Ok(false),

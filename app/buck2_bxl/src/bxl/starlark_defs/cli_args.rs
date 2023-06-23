@@ -37,11 +37,11 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::starlark_type;
 use starlark::values::float::StarlarkFloat;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
+use starlark::values::starlark_value;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -71,9 +71,8 @@ pub(crate) struct CliArgs {
 
 starlark_simple_value!(CliArgs);
 
-impl<'v> StarlarkValue<'v> for CliArgs {
-    starlark_type!("bxl_cli_args");
-}
+#[starlark_value(type = "bxl_cli_args")]
+impl<'v> StarlarkValue<'v> for CliArgs {}
 
 impl CliArgs {
     /// Helper to create an attribute from attrs.foo functions

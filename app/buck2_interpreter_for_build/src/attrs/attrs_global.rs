@@ -32,7 +32,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
@@ -587,9 +587,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
 #[display(fmt = "<attrs>")]
 struct Attrs;
 
+#[starlark_value(type = "attrs")]
 impl<'v> StarlarkValue<'v> for Attrs {
-    starlark_type!("attrs");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(attr_module)

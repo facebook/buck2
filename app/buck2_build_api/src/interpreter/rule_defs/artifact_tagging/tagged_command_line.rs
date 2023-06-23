@@ -11,7 +11,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
@@ -54,12 +54,11 @@ impl<V> TaggedCommandLineGen<V> {
 
 starlark_complex_value!(pub TaggedCommandLine);
 
+#[starlark_value(type = "tagged_command_line")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TaggedCommandLineGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("tagged_command_line");
-
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
     }

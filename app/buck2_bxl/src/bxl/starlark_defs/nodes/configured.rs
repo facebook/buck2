@@ -54,8 +54,8 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::starlark_type;
 use starlark::typing::Ty;
+use starlark::values::starlark_value;
 use starlark::values::structs::AllocStruct;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -81,9 +81,8 @@ pub struct StarlarkConfiguredTargetNode(pub ConfiguredTargetNode);
 
 starlark_simple_value!(StarlarkConfiguredTargetNode);
 
+#[starlark_value(type = "target_node")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetNode {
-    starlark_type!("target_node");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(configured_target_node_value_methods)
@@ -411,9 +410,8 @@ impl Serialize for StarlarkConfiguredValue {
 
 starlark_simple_value!(StarlarkConfiguredValue);
 
+#[starlark_value(type = "configured_attr_val")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredValue {
-    starlark_type!("configured_attr_val");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(configured_value_methods)
@@ -471,9 +469,8 @@ pub struct StarlarkLazyAttrs<'v> {
     configured_target_node: &'v StarlarkConfiguredTargetNode,
 }
 
+#[starlark_value(type = "lazy_attrs")]
 impl<'v> StarlarkValue<'v> for StarlarkLazyAttrs<'v> {
-    starlark_type!("lazy_attrs");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(lazy_attrs_methods)
@@ -554,9 +551,8 @@ pub struct StarlarkLazyResolvedAttrs<'v> {
     resolution_ctx: LazyAttrResolutionContext<'v>,
 }
 
+#[starlark_value(type = "lazy_resolved_attrs")]
 impl<'v> StarlarkValue<'v> for StarlarkLazyResolvedAttrs<'v> {
-    starlark_type!("lazy_resolved_attrs");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(lazy_resolved_attrs_methods)

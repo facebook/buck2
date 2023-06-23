@@ -24,8 +24,8 @@ use gazebo::prelude::VecExt;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_simple_value;
-use starlark::starlark_type;
 use starlark::typing::Ty;
+use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -107,9 +107,8 @@ pub struct StarlarkFileSet(
 
 starlark_simple_value!(StarlarkFileSet);
 
+#[starlark_value(type = "file_set")]
 impl<'v> StarlarkValue<'v> for StarlarkFileSet {
-    starlark_type!("file_set");
-
     fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
         Ok(self
             .0
@@ -166,9 +165,8 @@ pub struct StarlarkFileNode(
 
 starlark_simple_value!(StarlarkFileNode);
 
-impl StarlarkValue<'_> for StarlarkFileNode {
-    starlark_type!("file_node");
-}
+#[starlark_value(type = "file_node")]
+impl StarlarkValue<'_> for StarlarkFileNode {}
 
 #[derive(Debug, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
@@ -209,9 +207,8 @@ impl fmt::Display for StarlarkReadDirSet {
     }
 }
 
+#[starlark_value(type = "read_dir_set")]
 impl<'v> StarlarkValue<'v> for StarlarkReadDirSet {
-    starlark_type!("read_dir_set");
-
     fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
         Ok(self
             .children()?

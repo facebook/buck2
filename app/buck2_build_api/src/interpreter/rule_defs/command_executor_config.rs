@@ -27,6 +27,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::values::dict::DictRef;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
+use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
@@ -53,9 +54,8 @@ pub struct StarlarkCommandExecutorConfig(pub Arc<CommandExecutorConfig>);
 
 starlark_simple_value!(StarlarkCommandExecutorConfig);
 
-impl<'v> StarlarkValue<'v> for StarlarkCommandExecutorConfig {
-    starlark_type!("command_executor_config");
-}
+#[starlark_value(type = "command_executor_config")]
+impl<'v> StarlarkValue<'v> for StarlarkCommandExecutorConfig {}
 
 #[starlark_module]
 pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {

@@ -21,7 +21,7 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
@@ -62,9 +62,8 @@ impl StarlarkTargetLabel {
     }
 }
 
+#[starlark_value(type = "target_label")]
 impl<'v> StarlarkValue<'v> for StarlarkTargetLabel {
-    starlark_type!("target_label");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(label_methods)
@@ -140,9 +139,8 @@ impl StarlarkConfiguredTargetLabel {
     }
 }
 
+#[starlark_value(type = "configured_target_label")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetLabel {
-    starlark_type!("configured_target_label");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(configured_label_methods)

@@ -14,6 +14,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 
@@ -30,9 +31,8 @@ pub struct LabelRelativePath(pub CellPath);
 
 starlark_simple_value!(LabelRelativePath);
 
+#[starlark_value(type = "label_relative_path")]
 impl<'v> StarlarkValue<'v> for LabelRelativePath {
-    starlark_type!("label_relative_path");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(label_relative_path_methods)

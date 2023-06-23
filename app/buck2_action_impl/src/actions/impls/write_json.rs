@@ -47,7 +47,7 @@ use once_cell::sync::Lazy;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::starlark_complex_value;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
@@ -242,12 +242,11 @@ impl<'v, V: ValueLike<'v>> fmt::Display for WriteJsonCommandLineArgGen<V> {
 
 starlark_complex_value!(pub(crate) WriteJsonCommandLineArg);
 
+#[starlark_value(type = "write_json_cli_args")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for WriteJsonCommandLineArgGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("write_json_cli_args");
-
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
     }

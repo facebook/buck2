@@ -27,6 +27,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;
+use starlark::values::starlark_value;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -287,12 +288,11 @@ impl<'v> TransitiveSetLike<'v> for FrozenTransitiveSet {
 
 starlark_complex_value!(pub TransitiveSet);
 
+#[starlark_value(type = "transitive_set")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetGen<V>
 where
     Self: ProvidesStaticType<'v> + TransitiveSetLike<'v>,
 {
-    starlark_type!("transitive_set");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(transitive_set_methods)

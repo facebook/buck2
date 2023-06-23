@@ -13,6 +13,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
+use starlark::values::starlark_value;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -73,12 +74,11 @@ pub struct TransitiveSetTraversalGen<V> {
 
 starlark_complex_value!(pub TransitiveSetTraversal);
 
+#[starlark_value(type = "transitive_set_iterator")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetTraversalGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("transitive_set_iterator");
-
     fn iterate_collect(&self, _heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
         let tset = TransitiveSet::from_value(self.inner.to_value()).context("Invalid inner")?;
         Ok(tset.iter_values(self.ordering)?.collect())
@@ -108,12 +108,11 @@ pub struct TransitiveSetProjectionTraversalGen<V> {
 
 starlark_complex_value!(pub TransitiveSetProjectionTraversal);
 
+#[starlark_value(type = "transitive_set_args_projection_iterator")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetProjectionTraversalGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("transitive_set_args_projection_iterator");
-
     fn iterate_collect(&self, _heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
         let set =
             TransitiveSet::from_value(self.transitive_set.to_value()).context("Invalid inner")?;

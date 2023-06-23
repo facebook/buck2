@@ -36,8 +36,8 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
-use starlark::starlark_type;
 use starlark::typing::Ty;
+use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -143,12 +143,11 @@ impl<'v> EnsuredArtifactGroup<'v> {
     }
 }
 
+#[starlark_value(type = "ensured_artifact_group")]
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroup<'v>
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("ensured_artifact_group");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(artifact_group_methods)
@@ -161,12 +160,11 @@ where
     }
 }
 
+#[starlark_value(type = "ensured_artifact_group_inner")]
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroupInner
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("ensured_artifact_group_inner");
-
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         self.ags.hash(hasher);
         Ok(())
@@ -343,12 +341,11 @@ impl Serialize for EnsuredArtifactGroupInner {
     }
 }
 
+#[starlark_value(type = "ensured_artifact")]
 impl<'v> StarlarkValue<'v> for EnsuredArtifact
 where
     Self: ProvidesStaticType<'v>,
 {
-    starlark_type!("ensured_artifact");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(artifact_methods)

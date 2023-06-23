@@ -21,6 +21,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::typing::Ty;
+use starlark::values::starlark_value;
 use starlark::values::tuple::AllocTuple;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -284,9 +285,8 @@ impl<'v> UnpackValue<'v> for &'v StarlarkPromise<'v> {
     }
 }
 
+#[starlark_value(type = StarlarkPromise::TYPE)]
 impl<'v> StarlarkValue<'v> for StarlarkPromise<'v> {
-    starlark_type!(StarlarkPromise::TYPE);
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(promise_methods)
@@ -346,9 +346,8 @@ mod tests {
     #[display(fmt = "{:?}", self)]
     struct Promises<'v>(RefCell<Vec<(String, ValueTyped<'v, StarlarkPromise<'v>>)>>);
 
-    impl<'v> StarlarkValue<'v> for Promises<'v> {
-        starlark_type!("promises");
-    }
+    #[starlark_value(type = "promises")]
+    impl<'v> StarlarkValue<'v> for Promises<'v> {}
 
     #[starlark_module]
     fn helpers(builder: &mut GlobalsBuilder) {

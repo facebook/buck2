@@ -16,8 +16,8 @@ use buck2_query::query::syntax::simple::eval::set::TargetSetExt;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::starlark_type;
 use starlark::typing::Ty;
+use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
@@ -80,9 +80,8 @@ impl<'v, Node: NodeLike> AllocValue<'v> for StarlarkTargetSet<Node> {
     }
 }
 
+#[starlark_value(type = "target_set")]
 impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
-    starlark_type!("target_set");
-
     fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
         Ok(self.iter(heap).collect())
     }

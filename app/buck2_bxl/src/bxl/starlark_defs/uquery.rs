@@ -25,10 +25,10 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::starlark_type;
 use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -67,9 +67,8 @@ pub struct StarlarkUQueryCtx<'v> {
     ctx: &'v BxlContext<'v>,
 }
 
+#[starlark_value(type = "uqueryctx")]
 impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
-    starlark_type!("uqueryctx");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(register_uquery)

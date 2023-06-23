@@ -24,8 +24,8 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
-use starlark::starlark_type;
 use starlark::typing::Ty;
+use starlark::values::starlark_value;
 use starlark::values::structs::StructRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -105,9 +105,8 @@ impl<'v> AnalysisActions<'v> {
     }
 }
 
+#[starlark_value(type = "actions")]
 impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
-    starlark_type!("actions");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(|builder| {
@@ -204,9 +203,8 @@ impl<'v> AnalysisContext<'v> {
     }
 }
 
+#[starlark_value(type = "context")]
 impl<'v> StarlarkValue<'v> for AnalysisContext<'v> {
-    starlark_type!("context");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(register_context)

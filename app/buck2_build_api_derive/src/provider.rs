@@ -294,13 +294,12 @@ impl ProviderCodegen {
         Ok(quote! {
             starlark::starlark_complex_value!(#vis #name);
 
+            #[starlark::values::starlark_value(type = #name_str)]
             impl<'v, V: starlark::values::ValueLike<'v> + 'v> starlark::values::StarlarkValue<'v>
                 for #gen_name<V>
             where
                 Self: starlark::any::ProvidesStaticType<'v>,
             {
-                starlark::starlark_type!(#name_str);
-
                 fn matches_type(&self, ty: &str) -> bool {
                     ty == #name_str || ty == "provider"
                 }
@@ -429,10 +428,9 @@ impl ProviderCodegen {
         Ok(quote! {
             starlark::starlark_simple_value!(#callable_name);
 
+            #[starlark::values::starlark_value(type = #callable_name_snake_str)]
             impl<'v> starlark::values::StarlarkValue<'v> for #callable_name
             {
-                starlark::starlark_type!(#callable_name_snake_str);
-
                 fn get_methods() -> Option<&'static starlark::environment::Methods> {
                     static RES: starlark::environment::MethodsStatic =
                         starlark::environment::MethodsStatic::new();

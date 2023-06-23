@@ -26,6 +26,7 @@ use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::collections::StarlarkHasher;
 use starlark::eval::Evaluator;
+use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -194,9 +195,8 @@ impl<'v> AllocValue<'v> for TransitiveSetDefinition<'v> {
     }
 }
 
+#[starlark_value(type = "transitive_set_definition")]
 impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
-    starlark_type!("transitive_set_definition");
-
     fn export_as(&self, variable_name: &str, _: &mut Evaluator<'v, '_>) {
         // First export wins
         let mut id = self.id.borrow_mut();
@@ -270,9 +270,8 @@ impl Serialize for FrozenTransitiveSetDefinition {
     }
 }
 
+#[starlark_value(type = "transitive_set_definition")]
 impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
-    starlark_type!("transitive_set_definition");
-
     fn dir_attr(&self) -> Vec<String> {
         vec!["type".to_owned()]
     }

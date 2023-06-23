@@ -19,7 +19,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -43,9 +43,8 @@ pub struct StarlarkTargetNode(pub TargetNode);
 
 starlark_simple_value!(StarlarkTargetNode);
 
+#[starlark_value(type = "unconfigured_target_node")]
 impl<'v> StarlarkValue<'v> for StarlarkTargetNode {
-    starlark_type!("unconfigured_target_node");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(target_node_value_methods)

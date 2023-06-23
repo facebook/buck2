@@ -22,7 +22,7 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -194,9 +194,8 @@ impl CommandLineArgLike for StarlarkPromiseArtifact {
     }
 }
 
+#[starlark_value(type = "promise_artifact")]
 impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
-    starlark_type!("promise_artifact");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(artifact_methods)

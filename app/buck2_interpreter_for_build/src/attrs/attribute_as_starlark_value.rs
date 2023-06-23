@@ -16,7 +16,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_simple_value;
-use starlark::starlark_type;
+use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 
@@ -37,9 +37,8 @@ pub struct AttributeAsStarlarkValue(Attribute);
 
 starlark_simple_value!(AttributeAsStarlarkValue);
 
-impl<'v> StarlarkValue<'v> for AttributeAsStarlarkValue {
-    starlark_type!("attribute");
-}
+#[starlark_value(type = "attribute")]
+impl<'v> StarlarkValue<'v> for AttributeAsStarlarkValue {}
 
 impl AttributeAsStarlarkValue {
     pub fn new(attr: Attribute) -> Self {

@@ -58,10 +58,10 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::starlark_type;
 use starlark::typing::Ty;
 use starlark::values::dict::Dict;
 use starlark::values::none::NoneType;
+use starlark::values::starlark_value;
 use starlark::values::structs::AllocStruct;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -262,9 +262,8 @@ impl<'v> BxlContext<'v> {
     }
 }
 
+#[starlark_value(type = "bxl_ctx")]
 impl<'v> StarlarkValue<'v> for BxlContext<'v> {
-    starlark_type!("bxl_ctx");
-
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(register_context)

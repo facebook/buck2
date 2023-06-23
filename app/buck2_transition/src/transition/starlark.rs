@@ -29,8 +29,8 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_values;
 use starlark::starlark_module;
-use starlark::starlark_type;
 use starlark::values::dict::DictOf;
+use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -93,9 +93,8 @@ pub(crate) struct FrozenTransition {
     pub(crate) split: bool,
 }
 
+#[starlark_value(type = "transition")]
 impl<'v> StarlarkValue<'v> for Transition<'v> {
-    starlark_type!("transition");
-
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
         let mut id = self.id.borrow_mut();
         // First export wins
@@ -112,9 +111,8 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
     }
 }
 
+#[starlark_value(type = "transition")]
 impl<'v> StarlarkValue<'v> for FrozenTransition {
-    starlark_type!("transition");
-
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn TransitionValue>(self);
     }

@@ -18,9 +18,9 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_value;
 use starlark::starlark_module;
-use starlark::starlark_type;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
+use starlark::values::starlark_value;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -212,12 +212,11 @@ impl StarlarkSelectorBase<'_> for FrozenStarlarkSelector {
     type Item = FrozenValue;
 }
 
+#[starlark_value(type = "selector")]
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkSelectorGen<V>
 where
     Self: ProvidesStaticType<'v> + StarlarkSelectorBase<'v, Item = V>,
 {
-    starlark_type!("selector");
-
     fn to_bool(&self) -> bool {
         true
     }
