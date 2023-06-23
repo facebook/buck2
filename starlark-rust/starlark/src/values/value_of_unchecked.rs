@@ -21,6 +21,8 @@ use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
 use crate::values::Heap;
+use crate::values::Trace;
+use crate::values::Tracer;
 use crate::values::UnpackValue;
 use crate::values::Value;
 
@@ -58,5 +60,14 @@ impl<'v, T: StarlarkTypeRepr> UnpackValue<'v> for ValueOfUnchecked<'v, T> {
     #[inline]
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         Some(Self::new(value))
+    }
+}
+
+unsafe impl<'v, T: StarlarkTypeRepr> Trace<'v> for ValueOfUnchecked<'v, T> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        // TODO(nga): should derive, but to do that we need to implement `#[trace(bound = "")]`
+        let ValueOfUnchecked(value, phantom) = self;
+        value.trace(tracer);
+        phantom.trace(tracer);
     }
 }
