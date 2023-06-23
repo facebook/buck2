@@ -16,11 +16,12 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::structs::AllocStruct;
+use starlark::values::structs::StructRef;
 use starlark::values::AllocFrozenValue;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenValue;
 use starlark::values::OwnedFrozenValue;
-use starlark::values::Value;
+use starlark::values::ValueOfUnchecked;
 
 use crate::interpreter::build_context::BuildContext;
 
@@ -133,13 +134,17 @@ pub fn register_host_info(builder: &mut GlobalsBuilder) {
     ///     ),
     /// )
     /// ```
-    #[starlark(speculative_exec_safe, return_type = "struct.type")]
-    fn host_info<'v>(eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Value<'v>> {
+    #[starlark(speculative_exec_safe)]
+    fn host_info<'v>(
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
         // Keeping this `speculative_exec_safe` is safe because BuildContext's `HostInfo`,
         // even when evaluated speculatively, is going to be the same across all interpreters
         // that might reuse each other's output.
         let host_info = &BuildContext::from_context(eval)?.host_info;
-        Ok(host_info.value.owned_value(eval.frozen_heap()))
+        Ok(ValueOfUnchecked::new(
+            host_info.value.owned_value(eval.frozen_heap()),
+        ))
     }
 }
 
