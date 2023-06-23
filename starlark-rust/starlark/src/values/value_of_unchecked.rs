@@ -41,6 +41,16 @@ impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
     pub fn new(value: Value<'v>) -> Self {
         Self(value, PhantomData)
     }
+
+    /// Construct after checking the type.
+    #[inline]
+    pub fn new_checked(value: Value<'v>) -> anyhow::Result<Self>
+    where
+        T: UnpackValue<'v>,
+    {
+        T::unpack_value_err(value)?;
+        Ok(Self::new(value))
+    }
 }
 
 impl<'v, T: StarlarkTypeRepr> StarlarkTypeRepr for ValueOfUnchecked<'v, T> {
