@@ -266,7 +266,7 @@ def generate_rustdoc_test(
     )
 
     if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
-        runtool = ["--runtool=cmd.exe", "--runtool-arg=/C"]
+        runtool = ["--runtool=cmd.exe", "--runtool-arg=/V:OFF", "--runtool-arg=/C"]
     else:
         runtool = ["--runtool=/usr/bin/env"]
 
