@@ -41,6 +41,7 @@ use starlark::environment::MethodsStatic;
 use starlark::environment::Module;
 use starlark::starlark_module;
 use starlark::typing::Ty;
+use starlark::values::dict::DictRef;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -51,6 +52,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 use thiserror::Error;
@@ -206,17 +208,15 @@ pub(crate) fn validate_action_instantiation<'v>(
 #[display(fmt = "{:?}", self)]
 pub(crate) struct BxlActions<'v> {
     actions: ValueTyped<'v, AnalysisActions<'v>>,
-    /// A Dict
-    exec_deps: Value<'v>,
-    /// A dict
-    toolchains: Value<'v>,
+    exec_deps: ValueOfUnchecked<'v, DictRef<'v>>,
+    toolchains: ValueOfUnchecked<'v, DictRef<'v>>,
 }
 
 impl<'v> BxlActions<'v> {
     pub(crate) fn new(
         actions: ValueTyped<'v, AnalysisActions<'v>>,
-        exec_deps: Value<'v>,
-        toolchains: Value<'v>,
+        exec_deps: ValueOfUnchecked<'v, DictRef<'v>>,
+        toolchains: ValueOfUnchecked<'v, DictRef<'v>>,
     ) -> Self {
         Self {
             actions,
@@ -267,14 +267,14 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Gets the execution deps requested correctly configured for the current execution platform
-    #[starlark(attribute, return_type = "\"dict\"")]
-    fn exec_deps<'v>(this: &'v BxlActions) -> anyhow::Result<Value<'v>> {
+    #[starlark(attribute)]
+    fn exec_deps<'v>(this: &'v BxlActions) -> anyhow::Result<ValueOfUnchecked<'v, DictRef<'v>>> {
         Ok(this.exec_deps)
     }
 
     /// Gets the toolchains requested configured for the current execution platform
-    #[starlark(attribute, return_type = "\"dict\"")]
-    fn toolchains<'v>(this: &'v BxlActions) -> anyhow::Result<Value<'v>> {
+    #[starlark(attribute)]
+    fn toolchains<'v>(this: &'v BxlActions) -> anyhow::Result<ValueOfUnchecked<'v, DictRef<'v>>> {
         Ok(this.toolchains)
     }
 }

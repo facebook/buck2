@@ -545,6 +545,7 @@ fn register_context(builder: &mut MethodsBuilder) {
                 })
                 .collect::<anyhow::Result<_>>()?,
         ));
+        let exec_deps = ValueOfUnchecked::new_checked(exec_deps)?;
         let toolchains = eval.heap().alloc(Dict::new(
             execution_resolution
                 .toolchain_deps_configured
@@ -559,6 +560,7 @@ fn register_context(builder: &mut MethodsBuilder) {
                 })
                 .collect::<anyhow::Result<_>>()?,
         ));
+        let toolchains = ValueOfUnchecked::new_checked(toolchains)?;
 
         Ok(BxlActions::new(this.state, exec_deps, toolchains))
     }
