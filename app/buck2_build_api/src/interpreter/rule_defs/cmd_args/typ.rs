@@ -694,9 +694,8 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn relative_to<'v>(
         mut this: StarlarkCommandLineMut<'v>,
-        // TODO(nga): is it named or positional?
-        directory: ValueOf<'v, RelativeOrigin<'v>>,
-        #[starlark(default = 0i32)] parent: i32,
+        #[starlark(require = pos)] directory: ValueOf<'v, RelativeOrigin<'v>>,
+        #[starlark(require = named, default = 0i32)] parent: i32,
     ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
         if parent < 0 {
             return Err(ValueError::IncorrectParameterTypeNamed("parent".to_owned()).into());
