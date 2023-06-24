@@ -20,6 +20,7 @@
 
 pub(crate) mod aligned_size;
 pub(crate) mod avalue;
+pub(crate) mod complex;
 mod const_frozen_string;
 pub(crate) mod const_type_id;
 pub(crate) mod heap;

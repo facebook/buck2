@@ -250,6 +250,11 @@ impl<'v> Value<'v> {
         Self(Pointer::new_unfrozen_usize_with_str_tag(x))
     }
 
+    #[inline]
+    pub(crate) unsafe fn cast_lifetime<'w>(self) -> Value<'w> {
+        Value(self.0.cast_lifetime())
+    }
+
     /// Create a new `None` value.
     #[inline]
     pub fn new_none() -> Self {
