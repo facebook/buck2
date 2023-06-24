@@ -175,7 +175,7 @@ impl<'a> BindingsCollect<'a> {
                 Visit::Stmt(x) => match &**x {
                     StmtP::Assign(lhs, ty_rhs) => {
                         if let Some(ty) = &ty_rhs.0 {
-                            let ty2 = Ty::from_type_expr(ty, &mut bindings.approximations);
+                            let ty2 = Ty::from_type_expr(ty, &mut bindings.approximations)?;
                             bindings.bindings.check_type.push((
                                 ty.span,
                                 Some(&ty_rhs.1),
@@ -214,7 +214,7 @@ impl<'a> BindingsCollect<'a> {
                                 ParameterP::Normal(name, ty)
                                 | ParameterP::WithDefaultValue(name, ty, _) => {
                                     let ty =
-                                        Ty::from_type_expr_opt(ty, &mut bindings.approximations);
+                                        Ty::from_type_expr_opt(ty, &mut bindings.approximations)?;
                                     let mut param = if seen_no_args {
                                         Param::name_only(&name.0, ty.clone())
                                     } else {
@@ -236,12 +236,12 @@ impl<'a> BindingsCollect<'a> {
                                     params2.push(Param::args(Ty::from_type_expr_opt(
                                         ty,
                                         &mut bindings.approximations,
-                                    )));
+                                    )?));
                                     Some((name, Ty::name("tuple")))
                                 }
                                 ParameterP::KwArgs(name, ty) => {
                                     let ty =
-                                        Ty::from_type_expr_opt(ty, &mut bindings.approximations);
+                                        Ty::from_type_expr_opt(ty, &mut bindings.approximations)?;
                                     let ty = if ty.is_any() {
                                         Ty::dict(Ty::string(), Ty::Any)
                                     } else {
@@ -259,7 +259,7 @@ impl<'a> BindingsCollect<'a> {
                             }
                         }
                         let ret_ty =
-                            Ty::from_type_expr_opt(return_type, &mut bindings.approximations);
+                            Ty::from_type_expr_opt(return_type, &mut bindings.approximations)?;
                         bindings.bindings.types.insert(
                             name.resolved_binding_id(codemap)?,
                             Ty::function(params2, ret_ty.clone()),

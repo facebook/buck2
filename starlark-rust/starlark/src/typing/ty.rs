@@ -50,6 +50,7 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::ctx::TypingContext;
+use crate::typing::error::InternalError;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::TypingOracle;
 
@@ -812,15 +813,18 @@ impl Ty {
     pub(crate) fn from_type_expr_opt(
         x: &Option<Box<CstTypeExpr>>,
         approximations: &mut Vec<Approximation>,
-    ) -> Self {
+    ) -> Result<Self, InternalError> {
         match x {
-            None => Ty::Any,
+            None => Ok(Ty::Any),
             Some(x) => Self::from_type_expr(x, approximations),
         }
     }
 
-    pub(crate) fn from_type_expr(x: &CstTypeExpr, approximations: &mut Vec<Approximation>) -> Self {
-        Self::from_expr(&x.expr, approximations)
+    pub(crate) fn from_type_expr(
+        x: &CstTypeExpr,
+        approximations: &mut Vec<Approximation>,
+    ) -> Result<Self, InternalError> {
+        Ok(Self::from_expr(&x.expr, approximations))
     }
 
     // This should go away when `ExprType` is disconnected from `Expr`.
