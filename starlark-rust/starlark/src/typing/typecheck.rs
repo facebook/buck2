@@ -19,6 +19,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
+use std::slice;
 
 use dupe::Dupe;
 
@@ -27,10 +28,12 @@ use crate::codemap::FileSpanRef;
 use crate::codemap::Span;
 use crate::environment::names::MutableNames;
 use crate::environment::Globals;
+use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::BindingSource;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::EvalException;
+use crate::syntax::ast::StmtP;
 use crate::syntax::ast::Visibility;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
@@ -173,7 +176,13 @@ impl AstModule {
             frozen_heap.alloc_any_display_from_debug(self.codemap.dupe()),
             &Dialect::Extended,
         );
-        let bindings = match BindingsCollect::collect(&cst, &codemap) {
+        // We don't really need to properly unpack top-level statements,
+        // but make it safe against future changes.
+        let cst: &[CstStmt] = match &cst.node {
+            StmtP::Statements(x) => x,
+            _ => slice::from_ref(&cst),
+        };
+        let bindings = match BindingsCollect::collect(cst, &codemap) {
             Ok(bindings) => bindings,
             Err(e) => {
                 return (

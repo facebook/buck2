@@ -110,7 +110,7 @@ impl<'a> BindingsCollect<'a> {
     /// Collect all the assignments to variables.
     ///
     /// This function only fails on internal errors.
-    pub(crate) fn collect(x: &'a CstStmt, codemap: &CodeMap) -> Result<Self, InternalError> {
+    pub(crate) fn collect(xs: &'a [CstStmt], codemap: &CodeMap) -> Result<Self, InternalError> {
         fn assign<'a>(
             lhs: &'a CstAssign,
             rhs: BindExpr<'a>,
@@ -353,7 +353,9 @@ impl<'a> BindingsCollect<'a> {
         }
 
         let mut res = BindingsCollect::default();
-        visit(Visit::Stmt(x), &Ty::Any, &mut res, codemap)?;
+        for x in xs {
+            visit(Visit::Stmt(x), &Ty::Any, &mut res, codemap)?;
+        }
         Ok(res)
     }
 }
