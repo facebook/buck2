@@ -17,6 +17,8 @@
 
 //! Compile and evaluate module top-level statements.
 
+use std::slice;
+
 use crate::codemap::Spanned;
 use crate::const_frozen_string;
 use crate::eval::bc::frame::alloca_frame;
@@ -123,23 +125,24 @@ impl<'v> Compiler<'v, '_, '_> {
         stmt: &mut CstStmt,
         local_names: FrozenRef<'static, [FrozenStringValue]>,
     ) -> Result<Value<'v>, EvalException> {
-        match &mut stmt.node {
-            StmtP::Statements(stmts) => {
-                let mut last = Value::new_none();
-                for stmt in stmts {
-                    last = self.eval_top_level_stmt(stmt, local_names)?;
+        let stmts: &mut [CstStmt] = match &mut stmt.node {
+            StmtP::Statements(stmts) => stmts,
+            _ => slice::from_mut(stmt),
+        };
+        let mut last = Value::new_none();
+        for stmt in stmts {
+            match &mut stmt.node {
+                StmtP::Load(load) => {
+                    self.eval_load(Spanned {
+                        node: load,
+                        span: stmt.span,
+                    })?;
+                    last = Value::new_none();
                 }
-                Ok(last)
+                _ => last = self.eval_regular_top_level_stmt(stmt, local_names)?,
             }
-            StmtP::Load(load) => {
-                self.eval_load(Spanned {
-                    node: load,
-                    span: stmt.span,
-                })?;
-                Ok(Value::new_none())
-            }
-            _ => self.eval_regular_top_level_stmt(stmt, local_names),
         }
+        Ok(last)
     }
 
     pub(crate) fn eval_module(
