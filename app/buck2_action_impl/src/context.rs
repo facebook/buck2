@@ -36,6 +36,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInf
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
+use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::category::Category;
@@ -67,6 +68,7 @@ use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfComplex;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
@@ -906,13 +908,13 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// Creates a new transitive set. For details, see https://buck2.build/docs/rule_authors/transitive_sets/.
     fn tset<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = "\"transitive_set_definition\"")] definition: Value<'v>,
+        #[starlark(require = pos)] definition: ValueOfComplex<'v, TransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         #[starlark(type = "iter(\"\")")] children: Option<Value<'v>>, // An iterable.
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
-        this.create_transitive_set(definition, value, children, eval)
+        this.create_transitive_set(definition.to_value(), value, children, eval)
     }
 
     /// `dynamic_output` allows a rule to use information that was not available when the rule was first run at analysis time.
