@@ -155,7 +155,15 @@ impl AstModule {
         let codemap = self.codemap.dupe();
         let names = MutableNames::new();
         let frozen_heap = FrozenHeap::new();
-        let (scope_errors, cst, scope_data, module_bindings) = ModuleScopes::check_module(
+        let (
+            scope_errors,
+            ModuleScopes {
+                cst,
+                scope_data,
+                module_bindings,
+                ..
+            },
+        ) = ModuleScopes::check_module(
             &names,
             &frozen_heap,
             loads,

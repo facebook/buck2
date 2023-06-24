@@ -78,18 +78,25 @@ enum ScopeError {
 }
 
 /// All scopes and bindings in a module.
-pub(crate) struct ModuleScopes<'a> {
-    pub(crate) scope_data: ModuleScopeData<'a>,
+struct ModuleScopeBuilder<'a> {
+    scope_data: ModuleScopeData<'a>,
     module: &'a MutableNames,
     frozen_heap: &'a FrozenHeap,
-    pub(crate) module_bindings: SmallMap<FrozenStringValue, BindingId>,
+    module_bindings: SmallMap<FrozenStringValue, BindingId>,
     // The first scope is a module-level scope (including comprehensions in module scope).
     // The rest are scopes for functions (which include their comprehensions).
     locals: Vec<ScopeId>,
     unscopes: Vec<Unscope>,
     codemap: FrozenRef<'static, CodeMap>,
     globals: FrozenRef<'static, Globals>,
-    pub(crate) errors: Vec<EvalException>,
+    errors: Vec<EvalException>,
+}
+
+pub(crate) struct ModuleScopes<'f> {
+    pub(crate) scope_data: ModuleScopeData<'f>,
+    pub(crate) module_slot_count: u32,
+    pub(crate) cst: CstStmt,
+    pub(crate) module_bindings: SmallMap<FrozenStringValue, BindingId>,
 }
 
 struct UnscopeBinding {
@@ -225,7 +232,7 @@ enum ResolveIdentScope {
     GlobalForTypeExpression,
 }
 
-impl<'f> ModuleScopes<'f> {
+impl<'f> ModuleScopeBuilder<'f> {
     fn top_scope_id(&self) -> ScopeId {
         *self.locals.last().unwrap()
     }
@@ -239,7 +246,9 @@ impl<'f> ModuleScopes<'f> {
         let scope_id = self.locals[level];
         self.scope_data.mut_scope(scope_id)
     }
+}
 
+impl<'f> ModuleScopes<'f> {
     /// Resolve symbols in a module.
     ///
     /// Checks all the symbols are resolved to locals/globals/captured/etc.
@@ -254,7 +263,7 @@ impl<'f> ModuleScopes<'f> {
         globals: FrozenRef<'static, Globals>,
         codemap: FrozenRef<'static, CodeMap>,
         dialect: &Dialect,
-    ) -> (CstStmt, Self) {
+    ) -> (CstStmt, ModuleScopeBuilder<'f>) {
         let mut scope_data = ModuleScopeData::new();
         let scope_id = scope_data.new_scope().0;
         let mut cst = CstStmt::from_ast(stmt, &mut scope_data, loads);
@@ -309,9 +318,14 @@ impl<'f> ModuleScopes<'f> {
 
         // Here we traverse the AST second time to collect scopes of defs
         for stmt in top_level_stmts.iter_mut() {
-            Self::collect_defines_recursively(&mut scope_data, stmt, frozen_heap, dialect);
+            ModuleScopeBuilder::collect_defines_recursively(
+                &mut scope_data,
+                stmt,
+                frozen_heap,
+                dialect,
+            );
         }
-        let mut scope = Self {
+        let mut scope = ModuleScopeBuilder {
             scope_data,
             frozen_heap,
             module,
@@ -336,7 +350,7 @@ impl<'f> ModuleScopes<'f> {
         globals: FrozenRef<'static, Globals>,
         codemap: FrozenRef<'static, CodeMap>,
         dialect: &Dialect,
-    ) -> anyhow::Result<(CstStmt, Self)> {
+    ) -> anyhow::Result<(CstStmt, ModuleScopeBuilder<'f>)> {
         let (cst, mut scope) =
             Self::enter_module(module, frozen_heap, loads, stmt, globals, codemap, dialect);
         if let Some(first_error) = scope.errors.drain(..).next() {
@@ -344,7 +358,9 @@ impl<'f> ModuleScopes<'f> {
         }
         Ok((cst, scope))
     }
+}
 
+impl<'f> ModuleScopeBuilder<'f> {
     // Number of module slots I need, a struct holding all scopes, and module bindings.
     fn exit_module(
         mut self,
@@ -365,7 +381,9 @@ impl<'f> ModuleScopes<'f> {
             self.module_bindings,
         )
     }
+}
 
+impl<'f> ModuleScopes<'f> {
     pub(crate) fn check_module_err(
         module: &'f MutableNames,
         frozen_heap: &'f FrozenHeap,
@@ -374,11 +392,23 @@ impl<'f> ModuleScopes<'f> {
         globals: FrozenRef<'static, Globals>,
         codemap: FrozenRef<'static, CodeMap>,
         dialect: &Dialect,
-    ) -> anyhow::Result<(CstStmt, u32, ModuleScopeData<'f>)> {
-        let (stmt, scopes) =
-            Self::enter_module_err(module, frozen_heap, loads, stmt, globals, codemap, dialect)?;
-        let (slot_count, scope_data, _) = scopes.exit_module();
-        Ok((stmt, slot_count, scope_data))
+    ) -> anyhow::Result<ModuleScopes<'f>> {
+        let (cst, scopes) = ModuleScopes::enter_module_err(
+            module,
+            frozen_heap,
+            loads,
+            stmt,
+            globals,
+            codemap,
+            dialect,
+        )?;
+        let (module_slot_count, scope_data, module_bindings) = scopes.exit_module();
+        Ok(ModuleScopes {
+            cst,
+            scope_data,
+            module_bindings,
+            module_slot_count,
+        })
     }
 
     pub(crate) fn check_module(
@@ -389,19 +419,24 @@ impl<'f> ModuleScopes<'f> {
         globals: FrozenRef<'static, Globals>,
         codemap: FrozenRef<'static, CodeMap>,
         dialect: &Dialect,
-    ) -> (
-        Vec<EvalException>,
-        CstStmt,
-        ModuleScopeData<'f>,
-        SmallMap<FrozenStringValue, BindingId>,
-    ) {
+    ) -> (Vec<EvalException>, ModuleScopes<'f>) {
         let (stmt, mut scope) =
             Self::enter_module(module, frozen_heap, loads, stmt, globals, codemap, dialect);
         let errors = mem::take(&mut scope.errors);
-        let (_, scope_data, module_bindings) = scope.exit_module();
-        (errors, stmt, scope_data, module_bindings)
+        let (module_slot_count, scope_data, module_bindings) = scope.exit_module();
+        (
+            errors,
+            ModuleScopes {
+                cst: stmt,
+                scope_data,
+                module_bindings,
+                module_slot_count,
+            },
+        )
     }
+}
 
+impl<'f> ModuleScopeBuilder<'f> {
     fn collect_defines_in_def(
         scope_data: &mut ModuleScopeData,
         scope_id: ScopeId,

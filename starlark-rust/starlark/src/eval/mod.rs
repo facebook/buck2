@@ -80,7 +80,12 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             self.module_env.set_docstring(docstring)
         }
 
-        let (statement, module_slots, scope_data) = ModuleScopes::check_module_err(
+        let ModuleScopes {
+            cst,
+            module_slot_count,
+            scope_data,
+            ..
+        } = ModuleScopes::check_module_err(
             self.module_env.mutable_names(),
             self.module_env.frozen_heap(),
             &HashMap::new(),
@@ -95,7 +100,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             .frozen_heap()
             .alloc_any_slice_display_from_debug(&scope_names.used);
 
-        self.module_env.slots().ensure_slots(module_slots);
+        self.module_env.slots().ensure_slots(module_slot_count);
         let old_def_info = mem::replace(
             &mut self.module_def_info,
             self.module_env.frozen_heap().alloc_any(DefInfo::for_module(
@@ -122,7 +127,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             check_types: dialect.enable_types == DialectTypes::Enable,
         };
 
-        let res = compiler.eval_module(statement, local_names);
+        let res = compiler.eval_module(cst, local_names);
 
         // Clean up the world, putting everything back
         self.call_stack.pop();
