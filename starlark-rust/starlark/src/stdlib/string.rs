@@ -640,7 +640,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn join<'v>(
         this: &str,
-        #[starlark(require = pos, type = "iter(str.type)")] to_join: Value<'v>,
+        #[starlark(require = pos)] to_join: ValueOfUnchecked<'v, StarlarkIter<String>>,
         heap: &'v Heap,
     ) -> anyhow::Result<ValueOfUnchecked<'v, String>> {
         #[inline(always)]
@@ -648,7 +648,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
             <&str>::unpack_named_param(x, "to_join")
         }
 
-        let mut it = to_join.iterate(heap)?;
+        let mut it = to_join.get().iterate(heap)?;
         match it.next() {
             None => Ok(ValueOfUnchecked::new(Value::new_empty_string())),
             Some(x1) => {
