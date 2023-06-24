@@ -38,6 +38,7 @@ use crate::typing::bindings::Bindings;
 use crate::typing::bindings::BindingsCollect;
 use crate::typing::bindings::Interface;
 use crate::typing::ctx::TypingContext;
+use crate::typing::error::InternalError;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
@@ -172,7 +173,20 @@ impl AstModule {
             frozen_heap.alloc_any_display_from_debug(self.codemap.dupe()),
             &Dialect::Extended,
         );
-        let bindings = BindingsCollect::collect(&cst);
+        let bindings = match BindingsCollect::collect(&cst, &codemap) {
+            Ok(bindings) => bindings,
+            Err(e) => {
+                return (
+                    vec![InternalError::into_anyhow(e)],
+                    TypeMap {
+                        codemap,
+                        bindings: HashMap::new(),
+                    },
+                    Interface::default(),
+                    Vec::new(),
+                );
+            }
+        };
         let mut approximations = bindings.approximations;
         let (solve_errors, types, solve_approximations) =
             solve_bindings(oracle, globals, bindings.bindings, &codemap);

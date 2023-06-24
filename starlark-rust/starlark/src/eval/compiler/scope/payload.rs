@@ -23,6 +23,7 @@ use std::collections::HashMap;
 
 use dupe::OptionDupedExt;
 
+use crate::codemap::CodeMap;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ResolvedIdent;
@@ -39,6 +40,7 @@ use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::payload_map::AstPayloadFunction;
+use crate::typing::error::InternalError;
 use crate::typing::Interface;
 use crate::values::typing::TypeCompiled;
 use crate::values::FrozenValue;
@@ -106,6 +108,22 @@ impl CstStmt {
         loads: &HashMap<String, Interface>,
     ) -> CstStmt {
         stmt.into_map_payload(&mut CompilerAstMap { scope_data, loads })
+    }
+}
+
+impl CstAssignIdent {
+    pub(crate) fn resolved_binding_id(
+        &self,
+        codemap: &CodeMap,
+    ) -> Result<BindingId, InternalError> {
+        match self.1 {
+            Some(binding_id) => Ok(binding_id),
+            None => Err(InternalError::msg(
+                "Binding id is not filled",
+                self.span,
+                codemap,
+            )),
+        }
     }
 }
 
