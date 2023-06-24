@@ -36,8 +36,10 @@ use starlark::docs::StarlarkDocs;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -47,6 +49,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
@@ -586,11 +589,33 @@ impl<'v> StarlarkCommandLineData<'v> {
     }
 }
 
-fn cmd_args_mut<'v>(x: Value<'v>) -> anyhow::Result<RefMut<'v, StarlarkCommandLineData<'v>>> {
-    if let Some(v) = x.downcast_ref::<StarlarkCommandLine>() {
-        Ok(v.0.borrow_mut())
-    } else {
-        Err(ValueError::CannotMutateImmutableValue.into())
+struct StarlarkCommandLineMut<'v> {
+    value: Value<'v>,
+    borrow: RefMut<'v, StarlarkCommandLineData<'v>>,
+}
+
+impl<'v> StarlarkTypeRepr for StarlarkCommandLineMut<'v> {
+    fn starlark_type_repr() -> Ty {
+        StarlarkCommandLine::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for StarlarkCommandLineMut<'v> {
+    fn expected() -> String {
+        "command line builder; frozen command line cannot be mutated".to_owned()
+    }
+
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        value.downcast_ref::<StarlarkCommandLine>().map(|v| Self {
+            value,
+            borrow: v.0.borrow_mut(),
+        })
+    }
+}
+
+impl<'v> AllocValue<'v> for StarlarkCommandLineMut<'v> {
+    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+        self.value
     }
 }
 
@@ -612,12 +637,11 @@ fn cmd_args<'v>(x: Value<'v>) -> FieldsRef<'v, impl Fields<'v>> {
 fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// A list of arguments to be added to the command line, which may including `cmd_args`, artifacts, strings, `RunInfo` or lists thereof.
     /// Note that this operation mutates the input `cmd_args`.
-    #[starlark(return_type = "\"cmd_args\"")]
     fn add<'v>(
-        this: Value<'v>,
+        mut this: StarlarkCommandLineMut<'v>,
         #[starlark(args)] args: Vec<Value<'v>>,
-    ) -> anyhow::Result<Value<'v>> {
-        cmd_args_mut(this)?.add_values(&args)?;
+    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
+        this.borrow.add_values(&args)?;
         Ok(this)
     }
 
@@ -626,12 +650,11 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     ///
     /// Typically used if the command you are running implicitly depends on files that are not
     /// passed on the command line, e.g. headers in the case of a C compilation.
-    #[starlark(return_type = "\"cmd_args\"")]
     fn hidden<'v>(
-        this: Value<'v>,
+        mut this: StarlarkCommandLineMut<'v>,
         #[starlark(args)] args: Vec<Value<'v>>,
-    ) -> anyhow::Result<Value<'v>> {
-        cmd_args_mut(this)?.add_hidden(&args)?;
+    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
+        this.borrow.add_hidden(&args)?;
         Ok(this)
     }
 
@@ -651,9 +674,10 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     ///
     /// If you actually do use the inputs referenced by this command, you will either error out due to missing dependencies (if running actions remotely)
     /// or have untracked dependencies that will fail to rebuild when it should.
-    #[starlark(return_type = "\"cmd_args\"")]
-    fn ignore_artifacts<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
-        cmd_args_mut(this)?.options_mut().ignore_artifacts = true;
+    fn ignore_artifacts<'v>(
+        mut this: StarlarkCommandLineMut<'v>,
+    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
+        this.borrow.options_mut().ignore_artifacts = true;
         Ok(this)
     }
 
@@ -667,19 +691,18 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     ///     original_script.relative_to(dir)
     /// ]
     /// ```
-    #[starlark(return_type = "\"cmd_args\"")]
     fn relative_to<'v>(
-        this: Value<'v>,
+        mut this: StarlarkCommandLineMut<'v>,
         #[starlark(type = "[artifact.type, \"cell_root\"]")] directory: Value<'v>,
         #[starlark(default = 0i32)] parent: i32,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
         if RelativeOrigin::from_value(directory).is_none() {
             return Err(ValueError::IncorrectParameterTypeNamed("directory".to_owned()).into());
         }
         if parent < 0 {
             return Err(ValueError::IncorrectParameterTypeNamed("parent".to_owned()).into());
         }
-        cmd_args_mut(this)?.options_mut().relative_to = Some((directory, parent as usize));
+        this.borrow.options_mut().relative_to = Some((directory, parent as usize));
         Ok(this)
     }
 
@@ -689,9 +712,11 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// ```python
     /// cmd_args(script).absolute_prefix("$ROOT/")
     /// ```
-    #[starlark(return_type = "\"cmd_args\"")]
-    fn absolute_prefix<'v>(this: Value<'v>, prefix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
-        cmd_args_mut(this)?.options_mut().absolute_prefix = Some(prefix);
+    fn absolute_prefix<'v>(
+        mut this: StarlarkCommandLineMut<'v>,
+        prefix: StringValue<'v>,
+    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
+        this.borrow.options_mut().absolute_prefix = Some(prefix);
         Ok(this)
     }
 
@@ -701,8 +726,11 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// ```python
     /// cmd_args(script).absolute_prefix("call(").absolute_suffix(")")
     /// ```
-    fn absolute_suffix<'v>(this: Value<'v>, suffix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
-        cmd_args_mut(this)?.options_mut().absolute_suffix = Some(suffix);
+    fn absolute_suffix<'v>(
+        mut this: StarlarkCommandLineMut<'v>,
+        suffix: StringValue<'v>,
+    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
+        this.borrow.options_mut().absolute_suffix = Some(suffix);
         Ok(this)
     }
 
@@ -710,25 +738,22 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     ///
     /// Typically used when the file name is passed one way, and the directory another,
     /// e.g. `cmd_args(artifact, format="-L{}").parent()`.
-    #[starlark(return_type = "\"cmd_args\"")]
     fn parent<'v>(
-        this: Value<'v>,
+        mut this: StarlarkCommandLineMut<'v>,
         #[starlark(require = pos, default = 1u32)] count: u32,
-    ) -> anyhow::Result<Value<'v>> {
-        cmd_args_mut(this)?.options_mut().parent += count;
+    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
+        this.borrow.options_mut().parent += count;
         Ok(this)
     }
 
     /// Replaces all parts matching pattern regular expression in each argument with replacement string.
     /// Several replacements can be added by multiple replace_regex calls.
-    #[starlark(return_type = "\"cmd_args\"")]
     fn replace_regex<'v>(
-        this: Value<'v>,
+        mut this: StarlarkCommandLineMut<'v>,
         pattern: StringValue<'v>,
         replacement: StringValue<'v>,
-    ) -> anyhow::Result<Value<'v>> {
-        let mut cmd_args = cmd_args_mut(this)?;
-        let options = cmd_args.options_mut();
+    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
+        let options = this.borrow.options_mut();
         // Validate that regex is valid
         Regex::new(pattern.as_str())?;
         if let Some(replacements) = &mut options.replacements {
