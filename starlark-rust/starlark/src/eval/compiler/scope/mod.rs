@@ -90,6 +90,7 @@ struct ModuleScopeBuilder<'a> {
     codemap: FrozenRef<'static, CodeMap>,
     globals: FrozenRef<'static, Globals>,
     errors: Vec<EvalException>,
+    top_level_stmt_count: usize,
 }
 
 pub(crate) struct ModuleScopes<'f> {
@@ -97,6 +98,8 @@ pub(crate) struct ModuleScopes<'f> {
     pub(crate) module_slot_count: u32,
     pub(crate) cst: CstStmt,
     pub(crate) module_bindings: SmallMap<FrozenStringValue, BindingId>,
+    /// Number of top-level statements in the module.
+    pub(crate) top_level_stmt_count: usize,
 }
 
 struct UnscopeBinding {
@@ -335,6 +338,7 @@ impl<'f> ModuleScopes<'f> {
             codemap,
             globals,
             errors: Vec::new(),
+            top_level_stmt_count: top_level_stmts.len(),
         };
         for stmt in top_level_stmts.iter_mut() {
             scope.resolve_idents(stmt);
@@ -395,6 +399,7 @@ impl<'f> ModuleScopes<'f> {
     ) -> (Vec<EvalException>, ModuleScopes<'f>) {
         let (stmt, mut scope) =
             Self::enter_module(module, frozen_heap, loads, stmt, globals, codemap, dialect);
+        let top_level_stmt_count = scope.top_level_stmt_count;
         let errors = mem::take(&mut scope.errors);
         let (module_slot_count, scope_data, module_bindings) = scope.exit_module();
         (
@@ -404,6 +409,7 @@ impl<'f> ModuleScopes<'f> {
                 scope_data,
                 module_bindings,
                 module_slot_count,
+                top_level_stmt_count,
             },
         )
     }

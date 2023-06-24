@@ -115,6 +115,7 @@ pub(crate) struct Compiler<'v, 'a, 'e> {
     pub(crate) globals: FrozenRef<'static, Globals>,
     pub(crate) codemap: FrozenRef<'static, CodeMap>,
     pub(crate) check_types: bool,
+    pub(crate) top_level_stmt_count: usize,
 }
 
 impl Compiler<'_, '_, '_> {

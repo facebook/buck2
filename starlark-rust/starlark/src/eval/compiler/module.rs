@@ -44,6 +44,8 @@ enum ModuleError {
     NoImportsAvailable(String),
     #[error("Unexpected statement (internal error)")]
     UnexpectedStatement,
+    #[error("Top level stmt count mismatch (internal error)")]
+    TopLevelStmtCountMismatch,
 }
 
 impl<'v> Compiler<'v, '_, '_> {
@@ -129,6 +131,15 @@ impl<'v> Compiler<'v, '_, '_> {
             StmtP::Statements(stmts) => stmts,
             _ => slice::from_mut(stmt),
         };
+
+        if stmts.len() != self.top_level_stmt_count {
+            return Err(EvalException::new(
+                ModuleError::TopLevelStmtCountMismatch.into(),
+                stmt.span,
+                &self.codemap,
+            ));
+        }
+
         let mut last = Value::new_none();
         for stmt in stmts {
             match &mut stmt.node {
