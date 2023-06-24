@@ -63,7 +63,7 @@ pub(crate) mod fast_string;
 pub(crate) mod intern;
 pub(crate) mod interpolation;
 pub(crate) mod iter;
-mod repr;
+pub(crate) mod repr;
 pub(crate) mod simd;
 
 /// Index of a char in a string.

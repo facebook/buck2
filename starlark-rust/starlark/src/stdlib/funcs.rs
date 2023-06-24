@@ -23,6 +23,7 @@ use std::cmp::Ordering;
 use std::num::NonZeroI32;
 
 use allocative::Allocative;
+use either::Either;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
@@ -44,22 +45,24 @@ use crate::values::list::AllocList;
 use crate::values::list::ListRef;
 use crate::values::never::StarlarkNever;
 use crate::values::none::NoneType;
+use crate::values::num::NumRef;
 use crate::values::range::Range;
+use crate::values::string::repr::string_repr;
 use crate::values::string::STRING_TYPE;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;
 use crate::values::types::int_or_big::StarlarkInt;
-use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::value_of_unchecked::ValueOfUnchecked;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
 use crate::values::Heap;
+use crate::values::StarlarkIter;
 use crate::values::StringValue;
-use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+use crate::values::ValueOf;
 
 fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> anyhow::Result<(Value<'v>, Value<'v>)> {
     let mut it = pair.iterate(heap)?;
@@ -220,10 +223,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn any<'v>(
-        #[starlark(require = pos, type = "iter(\"\")")] x: Value<'v>,
+        #[starlark(require = pos)] x: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
     ) -> anyhow::Result<bool> {
-        for i in x.iterate(heap)? {
+        for i in x.get().iterate(heap)? {
             if i.to_bool() {
                 return Ok(true);
             }
@@ -250,10 +253,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn all<'v>(
-        #[starlark(require = pos, type = "iter(\"\")")] x: Value<'v>,
+        #[starlark(require = pos)] x: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
     ) -> anyhow::Result<bool> {
-        for i in x.iterate(heap)? {
+        for i in x.get().iterate(heap)? {
             if !i.to_bool() {
                 return Ok(false);
             }
@@ -426,11 +429,12 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn enumerate<'v>(
-        #[starlark(require = pos, type = "iter(\"\")")] it: Value<'v>,
+        #[starlark(require = pos)] it: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         #[starlark(default = 0)] start: i32,
         heap: &'v Heap,
     ) -> anyhow::Result<impl AllocValue<'v>> {
         let v = it
+            .get()
             .iterate(heap)?
             .enumerate()
             .map(move |(k, v)| (k as i32 + start, v));
@@ -461,47 +465,40 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// float("hello")   # error: not a valid number
     /// # "#, "not a valid number");
     /// # starlark::assert::fail(r#"
-    /// float([])   # error: argument must be a string, a number, or a boolean
-    /// # "#, "argument must be a string, a number, or a boolean");
+    /// float([])   # error
+    /// # "#, "expected `either either int or float or bool.type or str`, actual `list`");
     /// ```
     #[starlark(dot_type = StarlarkFloat::TYPE, speculative_exec_safe)]
     fn float(
-        #[starlark(require = pos, type = "[str.type, int.type, float.type, bool.type]")] a: Option<
-            Value,
-        >,
+        #[starlark(require = pos)] a: Option<Either<Either<NumRef, bool>, &str>>,
     ) -> anyhow::Result<f64> {
         if a.is_none() {
             return Ok(0.0);
         }
         let a = a.unwrap();
-        if let Some(f) = a.unpack_num().map(|n| n.as_float()) {
-            Ok(f)
-        } else if let Some(s) = a.unpack_str() {
-            match s.parse::<f64>() {
-                Ok(f) => {
-                    if f.is_infinite() && !s.to_lowercase().contains("inf") {
-                        // if a resulting float is infinite but the parsed string is not explicitly infinity then we should fail with an error
-                        Err(anyhow::anyhow!(
-                            "float() floating-point number too large: {}",
-                            s
-                        ))
-                    } else {
-                        Ok(f)
+        match a {
+            Either::Left(Either::Left(f)) => Ok(f.as_float()),
+            Either::Left(Either::Right(b)) => Ok(if b { 1.0 } else { 0.0 }),
+            Either::Right(s) => {
+                match s.parse::<f64>() {
+                    Ok(f) => {
+                        if f.is_infinite() && !s.to_lowercase().contains("inf") {
+                            // if a resulting float is infinite but the parsed string is not explicitly infinity then we should fail with an error
+                            Err(anyhow::anyhow!(
+                                "float() floating-point number too large: {}",
+                                s
+                            ))
+                        } else {
+                            Ok(f)
+                        }
+                    }
+                    Err(x) => {
+                        let mut repr = String::new();
+                        string_repr(s, &mut repr);
+                        Err(anyhow::anyhow!("{} is not a valid number: {}", repr, x,))
                     }
                 }
-                Err(x) => Err(anyhow::anyhow!(
-                    "{} is not a valid number: {}",
-                    a.to_repr(),
-                    x
-                )),
             }
-        } else if let Some(b) = a.unpack_bool() {
-            Ok(if b { 1.0 } else { 0.0 })
-        } else {
-            Err(anyhow::anyhow!(
-                "float() argument must be a string, a number, or a boolean, not `{}`",
-                a.get_type()
-            ))
         }
     }
 
@@ -643,8 +640,8 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(dot_type = INT_TYPE, speculative_exec_safe)]
     fn int<'v>(
-        #[starlark(require = pos, type = "[int.type, str.type, float.type, bool.type]")] a: Option<
-            Value<'v>,
+        #[starlark(require = pos)] a: Option<
+            ValueOf<'v, Either<Either<NumRef<'v>, bool>, &'v str>>,
         >,
         base: Option<i32>,
         heap: &'v Heap,
@@ -652,82 +649,81 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         let Some(a) = a else {
             return Ok(ValueOfUnchecked::new(heap.alloc(0)));
         };
-        if let Some(s) = a.unpack_str() {
-            let base = base.unwrap_or(0);
-            if base == 1 || base < 0 || base > 36 {
-                return Err(anyhow::anyhow!(
-                    "{} is not a valid base, int() base must be >= 2 and <= 36",
-                    base
-                ));
-            }
-            let (negate, s) = {
-                match s.chars().next() {
-                    Some('+') => (false, s.get(1..).unwrap()),
-                    Some('-') => (true, s.get(1..).unwrap()),
-                    _ => (false, s),
+        let num_or_bool = match a.typed {
+            Either::Left(num_or_bool) => num_or_bool,
+            Either::Right(s) => {
+                let base = base.unwrap_or(0);
+                if base == 1 || base < 0 || base > 36 {
+                    return Err(anyhow::anyhow!(
+                        "{} is not a valid base, int() base must be >= 2 and <= 36",
+                        base
+                    ));
                 }
-            };
-            let base = if base == 0 {
-                match s.get(0..2) {
-                    Some("0b") | Some("0B") => 2,
-                    Some("0o") | Some("0O") => 8,
-                    Some("0x") | Some("0X") => 16,
-                    _ => 10,
-                }
-            } else {
-                base as u32
-            };
-            let s = match base {
-                16 => {
-                    if s.starts_with("0x") || s.starts_with("0X") {
-                        s.get(2..).unwrap()
-                    } else {
-                        s
+                let (negate, s) = {
+                    match s.chars().next() {
+                        Some('+') => (false, s.get(1..).unwrap()),
+                        Some('-') => (true, s.get(1..).unwrap()),
+                        _ => (false, s),
                     }
-                }
-                8 => {
-                    if s.starts_with("0o") || s.starts_with("0O") {
-                        s.get(2..).unwrap()
-                    } else {
-                        s
+                };
+                let base = if base == 0 {
+                    match s.get(0..2) {
+                        Some("0b") | Some("0B") => 2,
+                        Some("0o") | Some("0O") => 8,
+                        Some("0x") | Some("0X") => 16,
+                        _ => 10,
                     }
-                }
-                2 => {
-                    if s.starts_with("0b") || s.starts_with("0B") {
-                        s.get(2..).unwrap()
-                    } else {
-                        s
+                } else {
+                    base as u32
+                };
+                let s = match base {
+                    16 => {
+                        if s.starts_with("0x") || s.starts_with("0X") {
+                            s.get(2..).unwrap()
+                        } else {
+                            s
+                        }
                     }
+                    8 => {
+                        if s.starts_with("0o") || s.starts_with("0O") {
+                            s.get(2..).unwrap()
+                        } else {
+                            s
+                        }
+                    }
+                    2 => {
+                        if s.starts_with("0b") || s.starts_with("0B") {
+                            s.get(2..).unwrap()
+                        } else {
+                            s
+                        }
+                    }
+                    _ => s,
+                };
+                // We already handled the sign above, so we are not trying to parse another sign.
+                if s.starts_with('-') || s.starts_with('+') {
+                    return Err(anyhow::anyhow!("Cannot parse `{}` as an integer", s,));
                 }
-                _ => s,
-            };
-            // We already handled the sign above, so we are not trying to parse another sign.
-            if s.starts_with('-') || s.starts_with('+') {
-                return Err(anyhow::anyhow!("Cannot parse `{}` as an integer", s,));
-            }
 
-            let x = StarlarkInt::from_str_radix(s, base)?;
-            let x = if negate { -x } else { x };
-            Ok(ValueOfUnchecked::new(heap.alloc(x)))
-        } else if let Some(base) = base {
-            Err(anyhow::anyhow!(
+                let x = StarlarkInt::from_str_radix(s, base)?;
+                let x = if negate { -x } else { x };
+                return Ok(ValueOfUnchecked::new(heap.alloc(x)));
+            }
+        };
+
+        if let Some(base) = base {
+            return Err(anyhow::anyhow!(
                 "int() cannot convert non-string with explicit base '{}'",
                 base
-            ))
-        } else if StarlarkIntRef::unpack_value(a).is_some() {
-            Ok(ValueOfUnchecked::new(a))
-        } else if let Some(f) = StarlarkFloat::unpack_value(a) {
-            Ok(ValueOfUnchecked::new(
-                heap.alloc(StarlarkInt::from_f64_exact(f.0.trunc())?),
-            ))
-        } else if let Some(b) = a.unpack_bool() {
-            Ok(ValueOfUnchecked::new(heap.alloc(b as i32)))
-        } else {
-            Err(ValueError::IncorrectParameterTypeWithExpected(
-                a.get_type().to_owned(),
-                "number".to_owned(),
-            )
-            .into())
+            ));
+        }
+
+        match num_or_bool {
+            Either::Left(NumRef::Int(_)) => Ok(ValueOfUnchecked::new(a.value)),
+            Either::Left(NumRef::Float(f)) => Ok(ValueOfUnchecked::new(
+                heap.alloc(StarlarkInt::from_f64_exact(f.trunc())?),
+            )),
+            Either::Right(b) => Ok(ValueOfUnchecked::new(heap.alloc(b as i32))),
         }
     }
 
@@ -777,14 +773,14 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(dot_type = ListRef::TYPE, speculative_exec_safe)]
     fn list<'v>(
-        #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
+        #[starlark(require = pos)] a: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         heap: &'v Heap,
     ) -> anyhow::Result<ValueOfUnchecked<'v, &'v ListRef<'v>>> {
         Ok(ValueOfUnchecked::new(if let Some(a) = a {
-            if let Some(xs) = ListRef::from_value(a) {
+            if let Some(xs) = ListRef::from_value(a.get()) {
                 heap.alloc_list(xs.content())
             } else {
-                let it = a.iterate(heap)?;
+                let it = a.get().iterate(heap)?;
                 heap.alloc(AllocList(it))
             }
         } else {
@@ -977,10 +973,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn reversed<'v>(
-        #[starlark(require = pos, type = "iter(\"\")")] a: Value<'v>,
+        #[starlark(require = pos)] a: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
     ) -> anyhow::Result<Vec<Value<'v>>> {
-        let mut v: Vec<Value> = a.iterate(heap)?.collect();
+        let mut v: Vec<Value> = a.get().iterate(heap)?.collect();
         v.reverse();
         Ok(v)
     }
@@ -1010,12 +1006,12 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     // This function is not spec-safe, because it may call `key` function
     // which might be not spec-safe.
     fn sorted<'v>(
-        #[starlark(require = pos, type = "iter(\"\")")] x: Value<'v>,
+        #[starlark(require = pos)] x: ValueOfUnchecked<'v, ValueOfUnchecked<Value<'v>>>,
         #[starlark(require = named)] key: Option<Value<'v>>,
         #[starlark(require = named, default = false)] reverse: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AllocList<impl IntoIterator<Item = Value<'v>>>> {
-        let it = x.iterate(eval.heap())?;
+        let it = x.get().iterate(eval.heap())?;
         let mut it = match key {
             None => it.map(|x| (x, x)).collect(),
             Some(key) => {
@@ -1095,15 +1091,15 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(dot_type = Tuple::TYPE, speculative_exec_safe)]
     fn tuple<'v>(
-        #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
+        #[starlark(require = pos)] a: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         heap: &'v Heap,
     ) -> anyhow::Result<ValueOfUnchecked<'v, &'v TupleRef<'v>>> {
         if let Some(a) = a {
-            if TupleRef::from_value(a).is_some() {
-                return Ok(ValueOfUnchecked::new(a));
+            if TupleRef::from_value(a.get()).is_some() {
+                return Ok(ValueOfUnchecked::new(a.get()));
             }
 
-            let it = a.iterate(heap)?;
+            let it = a.get().iterate(heap)?;
             Ok(ValueOfUnchecked::new(heap.alloc_tuple_iter(it)))
         } else {
             Ok(ValueOfUnchecked::new(heap.alloc(AllocTuple::EMPTY)))
