@@ -66,7 +66,6 @@ use starlark::values::none::NoneType;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfComplex;
 use starlark::values::ValueOfUnchecked;
@@ -122,8 +121,6 @@ enum RunActionError {
     InvalidWeight(i32),
     #[error("`weight` and `weight_percentage` cannot both be passed")]
     DuplicateWeightsSpecified,
-    #[error("`dep_files` values must be artifact tags, got `{}` for key `{}`", .value, .key)]
-    InvalidDepFileTag { key: String, value: String },
     #[error("`dep_files` value with key `{}` has an invalid count of associated outputs. Expected 1, got {}.", .key, .count)]
     InvalidDepFileOutputs { key: String, count: usize },
     #[error("`dep_files` with keys `{}` and {} are using the same tag", .first, .second)]
@@ -594,9 +591,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] always_print_stderr: bool,
         #[starlark(require = named)] weight: Option<i32>,
         #[starlark(require = named)] weight_percentage: Option<i32>,
-        #[starlark(require = named, type = "{str.type: \"artifact_tag\"}")] dep_files: Option<
-            SmallMap<&'v str, Value<'v>>,
-        >,
+        #[starlark(require = named)] dep_files: Option<SmallMap<&'v str, &'v ArtifactTag>>,
         #[starlark(require = named)] metadata_env_var: Option<String>,
         #[starlark(require = named)] metadata_path: Option<String>,
         // TODO(scottcao): Refactor `no_outputs_cleanup` to `outputs_cleanup`
@@ -717,14 +712,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         let mut dep_files_configuration = RunActionDepFiles::new();
 
         if let Some(dep_files) = dep_files {
-            for (key, value) in dep_files.iter() {
-                let tag = value.downcast_ref::<ArtifactTag>().ok_or_else(|| {
-                    RunActionError::InvalidDepFileTag {
-                        key: (*key).to_owned(),
-                        value: value.to_string(),
-                    }
-                })?;
-
+            for (key, tag) in dep_files {
                 let tagged = tagged_outputs.get(tag);
                 let count = tagged.map_or(0, |t| t.len());
 
@@ -738,7 +726,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
 
                 match dep_files_configuration.labels.entry(tag.dupe()) {
                     Entry::Vacant(v) => {
-                        v.insert(Arc::from(*key));
+                        v.insert(Arc::from(key));
                     }
                     Entry::Occupied(o) => {
                         return Err(RunActionError::ConflictingDepFiles {
