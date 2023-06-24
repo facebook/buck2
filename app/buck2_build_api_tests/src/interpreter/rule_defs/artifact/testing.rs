@@ -18,6 +18,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
+use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
@@ -187,7 +188,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
     // artifact parameter can be either string or artifact
     #[allow(clippy::from_iter_instead_of_collect)]
     fn declared_bound_artifact_with_associated_artifacts<'v>(
-        artifact: Value<'v>,
+        artifact: OutputArtifactArg<'v>,
         associated_artifacts: Vec<StarlarkArtifact>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -209,12 +210,8 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
                 .iter()
                 .map(|a| ArtifactGroup::Artifact(a.artifact())),
         );
-        let (declaration, output_artifact) = analysis_registry.get_or_declare_output(
-            eval,
-            artifact,
-            "param_name",
-            OutputType::File,
-        )?;
+        let (declaration, output_artifact) =
+            analysis_registry.get_or_declare_output(eval, artifact, OutputType::File)?;
 
         actions_registry.register(
             &mut deferred,

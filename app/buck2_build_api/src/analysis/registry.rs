@@ -35,9 +35,7 @@ use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueError;
 use starlark::values::ValueTyped;
 
 use crate::actions::registry::ActionsRegistry;
@@ -53,9 +51,8 @@ use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredRegistry;
 use crate::dynamic::registry::DynamicRegistry;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
+use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
-use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 
 #[derive(Derivative, Trace, Allocative)]
 #[derivative(Debug)]
@@ -170,30 +167,26 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn get_or_declare_output<'v2>(
         &mut self,
         eval: &Evaluator<'v2, '_>,
-        value: Value<'v2>,
-        param_name: &str,
+        value: OutputArtifactArg<'v2>,
         output_type: OutputType,
     ) -> anyhow::Result<(ArtifactDeclaration<'v2>, OutputArtifact)> {
         let declaration_location = eval.call_stack_top_location();
         let heap = eval.heap();
-        let declared_artifact = if let Some(path) = value.unpack_str() {
-            let artifact =
-                self.declare_output(None, path, output_type, declaration_location.dupe())?;
-            heap.alloc_typed(StarlarkDeclaredArtifact::new(
-                declaration_location,
-                artifact,
-                AssociatedArtifacts::new(),
-            ))
-        } else if let Some(output) = ValueTyped::<StarlarkOutputArtifact>::new(value) {
-            output.inner()
-        } else if let Some(artifact) = ValueAsArtifactLike::unpack_value(value) {
-            if let Some(declared_artifact) = ValueTyped::new(value) {
-                declared_artifact
-            } else {
+        let declared_artifact = match value {
+            OutputArtifactArg::Str(path) => {
+                let artifact =
+                    self.declare_output(None, path, output_type, declaration_location.dupe())?;
+                heap.alloc_typed(StarlarkDeclaredArtifact::new(
+                    declaration_location,
+                    artifact,
+                    AssociatedArtifacts::new(),
+                ))
+            }
+            OutputArtifactArg::OutputArtifact(output) => output.inner(),
+            OutputArtifactArg::DeclaredArtifact(artifact) => artifact,
+            OutputArtifactArg::WrongArtifact(artifact) => {
                 return Err(artifact.0.as_output_error());
             }
-        } else {
-            return Err(ValueError::IncorrectParameterTypeNamed(param_name.to_owned()).into());
         };
 
         let output = declared_artifact.output_artifact();

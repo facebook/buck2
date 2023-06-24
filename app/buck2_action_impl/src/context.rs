@@ -16,6 +16,7 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
+use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
@@ -152,7 +153,7 @@ enum WriteActionError {
 fn create_dir_tree<'v>(
     eval: &mut Evaluator<'v, '_>,
     this: &AnalysisActions<'v>,
-    output: Value<'v>,
+    output: OutputArtifactArg<'v>,
     srcs: Value<'v>,
     copy: bool,
 ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
@@ -163,7 +164,7 @@ fn create_dir_tree<'v>(
 
     let mut this = this.state();
     let (declaration, output_artifact) =
-        this.get_or_declare_output(eval, output, "output", OutputType::Directory)?;
+        this.get_or_declare_output(eval, output, OutputType::Directory)?;
     this.register_action(inputs, indexset![output_artifact], action, None)?;
 
     Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
@@ -172,7 +173,7 @@ fn create_dir_tree<'v>(
 fn copy_file_impl<'v>(
     eval: &mut Evaluator<'v, '_>,
     this: &AnalysisActions<'v>,
-    dest: Value<'v>,
+    dest: OutputArtifactArg<'v>,
     src: ValueAsArtifactLike<'v>,
     copy: CopyMode,
     output_type: OutputType,
@@ -182,8 +183,7 @@ fn copy_file_impl<'v>(
     let artifact = src.get_bound_artifact()?;
     let associated_artifacts = src.get_associated_artifacts();
     let mut this = this.state();
-    let (declaration, output_artifact) =
-        this.get_or_declare_output(eval, dest, "dest", output_type)?;
+    let (declaration, output_artifact) = this.get_or_declare_output(eval, dest, output_type)?;
 
     this.register_action(
         indexset![ArtifactGroup::Artifact(artifact)],
@@ -200,7 +200,6 @@ fn copy_file_impl<'v>(
 }
 
 // Type literals that we use
-const TYPE_INPUT_ARTIFACT: &str = "[str.type, \"output_artifact\", \"artifact\"]";
 const TYPE_CMD_ARG_LIKE: &str = "\"_arglike\"";
 
 /// Functions to allow users to interact with the Actions registry.
@@ -262,7 +261,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// * If you pass `with_inputs = True`, you'll get back a `cmd_args` that expands to the JSON file but carries all the underlying inputs as dependencies (so you don't have to use, for example, `hidden` for them to be added to an action that already receives the JSON file)
     fn write_json<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
+        #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] content: Value<'v>,
         #[starlark(require = named, default = false)] with_inputs: bool,
         eval: &mut Evaluator<'v, '_>,
@@ -271,7 +270,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     > {
         let mut this = this.state();
         let (declaration, output_artifact) =
-            this.get_or_declare_output(eval, output, "output", OutputType::File)?;
+            this.get_or_declare_output(eval, output, OutputType::File)?;
 
         validate_json(content)?;
         this.register_action(
@@ -301,7 +300,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///     * If it is true, the result will be a pair of the `artifact` containing content and a list of artifact values that were written by macros, which should be used in hidden fields or similar
     fn write<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
+        #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos, type = TYPE_CMD_ARG_LIKE)] content: Value<'v>,
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] allow_args: bool,
@@ -379,7 +378,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
 
         let mut this = this.state();
         let (declaration, output_artifact) =
-            this.get_or_declare_output(eval, output, "output", OutputType::File)?;
+            this.get_or_declare_output(eval, output, OutputType::File)?;
 
         let (content_cli, written_macro_count, mut associated_artifacts) =
             if let Some(content_arg) = content.as_command_line() {
@@ -477,7 +476,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// The copy works for files or directories.
     fn copy_file<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
+        #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
@@ -496,7 +495,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// The symlink works for files or directories.
     fn symlink_file<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
+        #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
@@ -514,7 +513,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// Make a copy of a directory.
     fn copy_dir<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
+        #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
@@ -524,7 +523,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// Create a symlink to a directory.
     fn symlink_dir<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
+        #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
@@ -542,7 +541,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// The srcs must be a dictionary of path (as string, relative to the result directory) to bound `artifact`, which will be laid out in the directory.
     fn symlinked_dir<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
+        #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos, type = "{str.type: \"artifact\"}")] srcs: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
@@ -553,7 +552,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// The srcs must be a dictionary of path (as string, relative to the result directory) to the bound `artifact`, which will be laid out in the directory.
     fn copied_dir<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
+        #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos, type = "{str.type: \"artifact\"}")] srcs: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
@@ -805,7 +804,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// (Meta-internal) The optional parameter vpnless_url indicates a url from which this resource can be downloaded off VPN; this has the same restrictions as `url` above.
     fn download_file<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
+        #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] url: &str,
         #[starlark(require = named, default = NoneOr::None)] vpnless_url: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] sha1: NoneOr<&str>,
@@ -816,7 +815,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         let mut this = this.state();
         let (declaration, output_artifact) =
-            this.get_or_declare_output(eval, output, "output", OutputType::File)?;
+            this.get_or_declare_output(eval, output, OutputType::File)?;
 
         let checksum = match (
             sha1.into_option().map(Arc::from),
@@ -852,7 +851,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// * `is_executable` (optional): indicates the resulting file should be marked with executable permissions
     fn cas_artifact<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
+        #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] digest: &str,
         #[starlark(require = pos)] use_case: &str,
         #[starlark(require = named)] expires_after_timestamp: i64,
@@ -883,7 +882,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             ArtifactKind::File => OutputType::File,
         };
         let (output_value, output_artifact) =
-            registry.get_or_declare_output(eval, output, "output", output_type)?;
+            registry.get_or_declare_output(eval, output, output_type)?;
 
         registry.register_action(
             IndexSet::new(),

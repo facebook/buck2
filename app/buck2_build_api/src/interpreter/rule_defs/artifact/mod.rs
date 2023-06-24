@@ -8,6 +8,7 @@
  */
 
 pub mod associated;
+pub mod output_artifact_like;
 mod starlark_artifact;
 pub mod starlark_artifact_like;
 mod starlark_artifact_value;
