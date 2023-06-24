@@ -184,7 +184,7 @@ impl AstModule {
             let binding = scope_data.get_binding(*id);
             let name = binding.name.as_str().to_owned();
             let span = match binding.source {
-                BindingSource::Source(span) => span,
+                BindingSource::Source(span, _) => span,
                 BindingSource::FromModule => Span::default(),
             };
             typemap.insert(*id, (name, span, ty.clone()));
