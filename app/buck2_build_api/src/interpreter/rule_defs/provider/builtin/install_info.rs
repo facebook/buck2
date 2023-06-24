@@ -21,13 +21,13 @@ use starlark::values::type_repr::DictType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use thiserror::Error;
 
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 // Provider that signals a rule is installable (ex. android_binary)
 
@@ -76,18 +76,19 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
 
     fn get_files_iter<'a>(
         files: &'a DictRef<'v>,
-    ) -> impl Iterator<Item = anyhow::Result<(&'v str, &'v dyn StarlarkArtifactLike)>> + 'a {
+    ) -> impl Iterator<Item = anyhow::Result<(&'v str, ValueAsArtifactLike<'v>)>> + 'a {
         files.iter().map(|(k, v)| {
             let k = k
                 .unpack_str()
                 .ok_or_else(|| InstallInfoProviderErrors::ExpectedStringKey(k.to_string()))?;
             Ok((
                 k,
-                v.as_artifact()
-                    .ok_or_else(|| InstallInfoProviderErrors::ExpectedArtifact {
+                ValueAsArtifactLike::unpack_value(v).ok_or_else(|| {
+                    InstallInfoProviderErrors::ExpectedArtifact {
                         key: k.to_owned(),
                         got: v.get_type().to_owned(),
-                    })?,
+                    }
+                })?,
             ))
         })
     }
@@ -98,7 +99,7 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
                 let (k, v) = x?;
                 Ok((
                     k,
-                    v.get_bound_artifact()
+                    v.0.get_bound_artifact()
                         .with_context(|| format!("For key `{k}`"))?,
                 ))
             })
@@ -127,11 +128,11 @@ where
 {
     for x in InstallInfoGen::<V>::get_files_iter(&info.get_files_dict()) {
         let (k, v) = x?;
-        if let Some(other_artifacts) = v.get_associated_artifacts() {
+        if let Some(other_artifacts) = v.0.get_associated_artifacts() {
             if !other_artifacts.is_empty() {
                 return Err(InstallInfoProviderErrors::AssociatedArtifacts {
                     key: k.to_owned(),
-                    artifact: v.to_string(),
+                    artifact: v.0.to_string(),
                 }
                 .into());
             }

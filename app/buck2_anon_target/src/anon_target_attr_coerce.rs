@@ -39,6 +39,7 @@ use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::tuple::TupleRef;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::anon_target_attr::AnonTargetAttr;
@@ -123,8 +124,8 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 // allow anon targets to accept unresolved promise artifacts.
                 if let Some(promise_artifact) = StarlarkPromiseArtifact::from_value(value) {
                     Ok(AnonTargetAttr::PromiseArtifact(promise_artifact.clone()))
-                } else if let Some(artifact_like) = value.as_artifact() {
-                    let artifact = artifact_like.get_bound_artifact()?;
+                } else if let Some(artifact_like) = ValueAsArtifactLike::unpack_value(value) {
+                    let artifact = artifact_like.0.get_bound_artifact()?;
                     Ok(AnonTargetAttr::Artifact(artifact))
                 } else {
                     Err(AnonTargetCoercionError::type_error("artifact", value).into())

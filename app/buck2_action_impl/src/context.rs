@@ -65,7 +65,6 @@ use starlark::values::none::NoneType;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Value;
-use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfComplex;
@@ -174,13 +173,11 @@ fn copy_file_impl<'v>(
     eval: &mut Evaluator<'v, '_>,
     this: &AnalysisActions<'v>,
     dest: Value<'v>,
-    src: Value<'v>,
+    src: ValueAsArtifactLike<'v>,
     copy: CopyMode,
     output_type: OutputType,
 ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-    let src = src
-        .as_artifact()
-        .ok_or_else(|| ValueError::IncorrectParameterTypeNamed("src".to_owned()))?;
+    let src = src.0;
 
     let artifact = src.get_bound_artifact()?;
     let associated_artifacts = src.get_associated_artifacts();
@@ -204,7 +201,6 @@ fn copy_file_impl<'v>(
 
 // Type literals that we use
 const TYPE_INPUT_ARTIFACT: &str = "[str.type, \"output_artifact\", \"artifact\"]";
-const TYPE_ARTIFACT: &str = "\"artifact\"";
 const TYPE_CMD_ARG_LIKE: &str = "\"_arglike\"";
 
 /// Functions to allow users to interact with the Actions registry.
@@ -482,7 +478,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     fn copy_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
-        #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
+        #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
@@ -501,7 +497,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     fn symlink_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
-        #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
+        #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
@@ -519,7 +515,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     fn copy_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
-        #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
+        #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         copy_file_impl(eval, this, dest, src, CopyMode::Copy, OutputType::Directory)
@@ -529,7 +525,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     fn symlink_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
-        #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
+        #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         copy_file_impl(

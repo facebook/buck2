@@ -31,6 +31,7 @@ use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
@@ -195,10 +196,9 @@ impl FrozenDefaultInfo {
                     starlark_artifact.dupe()
                 } else {
                     // This code path is for StarlarkPromiseArtifact. We have to create a `StarlarkArtifact` object here.
-                    let artifact_like = frozen_value
-                        .as_artifact()
+                    let artifact_like = ValueAsArtifactLike::unpack_value(frozen_value.to_value())
                         .context("Should be list of artifacts")?;
-                    artifact_like.get_bound_starlark_artifact()?
+                    artifact_like.0.get_bound_starlark_artifact()?
                 },
             )
         }))
@@ -253,9 +253,9 @@ impl FrozenDefaultInfo {
     ) -> anyhow::Result<()> {
         self.for_each_in_list(self.default_outputs, |value| {
             processor(
-                value
-                    .as_artifact()
+                ValueAsArtifactLike::unpack_value(value)
                     .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
+                    .0
                     .get_bound_artifact()?,
             )
         })
@@ -266,9 +266,9 @@ impl FrozenDefaultInfo {
         processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
         self.for_each_in_list(self.default_outputs, |value| {
-            let others = value
-                .as_artifact()
+            let others = ValueAsArtifactLike::unpack_value(value)
                 .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
+                .0
                 .get_associated_artifacts();
             others
                 .iter()
@@ -364,8 +364,8 @@ trait ValueAsArtifactTraversable<'v> {
 
 impl<'v, V: ValueLike<'v>> ValueAsArtifactTraversable<'v> for V {
     fn as_artifact_traversable(&self) -> Option<Box<dyn ArtifactTraversable + 'v>> {
-        if let Some(artifact) = self.as_artifact() {
-            return Some(Box::new(artifact));
+        if let Some(artifact) = ValueAsArtifactLike::unpack_value(self.to_value()) {
+            return Some(Box::new(artifact.0));
         }
 
         if let Some(cli) = self.to_value().as_command_line() {
@@ -412,7 +412,10 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
                         return Err(anyhow::anyhow!(DefaultOutputError::ConflictingArguments));
                     }
 
-                    if list.iter().all(|v| v.as_artifact().is_some()) {
+                    if list
+                        .iter()
+                        .all(|v| ValueAsArtifactLike::unpack_value(v).is_some())
+                    {
                         default_outputs
                     } else {
                         return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
@@ -431,7 +434,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
             // `default_output`.
             if default_output.is_none() {
                 eval.heap().alloc(AllocList::EMPTY)
-            } else if default_output.as_artifact().is_some() {
+            } else if ValueAsArtifactLike::unpack_value(default_output).is_some() {
                 eval.heap().alloc(AllocList([default_output]))
             } else {
                 return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(

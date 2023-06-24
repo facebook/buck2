@@ -25,6 +25,7 @@ use starlark::values::list::ListRef;
 use starlark::values::record::Record;
 use starlark::values::structs::StructRef;
 use starlark::values::tuple::TupleRef;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
@@ -71,8 +72,8 @@ fn err<R, E: serde::ser::Error>(res: anyhow::Result<R>) -> Result<R, E> {
 /// since otherwise the .as_output ones will fall through as a cmd_args
 /// and end up getting wrapped in a list below.
 fn get_artifact<'v>(x: Value<'v>) -> Option<Box<dyn FnOnce() -> anyhow::Result<Artifact> + 'v>> {
-    if let Some(x) = x.as_artifact() {
-        Some(Box::new(|| Ok(x.get_bound_artifact()?.dupe())))
+    if let Some(x) = ValueAsArtifactLike::unpack_value(x) {
+        Some(Box::new(|| Ok(x.0.get_bound_artifact()?.dupe())))
     } else if let Some(x) = x.downcast_ref::<StarlarkOutputArtifact>() {
         Some(Box::new(|| Ok(((*x.inner()).get_bound_artifact())?.dupe())))
     } else if let Some(x) = x.downcast_ref::<FrozenStarlarkOutputArtifact>() {

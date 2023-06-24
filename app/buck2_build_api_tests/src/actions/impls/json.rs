@@ -47,13 +47,12 @@ fn test_tagging() -> anyhow::Result<()> {
         fn check_artifact_is_tagged<'v>(
             tagged: Value<'v>,
             tag: Value<'v>,
-            artifact: Value<'v>,
+            artifact: ValueAsArtifactLike<'v>,
         ) -> anyhow::Result<Value<'v>> {
             let tag = ArtifactTag::from_value(tag).context("Invalid tag")?.dupe();
 
             let artifact = artifact
-                .as_artifact()
-                .context("Not an artifact")?
+                .0
                 .get_bound_artifact()
                 .context("Not a bound artifact")?
                 .dupe();

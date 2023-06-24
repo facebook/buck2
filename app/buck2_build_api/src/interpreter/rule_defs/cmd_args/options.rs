@@ -35,6 +35,7 @@ use starlark::values::FrozenValue;
 use starlark::values::StringValue;
 use starlark::values::StringValueLike;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use static_assertions::assert_eq_size;
@@ -434,8 +435,8 @@ impl<'v> RelativeOrigin<'v> {
     where
         V: ValueLike<'v>,
     {
-        if let Some(v) = v.as_artifact() {
-            return Some(RelativeOrigin::Artifact(v));
+        if let Some(v) = ValueAsArtifactLike::unpack_value(v.to_value()) {
+            return Some(RelativeOrigin::Artifact(v.0));
         }
 
         if let Some(v) = v.downcast_ref::<CellRoot>() {

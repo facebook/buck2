@@ -14,6 +14,9 @@ use std::hash::Hasher;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use starlark::collections::StarlarkHasher;
+use starlark::typing::Ty;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
@@ -62,9 +65,8 @@ pub trait StarlarkArtifactLike: Display {
     fn fingerprint(&self) -> ArtifactFingerprint<'_>;
 
     fn equals<'v>(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        Ok(other
-            .as_artifact()
-            .map_or(false, |other| self.fingerprint() == other.fingerprint()))
+        Ok(ValueAsArtifactLike::unpack_value(other)
+            .map_or(false, |other| self.fingerprint() == other.0.fingerprint()))
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
@@ -87,22 +89,34 @@ pub trait StarlarkArtifactLike: Display {
     fn get_artifact_group(&self) -> anyhow::Result<ArtifactGroup>;
 }
 
-pub trait ValueAsArtifactLike<'v> {
-    fn as_artifact(&self) -> Option<&'v dyn StarlarkArtifactLike>;
+pub struct ValueAsArtifactLike<'v>(pub &'v dyn StarlarkArtifactLike);
+
+impl<'v> StarlarkTypeRepr for ValueAsArtifactLike<'v> {
+    fn starlark_type_repr() -> Ty {
+        Ty::unions(vec![
+            StarlarkArtifact::starlark_type_repr(),
+            StarlarkDeclaredArtifact::starlark_type_repr(),
+            StarlarkPromiseArtifact::starlark_type_repr(),
+        ])
+    }
 }
 
-impl<'v, V: ValueLike<'v>> ValueAsArtifactLike<'v> for V {
-    fn as_artifact(&self) -> Option<&'v dyn StarlarkArtifactLike> {
-        self.downcast_ref::<StarlarkArtifact>()
+impl<'v> UnpackValue<'v> for ValueAsArtifactLike<'v> {
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        value
+            .downcast_ref::<StarlarkArtifact>()
             .map(|o| o as &dyn StarlarkArtifactLike)
             .or_else(|| {
-                self.downcast_ref::<StarlarkDeclaredArtifact>()
+                value
+                    .downcast_ref::<StarlarkDeclaredArtifact>()
                     .map(|o| o as &dyn StarlarkArtifactLike)
             })
             .or_else(|| {
-                self.downcast_ref::<StarlarkPromiseArtifact>()
+                value
+                    .downcast_ref::<StarlarkPromiseArtifact>()
                     .map(|o| o as &dyn StarlarkArtifactLike)
             })
+            .map(ValueAsArtifactLike)
     }
 }
 

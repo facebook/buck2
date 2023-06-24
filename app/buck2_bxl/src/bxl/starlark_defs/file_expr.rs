@@ -104,13 +104,13 @@ impl<'v> UnpackValue<'v> for FileExpr<'v> {
             Some(FileExpr::Literal(s))
         } else if let Some(v) = value.downcast_ref::<StarlarkFileNode>() {
             Some(FileExpr::StarlarkFileNode(v.to_owned()))
-        } else {
-            value
-                .as_artifact()?
-                .get_bound_artifact()
+        } else if let Some(v) = ValueAsArtifactLike::unpack_value(value) {
+            v.0.get_bound_artifact()
                 .map(|a| a.get_source())
                 .ok()?
                 .map(FileExpr::SourceArtifact)
+        } else {
+            None
         }
     }
 }

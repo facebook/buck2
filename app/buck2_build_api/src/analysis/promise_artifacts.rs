@@ -18,6 +18,7 @@ use dupe::Dupe;
 use once_cell::sync::OnceCell;
 use starlark::codemap::FileSpan;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::ValueTyped;
 
 use crate::artifact_groups::promise::PromiseArtifact;
@@ -53,11 +54,11 @@ impl<'v> PromiseArtifactRegistry<'v> {
     pub(crate) fn resolve_all(&self) -> anyhow::Result<()> {
         for (promise, artifact_entry) in std::iter::zip(&self.promises, &self.artifacts) {
             match promise.get() {
-                Some(v) => match v.as_artifact() {
+                Some(v) => match ValueAsArtifactLike::unpack_value(v) {
                     Some(v) => {
                         artifact_entry
                             .artifact
-                            .resolve(v, &artifact_entry.short_path)?;
+                            .resolve(v.0, &artifact_entry.short_path)?;
                     }
                     None => {
                         return Err(PromiseArtifactResolveError::NotAnArtifact(

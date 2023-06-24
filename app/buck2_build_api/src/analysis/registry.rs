@@ -35,6 +35,7 @@ use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueTyped;
@@ -185,11 +186,11 @@ impl<'v> AnalysisRegistry<'v> {
             ))
         } else if let Some(output) = ValueTyped::<StarlarkOutputArtifact>::new(value) {
             output.inner()
-        } else if let Some(artifact) = value.as_artifact() {
+        } else if let Some(artifact) = ValueAsArtifactLike::unpack_value(value) {
             if let Some(declared_artifact) = ValueTyped::new(value) {
                 declared_artifact
             } else {
-                return Err(artifact.as_output_error());
+                return Err(artifact.0.as_output_error());
             }
         } else {
             return Err(ValueError::IncorrectParameterTypeNamed(param_name.to_owned()).into());

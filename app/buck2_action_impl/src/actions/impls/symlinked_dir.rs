@@ -39,6 +39,7 @@ use itertools::Itertools;
 use once_cell::sync::Lazy;
 use starlark::values::dict::DictRef;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark_map::small_set::SmallSet;
@@ -107,7 +108,9 @@ impl UnregisteredSymlinkedDirAction {
         let res = srcs
             .iter()
             .map(|(k, v)| {
-                let as_artifact = v.as_artifact().context("expecting dict value artifact")?;
+                let as_artifact = ValueAsArtifactLike::unpack_value(v)
+                    .context("expecting dict value artifact")?
+                    .0;
                 let associates = as_artifact.get_associated_artifacts();
                 anyhow::Ok((
                     (

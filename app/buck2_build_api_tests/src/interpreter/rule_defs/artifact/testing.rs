@@ -159,7 +159,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         ))
     }
 
-    fn stringify_for_cli<'v>(artifact: Value<'v>) -> anyhow::Result<String> {
+    fn stringify_for_cli<'v>(artifact: ValueAsArtifactLike<'v>) -> anyhow::Result<String> {
         let cell_info = cells(None).unwrap();
         let project_fs =
             ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
@@ -175,8 +175,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         let mut cli = Vec::<String>::new();
         let mut ctx = DefaultCommandLineContext::new(&executor_fs);
         artifact
-            .as_artifact()
-            .unwrap()
+            .0
             .as_command_line_like()
             .add_to_command_line(&mut cli, &mut ctx)
             .unwrap();
@@ -230,9 +229,10 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         Ok(value)
     }
 
-    fn get_associated_artifacts_as_string<'v>(artifact: Value<'v>) -> anyhow::Result<String> {
-        let artifact = artifact.as_artifact().unwrap();
-        let associated_artifacts = artifact.get_associated_artifacts();
+    fn get_associated_artifacts_as_string<'v>(
+        artifact: ValueAsArtifactLike<'v>,
+    ) -> anyhow::Result<String> {
+        let associated_artifacts = artifact.0.get_associated_artifacts();
         let s: String = associated_artifacts
             .iter()
             .flat_map(|v| v.iter())
