@@ -583,7 +583,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
         })
         .collect();
 
-    let return_type_str = render_starlark_return_type(x, &x.starlark_return_type);
+    let return_type_str = render_starlark_return_type(x);
     let var_name = format_ident!("__documentation");
     let dot_type: TokenStream = x.type_str();
     let documentation = quote_spanned!(span=>

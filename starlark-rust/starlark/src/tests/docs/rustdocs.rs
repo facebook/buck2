@@ -27,10 +27,21 @@ use crate::docs::DocMember;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::typing::Ty;
 use crate::values::none::NoneType;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
+use crate::values::ValueOfUnchecked;
+
+struct OutputTypeRepr;
+
+impl StarlarkTypeRepr for OutputTypeRepr {
+    fn starlark_type_repr() -> Ty {
+        Ty::name("output")
+    }
+}
 
 #[starlark_module]
 #[allow(unused_variables)] // Since this is for a test
@@ -59,12 +70,11 @@ fn globals(builder: &mut GlobalsBuilder) {
         unimplemented!()
     }
 
-    #[starlark(return_type = "\"output\"")]
     fn custom_types<'v>(
         arg1: StringValue<'v>,
         #[starlark(type = "\"input\"")] arg2: Value<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<ValueOfUnchecked<'v, OutputTypeRepr>> {
         unimplemented!()
     }
 

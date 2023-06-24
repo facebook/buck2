@@ -53,7 +53,6 @@ use crate::module::typ::StarStmt;
 struct FnAttrs {
     is_attribute: bool,
     type_attribute: Option<Expr>,
-    starlark_return_type: Option<Expr>,
     starlark_ty_custom_function: Option<Expr>,
     speculative_exec_safe: bool,
     docstring: Option<String>,
@@ -177,10 +176,6 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
             } else if ident == "speculative_exec_safe" {
                 attrs.speculative_exec_safe = true;
                 continue;
-            } else if ident == "return_type" {
-                parser.parse::<Token![=]>()?;
-                attrs.starlark_return_type = Some(parser.parse::<Expr>()?);
-                continue;
             } else if ident == "ty_custom_function" {
                 parser.parse::<Token![=]>()?;
                 attrs.starlark_ty_custom_function = Some(parser.parse::<Expr>()?);
@@ -192,7 +187,6 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
                     `#[starlark(type = \"ty\")]`, \
                     `#[starlark(ty_custom_function = MyTy)]`, \
                     `#[starlark(attribute)]`, \
-                    `#[starlark(return_type = \"type\")]`, \
                     `#[starlark(speculative_exec_safe)]` attribute",
             ));
         }
@@ -278,7 +272,6 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
         type_attribute,
         speculative_exec_safe,
         docstring,
-        starlark_return_type,
         starlark_ty_custom_function,
         attrs,
     } = parse_fn_attrs(func.span(), func.attrs)?;
@@ -362,7 +355,6 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
             arg: arg.ty,
             heap,
             attrs,
-            starlark_return_type,
             return_type,
             return_type_arg,
             speculative_exec_safe,
@@ -395,7 +387,6 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
             heap,
             eval,
             return_type,
-            starlark_return_type,
             starlark_ty_custom_function,
             speculative_exec_safe,
             body: *func.block,

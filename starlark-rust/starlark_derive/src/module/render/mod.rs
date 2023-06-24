@@ -94,7 +94,6 @@ fn render_attr(x: StarAttr) -> TokenStream {
         attrs,
         return_type,
         return_type_arg,
-        starlark_return_type,
         speculative_exec_safe,
         body,
         docstring,
@@ -111,7 +110,7 @@ fn render_attr(x: StarAttr) -> TokenStream {
         None
     };
 
-    let return_type_str = render_starlark_type(span, &return_type_arg, &starlark_return_type);
+    let return_type_str = render_starlark_type(span, &return_type_arg, &None);
 
     quote_spanned! {
         span=>
@@ -236,22 +235,9 @@ pub(crate) fn render_starlark_type(
     }
 }
 
-pub(crate) fn render_starlark_return_type(
-    fun: &StarFun,
-    // If the user supplied a Starlark version of the string, pass it along
-    starlark_type: &Option<Expr>,
-) -> TokenStream {
-    match starlark_type {
-        None => {
-            let struct_name = fun.struct_name();
-            quote_spanned! {fun.span()=>
-                #struct_name::return_type_starlark_type_repr()
-            }
-        }
-        Some(t) => {
-            quote_spanned! {fun.span()=>
-                starlark::typing::Ty::parse(#t).unwrap()
-            }
-        }
+pub(crate) fn render_starlark_return_type(fun: &StarFun) -> TokenStream {
+    let struct_name = fun.struct_name();
+    quote_spanned! {fun.span()=>
+        #struct_name::return_type_starlark_type_repr()
     }
 }
