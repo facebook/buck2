@@ -66,6 +66,12 @@ impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
         T::unpack_value_err(value)?;
         Ok(Self::new(value))
     }
+
+    /// Get the value.
+    #[inline]
+    pub fn get(self) -> Value<'v> {
+        self.0
+    }
 }
 
 impl<'v, T: StarlarkTypeRepr> StarlarkTypeRepr for ValueOfUnchecked<'v, T> {

@@ -42,6 +42,7 @@ use crate::private::Private;
 use crate::starlark_complex_value;
 use crate::starlark_simple_value;
 use crate::typing::Ty;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
@@ -57,6 +58,15 @@ use crate::values::ValueLike;
 
 /// Return value of `type(any function)`.
 pub const FUNCTION_TYPE: &str = "function";
+
+/// Marker trait for function types.
+pub(crate) enum StarlarkFunction {}
+
+impl StarlarkTypeRepr for StarlarkFunction {
+    fn starlark_type_repr() -> Ty {
+        Ty::name(FUNCTION_TYPE)
+    }
+}
 
 /// A native function that can be evaluated.
 ///

@@ -23,9 +23,13 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
+use crate::values::function::StarlarkFunction;
+use crate::values::iter_type::StarlarkIter;
+use crate::values::none::NoneOr;
 use crate::values::none::NoneType;
 use crate::values::regex::StarlarkRegex;
 use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 
 #[starlark_module]
 pub fn filter(builder: &mut GlobalsBuilder) {
@@ -40,19 +44,24 @@ pub fn filter(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     fn filter<'v>(
-        #[starlark(require = pos, type = "[\"function\", None]")] func: Value<'v>,
-        #[starlark(require = pos, type = "iter(\"\")")] seq: Value<'v>,
+        #[starlark(require = pos)] func: NoneOr<ValueOfUnchecked<'v, StarlarkFunction>>,
+        #[starlark(require = pos)] seq: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Vec<Value<'v>>> {
         let mut res = Vec::new();
 
-        for v in seq.iterate(eval.heap())? {
-            if func.is_none() {
-                if !v.is_none() {
-                    res.push(v);
+        for v in seq.get().iterate(eval.heap())? {
+            match func {
+                NoneOr::None => {
+                    if !v.is_none() {
+                        res.push(v);
+                    }
                 }
-            } else if func.invoke_pos(&[v], eval)?.to_bool() {
-                res.push(v);
+                NoneOr::Other(func) => {
+                    if func.get().invoke_pos(&[v], eval)?.to_bool() {
+                        res.push(v);
+                    }
+                }
             }
         }
         Ok(res)
@@ -70,14 +79,14 @@ pub fn map(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     fn map<'v>(
-        #[starlark(require = pos, type = "\"function\"")] func: Value<'v>,
-        #[starlark(require = pos, type = "iter(\"\")")] seq: Value<'v>,
+        #[starlark(require = pos)] func: ValueOfUnchecked<'v, StarlarkFunction>,
+        #[starlark(require = pos)] seq: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Vec<Value<'v>>> {
-        let it = seq.iterate(eval.heap())?;
+        let it = seq.get().iterate(eval.heap())?;
         let mut res = Vec::with_capacity(it.size_hint().0);
         for v in it {
-            res.push(func.invoke_pos(&[v], eval)?);
+            res.push(func.get().invoke_pos(&[v], eval)?);
         }
         Ok(res)
     }
