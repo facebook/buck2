@@ -63,7 +63,6 @@ impl<'a> Eq for BorrowedExportedName<'a> {}
 /// ```
 /// use allocative::Allocative;
 /// use starlark::eval::Evaluator;
-/// use starlark::starlark_type;
 /// use starlark::values::exported_name::ExportedName;
 /// use starlark::values::StarlarkValue;
 /// use starlark_derive::{NoSerialize, ProvidesStaticType, starlark_value};

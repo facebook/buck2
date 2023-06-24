@@ -296,7 +296,7 @@
 //! use starlark::eval::Evaluator;
 //! use starlark::syntax::{AstModule, Dialect};
 //! use starlark::values::{Heap, StarlarkValue, Value, ValueError, ValueLike, ProvidesStaticType, NoSerialize};
-//! use starlark::{starlark_type, starlark_simple_value};
+//! use starlark::starlark_simple_value;
 //! use std::fmt::{self, Display, Write};
 //! use allocative::Allocative;
 //! use starlark_derive::starlark_value;

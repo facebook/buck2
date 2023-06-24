@@ -75,7 +75,7 @@ use crate::values::ValueError;
 ///
 /// ```
 /// use starlark::values::{ProvidesStaticType, ComplexValue, Coerce, Freezer, FrozenValue, StarlarkValue, Value, ValueLike, Trace, Tracer, Freeze, NoSerialize};
-/// use starlark::{starlark_complex_value, starlark_type};
+/// use starlark::{starlark_complex_value};
 /// use derive_more::Display;
 /// use allocative::Allocative;
 /// use starlark_derive::starlark_value;
@@ -189,7 +189,6 @@ where
 /// use starlark::values::ProvidesStaticType;
 /// use starlark::values::NoSerialize;
 /// # use starlark::starlark_simple_value;
-/// use starlark::starlark_type;
 /// use derive_more::Display;
 /// use allocative::Allocative;
 /// use starlark_derive::starlark_value;
