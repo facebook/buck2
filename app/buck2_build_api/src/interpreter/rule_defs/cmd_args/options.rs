@@ -28,6 +28,8 @@ use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::coerce::coerce;
+use starlark::typing::Ty;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
@@ -430,22 +432,30 @@ pub(crate) enum RelativeOrigin<'v> {
     CellRoot(&'v CellRoot),
 }
 
-impl<'v> RelativeOrigin<'v> {
-    pub(crate) fn from_value<V>(v: V) -> Option<Self>
-    where
-        V: ValueLike<'v>,
-    {
-        if let Some(v) = ValueAsArtifactLike::unpack_value(v.to_value()) {
+impl<'v> StarlarkTypeRepr for RelativeOrigin<'v> {
+    fn starlark_type_repr() -> Ty {
+        Ty::union2(
+            ValueAsArtifactLike::starlark_type_repr(),
+            CellRoot::starlark_type_repr(),
+        )
+    }
+}
+
+impl<'v> UnpackValue<'v> for RelativeOrigin<'v> {
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        if let Some(v) = ValueAsArtifactLike::unpack_value(value) {
             return Some(RelativeOrigin::Artifact(v.0));
         }
 
-        if let Some(v) = v.downcast_ref::<CellRoot>() {
+        if let Some(v) = value.downcast_ref::<CellRoot>() {
             return Some(RelativeOrigin::CellRoot(v));
         }
 
         None
     }
+}
 
+impl<'v> RelativeOrigin<'v> {
     pub(crate) fn resolve<C>(&self, ctx: &C) -> anyhow::Result<RelativePathBuf>
     where
         C: CommandLineContext + ?Sized,
@@ -667,7 +677,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             None => return Ok(None),
         };
 
-        let origin = RelativeOrigin::from_value(value)
+        let origin = RelativeOrigin::unpack_value(value)
             .expect("Must be a valid RelativeOrigin as this was checked in the setter");
         let mut relative_path = origin.resolve(ctx)?;
         for _ in 0..parent {

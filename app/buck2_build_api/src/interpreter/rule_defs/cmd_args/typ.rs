@@ -53,6 +53,7 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 use static_assertions::assert_eq_size;
 
 use crate::artifact_groups::ArtifactGroup;
@@ -693,16 +694,14 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn relative_to<'v>(
         mut this: StarlarkCommandLineMut<'v>,
-        #[starlark(type = "[artifact.type, \"cell_root\"]")] directory: Value<'v>,
+        // TODO(nga): is it named or positional?
+        directory: ValueOf<'v, RelativeOrigin<'v>>,
         #[starlark(default = 0i32)] parent: i32,
     ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
-        if RelativeOrigin::from_value(directory).is_none() {
-            return Err(ValueError::IncorrectParameterTypeNamed("directory".to_owned()).into());
-        }
         if parent < 0 {
             return Err(ValueError::IncorrectParameterTypeNamed("parent".to_owned()).into());
         }
-        this.borrow.options_mut().relative_to = Some((directory, parent as usize));
+        this.borrow.options_mut().relative_to = Some((directory.value, parent as usize));
         Ok(this)
     }
 
