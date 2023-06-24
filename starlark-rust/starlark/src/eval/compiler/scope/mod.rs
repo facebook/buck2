@@ -341,23 +341,6 @@ impl<'f> ModuleScopes<'f> {
         }
         (cst, scope)
     }
-
-    fn enter_module_err(
-        module: &'f MutableNames,
-        frozen_heap: &'f FrozenHeap,
-        loads: &HashMap<String, Interface>,
-        stmt: AstStmt,
-        globals: FrozenRef<'static, Globals>,
-        codemap: FrozenRef<'static, CodeMap>,
-        dialect: &Dialect,
-    ) -> anyhow::Result<(CstStmt, ModuleScopeBuilder<'f>)> {
-        let (cst, mut scope) =
-            Self::enter_module(module, frozen_heap, loads, stmt, globals, codemap, dialect);
-        if let Some(first_error) = scope.errors.drain(..).next() {
-            return Err(first_error.into_anyhow());
-        }
-        Ok((cst, scope))
-    }
 }
 
 impl<'f> ModuleScopeBuilder<'f> {
@@ -393,22 +376,12 @@ impl<'f> ModuleScopes<'f> {
         codemap: FrozenRef<'static, CodeMap>,
         dialect: &Dialect,
     ) -> anyhow::Result<ModuleScopes<'f>> {
-        let (cst, scopes) = ModuleScopes::enter_module_err(
-            module,
-            frozen_heap,
-            loads,
-            stmt,
-            globals,
-            codemap,
-            dialect,
-        )?;
-        let (module_slot_count, scope_data, module_bindings) = scopes.exit_module();
-        Ok(ModuleScopes {
-            cst,
-            scope_data,
-            module_bindings,
-            module_slot_count,
-        })
+        let (errors, scopes) =
+            ModuleScopes::check_module(module, frozen_heap, loads, stmt, globals, codemap, dialect);
+        if let Some(error) = errors.into_iter().next() {
+            return Err(error.into_anyhow());
+        }
+        Ok(scopes)
     }
 
     pub(crate) fn check_module(
