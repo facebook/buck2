@@ -198,9 +198,6 @@ fn copy_file_impl<'v>(
     ))
 }
 
-// Type literals that we use
-const TYPE_CMD_ARG_LIKE: &str = "\"_arglike\"";
-
 /// Functions to allow users to interact with the Actions registry.
 /// Accessed via `ctx.actions.<function>`.
 ///
@@ -300,7 +297,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     fn write<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
-        #[starlark(require = pos, type = TYPE_CMD_ARG_LIKE)] content: Value<'v>,
+        #[starlark(require = pos)] content: Value<'v>,
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] allow_args: bool,
         // If set, add artifacts in content as associated artifacts of the output. This will only work for bound artifacts.
@@ -583,7 +580,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///     The options listed above take precedence if set.
     fn run<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos, type = TYPE_CMD_ARG_LIKE)] arguments: Value<'v>,
+        #[starlark(require = pos)] arguments: Value<'v>,
         #[starlark(require = named)] category: String,
         #[starlark(require = named, default = NoneOr::None)] identifier: NoneOr<String>,
         #[starlark(require = named)] env: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
