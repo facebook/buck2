@@ -192,7 +192,6 @@ pub(crate) struct StarArg {
     pub pass_style: StarArgPassStyle,
     pub name: Ident,
     pub ty: Type,
-    pub starlark_type: Option<Expr>,
     pub default: Option<Expr>,
     pub source: StarArgSource,
 }

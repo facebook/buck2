@@ -66,7 +66,6 @@ mod vtable;
 /// * `#[starlark(require = named)]` - require the parameter to be passed by name, not by position.
 /// * `#[starlark(args)]` - treat the argument as `*args` in Starlark, receiving all additional positional arguments as a tuple.
 /// * `#[starlark(kwargs)]` - treat the argument as `**kwargs` in Starlark, receiving all additional named arguments as a dictionary.
-/// * `#[starlark(type = "foo")]` - give a custom type for the documentation.
 ///
 /// There are a number of attributes that can be applied to the entire function by writing attributes
 /// before the `fn` of the function:

@@ -68,7 +68,6 @@ struct FnParamAttrs {
     named_only: bool,
     args: bool,
     kwargs: bool,
-    starlark_type: Option<Expr>,
     unused_attrs: Vec<Attribute>,
 }
 
@@ -90,46 +89,40 @@ fn parse_starlark_fn_param_attr(
             }
             first = false;
 
-            if parser.parse::<Token![type]>().is_ok() {
+            let ident = parser.parse::<Ident>()?;
+            if ident == "default" {
                 parser.parse::<Token![=]>()?;
-                param_attrs.starlark_type = Some(parser.parse::<Expr>()?);
+                param_attrs.default = Some(parser.parse::<Expr>()?);
                 continue;
-            } else {
-                let ident = parser.parse::<Ident>()?;
-                if ident == "default" {
-                    parser.parse::<Token![=]>()?;
-                    param_attrs.default = Some(parser.parse::<Expr>()?);
+            } else if ident == "this" {
+                param_attrs.this = true;
+                continue;
+            } else if ident == "args" {
+                param_attrs.args = true;
+                continue;
+            } else if ident == "kwargs" {
+                param_attrs.kwargs = true;
+                continue;
+            } else if ident == "require" {
+                parser.parse::<Token!(=)>()?;
+                let require = parser.parse::<Ident>()?;
+                if require == "pos" {
+                    param_attrs.pos_only = true;
                     continue;
-                } else if ident == "this" {
-                    param_attrs.this = true;
+                } else if require == "named" {
+                    param_attrs.named_only = true;
                     continue;
-                } else if ident == "args" {
-                    param_attrs.args = true;
-                    continue;
-                } else if ident == "kwargs" {
-                    param_attrs.kwargs = true;
-                    continue;
-                } else if ident == "require" {
-                    parser.parse::<Token!(=)>()?;
-                    let require = parser.parse::<Ident>()?;
-                    if require == "pos" {
-                        param_attrs.pos_only = true;
-                        continue;
-                    } else if require == "named" {
-                        param_attrs.named_only = true;
-                        continue;
-                    }
                 }
-
-                return Err(syn::Error::new(
-                    ident.span(),
-                    "Expecting \
-                    `#[starlark(default = expr)]`, \
-                    `#[starlark(require = pos)]`, \
-                    `#[starlark(require = named)]`, \
-                    `#[starlark(this)]` attribute",
-                ));
             }
+
+            return Err(syn::Error::new(
+                ident.span(),
+                "Expecting \
+                `#[starlark(default = expr)]`, \
+                `#[starlark(require = pos)]`, \
+                `#[starlark(require = named)]`, \
+                `#[starlark(this)]` attribute",
+            ));
         }
         Ok(())
     };
@@ -694,7 +687,6 @@ fn parse_arg(
                 name: ident.ident,
                 pass_style,
                 ty: *ty,
-                starlark_type: param_attrs.starlark_type,
                 default: param_attrs.default,
                 source: StarArgSource::Unknown,
             }))

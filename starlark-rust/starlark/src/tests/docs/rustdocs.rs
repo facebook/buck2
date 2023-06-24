@@ -35,8 +35,14 @@ use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 
+struct InputTypeRepr;
 struct OutputTypeRepr;
 
+impl StarlarkTypeRepr for InputTypeRepr {
+    fn starlark_type_repr() -> Ty {
+        Ty::name("input")
+    }
+}
 impl StarlarkTypeRepr for OutputTypeRepr {
     fn starlark_type_repr() -> Ty {
         Ty::name("output")
@@ -72,7 +78,7 @@ fn globals(builder: &mut GlobalsBuilder) {
 
     fn custom_types<'v>(
         arg1: StringValue<'v>,
-        #[starlark(type = "\"input\"")] arg2: Value<'v>,
+        arg2: ValueOfUnchecked<'v, InputTypeRepr>,
         heap: &'v Heap,
     ) -> anyhow::Result<ValueOfUnchecked<'v, OutputTypeRepr>> {
         unimplemented!()
