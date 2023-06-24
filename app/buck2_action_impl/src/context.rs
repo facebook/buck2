@@ -65,6 +65,7 @@ use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::Heap;
+use starlark::values::StarlarkIter;
 use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueOf;
@@ -894,11 +895,16 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] definition: ValueOfComplex<'v, TransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
-        #[starlark(type = "iter(\"\")")] children: Option<Value<'v>>, // An iterable.
+        children: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
-        this.create_transitive_set(definition.to_value(), value, children, eval)
+        this.create_transitive_set(
+            definition.to_value(),
+            value,
+            children.map(|v| v.get()),
+            eval,
+        )
     }
 
     /// `dynamic_output` allows a rule to use information that was not available when the rule was first run at analysis time.
