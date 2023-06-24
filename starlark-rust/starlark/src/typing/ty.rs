@@ -45,7 +45,6 @@ use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmt;
-use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::AstModule;
@@ -820,10 +819,7 @@ impl Ty {
         }
     }
 
-    pub(crate) fn from_type_expr<P: AstPayload>(
-        x: &AstTypeExprP<P>,
-        approximations: &mut Vec<Approximation>,
-    ) -> Self {
+    pub(crate) fn from_type_expr(x: &CstTypeExpr, approximations: &mut Vec<Approximation>) -> Self {
         Self::from_expr(&x.expr, approximations)
     }
 
