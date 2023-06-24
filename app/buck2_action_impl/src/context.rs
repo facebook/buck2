@@ -60,6 +60,7 @@ use sha1::Sha1;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::dict::DictOf;
 use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
@@ -151,7 +152,7 @@ fn create_dir_tree<'v>(
     eval: &mut Evaluator<'v, '_>,
     this: &AnalysisActions<'v>,
     output: OutputArtifactArg<'v>,
-    srcs: Value<'v>,
+    srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
     copy: bool,
 ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
     // validate that the moves are valid, and move them into inputs
@@ -539,7 +540,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     fn symlinked_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
-        #[starlark(require = pos, type = "{str.type: \"artifact\"}")] srcs: Value<'v>,
+        #[starlark(require = pos)] srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         create_dir_tree(eval, this, output, srcs, false)
@@ -550,7 +551,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     fn copied_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
-        #[starlark(require = pos, type = "{str.type: \"artifact\"}")] srcs: Value<'v>,
+        #[starlark(require = pos)] srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         create_dir_tree(eval, this, output, srcs, true)

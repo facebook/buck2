@@ -37,10 +37,8 @@ use gazebo::prelude::*;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use starlark::values::dict::DictRef;
+use starlark::values::dict::DictOf;
 use starlark::values::OwnedFrozenValue;
-use starlark::values::UnpackValue;
-use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark_map::small_set::SmallSet;
 use thiserror::Error;
@@ -95,33 +93,24 @@ impl UnregisteredSymlinkedDirAction {
 
     // Map each artifact into an optional tuple of (artifact, path) and associated_artifacts, then collect
     // them into an optional tuple of vector and an index set respectively
-    fn unpack_args(
-        srcs: Value,
+    fn unpack_args<'v>(
+        srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
     ) -> anyhow::Result<(
         Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
         SmallSet<ArtifactGroup>,
     )> {
-        let srcs = DictRef::from_value(srcs).context("Expecting dict")?;
-
         // This assignment doesn't look like it should be necessary, but we get an error if we
         // don't do it.
-        let res = srcs
-            .iter()
-            .map(|(k, v)| {
-                let as_artifact = ValueAsArtifactLike::unpack_value(v)
-                    .context("expecting dict value artifact")?
-                    .0;
-                let associates = as_artifact.get_associated_artifacts();
+        srcs.collect_entries()
+            .into_iter()
+            .map(|(k, as_artifact)| {
+                let associates = as_artifact.0.get_associated_artifacts();
                 anyhow::Ok((
                     (
-                        as_artifact.get_artifact_group()?,
-                        ForwardRelativePathBuf::try_from(
-                            k.unpack_str()
-                                .context("dict key must be a string")?
-                                .to_owned(),
-                        )
-                        .context("dict key must be a forward relative path")?
-                        .into_box(),
+                        as_artifact.0.get_artifact_group()?,
+                        ForwardRelativePathBuf::try_from(k.to_owned())
+                            .context("dict key must be a forward relative path")?
+                            .into_box(),
                     ),
                     associates,
                 ))
@@ -135,11 +124,13 @@ impl UnregisteredSymlinkedDirAction {
                     });
                     (aps, assocs)
                 },
-            );
-        res
+            )
     }
 
-    pub(crate) fn new(copy: bool, srcs: Value) -> anyhow::Result<Self> {
+    pub(crate) fn new<'v>(
+        copy: bool,
+        srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
+    ) -> anyhow::Result<Self> {
         let (mut args, unioned_associated_artifacts) = Self::unpack_args(srcs)
             // FIXME: This warning is talking about the Starlark-level argument name `srcs`.
             //        Once we use a proper Value parser this should all get cleaned up.
