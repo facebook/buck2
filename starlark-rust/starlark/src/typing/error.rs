@@ -39,3 +39,32 @@ impl InternalError {
         self.0.into_anyhow()
     }
 }
+
+/// Errors used in typechecker API. Error has a span.
+pub struct TypingError(EvalException);
+
+impl TypingError {
+    #[cold]
+    pub(crate) fn msg(message: impl Display, span: Span, codemap: &CodeMap) -> TypingError {
+        TypingError(EvalException::new(
+            anyhow::Error::msg(message.to_string()),
+            span,
+            codemap,
+        ))
+    }
+
+    #[cold]
+    pub(crate) fn new(error: anyhow::Error, span: Span, codemap: &CodeMap) -> TypingError {
+        TypingError(EvalException::new(error, span, codemap))
+    }
+
+    #[cold]
+    pub(crate) fn into_anyhow(self) -> anyhow::Error {
+        self.0.into_anyhow()
+    }
+
+    #[cold]
+    pub(crate) fn _into_eval_exception(self) -> EvalException {
+        self.0
+    }
+}

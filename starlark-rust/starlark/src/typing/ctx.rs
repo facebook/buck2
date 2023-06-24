@@ -28,7 +28,6 @@ use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ResolvedIdent;
-use crate::eval::compiler::EvalException;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
@@ -40,6 +39,7 @@ use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
 use crate::typing::bindings::BindExpr;
+use crate::typing::error::TypingError;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingOracle;
@@ -53,7 +53,7 @@ use crate::typing::ty::TyFunction;
 use crate::typing::OracleDocs;
 
 #[derive(Error, Debug)]
-pub(crate) enum TypingError {
+enum TypingContextError {
     #[error("The attribute `{attr}` is not available on the type `{typ}`")]
     AttributeNotAvailable { typ: String, attr: String },
     #[error("The builtin `{name}` is not known")]
@@ -78,17 +78,17 @@ pub(crate) struct TypingContext<'a> {
     pub(crate) global_docs: OracleDocs,
     // We'd prefer this to be a &mut self,
     // but that makes writing the code more fiddly, so just RefCell the errors
-    pub(crate) errors: RefCell<Vec<EvalException>>,
+    pub(crate) errors: RefCell<Vec<TypingError>>,
     pub(crate) approximoations: RefCell<Vec<Approximation>>,
     pub(crate) types: HashMap<BindingId, Ty>,
 }
 
 impl TypingContext<'_> {
-    fn mk_error(&self, span: Span, err: TypingError) -> EvalException {
-        EvalException::new(err.into(), span, self.codemap)
+    fn mk_error(&self, span: Span, err: TypingContextError) -> TypingError {
+        TypingError::new(err.into(), span, self.codemap)
     }
 
-    fn add_error(&self, span: Span, err: TypingError) -> Ty {
+    fn add_error(&self, span: Span, err: TypingContextError) -> Ty {
         let err = self.mk_error(span, err);
         self.errors.borrow_mut().push(err);
         Ty::Never
@@ -101,12 +101,7 @@ impl TypingContext<'_> {
         Ty::Any
     }
 
-    fn validate_args(
-        &self,
-        params: &[Param],
-        args: &[Arg],
-        span: Span,
-    ) -> Result<(), EvalException> {
+    fn validate_args(&self, params: &[Param], args: &[Arg], span: Span) -> Result<(), TypingError> {
         // Want to figure out which arguments go in which positions
         let mut param_args: Vec<Vec<&Ty>> = vec![vec![]; params.len()];
         // The next index a positional parameter might fill
@@ -119,7 +114,7 @@ impl TypingContext<'_> {
                     match params.get(param_pos) {
                         None => {
                             return Err(
-                                self.mk_error(span, TypingError::TooManyPositionalArguments)
+                                self.mk_error(span, TypingContextError::TooManyPositionalArguments)
                             );
                         }
                         Some(param) => {
@@ -146,7 +141,7 @@ impl TypingContext<'_> {
                     if !success {
                         return Err(self.mk_error(
                             span,
-                            TypingError::UnexpectedNamedArgument { name: name.clone() },
+                            TypingContextError::UnexpectedNamedArgument { name: name.clone() },
                         ));
                     }
                 }
@@ -169,7 +164,7 @@ impl TypingContext<'_> {
                 if !param.optional && !seen_vargs {
                     return Err(self.mk_error(
                         span,
-                        TypingError::MissingRequiredParameter {
+                        TypingContextError::MissingRequiredParameter {
                             name: param.name().to_owned(),
                         },
                     ));
@@ -214,19 +209,14 @@ impl TypingContext<'_> {
         span: Span,
         fun: &TyFunction,
         args: &[Arg],
-    ) -> Result<Ty, EvalException> {
+    ) -> Result<Ty, TypingError> {
         self.validate_args(&fun.params, args, span)?;
         Ok((*fun.result).clone())
     }
 
     /// Return `Result` instead of adding to `errors`.
     #[allow(clippy::collapsible_else_if)]
-    fn validate_call_result(
-        &self,
-        span: Span,
-        fun: &Ty,
-        args: &[Arg],
-    ) -> Result<Ty, EvalException> {
+    fn validate_call_result(&self, span: Span, fun: &Ty, args: &[Arg]) -> Result<Ty, TypingError> {
         match fun {
             Ty::Never => Ok(Ty::Never),
             Ty::Any => Ok(Ty::Any),
@@ -238,14 +228,14 @@ impl TypingContext<'_> {
                 Some(Ok(f)) => self.validate_fn_call(span, &f, args),
                 Some(Err(())) => Err(self.mk_error(
                     span,
-                    TypingError::CallToNonCallable {
+                    TypingContextError::CallToNonCallable {
                         ty: fun.to_string(),
                     },
                 )),
             },
             Ty::List(_) | Ty::Dict(_) | Ty::Tuple(_) | Ty::Struct { .. } => Err(self.mk_error(
                 span,
-                TypingError::CallToNonCallable {
+                TypingContextError::CallToNonCallable {
                     ty: fun.to_string(),
                 },
             )),
@@ -256,7 +246,7 @@ impl TypingContext<'_> {
             Ty::Function(f) => self.validate_fn_call(span, f, args),
             Ty::Custom(t) => {
                 t.0.validate_call(args, &self.oracle)
-                    .map_err(|e| EvalException::new(anyhow::Error::msg(e), span, self.codemap))
+                    .map_err(|e| TypingError::msg(e, span, self.codemap))
             }
             Ty::Union(variants) => {
                 let mut successful = Vec::new();
@@ -273,7 +263,7 @@ impl TypingContext<'_> {
                     if errors.len() == 1 {
                         Err(errors.pop().unwrap())
                     } else {
-                        Err(self.mk_error(span, TypingError::CallArgumentsIncompatible))
+                        Err(self.mk_error(span, TypingContextError::CallArgumentsIncompatible))
                     }
                 }
             }
@@ -299,11 +289,11 @@ impl TypingContext<'_> {
         got: &Ty,
         require: &Ty,
         span: Span,
-    ) -> Result<(), EvalException> {
+    ) -> Result<(), TypingError> {
         if !got.intersects(require, Some(self.oracle)) {
             Err(self.mk_error(
                 span,
-                TypingError::IncompatibleType {
+                TypingContextError::IncompatibleType {
                     got: got.to_string(),
                     require: require.to_string(),
                 },
@@ -324,7 +314,7 @@ impl TypingContext<'_> {
             Ok(x) => x,
             Err(()) => self.add_error(
                 span,
-                TypingError::UnknownBuiltin {
+                TypingContextError::UnknownBuiltin {
                     name: name.to_owned(),
                 },
             ),
@@ -336,7 +326,7 @@ impl TypingContext<'_> {
             Ok(x) => x,
             Err(()) => self.add_error(
                 span,
-                TypingError::AttributeNotAvailable {
+                TypingContextError::AttributeNotAvailable {
                     typ: ty.to_string(),
                     attr: attr.to_string(),
                 },

@@ -42,6 +42,7 @@ use crate::typing::bindings::BindingsCollect;
 use crate::typing::bindings::Interface;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
+use crate::typing::error::TypingError;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
@@ -54,11 +55,7 @@ fn solve_bindings(
     globals: &Globals,
     bindings: Bindings,
     codemap: &CodeMap,
-) -> (
-    Vec<EvalException>,
-    HashMap<BindingId, Ty>,
-    Vec<Approximation>,
-) {
+) -> (Vec<TypingError>, HashMap<BindingId, Ty>, Vec<Approximation>) {
     let mut types = bindings
         .expressions
         .keys()
@@ -219,8 +216,8 @@ impl AstModule {
 
         let errors = scope_errors
             .into_iter()
-            .chain(solve_errors)
             .map(EvalException::into_anyhow)
+            .chain(solve_errors.into_iter().map(TypingError::into_anyhow))
             .collect();
 
         let mut res = HashMap::new();
