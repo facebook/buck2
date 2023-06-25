@@ -48,7 +48,7 @@ use crate::values::none::NoneType;
 use crate::values::num::NumRef;
 use crate::values::range::Range;
 use crate::values::string::repr::string_repr;
-use crate::values::string::STRING_TYPE;
+use crate::values::string::StarlarkStr;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;
 use crate::values::types::int_or_big::StarlarkInt;
@@ -1060,7 +1060,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// str([1, "x"])                   == "[1, \"x\"]"
     /// # "#);
     /// ```
-    #[starlark(dot_type = STRING_TYPE, speculative_exec_safe)]
+    #[starlark(as_type = StarlarkStr, speculative_exec_safe)]
     fn str<'v>(
         #[starlark(require = pos)] a: Value<'v>,
         eval: &mut Evaluator<'v, '_>,

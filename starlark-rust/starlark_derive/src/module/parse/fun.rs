@@ -53,6 +53,7 @@ use crate::module::typ::StarStmt;
 struct FnAttrs {
     is_attribute: bool,
     dot_type: Option<Expr>,
+    as_type: Option<syn::Path>,
     starlark_ty_custom_function: Option<Expr>,
     speculative_exec_safe: bool,
     docstring: Option<String>,
@@ -162,8 +163,11 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
                 parser.parse::<Token![=]>()?;
                 attrs.dot_type = Some(parser.parse::<Expr>()?);
                 continue;
-            }
-            if ident == "attribute" {
+            } else if ident == "as_type" {
+                parser.parse::<Token![=]>()?;
+                attrs.as_type = Some(parser.parse::<syn::Path>()?);
+                continue;
+            } else if ident == "attribute" {
                 attrs.is_attribute = true;
                 continue;
             } else if ident == "speculative_exec_safe" {
@@ -178,6 +182,7 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
                 ident.span(),
                 "Expecting \
                     `#[starlark(dot_type = \"ty\")]`, \
+                    `#[starlark(as_type = ImplStarlarkValue)]`, \
                     `#[starlark(ty_custom_function = MyTy)]`, \
                     `#[starlark(attribute)]`, \
                     `#[starlark(speculative_exec_safe)]` attribute",
@@ -263,6 +268,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
     let FnAttrs {
         is_attribute,
         dot_type,
+        as_type,
         speculative_exec_safe,
         docstring,
         starlark_ty_custom_function,
@@ -375,6 +381,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
         let fun = StarFun {
             name: func.sig.ident,
             dot_type,
+            as_type,
             attrs,
             args,
             heap,
