@@ -787,7 +787,7 @@ impl Ty {
                     (Ty::Dict(x), Ty::Dict(y)) => {
                         x.0.intersects(&y.0, oracle) && x.1.intersects(&y.1, oracle)
                     }
-                    (Ty::Tuple(_), t) | (Ty::Tuple(_), t) if t.is_name("tuple") => true,
+                    (Ty::Tuple(_), t) | (t, Ty::Tuple(_)) if t.is_name("tuple") => true,
                     (Ty::Tuple(xs), Ty::Tuple(ys)) if xs.len() == ys.len() => {
                         std::iter::zip(xs, ys).all(|(x, y)| x.intersects(y, oracle))
                     }
