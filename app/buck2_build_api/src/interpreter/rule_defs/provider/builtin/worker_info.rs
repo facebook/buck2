@@ -48,7 +48,7 @@ fn next_id() -> u64 {
 
 #[starlark_module]
 fn worker_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(dot_type = "WorkerInfo")]
+    #[starlark(as_type = FrozenWorkerInfo)]
     fn WorkerInfo<'v>(
         #[starlark(default = AllocList::EMPTY)] exe: Value<'v>,
         eval: &mut Evaluator<'v, '_>,

@@ -126,7 +126,7 @@ where
 
 #[starlark_module]
 fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(dot_type = "LocalResourceInfo")]
+    #[starlark(as_type = FrozenLocalResourceInfo)]
     fn LocalResourceInfo<'v>(
         #[starlark(require = named)] source_target: Value<'v>,
         #[starlark(require = named)] setup: Value<'v>,

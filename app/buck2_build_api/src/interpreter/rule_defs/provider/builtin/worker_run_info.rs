@@ -43,7 +43,7 @@ pub struct WorkerRunInfoGen<V> {
 
 #[starlark_module]
 fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(dot_type = "WorkerRunInfo")]
+    #[starlark(as_type = FrozenWorkerRunInfo)]
     fn WorkerRunInfo<'v>(
         #[starlark(require = named)] worker: ValueOf<'v, &'v WorkerInfo<'v>>,
         #[starlark(require = named, default = AllocList::EMPTY)] exe: Value<'v>,

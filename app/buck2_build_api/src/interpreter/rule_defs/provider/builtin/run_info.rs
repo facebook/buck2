@@ -41,7 +41,7 @@ pub struct RunInfoGen<V> {
 
 #[starlark_module]
 fn run_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(dot_type = "RunInfo")]
+    #[starlark(as_type = FrozenRunInfo)]
     fn RunInfo<'v>(
         #[starlark(default = AllocList::EMPTY)] args: Value<'v>,
         eval: &mut Evaluator<'v, '_>,

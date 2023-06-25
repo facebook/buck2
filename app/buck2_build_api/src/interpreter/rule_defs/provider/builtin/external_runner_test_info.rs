@@ -441,7 +441,7 @@ where
 
 #[starlark_module]
 fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(dot_type = "ExternalRunnerTestInfo")]
+    #[starlark(as_type = FrozenExternalRunnerTestInfo)]
     fn ExternalRunnerTestInfo<'v>(
         r#type: Value<'v>,
         #[starlark(default = NoneType)] command: Value<'v>,
