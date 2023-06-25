@@ -97,7 +97,7 @@ assert_eq_size!(DeferredResolve, [usize; 4]);
 assert_eq_size!(ConfiguredTargetNodeKey, [usize; 2]);
 assert_eq_size!(InterpreterResultsKey, [usize; 1]);
 assert_eq_size!(BuildArtifact, [usize; 6]);
-assert_eq_size!(NodeKey, [usize; 8]);
+assert_eq_size!(NodeKey, [usize; 7]);
 
 impl NodeKey {
     fn from_any(key: &dyn Any) -> Option<Self> {
