@@ -519,7 +519,7 @@ impl TypingContext<'_> {
                 AstLiteral::String(_) => Ty::string(),
             },
             ExprP::Not(x) => {
-                if self.expression_type(x).is_void() {
+                if self.expression_type(x).is_never() {
                     Ty::Never
                 } else {
                     Ty::bool()
@@ -537,14 +537,14 @@ impl TypingContext<'_> {
             ExprP::Op(lhs, op, rhs) => {
                 let lhs = self.expression_type(lhs);
                 let rhs = self.expression_type(rhs);
-                let bool_ret = if lhs.is_void() || rhs.is_void() {
+                let bool_ret = if lhs.is_never() || rhs.is_never() {
                     Ty::Never
                 } else {
                     Ty::bool()
                 };
                 match op {
                     BinOp::And | BinOp::Or => {
-                        if lhs.is_void() {
+                        if lhs.is_never() {
                             Ty::Never
                         } else {
                             Ty::union2(lhs, rhs)
@@ -647,7 +647,7 @@ impl TypingContext<'_> {
                 let c = self.expression_type(&c_t_f.0);
                 let t = self.expression_type(&c_t_f.1);
                 let f = self.expression_type(&c_t_f.2);
-                if c.is_void() {
+                if c.is_never() {
                     Ty::Never
                 } else {
                     Ty::union2(t, f)
