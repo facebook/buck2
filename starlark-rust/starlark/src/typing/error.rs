@@ -38,6 +38,11 @@ impl InternalError {
     pub(crate) fn into_anyhow(self) -> anyhow::Error {
         self.0.into_anyhow()
     }
+
+    #[cold]
+    pub(crate) fn into_eval_exception(self) -> EvalException {
+        self.0
+    }
 }
 
 /// Errors used in typechecker API. Error has a span.

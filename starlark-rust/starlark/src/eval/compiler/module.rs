@@ -35,6 +35,8 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::syntax::ast::LoadP;
 use crate::syntax::ast::StmtP;
+use crate::typing::bindings::BindingsCollect;
+use crate::typing::error::InternalError;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
@@ -172,8 +174,9 @@ impl<'v> Compiler<'v, '_, '_> {
             return Ok(());
         }
 
+        let BindingsCollect { .. } = BindingsCollect::collect(stmts, &self.codemap)
+            .map_err(InternalError::into_eval_exception)?;
         // TODO(nga): run typechecker.
-        let _todo = stmts;
         Ok(())
     }
 
