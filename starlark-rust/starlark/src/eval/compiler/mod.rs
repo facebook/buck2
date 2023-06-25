@@ -41,6 +41,7 @@ use crate::errors::Diagnostic;
 use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::ScopeNames;
+use crate::eval::compiler::scope::TopLevelStmtIndex;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::Evaluator;
 use crate::values::FrozenRef;
@@ -116,6 +117,7 @@ pub(crate) struct Compiler<'v, 'a, 'e> {
     pub(crate) codemap: FrozenRef<'static, CodeMap>,
     pub(crate) check_types: bool,
     pub(crate) top_level_stmt_count: usize,
+    pub(crate) last_stmt_defining_type: Option<TopLevelStmtIndex>,
 }
 
 impl Compiler<'_, '_, '_> {

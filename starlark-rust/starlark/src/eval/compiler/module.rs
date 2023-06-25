@@ -28,6 +28,7 @@ use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::Slot;
+use crate::eval::compiler::scope::TopLevelStmtIndex;
 use crate::eval::compiler::Compiler;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::frame_span::FrameSpan;
@@ -140,8 +141,14 @@ impl<'v> Compiler<'v, '_, '_> {
             ));
         }
 
+        if self.last_stmt_defining_type.is_none() {
+            self.typecheck(stmts)?;
+        }
+
         let mut last = Value::new_none();
-        for stmt in stmts {
+        for i in 0..stmts.len() {
+            let stmt = &mut stmts[i];
+
             match &mut stmt.node {
                 StmtP::Load(load) => {
                     self.eval_load(Spanned {
@@ -152,8 +159,22 @@ impl<'v> Compiler<'v, '_, '_> {
                 }
                 _ => last = self.eval_regular_top_level_stmt(stmt, local_names)?,
             }
+
+            if Some(TopLevelStmtIndex(i)) == self.last_stmt_defining_type {
+                self.typecheck(stmts)?;
+            }
         }
         Ok(last)
+    }
+
+    fn typecheck(&mut self, stmts: &mut [CstStmt]) -> Result<(), EvalException> {
+        if !self.eval.static_typechecking {
+            return Ok(());
+        }
+
+        // TODO(nga): run typechecker.
+        let _todo = stmts;
+        Ok(())
     }
 
     pub(crate) fn eval_module(

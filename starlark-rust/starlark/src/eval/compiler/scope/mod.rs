@@ -18,6 +18,7 @@
 pub(crate) mod payload;
 mod tests;
 
+use std::cmp;
 use std::collections::HashMap;
 use std::iter;
 use std::marker::PhantomData;
@@ -91,6 +92,8 @@ struct ModuleScopeBuilder<'a> {
     globals: FrozenRef<'static, Globals>,
     errors: Vec<EvalException>,
     top_level_stmt_count: usize,
+    /// Index of last statement that defines a type.
+    last_stmt_defining_type: Option<TopLevelStmtIndex>,
 }
 
 pub(crate) struct ModuleScopes<'f> {
@@ -100,6 +103,8 @@ pub(crate) struct ModuleScopes<'f> {
     pub(crate) module_bindings: SmallMap<FrozenStringValue, BindingId>,
     /// Number of top-level statements in the module.
     pub(crate) top_level_stmt_count: usize,
+    /// Index of last statement that defines a type.
+    pub(crate) last_stmt_defining_type: Option<TopLevelStmtIndex>,
 }
 
 struct UnscopeBinding {
@@ -249,9 +254,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         let scope_id = self.locals[level];
         self.scope_data.mut_scope(scope_id)
     }
-}
 
-impl<'f> ModuleScopes<'f> {
     /// Resolve symbols in a module.
     ///
     /// Checks all the symbols are resolved to locals/globals/captured/etc.
@@ -341,6 +344,7 @@ impl<'f> ModuleScopes<'f> {
             globals,
             errors: Vec::new(),
             top_level_stmt_count: top_level_stmts.len(),
+            last_stmt_defining_type: None,
         };
         for (i, stmt) in top_level_stmts.iter_mut().enumerate() {
             scope.resolve_idents(stmt, TopLevelStmtIndex(i));
@@ -399,9 +403,17 @@ impl<'f> ModuleScopes<'f> {
         codemap: FrozenRef<'static, CodeMap>,
         dialect: &Dialect,
     ) -> (Vec<EvalException>, ModuleScopes<'f>) {
-        let (stmt, mut scope) =
-            Self::enter_module(module, frozen_heap, loads, stmt, globals, codemap, dialect);
+        let (stmt, mut scope) = ModuleScopeBuilder::enter_module(
+            module,
+            frozen_heap,
+            loads,
+            stmt,
+            globals,
+            codemap,
+            dialect,
+        );
         let top_level_stmt_count = scope.top_level_stmt_count;
+        let last_stmt_defining_type = scope.last_stmt_defining_type;
         let errors = mem::take(&mut scope.errors);
         let (module_slot_count, scope_data, module_bindings) = scope.exit_module();
         (
@@ -412,6 +424,7 @@ impl<'f> ModuleScopes<'f> {
                 module_bindings,
                 module_slot_count,
                 top_level_stmt_count,
+                last_stmt_defining_type,
             },
         )
     }
@@ -703,6 +716,18 @@ impl<'f> ModuleScopeBuilder<'f> {
         )
     }
 
+    fn update_latest_binding_used_in_type_expr(&mut self, binding_id: BindingId) {
+        let binding = self.scope_data.get_binding(binding_id);
+        let top_level_stmt_index = match binding.source {
+            BindingSource::Source(_, top_level_stmt_index) => top_level_stmt_index,
+            BindingSource::FromModule => return,
+        };
+        match &mut self.last_stmt_defining_type {
+            None => self.last_stmt_defining_type = Some(top_level_stmt_index),
+            Some(last_stmt) => *last_stmt = cmp::max(*last_stmt, top_level_stmt_index),
+        }
+    }
+
     fn resolve_ident(&mut self, scope: ResolveIdentScope, ident: &mut CstIdent) {
         assert!(ident.node.1.is_none());
         let resolved = match self.get_name(self.frozen_heap.alloc_str_intern(&ident.node.0)) {
@@ -729,7 +754,9 @@ impl<'f> ModuleScopeBuilder<'f> {
                     ));
                     return;
                 }
-                ResolvedIdent::Slot(Slot::Module(_), _) => {}
+                ResolvedIdent::Slot(Slot::Module(_), binding_id) => {
+                    self.update_latest_binding_used_in_type_expr(binding_id);
+                }
                 ResolvedIdent::Global(_) => {}
             },
         }
@@ -1147,8 +1174,8 @@ impl ScopeId {
 }
 
 /// Index of top-level statement.
-#[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq)]
-pub(crate) struct TopLevelStmtIndex(usize);
+#[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq, Ord, PartialOrd)]
+pub(crate) struct TopLevelStmtIndex(pub(crate) usize);
 
 impl<'f> ModuleScopeData<'f> {
     pub(crate) fn new() -> ModuleScopeData<'f> {

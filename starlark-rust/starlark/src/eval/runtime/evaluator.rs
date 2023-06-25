@@ -133,6 +133,8 @@ pub struct Evaluator<'v, 'a> {
     pub(crate) verbose_gc: bool,
     // Size of the heap when we should next perform a GC.
     pub(crate) next_gc_level: usize,
+    /// Run static typechecking of the module being evaluated.
+    pub(crate) static_typechecking: bool,
     // Profiling or instrumentation enabled.
     pub(crate) profile_or_instrumentation_mode: ProfileOrInstrumentationMode,
     // Used for line profiling
@@ -224,6 +226,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             breakpoint_handler: None,
             print_handler: &StderrPrintHandler,
             verbose_gc: false,
+            static_typechecking: false,
         }
     }
 
@@ -237,6 +240,17 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// Enable GC logging.
     pub fn verbose_gc(&mut self) {
         self.verbose_gc = true;
+    }
+
+    /// Enable static typechecking. For example:
+    ///
+    /// ```ignore
+    /// def foo() -> int.type: return "hello"
+    /// ```
+    ///
+    /// would fail when static typechecking is enabled even if `foo` is never called.
+    pub fn enable_static_typechecking(&mut self, enable: bool) {
+        self.static_typechecking = enable;
     }
 
     /// Set the [`FileLoader`] used to resolve `load()` statements.

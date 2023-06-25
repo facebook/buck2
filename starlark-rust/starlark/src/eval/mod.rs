@@ -85,6 +85,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             module_slot_count,
             scope_data,
             top_level_stmt_count,
+            last_stmt_defining_type,
             ..
         } = ModuleScopes::check_module_err(
             self.module_env.mutable_names(),
@@ -127,6 +128,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             eval: self,
             check_types: dialect.enable_types == DialectTypes::Enable,
             top_level_stmt_count,
+            last_stmt_defining_type,
         };
 
         let res = compiler.eval_module(cst, local_names);
