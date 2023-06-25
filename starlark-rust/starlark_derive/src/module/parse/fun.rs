@@ -52,7 +52,7 @@ use crate::module::typ::StarStmt;
 #[derive(Default)]
 struct FnAttrs {
     is_attribute: bool,
-    type_attribute: Option<Expr>,
+    dot_type: Option<Expr>,
     starlark_ty_custom_function: Option<Expr>,
     speculative_exec_safe: bool,
     docstring: Option<String>,
@@ -160,7 +160,7 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
             let ident = parser.parse::<Ident>()?;
             if ident == "dot_type" {
                 parser.parse::<Token![=]>()?;
-                attrs.type_attribute = Some(parser.parse::<Expr>()?);
+                attrs.dot_type = Some(parser.parse::<Expr>()?);
                 continue;
             }
             if ident == "attribute" {
@@ -210,7 +210,7 @@ fn parse_fn_attrs(span: Span, xs: Vec<Attribute>) -> syn::Result<FnAttrs> {
             res.attrs.push(x);
         }
     }
-    if res.is_attribute && res.type_attribute.is_some() {
+    if res.is_attribute && res.dot_type.is_some() {
         return Err(syn::Error::new(span, "Can't be an attribute with a .type"));
     }
     Ok(res)
@@ -262,7 +262,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
 
     let FnAttrs {
         is_attribute,
-        type_attribute,
+        dot_type,
         speculative_exec_safe,
         docstring,
         starlark_ty_custom_function,
@@ -374,7 +374,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
 
         let fun = StarFun {
             name: func.sig.ident,
-            type_attribute,
+            dot_type,
             attrs,
             args,
             heap,

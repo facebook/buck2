@@ -40,7 +40,7 @@ use crate::module::util::mut_token;
 
 impl StarFun {
     fn type_expr(&self) -> TokenStream {
-        match &self.type_attribute {
+        match &self.dot_type {
             Some(x) => quote_spanned! {
             self.span()=>
                 std::option::Option::Some(starlark::const_frozen_string!(#x))
@@ -70,7 +70,7 @@ impl StarFun {
     }
 
     fn type_str(&self) -> TokenStream {
-        match &self.type_attribute {
+        match &self.dot_type {
             Some(x) => quote_spanned! {
             self.span()=>
                 std::option::Option::Some(#x)

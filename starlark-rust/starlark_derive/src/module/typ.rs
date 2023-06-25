@@ -97,7 +97,7 @@ pub(crate) struct SpecialParam {
 #[derive(Debug)]
 pub(crate) struct StarFun {
     pub name: Ident,
-    pub type_attribute: Option<Expr>,
+    pub dot_type: Option<Expr>,
     pub attrs: Vec<Attribute>,
     pub args: Vec<StarArg>,
     /// Has `&Heap` parameter.
