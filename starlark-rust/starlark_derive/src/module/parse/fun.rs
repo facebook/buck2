@@ -177,7 +177,7 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
             return Err(syn::Error::new(
                 ident.span(),
                 "Expecting \
-                    `#[starlark(type = \"ty\")]`, \
+                    `#[starlark(dot_type = \"ty\")]`, \
                     `#[starlark(ty_custom_function = MyTy)]`, \
                     `#[starlark(attribute)]`, \
                     `#[starlark(speculative_exec_safe)]` attribute",
