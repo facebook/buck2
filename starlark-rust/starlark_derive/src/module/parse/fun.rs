@@ -52,7 +52,6 @@ use crate::module::typ::StarStmt;
 #[derive(Default)]
 struct FnAttrs {
     is_attribute: bool,
-    dot_type: Option<Expr>,
     as_type: Option<syn::Path>,
     starlark_ty_custom_function: Option<Expr>,
     speculative_exec_safe: bool,
@@ -159,11 +158,7 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
             first = false;
 
             let ident = parser.parse::<Ident>()?;
-            if ident == "dot_type" {
-                parser.parse::<Token![=]>()?;
-                attrs.dot_type = Some(parser.parse::<Expr>()?);
-                continue;
-            } else if ident == "as_type" {
+            if ident == "as_type" {
                 parser.parse::<Token![=]>()?;
                 attrs.as_type = Some(parser.parse::<syn::Path>()?);
                 continue;
@@ -181,7 +176,6 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
             return Err(syn::Error::new(
                 ident.span(),
                 "Expecting \
-                    `#[starlark(dot_type = \"ty\")]`, \
                     `#[starlark(as_type = ImplStarlarkValue)]`, \
                     `#[starlark(ty_custom_function = MyTy)]`, \
                     `#[starlark(attribute)]`, \
@@ -215,7 +209,7 @@ fn parse_fn_attrs(span: Span, xs: Vec<Attribute>) -> syn::Result<FnAttrs> {
             res.attrs.push(x);
         }
     }
-    if res.is_attribute && res.dot_type.is_some() {
+    if res.is_attribute && res.as_type.is_some() {
         return Err(syn::Error::new(span, "Can't be an attribute with a .type"));
     }
     Ok(res)
@@ -267,7 +261,6 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
 
     let FnAttrs {
         is_attribute,
-        dot_type,
         as_type,
         speculative_exec_safe,
         docstring,
@@ -380,7 +373,6 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
 
         let fun = StarFun {
             name: func.sig.ident,
-            dot_type,
             as_type,
             attrs,
             args,

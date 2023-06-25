@@ -39,26 +39,18 @@ use crate::module::util::ident_string;
 use crate::module::util::mut_token;
 
 impl StarFun {
-    fn type_expr(&self) -> syn::Result<TokenStream> {
-        match (&self.dot_type, &self.as_type) {
-            (Some(x), None) => Ok(quote_spanned! {
-                self.span()=>
-                    std::option::Option::Some(starlark::const_frozen_string!(#x))
-            }),
-            (None, Some(x)) => Ok(quote_spanned! {
+    fn type_expr(&self) -> TokenStream {
+        match &self.as_type {
+            Some(x) => quote_spanned! {
                 self.span()=>
                     std::option::Option::Some(
                         <#x as starlark::values::StarlarkValue>::get_type_value_static(),
                     )
-            }),
-            (None, None) => Ok(quote_spanned! {
+            },
+            None => quote_spanned! {
                 self.span()=>
                 std::option::Option::None
-            }),
-            (Some(_), Some(_)) => Err(syn::Error::new(
-                self.span(),
-                "Cannot specify both `dot_type` and `as_type`",
-            )),
+            },
         }
     }
 
@@ -77,26 +69,18 @@ impl StarFun {
         }
     }
 
-    fn type_str(&self) -> syn::Result<TokenStream> {
-        match (&self.dot_type, &self.as_type) {
-            (Some(x), None) => Ok(quote_spanned! {
-                self.span()=>
-                    std::option::Option::Some(#x)
-            }),
-            (None, Some(x)) => Ok(quote_spanned! {
+    fn type_str(&self) -> TokenStream {
+        match &self.as_type {
+            Some(x) => quote_spanned! {
                 self.span()=>
                     std::option::Option::Some(
                         <#x as starlark::values::StarlarkValue>::get_type_value_static().as_str(),
                     )
-            }),
-            (None, None) => Ok(quote_spanned! {
+            },
+            None => quote_spanned! {
                 self.span()=>
                 std::option::Option::None
-            }),
-            (Some(_), Some(_)) => Err(syn::Error::new(
-                self.span(),
-                "Cannot specify both `dot_type` and `as_type`",
-            )),
+            },
         }
     }
 
@@ -233,7 +217,7 @@ impl StarFun {
     ) -> syn::Result<TokenStream> {
         let name_str = self.name_str();
         let speculative_exec_safe = self.speculative_exec_safe;
-        let typ = self.type_expr()?;
+        let typ = self.type_expr();
         let ty_custom = self.ty_custom_expr();
         let struct_name = self.struct_name();
 
@@ -601,7 +585,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
 
     let return_type_str = render_starlark_return_type(x);
     let var_name = format_ident!("__documentation");
-    let dot_type: TokenStream = x.type_str()?;
+    let dot_type: TokenStream = x.type_str();
     let documentation = quote_spanned!(span=>
         let #var_name = {
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
