@@ -40,6 +40,7 @@ use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::uniplate::Visit;
 use crate::typing::error::InternalError;
+use crate::typing::mode::TypecheckMode;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Param;
 use crate::typing::ty::Ty;
@@ -110,7 +111,11 @@ impl<'a> BindingsCollect<'a> {
     /// Collect all the assignments to variables.
     ///
     /// This function only fails on internal errors.
-    pub(crate) fn collect(xs: &'a [CstStmt], codemap: &CodeMap) -> Result<Self, InternalError> {
+    pub(crate) fn collect(
+        xs: &'a [CstStmt],
+        typecheck_mode: TypecheckMode,
+        codemap: &CodeMap,
+    ) -> Result<Self, InternalError> {
         fn assign<'a>(
             lhs: &'a CstAssign,
             rhs: BindExpr<'a>,
@@ -169,13 +174,19 @@ impl<'a> BindingsCollect<'a> {
             x: Visit<'a, CstPayload>,
             return_type: &Ty,
             bindings: &mut BindingsCollect<'a>,
+            typecheck_mode: TypecheckMode,
             codemap: &CodeMap,
         ) -> Result<(), InternalError> {
             match x {
                 Visit::Stmt(x) => match &**x {
                     StmtP::Assign(lhs, ty_rhs) => {
                         if let Some(ty) = &ty_rhs.0 {
-                            let ty2 = Ty::from_type_expr(ty, &mut bindings.approximations)?;
+                            let ty2 = Ty::from_type_expr(
+                                ty,
+                                typecheck_mode,
+                                &mut bindings.approximations,
+                                codemap,
+                            )?;
                             bindings.bindings.check_type.push((
                                 ty.span,
                                 Some(&ty_rhs.1),
@@ -213,8 +224,12 @@ impl<'a> BindingsCollect<'a> {
                             let name_ty = match &**p {
                                 ParameterP::Normal(name, ty)
                                 | ParameterP::WithDefaultValue(name, ty, _) => {
-                                    let ty =
-                                        Ty::from_type_expr_opt(ty, &mut bindings.approximations)?;
+                                    let ty = Ty::from_type_expr_opt(
+                                        ty,
+                                        typecheck_mode,
+                                        &mut bindings.approximations,
+                                        codemap,
+                                    )?;
                                     let mut param = if seen_no_args {
                                         Param::name_only(&name.0, ty.clone())
                                     } else {
@@ -235,13 +250,19 @@ impl<'a> BindingsCollect<'a> {
                                     // and then separately the type we are when we are running (always tuple)
                                     params2.push(Param::args(Ty::from_type_expr_opt(
                                         ty,
+                                        typecheck_mode,
                                         &mut bindings.approximations,
+                                        codemap,
                                     )?));
                                     Some((name, Ty::name("tuple")))
                                 }
                                 ParameterP::KwArgs(name, ty) => {
-                                    let ty =
-                                        Ty::from_type_expr_opt(ty, &mut bindings.approximations)?;
+                                    let ty = Ty::from_type_expr_opt(
+                                        ty,
+                                        typecheck_mode,
+                                        &mut bindings.approximations,
+                                        codemap,
+                                    )?;
                                     let ty = if ty.is_any() {
                                         Ty::dict(Ty::string(), Ty::Any)
                                     } else {
@@ -258,13 +279,19 @@ impl<'a> BindingsCollect<'a> {
                                     .insert(name.resolved_binding_id(codemap)?, ty);
                             }
                         }
-                        let ret_ty =
-                            Ty::from_type_expr_opt(return_type, &mut bindings.approximations)?;
+                        let ret_ty = Ty::from_type_expr_opt(
+                            return_type,
+                            typecheck_mode,
+                            &mut bindings.approximations,
+                            codemap,
+                        )?;
                         bindings.bindings.types.insert(
                             name.resolved_binding_id(codemap)?,
                             Ty::function(params2, ret_ty.clone()),
                         );
-                        x.visit_children_err(|x| visit(x, &ret_ty, bindings, codemap))?;
+                        x.visit_children_err(|x| {
+                            visit(x, &ret_ty, bindings, typecheck_mode, codemap)
+                        })?;
                         // We do our own visit_children, with a different return type
                         return Ok(());
                     }
@@ -348,13 +375,13 @@ impl<'a> BindingsCollect<'a> {
                     _ => {}
                 },
             }
-            x.visit_children_err(|x| visit(x, return_type, bindings, codemap))?;
+            x.visit_children_err(|x| visit(x, return_type, bindings, typecheck_mode, codemap))?;
             Ok(())
         }
 
         let mut res = BindingsCollect::default();
         for x in xs {
-            visit(Visit::Stmt(x), &Ty::Any, &mut res, codemap)?;
+            visit(Visit::Stmt(x), &Ty::Any, &mut res, typecheck_mode, codemap)?;
         }
         Ok(res)
     }

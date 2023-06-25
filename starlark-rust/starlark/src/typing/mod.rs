@@ -26,6 +26,7 @@
 pub(crate) mod bindings;
 pub(crate) mod ctx;
 pub(crate) mod error;
+pub(crate) mod mode;
 pub(crate) mod oracle;
 pub(crate) mod ty;
 pub(crate) mod typecheck;

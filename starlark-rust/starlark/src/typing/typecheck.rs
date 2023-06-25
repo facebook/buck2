@@ -43,6 +43,7 @@ use crate::typing::bindings::Interface;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
+use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
@@ -179,7 +180,7 @@ impl AstModule {
             StmtP::Statements(x) => x,
             _ => slice::from_ref(&cst),
         };
-        let bindings = match BindingsCollect::collect(cst, &codemap) {
+        let bindings = match BindingsCollect::collect(cst, TypecheckMode::Lint, &codemap) {
             Ok(bindings) => bindings,
             Err(e) => {
                 return (

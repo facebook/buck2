@@ -37,6 +37,7 @@ use crate::syntax::ast::LoadP;
 use crate::syntax::ast::StmtP;
 use crate::typing::bindings::BindingsCollect;
 use crate::typing::error::InternalError;
+use crate::typing::mode::TypecheckMode;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
@@ -103,8 +104,6 @@ impl<'v> Compiler<'v, '_, '_> {
             ));
         }
 
-        self.populate_types_in_stmt(stmt)?;
-
         let stmt = self.module_top_level_stmt(stmt);
         let bc = stmt.as_bc(
             &self.compile_context(false),
@@ -149,6 +148,8 @@ impl<'v> Compiler<'v, '_, '_> {
 
         let mut last = Value::new_none();
         for i in 0..stmts.len() {
+            self.populate_types_in_stmts(stmts, TopLevelStmtIndex(i + 1))?;
+
             let stmt = &mut stmts[i];
 
             match &mut stmt.node {
@@ -174,8 +175,11 @@ impl<'v> Compiler<'v, '_, '_> {
             return Ok(());
         }
 
-        let BindingsCollect { .. } = BindingsCollect::collect(stmts, &self.codemap)
-            .map_err(InternalError::into_eval_exception)?;
+        self.populate_types_in_stmts(stmts, TopLevelStmtIndex(stmts.len()))?;
+
+        let BindingsCollect { .. } =
+            BindingsCollect::collect(stmts, TypecheckMode::Compiler, &self.codemap)
+                .map_err(InternalError::into_eval_exception)?;
         // TODO(nga): run typechecker.
         Ok(())
     }

@@ -31,6 +31,7 @@ use either::Either;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::codemap::CodeMap;
 use crate::docs::DocFunction;
 use crate::docs::DocMember;
 use crate::docs::DocParam;
@@ -51,6 +52,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
+use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::TypingOracle;
 
@@ -812,19 +814,37 @@ impl Ty {
 
     pub(crate) fn from_type_expr_opt(
         x: &Option<Box<CstTypeExpr>>,
+        typecheck_mode: TypecheckMode,
         approximations: &mut Vec<Approximation>,
+        codemap: &CodeMap,
     ) -> Result<Self, InternalError> {
         match x {
             None => Ok(Ty::Any),
-            Some(x) => Self::from_type_expr(x, approximations),
+            Some(x) => Self::from_type_expr(x, typecheck_mode, approximations, codemap),
         }
     }
 
     pub(crate) fn from_type_expr(
         x: &CstTypeExpr,
+        typecheck_mode: TypecheckMode,
         approximations: &mut Vec<Approximation>,
+        codemap: &CodeMap,
     ) -> Result<Self, InternalError> {
-        Ok(Self::from_expr(&x.expr, approximations))
+        match typecheck_mode {
+            TypecheckMode::Lint => {
+                // TODO(nga): remove this branch: in lint, populate types in CstPayload
+                //   before running typechecking, and always fetch the type from the payload.
+                Ok(Self::from_expr(&x.expr, approximations))
+            }
+            TypecheckMode::Compiler => match x.payload {
+                Some(ty) => Ok(ty.as_ty()),
+                None => Err(InternalError::msg(
+                    "type payload is not populated",
+                    x.span,
+                    codemap,
+                )),
+            },
+        }
     }
 
     // This should go away when `ExprType` is disconnected from `Expr`.

@@ -118,6 +118,8 @@ pub(crate) struct Compiler<'v, 'a, 'e> {
     pub(crate) check_types: bool,
     pub(crate) top_level_stmt_count: usize,
     pub(crate) last_stmt_defining_type: Option<TopLevelStmtIndex>,
+    /// Last statement with types populated into payload.
+    pub(crate) last_stmt_with_populated_types: TopLevelStmtIndex,
 }
 
 impl Compiler<'_, '_, '_> {
