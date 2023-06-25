@@ -36,11 +36,13 @@ use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TypingAttr;
 use crate::typing::TypingOracle;
-use crate::values::bool::BOOL_TYPE;
+use crate::values::bool::StarlarkBool;
+use crate::values::dict::value::FrozenDict;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
 use crate::values::float::StarlarkFloat;
-use crate::values::int::INT_TYPE;
+use crate::values::int::PointerI32;
+use crate::values::list::value::FrozenList;
 use crate::values::list::AllocList;
 use crate::values::list::ListRef;
 use crate::values::never::StarlarkNever;
@@ -49,10 +51,10 @@ use crate::values::num::NumRef;
 use crate::values::range::Range;
 use crate::values::string::repr::string_repr;
 use crate::values::string::StarlarkStr;
+use crate::values::tuple::value::FrozenTuple;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;
 use crate::values::types::int_or_big::StarlarkInt;
-use crate::values::types::tuple::value::Tuple;
 use crate::values::value_of_unchecked::ValueOfUnchecked;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
@@ -287,7 +289,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// bool("1") == True
     /// # "#);
     /// ```
-    #[starlark(dot_type = BOOL_TYPE, speculative_exec_safe)]
+    #[starlark(as_type = StarlarkBool, speculative_exec_safe)]
     fn bool(#[starlark(require = pos)] x: Option<Value>) -> anyhow::Result<bool> {
         match x {
             None => Ok(false),
@@ -353,7 +355,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// x == {'a': 1} and y == {'x': 2, 'a': 1}
     /// # "#);
     /// ```
-    #[starlark(dot_type = Dict::TYPE, speculative_exec_safe)]
+    #[starlark(as_type = FrozenDict, speculative_exec_safe)]
     fn dict<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> anyhow::Result<Dict<'v>> {
         // Dict is super hot, and has a slightly odd signature, so we can do a bunch of special cases on it.
         // In particular, we don't generate the kwargs if there are no positional arguments.
@@ -468,7 +470,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// float([])   # error
     /// # "#, "expected `either either int or float or bool.type or str`, actual `list`");
     /// ```
-    #[starlark(dot_type = StarlarkFloat::TYPE, speculative_exec_safe)]
+    #[starlark(as_type = StarlarkFloat, speculative_exec_safe)]
     fn float(
         #[starlark(require = pos)] a: Option<Either<Either<NumRef, bool>, &str>>,
     ) -> anyhow::Result<f64> {
@@ -638,7 +640,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// int(float("inf"))   # error: cannot be represented as exact integer
     /// # "#, "cannot be represented as exact integer");
     /// ```
-    #[starlark(dot_type = INT_TYPE, speculative_exec_safe)]
+    #[starlark(as_type = PointerI32, speculative_exec_safe)]
     fn int<'v>(
         #[starlark(require = pos)] a: Option<
             ValueOf<'v, Either<Either<NumRef<'v>, bool>, &'v str>>,
@@ -771,7 +773,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// list("strings are not iterable") # error: not supported
     /// # "#, "not supported");
     /// ```
-    #[starlark(dot_type = ListRef::TYPE, speculative_exec_safe)]
+    #[starlark(as_type = FrozenList, speculative_exec_safe)]
     fn list<'v>(
         #[starlark(require = pos)] a: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         heap: &'v Heap,
@@ -907,7 +909,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// list(range(10, 3, -2))                  == [10, 8, 6, 4]
     /// # "#);
     /// ```
-    #[starlark(dot_type = Range::TYPE, speculative_exec_safe)]
+    #[starlark(as_type = Range, speculative_exec_safe)]
     fn range(
         #[starlark(require = pos)] a1: i32,
         #[starlark(require = pos)] a2: Option<i32>,
@@ -1089,7 +1091,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// tuple([1,2,3]) == (1, 2, 3)
     /// # "#);
     /// ```
-    #[starlark(dot_type = Tuple::TYPE, speculative_exec_safe)]
+    #[starlark(as_type = FrozenTuple, speculative_exec_safe)]
     fn tuple<'v>(
         #[starlark(require = pos)] a: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         heap: &'v Heap,

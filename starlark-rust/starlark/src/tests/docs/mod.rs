@@ -20,6 +20,7 @@ use derive_more::Display;
 use serde::Serialize;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
+use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -86,6 +87,19 @@ def _do_not_export():
     pass
 "#;
 
+#[derive(
+    Debug,
+    derive_more::Display,
+    ProvidesStaticType,
+    Allocative,
+    NoSerialize
+)]
+#[display(fmt = "magic")]
+struct Magic;
+
+#[starlark_value(type = "magic")]
+impl<'v> StarlarkValue<'v> for Magic {}
+
 /// These are where the module docs go
 #[starlark_module]
 fn module(builder: &mut GlobalsBuilder) {
@@ -122,7 +136,7 @@ fn module(builder: &mut GlobalsBuilder) {
     /// 1 == 1
     /// # "#);
     /// ```
-    #[starlark(dot_type = "magic")]
+    #[starlark(as_type = Magic)]
     fn func3(
         #[starlark(require = pos)] a1: i32,
         #[starlark(require = pos)] a2: Option<i32>,

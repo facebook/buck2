@@ -30,6 +30,7 @@ use crate::typing::ty::TyStruct;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
+use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
 use crate::values::Heap;
 
@@ -65,7 +66,7 @@ impl TyCustomFunctionImpl for StructType {
 pub fn global(builder: &mut GlobalsBuilder) {
     #[starlark(
         ty_custom_function = StructType,
-        dot_type = Struct::TYPE,
+        as_type = FrozenStruct,
     )]
     fn r#struct<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> anyhow::Result<Struct<'v>> {
         args.no_positional_args(heap)?;

@@ -15,17 +15,33 @@
  * limitations under the License.
  */
 
+use allocative::Allocative;
 use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
+use starlark_derive::NoSerialize;
+use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
 use crate::assert::Assert;
 use crate::environment::GlobalsBuilder;
+use crate::values::StarlarkValue;
 
-const FOO_TYPE: &str = "Foo";
+#[derive(
+    Debug,
+    derive_more::Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative
+)]
+#[display(fmt = "foo")]
+struct Foo;
+
+#[starlark_value(type = "Foo")]
+impl<'v> StarlarkValue<'v> for Foo {}
 
 #[starlark_module]
 fn type_annotation_functions(globals: &mut GlobalsBuilder) {
-    #[starlark(dot_type = FOO_TYPE)]
+    #[starlark(as_type = Foo)]
     fn foo(x: i32) -> anyhow::Result<i32> {
         Ok(x)
     }

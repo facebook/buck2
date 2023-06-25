@@ -113,7 +113,7 @@ pub(crate) struct FrozenDictData {
 }
 
 /// Alias is used in `StarlarkDocs` derive.
-type FrozenDict = DictGen<FrozenDictData>;
+pub(crate) type FrozenDict = DictGen<FrozenDictData>;
 
 unsafe impl<'v> Coerce<Dict<'v>> for FrozenDictData {}
 

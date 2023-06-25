@@ -102,7 +102,7 @@ impl Debug for FrozenListData {
 }
 
 /// Alias is used in `StarlarkDocs` derive.
-type FrozenList = ListGen<FrozenListData>;
+pub(crate) type FrozenList = ListGen<FrozenListData>;
 
 impl ListGen<FrozenListData> {
     pub(crate) fn offset_of_content() -> usize {
