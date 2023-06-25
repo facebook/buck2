@@ -1,0 +1,17 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+def empty_tuple_fixed_name() -> (): return tuple()
+def empty_tuple_name_fixed() -> tuple.type: return ()
+
+Error:
+error: Expected type `()` but got `"tuple"`
+ --> filename:2:37
+  |
+2 | def empty_tuple_fixed_name() -> (): return tuple()
+  |                                     ^^^^^^^^^^^^^^
+  |

@@ -320,3 +320,14 @@ def foo(x: [str.type, "unknown"], y: ["unknown", str.type]):
 "#,
     );
 }
+
+#[test]
+fn test_tuple() {
+    TypeCheck::new().check(
+        "tuple",
+        r#"
+def empty_tuple_fixed_name() -> (): return tuple()
+def empty_tuple_name_fixed() -> tuple.type: return ()
+"#,
+    );
+}
