@@ -166,7 +166,7 @@ pub struct StarlarkFileNode(
 starlark_simple_value!(StarlarkFileNode);
 
 #[starlark_value(type = "file_node")]
-impl StarlarkValue<'_> for StarlarkFileNode {}
+impl<'v> StarlarkValue<'v> for StarlarkFileNode {}
 
 #[derive(Debug, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
