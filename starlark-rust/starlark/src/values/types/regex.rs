@@ -41,7 +41,7 @@ use crate::values::StarlarkValue;
 pub struct StarlarkRegex(#[allocative(skip)] pub Regex);
 
 #[starlark_value(type = StarlarkRegex::TYPE)]
-impl StarlarkValue<'_> for StarlarkRegex {
+impl<'v> StarlarkValue<'v> for StarlarkRegex {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(regex_type_methods)

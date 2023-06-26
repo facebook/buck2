@@ -92,7 +92,7 @@ impl UnpackValue<'_> for bool {
 
 /// Define the bool type
 #[starlark_value(type = BOOL_TYPE)]
-impl StarlarkValue<'_> for StarlarkBool {
+impl<'v> StarlarkValue<'v> for StarlarkBool {
     fn is_special(_: Private) -> bool
     where
         Self: Sized,
