@@ -12,17 +12,13 @@
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
-use either::Either;
-use gazebo::prelude::*;
 
-use super::impl_fingerprinted_directory;
 use super::DashMapDirectoryInterner;
 use super::Directory;
 use super::DirectoryBuilder;
 use super::DirectoryDigest;
 use super::DirectoryEntries;
 use super::DirectoryEntry;
-use super::DirectoryHasher;
 use super::ExclusiveDirectory;
 use super::FingerprintedDirectory;
 use super::FingerprintedDirectoryEntries;

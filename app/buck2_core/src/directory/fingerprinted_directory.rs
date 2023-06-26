@@ -8,14 +8,11 @@
  */
 
 use std::fmt;
-use std::iter::once;
 
 use super::DirectoryDigest;
 use super::DirectoryEntry;
-use super::DirectoryHasher;
 use super::FingerprintedOrderedDirectoryWalk;
 use super::FingerprintedUnorderedDirectoryWalk;
-use super::PathAccumulator;
 use crate::fs::paths::file_name::FileName;
 
 pub type FingerprintedDirectoryEntries<'a, L, H> = Box<

@@ -14,7 +14,6 @@ use std::hash::Hash;
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::prelude::*;
 
 use super::DirectoryEntry;
 use super::FingerprintedDirectory;
@@ -35,6 +34,7 @@ pub trait DirectoryHasher<L, H> {
         Self: Sized;
 }
 
+#[allow(unused)]
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative, Display)]
 pub struct NoDigest(!);
 

@@ -10,7 +10,6 @@
 use allocative::Allocative;
 use derivative::Derivative;
 use either::Either;
-use gazebo::prelude::*;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use thiserror::Error;
@@ -26,14 +25,9 @@ use super::ExclusiveDirectory;
 use super::FingerprintedDirectory;
 use super::ImmutableDirectory;
 use super::PathAccumulator;
-use super::UnorderedDirectoryWalk;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::paths::IntoFileNameBufIterator;
-use crate::fs::project_rel_path::ProjectRelativePath;
-use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
 #[derive(Debug, Error)]
 pub enum DirectoryInsertError {
@@ -159,7 +153,7 @@ where
     /// Create a directory at path. If the directory already exists, this does nothing. If this
     /// would overwrite a leaf, it fails.
     pub fn mkdir(&mut self, path: impl IntoFileNameBufIterator) -> Result<(), DirectoryMkdirError> {
-        let mut path = path.into_iter();
+        let path = path.into_iter();
 
         self.mkdir_inner(path)
             .map_err(|path| DirectoryMkdirError::CannotTraverseLeaf { path })
@@ -193,7 +187,7 @@ where
         Ok(())
     }
 
-    pub fn merge(&mut self, mut other: Self) -> Result<(), DirectoryMergeError> {
+    pub fn merge(&mut self, other: Self) -> Result<(), DirectoryMergeError> {
         self.merge_inner(other)
             .map_err(|path| DirectoryMergeError::CannotTraverseLeaf { path })
     }

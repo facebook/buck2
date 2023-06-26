@@ -15,8 +15,6 @@ use super::DirectoryMut;
 use super::FingerprintedDirectory;
 use super::PathAccumulator;
 use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::file_name::FileNameBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 #[derive(Debug, Error)]

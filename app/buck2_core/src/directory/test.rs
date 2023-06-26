@@ -10,7 +10,6 @@
 #![cfg(test)]
 
 use std::collections::hash_map::DefaultHasher;
-use std::fmt::Write;
 use std::hash::Hash;
 use std::hash::Hasher;
 
@@ -18,11 +17,9 @@ use allocative::Allocative;
 use assert_matches::assert_matches;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::prelude::*;
 
 use super::*;
 use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash)]
@@ -547,13 +544,13 @@ fn test_directory_interner() -> anyhow::Result<()> {
 
     let d1 = {
         let mut b = TestDirectoryBuilder::empty();
-        b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry));
+        b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
         b.fingerprint(&TestHasher).shared(&interner)
     };
 
     let d2 = {
         let mut b = TestDirectoryBuilder::empty();
-        b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry));
+        b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
         b.fingerprint(&TestHasher).shared(&interner)
     };
 
@@ -576,13 +573,13 @@ fn test_directory_interner_deep() -> anyhow::Result<()> {
 
     let d1 = {
         let mut b = TestDirectoryBuilder::empty();
-        b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry));
+        b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
         b.fingerprint(&TestHasher).shared(&interner)
     };
 
-    let d2 = {
+    let _d2 = {
         let mut b = TestDirectoryBuilder::empty();
-        b.insert(path("b"), DirectoryEntry::Leaf(NopEntry));
+        b.insert(path("b"), DirectoryEntry::Leaf(NopEntry))?;
         b.fingerprint(&TestHasher).shared(&interner)
     };
 

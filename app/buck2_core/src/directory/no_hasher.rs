@@ -10,8 +10,8 @@
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::prelude::*;
 
+#[allow(unused)]
 #[derive(Eq, PartialEq, Copy, Clone, Display, Debug, Hash, Allocative)]
 pub struct NoHash(!);
 

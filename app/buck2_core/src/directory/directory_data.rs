@@ -14,7 +14,6 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::prelude::*;
 use sorted_vector_map::SortedVectorMap;
 
 use super::DirectoryDigest;

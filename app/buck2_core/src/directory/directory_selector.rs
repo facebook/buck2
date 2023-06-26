@@ -7,10 +7,6 @@
  * of this source tree.
  */
 
-use std::iter::once;
-
-use either::Either;
-use gazebo::prelude::*;
 use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
@@ -28,7 +24,6 @@ use super::FingerprintedOrderedDirectoryEntries;
 use super::OrderedDirectoryEntries;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::IntoFileNameBufIterator;
 
 #[derive(Debug, Error)]
@@ -74,7 +69,7 @@ impl DirectorySelector {
 
     /// Add a path to this DirectorySelector.
     pub fn select(&mut self, path: impl IntoFileNameBufIterator) {
-        let mut path = path.into_iter();
+        let path = path.into_iter();
         self.select_inner(path)
     }
 

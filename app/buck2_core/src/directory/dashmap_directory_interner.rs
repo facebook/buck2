@@ -16,10 +16,8 @@ use dashmap::DashMap;
 use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
-use gazebo::prelude::*;
 
 use super::DirectoryDigest;
-use super::DirectoryHasher;
 use super::SharedDirectory;
 use super::SharedDirectoryData;
 use super::SharedDirectoryInner;
@@ -100,7 +98,7 @@ where
         // one SharedDirectory data gets released, but by the time the drop code for the
         // SharedDirectoryInner executes (which calls this), another instance has been created.
         match self.inner.entry(data.fingerprint.dupe()) {
-            Entry::Occupied(mut o) if Weak::strong_count(o.get()) == 0 => {
+            Entry::Occupied(o) if Weak::strong_count(o.get()) == 0 => {
                 o.remove();
             }
             _ => {}

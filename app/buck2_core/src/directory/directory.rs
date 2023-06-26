@@ -8,13 +8,11 @@
  */
 
 use std::fmt;
-use std::iter::once;
 
 use super::DirectoryBuilder;
 use super::DirectoryDigest;
 use super::DirectoryEntry;
 use super::OrderedDirectoryWalk;
-use super::PathAccumulator;
 use super::UnorderedDirectoryWalk;
 use crate::fs::paths::file_name::FileName;
 

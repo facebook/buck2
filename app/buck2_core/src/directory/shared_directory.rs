@@ -9,18 +9,13 @@
 
 #![cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_use_dupe))]
 
-use std::any::Any;
 use std::sync::Arc;
-use std::sync::Weak;
 
 use allocative::Allocative;
-use dashmap::mapref::entry::Entry;
-use dashmap::DashMap;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Clone_;
 use dupe::Dupe_;
-use gazebo::prelude::*;
 
 use super::impl_fingerprinted_directory;
 use super::DashMapDirectoryInterner;
@@ -30,7 +25,6 @@ use super::DirectoryData;
 use super::DirectoryDigest;
 use super::DirectoryEntries;
 use super::DirectoryEntry;
-use super::DirectoryHasher;
 use super::FingerprintedDirectory;
 use super::FingerprintedDirectoryEntries;
 use super::ImmutableDirectory;

@@ -10,7 +10,6 @@
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use gazebo::variants::UnpackVariants;
 
 /// An entry in a Directory, parameterized by the type of children directories and the type of leaf
@@ -70,7 +69,7 @@ impl<D, L> DirectoryEntry<D, L> {
 
     pub fn leaf(self) -> Option<L> {
         match self {
-            Self::Dir(d) => None,
+            Self::Dir(..) => None,
             Self::Leaf(l) => Some(l),
         }
     }

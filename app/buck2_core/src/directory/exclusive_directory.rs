@@ -7,13 +7,9 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
-use dashmap::mapref::entry::Entry;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::prelude::*;
 
 use super::impl_fingerprinted_directory;
 use super::DashMapDirectoryInterner;
@@ -23,7 +19,6 @@ use super::DirectoryData;
 use super::DirectoryDigest;
 use super::DirectoryEntries;
 use super::DirectoryEntry;
-use super::DirectoryHasher;
 use super::FingerprintedDirectory;
 use super::FingerprintedDirectoryEntries;
 use super::ImmutableDirectory;

@@ -8,9 +8,6 @@
  */
 
 #![allow(clippy::module_inception)]
-#![allow(unused)]
-
-use std::sync::Weak;
 
 mod builder;
 mod dashmap_directory_interner;

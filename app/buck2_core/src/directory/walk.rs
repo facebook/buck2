@@ -19,7 +19,6 @@ use super::FingerprintedDirectory;
 use super::FingerprintedDirectoryEntries;
 use super::FingerprintedOrderedDirectoryEntries;
 use super::OrderedDirectoryEntries;
-use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 macro_rules! impl_directory_walk {
@@ -32,8 +31,6 @@ macro_rules! impl_directory_walk {
         $mod: ident,
     ) => {
         mod $mod {
-            use std::fmt;
-
             use $crate::directory::DirectoryEntry;
             use $crate::directory::DirectoryIterator;
             use $crate::directory::DirectoryIteratorPathAccessor;
@@ -43,7 +40,6 @@ macro_rules! impl_directory_walk {
             use super::$entries_ty;
             use super::DirectoryEntryWalk;
             use crate::fs::paths::file_name::FileName;
-            use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
             struct WalkFrame<'a, L, H> {
                 name: Option<&'a FileName>,
