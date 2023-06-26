@@ -37,7 +37,16 @@ fn run_arbitrary_starlark_err(content: &str) -> anyhow::Result<String> {
 fn run_arbitrary_starlark(content: &str) -> String {
     match run_arbitrary_starlark_err(content) {
         Ok(v) => v,
-        Err(e) => format!("{e:?}"),
+        Err(e) => {
+            const INTERNAL_ERROR: &str = "(internal error)";
+            let s = format!("{e:?}");
+            // We want to spot internal errors, but not encourage the fuzzer to write internal error in the input.
+            // A sufficiently smart fuzzer might outwit us, but hopefully not too quickly.
+            if s.contains(INTERNAL_ERROR) && !content.contains(INTERNAL_ERROR) {
+                panic!("Internal error as anyhow::Error: {s}")
+            }
+            s
+        }
     }
 }
 
