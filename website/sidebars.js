@@ -138,6 +138,7 @@ const manualSidebar = [
           'developers/bxl_getting_started',
           'developers/bxl_how_tos',
           'developers/bxl_telemetry',
+          'developers/anon_targets',
         ],
       },
       'developers/bxl_faqs',
