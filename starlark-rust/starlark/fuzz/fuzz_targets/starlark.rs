@@ -17,8 +17,6 @@
 
 #![no_main]
 
-use std::hint::black_box;
-
 use libfuzzer_sys::fuzz_target;
 use starlark::environment::Globals;
 use starlark::environment::Module;
@@ -26,7 +24,7 @@ use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 
-fn run_arbitrary_starlark(content: &str) -> anyhow::Result<String> {
+fn run_arbitrary_starlark_err(content: &str) -> anyhow::Result<String> {
     let ast: AstModule =
         AstModule::parse("hello_world.star", content.to_owned(), &Dialect::Standard)?;
     let globals: Globals = Globals::standard();
@@ -36,8 +34,13 @@ fn run_arbitrary_starlark(content: &str) -> anyhow::Result<String> {
     Ok(format!("{value:?}"))
 }
 
-fuzz_target!(|content: &str| {
-    if let Err(e) = black_box(run_arbitrary_starlark(content)) {
-        _ = black_box(format!("{e:?}"));
+fn run_arbitrary_starlark(content: &str) -> String {
+    match run_arbitrary_starlark_err(content) {
+        Ok(v) => v,
+        Err(e) => format!("{e:?}"),
     }
+}
+
+fuzz_target!(|content: &str| {
+    let _ = run_arbitrary_starlark(content);
 });
