@@ -13,6 +13,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::buckd_startup_timeout;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_common::daemon_dir::DaemonDir;
 
 /// Kill the buck daemon.
 ///
@@ -27,7 +28,8 @@ pub struct KillCommand {}
 impl KillCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.instant_command("kill", async move |ctx| {
-            kill_command_impl(&ctx, "`buck kill` was invoked").await
+            let daemon_dir = ctx.paths()?.daemon_dir()?;
+            kill_command_impl(&daemon_dir, "`buck kill` was invoked").await
         })
     }
 
@@ -36,13 +38,8 @@ impl KillCommand {
     }
 }
 
-pub(crate) async fn kill_command_impl(
-    ctx: &ClientCommandContext<'_>,
-    reason: &str,
-) -> anyhow::Result<()> {
-    let paths = ctx.paths()?;
-    let daemon_dir = paths.daemon_dir()?;
-    let process = match BuckdProcessInfo::load(&daemon_dir) {
+pub(crate) async fn kill_command_impl(daemon_dir: &DaemonDir, reason: &str) -> anyhow::Result<()> {
+    let process = match BuckdProcessInfo::load(daemon_dir) {
         Ok(p) => p,
         Err(e) => {
             tracing::debug!("No BuckdProcessInfo: {:#}", e);

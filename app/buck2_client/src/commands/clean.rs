@@ -90,13 +90,13 @@ impl CleanCommand {
             // Kill the daemon and make sure a new daemon does not spin up while we're performing clean up operations
             // This will ensure we have exclusive access to the directories in question
             let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
-                ctx.paths()?.daemon_dir()?,
+                daemon_dir.clone(),
                 StartupDeadline::duration_from_now(Duration::from_secs(10))?,
             )
             .await
             .with_context(|| "Error locking buckd lifecycle.lock")?;
 
-            kill_command_impl(&ctx, "`buck2 clean` was invoked").await?;
+            kill_command_impl(&daemon_dir, "`buck2 clean` was invoked").await?;
 
             clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
         })
