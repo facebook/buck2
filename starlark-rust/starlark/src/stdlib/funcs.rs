@@ -31,6 +31,7 @@ use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::ty::TyCustomFunctionImpl;
 use crate::typing::Arg;
 use crate::typing::Ty;
@@ -143,7 +144,7 @@ fn min_max<'v>(
 struct ZipType;
 
 impl TyCustomFunctionImpl for ZipType {
-    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String> {
+    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String> {
         let mut iter_item_types: Vec<Ty> = Vec::new();
         let mut seen_star_args = false;
         for arg in args {

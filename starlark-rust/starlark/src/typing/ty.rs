@@ -53,6 +53,7 @@ use crate::syntax::Dialect;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
 use crate::typing::mode::TypecheckMode;
+use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::TypingOracle;
 
@@ -313,7 +314,7 @@ impl TyUnion {
 /// Custom type implementation. [`Display`] must implement the representation of the type.
 pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync + 'static {
     fn as_name(&self) -> Option<&str>;
-    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String>;
+    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String>;
 }
 
 pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {
@@ -322,7 +323,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
 
     fn clone_box(&self) -> Box<dyn TyCustomDyn>;
     fn as_name(&self) -> Option<&str>;
-    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String>;
+    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String>;
 }
 
 impl<T: TyCustomImpl> TyCustomDyn for T {
@@ -342,7 +343,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self.as_name()
     }
 
-    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String> {
+    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String> {
         self.validate_call(args, oracle)
     }
 }
@@ -400,7 +401,7 @@ impl Clone for TyCustom {
 pub trait TyCustomFunctionImpl:
     Clone + Debug + Eq + Ord + Allocative + Send + Sync + 'static
 {
-    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String>;
+    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String>;
 }
 
 #[derive(
@@ -421,7 +422,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         Some("function")
     }
 
-    fn validate_call(&self, args: &[Arg], oracle: &dyn TypingOracle) -> Result<Ty, String> {
+    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String> {
         self.0.validate_call(args, oracle)
     }
 }
@@ -764,7 +765,7 @@ impl Ty {
     }
 
     /// If you get to a point where these types are being checked, might they succeed
-    pub(crate) fn intersects(&self, other: &Self, oracle: Option<&dyn TypingOracle>) -> bool {
+    pub(crate) fn intersects(&self, other: &Self, oracle: Option<TypingOracleCtx>) -> bool {
         if self.is_any() || self.is_never() || other.is_any() || other.is_never() {
             return true;
         }

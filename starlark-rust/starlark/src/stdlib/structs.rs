@@ -25,11 +25,11 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
+use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::ty::TyCustomFunctionImpl;
 use crate::typing::ty::TyStruct;
 use crate::typing::Arg;
 use crate::typing::Ty;
-use crate::typing::TypingOracle;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
 use crate::values::Heap;
@@ -38,7 +38,7 @@ use crate::values::Heap;
 struct StructType;
 
 impl TyCustomFunctionImpl for StructType {
-    fn validate_call(&self, args: &[Arg], _oracle: &dyn TypingOracle) -> Result<Ty, String> {
+    fn validate_call(&self, args: &[Arg], _oracle: TypingOracleCtx) -> Result<Ty, String> {
         let mut fields = BTreeMap::new();
         let mut extra = false;
         for x in args {

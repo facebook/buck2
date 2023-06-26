@@ -40,6 +40,7 @@ use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
 use crate::typing::bindings::BindExpr;
 use crate::typing::error::TypingError;
+use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingOracle;
@@ -58,8 +59,6 @@ enum TypingContextError {
     AttributeNotAvailable { typ: String, attr: String },
     #[error("The builtin `{name}` is not known")]
     UnknownBuiltin { name: String },
-    #[error("Expected type `{require}` but got `{got}`")]
-    IncompatibleType { got: String, require: String },
     #[error("Call to a non-callable type `{ty}`")]
     CallToNonCallable { ty: String },
     #[error("Missing required parameter `{name}`")]
@@ -74,7 +73,7 @@ enum TypingContextError {
 
 pub(crate) struct TypingContext<'a> {
     pub(crate) codemap: &'a CodeMap,
-    pub(crate) oracle: &'a dyn TypingOracle,
+    pub(crate) oracle: TypingOracleCtx<'a>,
     pub(crate) global_docs: OracleDocs,
     // We'd prefer this to be a &mut self,
     // but that makes writing the code more fiddly, so just RefCell the errors
@@ -84,12 +83,8 @@ pub(crate) struct TypingContext<'a> {
 }
 
 impl TypingContext<'_> {
-    fn mk_error(&self, span: Span, err: TypingContextError) -> TypingError {
-        TypingError::new(err.into(), span, self.codemap)
-    }
-
     fn add_error(&self, span: Span, err: TypingContextError) -> Ty {
-        let err = self.mk_error(span, err);
+        let err = self.oracle.mk_error(span, err);
         self.errors.borrow_mut().push(err);
         Ty::Never
     }
@@ -113,9 +108,9 @@ impl TypingContext<'_> {
                 Arg::Pos(ty) => loop {
                     match params.get(param_pos) {
                         None => {
-                            return Err(
-                                self.mk_error(span, TypingContextError::TooManyPositionalArguments)
-                            );
+                            return Err(self
+                                .oracle
+                                .mk_error(span, TypingContextError::TooManyPositionalArguments));
                         }
                         Some(param) => {
                             let found_index = param_pos;
@@ -139,7 +134,7 @@ impl TypingContext<'_> {
                         }
                     }
                     if !success {
-                        return Err(self.mk_error(
+                        return Err(self.oracle.mk_error(
                             span,
                             TypingContextError::UnexpectedNamedArgument { name: name.clone() },
                         ));
@@ -162,7 +157,7 @@ impl TypingContext<'_> {
             if args.is_empty() {
                 // We assume that *args/**kwargs might have splatted things everywhere.
                 if !param.optional && !seen_vargs {
-                    return Err(self.mk_error(
+                    return Err(self.oracle.mk_error(
                         span,
                         TypingContextError::MissingRequiredParameter {
                             name: param.name().to_owned(),
@@ -173,13 +168,13 @@ impl TypingContext<'_> {
             }
             match param.mode {
                 ParamMode::PosOnly | ParamMode::PosOrName(_) | ParamMode::NameOnly(_) => {
-                    self.validate_type_result(args[0], &param.ty, span)?;
+                    self.oracle.validate_type(args[0], &param.ty, span)?;
                 }
                 ParamMode::Args => {
                     for ty in args {
                         // For an arg, we require the type annotation to be inner value,
                         // rather than the outer (which is always a tuple)
-                        self.validate_type_result(ty, &param.ty, span)?;
+                        self.oracle.validate_type(ty, &param.ty, span)?;
                     }
                 }
                 ParamMode::Kwargs => {
@@ -195,7 +190,7 @@ impl TypingContext<'_> {
                     if !val_types.is_empty() {
                         let require = Ty::unions(val_types);
                         for ty in args {
-                            self.validate_type_result(ty, &require, span)?;
+                            self.oracle.validate_type(ty, &require, span)?;
                         }
                     }
                 }
@@ -226,26 +221,28 @@ impl TypingContext<'_> {
                     Ok(Ty::Any)
                 }
                 Some(Ok(f)) => self.validate_fn_call(span, &f, args),
-                Some(Err(())) => Err(self.mk_error(
+                Some(Err(())) => Err(self.oracle.mk_error(
                     span,
                     TypingContextError::CallToNonCallable {
                         ty: fun.to_string(),
                     },
                 )),
             },
-            Ty::List(_) | Ty::Dict(_) | Ty::Tuple(_) | Ty::Struct { .. } => Err(self.mk_error(
-                span,
-                TypingContextError::CallToNonCallable {
-                    ty: fun.to_string(),
-                },
-            )),
+            Ty::List(_) | Ty::Dict(_) | Ty::Tuple(_) | Ty::Struct { .. } => {
+                Err(self.oracle.mk_error(
+                    span,
+                    TypingContextError::CallToNonCallable {
+                        ty: fun.to_string(),
+                    },
+                ))
+            }
             Ty::Iter(_) => {
                 // Unknown type, may be callable.
                 Ok(Ty::Any)
             }
             Ty::Function(f) => self.validate_fn_call(span, f, args),
             Ty::Custom(t) => {
-                t.0.validate_call(args, &self.oracle)
+                t.0.validate_call(args, self.oracle)
                     .map_err(|e| TypingError::msg(e, span, self.codemap))
             }
             Ty::Union(variants) => {
@@ -263,7 +260,9 @@ impl TypingContext<'_> {
                     if errors.len() == 1 {
                         Err(errors.pop().unwrap())
                     } else {
-                        Err(self.mk_error(span, TypingContextError::CallArgumentsIncompatible))
+                        Err(self
+                            .oracle
+                            .mk_error(span, TypingContextError::CallArgumentsIncompatible))
                     }
                 }
             }
@@ -284,27 +283,8 @@ impl TypingContext<'_> {
         self.expression_attribute(ty, TypingAttr::Iter, span)
     }
 
-    pub(crate) fn validate_type_result(
-        &self,
-        got: &Ty,
-        require: &Ty,
-        span: Span,
-    ) -> Result<(), TypingError> {
-        if !got.intersects(require, Some(self.oracle)) {
-            Err(self.mk_error(
-                span,
-                TypingContextError::IncompatibleType {
-                    got: got.to_string(),
-                    require: require.to_string(),
-                },
-            ))
-        } else {
-            Ok(())
-        }
-    }
-
     pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {
-        if let Err(e) = self.validate_type_result(got, require, span) {
+        if let Err(e) = self.oracle.validate_type(got, require, span) {
             self.errors.borrow_mut().push(e);
         }
     }

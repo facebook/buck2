@@ -35,6 +35,7 @@ pub(crate) mod typecheck;
 mod tests;
 
 pub use bindings::Interface;
+pub use oracle::ctx::TypingOracleCtx;
 pub use oracle::docs::OracleDocs;
 pub use oracle::standard::OracleStandard;
 pub use oracle::traits::OracleSeq;

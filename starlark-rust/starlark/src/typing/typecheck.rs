@@ -44,6 +44,7 @@ use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
 use crate::typing::mode::TypecheckMode;
+use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
@@ -71,7 +72,7 @@ pub(crate) fn solve_bindings(
     global_docs.add_module(&globals.documentation());
     let mut ctx = TypingContext {
         codemap,
-        oracle,
+        oracle: TypingOracleCtx { oracle, codemap },
         global_docs,
         errors: RefCell::new(Vec::new()),
         approximoations: RefCell::new(Vec::new()),
