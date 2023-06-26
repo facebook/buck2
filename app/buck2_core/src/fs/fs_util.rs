@@ -21,8 +21,6 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context;
-#[allow(unused)] // Keep the unused deps linter happy even though we only use on Windows.
-use common_path::common_path;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 
@@ -59,6 +57,7 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> anyhow::Result<()> {
     use std::io::ErrorKind;
 
     use anyhow::Context as _;
+    use common_path::common_path;
 
     fn permission_check(result: io::Result<()>) -> anyhow::Result<()> {
         match result {
