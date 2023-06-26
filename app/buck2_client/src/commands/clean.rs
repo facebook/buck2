@@ -124,7 +124,7 @@ async fn clean(
         paths_to_clean =
             collect_paths_to_clean(&buck_out_dir)?.map(|path| path.display().to_string());
         if lifecycle_lock.is_some() {
-            tokio::task::spawn_blocking(move || clean_buck_out(&buck_out_dir))
+            tokio::task::spawn_blocking(move || clean_buck_out_with_retry(&buck_out_dir))
                 .await?
                 .context("Failed to spawn clean")?;
         }
@@ -153,6 +153,27 @@ fn collect_paths_to_clean(buck_out_path: &AbsNormPathBuf) -> anyhow::Result<Vec<
     }
 
     Ok(paths_to_clean)
+}
+
+/// In Windows, we've observed the buck-out clean immediately after killing
+/// the daemon can fail with this error: `The process cannot access the
+/// file because it is being used by another process.`. To get around this,
+/// add a single retry.
+fn clean_buck_out_with_retry(path: &AbsNormPathBuf) -> anyhow::Result<()> {
+    let mut result = clean_buck_out(path);
+    match result {
+        Ok(_) => {
+            return result;
+        }
+        Err(e) => {
+            tracing::info!(
+                "Retrying buck-out clean, first attempted failed with: {:#}",
+                e
+            );
+            result = clean_buck_out(path);
+        }
+    }
+    result
 }
 
 fn clean_buck_out(path: &AbsNormPathBuf) -> anyhow::Result<()> {
