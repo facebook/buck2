@@ -20,7 +20,7 @@ AndroidBinaryNativeLibsInfo = record(
     exopackage_info = ["ExopackageNativeInfo", None],
     native_lib_assets = ["artifact"],
     native_libs_for_primary_apk = ["artifact"],
-    unstripped_libs = ["artifact"],
+    unstripped_libs = {"artifact": str.type},
 )
 
 AndroidBinaryResourcesInfo = record(

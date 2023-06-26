@@ -54,7 +54,7 @@ def get_android_binary_native_library_info(
         if not (prebuilt_native_library_dirs_to_exclude and prebuilt_native_library_dirs_to_exclude.contains(native_lib.raw_target))
     ]
 
-    unstripped_libs = []
+    unstripped_libs = {}
     all_shared_libraries = []
     platform_to_native_linkables = {}
     for platform, deps in deps_by_platform.items():
@@ -68,7 +68,8 @@ def get_android_binary_native_library_info(
             if not (shared_libraries_to_exclude and shared_libraries_to_exclude.contains(shared_lib.label.raw_target()))
         }
         all_shared_libraries.extend(native_linkables.values())
-        unstripped_libs += [shared_lib.lib.output for shared_lib in native_linkables.values()]
+        for shared_lib in native_linkables.values():
+            unstripped_libs[shared_lib.lib.output] = platform
         platform_to_native_linkables[platform] = native_linkables
 
     if apk_module_graph_file == None:

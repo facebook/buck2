@@ -138,8 +138,14 @@ def get_binary_info(ctx: "context", use_proto_format: bool.type) -> AndroidBinar
     unstripped_native_libs = native_library_info.unstripped_libs
     sub_targets["unstripped_native_libraries"] = [
         DefaultInfo(
-            default_output = ctx.actions.write("unstripped_native_libraries", unstripped_native_libs),
-            other_outputs = unstripped_native_libs,
+            default_output = ctx.actions.write("unstripped_native_libraries", unstripped_native_libs.keys()),
+            other_outputs = unstripped_native_libs.keys(),
+        ),
+    ]
+    sub_targets["unstripped_native_libraries_json"] = [
+        DefaultInfo(
+            default_output = ctx.actions.write_json("unstripped_native_libraries_json", unstripped_native_libs),
+            other_outputs = unstripped_native_libs.keys(),
         ),
     ]
     if resources_info.string_source_map:
