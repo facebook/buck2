@@ -96,7 +96,7 @@ impl CleanCommand {
             .await
             .with_context(|| "Error locking buckd lifecycle.lock")?;
 
-            kill_command_impl(&daemon_dir, "`buck2 clean` was invoked").await?;
+            kill_command_impl(&lifecycle_lock, "`buck2 clean` was invoked").await?;
 
             clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
         })

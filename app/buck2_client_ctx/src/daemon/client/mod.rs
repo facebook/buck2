@@ -137,6 +137,10 @@ impl BuckdLifecycleLock {
         }
         Ok(())
     }
+
+    pub fn daemon_dir(&self) -> &DaemonDir {
+        &self.daemon_dir
+    }
 }
 
 impl Drop for BuckdLifecycleLock {

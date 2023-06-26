@@ -7,13 +7,17 @@
  * of this source tree.
  */
 
+use std::time::Duration;
+
+use anyhow::Context as _;
 use buck2_client_ctx::argv::Argv;
 use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::buckd_startup_timeout;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
+use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_common::daemon_dir::DaemonDir;
+use buck2_client_ctx::startup_deadline::StartupDeadline;
 
 /// Kill the buck daemon.
 ///
@@ -29,7 +33,15 @@ impl KillCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.instant_command("kill", async move |ctx| {
             let daemon_dir = ctx.paths()?.daemon_dir()?;
-            kill_command_impl(&daemon_dir, "`buck kill` was invoked").await
+
+            let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
+                daemon_dir.clone(),
+                StartupDeadline::duration_from_now(Duration::from_secs(10))?,
+            )
+            .await
+            .with_context(|| "Error locking buckd lifecycle.lock")?;
+
+            kill_command_impl(&lifecycle_lock, "`buck kill` was invoked").await
         })
     }
 
@@ -38,8 +50,11 @@ impl KillCommand {
     }
 }
 
-pub(crate) async fn kill_command_impl(daemon_dir: &DaemonDir, reason: &str) -> anyhow::Result<()> {
-    let process = match BuckdProcessInfo::load(daemon_dir) {
+pub(crate) async fn kill_command_impl(
+    lifecycle_lock: &BuckdLifecycleLock,
+    reason: &str,
+) -> anyhow::Result<()> {
+    let process = match BuckdProcessInfo::load(lifecycle_lock.daemon_dir()) {
         Ok(p) => p,
         Err(e) => {
             tracing::debug!("No BuckdProcessInfo: {:#}", e);
