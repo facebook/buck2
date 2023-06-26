@@ -30,5 +30,6 @@ KotlinToolchainInfo = provider(
         "kosabi_jvm_abi_gen_plugin",
         "jvm_abi_gen_plugin",
         "should_use_compilation_tracer",
+        "track_class_usage_plugin",
     ],
 )
