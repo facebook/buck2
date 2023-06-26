@@ -114,7 +114,6 @@ pub(crate) enum EventLogType {
 pub(crate) struct NamedEventLogWriter {
     path: EventLogPathBuf,
     file: EventLogWriter,
-    #[allow(unused)] // TODO(wendyy) temporary
     event_log_type: EventLogType,
 }
 
