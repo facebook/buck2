@@ -251,6 +251,8 @@ pub struct CommandExecutionRequest {
     // Run with a custom $TMPDIR, or just the standard system one
     custom_tmpdir: Option<BuckOutScratchPath>,
     host_sharing_requirements: HostSharingRequirements,
+    // Used to disable the low pass filter for concurrent local actions. Enabled by default
+    low_pass_filter: bool,
     /// Working directory, relative to the project root.
     working_directory: Option<ProjectRelativePathBuf>,
     /// Whether we should always prefetch stderr when executing. When it's needed, this lets us
@@ -287,6 +289,7 @@ impl CommandExecutionRequest {
             executor_preference: ExecutorPreference::Default,
             custom_tmpdir: None,
             host_sharing_requirements: HostSharingRequirements::default(),
+            low_pass_filter: true,
             working_directory: None,
             prefetch_lossy_stderr: false,
             outputs_cleanup: true,
@@ -326,6 +329,11 @@ impl CommandExecutionRequest {
         host_sharing_requirements: HostSharingRequirements,
     ) -> Self {
         self.host_sharing_requirements = host_sharing_requirements;
+        self
+    }
+
+    pub fn with_low_pass_filter(mut self, low_pass_filter: bool) -> Self {
+        self.low_pass_filter = low_pass_filter;
         self
     }
 
@@ -403,6 +411,10 @@ impl CommandExecutionRequest {
 
     pub fn host_sharing_requirements(&self) -> &HostSharingRequirements {
         &self.host_sharing_requirements
+    }
+
+    pub fn low_pass_filter(&self) -> bool {
+        self.low_pass_filter
     }
 
     pub fn working_directory(&self) -> Option<&ProjectRelativePath> {

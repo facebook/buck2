@@ -178,7 +178,12 @@ impl PreparedCommandExecutor for HybridExecutor {
             HybridExecutionLevel::Full {
                 fallback_on_failure,
                 low_pass_filter,
-            } => (false, false, fallback_on_failure, low_pass_filter),
+            } => (
+                false,
+                false,
+                fallback_on_failure,
+                low_pass_filter && command.request.low_pass_filter(),
+            ),
         };
 
         if is_limited {

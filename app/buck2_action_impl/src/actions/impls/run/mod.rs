@@ -155,6 +155,7 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) executor_preference: ExecutorPreference,
     pub(crate) always_print_stderr: bool,
     pub(crate) weight: WeightClass,
+    pub(crate) low_pass_filter: bool,
     pub(crate) dep_files: RunActionDepFiles,
     pub(crate) metadata_param: Option<MetadataParameter>,
     pub(crate) no_outputs_cleanup: bool,
@@ -546,6 +547,7 @@ impl IncrementalActionExecutable for RunAction {
             .with_prefetch_lossy_stderr(true)
             .with_executor_preference(self.inner.executor_preference)
             .with_host_sharing_requirements(host_sharing_requirements)
+            .with_low_pass_filter(self.inner.low_pass_filter)
             .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
             .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions())
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
