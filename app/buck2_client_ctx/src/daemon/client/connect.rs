@@ -235,40 +235,44 @@ impl<'a> BuckdLifecycle<'a> {
             args.push(r);
         }
 
-        let daemon_env_vars = if env::var_os("RUST_BACKTRACE").is_some()
-            || env::var_os("RUST_LIB_BACKTRACE").is_some()
-        {
-            // Inherit.
-            [].as_slice()
-        } else {
-            [
-                ("RUST_BACKTRACE", "1"),
-                // TODO(nga): somewhere we capture too many backtraces, probably
-                //   we create too many `anyhow::Error` on non-error paths.
-                //   Probably somewhere in Starlark, because of "evaluating build file" spans.
-                //   Can be reproduced with this command:
-                //   ```
-                //   buck2 --isolation-dir=xx audit providers fbcode//buck2:buck2 --quiet
-                //   ```
-                //   Which regresses from 15s to 80s when `RUST_LIB_BACKTRACE` is set.
-                ("RUST_LIB_BACKTRACE", "0"),
-            ]
-            .as_slice()
+        let mut daemon_env_vars = Vec::new();
+
+        let has_backtrace_vars =
+            env::var_os("RUST_BACKTRACE").is_some() || env::var_os("RUST_LIB_BACKTRACE").is_some();
+
+        if !has_backtrace_vars {
+            daemon_env_vars.push(("RUST_BACKTRACE", "1"));
+
+            // TODO(nga): somewhere we capture too many backtraces, probably
+            //   we create too many `anyhow::Error` on non-error paths.
+            //   Probably somewhere in Starlark, because of "evaluating build file" spans.
+            //   Can be reproduced with this command:
+            //   ```
+            //   buck2 --isolation-dir=xx audit providers fbcode//buck2:buck2 --quiet
+            //   ```
+            //   Which regresses from 15s to 80s when `RUST_LIB_BACKTRACE` is set.
+            daemon_env_vars.push(("RUST_LIB_BACKTRACE", "0"));
         };
+
+        if env::var_os("FORCE_WANT_RESTART").is_some() {
+            // Disable restarter for the actual daemon command, even if it was forced, otherwise we
+            // restart the daemon when it exits.
+            daemon_env_vars.push(("FORCE_WANT_RESTART", "false"));
+        }
 
         if cfg!(unix) {
             // On Unix we spawn a process which forks and exits,
             // and here we wait for that spawned process to terminate.
             self.start_server_unix(
                 args,
-                daemon_env_vars,
+                &daemon_env_vars,
                 &self.constraints.daemon_startup_config,
             )
             .await
         } else {
             self.start_server_windows(
                 args,
-                daemon_env_vars,
+                &daemon_env_vars,
                 &self.constraints.daemon_startup_config,
             )
         }
