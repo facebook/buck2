@@ -71,7 +71,6 @@ pub(crate) fn solve_bindings(
     let mut global_docs = OracleDocs::new();
     global_docs.add_module(&globals.documentation());
     let mut ctx = TypingContext {
-        codemap,
         oracle: TypingOracleCtx { oracle, codemap },
         global_docs,
         errors: RefCell::new(Vec::new()),

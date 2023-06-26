@@ -21,7 +21,6 @@ use std::fmt::Debug;
 
 use thiserror::Error;
 
-use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::eval::compiler::scope::payload::CstAssign;
 use crate::eval::compiler::scope::payload::CstExpr;
@@ -43,14 +42,10 @@ use crate::typing::error::TypingError;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingBinOp;
-use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::oracle::traits::TypingUnOp;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Arg;
-use crate::typing::ty::Param;
-use crate::typing::ty::ParamMode;
 use crate::typing::ty::Ty;
-use crate::typing::ty::TyFunction;
 use crate::typing::OracleDocs;
 
 #[derive(Error, Debug)]
@@ -59,20 +54,9 @@ enum TypingContextError {
     AttributeNotAvailable { typ: String, attr: String },
     #[error("The builtin `{name}` is not known")]
     UnknownBuiltin { name: String },
-    #[error("Call to a non-callable type `{ty}`")]
-    CallToNonCallable { ty: String },
-    #[error("Missing required parameter `{name}`")]
-    MissingRequiredParameter { name: String },
-    #[error("Unexpected parameter named `{name}`")]
-    UnexpectedNamedArgument { name: String },
-    #[error("Too many positional arguments")]
-    TooManyPositionalArguments,
-    #[error("Call arguments incompatible")]
-    CallArgumentsIncompatible,
 }
 
 pub(crate) struct TypingContext<'a> {
-    pub(crate) codemap: &'a CodeMap,
     pub(crate) oracle: TypingOracleCtx<'a>,
     pub(crate) global_docs: OracleDocs,
     // We'd prefer this to be a &mut self,
@@ -96,181 +80,8 @@ impl TypingContext<'_> {
         Ty::Any
     }
 
-    fn validate_args(&self, params: &[Param], args: &[Arg], span: Span) -> Result<(), TypingError> {
-        // Want to figure out which arguments go in which positions
-        let mut param_args: Vec<Vec<&Ty>> = vec![vec![]; params.len()];
-        // The next index a positional parameter might fill
-        let mut param_pos = 0;
-        let mut seen_vargs = false;
-
-        for arg in args {
-            match arg {
-                Arg::Pos(ty) => loop {
-                    match params.get(param_pos) {
-                        None => {
-                            return Err(self
-                                .oracle
-                                .mk_error(span, TypingContextError::TooManyPositionalArguments));
-                        }
-                        Some(param) => {
-                            let found_index = param_pos;
-                            if param.mode != ParamMode::Args {
-                                param_pos += 1;
-                            }
-                            if param.allows_pos() {
-                                param_args[found_index].push(ty);
-                                break;
-                            }
-                        }
-                    }
-                },
-                Arg::Name(name, ty) => {
-                    let mut success = false;
-                    for (i, param) in params.iter().enumerate() {
-                        if param.name() == name || param.mode == ParamMode::Kwargs {
-                            param_args[i].push(ty);
-                            success = true;
-                            break;
-                        }
-                    }
-                    if !success {
-                        return Err(self.oracle.mk_error(
-                            span,
-                            TypingContextError::UnexpectedNamedArgument { name: name.clone() },
-                        ));
-                    }
-                }
-                Arg::Args(_) => {
-                    param_pos = params.len();
-                    seen_vargs = true;
-                }
-                Arg::Kwargs(_) => {
-                    seen_vargs = true;
-                }
-            }
-        }
-
-        for (param, args) in std::iter::zip(params, param_args) {
-            if !param.allows_many() && args.len() > 1 {
-                panic!("bad")
-            }
-            if args.is_empty() {
-                // We assume that *args/**kwargs might have splatted things everywhere.
-                if !param.optional && !seen_vargs {
-                    return Err(self.oracle.mk_error(
-                        span,
-                        TypingContextError::MissingRequiredParameter {
-                            name: param.name().to_owned(),
-                        },
-                    ));
-                }
-                continue;
-            }
-            match param.mode {
-                ParamMode::PosOnly | ParamMode::PosOrName(_) | ParamMode::NameOnly(_) => {
-                    self.oracle.validate_type(args[0], &param.ty, span)?;
-                }
-                ParamMode::Args => {
-                    for ty in args {
-                        // For an arg, we require the type annotation to be inner value,
-                        // rather than the outer (which is always a tuple)
-                        self.oracle.validate_type(ty, &param.ty, span)?;
-                    }
-                }
-                ParamMode::Kwargs => {
-                    let val_types: Vec<_> = param
-                        .ty
-                        .iter_union()
-                        .iter()
-                        .filter_map(|x| match x {
-                            Ty::Dict(k_v) => Some(k_v.1.clone()),
-                            _ => None,
-                        })
-                        .collect();
-                    if !val_types.is_empty() {
-                        let require = Ty::unions(val_types);
-                        for ty in args {
-                            self.oracle.validate_type(ty, &require, span)?;
-                        }
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn validate_fn_call(
-        &self,
-        span: Span,
-        fun: &TyFunction,
-        args: &[Arg],
-    ) -> Result<Ty, TypingError> {
-        self.validate_args(&fun.params, args, span)?;
-        Ok((*fun.result).clone())
-    }
-
-    /// Return `Result` instead of adding to `errors`.
-    #[allow(clippy::collapsible_else_if)]
-    fn validate_call_result(&self, span: Span, fun: &Ty, args: &[Arg]) -> Result<Ty, TypingError> {
-        match fun {
-            Ty::Never => Ok(Ty::Never),
-            Ty::Any => Ok(Ty::Any),
-            Ty::Name(n) => match self.oracle.as_function(n) {
-                None => {
-                    // Unknown type, may be callable.
-                    Ok(Ty::Any)
-                }
-                Some(Ok(f)) => self.validate_fn_call(span, &f, args),
-                Some(Err(())) => Err(self.oracle.mk_error(
-                    span,
-                    TypingContextError::CallToNonCallable {
-                        ty: fun.to_string(),
-                    },
-                )),
-            },
-            Ty::List(_) | Ty::Dict(_) | Ty::Tuple(_) | Ty::Struct { .. } => {
-                Err(self.oracle.mk_error(
-                    span,
-                    TypingContextError::CallToNonCallable {
-                        ty: fun.to_string(),
-                    },
-                ))
-            }
-            Ty::Iter(_) => {
-                // Unknown type, may be callable.
-                Ok(Ty::Any)
-            }
-            Ty::Function(f) => self.validate_fn_call(span, f, args),
-            Ty::Custom(t) => {
-                t.0.validate_call(args, self.oracle)
-                    .map_err(|e| TypingError::msg(e, span, self.codemap))
-            }
-            Ty::Union(variants) => {
-                let mut successful = Vec::new();
-                let mut errors = Vec::new();
-                for variant in variants.alternatives() {
-                    match self.validate_call_result(span, variant, args) {
-                        Ok(ty) => successful.push(ty),
-                        Err(e) => errors.push(e),
-                    }
-                }
-                if !successful.is_empty() {
-                    Ok(Ty::unions(successful))
-                } else {
-                    if errors.len() == 1 {
-                        Err(errors.pop().unwrap())
-                    } else {
-                        Err(self
-                            .oracle
-                            .mk_error(span, TypingContextError::CallArgumentsIncompatible))
-                    }
-                }
-            }
-        }
-    }
-
     fn validate_call(&self, fun: &Ty, args: &[Arg], span: Span) -> Ty {
-        match self.validate_call_result(span, fun, args) {
+        match self.oracle.validate_call(span, fun, args) {
             Ok(ty) => ty,
             Err(e) => {
                 self.errors.borrow_mut().push(e);
