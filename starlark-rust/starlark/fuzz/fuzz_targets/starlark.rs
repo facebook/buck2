@@ -26,15 +26,14 @@ use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 
-fn run_arbitrary_starlark(content: &str) -> anyhow::Result<()> {
+fn run_arbitrary_starlark(content: &str) -> anyhow::Result<String> {
     let ast: AstModule =
         AstModule::parse("hello_world.star", content.to_owned(), &Dialect::Standard)?;
     let globals: Globals = Globals::standard();
     let module: Module = Module::new();
     let mut eval: Evaluator = Evaluator::new(&module);
-    let value = black_box(eval.eval_module(ast, &globals)?);
-    _ = black_box(format!("{value:?}"));
-    Ok(())
+    let value = eval.eval_module(ast, &globals)?;
+    Ok(format!("{value:?}"))
 }
 
 fuzz_target!(|content: &str| {
