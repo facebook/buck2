@@ -115,7 +115,6 @@ pub(crate) struct BcInstrs {
     // We use `usize` here to guarantee the buffer is properly aligned
     // to store `BcInstrLayout`.
     instrs: Either<Box<[u64]>, &'static [u64]>,
-    #[allow(unused)]
     pub(crate) stmt_locs: BcStatementLocations,
 }
 

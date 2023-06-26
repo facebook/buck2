@@ -38,9 +38,7 @@ pub trait StarlarkTypeRepr {
 /// `DictOf` requires `Unpack` to be implemented, and `Dict` does not take type parameters so
 /// we need something for documentation generation.
 pub struct DictType<K: StarlarkTypeRepr, V: StarlarkTypeRepr> {
-    #[allow(unused)]
     k: PhantomData<K>,
-    #[allow(unused)]
     v: PhantomData<V>,
 }
 
