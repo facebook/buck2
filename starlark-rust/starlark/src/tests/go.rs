@@ -43,7 +43,9 @@ fn test_go() {
     // The data for these tests was taken from
     // https://github.com/google/starlark-go/blob/e81fc95f7bd5bb1495fe69f27c1a99fcc77caa48/starlark/testdata/
 
-    let assert = Assert::new();
+    let mut assert = Assert::new();
+    // TODO(nga): fix and enable.
+    assert.disable_static_typechecking();
     assert.conformance_except(
         test_case!("assign.star"),
         &[

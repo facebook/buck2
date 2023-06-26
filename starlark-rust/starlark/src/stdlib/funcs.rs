@@ -468,7 +468,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#, "not a valid number");
     /// # starlark::assert::fail(r#"
     /// float([])   # error
-    /// # "#, "expected `either either int or float or bool.type or str`, actual `list`");
+    /// # "#, "Expected type");
     /// ```
     #[starlark(as_type = StarlarkFloat, speculative_exec_safe)]
     fn float(
@@ -771,7 +771,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// # starlark::assert::fail(r#"
     /// list("strings are not iterable") # error: not supported
-    /// # "#, "not supported");
+    /// # "#, r#"Expected type `iter("")` but got `str.type`"#);
     /// ```
     #[starlark(as_type = FrozenList, speculative_exec_safe)]
     fn list<'v>(
@@ -1172,6 +1172,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
 #[cfg(test)]
 mod tests {
     use crate::assert;
+    use crate::assert::Assert;
 
     #[test]
     fn test_constants() {
@@ -1202,18 +1203,18 @@ hash("te") != hash("st")
 x = "test"; y = "te" + "st"; hash(y) == hash(y)
 "#,
         );
-        assert::fail("hash(None)", "doesn't match");
-        assert::fail("hash(True)", "doesn't match");
-        assert::fail("hash(1)", "doesn't match");
-        assert::fail("hash([])", "doesn't match");
-        assert::fail("hash({})", "doesn't match");
-        assert::fail("hash(range(1))", "doesn't match");
-        assert::fail("hash((1, 2))", "doesn't match");
+        assert::fail("noop(hash)(None)", "doesn't match");
+        assert::fail("noop(hash)(True)", "doesn't match");
+        assert::fail("noop(hash)(1)", "doesn't match");
+        assert::fail("noop(hash)([])", "doesn't match");
+        assert::fail("noop(hash)({})", "doesn't match");
+        assert::fail("noop(hash)(range(1))", "doesn't match");
+        assert::fail("noop(hash)((1, 2))", "doesn't match");
         assert::fail(
             r#"
 def foo():
     pass
-hash(foo)
+noop(hash)(foo)
 "#,
             "doesn't match",
         );
@@ -1235,7 +1236,10 @@ hash(foo)
 
     #[test]
     fn test_tuple() {
-        assert::eq("(1, 2)", "tuple((1, 2))");
-        assert::eq("(1, 2)", "tuple([1, 2])");
+        let mut a = Assert::new();
+        // TODO(nga): fix and enable.
+        a.disable_static_typechecking();
+        a.eq("(1, 2)", "tuple((1, 2))");
+        a.eq("(1, 2)", "tuple([1, 2])");
     }
 }

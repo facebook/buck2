@@ -69,7 +69,7 @@ impl TypingError {
     }
 
     #[cold]
-    pub(crate) fn _into_eval_exception(self) -> EvalException {
+    pub(crate) fn into_eval_exception(self) -> EvalException {
         self.0
     }
 }

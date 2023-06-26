@@ -922,9 +922,13 @@ f(8) == False"#,
         );
 
         // Type errors should be caught in arguments
-        a.fails(
-            "def f(i: bool.type):\n pass\nf(1)",
-            &["Value `1` of type `int` does not match the type annotation `bool.type` for argument `i`"],
+        a.fail(
+            "def f_runtime(i: bool.type):\n pass\nf_runtime(noop(1))",
+            "Value `1` of type `int` does not match the type annotation `bool.type` for argument `i`",
+        );
+        a.fail(
+            "def f_compile_time(i: bool.type):\n pass\nf_compile_time(1)",
+            "Expected type `bool.type` but got `int.type`",
         );
         // Type errors should be caught when the user forgets quotes around a valid type
         a.fail("def f(v: bool):\n pass\n", r#"Perhaps you meant `"bool"`"#);
@@ -942,18 +946,27 @@ def f(v: Bar):
         );
         // Type errors should be caught in return positions
         a.fails(
-            "def f() -> bool.type:\n return 1\nf()",
+            "def f_return_runtime() -> bool.type:\n return noop(1)\nf_return_runtime()",
             &["type annotation", "`1`", "bool.type", "`int`", "return"],
         );
+        a.fail(
+            "def f_return_compile_time() -> bool.type:\n return 1\nf_return_compile_time()",
+            "Expected type `bool.type` but got `int.type`",
+        );
         // And for functions without return
+        // TODO(nga): should be compile-time error.
         a.fails(
-            "def f() -> bool.type:\n pass\nf()",
+            "def f_bool_none() -> bool.type:\n pass\nf_bool_none()",
             &["type annotation", "`None`", "bool.type", "return"],
         );
         // And for functions that return None implicitly or explicitly
         a.fails(
-            "def f() -> None:\n return True\nf()",
+            "def f_none_bool_runtime() -> None:\n return noop(True)\nf_none_bool_runtime()",
             &["type annotation", "`None`", "`bool`", "return"],
+        );
+        a.fail(
+            "def f_none_bool_compile_time() -> None:\n return True\nf_none_bool_compile_time()",
+            "Expected type `None` but got `bool.type`",
         );
         a.pass("def f() -> None:\n pass\nf()");
 
@@ -1048,9 +1061,21 @@ ty = eval_type(int.type)
 def f(x: ty):
     pass
 
-f("x")
+# Runtime error.
+f(noop("x"))
 "#,
             "Value `x` of type `string` does not match the type annotation `int.type` for argument `x`",
+        );
+        assert::fail(
+            r#"
+ty = eval_type(int.type)
+def f(x: ty):
+    pass
+
+# Compile-time error.
+f("x")
+"#,
+            "Expected type `int.type` but got `str.type`",
         );
     }
 }

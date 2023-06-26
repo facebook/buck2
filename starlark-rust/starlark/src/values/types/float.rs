@@ -340,6 +340,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
 mod tests {
     use super::*;
     use crate::assert;
+    use crate::assert::Assert;
 
     fn non_finite(f: f64) -> String {
         let mut buf = String::new();
@@ -443,7 +444,10 @@ assert_eq(1 in x, False)
 
     #[test]
     fn test_comparisons() {
-        assert::all_true(
+        let mut a = Assert::new();
+        // TODO(nga): fix and enable.
+        a.disable_static_typechecking();
+        a.all_true(
             r#"
 +0.0 == -0.0
 0.0 == 0

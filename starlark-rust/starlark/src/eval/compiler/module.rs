@@ -38,6 +38,8 @@ use crate::syntax::ast::StmtP;
 use crate::typing::bindings::BindingsCollect;
 use crate::typing::error::InternalError;
 use crate::typing::mode::TypecheckMode;
+use crate::typing::oracle::traits::OracleAny;
+use crate::typing::typecheck::solve_bindings;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
@@ -177,10 +179,16 @@ impl<'v> Compiler<'v, '_, '_> {
 
         self.populate_types_in_stmts(stmts, TopLevelStmtIndex(stmts.len()))?;
 
-        let BindingsCollect { .. } =
+        let BindingsCollect { bindings, .. } =
             BindingsCollect::collect(stmts, TypecheckMode::Compiler, &self.codemap)
                 .map_err(InternalError::into_eval_exception)?;
-        // TODO(nga): run typechecker.
+
+        let (errors, ..) = solve_bindings(&OracleAny, &self.globals, bindings, &self.codemap);
+
+        if let Some(error) = errors.into_iter().next() {
+            return Err(error.into_eval_exception());
+        }
+
         Ok(())
     }
 

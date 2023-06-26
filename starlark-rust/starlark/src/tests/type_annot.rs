@@ -22,7 +22,8 @@ use crate::syntax::DialectTypes;
 
 const PROGRAM: &str = "\
 def f(x: int.type): pass
-f('s')
+
+f(noop('s'))
 ";
 
 #[test]
@@ -63,7 +64,10 @@ xs[0] : int.type = 4
     );
     assert::fail("a, b : '' = 1, 2", "not allowed on multiple assignments");
     assert::fail("a = 1\na : '' += 1", "not allowed on augmented assignments");
-    assert::fail("a : str.type = 1", "does not match the type annotation");
+    assert::fail(
+        "a : str.type = noop(1)",
+        "does not match the type annotation",
+    );
 }
 
 #[test]

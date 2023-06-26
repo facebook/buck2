@@ -99,8 +99,9 @@ foo(enum_type("option1"))"#,
             r#"
 v = [enum("option1","option2")]
 v_0 = v[0]
-def foo(x: v_0.type) -> "enum":
-    return x
+def foo(y: v_0.type) -> "enum":
+    # TODO(nga): fails at compile time.
+    return noop(y)
 foo(v[0]("option1"))"#,
         );
         assert::pass(

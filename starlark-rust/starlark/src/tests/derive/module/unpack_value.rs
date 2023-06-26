@@ -123,7 +123,7 @@ fn test_value_of() {
     let mut a = Assert::new();
     a.globals_add(validate_module);
     a.eq("(1, '1')", "with_int(1)");
-    a.fail("with_int(None)", BAD);
+    a.fail("with_int(noop(None))", BAD);
 }
 
 #[test]
@@ -131,9 +131,9 @@ fn test_list_of() {
     let mut a = Assert::new();
     a.globals_add(validate_module);
     a.eq("([1, 2, 3], '1, 2, 3')", "with_int_list([1, 2, 3])");
-    a.fail("with_int_list(1)", BAD);
-    a.fail("with_int_list([1, 'foo'])", BAD);
-    a.fail("with_int_list([[]])", BAD);
+    a.fail("with_int_list(noop(1))", BAD);
+    a.fail("with_int_list(noop([1, 'foo']))", BAD);
+    a.fail("with_int_list(noop([[]]))", BAD);
 
     a.eq(
         "([[1, 2], [3]], '1, 2 + 3')",
@@ -150,9 +150,9 @@ fn test_dict_of() {
     let mut a = Assert::new();
     a.globals_add(validate_module);
     a.eq("({1: 2}, '1: 2')", "with_int_dict({1: 2})");
-    a.fail(r#"with_int_dict(1)"#, BAD);
-    a.fail(r#"with_int_dict({1: "str"})"#, BAD);
-    a.fail(r#"with_int_dict({1: {}})"#, BAD);
+    a.fail(r#"with_int_dict(noop(1))"#, BAD);
+    a.fail(r#"with_int_dict(noop({1: "str"}))"#, BAD);
+    a.fail(r#"with_int_dict(noop({1: {}}))"#, BAD);
 
     let expected = r#"({1: [2, 3], 4: [5]}, "1: 2, 3 + 4: 5")"#;
     let test = r#"with_list_dict({1: [2, 3], 4: [5]})"#;
@@ -178,6 +178,6 @@ fn test_either_of() {
     a.eq("'2'", "with_either(2)");
     a.eq("'[2, 3]'", "with_either([2,3])");
     a.eq("'s'", "with_either('s')");
-    a.fail("with_either(None)", BAD);
-    a.fail("with_either({})", BAD);
+    a.fail("with_either(noop(None))", BAD);
+    a.fail("with_either(noop({}))", BAD);
 }

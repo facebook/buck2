@@ -159,6 +159,10 @@ impl<T: TypingOracle> TypingOracle for OracleSeq<T> {
     }
 }
 
+pub(crate) struct OracleAny;
+
+impl TypingOracle for OracleAny {}
+
 // Forwarding traits
 
 impl<'a, T: TypingOracle + ?Sized> TypingOracle for &'a T {

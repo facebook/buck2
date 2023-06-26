@@ -51,7 +51,7 @@ use crate::typing::OracleDocs;
 use crate::values::FrozenHeap;
 
 // Things which are None in the map have type void - they are never constructed
-fn solve_bindings(
+pub(crate) fn solve_bindings(
     oracle: &dyn TypingOracle,
     globals: &Globals,
     bindings: Bindings,

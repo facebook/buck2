@@ -845,35 +845,38 @@ assert_eq(len(count), 1)
 #[test]
 fn test_self_mutate_list() {
     // Check functions that mutate and access self on lists
-    assert::is_true(
+    let mut a = Assert::new();
+    // TODO(nga): fix and enable.
+    a.disable_static_typechecking();
+    a.is_true(
         r#"
 xs = [1, 2, 3]
 xs.extend(xs)
 xs == [1, 2, 3, 1, 2, 3]
 "#,
     );
-    assert::is_true(
+    a.is_true(
         r#"
 xs = [1, 2, 3]
 xs += xs
 xs == [1, 2, 3, 1, 2, 3]
 "#,
     );
-    assert::fail(
+    a.fail(
         r#"
 xs = [1, 2, 3]
 xs.pop(xs)
 "#,
         "Type of parameter `index` doesn't match",
     );
-    assert::fail(
+    a.fail(
         r#"
 xs = [1, 2, 3]
 xs.remove(xs)
 "#,
         "not found in list",
     );
-    assert::is_true(
+    a.is_true(
         r#"
 xs = [1, 2, 3]
 xs.append(xs)
@@ -881,21 +884,21 @@ xs.remove(xs)
 xs == [1, 2, 3]
 "#,
     );
-    assert::is_true(
+    a.is_true(
         r#"
 xs = [1, 2, 3]
 xs += xs
 xs == [1, 2, 3, 1, 2, 3]
 "#,
     );
-    assert::fail(
+    a.fail(
         r#"
 xs = []
 xs[xs]
 "#,
         "Type of parameter",
     );
-    assert::fail(
+    a.fail(
         r#"
 xs = []
 xs[xs] = xs

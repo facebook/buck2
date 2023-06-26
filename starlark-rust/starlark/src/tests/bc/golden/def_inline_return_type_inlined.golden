@@ -4,8 +4,8 @@
 # STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
 # ```
 
-def smth() -> "str":
-    return 10
+def smth() -> "string":
+    return "10"
 
 def test():
     # This call should not be inlined.

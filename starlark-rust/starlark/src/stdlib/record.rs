@@ -151,8 +151,9 @@ foo(rec_type(host="localhost", port=80))"#,
             r#"
 v = [record(host=str.type, port=int.type)]
 v_0 = v[0]
-def foo(x: v_0.type) -> "record":
-    return x
+def foo(y: v_0.type) -> "record":
+    # TODO(nga): fails at compile time.
+    return noop(y)
 foo(v[0](host="localhost", port=80))"#,
         );
         assert::pass(

@@ -72,10 +72,10 @@ True != False
 [1, 3] != [1, 3, 4]
 (1, 2) == (1, 2)
 (1, 3) != (1, 2)
-(1, 3) != (1, 3, 4)
-range(4) == range(0, 4, 1)
-range(4) != range(0, 4, 2)
-range(4) != [0,1,2,3,4]
+noop((1, 3)) != (1, 3, 4)
+noop(range(4)) == range(0, 4, 1)
+noop(range(4)) != range(0, 4, 2)
+noop(range(4)) != [0,1,2,3,4]
 {1: 2} == {1: 2}
 {1: 2} != {}
 {1: 2, 3: 4} == {1: 2, 3: 4}
@@ -142,6 +142,8 @@ False < True
 fn test_frozen_hash() {
     let exprs = &["\"test\"", "\"x\""];
     let mut a = Assert::new();
+    // TODO(nga): fix and enable.
+    a.disable_static_typechecking();
     a.module(
         "m",
         &format!(
@@ -163,10 +165,10 @@ assert_eq(all([frozen_dict[x] != None for x in values]), True)
 
 #[test]
 fn test_compare() {
-    assert::fail("1 > False", "Operation `compare` not supported");
+    assert::fail("noop(1) > False", "Operation `compare` not supported");
     assert::is_true("[1, 2] == [1, 2]");
-    assert::is_true("1 != True");
-    assert::is_true("not (None == [1])");
+    assert::is_true("noop(1) != True");
+    assert::is_true("not (noop(None) == [1])");
     assert::is_true(
         r#"
 xs = [1]
@@ -182,7 +184,10 @@ ys[0] = xs
 xs == xs
 "#,
     );
-    assert::fail(
+    let mut a = Assert::new();
+    // TODO(nga): fix and enable.
+    a.disable_static_typechecking();
+    a.fail(
         r#"
 ys = [1]
 xs = [ys]
