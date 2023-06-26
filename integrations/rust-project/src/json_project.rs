@@ -145,5 +145,6 @@ pub struct Sysroot {
     ///
     /// Inside Meta, this is necessary on non-Linux platforms since the sources
     /// are packaged seperately from binaries such as `rust-analyzer-proc-macro-srv`.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sysroot_src: Option<PathBuf>,
 }

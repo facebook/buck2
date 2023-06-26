@@ -241,82 +241,6 @@ fn merge_unit_test_targets(
     target_index
 }
 
-/// Choose sysroot and sysroot_src based on platform.
-///
-/// `sysroot` is the directory that contains std crates:
-/// <https://doc.rust-lang.org/rustc/command-line-arguments.html#--sysroot-override-the-system-root>
-/// and also contains libexec helpers such as rust-analyzer-proc-macro-srv.
-///
-/// `sysroot_src` is the directory that contains the source to std crates:
-/// <https://rust-analyzer.github.io/manual.html#non-cargo-based-projects>
-#[instrument(ret)]
-pub fn rust_sysroot(project_root: &Path, relative_paths: bool) -> Result<Sysroot, anyhow::Error> {
-    let buck = Buck;
-
-    if cfg!(target_os = "linux") {
-        let base: PathBuf = if relative_paths {
-            PathBuf::from("")
-        } else {
-            project_root.into()
-        };
-
-        let sysroot_src = buck.resolve_sysroot_src()?;
-        let sysroot_src = if relative_paths {
-            sysroot_src
-        } else {
-            project_root.join(sysroot_src)
-        };
-
-        let sysroot = Sysroot {
-            sysroot: base.join("fbcode/third-party-buck/platform010/build/rust"),
-            sysroot_src: Some(sysroot_src),
-        };
-
-        return Ok(sysroot);
-    }
-    // Spawn both `rustc` and `buck audit config` in parallel without blocking.
-    let fbsource_rustc = project_root.join("xplat/rust/toolchain/current/rustc");
-    let mut sysroot_cmd = if cfg!(target_os = "macos") {
-        // On Apple silicon, buck builds at Meta run under Rosetta.
-        // So we force an x86-64 sysroot to avoid mixing architectures.
-        let mut cmd = Command::new("arch");
-        cmd.arg("-x86_64").arg(fbsource_rustc);
-        cmd
-    } else {
-        Command::new(fbsource_rustc)
-    };
-    sysroot_cmd
-        .arg("--print=sysroot")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    let sysroot_child = sysroot_cmd.spawn()?;
-
-    let sysroot_src = buck.resolve_sysroot_src()?;
-    let sysroot_src = if relative_paths {
-        sysroot_src
-    } else {
-        project_root.join(sysroot_src)
-    };
-
-    // Now block while we wait for both processes.
-    let mut sysroot = utf8_output(sysroot_child.wait_with_output(), &sysroot_cmd)
-        .context("error asking rustc for sysroot")?;
-    truncate_line_ending(&mut sysroot);
-
-    let mut sysroot: PathBuf = sysroot.into();
-    if relative_paths {
-        sysroot = relative_to(&sysroot, project_root);
-    }
-
-    let sysroot = Sysroot {
-        sysroot,
-        sysroot_src: Some(sysroot_src),
-    };
-
-    Ok(sysroot)
-}
-
 #[derive(Debug)]
 pub struct Buck;
 
@@ -340,7 +264,7 @@ impl Buck {
         Ok(stdout.into())
     }
 
-    fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
+    pub fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
         let mut command = self.command();
         command.args(["audit", "config", "--json", "--", "rust.sysroot_src_path"]);
         command
