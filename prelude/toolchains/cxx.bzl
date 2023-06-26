@@ -40,6 +40,11 @@ def _system_cxx_toolchain_impl(ctx):
     linker = ctx.attrs.linker
     linker_type = "gnu"
     supports_pic = True
+    binary_extension = ""
+    object_file_extension = "o"
+    static_library_extension = "a"
+    shared_library_name_format = "lib{}.so"
+    shared_library_versioned_name_format = "lib{}.so.{}"
     additional_linker_flags = []
     if host_info().os.is_macos:
         linker_type = "darwin"
@@ -48,6 +53,11 @@ def _system_cxx_toolchain_impl(ctx):
         linker = _windows_linker_wrapper(ctx)
         linker_type = "windows"
         supports_pic = False
+        binary_extension = "exe"
+        object_file_extension = "obj"
+        static_library_extension = "lib"
+        shared_library_name_format = "{}.dll"
+        shared_library_versioned_name_format = "{}.dll"
     elif ctx.attrs.linker == "g++" or ctx.attrs.cxx_compiler == "g++":
         pass
     else:
@@ -75,11 +85,11 @@ def _system_cxx_toolchain_impl(ctx):
                 shlib_interfaces = "disabled",
                 link_style = LinkStyle(ctx.attrs.link_style),
                 link_weight = 1,
-                binary_extension = "",
-                object_file_extension = "o",
-                shared_library_name_format = "lib{}.so",
-                shared_library_versioned_name_format = "lib{}.so.{}",
-                static_library_extension = "a",
+                binary_extension = binary_extension,
+                object_file_extension = object_file_extension,
+                shared_library_name_format = shared_library_name_format,
+                shared_library_versioned_name_format = shared_library_versioned_name_format,
+                static_library_extension = static_library_extension,
                 force_full_hybrid_if_capable = False,
                 is_pdb_generated = is_pdb_generated(linker_type, ctx.attrs.link_flags),
                 supports_pic = supports_pic,
