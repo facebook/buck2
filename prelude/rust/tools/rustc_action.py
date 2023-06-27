@@ -215,7 +215,6 @@ async def main() -> int:
             "RE_PLATFORM",
             "CAS_DAEMON_PORT",
             "CAS_DAEMON_ADDR",
-            "SHARED_DOTSLASH_CACHE",
             # Required by Dotslash, which is how the Rust toolchain is shipped
             # on Mac.
             "USER",
