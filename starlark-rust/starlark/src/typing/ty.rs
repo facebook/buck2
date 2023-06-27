@@ -32,6 +32,7 @@ use serde::Serialize;
 use serde::Serializer;
 
 use crate::codemap::CodeMap;
+use crate::codemap::Span;
 use crate::docs::DocFunction;
 use crate::docs::DocMember;
 use crate::docs::DocParam;
@@ -52,6 +53,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
+use crate::typing::error::TypingError;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingAttr;
@@ -314,7 +316,12 @@ impl TyUnion {
 /// Custom type implementation. [`Display`] must implement the representation of the type.
 pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync + 'static {
     fn as_name(&self) -> Option<&str>;
-    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String>;
+    fn validate_call(
+        &self,
+        span: Span,
+        args: &[Arg],
+        oracle: TypingOracleCtx,
+    ) -> Result<Ty, TypingError>;
 }
 
 pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {
@@ -323,7 +330,12 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
 
     fn clone_box(&self) -> Box<dyn TyCustomDyn>;
     fn as_name(&self) -> Option<&str>;
-    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String>;
+    fn validate_call(
+        &self,
+        span: Span,
+        args: &[Arg],
+        oracle: TypingOracleCtx,
+    ) -> Result<Ty, TypingError>;
 }
 
 impl<T: TyCustomImpl> TyCustomDyn for T {
@@ -343,8 +355,13 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self.as_name()
     }
 
-    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String> {
-        self.validate_call(args, oracle)
+    fn validate_call(
+        &self,
+        span: Span,
+        args: &[Arg],
+        oracle: TypingOracleCtx,
+    ) -> Result<Ty, TypingError> {
+        self.validate_call(span, args, oracle)
     }
 }
 
@@ -401,7 +418,12 @@ impl Clone for TyCustom {
 pub trait TyCustomFunctionImpl:
     Clone + Debug + Eq + Ord + Allocative + Send + Sync + 'static
 {
-    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String>;
+    fn validate_call(
+        &self,
+        span: Span,
+        args: &[Arg],
+        oracle: TypingOracleCtx,
+    ) -> Result<Ty, TypingError>;
 }
 
 #[derive(
@@ -422,8 +444,13 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         Some("function")
     }
 
-    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String> {
-        self.0.validate_call(args, oracle)
+    fn validate_call(
+        &self,
+        span: Span,
+        args: &[Arg],
+        oracle: TypingOracleCtx,
+    ) -> Result<Ty, TypingError> {
+        self.0.validate_call(span, args, oracle)
     }
 }
 

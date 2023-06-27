@@ -27,10 +27,12 @@ use either::Either;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
+use crate::codemap::Span;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::typing::error::TypingError;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::ty::TyCustomFunctionImpl;
 use crate::typing::Arg;
@@ -144,20 +146,25 @@ fn min_max<'v>(
 struct ZipType;
 
 impl TyCustomFunctionImpl for ZipType {
-    fn validate_call(&self, args: &[Arg], oracle: TypingOracleCtx) -> Result<Ty, String> {
+    fn validate_call(
+        &self,
+        span: Span,
+        args: &[Arg],
+        oracle: TypingOracleCtx,
+    ) -> Result<Ty, TypingError> {
         let mut iter_item_types: Vec<Ty> = Vec::new();
         let mut seen_star_args = false;
         for arg in args {
             match arg {
                 Arg::Pos(pos) => match oracle.attribute(pos, TypingAttr::Iter) {
                     Some(Err(_)) => {
-                        return Err("Argument does not allow iteration".to_owned());
+                        return Err(oracle.msg_error(span, "Argument does not allow iteration"));
                     }
                     Some(Ok(t)) => iter_item_types.push(t),
                     None => iter_item_types.push(Ty::Any),
                 },
                 Arg::Name(_, _) => {
-                    return Err("`zip()` does not accept keyword arguments".to_owned());
+                    return Err(oracle.msg_error(span, "zip() does not accept keyword arguments"));
                 }
                 Arg::Args(_) => {
                     seen_star_args = true;

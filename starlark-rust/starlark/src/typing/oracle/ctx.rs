@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::fmt::Display;
+
 use dupe::Dupe;
 
 use crate::codemap::CodeMap;
@@ -71,6 +73,10 @@ impl<'a> TypingOracle for TypingOracleCtx<'a> {
 impl<'a> TypingOracleCtx<'a> {
     pub(crate) fn mk_error(&self, span: Span, err: impl Into<anyhow::Error>) -> TypingError {
         TypingError::new(err.into(), span, self.codemap)
+    }
+
+    pub(crate) fn msg_error(&self, span: Span, msg: impl Display) -> TypingError {
+        TypingError::msg(msg, span, self.codemap)
     }
 
     pub(crate) fn validate_type(
@@ -238,10 +244,7 @@ impl<'a> TypingOracleCtx<'a> {
                 Ok(Ty::Any)
             }
             Ty::Function(f) => self.validate_fn_call(span, f, args),
-            Ty::Custom(t) => {
-                t.0.validate_call(args, *self)
-                    .map_err(|e| TypingError::msg(e, span, self.codemap))
-            }
+            Ty::Custom(t) => t.0.validate_call(span, args, *self),
             Ty::Union(variants) => {
                 let mut successful = Vec::new();
                 let mut errors = Vec::new();
