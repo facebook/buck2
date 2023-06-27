@@ -17,6 +17,7 @@ AndroidToolchainInfo = provider(fields = [
     "android_bootclasspath",
     "apk_builder",
     "apk_module_graph",
+    "bundle_builder",
     "combine_native_library_dirs",
     "compress_libraries",
     "d8_command",
