@@ -24,6 +24,7 @@ use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::codemap::Span;
+use crate::codemap::Spanned;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
 use crate::typing::error::TypingError;
@@ -43,13 +44,13 @@ impl TyCustomFunctionImpl for StructType {
     fn validate_call(
         &self,
         span: Span,
-        args: &[Arg],
+        args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError> {
         let mut fields = BTreeMap::new();
         let mut extra = false;
         for x in args {
-            match x {
+            match &x.node {
                 Arg::Pos(_) => {
                     return Err(oracle.msg_error(span, "Positional arguments not allowed"));
                 }

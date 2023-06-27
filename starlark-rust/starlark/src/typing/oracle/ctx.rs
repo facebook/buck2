@@ -21,6 +21,7 @@ use dupe::Dupe;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
+use crate::codemap::Spanned;
 use crate::typing::error::TypingError;
 use crate::typing::Arg;
 use crate::typing::Param;
@@ -98,7 +99,12 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
-    fn validate_args(&self, params: &[Param], args: &[Arg], span: Span) -> Result<(), TypingError> {
+    fn validate_args(
+        &self,
+        params: &[Param],
+        args: &[Spanned<Arg>],
+        span: Span,
+    ) -> Result<(), TypingError> {
         // Want to figure out which arguments go in which positions
         let mut param_args: Vec<Vec<&Ty>> = vec![vec![]; params.len()];
         // The next index a positional parameter might fill
@@ -106,7 +112,7 @@ impl<'a> TypingOracleCtx<'a> {
         let mut seen_vargs = false;
 
         for arg in args {
-            match arg {
+            match &arg.node {
                 Arg::Pos(ty) => loop {
                     match params.get(param_pos) {
                         None => {
@@ -204,7 +210,7 @@ impl<'a> TypingOracleCtx<'a> {
         &self,
         span: Span,
         fun: &TyFunction,
-        args: &[Arg],
+        args: &[Spanned<Arg>],
     ) -> Result<Ty, TypingError> {
         self.validate_args(&fun.params, args, span)?;
         Ok((*fun.result).clone())
@@ -215,7 +221,7 @@ impl<'a> TypingOracleCtx<'a> {
         &self,
         span: Span,
         fun: &Ty,
-        args: &[Arg],
+        args: &[Spanned<Arg>],
     ) -> Result<Ty, TypingError> {
         match fun {
             Ty::Never => Ok(Ty::Never),

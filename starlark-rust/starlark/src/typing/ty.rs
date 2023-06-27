@@ -33,6 +33,7 @@ use serde::Serializer;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
+use crate::codemap::Spanned;
 use crate::docs::DocFunction;
 use crate::docs::DocMember;
 use crate::docs::DocParam;
@@ -320,7 +321,7 @@ pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync
     fn validate_call(
         &self,
         span: Span,
-        args: &[Arg],
+        args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError>;
 }
@@ -335,7 +336,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     fn validate_call(
         &self,
         span: Span,
-        args: &[Arg],
+        args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError>;
 }
@@ -364,7 +365,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
     fn validate_call(
         &self,
         span: Span,
-        args: &[Arg],
+        args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError> {
         self.validate_call(span, args, oracle)
@@ -431,7 +432,7 @@ pub trait TyCustomFunctionImpl:
     fn validate_call(
         &self,
         span: Span,
-        args: &[Arg],
+        args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError>;
 }
@@ -461,7 +462,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
     fn validate_call(
         &self,
         span: Span,
-        args: &[Arg],
+        args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError> {
         self.0.validate_call(span, args, oracle)
@@ -510,7 +511,7 @@ impl TyCustomFunctionImpl for TyFunction {
     fn validate_call(
         &self,
         span: Span,
-        args: &[Arg],
+        args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError> {
         oracle.validate_fn_call(span, self, args)

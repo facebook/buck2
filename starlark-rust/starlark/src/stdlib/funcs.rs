@@ -28,6 +28,7 @@ use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::codemap::Span;
+use crate::codemap::Spanned;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
@@ -149,13 +150,13 @@ impl TyCustomFunctionImpl for ZipType {
     fn validate_call(
         &self,
         span: Span,
-        args: &[Arg],
+        args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError> {
         let mut iter_item_types: Vec<Ty> = Vec::new();
         let mut seen_star_args = false;
         for arg in args {
-            match arg {
+            match &arg.node {
                 Arg::Pos(pos) => match oracle.attribute(pos, TypingAttr::Iter) {
                     Some(Err(_)) => {
                         return Err(oracle.msg_error(span, "Argument does not allow iteration"));
