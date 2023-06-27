@@ -45,7 +45,7 @@ You can create actions within BXL via the `actions_factory`. This is called once
 
 ```python
 def _impl_example(ctx):
-    actions = ctx.actions_factory # call once, reuse wherever needed
+    actions = ctx.bxl_actions().actions # call once, reuse wherever needed
     output = actions.write("my_output", "out")
 ```
 

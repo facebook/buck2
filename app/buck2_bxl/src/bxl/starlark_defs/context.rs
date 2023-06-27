@@ -565,7 +565,7 @@ fn register_context(builder: &mut MethodsBuilder) {
         Ok(BxlActions::new(this.state, exec_deps, toolchains))
     }
 
-    /// Returns the action context for creating and running actions.
+    /// DO NOT USE - will be deprecated soon.
     #[starlark(attribute)]
     fn actions_factory<'v>(this: ValueOf<'v, &'v BxlContext<'v>>) -> anyhow::Result<Value<'v>> {
         validate_action_instantiation(this.typed, EXECUTION_PLATFORM.dupe())?;
@@ -692,7 +692,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// load("//path/to/rules:rules.bzl", "my_anon_targets_rule", "my_map_function")
     ///
     /// def _resolve_impl(ctx):
-    ///     actions = ctx.actions_factory
+    ///     actions = ctx.bxl_actions().actions
     ///     my_attrs = {
     ///         "false": False,
     ///         "int": 42,
@@ -702,7 +702,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     ///     }
     ///
     ///     promise = actions.anon_target(my_anon_targets_rule, attrs).map(my_map_function)
-    ///     providers_result = ctx.resolve(promise) # result is `provider_callable` type, which is a collection of `provider`s
+    ///     providers_result = ctx.resolve(actions, promise) # result is `provider_callable` type, which is a collection of `provider`s
     ///     ctx.output.print(providers_result[0].my_field)
     /// ```
     fn resolve<'v>(

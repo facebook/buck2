@@ -340,7 +340,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_ensure(ctx):
-    ///     actions = ctx.actions_factory
+    ///     actions = ctx.bxl_actions().actions
     ///     output = actions.write("my_output", "my_content")
     ///     ensured = ctx.output.ensure(output)
     ///     ctx.output.print(ensured)
