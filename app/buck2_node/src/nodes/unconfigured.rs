@@ -236,7 +236,7 @@ impl TargetNode {
         if self.label().pkg() == target.pkg() {
             return Ok(true);
         }
-        Ok(self.visibility()?.is_visible_to(target))
+        Ok(self.visibility()?.0.matches_target(target))
     }
 
     pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = CoercedAttrFull> {

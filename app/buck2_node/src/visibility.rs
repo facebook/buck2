@@ -94,6 +94,20 @@ impl VisibilityPatternList {
             )
         }
     }
+
+    pub fn matches_target(&self, target: &TargetLabel) -> bool {
+        match self {
+            VisibilityPatternList::Public => true,
+            VisibilityPatternList::List(patterns) => {
+                for pattern in patterns {
+                    if pattern.0.matches(target) {
+                        return true;
+                    }
+                }
+                false
+            }
+        }
+    }
 }
 
 impl Display for VisibilityPatternList {
@@ -149,20 +163,6 @@ impl Default for WithinViewSpecification {
 impl VisibilitySpecification {
     pub const DEFAULT: VisibilitySpecification =
         VisibilitySpecification(VisibilityPatternList::List(ThinArcSlice::empty()));
-
-    pub fn is_visible_to(&self, target: &TargetLabel) -> bool {
-        match &self.0 {
-            VisibilityPatternList::Public => true,
-            VisibilityPatternList::List(patterns) => {
-                for pattern in patterns {
-                    if pattern.0.matches(target) {
-                        return true;
-                    }
-                }
-                false
-            }
-        }
-    }
 
     pub(crate) fn to_json(&self) -> serde_json::Value {
         self.0.to_json()
