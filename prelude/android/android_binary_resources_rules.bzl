@@ -480,6 +480,9 @@ def _get_module_manifests(
 
         merged_module_manifests = {}
         for module_name in apk_module_graph_info.module_list:
+            if is_root_module(module_name):
+                continue
+
             merged_module_manifest, _ = generate_android_manifest(
                 ctx,
                 android_toolchain.generate_manifest[RunInfo],
