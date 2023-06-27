@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:resources.bzl", "gather_resources")
-load("@prelude//android:aapt2_link.bzl", "get_aapt2_link")
+load("@prelude//android:aapt2_link.bzl", "get_aapt2_link", "get_module_manifest_in_proto_format")
 load("@prelude//android:android_manifest.bzl", "generate_android_manifest")
 load("@prelude//android:android_providers.bzl", "AndroidBinaryResourcesInfo", "AndroidResourceInfo", "ExopackageResourcesInfo")
 load("@prelude//android:android_resource.bzl", "aapt2_compile")
@@ -43,7 +43,6 @@ def get_android_binary_resources_info(
     )
 
     android_manifest = _get_manifest(ctx, android_packageable_info, manifest_entries)
-    module_manifests = _get_module_manifests(ctx, android_packageable_info, manifest_entries, apk_module_graph_file)
 
     non_proto_format_aapt2_link_info, proto_format_aapt2_link_info = get_aapt2_link(
         ctx,
@@ -65,6 +64,15 @@ def get_android_binary_resources_info(
         filter_locales = getattr(ctx.attrs, "aapt2_locale_filtering", False) or bool(getattr(ctx.attrs, "locales_for_binary_resources", [])),
         min_sdk = aapt2_min_sdk,
         preferred_density = aapt2_preferred_density,
+    )
+
+    module_manifests = _get_module_manifests(
+        ctx,
+        android_packageable_info,
+        manifest_entries,
+        apk_module_graph_file,
+        use_proto_format,
+        non_proto_format_aapt2_link_info.primary_resources_apk,
     )
 
     aapt2_link_info = proto_format_aapt2_link_info if use_proto_format else non_proto_format_aapt2_link_info
@@ -453,7 +461,9 @@ def _get_module_manifests(
         ctx: "context",
         android_packageable_info: "AndroidPackageableInfo",
         manifest_entries: dict.type,
-        apk_module_graph_file: ["artifact", None]) -> ["artifact"]:
+        apk_module_graph_file: ["artifact", None],
+        use_proto_format: bool.type,
+        primary_resources_apk: "artifact") -> ["artifact"]:
     if not apk_module_graph_file:
         return []
 
@@ -492,6 +502,15 @@ def _get_module_manifests(
                 module_to_manifests.get(module_name, []),
                 manifest_entries.get("placeholders", {}),
             )
+
+            if use_proto_format:
+                merged_module_manifest = get_module_manifest_in_proto_format(
+                    ctx,
+                    android_toolchain,
+                    merged_module_manifest,
+                    primary_resources_apk,
+                    module_name,
+                )
 
             merged_module_manifests["assets/{}/AndroidManifest.xml".format(module_name)] = merged_module_manifest
 

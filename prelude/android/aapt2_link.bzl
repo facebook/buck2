@@ -123,3 +123,33 @@ def get_aapt2_link(
         ))
 
     return link_infos[0], link_infos[1]
+
+def get_module_manifest_in_proto_format(
+        ctx: "context",
+        android_toolchain: "AndroidToolchainInfo",
+        android_manifest: "artifact",
+        primary_resources_apk: "artifact",
+        module_name: str.type) -> "artifact":
+    aapt2_command = cmd_args(android_toolchain.aapt2)
+    aapt2_command.add("link")
+
+    # aapt2 only supports @ for -R or input files, not for all args, so we pass in all "normal"
+    # args here.
+    resources_apk = ctx.actions.declare_output("{}/resource-apk.ap_".format(module_name))
+    aapt2_command.add(["-o", resources_apk.as_output()])
+    aapt2_command.add(["--manifest", android_manifest])
+    aapt2_command.add(["-I", android_toolchain.android_jar])
+    aapt2_command.add(["-I", primary_resources_apk])
+    aapt2_command.add("--proto-format")
+
+    ctx.actions.run(aapt2_command, category = "aapt2_link", identifier = module_name)
+
+    proto_manifest_dir = ctx.actions.declare_output("{}/proto_format_manifest".format(module_name))
+    proto_manifest = proto_manifest_dir.project("AndroidManifest.xml")
+    ctx.actions.run(
+        cmd_args(["unzip", resources_apk, "AndroidManifest.xml", "-d", proto_manifest_dir.as_output()]),
+        category = "unzip_proto_format_manifest",
+        identifier = module_name,
+    )
+
+    return proto_manifest
