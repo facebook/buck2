@@ -112,7 +112,8 @@ def get_single_primary_dex(
 
     return DexFilesInfo(
         primary_dex = output_dex_file,
-        secondary_dex_dirs = [],
+        root_module_secondary_dex_dirs = [],
+        non_root_module_secondary_dex_dirs = [],
         secondary_dex_exopackage_info = None,
         proguard_text_files_path = None,
         primary_dex_class_names = None,
@@ -219,7 +220,8 @@ def get_multi_dex(
 
     return DexFilesInfo(
         primary_dex = primary_dex_file,
-        secondary_dex_dirs = [root_module_secondary_dex_output_dir, secondary_dex_dir],
+        root_module_secondary_dex_dirs = [root_module_secondary_dex_output_dir],
+        non_root_module_secondary_dex_dirs = [secondary_dex_dir],
         secondary_dex_exopackage_info = None,
         proguard_text_files_path = None,
         primary_dex_class_names = primary_dex_class_names,
@@ -277,7 +279,8 @@ def merge_to_single_dex(
 
     return DexFilesInfo(
         primary_dex = output_dex_file,
-        secondary_dex_dirs = [],
+        root_module_secondary_dex_dirs = [],
+        non_root_module_secondary_dex_dirs = [],
         secondary_dex_exopackage_info = None,
         proguard_text_files_path = None,
         primary_dex_class_names = None,
@@ -554,18 +557,19 @@ def merge_to_split_dex(
     ctx.actions.dynamic_output(dynamic = input_artifacts, inputs = [], outputs = outputs, f = merge_pre_dexed_libs)
 
     if is_exopackage_enabled_for_secondary_dex:
-        secondary_dex_dirs = [non_root_module_secondary_dexes_dir]
+        root_module_secondary_dex_dirs = []
         secondary_dex_exopackage_info = ExopackageDexInfo(
             metadata = root_module_secondary_dexes_metadata,
             directory = root_module_secondary_dexes_subdir,
         )
     else:
-        secondary_dex_dirs = [root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir]
+        root_module_secondary_dex_dirs = [root_module_secondary_dexes_dir]
         secondary_dex_exopackage_info = None
 
     return DexFilesInfo(
         primary_dex = primary_dex_output,
-        secondary_dex_dirs = secondary_dex_dirs,
+        root_module_secondary_dex_dirs = root_module_secondary_dex_dirs,
+        non_root_module_secondary_dex_dirs = [non_root_module_secondary_dexes_dir],
         secondary_dex_exopackage_info = secondary_dex_exopackage_info,
         proguard_text_files_path = None,
         primary_dex_class_names = primary_dex_class_names_list,

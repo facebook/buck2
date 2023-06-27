@@ -51,7 +51,7 @@ def build_bundle(
         dex_files_info.primary_dex,
     ])
 
-    asset_directories = native_library_info.native_lib_assets + dex_files_info.secondary_dex_dirs + resources_info.module_manifests
+    asset_directories = native_library_info.native_lib_assets + dex_files_info.root_module_secondary_dex_dirs + resources_info.module_manifests
     asset_directories_file = actions.write("asset_directories.txt", asset_directories)
     bundle_builder_args.hidden(asset_directories)
     native_library_directories = actions.write("native_library_directories", native_library_info.native_libs_for_primary_apk)

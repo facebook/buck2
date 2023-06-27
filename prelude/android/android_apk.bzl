@@ -90,7 +90,12 @@ def build_apk(
     if compress_resources_dot_arsc:
         apk_builder_args.add("--compress-resources-dot-arsc")
 
-    asset_directories = native_library_info.native_lib_assets + dex_files_info.secondary_dex_dirs + resources_info.module_manifests
+    asset_directories = (
+        native_library_info.native_lib_assets +
+        dex_files_info.root_module_secondary_dex_dirs +
+        dex_files_info.non_root_module_secondary_dex_dirs +
+        resources_info.module_manifests
+    )
     asset_directories_file = actions.write("asset_directories.txt", asset_directories)
     apk_builder_args.hidden(asset_directories)
     native_library_directories = actions.write("native_library_directories", native_library_info.native_libs_for_primary_apk)

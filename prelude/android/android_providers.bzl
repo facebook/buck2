@@ -182,7 +182,8 @@ ExopackageResourcesInfo = record(
 DexFilesInfo = record(
     primary_dex = "artifact",
     primary_dex_class_names = ["artifact", None],
-    secondary_dex_dirs = ["artifact"],
+    root_module_secondary_dex_dirs = ["artifact"],
+    non_root_module_secondary_dex_dirs = ["artifact"],
     secondary_dex_exopackage_info = [ExopackageDexInfo.type, None],
     proguard_text_files_path = ["artifact", None],
 )
