@@ -250,8 +250,6 @@ pub enum Ty {
     Dict(Box<(Ty, Ty)>),
     /// A `struct`.
     Struct(TyStruct),
-    /// A `function`.
-    Function(TyFunction),
     /// Custom type.
     Custom(TyCustom),
 }
@@ -316,6 +314,9 @@ impl TyUnion {
 /// Custom type implementation. [`Display`] must implement the representation of the type.
 pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync + 'static {
     fn as_name(&self) -> Option<&str>;
+    fn has_type_attr(&self) -> bool {
+        false
+    }
     fn validate_call(
         &self,
         span: Span,
@@ -330,6 +331,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
 
     fn clone_box(&self) -> Box<dyn TyCustomDyn>;
     fn as_name(&self) -> Option<&str>;
+    fn has_type_attr(&self) -> bool;
     fn validate_call(
         &self,
         span: Span,
@@ -353,6 +355,10 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
 
     fn as_name(&self) -> Option<&str> {
         self.as_name()
+    }
+
+    fn has_type_attr(&self) -> bool {
+        self.has_type_attr()
     }
 
     fn validate_call(
@@ -418,6 +424,10 @@ impl Clone for TyCustom {
 pub trait TyCustomFunctionImpl:
     Clone + Debug + Eq + Ord + Allocative + Send + Sync + 'static
 {
+    fn has_type_attr(&self) -> bool {
+        false
+    }
+
     fn validate_call(
         &self,
         span: Span,
@@ -442,6 +452,10 @@ pub struct TyCustomFunction<F: TyCustomFunctionImpl>(pub F);
 impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
     fn as_name(&self) -> Option<&str> {
         Some("function")
+    }
+
+    fn has_type_attr(&self) -> bool {
+        self.0.has_type_attr()
     }
 
     fn validate_call(
@@ -485,6 +499,21 @@ impl Display for TyFunction {
             }
         }
         write!(f, ") -> {}", result)
+    }
+}
+
+impl TyCustomFunctionImpl for TyFunction {
+    fn has_type_attr(&self) -> bool {
+        !self.type_attr.is_empty()
+    }
+
+    fn validate_call(
+        &self,
+        span: Span,
+        args: &[Arg],
+        oracle: TypingOracleCtx,
+    ) -> Result<Ty, TypingError> {
+        oracle.validate_fn_call(span, self, args)
     }
 }
 
@@ -576,7 +605,6 @@ impl Ty {
             Ty::Tuple(_) => Some("tuple"),
             Ty::Dict(_) => Some("dict"),
             Ty::Struct { .. } => Some("struct"),
-            Ty::Function { .. } => Some("function"),
             Ty::Never => Some("never"),
             Ty::Custom(c) => c.as_name(),
             Ty::Any | Ty::Union(_) | Ty::Iter(_) => None,
@@ -630,20 +658,20 @@ impl Ty {
 
     /// Create a function type.
     pub fn function(params: Vec<Param>, result: Ty) -> Self {
-        Self::Function(TyFunction {
+        Self::custom(TyCustomFunction(TyFunction {
             type_attr: String::new(),
             params,
             result: Box::new(result),
-        })
+        }))
     }
 
     /// Create a function, where the first argument is the result of `.type`.
     pub fn ctor_function(type_attr: &str, params: Vec<Param>, result: Ty) -> Self {
-        Self::Function(TyFunction {
+        Self::custom(TyCustomFunction(TyFunction {
             type_attr: type_attr.to_owned(),
             params,
             result: Box::new(result),
-        })
+        }))
     }
 
     pub(crate) fn is_any(&self) -> bool {
@@ -781,7 +809,7 @@ impl Ty {
                     Ok(Ty::unions(rs))
                 }
             }
-            Ty::Function(x) if attr == TypingAttr::Regular("type") && !x.type_attr.is_empty() => {
+            Ty::Custom(c) if attr == TypingAttr::Regular("type") && c.0.has_type_attr() => {
                 Ok(Ty::string())
             }
             _ => match ctx.oracle.attribute(self, attr) {
@@ -824,9 +852,13 @@ impl Ty {
                         Some(yy) => x.intersects(&yy, oracle),
                         None => false,
                     },
-                    (Ty::Function(_), Ty::Function(_)) => true,
                     (Ty::Struct { .. }, Ty::Struct { .. }) => {
                         // FIXME: Can probably be a bit more precise here
+                        true
+                    }
+                    (x, y)
+                        if x.as_name() == Some("function") && y.as_name() == Some("function") =>
+                    {
                         true
                     }
                     // There are lots of other cases that overlap, but add them as we need them
@@ -1020,7 +1052,6 @@ impl Display for Ty {
                 }
             }
             Ty::Dict(k_v) => write!(f, "{{{}: {}}}", k_v.0, k_v.1),
-            Ty::Function(fun) => Display::fmt(fun, f),
             Ty::Struct(s) => Display::fmt(s, f),
             Ty::Custom(c) => Display::fmt(c, f),
         }

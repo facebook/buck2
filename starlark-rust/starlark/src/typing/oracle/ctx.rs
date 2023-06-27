@@ -200,7 +200,7 @@ impl<'a> TypingOracleCtx<'a> {
         Ok(())
     }
 
-    fn validate_fn_call(
+    pub(crate) fn validate_fn_call(
         &self,
         span: Span,
         fun: &TyFunction,
@@ -243,7 +243,6 @@ impl<'a> TypingOracleCtx<'a> {
                 // Unknown type, may be callable.
                 Ok(Ty::Any)
             }
-            Ty::Function(f) => self.validate_fn_call(span, f, args),
             Ty::Custom(t) => t.0.validate_call(span, args, *self),
             Ty::Union(variants) => {
                 let mut successful = Vec::new();

@@ -33,7 +33,6 @@ use crate::typing::OracleDocs;
 use crate::typing::OracleStandard;
 use crate::typing::Param;
 use crate::typing::Ty;
-use crate::typing::TyFunction;
 use crate::typing::TypingOracle;
 
 fn mk_oracle() -> impl TypingOracle {
@@ -76,17 +75,17 @@ fn test_oracle() {
     );
     assert_eq!(b.builtin("not_a_symbol"), Err(()));
 
-    fn get_type(x: &Result<Ty, ()>) -> &str {
+    fn has_type(x: &Result<Ty, ()>) -> bool {
         match x {
-            Ok(Ty::Function(TyFunction { type_attr, .. })) => type_attr.as_str(),
-            _ => "",
+            Ok(Ty::Custom(c)) => c.0.has_type_attr(),
+            _ => false,
         }
     }
 
-    assert_eq!(get_type(&b.builtin("int")), "int");
-    assert_eq!(get_type(&b.builtin("str")), "string");
-    assert_eq!(get_type(&b.builtin("list")), "list");
-    assert_eq!(get_type(&b.builtin("hash")), "");
+    assert!(has_type(&b.builtin("int")));
+    assert!(has_type(&b.builtin("str")));
+    assert!(has_type(&b.builtin("list")));
+    assert!(!has_type(&b.builtin("hash")));
 }
 
 #[derive(Default)]
