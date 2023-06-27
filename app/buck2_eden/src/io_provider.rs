@@ -378,6 +378,8 @@ impl IoProvider for EdenIoProvider {
 
         let params = ReaddirParams {
             mountPoint: self.manager.get_mount_point(),
+            // TODO(nga): this assumes eden mount point is the project root.
+            //   Which is not the case for isolated test data directories for example.
             directoryPaths: vec![path.to_string().into_bytes()],
             requestedAttributes: requested_attributes,
             sync: no_sync(),
