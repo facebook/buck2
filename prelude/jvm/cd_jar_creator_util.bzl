@@ -381,12 +381,26 @@ def prepare_cd_exe(
         worker: WorkerInfo.type,
         debug_port: [int.type, None],
         debug_target: ["label", None],
-        extra_jvm_args: [str.type]) -> [WorkerRunInfo.type, RunInfo.type]:
-    jvm_args = extra_jvm_args + ["-XX:-MaxFDLimit"]
+        extra_jvm_args: [str.type],
+        extra_jvm_args_target: ["label", None]) -> tuple.type:
+    local_only = False
+    jvm_args = ["-XX:-MaxFDLimit"]
+    debug_args = []
+
+    if extra_jvm_args_target:
+        if qualified_name.startswith(base_qualified_name(extra_jvm_args_target)):
+            jvm_args = jvm_args + extra_jvm_args
+            local_only = True
+    else:
+        jvm_args = jvm_args + extra_jvm_args
+
     if debug_port and qualified_name.startswith(base_qualified_name(debug_target)):
         # Do not use a worker when debugging is enabled
+        local_only = True
         debug_args = ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port)]
-        return RunInfo(args = cmd_args([java, debug_args, jvm_args, "-jar", compiler]))
+
+    if local_only:
+        return RunInfo(args = cmd_args([java, debug_args, jvm_args, "-jar", compiler])), True
     else:
         worker_run_info = WorkerRunInfo(
             # Specifies the command to compile using a non-worker process, on RE or if workers are disabled
@@ -395,7 +409,7 @@ def prepare_cd_exe(
             # This is used for local execution if `build.use_persistent_workers=True`
             worker = worker,
         )
-        return worker_run_info
+        return worker_run_info, False
 
 # If there's additional compiled srcs, we need to merge them in and if the
 # caller specified an output artifact we need to make sure the jar is in that

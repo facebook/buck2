@@ -22,6 +22,7 @@ KotlinToolchainInfo = provider(
         "kotlincd_debug_port",
         "kotlincd_debug_target",
         "kotlincd_jvm_args",
+        "kotlincd_jvm_args_target",
         "kotlincd_worker",
         "kotlin_stdlib",
         "kotlin_home_libraries",

@@ -223,7 +223,7 @@ def create_jar_artifact_kotlincd(
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
 
-        exe = prepare_cd_exe(
+        exe, local_only = prepare_cd_exe(
             qualified_name,
             java = java_toolchain.java[RunInfo],
             compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0],
@@ -231,6 +231,7 @@ def create_jar_artifact_kotlincd(
             debug_port = kotlin_toolchain.kotlincd_debug_port,
             debug_target = kotlin_toolchain.kotlincd_debug_target,
             extra_jvm_args = kotlin_toolchain.kotlincd_jvm_args,
+            extra_jvm_args_target = kotlin_toolchain.kotlincd_jvm_args_target,
         )
 
         args = cmd_args()
@@ -292,7 +293,7 @@ def create_jar_artifact_kotlincd(
             identifier = actions_identifier,
             dep_files = dep_files,
             exe = exe,
-            local_only = True if kotlin_toolchain.kotlincd_debug_port else False,
+            local_only = local_only,
         )
 
     library_classpath_jars_tag = actions.artifact_tag()

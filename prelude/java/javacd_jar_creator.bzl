@@ -190,7 +190,7 @@ def create_jar_artifact_javacd(
 
         # for javacd we expect java_toolchain.javac to be a dependency. Otherwise, it won't work when we try to debug it.
         expect(type(java_toolchain.javac) == "dependency", "java_toolchain.javac must be of type dependency but it is {}".format(type(java_toolchain.javac)))
-        exe = prepare_cd_exe(
+        exe, local_only = prepare_cd_exe(
             qualified_name,
             java = java_toolchain.java[RunInfo],
             compiler = java_toolchain.javac[DefaultInfo].default_outputs[0],
@@ -198,6 +198,7 @@ def create_jar_artifact_javacd(
             debug_port = java_toolchain.javacd_debug_port,
             debug_target = java_toolchain.javacd_debug_target,
             extra_jvm_args = java_toolchain.javacd_jvm_args,
+            extra_jvm_args_target = java_toolchain.javacd_jvm_args_target,
         )
 
         args = cmd_args()
@@ -264,7 +265,7 @@ def create_jar_artifact_javacd(
             identifier = actions_identifier or "",
             dep_files = dep_files,
             exe = exe,
-            local_only = True if java_toolchain.javacd_debug_port else False,
+            local_only = local_only,
         )
 
     library_classpath_jars_tag = actions.artifact_tag()
