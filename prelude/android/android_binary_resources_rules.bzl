@@ -45,7 +45,7 @@ def get_android_binary_resources_info(
     android_manifest = _get_manifest(ctx, android_packageable_info, manifest_entries)
     module_manifests = _get_module_manifests(ctx, android_packageable_info, manifest_entries, apk_module_graph_file)
 
-    aapt2_link_info = get_aapt2_link(
+    non_proto_format_aapt2_link_info, proto_format_aapt2_link_info = get_aapt2_link(
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         [resource_info.aapt2_compile_output for resource_info in resource_infos if resource_info.aapt2_compile_output != None],
@@ -54,7 +54,6 @@ def get_android_binary_resources_info(
         no_auto_version = getattr(ctx.attrs, "no_auto_version_resources", False),
         no_version_transitions = getattr(ctx.attrs, "no_version_transitions_resources", False),
         no_auto_add_overlay = getattr(ctx.attrs, "no_auto_add_overlay_resources", False),
-        use_proto_format = use_proto_format,
         no_resource_removal = True,
         package_id_offset = 0,
         should_keep_raw_values = getattr(ctx.attrs, "aapt2_keep_raw_values", False),
@@ -67,6 +66,8 @@ def get_android_binary_resources_info(
         min_sdk = aapt2_min_sdk,
         preferred_density = aapt2_preferred_density,
     )
+
+    aapt2_link_info = proto_format_aapt2_link_info if use_proto_format else non_proto_format_aapt2_link_info
 
     prebuilt_jars = [packaging_dep.jar for packaging_dep in java_packaging_deps if packaging_dep.is_prebuilt_jar]
 
