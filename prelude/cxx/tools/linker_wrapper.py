@@ -20,6 +20,10 @@ def unquote(argument):
         return argument
 
 
+def is_relative_buck_out_path(argument):
+    return argument.startswith("buck-out\\")
+
+
 def is_library_path(argument):
     return argument.endswith(".lib")
 
@@ -54,6 +58,7 @@ def expand_args(arguments):
 
 def main():
     linker_real, rest = sys.argv[1], sys.argv[2:]
+    working_dir = os.getcwd()
 
     arguments = expand_args(rest)
 
@@ -71,6 +76,10 @@ def main():
         # expects just the filename. That's why we need to expand the path.
         if is_whole_archive_option(argument):
             argument = expand_library_path(argument, full_library_paths)
+
+        # Make relative paths absolute for support paths longer than 260 chars.
+        if is_relative_buck_out_path(argument):
+            argument = os.path.join(working_dir, argument)
 
         new_args.append(argument)
 
