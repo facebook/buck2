@@ -30,6 +30,18 @@ message ExecuteResponse {
   string stderr = 2;
 }
 
+message ExecuteCancel {}
+
+message ExecuteEvent {
+  oneof data {
+    ExecuteCommand command = 1;
+    ExecuteCancel cancel = 2;
+  }
+}
+
 service Worker {
+  // TODO(ctolliday) delete once workers switch to Exec
   rpc Execute(ExecuteCommand) returns (ExecuteResponse) {};
+
+  rpc Exec(stream ExecuteEvent) returns (ExecuteResponse) {};
 }
