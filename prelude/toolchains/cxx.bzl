@@ -37,6 +37,8 @@ def _system_cxx_toolchain_impl(ctx):
     A very simple toolchain that is hardcoded to the current environment.
     """
     archiver = "ar"
+    asm_compiler = ctx.attrs.compiler
+    asm_compiler_type = ctx.attrs.compiler_type
     linker = ctx.attrs.linker
     linker_type = "gnu"
     supports_pic = True
@@ -50,6 +52,8 @@ def _system_cxx_toolchain_impl(ctx):
         linker_type = "darwin"
     elif host_info().os.is_windows:
         archiver = "llvm-ar"
+        asm_compiler = "ml64.exe"
+        asm_compiler_type = "windows_ml64"
         linker = _windows_linker_wrapper(ctx)
         linker_type = "windows"
         supports_pic = False
@@ -120,8 +124,8 @@ def _system_cxx_toolchain_impl(ctx):
                 compiler_type = ctx.attrs.compiler_type,
             ),
             asm_compiler_info = CCompilerInfo(
-                compiler = RunInfo(args = [ctx.attrs.compiler]),
-                compiler_type = ctx.attrs.compiler_type,
+                compiler = RunInfo(args = [asm_compiler]),
+                compiler_type = asm_compiler_type,
             ),
             header_mode = HeaderMode("symlink_tree_only"),
             cpp_dep_tracking_mode = ctx.attrs.cpp_dep_tracking_mode,
