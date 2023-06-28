@@ -205,7 +205,7 @@ impl TypingContext<'_> {
                 Ty::unions(res)
             }
             BindExpr::ListAppend(id, e) => {
-                if Ty::probably_a_list(&self.types[id]) {
+                if Ty::probably_a_list(&self.types[id], self.oracle) {
                     Ty::list(self.expression_type(e))
                 } else {
                     // It doesn't seem to be a list, so let's assume the append is non-mutating
@@ -213,7 +213,7 @@ impl TypingContext<'_> {
                 }
             }
             BindExpr::ListExtend(id, e) => {
-                if Ty::probably_a_list(&self.types[id]) {
+                if Ty::probably_a_list(&self.types[id], self.oracle) {
                     Ty::list(self.from_iterated(&self.expression_type(e), e.span))
                 } else {
                     // It doesn't seem to be a list, so let's assume the extend is non-mutating

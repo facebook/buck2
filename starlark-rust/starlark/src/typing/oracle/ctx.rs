@@ -86,7 +86,7 @@ impl<'a> TypingOracleCtx<'a> {
         require: &Ty,
         span: Span,
     ) -> Result<(), TypingError> {
-        if !got.intersects(require, Some(*self)) {
+        if !got.intersects(require, *self) {
             Err(self.mk_error(
                 span,
                 TypingOracleCtxError::IncompatibleType {

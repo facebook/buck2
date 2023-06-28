@@ -774,11 +774,11 @@ impl Ty {
     }
 
     /// Returns false on Void, since that is definitely not a list
-    pub(crate) fn probably_a_list(&self) -> bool {
+    pub(crate) fn probably_a_list(&self, ctx: TypingOracleCtx) -> bool {
         if self.is_never() {
             return false;
         }
-        self.intersects(&Self::list(Ty::Any), None)
+        self.intersects(&Self::list(Ty::Any), ctx)
     }
 
     /// See what lies behind an attribute on a type
@@ -812,20 +812,15 @@ impl Ty {
     }
 
     /// If you get to a point where these types are being checked, might they succeed
-    pub(crate) fn intersects(&self, other: &Self, oracle: Option<TypingOracleCtx>) -> bool {
+    pub(crate) fn intersects(&self, other: &Self, oracle: TypingOracleCtx) -> bool {
         if self.is_any() || self.is_never() || other.is_any() || other.is_never() {
             return true;
         }
 
-        let equal_names = |x: &TyName, y: &TyName| {
-            x == y
-                || match oracle {
-                    None => false,
-                    Some(oracle) => oracle.subtype(x, y) || oracle.subtype(y, x),
-                }
-        };
+        let equal_names =
+            |x: &TyName, y: &TyName| x == y || oracle.subtype(x, y) || oracle.subtype(y, x);
 
-        let itered = |ty: &Ty| oracle?.attribute(ty, TypingAttr::Iter)?.ok();
+        let itered = |ty: &Ty| oracle.attribute(ty, TypingAttr::Iter)?.ok();
 
         for x in self.iter_union() {
             for y in other.iter_union() {
