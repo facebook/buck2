@@ -13,6 +13,7 @@ pub mod future;
 
 use std::future::Future;
 
+use dupe::Dupe;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
 
@@ -21,6 +22,7 @@ use crate::cancellable_future::try_to_disable_cancellation;
 use crate::cancellable_future::with_structured_cancellation;
 use crate::cancellable_future::CancellationObserver;
 use crate::cancellable_future::DisableCancellationGuard;
+use crate::cancellation::future::CriticalSectionGuard;
 use crate::cancellation::future::ExecutionContext;
 
 static INSTANCE: Lazy<CancellationContext> =
@@ -94,7 +96,49 @@ pub struct ExplicitCancellationContext {
     inner: ExecutionContext,
 }
 
+/// When held, prevents cancellation of the current explicitly cancellable future.
+/// When no longer held (unless drop or cancellations are disabled was not ran), cancellations will be allowed.
+/// `disable_cancellations`ing this will leak the guard, causing cancellations to be disabled forever, regardless
+/// of whether or not the task is already cancelled.
+pub struct IgnoreCancellationGuard<'a> {
+    guard: CriticalSectionGuard<'a>,
+    observer: CancellationObserver,
+}
+
+impl<'a> IgnoreCancellationGuard<'a> {
+    pub fn cancellation_observer(&self) -> CancellationObserver {
+        self.observer.dupe()
+    }
+
+    /// Allow cancellations again, but unlike dropping it, also checks if we should be cancelled
+    /// right now, at this specific await point.
+    pub async fn allow_cancellations_again(self) {
+        if self.guard.exit_prevent_cancellation() {
+            // If the current future should actually be cancelled now, we try to return
+            // control to it immediately to allow cancellation to kick in faster.
+            tokio::task::yield_now().await;
+        }
+    }
+
+    /// Ignores cancellations forever if we are not already cancelled. Otherwise, begin allowing
+    /// cancellations again
+    pub fn keep_going_on_cancellations_if_not_cancelled(self) -> Option<DisableCancellationGuard> {
+        if self.guard.try_to_disable_cancellation() {
+            Some(DisableCancellationGuard { _guard: None })
+        } else {
+            None
+        }
+    }
+}
+
 impl ExplicitCancellationContext {
+    /// Ignore cancellations while 'PreventCancellation' is held
+    pub fn begin_ignore_cancellation(&self) -> IgnoreCancellationGuard {
+        let (observer, guard) = self.inner.enter_structured_cancellation();
+
+        IgnoreCancellationGuard { guard, observer }
+    }
+
     /// Enter a critical section during which the current future (if supports explicit cancellation)
     /// should not be dropped. If the future was not cancelled before entering the critical section,
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
@@ -108,15 +152,11 @@ impl ExplicitCancellationContext {
         F: FnOnce() -> Fut + 'a,
         Fut: Future + 'a,
     {
-        let guard = self.inner.enter_critical_section();
+        let guard = self.begin_ignore_cancellation();
         async move {
             let r = make().await;
 
-            if guard.exit_prevent_cancellation() {
-                // If the current future should actually be cancelled now, we try to return
-                // control to it immediately to allow cancellation to kick in faster.
-                tokio::task::yield_now().await;
-            }
+            guard.allow_cancellations_again().await;
 
             r
         }
@@ -133,30 +173,21 @@ impl ExplicitCancellationContext {
         Fut: Future + 'a,
         F: FnOnce(CancellationObserver) -> Fut + 'a,
     {
-        let (observer, guard) = self.inner.enter_structured_cancellation();
+        let guard = self.begin_ignore_cancellation();
 
         async move {
-            let r = make(observer).await;
+            let r = make(guard.cancellation_observer()).await;
 
-            if guard.exit_prevent_cancellation() {
-                // If the current future should actually be cancelled now, we try to return
-                // control to it immediately to allow cancellation to kick in faster.
-                tokio::task::yield_now().await;
-            }
+            guard.allow_cancellations_again().await;
 
             r
         }
     }
 
-    /// Tries to disable the cancellation for this future from here on
-    pub fn try_to_disable_cancellation(&self) -> Option<DisableCancellationGuard> {
-        let (_, guard) = self.inner.enter_structured_cancellation();
-
-        if guard.try_to_disable_cancellation() {
-            Some(DisableCancellationGuard { _guard: None })
-        } else {
-            None
-        }
+    /// Tries to ignore the cancellation for this future from here on
+    pub fn try_to_keep_going_on_cancellation(&self) -> Option<DisableCancellationGuard> {
+        self.begin_ignore_cancellation()
+            .keep_going_on_cancellations_if_not_cancelled()
     }
 
     pub fn into_compatible(&self) -> CancellationContext {
@@ -228,7 +259,9 @@ impl<'a> CancellationContextInner<'a> {
     pub fn try_to_disable_cancellation(&self) -> Option<DisableCancellationGuard> {
         match self {
             CancellationContextInner::ThreadLocal => try_to_disable_cancellation(),
-            CancellationContextInner::Explicit(context) => context.try_to_disable_cancellation(),
+            CancellationContextInner::Explicit(context) => {
+                context.try_to_keep_going_on_cancellation()
+            }
         }
     }
 }

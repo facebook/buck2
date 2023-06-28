@@ -163,7 +163,7 @@ impl<'a> DiceWorkerStateCheckingDeps<'a> {
         let guard = match self
             .internals
             .cancellation_ctx()
-            .try_to_disable_cancellation()
+            .try_to_keep_going_on_cancellation()
         {
             Some(g) => g,
             None => {
@@ -228,7 +228,7 @@ impl<'a> DiceWorkerStateEvaluating<'a> {
         let guard = match self
             .internals
             .cancellation_ctx()
-            .try_to_disable_cancellation()
+            .try_to_keep_going_on_cancellation()
         {
             Some(g) => g,
             None => {
