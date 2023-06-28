@@ -18,7 +18,8 @@ AndroidBinaryNativeLibsInfo = record(
     apk_under_test_prebuilt_native_library_dirs = ["PrebuiltNativeLibraryDir"],
     apk_under_test_shared_libraries = ["SharedLibrary"],
     exopackage_info = ["ExopackageNativeInfo", None],
-    native_lib_assets = ["artifact"],
+    root_module_native_lib_assets = ["artifact"],
+    non_root_module_native_lib_assets = ["artifact"],
     native_libs_for_primary_apk = ["artifact"],
     unstripped_libs = {"artifact": str.type},
 )
