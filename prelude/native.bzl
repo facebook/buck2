@@ -23,6 +23,7 @@ load("@prelude//erlang:erlang.bzl", _erlang_application = "erlang_application", 
 load("@prelude//python:toolchain.bzl", _python = "python")
 load("@prelude//user:all.bzl", _user_rules = "rules")
 load("@prelude//utils:utils.bzl", "expect")
+load(":open_source.bzl", "is_open_source")
 load(":paths.bzl", "paths")
 load(":rules.bzl", __rules__ = "rules")
 
@@ -342,6 +343,13 @@ def _swift_toolchain_macro_stub(**kwargs):
 def _cxx_toolchain_macro_stub(inherit_target_platform = False, **kwargs):
     if inherit_target_platform:
         rule = cxx_toolchain_inheriting_target_platform
+        if not is_open_source():
+            cache_links = kwargs.get("cache_links")
+            kwargs["cache_links"] = select({
+                "DEFAULT": cache_links,
+                "ovr_config//build_mode:fbcode-build-info-mode-full": False,
+                "ovr_config//build_mode:fbcode-build-info-mode-stable": True,
+            })
     else:
         rule = __rules__["cxx_toolchain"]
     cxx_toolchain_macro_impl(
