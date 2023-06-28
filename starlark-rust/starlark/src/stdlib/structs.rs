@@ -43,7 +43,7 @@ struct StructType;
 impl TyCustomFunctionImpl for StructType {
     fn validate_call(
         &self,
-        span: Span,
+        _span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError> {
@@ -52,7 +52,7 @@ impl TyCustomFunctionImpl for StructType {
         for x in args {
             match &x.node {
                 Arg::Pos(_) => {
-                    return Err(oracle.msg_error(span, "Positional arguments not allowed"));
+                    return Err(oracle.msg_error(x.span, "Positional arguments not allowed"));
                 }
                 Arg::Args(_) => {
                     // Args can be empty, and this is valid call:
