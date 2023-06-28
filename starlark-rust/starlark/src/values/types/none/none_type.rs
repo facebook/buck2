@@ -93,6 +93,10 @@ impl<'v> StarlarkValue<'v> for NoneType {
     fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
         Some(Ty::none())
     }
+
+    fn eval_type(&self, _private: Private) -> Option<Ty> {
+        Some(Ty::none())
+    }
 }
 
 impl<'v> AllocValue<'v> for NoneType {

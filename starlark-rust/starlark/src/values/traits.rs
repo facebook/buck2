@@ -291,6 +291,12 @@ pub trait StarlarkValue<'v>:
         None
     }
 
+    /// Evaluate this value as a type expression. Basically, `eval_type(this)`.
+    #[doc(hidden)]
+    fn eval_type(&self, _private: Private) -> Option<Ty> {
+        None
+    }
+
     /// Return a string representation of self, as returned by the `repr()` function.
     /// Defaults to the `Display` instance - which should be fine for nearly all types.
     /// In many cases the `repr()` representation will also be a Starlark expression

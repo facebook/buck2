@@ -519,6 +519,41 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsConcrete(t.to_owned()))))
     }
 
+    /// Hold `Ty`, but do not check at runtime.
+    fn ty_erased(ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        #[derive(Eq, PartialEq, Allocative, Debug, ProvidesStaticType)]
+        struct Erased(Ty);
+
+        impl Hash for Erased {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                // TODO(nga): implement `Hash` for `Ty`.
+                self.0.as_name().hash(state)
+            }
+        }
+
+        impl<'v> TypeCompiledImpl<'v> for Erased {
+            fn as_ty(&self) -> Ty {
+                self.0.clone()
+            }
+
+            fn matches(&self, _value: Value<'v>) -> bool {
+                true
+            }
+
+            fn is_wildcard(&self) -> bool {
+                true
+            }
+
+            fn to_frozen(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+                TypeCompiled(
+                    heap.alloc_simple(TypeCompiledImplAsStarlarkValue(Erased(self.0.clone()))),
+                )
+            }
+        }
+
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(Erased(ty))))
+    }
+
     pub(crate) fn type_list_of(
         t: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
@@ -866,6 +901,36 @@ impl<'v> TypeCompiled<Value<'v>> {
         }
     }
 
+    fn from_ty(ty: &Ty, heap: &'v Heap) -> Self {
+        match ty {
+            Ty::Any => TypeCompiled::type_anything(),
+            Ty::Union(xs) => {
+                let xs = xs.alternatives().map(|x| TypeCompiled::from_ty(x, heap));
+                TypeCompiled::type_any_of(xs, heap)
+            }
+            Ty::Name(name) => TypeCompiled::from_str(name.as_str(), heap),
+            Ty::List(item) => {
+                let item = TypeCompiled::from_ty(item, heap);
+                TypeCompiled::type_list_of(item, heap)
+            }
+            Ty::Tuple(xs) => {
+                let xs = xs.map(|x| TypeCompiled::from_ty(x, heap));
+                TypeCompiled::type_tuple_of(xs, heap)
+            }
+            Ty::Dict(k_v) => {
+                let (k, v) = &**k_v;
+                let k = TypeCompiled::from_ty(k, heap);
+                let v = TypeCompiled::from_ty(v, heap);
+                TypeCompiled::type_dict_of(k, v, heap)
+            }
+            Ty::Struct(_) => TypeCompiled::from_str("struct", heap),
+            Ty::Never | Ty::Iter(_) | Ty::Custom(_) => {
+                // There are no runtime matchers for these types.
+                TypeCompiled::ty_erased(ty.clone(), heap)
+            }
+        }
+    }
+
     pub(crate) fn new(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         if let Some(s) = ty.unpack_str() {
             Ok(TypeCompiled::from_str(s, heap))
@@ -879,6 +944,8 @@ impl<'v> TypeCompiled<Value<'v>> {
             TypeCompiled::from_dict(t, heap)
         } else if ty.request_value::<&dyn TypeCompiledImpl>().is_some() {
             Ok(TypeCompiled(ty))
+        } else if let Some(ty) = ty.get_ref().eval_type() {
+            Ok(TypeCompiled::from_ty(&ty, heap))
         } else {
             Err(invalid_type_annotation(ty, heap).into())
         }
