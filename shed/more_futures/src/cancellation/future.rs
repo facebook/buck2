@@ -15,7 +15,6 @@
 //!
 
 use std::future::Future;
-use std::marker::PhantomPinned;
 use std::mem;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
@@ -38,6 +37,7 @@ use tokio::sync::oneshot;
 use crate::cancellable_future::CancellationObserver;
 use crate::cancellation::ExplicitCancellationContext;
 use crate::maybe_future::MaybeFuture;
+use crate::owning_future::OwningFuture;
 
 pub(crate) fn make_cancellable_future<F, T>(
     f: F,
@@ -51,7 +51,7 @@ where
         let context = context.dupe();
         let cancel = ExplicitCancellationContext { inner: context };
 
-        ExplicitlyCancellableTask::new(cancel, f)
+        OwningFuture::new(cancel, f)
     };
 
     let state = SharedState::new();
@@ -60,50 +60,6 @@ where
     let handle = CancellationHandle::new(state);
 
     (fut, handle)
-}
-
-#[pin_project]
-pub struct ExplicitlyCancellableTask<T> {
-    // NOTE: The order of these two fields is important. The `MaybeFuture` holds a
-    // reference to the `context`, and so absolutely must be dropped first.
-    #[pin]
-    fut: MaybeFuture<BoxFuture<'static, T>>, // not actually static but the lifetime of this struct
-    context: ExplicitCancellationContext,
-
-    _p: PhantomPinned,
-}
-
-impl<T> ExplicitlyCancellableTask<T> {
-    fn new<F>(context: ExplicitCancellationContext, f: F) -> Pin<Box<Self>>
-    where
-        F: for<'a> FnOnce(&'a ExplicitCancellationContext) -> BoxFuture<'a, T> + Send,
-    {
-        let this = ExplicitlyCancellableTask {
-            context,
-            fut: MaybeFuture::None,
-            _p: Default::default(),
-        };
-
-        let mut this = Box::pin(this);
-        let fut = unsafe {
-            // SAFETY: The `ExplicitlyCancellableTask` is always immediately pinned upon
-            // construction, so the self-reference will remain valid at least until this value
-            // is dropped. Furthermore, the future is dropped before the `CancellationContext`,
-            // and so the reference will remain valid even during the drop of the `Future`
-            mem::transmute::<BoxFuture<'_, T>, BoxFuture<'static, T>>(f(&this.context))
-        };
-
-        {
-            let this = this.as_mut().project();
-            this.fut.set_fut(fut);
-        }
-
-        this
-    }
-
-    fn poll(self: &mut Pin<Box<Self>>, cx: &mut Context<'_>) -> Poll<T> {
-        self.as_mut().project().fut.poll(cx)
-    }
 }
 
 /// Defines a future that operates with the 'CancellationContext' to provide explicit cancellation.
@@ -126,12 +82,12 @@ struct ExplicitlyCancellableFutureInner<T> {
     /// lock. This avoids us needing to grab the lock to check if we're Pending every time we poll.
     started: bool,
 
-    future: Pin<Box<ExplicitlyCancellableTask<T>>>,
+    future: Pin<Box<OwningFuture<T, ExplicitCancellationContext>>>,
 }
 
 impl<T> ExplicitlyCancellableFuture<T> {
     fn new(
-        future: Pin<Box<ExplicitlyCancellableTask<T>>>,
+        future: Pin<Box<OwningFuture<T, ExplicitCancellationContext>>>,
         shared: SharedState,
         execution: ExecutionContext,
     ) -> Self {
@@ -174,7 +130,7 @@ impl<T> ExplicitlyCancellableFutureInner<T> {
             execution.notify_cancelled();
         }
 
-        let res = self.future.poll(cx).map(Some);
+        let res = Pin::new(&mut self.future).poll(cx).map(Some);
 
         // If we were using structured cancellation but just exited the critical section, then we
         // should exit now.
