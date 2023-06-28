@@ -997,8 +997,6 @@ f(8) == False"#,
             "def f_compile_time(i: bool.type):\n pass\nf_compile_time(1)",
             "Expected type `bool.type` but got `int.type`",
         );
-        // Type errors should be caught when the user forgets quotes around a valid type
-        a.fail("def f(v: bool):\n pass\n", r#"Perhaps you meant `"bool"`"#);
         a.fails(
             r#"Foo = record(value=int.type)
 def f(v: bool.type) -> Foo:
@@ -1079,6 +1077,35 @@ def foo(f: int.type = None):
     pass
 "#,
             "`None` of type `NoneType` does not match the type annotation `int.type`",
+        );
+    }
+
+    #[ignore] // TODO(nga): depends on D46848632.
+    #[test]
+    fn test_new_syntax_without_dot_type_compile_time() {
+        assert::pass(r"def f() -> int: return 17");
+        assert::fail(
+            r#"
+def f() -> int: return 'tea'
+"#,
+            "Expected type `int.type` but got `str.type`",
+        );
+    }
+
+    #[test]
+    fn test_new_syntax_without_dot_type_runtime() {
+        assert::pass(
+            r#"
+def f() -> str: return noop('coke')
+f()
+"#,
+        );
+        assert::fail(
+            r#"
+def f() -> str: return noop(19)
+f()
+"#,
+            "Value `19` of type `int`",
         );
     }
 

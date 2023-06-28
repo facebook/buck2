@@ -260,6 +260,15 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         None
     }
 
+    #[allow(clippy::manual_map)]
+    fn eval_type(&self, _private: Private) -> Option<Ty> {
+        if let Some(s) = &self.typ {
+            Some(Ty::name(s.as_str()))
+        } else {
+            None
+        }
+    }
+
     fn has_attr(&self, _attribute: &str, _heap: &'v Heap) -> bool {
         // TODO(nga): implement properly.
         false
