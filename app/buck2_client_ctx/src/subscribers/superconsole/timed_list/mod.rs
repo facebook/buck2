@@ -215,7 +215,7 @@ impl<'s> Component for CountComponent<'s> {
         let elapsed =
             fmt_duration::fmt_duration(self.state.current_tick.elapsed_time, time_speed.speed());
 
-        let contents = match mode {
+        match mode {
             DrawMode::Normal => {
                 let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
 
@@ -225,7 +225,7 @@ impl<'s> Component for CountComponent<'s> {
                 let remaining = HumanizedCount::new(remaining);
                 let total = HumanizedCount::new(total);
 
-                if action_stats.log_stats() {
+                let contents = if action_stats.log_stats() {
                     let mut actions_summary = format!(
                         "Remaining: {}/{}. Cache hits: {}%. ",
                         remaining,
@@ -247,20 +247,20 @@ impl<'s> Component for CountComponent<'s> {
                         "Remaining: {}/{}. Time elapsed: {}",
                         remaining, total, elapsed
                     )
-                }
+                };
+                Ok(Lines(vec![Line::unstyled(&contents)?]))
             }
             DrawMode::Final => {
+                let mut lines = vec![Line::unstyled(&format!(
+                    "Jobs completed: {}. Time elapsed: {}.",
+                    finished, elapsed,
+                ))?];
                 if action_stats.log_stats() {
-                    format!(
-                        "Jobs completed: {}. Time elapsed: {}. {}",
-                        finished, elapsed, action_stats,
-                    )
-                } else {
-                    format!("Jobs completed: {}. Time elapsed: {}.", finished, elapsed,)
+                    lines.push(Line::unstyled(&action_stats.to_string())?);
                 }
+                Ok(Lines(lines))
             }
-        };
-        Ok(Lines(vec![Line::unstyled(&contents)?]))
+        }
     }
 }
 
