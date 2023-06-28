@@ -41,6 +41,7 @@ use crate::docs::DocProperty;
 use crate::docs::DocType;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
+use crate::eval::compiler::scope::ResolvedIdent;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
@@ -53,6 +54,8 @@ use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::TypingOracle;
+use crate::values::typing::TypeCompiled;
+use crate::values::Heap;
 
 /// A typing operation wasn't able to produce a precise result,
 /// so made some kind of approximation.
@@ -929,7 +932,27 @@ impl Ty {
                 Self::from_expr(&x[0].0, approximations),
                 Self::from_expr(&x[0].1, approximations),
             ),
-            ExprP::Identifier(x) if x.node.0 == "None" => Ty::none(),
+            ExprP::Identifier(x) => {
+                if let Some(resolved) = &x.node.1 {
+                    match resolved {
+                        ResolvedIdent::Slot(_, _) => {
+                            // Should not happen: only global identifiers are allowed in type.
+                            unknown()
+                        }
+                        ResolvedIdent::Global(v) => {
+                            let heap = Heap::new();
+                            match TypeCompiled::new(v.to_value(), &heap) {
+                                Ok(ty) => ty.as_ty(),
+                                Err(_) => unknown(),
+                            }
+                        }
+                    }
+                } else {
+                    // Scopes must be resolved, but we can still run typechecking
+                    // if scope resolution fails.
+                    unknown()
+                }
+            }
             ExprP::Call(fun, args) if args.len() == 1 => match (&fun.node, &args[0].node) {
                 (ExprP::Identifier(name), ArgumentP::Positional(arg)) if name.node.0 == "iter" => {
                     Ty::iter(Ty::from_expr(arg, approximations))
