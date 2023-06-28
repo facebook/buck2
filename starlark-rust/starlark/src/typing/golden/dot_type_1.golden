@@ -11,10 +11,10 @@ foo(True)
 
 Error:
 error: Expected type `[""]` but got `bool.type`
- --> filename:4:1
+ --> filename:4:5
   |
 4 | foo(True)
-  | ^^^^^^^^^
+  |     ^^^^
   |
 
 Error:

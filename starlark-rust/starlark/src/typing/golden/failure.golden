@@ -9,8 +9,8 @@ hash(1)
 
 Error:
 error: Expected type `str.type` but got `int.type`
- --> filename:1:1
+ --> filename:1:6
   |
 1 | hash(1)
-  | ^^^^^^^
+  |      ^
   |
