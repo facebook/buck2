@@ -29,6 +29,7 @@ pub(crate) mod error;
 pub(crate) mod function;
 pub(crate) mod mode;
 pub(crate) mod oracle;
+pub(crate) mod structs;
 pub(crate) mod ty;
 pub(crate) mod typecheck;
 
@@ -48,9 +49,9 @@ pub use oracle::traits::TypingAttr;
 pub use oracle::traits::TypingBinOp;
 pub use oracle::traits::TypingOracle;
 pub use oracle::traits::TypingUnOp;
+pub use structs::TyStruct;
 pub use ty::Approximation;
 pub use ty::Ty;
 pub use ty::TyName;
-pub use ty::TyStruct;
 pub use ty::TyUnion;
 pub use typecheck::TypeMap;

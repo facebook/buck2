@@ -25,9 +25,9 @@ use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::oracle::traits::TypingUnOp;
+use crate::typing::structs::TyStruct;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
-use crate::typing::ty::TyStruct;
 use crate::values::StarlarkValue;
 
 /// A [`TypingOracle`] based on information from documentation.

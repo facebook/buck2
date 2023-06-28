@@ -31,7 +31,7 @@ use crate::typing::error::TypingError;
 use crate::typing::function::Arg;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::oracle::ctx::TypingOracleCtx;
-use crate::typing::ty::TyStruct;
+use crate::typing::structs::TyStruct;
 use crate::typing::Ty;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
