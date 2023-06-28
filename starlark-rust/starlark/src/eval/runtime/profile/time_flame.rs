@@ -151,7 +151,7 @@ impl<'a> Stacks<'a> {
         Stacks {
             name,
             time: SmallDuration::default(),
-            children: HashMap::with_hasher(StarlarkHasherBuilder::default()),
+            children: HashMap::with_hasher(StarlarkHasherBuilder),
         }
     }
 

@@ -164,7 +164,7 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
             data.set_starlark_debugger_handle(None);
             set_fallback_executor_config(&mut data.data, CommandExecutorConfig::testing_local());
             data.data.set(EventDispatcher::null());
-            data.spawner = Arc::new(BuckSpawner::default());
+            data.spawner = Arc::new(BuckSpawner);
             data
         })?;
     setup_interpreter_basic(

@@ -116,7 +116,7 @@ pub mod result_report {
                         }
 
                         for (artifact, _value) in values.iter() {
-                            let mut entry =
+                            let entry =
                                 artifacts
                                     .entry(artifact)
                                     .or_insert_with(|| BuildOutputProviders {

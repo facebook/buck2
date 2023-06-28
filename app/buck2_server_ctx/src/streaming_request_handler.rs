@@ -40,7 +40,7 @@ impl<T: TryFrom<StreamingRequest, Error = anyhow::Error>> StreamingRequestHandle
     pub fn new(client_stream: tonic::Streaming<StreamingRequest>) -> Self {
         Self {
             client_stream,
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
         }
     }
 

@@ -338,7 +338,7 @@ mod tests {
         let (release_task, recv_release_task) = oneshot::channel();
         let (notify_success, recv_success) = oneshot::channel();
 
-        let sp = Arc::new(TokioSpawner::default());
+        let sp = Arc::new(TokioSpawner);
 
         let (_task, poll) = spawn_dropcancel_with_preamble(
             async move {
@@ -347,7 +347,7 @@ mod tests {
             },
             futures::future::ready(()),
             sp.as_ref(),
-            &MockCtx::default(),
+            &MockCtx,
             tracing::debug_span!("test"),
         );
 
@@ -364,14 +364,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn() {
-        let sp = Arc::new(TokioSpawner::default());
+        let sp = Arc::new(TokioSpawner);
         let fut = async { "Hello world!" };
 
         let (_task, poll) = spawn_dropcancel_with_preamble(
             fut,
             futures::future::ready(()),
             sp.as_ref(),
-            &MockCtx::default(),
+            &MockCtx,
             tracing::debug_span!("test"),
         );
 
@@ -384,7 +384,7 @@ mod tests {
         let (release_task, recv_release_task) = oneshot::channel();
         let (notify_success, recv_success) = oneshot::channel();
 
-        let sp = Arc::new(TokioSpawner::default());
+        let sp = Arc::new(TokioSpawner);
 
         let FutureAndCancellationHandle {
             cancellation_handle,
@@ -398,7 +398,7 @@ mod tests {
                 .boxed()
             },
             sp.as_ref(),
-            &MockCtx::default(),
+            &MockCtx,
         );
 
         // Trigger cancellation
@@ -417,7 +417,7 @@ mod tests {
         let (release_task, recv_release_task) = oneshot::channel();
         let (notify_success, recv_success) = oneshot::channel();
 
-        let sp = Arc::new(TokioSpawner::default());
+        let sp = Arc::new(TokioSpawner);
 
         let FutureAndCancellationHandle {
             future: task,
@@ -431,7 +431,7 @@ mod tests {
                 .boxed()
             },
             sp.as_ref(),
-            &MockCtx::default(),
+            &MockCtx,
         );
 
         let future = task.into_drop_cancel(cancellation_handle);
@@ -448,11 +448,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn_cancellable() {
-        let sp = Arc::new(TokioSpawner::default());
+        let sp = Arc::new(TokioSpawner);
         let fut = async { "Hello world!" }.boxed();
 
         let FutureAndCancellationHandle { future: task, .. } =
-            spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx::default());
+            spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx);
 
         let res = task.await;
         assert_eq!(res, Ok("Hello world!"));
@@ -460,13 +460,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn_cancellable_convert_to_dropcancel() {
-        let sp = Arc::new(TokioSpawner::default());
+        let sp = Arc::new(TokioSpawner);
         let fut = async { "Hello world!" }.boxed();
 
         let FutureAndCancellationHandle {
             future: task,
             cancellation_handle,
-        } = spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx::default());
+        } = spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx);
 
         let future = task.into_drop_cancel(cancellation_handle);
 

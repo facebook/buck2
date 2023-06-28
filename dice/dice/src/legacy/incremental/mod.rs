@@ -2304,7 +2304,7 @@ mod tests {
         }
 
         // there's a situation where
-        let engine = IncrementalEngine::new(EvalEvenOdd::default());
+        let engine = IncrementalEngine::new(EvalEvenOdd);
 
         #[derive(Debug, Allocative)]
         struct Eval(Arc<IncrementalEngine<EvalEvenOdd>>);

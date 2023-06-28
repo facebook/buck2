@@ -86,7 +86,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn() {
-        let sp = BuckSpawner::default();
+        let sp = BuckSpawner;
 
         // Create dispatcher
         let (mut events, sink) = create_source_sink_pair();
@@ -112,7 +112,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn_task() {
-        let sp = Arc::new(BuckSpawner::default());
+        let sp = Arc::new(BuckSpawner);
 
         // Create dispatchers
         let (mut events1, sink1) = create_source_sink_pair();

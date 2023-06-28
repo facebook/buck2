@@ -662,7 +662,7 @@ impl CellsAggregator {
     }
 
     pub fn set_buildfiles(&mut self, cell_root: CellRootPathBuf, buildfiles: Vec<FileNameBuf>) {
-        let mut cell_info = self.cell_info(cell_root);
+        let cell_info = self.cell_info(cell_root);
         cell_info.buildfiles = Some(buildfiles);
     }
 

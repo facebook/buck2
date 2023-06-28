@@ -1060,7 +1060,7 @@ impl<T: 'static> Stream for CommandStream<T> {
         }
 
         if let Some(ticker) = this.refresh_ttl_ticker.as_mut() {
-            if let Poll::Ready(..) = ticker.poll_tick(cx) {
+            if ticker.poll_tick(cx).is_ready() {
                 return Poll::Ready(Some(Op::RefreshTtls));
             }
         }
@@ -1719,7 +1719,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         result: Result<(), SharedMaterializingError>,
     ) {
         match self.tree.prefix_get_mut(&mut artifact_path.iter()) {
-            Some(mut info) => {
+            Some(info) => {
                 if info.processing.current_version() > version {
                     // We can only unset the future if version matches.
                     // Otherwise, we may be unsetting a different future from a newer version.
@@ -1915,7 +1915,7 @@ impl ArtifactTree {
             .prefix_get_mut(&mut artifact_path.iter())
             .context("Path is vacant")
         {
-            Ok(mut info) => {
+            Ok(info) => {
                 if info.processing.current_version() > version {
                     // We can only unset the future if version matches.
                     // Otherwise, we may be unsetting a different future from a newer version.

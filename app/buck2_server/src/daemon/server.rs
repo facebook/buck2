@@ -715,7 +715,7 @@ where
     let events_ctx = EventsCtx { dispatcher };
     let spawned = spawn_cancellable(
         |cancellations| func(req, cancellations),
-        &BuckSpawner::default(),
+        &BuckSpawner,
         &events_ctx,
     );
     let (output_send, output_recv) = tokio::sync::mpsc::unbounded_channel();

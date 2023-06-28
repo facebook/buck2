@@ -85,7 +85,7 @@ impl VersionTracker {
     }
 
     pub(crate) fn at(&mut self, v: VersionNumber) -> (VersionEpoch, SharedCache) {
-        let mut entry = self.active_versions.entry(v).or_insert_with(|| {
+        let entry = self.active_versions.entry(v).or_insert_with(|| {
             let version_epoch = self.epoch_tracker.next();
 
             debug!(

@@ -77,7 +77,7 @@ impl Default for UserComputationData {
         Self {
             data: DiceData::new(),
             tracker: Arc::new(NoOpTracker),
-            spawner: Arc::new(TokioSpawner::default()),
+            spawner: Arc::new(TokioSpawner),
             cycle_detector: None,
             activation_tracker: None,
             _requires_default: RequireDefault(()),

@@ -632,7 +632,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_starlark_debugger_handle(self.starlark_debugger.clone().map(|v| Box::new(v) as _));
         data.set_keep_going(self.keep_going);
         data.set_critical_path_backend(critical_path_backend);
-        data.spawner = Arc::new(BuckSpawner::default());
+        data.spawner = Arc::new(BuckSpawner);
 
         let tags = vec![
             format!("lazy-cycle-detector:{}", has_cycle_detector),

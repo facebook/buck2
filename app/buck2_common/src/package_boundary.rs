@@ -127,10 +127,7 @@ impl PackageBoundaryExceptions {
     }
 
     pub fn contains(&self, path: &CellPath) -> bool {
-        match self.get_package_boundary_exception_path(path) {
-            None => false,
-            _ => true,
-        }
+        self.get_package_boundary_exception_path(path).is_some()
     }
 }
 

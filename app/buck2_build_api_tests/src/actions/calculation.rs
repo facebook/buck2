@@ -206,7 +206,7 @@ async fn make_default_dice_state(
     extra.set_mergebase(Default::default());
     extra.data.set(EventDispatcher::null());
     extra.data.set(RunActionKnobs::default());
-    extra.spawner = Arc::new(BuckSpawner::default());
+    extra.spawner = Arc::new(BuckSpawner);
 
     let mut computations = dice_builder.build(extra)?;
     computations.set_buck_out_path(Some(output_path))?;

@@ -667,7 +667,7 @@ impl ServerState {
 
     fn eval_stopped(&mut self, hook_id: HookId) -> anyhow::Result<()> {
         debug!("eval stopped {}", hook_id);
-        let mut state = self.current_hooks.get_mut(&hook_id).unwrap();
+        let state = self.current_hooks.get_mut(&hook_id).unwrap();
         let top_frame = state.adapter.top_frame();
         let description = match top_frame {
             Ok(Some(v)) => describe_frame(v),
