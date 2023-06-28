@@ -51,9 +51,12 @@ def build_bundle(
         dex_files_info.primary_dex,
     ])
 
-    asset_directories = native_library_info.native_lib_assets + dex_files_info.root_module_secondary_dex_dirs + resources_info.module_manifests
-    asset_directories_file = actions.write("asset_directories.txt", asset_directories)
-    bundle_builder_args.hidden(asset_directories)
+    root_module_asset_directories = native_library_info.native_lib_assets + dex_files_info.root_module_secondary_dex_dirs + dex_files_info.non_root_module_secondary_dex_dirs
+    root_module_asset_directories_file = actions.write("root_module_asset_directories.txt", root_module_asset_directories)
+    bundle_builder_args.hidden(root_module_asset_directories)
+    non_root_module_asset_directories = resources_info.module_manifests
+    non_root_module_asset_directories_file = actions.write("non_root_module_asset_directories.txt", non_root_module_asset_directories)
+    bundle_builder_args.hidden(non_root_module_asset_directories)
     native_library_directories = actions.write("native_library_directories", native_library_info.native_libs_for_primary_apk)
     bundle_builder_args.hidden(native_library_info.native_libs_for_primary_apk)
     all_zip_files = [resources_info.packaged_string_assets] if resources_info.packaged_string_assets else []
@@ -63,8 +66,10 @@ def build_bundle(
     bundle_builder_args.hidden(resources_info.jar_files_that_may_contain_resources)
 
     bundle_builder_args.add([
-        "--asset-directories-list",
-        asset_directories_file,
+        "--root-module-asset-directories-list",
+        root_module_asset_directories_file,
+        "--non-root-module-asset-directories-list",
+        non_root_module_asset_directories_file,
         "--native-libraries-directories-list",
         native_library_directories,
         "--zip-files-list",
