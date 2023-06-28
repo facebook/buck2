@@ -215,16 +215,16 @@ impl<'s> Component for CountComponent<'s> {
         let elapsed =
             fmt_duration::fmt_duration(self.state.current_tick.elapsed_time, time_speed.speed());
 
-        let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
-
-        let remaining = spans.iter_roots().len() as u64 + pending;
-        let total = remaining + finished;
-
-        let remaining = HumanizedCount::new(remaining);
-        let total = HumanizedCount::new(total);
-
         let contents = match mode {
             DrawMode::Normal => {
+                let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
+
+                let remaining = spans.iter_roots().len() as u64 + pending;
+                let total = remaining + finished;
+
+                let remaining = HumanizedCount::new(remaining);
+                let total = HumanizedCount::new(total);
+
                 if action_stats.log_stats() {
                     let mut actions_summary = format!(
                         "Remaining: {}/{}. Cache hits: {}%. ",
