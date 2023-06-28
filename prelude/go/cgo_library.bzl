@@ -67,6 +67,9 @@ def _cgo(
     pre_args = pre.set.project_as_args("args")
     pre_include_dirs = pre.set.project_as_args("include_dirs")
 
+    # If you change this dir or naming convention, please
+    # update the corresponding logic in `fbgolist`.
+    # Otherwise editing and linting for Go will break.
     gen_dir = "cgo_gen"
 
     go_srcs = []
@@ -200,8 +203,12 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
         ),
     }
 
+    # We need to keep pre-processed cgo source files,
+    # because they are required for any editing and linting (like VSCode+gopls)
+    # to work with cgo. And when nearly every FB service client is cgo,
+    # we need to support it well.
     return [
-        DefaultInfo(default_output = static_pkg),
+        DefaultInfo(default_output = static_pkg, other_outputs = go_srcs),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),
