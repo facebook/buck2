@@ -671,7 +671,7 @@ fn test_getattr_did_you_mean_builtin() {
 #[test]
 fn test_getattr_did_you_mean_custom() {
     assert::fail(
-        "struct(grey=1).gray",
+        "noop(struct(grey=1)).gray",
         "Object of type `struct` has no attribute `gray`, did you mean `grey`?",
     );
     assert::fail(

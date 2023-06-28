@@ -25,7 +25,6 @@ use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::oracle::traits::TypingUnOp;
-use crate::typing::structs::TyStruct;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
 use crate::values::StarlarkValue;
@@ -156,14 +155,6 @@ impl TypingOracle for OracleStandard {
                     _ => return fallback(),
                 }
             }
-            Ty::Struct(TyStruct { fields, extra }) => match attr {
-                TypingAttr::Regular(attr) => match fields.get(attr) {
-                    Some(ty) => ty.clone(),
-                    None if *extra => Ty::Any,
-                    _ => return Some(Err(())),
-                },
-                _ => return Some(Err(())),
-            },
             Ty::Tuple(tys) => match attr {
                 TypingAttr::BinOp(TypingBinOp::In) => {
                     Ty::function(vec![Param::pos_only(Ty::unions(tys.clone()))], Ty::bool())

@@ -22,7 +22,10 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 
+use crate::typing::Param;
 use crate::typing::Ty;
+use crate::typing::TypingAttr;
+use crate::typing::TypingBinOp;
 
 /// Struct type.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
@@ -40,6 +43,21 @@ impl TyStruct {
         TyStruct {
             fields: BTreeMap::new(),
             extra: true,
+        }
+    }
+
+    pub(crate) fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+        match attr {
+            TypingAttr::Regular(attr) => match self.fields.get(attr) {
+                Some(ty) => Some(Ok(ty.clone())),
+                None if self.extra => Some(Ok(Ty::Any)),
+                _ => Some(Err(())),
+            },
+            TypingAttr::BinOp(TypingBinOp::Less) => Some(Ok(Ty::function(
+                vec![Param::pos_only(Ty::Struct(TyStruct::any()))],
+                Ty::bool(),
+            ))),
+            _ => Some(Err(())),
         }
     }
 }

@@ -59,7 +59,10 @@ pub struct TypingOracleCtx<'a> {
 
 impl<'a> TypingOracle for TypingOracleCtx<'a> {
     fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
-        self.oracle.attribute(ty, attr)
+        match ty {
+            Ty::Struct(s) => s.attribute(attr),
+            ty => self.oracle.attribute(ty, attr),
+        }
     }
 
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
