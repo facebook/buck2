@@ -346,3 +346,19 @@ foo(1)
 "#,
     );
 }
+
+#[test]
+fn test_calls() {
+    TypeCheck::new().check(
+        "calls",
+        r#"
+def f(y): pass
+
+# Extra parameter.
+f(1, 2)
+
+# Not enough parameters.
+f()
+"#,
+    );
+}
