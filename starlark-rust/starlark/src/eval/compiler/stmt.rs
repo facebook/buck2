@@ -354,7 +354,7 @@ pub(crate) enum AssignError {
 #[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) enum AssignCompiledValue {
     Dot(IrSpanned<ExprCompiled>, String),
-    ArrayIndirection(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>),
+    Index(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>),
     Tuple(Vec<IrSpanned<AssignCompiledValue>>),
     Local(LocalSlotId),
     LocalCaptured(LocalCapturedSlotId),
@@ -380,10 +380,10 @@ impl IrSpanned<AssignCompiledValue> {
                 let field = field.clone();
                 AssignCompiledValue::Dot(object, field)
             }
-            AssignCompiledValue::ArrayIndirection(ref array, ref index) => {
+            AssignCompiledValue::Index(ref array, ref index) => {
                 let array = array.optimize(ctx);
                 let index = index.optimize(ctx);
-                AssignCompiledValue::ArrayIndirection(array, index)
+                AssignCompiledValue::Index(array, index)
             }
             AssignCompiledValue::Tuple(ref xs) => {
                 let xs = xs.map(|x| x.optimize(ctx));
@@ -406,11 +406,11 @@ impl Compiler<'_, '_, '_> {
                 let s = &s.node;
                 AssignCompiledValue::Dot(e, s.to_owned())
             }
-            AssignP::ArrayIndirection(e_idx) => {
+            AssignP::Index(e_idx) => {
                 let (e, idx) = &**e_idx;
                 let e = self.expr(e);
                 let idx = self.expr(idx);
-                AssignCompiledValue::ArrayIndirection(e, idx)
+                AssignCompiledValue::Index(e, idx)
             }
             AssignP::Tuple(v) => {
                 let v = v.map(|x| self.assign(x));
@@ -461,7 +461,7 @@ impl Compiler<'_, '_, '_> {
                     ),
                 })
             }
-            AssignP::ArrayIndirection(e_idx) => {
+            AssignP::Index(e_idx) => {
                 let (e, idx) = &**e_idx;
                 let e = self.expr(e);
                 let idx = self.expr(idx);

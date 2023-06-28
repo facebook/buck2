@@ -287,7 +287,7 @@ impl Stmt {
                     Assign::Tuple(xs.into_try_map(|x| Self::check_assign(codemap, x))?)
                 }
                 Expr::Dot(a, b) => Assign::Dot(a, b),
-                Expr::ArrayIndirection(a_b) => Assign::ArrayIndirection(a_b),
+                Expr::Index(a_b) => Assign::Index(a_b),
                 Expr::Identifier(x) => Assign::Identifier(x.into_map(|s| AssignIdentP(s.0, ()))),
                 _ => {
                     return Err(EvalException::new(

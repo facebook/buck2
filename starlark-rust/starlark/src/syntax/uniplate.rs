@@ -311,7 +311,7 @@ impl<P: AstPayload> ExprP<P> {
                 f(a);
                 b.iter().for_each(|x| f(x.expr()));
             }
-            ExprP::ArrayIndirection(a_b) => {
+            ExprP::Index(a_b) => {
                 let (a, b) = &**a_b;
                 f(a);
                 f(b);
@@ -399,7 +399,7 @@ impl<P: AstPayload> ExprP<P> {
                 f(a);
                 b.iter_mut().for_each(|x| f(x.expr_mut()));
             }
-            ExprP::ArrayIndirection(a_b) => {
+            ExprP::Index(a_b) => {
                 let (a, b) = &mut **a_b;
                 f(a);
                 f(b);
@@ -470,7 +470,7 @@ impl<P: AstPayload> AssignP<P> {
             match x {
                 AssignP::Tuple(xs) => xs.iter().for_each(|x| recurse(x, f)),
                 AssignP::Dot(a, _) => f(a),
-                AssignP::ArrayIndirection(a_b) => {
+                AssignP::Index(a_b) => {
                     let (a, b) = &**a_b;
                     f(a);
                     f(b);
@@ -489,7 +489,7 @@ impl<P: AstPayload> AssignP<P> {
             match x {
                 AssignP::Tuple(ref mut xs) => xs.iter_mut().for_each(|x| recurse(&mut *x, f)),
                 AssignP::Dot(a, _) => f(a),
-                AssignP::ArrayIndirection(a_b) => {
+                AssignP::Index(a_b) => {
                     let (a, b) = &mut **a_b;
                     f(a);
                     f(b);

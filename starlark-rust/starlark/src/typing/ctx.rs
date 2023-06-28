@@ -227,7 +227,7 @@ impl TypingContext<'_> {
     fn expression_assign(&self, x: &CstAssign) -> Ty {
         match &**x {
             AssignP::Tuple(_) => self.approximation("expression_assignment", x),
-            AssignP::ArrayIndirection(a_b) => {
+            AssignP::Index(a_b) => {
                 self.expression_primitive(TypingAttr::Index, &[&a_b.0, &a_b.1], x.span)
             }
             AssignP::Dot(_, _) => self.approximation("expression_assignment", x),
@@ -293,7 +293,7 @@ impl TypingContext<'_> {
                 // but we still know the type of the result since the args don't impact that
                 self.validate_call(&f_ty, &args_ty, span)
             }
-            ExprP::ArrayIndirection(a_b) => {
+            ExprP::Index(a_b) => {
                 self.expression_primitive(TypingAttr::Index, &[&a_b.0, &a_b.1], span)
             }
             ExprP::Slice(x, start, stop, stride) => {

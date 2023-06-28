@@ -152,7 +152,7 @@ pub(crate) enum ExprP<P: AstPayload> {
     Tuple(Vec<AstExprP<P>>),
     Dot(Box<AstExprP<P>>, AstString),
     Call(Box<AstExprP<P>>, Vec<AstArgumentP<P>>),
-    ArrayIndirection(Box<(AstExprP<P>, AstExprP<P>)>),
+    Index(Box<(AstExprP<P>, AstExprP<P>)>),
     Slice(
         Box<AstExprP<P>>,
         Option<Box<AstExprP<P>>>,
@@ -194,7 +194,7 @@ pub(crate) enum AssignP<P: AstPayload> {
     // We use Tuple for both Tuple and List,
     // as these have the same semantics in Starlark.
     Tuple(Vec<AstAssignP<P>>),
-    ArrayIndirection(Box<(AstExprP<P>, AstExprP<P>)>),
+    Index(Box<(AstExprP<P>, AstExprP<P>)>),
     Dot(Box<AstExprP<P>>, AstString),
     Identifier(AstAssignIdentP<P>),
 }
@@ -466,7 +466,7 @@ impl Display for Expr {
                 }
                 f.write_str(")")
             }
-            Expr::ArrayIndirection(e_i) => {
+            Expr::Index(e_i) => {
                 let (e, i) = &**e_i;
                 write!(f, "{}[{}]", e.node, i.node)
             }
@@ -542,7 +542,7 @@ impl Display for Assign {
                 f.write_str(")")
             }
             Assign::Dot(e, s) => write!(f, "{}.{}", e.node, s.node),
-            Assign::ArrayIndirection(e_i) => {
+            Assign::Index(e_i) => {
                 let (e, i) = &**e_i;
                 write!(f, "{}[{}]", e.node, i.node)
             }

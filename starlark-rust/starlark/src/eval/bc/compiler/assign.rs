@@ -39,7 +39,7 @@ impl AssignCompiledValue {
                 let _ = field;
             }
             AssignCompiledValue::Module(..) => {}
-            AssignCompiledValue::ArrayIndirection(array, index) => {
+            AssignCompiledValue::Index(array, index) => {
                 array.mark_definitely_assigned_after(bc);
                 index.mark_definitely_assigned_after(bc);
             }
@@ -66,7 +66,7 @@ impl IrSpanned<AssignCompiledValue> {
                     bc.write_instr::<InstrSetObjectField>(span, (value, object, symbol));
                 });
             }
-            AssignCompiledValue::ArrayIndirection(ref array, ref index) => {
+            AssignCompiledValue::Index(ref array, ref index) => {
                 write_n_exprs([array, index], bc, |[array, index], bc| {
                     bc.write_instr::<InstrSetArrayIndex>(span, (value, array, index));
                 });

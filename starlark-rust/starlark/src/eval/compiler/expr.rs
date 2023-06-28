@@ -686,7 +686,7 @@ impl ExprCompiled {
             Builtin2::Percent => ExprCompiled::percent(l, r, ctx),
             Builtin2::Add => ExprCompiled::add(l, r),
             Builtin2::Equals => ExprCompiled::equals(l, r).node,
-            Builtin2::ArrayIndex => ExprCompiled::array_indirection(l, r, ctx),
+            Builtin2::ArrayIndex => ExprCompiled::index(l, r, ctx),
             bin_op => ExprCompiled::Builtin2(bin_op, Box::new((l, r))),
         }
     }
@@ -883,7 +883,7 @@ impl ExprCompiled {
         ExprCompiled::Slice(Box::new((array, start, stop, step)))
     }
 
-    pub(crate) fn array_indirection(
+    pub(crate) fn index(
         array: IrSpanned<ExprCompiled>,
         index: IrSpanned<ExprCompiled>,
         ctx: &mut OptCtx,
@@ -1210,11 +1210,11 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
                 let args = self.args(args);
                 CallCompiled::call(span, left, args, &mut self.opt_ctx())
             }
-            ExprP::ArrayIndirection(array_index) => {
+            ExprP::Index(array_index) => {
                 let (array, index) = &**array_index;
                 let array = self.expr(array);
                 let index = self.expr(index);
-                ExprCompiled::array_indirection(array, index, &mut self.opt_ctx())
+                ExprCompiled::index(array, index, &mut self.opt_ctx())
             }
             ExprP::Slice(collection, start, stop, stride) => {
                 let collection = self.expr(collection);

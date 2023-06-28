@@ -231,7 +231,7 @@ PrimaryExpr: AstExpr = {
               .ast(l, r)
         },
     <l:@L> <e:PrimaryExpr> "[" <i:Test> "]" <r:@R>
-        => Expr::ArrayIndirection(Box::new((e, i))).ast(l, r),
+        => Expr::Index(Box::new((e, i))).ast(l, r),
     Operand
 };
 

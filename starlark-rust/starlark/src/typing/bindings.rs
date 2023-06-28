@@ -141,7 +141,7 @@ impl<'a> BindingsCollect<'a> {
                         )?;
                     }
                 }
-                AssignP::ArrayIndirection(array_index) => match &*array_index.0 {
+                AssignP::Index(array_index) => match &*array_index.0 {
                     ExprP::Identifier(Spanned {
                         span: _,
                         node: IdentP(_name, Some(ResolvedIdent::Slot(_, ident))),

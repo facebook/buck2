@@ -104,7 +104,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                 // That expression has type string which is the type name.
             }
             ExprP::Call(..) => err("call"),
-            ExprP::ArrayIndirection(..) => err("array indirection"),
+            ExprP::Index(..) => err("array indirection"),
             ExprP::Slice(..) => err("slice"),
             ExprP::Identifier(ident) => Ok(Spanned {
                 span,
