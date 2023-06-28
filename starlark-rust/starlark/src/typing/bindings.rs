@@ -40,9 +40,9 @@ use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::uniplate::Visit;
 use crate::typing::error::InternalError;
+use crate::typing::function::Param;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::ty::Approximation;
-use crate::typing::ty::Param;
 use crate::typing::ty::Ty;
 
 #[derive(Clone)]

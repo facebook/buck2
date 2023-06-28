@@ -20,9 +20,9 @@
 
 use dupe::Dupe;
 
+use crate::typing::function::TyFunction;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
-use crate::typing::TyFunction;
 
 /// Unary operator for [`TypingOracle::attribute`].
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display)]

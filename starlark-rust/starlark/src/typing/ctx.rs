@@ -40,12 +40,12 @@ use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
 use crate::typing::bindings::BindExpr;
 use crate::typing::error::TypingError;
+use crate::typing::function::Arg;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingUnOp;
 use crate::typing::ty::Approximation;
-use crate::typing::ty::Arg;
 use crate::typing::ty::Ty;
 use crate::typing::OracleDocs;
 

@@ -25,13 +25,13 @@ use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::tests::golden_test_template::golden_test_template;
+use crate::typing::function::Param;
 use crate::typing::oracle::traits::OracleNoAttributes;
 use crate::typing::oracle::traits::OracleSeq;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::Interface;
 use crate::typing::OracleDocs;
 use crate::typing::OracleStandard;
-use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
 
