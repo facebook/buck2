@@ -89,7 +89,7 @@ def do_query(
 
 def _do_query_entry_point(ctx: "bxl_ctx") -> None:
     query = ctx.cquery()
-    actions = ctx.bxl_actions().actions
+    actions = ctx.actions_factory
     targets = do_query(ctx, query, actions, [query.eval(target) for target in ctx.cli_args.target])
     ctx.output.print_json([target.raw_target() for target in targets])
 
