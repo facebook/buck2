@@ -17,5 +17,6 @@ pub mod cancellable_future;
 pub mod cancellation;
 pub mod drop;
 pub mod instrumented_shared;
+mod maybe_future;
 pub mod spawn;
 pub mod spawner;

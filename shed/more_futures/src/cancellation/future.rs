@@ -37,6 +37,7 @@ use tokio::sync::oneshot;
 
 use crate::cancellable_future::CancellationObserver;
 use crate::cancellation::ExplicitCancellationContext;
+use crate::maybe_future::MaybeFuture;
 
 pub(crate) fn make_cancellable_future<F, T>(
     f: F,
@@ -126,38 +127,6 @@ struct ExplicitlyCancellableFutureInner<T> {
     started: bool,
 
     future: Pin<Box<ExplicitlyCancellableTask<T>>>,
-}
-
-#[pin_project(project = MaybeFutureProj)]
-enum MaybeFuture<F> {
-    Fut(#[pin] F),
-    None,
-}
-
-impl<F: Future> MaybeFuture<F> {
-    fn take(mut self: Pin<&mut Self>) {
-        self.set(MaybeFuture::None);
-    }
-
-    fn set_fut(mut self: Pin<&mut Self>, f: F) {
-        self.set(MaybeFuture::Fut(f));
-    }
-}
-
-impl<F> Future for MaybeFuture<F>
-where
-    F: Future,
-{
-    type Output = F::Output;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.project() {
-            MaybeFutureProj::Fut(f) => f.poll(cx),
-            MaybeFutureProj::None => {
-                panic!("polled again after completion")
-            }
-        }
-    }
 }
 
 impl<T> ExplicitlyCancellableFuture<T> {
