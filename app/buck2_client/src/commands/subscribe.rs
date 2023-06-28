@@ -168,6 +168,11 @@ impl StreamingCommand for SubscribeCommand {
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
     }
+
+    fn should_show_waiting_message(&self) -> bool {
+        // It's normal to get no open spans for this command
+        false
+    }
 }
 
 /// Outputs subscription messages.
