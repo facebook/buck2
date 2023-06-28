@@ -84,7 +84,7 @@ load(
     "py_resources",
     "qualify_srcs",
 )
-load(":source_db.bzl", "create_source_db", "create_source_db_no_deps")
+load(":source_db.bzl", "create_dbg_source_db", "create_source_db", "create_source_db_no_deps")
 load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_platform_attr")
 
 OmnibusMetadataInfo = provider(fields = ["omnibus_libs", "omnibus_graph"])
@@ -338,6 +338,8 @@ def python_executable(
     source_db = create_source_db(ctx, src_manifest, python_deps)
     source_db_no_deps = create_source_db_no_deps(ctx, srcs)
 
+    dbg_source_db = create_dbg_source_db(ctx, src_manifest, python_deps)
+
     exe = convert_python_library_to_executable(
         ctx,
         main_module,
@@ -350,6 +352,7 @@ def python_executable(
     if dep_manifest:
         exe.sub_targets["dep-manifest"] = [DefaultInfo(default_output = dep_manifest.manifest, other_outputs = dep_manifest.artifacts)]
     exe.sub_targets.update({
+        "dbg-source-db": [dbg_source_db],
         "source-db": [source_db],
         "source-db-no-deps": [source_db_no_deps, library_info],
     })
