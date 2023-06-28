@@ -149,7 +149,7 @@ struct ZipType;
 impl TyCustomFunctionImpl for ZipType {
     fn validate_call(
         &self,
-        span: Span,
+        _span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError> {
@@ -159,13 +159,15 @@ impl TyCustomFunctionImpl for ZipType {
             match &arg.node {
                 Arg::Pos(pos) => match oracle.attribute(pos, TypingAttr::Iter) {
                     Some(Err(_)) => {
-                        return Err(oracle.msg_error(span, "Argument does not allow iteration"));
+                        return Err(oracle.msg_error(arg.span, "Argument does not allow iteration"));
                     }
                     Some(Ok(t)) => iter_item_types.push(t),
                     None => iter_item_types.push(Ty::Any),
                 },
                 Arg::Name(_, _) => {
-                    return Err(oracle.msg_error(span, "zip() does not accept keyword arguments"));
+                    return Err(
+                        oracle.msg_error(arg.span, "zip() does not accept keyword arguments")
+                    );
                 }
                 Arg::Args(_) => {
                     seen_star_args = true;
