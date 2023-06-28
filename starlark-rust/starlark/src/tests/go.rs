@@ -89,6 +89,7 @@ fn test_go() {
                 "cannot clear frozen hash table",
                 "asserts.eq(a, 1)", // End of the test above
                 "asserts.eq(x, {1: 2, 2: 4, 0: 2})",
+                "x9a", // Starlark spec does not allow test list in index expression
             ],
         ),
         &[
