@@ -43,15 +43,10 @@ use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
-use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstPayload;
-use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::ExprP;
-use crate::syntax::ast::StmtP;
-use crate::syntax::AstModule;
-use crate::syntax::Dialect;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
@@ -59,12 +54,6 @@ use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::TypingOracle;
-
-#[derive(Debug, thiserror::Error)]
-enum TyError {
-    #[error("Could not parse type expression: `{0}`")]
-    ParseError(String),
-}
 
 /// A typing operation wasn't able to produce a precise result,
 /// so made some kind of approximation.
@@ -1011,28 +1000,6 @@ impl Ty {
             None => Ty::Any,
             Some(x) => x.raw_type.clone(),
         }
-    }
-
-    /// Best attempt to parse serialized type.
-    pub fn parse(s: &str) -> anyhow::Result<Ty> {
-        fn get_expr(x: &AstStmt) -> Option<&AstExpr> {
-            match &x.node {
-                StmtP::Statements(x) if x.len() == 1 => get_expr(&x[0]),
-                StmtP::Expression(x) => Some(x),
-                _ => None,
-            }
-        }
-
-        if let Ok(ast) = AstModule::parse("type", s.to_owned(), &Dialect::Standard) {
-            if let Some(expr) = &get_expr(&ast.statement) {
-                let approximations = &mut Vec::new();
-                let t = Ty::from_expr(expr, approximations);
-                if approximations.is_empty() {
-                    return Ok(t);
-                }
-            }
-        }
-        Err(TyError::ParseError(s.to_owned()).into())
     }
 }
 
