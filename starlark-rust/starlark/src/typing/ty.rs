@@ -279,7 +279,7 @@ impl Ord for TyCustom {
         let (b_cmp, b_type_name) = other.0.cmp_token();
 
         // Type ids are comparable, but we want comparison independent of hashing.
-        if a_cmp.type_id() != b_cmp.type_id() {
+        if OrdAny::type_id(&a_cmp) != OrdAny::type_id(&b_cmp) {
             let type_name_cmp = a_type_name.cmp(b_type_name);
             if type_name_cmp != Ordering::Equal {
                 return type_name_cmp;
