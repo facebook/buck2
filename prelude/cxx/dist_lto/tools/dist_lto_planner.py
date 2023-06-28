@@ -254,6 +254,7 @@ def main(argv):
     KNOWN_REMOVABLE_DEPS_SUFFIX = [
         "glibc/lib/crt1.o",
         "glibc/lib/crti.o",
+        "glibc/lib/Scrt1.o",
         "crtbegin.o",
         "crtbeginS.o",
         ".build_info.o",

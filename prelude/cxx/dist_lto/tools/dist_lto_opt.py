@@ -35,7 +35,7 @@ def _filter_flags(clang_flags: List[str]) -> List[str]:  # noqa: C901
         "-flto=thin",
     ]
     # Conservatively, we only translate llvms flags in our known list
-    KNOWN_LLVM_SHARED_LIBRARY_FLAGS = ["-shared"]
+    KNOWN_LLVM_SHARED_LIBRARY_FLAGS = ["-pie", "-shared"]
 
     # Start with default flags for opt.
     # The default values may change across compiler versions.
