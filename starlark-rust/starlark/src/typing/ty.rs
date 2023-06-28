@@ -39,13 +39,12 @@ use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocType;
+use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
-use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;
-use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::ExprP;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
@@ -898,7 +897,7 @@ impl Ty {
     }
 
     // This should go away when `ExprType` is disconnected from `Expr`.
-    fn from_expr<P: AstPayload>(x: &AstExprP<P>, approximations: &mut Vec<Approximation>) -> Self {
+    fn from_expr(x: &CstExpr, approximations: &mut Vec<Approximation>) -> Self {
         let mut unknown = || {
             approximations.push(Approximation::new("Unknown type", x));
             Ty::Any
