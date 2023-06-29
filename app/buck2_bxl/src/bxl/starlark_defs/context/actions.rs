@@ -159,6 +159,7 @@ async fn get_dependency_for_label<'v>(
         module.heap(),
         configured,
         v.value().owned_value(module.frozen_heap()),
+        None,
     );
 
     Ok(dependency)

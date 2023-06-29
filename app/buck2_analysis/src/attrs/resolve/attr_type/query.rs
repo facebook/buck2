@@ -57,6 +57,7 @@ impl ConfiguredQueryAttrExt for QueryAttr<ConfiguredProvidersLabel> {
                 ctx.starlark_module(),
                 &providers_label,
                 providers,
+                None,
             ));
         }
         Ok(ctx.heap().alloc(dependencies))

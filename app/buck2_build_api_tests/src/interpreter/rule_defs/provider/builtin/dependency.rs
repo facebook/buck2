@@ -46,7 +46,7 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
             .heap()
             .alloc(ProviderCollection::try_from_value(providers)?);
 
-        Ok(Dependency::new(eval.heap(), label, collection))
+        Ok(Dependency::new(eval.heap(), label, collection, None))
     }
 }
 

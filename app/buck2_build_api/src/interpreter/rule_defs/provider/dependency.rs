@@ -14,11 +14,13 @@ use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
 use buck2_interpreter::types::label::Label;
+use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -29,6 +31,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
+use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecutionPlatformResolution;
 use crate::interpreter::rule_defs::provider::ProviderCollection;
 
 #[derive(Debug, Error)]
@@ -55,6 +58,7 @@ enum DependencyError {
 pub struct DependencyGen<V> {
     label: V,
     providers_collection: V,
+    execution_platform: V,
 }
 
 starlark_complex_value!(pub Dependency);
@@ -72,10 +76,16 @@ impl<'v> Dependency<'v> {
         heap: &'v Heap,
         label: ConfiguredProvidersLabel,
         providers_collection: Value<'v>,
+        execution_platform: Option<&ExecutionPlatformResolution>,
     ) -> Self {
+        let execution_platform = match execution_platform {
+            Some(e) => NoneOr::Other(StarlarkExecutionPlatformResolution(e.clone())),
+            None => NoneOr::None,
+        };
         Dependency {
             label: heap.alloc(Label::new(label)),
             providers_collection,
+            execution_platform: heap.alloc(execution_platform),
         }
     }
 
@@ -144,7 +154,7 @@ fn dependency_functions(builder: &mut MethodsBuilder) {
             lbl.target().clone(),
             lbl.name().push(ProviderName::new(subtarget.to_owned())?),
         );
-        Ok(Dependency::new(heap, lbl, providers.to_value()))
+        Ok(Dependency::new(heap, lbl, providers.to_value(), None))
     }
 
     fn get<'v>(this: &Dependency<'v>, index: Value<'v>) -> anyhow::Result<Value<'v>> {

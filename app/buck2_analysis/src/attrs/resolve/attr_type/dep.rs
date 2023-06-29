@@ -15,6 +15,7 @@ use buck2_node::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDe
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
+use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::provider_id_set::ProviderIdSet;
 use starlark::environment::Module;
 use starlark::values::Value;
@@ -39,6 +40,7 @@ pub trait DepAttrTypeExt {
         env: &'v Module,
         target: &ConfiguredProvidersLabel,
         v: &FrozenProviderCollectionValue,
+        execution_platform_resolution: Option<&ExecutionPlatformResolution>,
     ) -> Value<'v>;
 
     fn resolve_single_impl<'v>(
@@ -76,11 +78,13 @@ impl DepAttrTypeExt for DepAttrType {
         env: &'v Module,
         target: &ConfiguredProvidersLabel,
         v: &FrozenProviderCollectionValue,
+        execution_platform_resolution: Option<&ExecutionPlatformResolution>,
     ) -> Value<'v> {
         env.heap().alloc(Dependency::new(
             env.heap(),
             target.clone(),
             v.value().owned_value(env.frozen_heap()),
+            execution_platform_resolution,
         ))
     }
 
@@ -93,7 +97,13 @@ impl DepAttrTypeExt for DepAttrType {
         let provider_collection = v.provider_collection();
         Self::check_providers(required_providers, provider_collection, target)?;
 
-        Ok(Self::alloc_dependency(ctx.starlark_module(), target, &v))
+        Ok(Self::alloc_dependency(
+            ctx.starlark_module(),
+            target,
+            &v,
+            // TODO(wendyy) temporary
+            None,
+        ))
     }
 
     fn resolve_single<'v>(
