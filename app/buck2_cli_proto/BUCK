@@ -11,7 +11,6 @@ rust_protobuf_library(
         "BUCK_HACK_SUBSCRIPTION_PROTOC_INCLUDE": "$(location //buck2/app/buck2_subscription_proto:subscription.proto)",
     },
     build_script = "build.rs",
-    doctests = False,  # FIXME
     protos = ["daemon.proto"],
     test_deps = [
         "fbsource//third-party/rust:futures",
