@@ -23,6 +23,7 @@ use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter_for_build::attrs::coerce;
 use buck2_interpreter_for_build::attrs::coerce::testing;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
+use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
@@ -239,6 +240,10 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
 
         fn resolve_query(&self, _query: &str) -> SharedResult<Arc<AnalysisQueryResult>> {
             unimplemented!("This test resolution context doesn't handle queries")
+        }
+
+        fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
+            unimplemented!("This test resolution context doesn't use execution platform resolution")
         }
     }
     let (deps_env, deps, provider_ids) = Ctx::simple_deps();

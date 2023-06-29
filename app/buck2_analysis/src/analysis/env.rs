@@ -66,6 +66,7 @@ pub struct RuleAnalysisAttrResolutionContext<'v> {
     pub module: &'v Module,
     pub dep_analysis_results: HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     pub query_results: HashMap<String, Arc<AnalysisQueryResult>>,
+    pub execution_platform_resolution: ExecutionPlatformResolution,
 }
 
 impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
@@ -93,6 +94,10 @@ impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
 
     fn resolve_query(&self, query: &str) -> SharedResult<Arc<AnalysisQueryResult>> {
         resolve_query(&self.query_results, query, self.module)
+    }
+
+    fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
+        &self.execution_platform_resolution
     }
 }
 
@@ -242,6 +247,7 @@ async fn run_analysis_with_env_underlying(
             module: &env,
             dep_analysis_results: analysis_env.deps,
             query_results: analysis_env.query_results,
+            execution_platform_resolution: node.execution_platform_resolution().clone(),
         };
 
         node_to_attrs_struct(node, &resolution_ctx)?

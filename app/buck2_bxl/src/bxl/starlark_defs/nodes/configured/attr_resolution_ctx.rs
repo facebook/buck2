@@ -24,6 +24,7 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use once_cell::sync::OnceCell;
 use starlark::environment::Module;
@@ -98,5 +99,9 @@ impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
             Ok(res) => resolve_query(res, query, self.module),
             Err(e) => Err(anyhow::anyhow!("Error resolving query: `{}`", e)).shared_error(),
         }
+    }
+
+    fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
+        self.configured_node.execution_platform_resolution()
     }
 }

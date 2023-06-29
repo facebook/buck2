@@ -359,6 +359,7 @@ impl AnonTargetKey {
                             module: &env,
                             dep_analysis_results,
                             query_results: HashMap::new(),
+                            execution_platform_resolution: exec_resolution.clone(),
                         };
 
                         let mut resolved_attrs = Vec::with_capacity(self.0.attrs().len());
