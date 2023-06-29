@@ -19,6 +19,7 @@ use crate::two_snapshots::TwoSnapshots;
 
 pub struct ReState {
     session_id: Option<String>,
+    first_snapshot: Option<buck2_data::Snapshot>,
     two_snapshots: TwoSnapshots,
 }
 
@@ -26,6 +27,7 @@ impl ReState {
     pub fn new() -> Self {
         Self {
             session_id: None,
+            first_snapshot: None,
             two_snapshots: TwoSnapshots::default(),
         }
     }
@@ -35,17 +37,28 @@ impl ReState {
     }
 
     pub fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
+        if self.first_snapshot.is_none() {
+            self.first_snapshot = Some(snapshot.clone());
+        }
         self.two_snapshots.update(timestamp, snapshot);
     }
 
     pub fn render_header(&self, draw_mode: DrawMode) -> Option<String> {
         let mut parts = Vec::new();
 
-        if let Some((_, last)) = &self.two_snapshots.last {
+        if let (Some(first), Some((_, last))) = (&self.first_snapshot, &self.two_snapshots.last) {
             if last.re_upload_bytes > 0
                 || last.re_download_bytes > 0
                 || last.http_download_bytes > 0
             {
+                let re_upload_bytes = last.re_upload_bytes.checked_sub(first.re_upload_bytes)?;
+                let re_download_bytes = last
+                    .re_download_bytes
+                    .checked_sub(first.re_download_bytes)?;
+                let http_download_bytes = last
+                    .http_download_bytes
+                    .checked_sub(first.http_download_bytes)?;
+
                 let part = match draw_mode {
                     DrawMode::Normal => {
                         fn format_byte_per_second(bytes_per_second: u64) -> String {
@@ -70,11 +83,9 @@ impl ReState {
                             .unwrap_or_default();
                         format!(
                             "Up: {} {}  Down: {} {}",
-                            HumanizedBytes::fixed_width(last.re_upload_bytes),
+                            HumanizedBytes::fixed_width(re_upload_bytes),
                             format_byte_per_second(re_upload_bytes_per_second),
-                            HumanizedBytes::fixed_width(
-                                last.re_download_bytes + last.http_download_bytes
-                            ),
+                            HumanizedBytes::fixed_width(re_download_bytes + http_download_bytes),
                             format_byte_per_second(
                                 re_download_bytes_per_second + http_download_bytes_per_second
                             ),
@@ -83,8 +94,8 @@ impl ReState {
                     DrawMode::Final => {
                         format!(
                             "Up: {}  Down: {}",
-                            HumanizedBytes::new(last.re_upload_bytes),
-                            HumanizedBytes::new(last.re_download_bytes),
+                            HumanizedBytes::new(re_upload_bytes),
+                            HumanizedBytes::new(re_download_bytes + http_download_bytes),
                         )
                     }
                 };
@@ -139,7 +150,7 @@ impl ReState {
 
     fn render_detailed(&self) -> anyhow::Result<Vec<Line>> {
         let mut r = Vec::new();
-        if let Some((_, last)) = &self.two_snapshots.last {
+        if let (Some(first), Some((_, last))) = (&self.first_snapshot, &self.two_snapshots.last) {
             r.extend(self.render_detailed_items(
                 "re_uploads",
                 last.re_uploads_started,
@@ -185,7 +196,7 @@ impl ReState {
             // TODO(raulgarcia4): Add some in-progress-stats for http metrics as well.
             r.extend(self.render_detailed_item_no_progress_stats(
                 "http_download_bytes",
-                last.http_download_bytes,
+                last.http_download_bytes - first.http_download_bytes,
             )?);
         }
         Ok(r)
