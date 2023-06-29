@@ -95,11 +95,24 @@ Sample:
     },
     "duration_millis": 0, # duration of the action in millis, excluding input materialization time
     "output_size": 10, # size in bytes of the action's outputs
-    "input_materialization_duration_millis": 0 # how long it took to materialize any inputs to the action
+    "input_materialization_duration_millis": 0, # how long it took to materialize any inputs to the action
+    "execution_kind": "Simple", # how the action was executed
+    "owner": "cell//path/to/script.bxl:function_name" # owner of the action execution (target label, anon target label, bxl label)
   },
   "epoch_millis": 123456789 # when the event was emitted
 }
 ```
+
+`execution_kind` includes:
+* Local: action was executed locally
+* Remote: action was executed via a remote executor
+* ActionCache: action was served by the action cache and not executed
+* Simple: action is simple and executed inline within buck2 (ex: write, symlink_dir)
+* Skipped: action was not executed at all
+* Deferred: action logically executed, but didn't do all the work
+* LocalDepFile: action was served by the local dep file cache and not executed.
+* LocalWorker: action was executed via a local worker
+* NotSet: action execution kind was not set
 
 **Ensure artifact event**
 ```python
