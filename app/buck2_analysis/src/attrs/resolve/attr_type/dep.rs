@@ -14,6 +14,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::dep::DepAttr;
+use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::provider_id_set::ProviderIdSet;
@@ -47,6 +48,7 @@ pub trait DepAttrTypeExt {
         ctx: &dyn AttrResolutionContext<'v>,
         target: &ConfiguredProvidersLabel,
         required_providers: &ProviderIdSet,
+        is_exec: bool,
     ) -> anyhow::Result<Value<'v>>;
 
     fn resolve_single<'v>(
@@ -92,17 +94,22 @@ impl DepAttrTypeExt for DepAttrType {
         ctx: &dyn AttrResolutionContext<'v>,
         target: &ConfiguredProvidersLabel,
         required_providers: &ProviderIdSet,
+        is_exec_dep: bool,
     ) -> anyhow::Result<Value<'v>> {
         let v = ctx.get_dep(target)?;
         let provider_collection = v.provider_collection();
         Self::check_providers(required_providers, provider_collection, target)?;
+        let execution_platform_resolution = if is_exec_dep {
+            Some(ctx.execution_platform_resolution())
+        } else {
+            None
+        };
 
         Ok(Self::alloc_dependency(
             ctx.starlark_module(),
             target,
             &v,
-            // TODO(wendyy) temporary
-            None,
+            execution_platform_resolution,
         ))
     }
 
@@ -110,7 +117,13 @@ impl DepAttrTypeExt for DepAttrType {
         ctx: &dyn AttrResolutionContext<'v>,
         dep_attr: &DepAttr<ConfiguredProvidersLabel>,
     ) -> anyhow::Result<Value<'v>> {
-        Self::resolve_single_impl(ctx, &dep_attr.label, &dep_attr.attr_type.required_providers)
+        let is_exec = dep_attr.attr_type.transition == DepAttrTransition::Exec;
+        Self::resolve_single_impl(
+            ctx,
+            &dep_attr.label,
+            &dep_attr.attr_type.required_providers,
+            is_exec,
+        )
     }
 }
 
@@ -123,6 +136,7 @@ pub(crate) trait ExplicitConfiguredDepAttrTypeExt {
             ctx,
             &dep_attr.label,
             &dep_attr.attr_type.required_providers,
+            false,
         )
     }
 }

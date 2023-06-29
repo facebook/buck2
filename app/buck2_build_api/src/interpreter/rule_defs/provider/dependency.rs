@@ -27,6 +27,7 @@ use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
@@ -91,6 +92,19 @@ impl<'v> Dependency<'v> {
 
     pub fn label(&self) -> &Label {
         Label::from_value(self.label).unwrap()
+    }
+
+    pub fn execution_platform(&self) -> Option<&ExecutionPlatformResolution> {
+        match NoneOr::unpack_value(self.execution_platform)
+            .unwrap()
+            .into_option()
+        {
+            Some(v) => match StarlarkExecutionPlatformResolution::from_value(v) {
+                Some(starlark_execution_platform) => Some(&starlark_execution_platform.0),
+                None => None,
+            },
+            None => None,
+        }
     }
 
     fn provider_collection(&self) -> anyhow::Result<&ProviderCollection<'v>> {

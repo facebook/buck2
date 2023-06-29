@@ -35,7 +35,7 @@ impl SplitTransitionDepAttrTypeExt for SplitTransitionDepAttrType {
             let label_hashed = ctx.heap().alloc_str(label).get_hashed();
             res.insert_hashed(
                 Hashed::new_unchecked(label_hashed.hash(), label_hashed.key().to_value()),
-                DepAttrType::resolve_single_impl(ctx, target, &deps.required_providers)?,
+                DepAttrType::resolve_single_impl(ctx, target, &deps.required_providers, false)?,
             );
         }
         Ok(ctx.heap().alloc(Dict::new(res)))

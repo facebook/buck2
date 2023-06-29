@@ -107,19 +107,37 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 }
                 None => Err(AnonTargetCoercionError::type_error(STRING_TYPE, value).into()),
             },
-            AttrTypeInner::Dep(x) => match Dependency::from_value(value) {
-                Some(dep) => {
-                    let label = dep.label().inner().clone();
+            AttrTypeInner::Dep(x) => {
+                match Dependency::from_value(value) {
+                    Some(dep) => {
+                        let label = dep.label().inner().clone();
 
-                    let attr_type = match x.transition {
-                        DepAttrTransition::Identity => x.clone(),
-                        _ => return Err(AnonTargetCoercionError::OnlyIdentityDepSupported.into()),
-                    };
+                        let attr_type = match x.transition {
+                            DepAttrTransition::Identity => x.clone(),
+                            DepAttrTransition::Exec => {
+                                match dep.execution_platform() {
+                                Some(exec_dep_resolution) => {
+                                    if !exec_dep_resolution.eq(&ctx.execution_platform_resolution) {
+                                        return Err(AnonTargetCoercionError::ExecDepPlatformMismatch(exec_dep_resolution.platform()?.id(), ctx.execution_platform_resolution.platform()?.id()).into());
+                                    }
+                                },
+                                None => return Err(AnonTargetCoercionError::ExecDepMissingExecPlatformResolution.into()),
+                            }
 
-                    Ok(AnonTargetAttr::Dep(Box::new(DepAttr { attr_type, label })))
+                                x.clone()
+                            }
+                            _ => {
+                                return Err(
+                                    AnonTargetCoercionError::OnlyIdentityDepSupported.into()
+                                );
+                            }
+                        };
+
+                        Ok(AnonTargetAttr::Dep(Box::new(DepAttr { attr_type, label })))
+                    }
+                    _ => Err(AnonTargetCoercionError::type_error("dependency", value).into()),
                 }
-                _ => Err(AnonTargetCoercionError::type_error("dependency", value).into()),
-            },
+            }
             AttrTypeInner::Source(_) => {
                 // Check if this is a StarlarkPromiseArtifact first before checking other artifact types to
                 // allow anon targets to accept unresolved promise artifacts.
@@ -165,8 +183,14 @@ pub(crate) enum AnonTargetCoercionError {
     AttrTypeNotSupported(String),
     #[error("Arg attribute must have `anon_target_compatible` set to `True`")]
     ArgNotAnonTargetCompatible,
+    #[error("Internal error: exec dep is missing the execution platform resolution")]
+    ExecDepMissingExecPlatformResolution,
     #[error(
-        "`exec_dep`, `transition_dep`, and `toolchain_dep` are not supported. By design, anon targets do not support configurations/transitions."
+        "Exec deps and the current anon target must have the same execution platform resolution. Exec dep's execution platform: ({0}), anon target's execution platform: ({1})"
+    )]
+    ExecDepPlatformMismatch(String, String),
+    #[error(
+        "`transition_dep`, and `toolchain_dep` are not supported. By design, anon targets do not support configurations/transitions."
     )]
     OnlyIdentityDepSupported,
 }
