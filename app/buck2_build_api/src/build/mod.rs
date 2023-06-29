@@ -36,6 +36,7 @@ use futures::stream::FuturesUnordered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
+use futures::FutureExt;
 use itertools::Itertools;
 use tokio::sync::Mutex;
 
@@ -285,20 +286,18 @@ pub async fn build_configured_label<'a>(
         .into_iter()
         .enumerate()
         .map({
-            let materialization_context = materialization_context.dupe();
-            move |(index, (output, provider_type))| {
+            |(index, (output, provider_type))| {
                 let materialization_context = materialization_context.dupe();
-                async move {
-                    let res = materialize_artifact_group(ctx, &output, &materialization_context)
-                        .await
-                        .shared_error()
-                        .map(|values| ProviderArtifacts {
+                materialize_artifact_group_owned(ctx, output, materialization_context).map(
+                    move |res| {
+                        let res = res.shared_error().map(|values| ProviderArtifacts {
                             values,
                             provider_type,
                         });
 
-                    (index, res)
-                }
+                        (index, res)
+                    },
+                )
             }
         })
         .collect::<FuturesUnordered<_>>()
@@ -321,6 +320,13 @@ pub async fn build_configured_label<'a>(
     .boxed();
 
     Ok(stream)
+}
+pub async fn materialize_artifact_group_owned(
+    ctx: &DiceComputations,
+    artifact_group: ArtifactGroup,
+    materialization_context: MaterializationContext,
+) -> anyhow::Result<ArtifactGroupValues> {
+    materialize_artifact_group(ctx, &artifact_group, &materialization_context).await
 }
 
 #[derive(Clone, Allocative)]
