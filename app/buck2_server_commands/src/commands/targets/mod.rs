@@ -157,7 +157,7 @@ impl ServerCommandTemplate for TargetsServerCommand {
 async fn targets(
     server_ctx: &dyn ServerCommandContextTrait,
     stdout: &mut impl Write,
-    dice: DiceTransaction,
+    mut dice: DiceTransaction,
     request: &TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
     // TODO(nmj): Rather than returning fully formatted data in the TargetsResponse, we should
@@ -167,9 +167,12 @@ async fn targets(
 
     let cwd = server_ctx.working_dir();
     let cell_resolver = dice.get_cell_resolver().await?;
-    let parsed_target_patterns =
-        parse_patterns_from_cli_args::<TargetPatternExtra>(&dice, &request.target_patterns, cwd)
-            .await?;
+    let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
+        &mut dice,
+        &request.target_patterns,
+        cwd,
+    )
+    .await?;
 
     let mut outputter = Outputter::new(request)?;
 

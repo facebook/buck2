@@ -50,9 +50,9 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx.with_dice_ctx(
-            async move |server_ctx, ctx| {
+            async move |server_ctx, mut ctx| {
                 let pattern_parser = PatternParser::new(
-                    &ctx,
+                    &mut ctx,
                     server_ctx.working_dir(),
                 ).await?;
 

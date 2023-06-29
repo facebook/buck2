@@ -64,11 +64,11 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        ctx: DiceTransaction,
+        mut ctx: DiceTransaction,
     ) -> anyhow::Result<ConfiguredTargetsResponse> {
         // TODO(nga): this should accept `ConfiguredTargetPatternExtra`. And handle the universe.
         let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
-            &ctx,
+            &mut ctx,
             &self.req.target_patterns,
             server_ctx.working_dir(),
         )

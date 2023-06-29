@@ -125,7 +125,7 @@ enum TargetResolutionConfig {
 
 async fn build(
     server_ctx: &dyn ServerCommandContextTrait,
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
 ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
     // TODO(nmj): Move build report printing logic out of here.
@@ -148,7 +148,7 @@ async fn build(
         .await?;
 
     let parsed_patterns: Vec<ParsedPattern<ConfiguredProvidersPatternExtra>> =
-        parse_patterns_from_cli_args(&ctx, &request.target_patterns, cwd).await?;
+        parse_patterns_from_cli_args(&mut ctx, &request.target_patterns, cwd).await?;
     server_ctx.log_target_pattern(&parsed_patterns);
 
     ctx.per_transaction_data()

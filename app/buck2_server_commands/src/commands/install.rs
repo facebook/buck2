@@ -175,7 +175,7 @@ impl ServerCommandTemplate for InstallServerCommand {
 
 async fn install(
     server_ctx: &dyn ServerCommandContextTrait,
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     request: &InstallRequest,
 ) -> anyhow::Result<InstallResponse> {
     let cwd = server_ctx.working_dir();
@@ -191,7 +191,7 @@ async fn install(
 
     // Note <TargetName> does not return the providers
     let parsed_patterns = parse_patterns_from_cli_args::<ConfiguredProvidersPatternExtra>(
-        &ctx,
+        &mut ctx,
         &request.target_patterns,
         cwd,
     )

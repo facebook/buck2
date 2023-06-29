@@ -186,7 +186,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
 
 async fn generate_profile(
     server_ctx: &dyn ServerCommandContextTrait,
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     client_ctx: &ClientContext,
     pattern: &buck2_data::TargetPattern,
     action: Action,
@@ -198,7 +198,7 @@ async fn generate_profile(
         target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
     let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
-        &ctx,
+        &mut ctx,
         slice::from_ref(pattern),
         server_ctx.working_dir(),
     )

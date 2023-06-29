@@ -94,7 +94,7 @@ impl ServerCommandTemplate for TargetsShowOutputsServerCommand {
 
 async fn targets_show_outputs(
     server_ctx: &dyn ServerCommandContextTrait,
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     request: &TargetsRequest,
 ) -> anyhow::Result<TargetsShowOutputsResponse> {
     let cwd = server_ctx.working_dir();
@@ -104,9 +104,12 @@ async fn targets_show_outputs(
     let client_ctx = request.client_context()?;
     let target_platform = target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
-    let parsed_patterns =
-        parse_patterns_from_cli_args::<ProvidersPatternExtra>(&ctx, &request.target_patterns, cwd)
-            .await?;
+    let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
+        &mut ctx,
+        &request.target_patterns,
+        cwd,
+    )
+    .await?;
 
     let artifact_fs = ctx.get_artifact_fs().await?;
 

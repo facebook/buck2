@@ -240,7 +240,7 @@ impl ServerCommandTemplate for TestServerCommand {
 
 async fn test(
     server_ctx: &dyn ServerCommandContextTrait,
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     request: &TestRequest,
 ) -> anyhow::Result<TestResponse> {
     // TODO (torozco): Should the --fail-fast flag work here?
@@ -275,7 +275,8 @@ async fn test(
         }
     };
 
-    let parsed_patterns = parse_patterns_from_cli_args(&ctx, &request.target_patterns, cwd).await?;
+    let parsed_patterns =
+        parse_patterns_from_cli_args(&mut ctx, &request.target_patterns, cwd).await?;
     server_ctx.log_target_pattern(&parsed_patterns);
 
     ctx.per_transaction_data()

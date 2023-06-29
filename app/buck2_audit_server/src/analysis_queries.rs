@@ -39,14 +39,14 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, ctx| {
+            .with_dice_ctx(async move |server_ctx, mut ctx| {
                 let cells = ctx.get_cell_resolver().await?;
 
                 let global_target_platform =
                     target_platform_from_client_context(&client_ctx, server_ctx, &ctx).await?;
 
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
-                    &ctx,
+                    &mut ctx,
                     &self
                         .patterns
                         .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),

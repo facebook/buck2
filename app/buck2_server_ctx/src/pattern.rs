@@ -30,7 +30,10 @@ pub struct PatternParser {
 }
 
 impl PatternParser {
-    pub async fn new(ctx: &DiceComputations, cwd: &ProjectRelativePath) -> anyhow::Result<Self> {
+    pub async fn new(
+        ctx: &mut DiceComputations,
+        cwd: &ProjectRelativePath,
+    ) -> anyhow::Result<Self> {
         let cell_resolver = ctx.get_cell_resolver().await?;
 
         let cwd = cell_resolver.get_cell_path(&cwd)?;
@@ -61,7 +64,7 @@ impl PatternParser {
 /// with strings passed by the user on the CLI.
 /// See `ParsedPattern::parse_relaxed` for details.
 pub async fn parse_patterns_from_cli_args<T: PatternType>(
-    ctx: &DiceComputations,
+    ctx: &mut DiceComputations,
     target_patterns: &[buck2_data::TargetPattern],
     cwd: &ProjectRelativePath,
 ) -> anyhow::Result<Vec<ParsedPattern<T>>> {

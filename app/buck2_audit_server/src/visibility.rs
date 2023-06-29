@@ -118,9 +118,9 @@ impl AuditSubcommand for AuditVisibilityCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, ctx| {
+            .with_dice_ctx(async move |server_ctx, mut ctx| {
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
-                    &ctx,
+                    &mut ctx,
                     &self
                         .patterns
                         .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
