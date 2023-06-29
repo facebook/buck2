@@ -519,39 +519,48 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsConcrete(t.to_owned()))))
     }
 
-    /// Hold `Ty`, but do not check at runtime.
-    fn ty_erased(ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+    /// Hold `Ty`, but only check name if it is provided.
+    fn ty_other(ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         #[derive(Eq, PartialEq, Allocative, Debug, ProvidesStaticType)]
-        struct Erased(Ty);
+        struct Erased {
+            ty: Ty,
+            name: Option<String>,
+        }
 
         impl Hash for Erased {
             fn hash<H: Hasher>(&self, state: &mut H) {
                 // TODO(nga): implement `Hash` for `Ty`.
-                self.0.as_name().hash(state)
+                self.ty.as_name().hash(state)
             }
         }
 
         impl<'v> TypeCompiledImpl<'v> for Erased {
             fn as_ty(&self) -> Ty {
-                self.0.clone()
+                self.ty.clone()
             }
 
-            fn matches(&self, _value: Value<'v>) -> bool {
-                true
+            fn matches(&self, value: Value<'v>) -> bool {
+                if let Some(name) = &self.name {
+                    value.get_ref().matches_type(name)
+                } else {
+                    true
+                }
             }
 
             fn is_wildcard(&self) -> bool {
-                true
+                self.name.is_none()
             }
 
             fn to_frozen(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
-                TypeCompiled(
-                    heap.alloc_simple(TypeCompiledImplAsStarlarkValue(Erased(self.0.clone()))),
-                )
+                TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(Erased {
+                    ty: self.ty.clone(),
+                    name: self.name.clone(),
+                })))
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(Erased(ty))))
+        let name = ty.as_name().map(|s| s.to_owned());
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(Erased { ty, name })))
     }
 
     pub(crate) fn type_list_of(
@@ -926,7 +935,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             Ty::Struct(_) => TypeCompiled::from_str("struct", heap),
             Ty::Never | Ty::Iter(_) | Ty::Custom(_) => {
                 // There are no runtime matchers for these types.
-                TypeCompiled::ty_erased(ty.clone(), heap)
+                TypeCompiled::ty_other(ty.clone(), heap)
             }
         }
     }
