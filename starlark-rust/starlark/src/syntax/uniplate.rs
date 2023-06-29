@@ -316,6 +316,12 @@ impl<P: AstPayload> ExprP<P> {
                 f(a);
                 f(b);
             }
+            ExprP::Index2(a_i0_i1) => {
+                let (a, i0, i1) = &**a_i0_i1;
+                f(a);
+                f(i0);
+                f(i1);
+            }
             ExprP::Slice(a, b, c, d) => {
                 f(a);
                 b.iter().for_each(|x| f(x));
@@ -403,6 +409,12 @@ impl<P: AstPayload> ExprP<P> {
                 let (a, b) = &mut **a_b;
                 f(a);
                 f(b);
+            }
+            ExprP::Index2(a_i0_i1) => {
+                let (a, i0, i1) = &mut **a_i0_i1;
+                f(a);
+                f(i0);
+                f(i1);
             }
             ExprP::Slice(a, b, c, d) => {
                 f(a);

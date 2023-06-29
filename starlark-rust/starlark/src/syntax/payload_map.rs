@@ -146,6 +146,14 @@ impl<A: AstPayload> ExprP<A> {
                     index.into_map_payload(f),
                 )))
             }
+            ExprP::Index2(a_i0_i1) => {
+                let (array, i0, i1) = *a_i0_i1;
+                ExprP::Index2(Box::new((
+                    array.into_map_payload(f),
+                    i0.into_map_payload(f),
+                    i1.into_map_payload(f),
+                )))
+            }
             ExprP::Slice(x, a, b, c) => ExprP::Slice(
                 Box::new(x.into_map_payload(f)),
                 a.map(|e| Box::new(e.into_map_payload(f))),

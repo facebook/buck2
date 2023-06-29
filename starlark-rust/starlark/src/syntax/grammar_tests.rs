@@ -319,6 +319,6 @@ fn test_bad_assignment() {
 
 #[test]
 fn test_test_list_in_index_expr() {
-    assert::parse_fail("x[1!,! 2]");
-    assert::parse_fail("x[1!,! 2] = 3");
+    assert_eq!(assert::parse("x[1, 2]"), "x[1, 2]\n");
+    assert::parse_fail("!x[1, 2]! = 3");
 }

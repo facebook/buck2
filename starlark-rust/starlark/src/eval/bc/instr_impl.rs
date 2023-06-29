@@ -88,6 +88,12 @@ use crate::values::StringValue;
 use crate::values::StringValueLike;
 use crate::values::Value;
 
+#[derive(Debug, thiserror::Error)]
+enum InstrImplError {
+    #[error("ArrayIndex2 instruction is not implemented")]
+    ArrayIndex2IsNotImplemented,
+}
+
 /// Instructions which either fail or proceed to the following instruction,
 /// and it returns error with span.
 pub(crate) trait InstrNoFlowImpl: 'static {
@@ -153,6 +159,7 @@ pub(crate) struct InstrObjectFieldImpl;
 pub(crate) struct InstrObjectFieldRawImpl;
 pub(crate) struct InstrSetObjectFieldImpl;
 pub(crate) struct InstrSliceImpl;
+pub(crate) struct InstrArrayIndex2Impl;
 
 pub(crate) type InstrLoadLocal = InstrNoFlow<InstrLoadLocalImpl>;
 pub(crate) type InstrLoadLocalCaptured = InstrNoFlow<InstrLoadLocalCapturedImpl>;
@@ -169,6 +176,7 @@ pub(crate) type InstrObjectField = InstrNoFlow<InstrObjectFieldImpl>;
 pub(crate) type InstrObjectFieldRaw = InstrNoFlow<InstrObjectFieldRawImpl>;
 pub(crate) type InstrSetObjectField = InstrNoFlow<InstrSetObjectFieldImpl>;
 pub(crate) type InstrSlice = InstrNoFlow<InstrSliceImpl>;
+pub(crate) type InstrArrayIndex2 = InstrNoFlow<InstrArrayIndex2Impl>;
 
 impl InstrNoFlowImpl for InstrLoadLocalImpl {
     type Arg = (LocalSlotId, BcSlotOut);
@@ -444,6 +452,20 @@ impl InstrNoFlowImpl for InstrSliceImpl {
         let value = list.slice(start, stop, step, eval.heap())?;
         frame.set_bc_slot(*target, value);
         Ok(())
+    }
+}
+
+impl InstrNoFlowImpl for InstrArrayIndex2Impl {
+    type Arg = (BcSlotIn, BcSlotIn, BcSlotIn, BcSlotOut);
+
+    #[cold]
+    fn run_with_args<'v>(
+        _eval: &mut Evaluator<'v, '_>,
+        _frame: BcFramePtr<'v>,
+        _ip: BcPtrAddr,
+        _arg: &Self::Arg,
+    ) -> anyhow::Result<()> {
+        Err(InstrImplError::ArrayIndex2IsNotImplemented.into())
     }
 }
 

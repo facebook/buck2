@@ -105,6 +105,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             }
             ExprP::Call(..) => err("call"),
             ExprP::Index(..) => err("array indirection"),
+            ExprP::Index2(..) => err("array indirection 2"),
             ExprP::Slice(..) => err("slice"),
             ExprP::Identifier(ident) => Ok(Spanned {
                 span,

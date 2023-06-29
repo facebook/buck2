@@ -177,6 +177,12 @@ impl ExprCompiled {
                 a.mark_definitely_assigned_after(bc);
                 b.mark_definitely_assigned_after(bc);
             }
+            ExprCompiled::Index2(a_i0_i1) => {
+                let (a, i0, i1) = &**a_i0_i1;
+                a.mark_definitely_assigned_after(bc);
+                i0.mark_definitely_assigned_after(bc);
+                i1.mark_definitely_assigned_after(bc);
+            }
             ExprCompiled::Call(c) => c.mark_definitely_assigned_after(bc),
             ExprCompiled::Def(d) => d.mark_definitely_assigned_after(bc),
         }
@@ -430,6 +436,12 @@ impl IrSpanned<ExprCompiled> {
                         Builtin2::RightShift => bc.write_instr::<InstrRightShift>(span, arg),
                         Builtin2::ArrayIndex => bc.write_instr::<InstrArrayIndex>(span, arg),
                     }
+                });
+            }
+            ExprCompiled::Index2(a_i0_i1) => {
+                let (a, i0, i1) = &**a_i0_i1;
+                write_n_exprs([a, i0, i1], bc, |[a, i0, i1], bc| {
+                    bc.write_instr::<InstrArrayIndex2>(span, (a, i0, i1, target))
                 });
             }
             ExprCompiled::Call(ref call) => call.write_bc(target, bc),

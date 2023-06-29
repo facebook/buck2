@@ -232,6 +232,8 @@ PrimaryExpr: AstExpr = {
         },
     <l:@L> <e:PrimaryExpr> "[" <i:Test> "]" <r:@R>
         => Expr::Index(Box::new((e, i))).ast(l, r),
+    <l:@L> <e:PrimaryExpr> "[" <i0:Test> "," <i1:Test> "]" <r:@R>
+        => Expr::Index2(Box::new((e, i0, i1))).ast(l, r),
     Operand
 };
 

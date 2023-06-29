@@ -296,6 +296,13 @@ impl TypingContext<'_> {
             ExprP::Index(a_b) => {
                 self.expression_primitive(TypingAttr::Index, &[&a_b.0, &a_b.1], span)
             }
+            ExprP::Index2(a_i0_i1) => {
+                let (a, i0, i1) = &**a_i0_i1;
+                self.expression_type(a);
+                self.expression_type(i0);
+                self.expression_type(i1);
+                Ty::Any
+            }
             ExprP::Slice(x, start, stop, stride) => {
                 for e in [start, stop, stride].iter().copied().flatten() {
                     self.validate_type(&self.expression_type(e), &Ty::int(), e.span);

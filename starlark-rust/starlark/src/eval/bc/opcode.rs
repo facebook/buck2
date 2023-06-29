@@ -114,6 +114,7 @@ pub(crate) enum BcOpcode {
     CallMaybeKnownMethod,
     CallMaybeKnownMethodPos,
     Def,
+    ArrayIndex2,
     PossibleGc,
     End,
 }

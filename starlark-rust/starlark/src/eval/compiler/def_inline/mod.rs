@@ -121,6 +121,12 @@ impl IsSafeToInlineExpr {
                 let _: &Builtin2 = bin_op;
                 self.is_safe_to_inline_expr(a) && self.is_safe_to_inline_expr(b)
             }
+            ExprCompiled::Index2(a_i0_i1) => {
+                let (a, i0, i1) = &**a_i0_i1;
+                self.is_safe_to_inline_expr(a)
+                    && self.is_safe_to_inline_expr(i0)
+                    && self.is_safe_to_inline_expr(i1)
+            }
             ExprCompiled::Builtin1(un_op, arg) => {
                 let _: &Builtin1 = un_op;
                 self.is_safe_to_inline_expr(arg)
@@ -302,6 +308,16 @@ impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
                 IrSpanned {
                     span,
                     node: ExprCompiled::bin_op(*op, l, r, self.ctx),
+                }
+            }
+            ExprCompiled::Index2(a_i0_i1) => {
+                let (a, i0, i1) = &**a_i0_i1;
+                let a = self.inline(a)?;
+                let i0 = self.inline(i0)?;
+                let i1 = self.inline(i1)?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::Index2(Box::new((a, i0, i1))),
                 }
             }
             ExprCompiled::Builtin1(op, x) => {

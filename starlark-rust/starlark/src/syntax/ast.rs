@@ -153,6 +153,7 @@ pub(crate) enum ExprP<P: AstPayload> {
     Dot(Box<AstExprP<P>>, AstString),
     Call(Box<AstExprP<P>>, Vec<AstArgumentP<P>>),
     Index(Box<(AstExprP<P>, AstExprP<P>)>),
+    Index2(Box<(AstExprP<P>, AstExprP<P>, AstExprP<P>)>),
     Slice(
         Box<AstExprP<P>>,
         Option<Box<AstExprP<P>>>,
@@ -469,6 +470,10 @@ impl Display for Expr {
             Expr::Index(e_i) => {
                 let (e, i) = &**e_i;
                 write!(f, "{}[{}]", e.node, i.node)
+            }
+            Expr::Index2(a_i0_i1) => {
+                let (a, i0, i1) = &**a_i0_i1;
+                write!(f, "{}[{}, {}]", a.node, i0.node, i1.node)
             }
             Expr::Slice(e, i1, i2, i3) => {
                 write!(f, "{}[]", e.node)?;
