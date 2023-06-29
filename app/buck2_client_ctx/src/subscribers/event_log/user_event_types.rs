@@ -10,10 +10,13 @@
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_common::convert::ProstDurationExt;
+use buck2_data::ActionExecutionKind;
 use buck2_data::ActionKind;
 use buck2_data::ActionName;
 use buck2_data::BuckEvent;
 use buck2_data::StarlarkUserEvent;
+use buck2_event_observer::display::display_action_owner;
+use buck2_event_observer::display::TargetDisplayOptions;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -31,6 +34,8 @@ pub(crate) enum SerializeUserEventError {
     MissingInputMaterializationDuration,
     #[error("Internal error: Missing `name` in `ActionExecutionEnd`")]
     MissingName,
+    #[error("Internal error: `ActionKey` is malformed in `ActionExecutionEnd`")]
+    MalformedActionKey,
 }
 
 /// Wrapper around StarlarkUserEvent so we discard the rest of BuckEvent fields.
@@ -57,6 +62,8 @@ pub struct ActionExecutionEndSimple {
     duration_millis: u64,
     output_size: u64,
     input_materialization_duration_millis: u64,
+    execution_kind: ActionExecutionKind,
+    owner: String,
 }
 
 #[derive(Serialize, Deserialize, Allocative, Clone)]
@@ -131,6 +138,17 @@ pub(crate) fn try_get_user_event(buck_event: &BuckEvent) -> anyhow::Result<Optio
                         }
                     }
 
+                    let owner = action_execution
+                        .key
+                        .as_ref()
+                        .context(SerializeUserEventError::MalformedActionKey)?
+                        .owner
+                        .as_ref()
+                        .context(SerializeUserEventError::MalformedActionKey)?;
+
+                    // Let's just show the unconfigured label for simplicity
+                    let owner = display_action_owner(owner, TargetDisplayOptions::for_log())?;
+
                     let action_event = ActionExecutionEndSimple {
                         kind: action_execution.kind(),
                         name: action_execution
@@ -141,6 +159,8 @@ pub(crate) fn try_get_user_event(buck_event: &BuckEvent) -> anyhow::Result<Optio
                         duration_millis,
                         output_size: action_execution.output_size,
                         input_materialization_duration_millis,
+                        execution_kind: action_execution.execution_kind(),
+                        owner,
                     };
 
                     Ok(Some(UserEvent {
