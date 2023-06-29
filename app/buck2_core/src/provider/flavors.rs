@@ -110,6 +110,11 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<Providers
                     // This is for js_bundle. We strip it and let the configuration handle it instead.
                     "android" => return Ok(ProvidersName::Default),
 
+                    // Java/Kotlin sub-targets
+                    "class-abi" => "class-abi".to_owned(),
+                    "source-abi" => "source-abi".to_owned(),
+                    "source-only-abi" => "source-only-abi".to_owned(),
+
                     _ => {
                         return Ok(ProvidersName::NonDefault(Box::new(
                             NonDefaultProvidersName::UnrecognizedFlavor(flavors.into()),
