@@ -362,3 +362,16 @@ f()
 "#,
     );
 }
+
+#[test]
+fn test_list_append() {
+    TypeCheck::new().ty("x").check(
+        "list_append",
+        r#"
+# Type of `x` should be inferred as list of either `int` or `str`.
+x = []
+x.append(1)
+x.append("")
+"#,
+    );
+}
