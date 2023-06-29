@@ -375,3 +375,15 @@ x.append("")
 "#,
     );
 }
+
+#[test]
+fn test_list_append_bug() {
+    // TODO(nga): fix.
+    TypeCheck::new().ty("x").check(
+        "list_append_bug",
+        r#"
+x = []
+x.append(x)
+"#,
+    );
+}
