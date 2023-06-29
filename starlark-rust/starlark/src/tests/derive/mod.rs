@@ -20,3 +20,4 @@ mod docs;
 mod freeze;
 mod module;
 mod trace;
+mod unpack_value_attr;

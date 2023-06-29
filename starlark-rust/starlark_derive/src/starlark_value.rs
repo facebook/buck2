@@ -32,6 +32,12 @@ pub(crate) fn derive_starlark_value(
 
 struct StarlarkValueAttrs {
     typ: syn::Expr,
+    /// Implement `UnpackValue` for `&T`.
+    /// Note we are implementing `UnpackValue` for `&T` instead of `T`,
+    /// therefore we use proc macro on impl trait instead of `#[derive]` on struct.
+    unpack_value: bool,
+    /// Implement `StarlarkTypeRepr` for `&T`.
+    starlark_type_repr: bool,
 }
 
 impl syn::parse::Parse for StarlarkValueAttrs {
@@ -39,32 +45,152 @@ impl syn::parse::Parse for StarlarkValueAttrs {
         input.parse::<syn::Token![type]>()?;
         input.parse::<syn::Token![=]>()?;
         let typ = input.parse::<syn::Expr>()?;
-        Ok(StarlarkValueAttrs { typ })
+        let mut attrs = StarlarkValueAttrs {
+            typ,
+            unpack_value: false,
+            starlark_type_repr: false,
+        };
+
+        loop {
+            if input.is_empty() {
+                break;
+            }
+            input.parse::<syn::Token![,]>()?;
+            if input.is_empty() {
+                // Allow trailing comma.
+                break;
+            }
+            let name = input.parse::<syn::Ident>()?;
+            if name == "UnpackValue" {
+                attrs.unpack_value = true;
+            } else if name == "StarlarkTypeRepr" {
+                attrs.starlark_type_repr = true;
+            } else {
+                return Err(syn::Error::new_spanned(
+                    name,
+                    "unknown attribute, allowed attribute is `UnpackValue`, `StarlarkTypeRepr`",
+                ));
+            }
+        }
+
+        Ok(attrs)
     }
 }
 
-fn is_impl_starlark_value(input: &syn::ItemImpl) -> bool {
+struct ImplStarlarkValue<'a> {
+    input: &'a syn::ItemImpl,
+    lifetime_param: &'a syn::Lifetime,
+}
+
+fn is_impl_starlark_value(input: &syn::ItemImpl) -> syn::Result<ImplStarlarkValue> {
+    let err = "expected `impl StarlarkValue for ...`";
     let Some((_, path, _)) = &input.trait_ else {
-        return false;
+        return Err(syn::Error::new_spanned(
+            input,
+            err,
+        ));
     };
     let Some(last) = path.segments.last() else {
-        return false;
+        return Err(syn::Error::new_spanned(
+            path,
+            err,
+        ));
     };
-    last.ident == "StarlarkValue"
+    if last.ident != "StarlarkValue" {
+        return Err(syn::Error::new_spanned(&last.ident, err));
+    }
+    let mut lifetime_param = None;
+    for lt in input.generics.lifetimes() {
+        if lifetime_param.is_some() {
+            return Err(syn::Error::new_spanned(
+                lt,
+                "multiple lifetime parameters are not supported",
+            ));
+        }
+        lifetime_param = Some(lt);
+    }
+    let lifetime_param = match lifetime_param {
+        Some(lt) => &lt.lifetime,
+        None => {
+            return Err(syn::Error::new_spanned(
+                input,
+                "expected a lifetime parameter",
+            ));
+        }
+    };
+    Ok(ImplStarlarkValue {
+        input,
+        lifetime_param,
+    })
+}
+
+fn impl_unpack_value(
+    input: &ImplStarlarkValue,
+    unpack_value: bool,
+    starlark_type_repr: bool,
+) -> syn::Result<proc_macro2::TokenStream> {
+    if !unpack_value && !starlark_type_repr {
+        return Ok(proc_macro2::TokenStream::new());
+    }
+
+    if !unpack_value || !starlark_type_repr {
+        return Err(syn::Error::new_spanned(
+            input.input,
+            "`UnpackValue` and `StarlarkTypeRepr` can only be specified together",
+        ));
+    }
+
+    for param in &input.input.generics.params {
+        match param {
+            syn::GenericParam::Lifetime(_) => {}
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    param,
+                    "only lifetime parameters are supported to implement `UnpackValue` or `StarlarkTypeRepr`",
+                ));
+            }
+        }
+    }
+
+    let lt = input.lifetime_param;
+    let params = &input.input.generics.params;
+    let where_clause = &input.input.generics.where_clause;
+    let self_ty = &input.input.self_ty;
+    Ok(quote_spanned! {
+        input.input.span() =>
+
+        impl<#params> starlark::values::type_repr::StarlarkTypeRepr for &#lt #self_ty
+        #where_clause
+        {
+            fn starlark_type_repr() -> starlark::typing::Ty {
+                <#self_ty as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+            }
+        }
+
+        impl<#params> starlark::values::UnpackValue<#lt> for &#lt #self_ty
+        #where_clause
+        {
+            fn unpack_value(value: starlark::values::Value<#lt>) -> Option<&#lt #self_ty> {
+                starlark::values::ValueLike::downcast_ref(value)
+            }
+        }
+    })
 }
 
 fn derive_starlark_value_impl(
     attr: StarlarkValueAttrs,
     mut input: syn::ItemImpl,
 ) -> syn::Result<proc_macro2::TokenStream> {
-    let StarlarkValueAttrs { typ } = attr;
+    let StarlarkValueAttrs {
+        typ,
+        unpack_value,
+        starlark_type_repr,
+    } = attr;
 
-    if !is_impl_starlark_value(&input) {
-        return Err(syn::Error::new_spanned(
-            input,
-            "#[starlark_value] can only be applied to `impl StarlarkValue for ...`",
-        ));
-    }
+    let impl_starlark_value = is_impl_starlark_value(&input)?;
+
+    let impl_unpack_value =
+        impl_unpack_value(&impl_starlark_value, unpack_value, starlark_type_repr)?;
 
     let please_use_starlark_type_macro: syn::ImplItem =
         syn::parse2(quote_spanned! { input.span() =>
@@ -93,6 +219,8 @@ fn derive_starlark_value_impl(
 
     Ok(quote_spanned! {
         input.span() =>
+
+        #impl_unpack_value
 
         #input
     })

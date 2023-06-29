@@ -33,6 +33,22 @@ use crate::values::ValueError;
 
 /// How to convert a [`Value`] to a Rust type. Required for all arguments in
 /// a [`#[starlark_module]`](macro@crate::starlark_module) definition.
+///
+/// Note for simple references it often can be implemented with `#[starlark_value(UnpackValue)]`,
+/// for example:
+///
+/// ```
+/// # use allocative::Allocative;
+/// # use starlark::values::StarlarkValue;
+/// # use starlark::any::ProvidesStaticType;
+/// # use starlark::values::{NoSerialize, starlark_value};
+///
+/// #[derive(Debug, derive_more::Display, Allocative, NoSerialize, ProvidesStaticType)]
+/// struct MySimpleValue;
+///
+/// #[starlark_value(type = "MySimpleValue", UnpackValue, StarlarkTypeRepr)]
+/// impl<'v> StarlarkValue<'v> for MySimpleValue {}
+/// ```
 pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
     /// Description of values acceptable by `unpack_value`, e. g. `list or str`.
     fn expected() -> String {
