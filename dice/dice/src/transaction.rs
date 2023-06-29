@@ -63,4 +63,11 @@ impl DiceTransactionImpl {
             DiceTransactionImpl::Modern(ctx) => ctx.as_computations(),
         }
     }
+
+    pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations {
+        match self {
+            DiceTransactionImpl::Legacy(ctx) => ctx,
+            DiceTransactionImpl::Modern(ctx) => ctx.as_computations_mut(),
+        }
+    }
 }

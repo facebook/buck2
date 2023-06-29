@@ -123,6 +123,10 @@ impl BaseComputeCtx {
     pub(crate) fn as_computations(&self) -> &DiceComputations {
         &self.data
     }
+
+    pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations {
+        &mut self.data
+    }
 }
 
 impl Deref for BaseComputeCtx {

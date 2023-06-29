@@ -9,6 +9,7 @@
 
 use std::future::Future;
 use std::ops::Deref;
+use std::ops::DerefMut;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -144,5 +145,11 @@ impl Deref for DiceTransaction {
 
     fn deref(&self) -> &Self::Target {
         self.0.as_computations()
+    }
+}
+
+impl DerefMut for DiceTransaction {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.as_computations_mut()
     }
 }
