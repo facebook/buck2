@@ -429,6 +429,8 @@ impl RemoteExecutionClientImpl {
         maybe_logs_dir_path: Option<&AbsNormPath>,
         buck_out_path: &AbsNormPath,
     ) -> anyhow::Result<Self> {
+        tracing::info!("Creating a new RE client");
+
         let res: anyhow::Result<Self> = try {
             static DOWNLOAD_CONCURRENCY: EnvHelper<usize> =
                 EnvHelper::new("BUCK2_RE_DOWNLOAD_CONCURRENCY");
@@ -1068,10 +1070,14 @@ fn transform_platform(platform: &remote_execution::Platform) -> buck2_data::RePl
 /// it on a runtime thread.
 impl Drop for RemoteExecutionClientImpl {
     fn drop(&mut self) {
+        tracing::info!("Dropping RE client");
         let client = self.client.take();
 
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            handle.spawn_blocking(move || drop(client));
+            handle.spawn_blocking(move || {
+                drop(client);
+                tracing::info!("Dropped RE client");
+            });
         }
     }
 }
