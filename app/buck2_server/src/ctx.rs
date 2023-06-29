@@ -682,10 +682,8 @@ impl DiceUpdater for DiceCommandUpdater {
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
 
-        let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
-
         let configuror = BuildInterpreterConfiguror::new(
-            Some(prelude_path(cell_alias_resolver)?),
+            Some(prelude_path(&cell_resolver)?),
             self.interpreter_platform,
             self.interpreter_architecture,
             self.interpreter_xcode_version.clone(),
