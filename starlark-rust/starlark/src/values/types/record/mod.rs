@@ -41,6 +41,8 @@
 //! # "#);
 //! ```
 
+pub(crate) mod field;
+
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -48,7 +50,6 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
-use dupe::Dupe;
 use either::Either;
 use serde::Serialize;
 use starlark_derive::starlark_value;
@@ -69,10 +70,10 @@ use crate::starlark_complex_value;
 use crate::starlark_complex_values;
 use crate::values::comparison::equals_slice;
 use crate::values::function::FUNCTION_TYPE;
+use crate::values::record::field::FieldGen;
 use crate::values::types::exported_name::ExportedName;
 use crate::values::types::exported_name::FrozenExportedName;
 use crate::values::types::exported_name::MutableExportedName;
-use crate::values::typing::TypeCompiled;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
@@ -81,39 +82,6 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLike;
-
-/// The result of `field()`.
-#[derive(
-    Clone,
-    Debug,
-    Dupe,
-    Trace,
-    Freeze,
-    NoSerialize,
-    ProvidesStaticType,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(builtin = "extension")]
-pub struct FieldGen<V> {
-    pub(crate) typ: TypeCompiled<V>,
-    default: Option<V>,
-}
-
-impl<'v, V: ValueLike<'v>> Display for FieldGen<V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "field(")?;
-        Display::fmt(&self.typ, f)?;
-        if let Some(d) = &self.default {
-            write!(f, ", ")?;
-            Display::fmt(d, f)?;
-        }
-        write!(f, ")")
-    }
-}
-
-// Manual because no instance for Option<V>
-unsafe impl<From: Coerce<To>, To> Coerce<FieldGen<To>> for FieldGen<From> {}
 
 /// The result of `record()`, being the type of records.
 #[derive(
@@ -159,15 +127,8 @@ impl<'v, V: ValueLike<'v>> Display for RecordGen<V> {
     }
 }
 
-starlark_complex_value!(pub(crate) Field);
 starlark_complex_values!(RecordType);
 starlark_complex_value!(pub Record);
-
-impl<V> FieldGen<V> {
-    pub(crate) fn new(typ: TypeCompiled<V>, default: Option<V>) -> Self {
-        Self { typ, default }
-    }
-}
 
 fn record_fields<'v>(
     x: Either<&'v RecordType<'v>, &'v FrozenRecordType>,
@@ -223,21 +184,6 @@ impl<'v, V: ValueLike<'v>> RecordGen<V> {
             .keys()
             .map(String::as_str)
             .zip(self.values.iter().copied())
-    }
-}
-
-#[starlark_value(type = "field")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for FieldGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        self.typ.write_hash(hasher)?;
-        self.default.is_some().hash(hasher);
-        if let Some(d) = self.default {
-            d.write_hash(hasher)?;
-        }
-        Ok(())
     }
 }
 

@@ -23,7 +23,7 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
-use crate::values::record::Field;
+use crate::values::record::field::Field;
 use crate::values::record::RecordType;
 use crate::values::typing::TypeCompiled;
 use crate::values::Heap;
