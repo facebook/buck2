@@ -13,6 +13,7 @@ LinkerType = ["gnu", "darwin", "windows"]
 # configurations/constraints rather than part of the toolchain.
 LinkerInfo = provider(fields = [
     "archiver",
+    "archiver_flags",
     "archiver_supports_argfiles",
     "archiver_type",
     "archive_contents",
