@@ -84,6 +84,7 @@ const manualSidebar = [
           isInternal() ? 'faq/getting_help' : [],
           'faq/common_issues',
           isInternal() ? 'faq/meta_issues' : [],
+          isInternal() ? 'faq/meta_installation' : [],
           isInternal() ? 'faq/remote_execution' : [],
         ],
       },
