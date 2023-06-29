@@ -7,6 +7,7 @@ rust_protobuf_library(
     name = "buck2_data",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
+    doctests = False,  # FIXME
     protos = ["data.proto"],
     deps = [
         "fbsource//third-party/rust:derive_more",
