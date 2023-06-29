@@ -17,7 +17,6 @@
 
 use std::any;
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -455,20 +454,10 @@ impl Ty {
             (Ty::Dict(x), Ty::Dict(y)) => {
                 Either::Left(Ty::dict(Ty::union2(x.0, y.0), Ty::union2(x.1, y.1)))
             }
-            (
-                Ty::Struct(TyStruct { fields, extra }),
-                Ty::Struct(TyStruct {
-                    fields: mut fields2,
-                    extra: extra2,
-                }),
-            ) if extra == extra2 && itertools::equal(fields.keys(), fields2.keys()) => {
-                let mut res = BTreeMap::new();
-                for (k, v) in fields {
-                    let v2 = fields2.remove(&k).unwrap();
-                    res.insert(k, Ty::union2(v, v2));
-                }
-                Either::Left(Ty::Struct(TyStruct { fields: res, extra }))
-            }
+            (Ty::Struct(x), Ty::Struct(y)) => match TyStruct::union2(x, y) {
+                Ok(u) => Either::Left(Ty::Struct(u)),
+                Err((x, y)) => Either::Right((Ty::Struct(x), Ty::Struct(y))),
+            },
             xy => Either::Right(xy),
         });
 

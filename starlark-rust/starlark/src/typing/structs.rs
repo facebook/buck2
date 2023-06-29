@@ -60,6 +60,25 @@ impl TyStruct {
             _ => Some(Err(())),
         }
     }
+
+    pub(crate) fn union2(a: TyStruct, b: TyStruct) -> Result<TyStruct, (TyStruct, TyStruct)> {
+        if a == b {
+            // Fast path.
+            Ok(a)
+        } else if a.extra == b.extra && itertools::equal(a.fields.keys(), b.fields.keys()) {
+            let mut fields = BTreeMap::new();
+            for ((a_k, a_v), (b_k, b_v)) in a.fields.into_iter().zip(b.fields) {
+                assert_eq!(a_k, b_k);
+                fields.insert(a_k, Ty::union2(a_v, b_v));
+            }
+            Ok(TyStruct {
+                fields,
+                extra: a.extra,
+            })
+        } else {
+            Err((a, b))
+        }
+    }
 }
 
 impl Display for TyStruct {
