@@ -64,18 +64,6 @@ pub struct AnalysisActions<'v> {
     pub digest_config: DigestConfig,
 }
 
-impl<'v> StarlarkTypeRepr for &'v AnalysisActions<'v> {
-    fn starlark_type_repr() -> Ty {
-        AnalysisActions::get_type_starlark_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v AnalysisActions<'v> {
-    fn unpack_value(x: Value<'v>) -> Option<&'v AnalysisActions<'v>> {
-        x.downcast_ref()
-    }
-}
-
 impl<'v> AnalysisActions<'v> {
     pub fn state(&self) -> RefMut<AnalysisRegistry<'v>> {
         RefMut::map(self.state.borrow_mut(), |x| {
@@ -105,7 +93,7 @@ impl<'v> AnalysisActions<'v> {
     }
 }
 
-#[starlark_value(type = "actions")]
+#[starlark_value(type = "actions", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

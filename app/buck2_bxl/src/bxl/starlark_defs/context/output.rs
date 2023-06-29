@@ -37,7 +37,6 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
-use starlark::typing::Ty;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
@@ -46,7 +45,6 @@ use starlark::values::record::Record;
 use starlark::values::starlark_value;
 use starlark::values::structs::StructRef;
 use starlark::values::tuple::TupleRef;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -123,19 +121,7 @@ impl<'v> OutputStream<'v> {
     }
 }
 
-impl<'v> StarlarkTypeRepr for &'v OutputStream<'v> {
-    fn starlark_type_repr() -> Ty {
-        OutputStream::get_type_starlark_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v OutputStream<'v> {
-    fn unpack_value(x: Value<'v>) -> Option<&'v OutputStream> {
-        x.downcast_ref()
-    }
-}
-
-#[starlark_value(type = "bxl_output_stream")]
+#[starlark_value(type = "bxl_output_stream", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for OutputStream<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

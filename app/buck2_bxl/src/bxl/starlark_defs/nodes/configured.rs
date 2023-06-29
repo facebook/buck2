@@ -54,10 +54,8 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::structs::AllocStruct;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -469,7 +467,7 @@ pub struct StarlarkLazyAttrs<'v> {
     configured_target_node: &'v StarlarkConfiguredTargetNode,
 }
 
-#[starlark_value(type = "lazy_attrs")]
+#[starlark_value(type = "lazy_attrs", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkLazyAttrs<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -480,18 +478,6 @@ impl<'v> StarlarkValue<'v> for StarlarkLazyAttrs<'v> {
 impl<'v> AllocValue<'v> for StarlarkLazyAttrs<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
-    }
-}
-
-impl<'v> StarlarkTypeRepr for &'v StarlarkLazyAttrs<'v> {
-    fn starlark_type_repr() -> Ty {
-        StarlarkLazyAttrs::get_type_starlark_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v StarlarkLazyAttrs<'v> {
-    fn unpack_value(x: Value<'v>) -> Option<&'v StarlarkLazyAttrs<'v>> {
-        x.downcast_ref()
     }
 }
 
@@ -551,7 +537,7 @@ pub struct StarlarkLazyResolvedAttrs<'v> {
     resolution_ctx: LazyAttrResolutionContext<'v>,
 }
 
-#[starlark_value(type = "lazy_resolved_attrs")]
+#[starlark_value(type = "lazy_resolved_attrs", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkLazyResolvedAttrs<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -562,18 +548,6 @@ impl<'v> StarlarkValue<'v> for StarlarkLazyResolvedAttrs<'v> {
 impl<'v> AllocValue<'v> for StarlarkLazyResolvedAttrs<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
-    }
-}
-
-impl<'v> StarlarkTypeRepr for &'v StarlarkLazyResolvedAttrs<'v> {
-    fn starlark_type_repr() -> Ty {
-        StarlarkLazyResolvedAttrs::get_type_starlark_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v StarlarkLazyResolvedAttrs<'v> {
-    fn unpack_value(x: Value<'v>) -> Option<&'v StarlarkLazyResolvedAttrs<'v>> {
-        x.downcast_ref()
     }
 }
 

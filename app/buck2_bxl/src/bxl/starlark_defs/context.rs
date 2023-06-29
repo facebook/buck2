@@ -58,20 +58,16 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::typing::Ty;
 use starlark::values::dict::Dict;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark::values::structs::AllocStruct;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
@@ -264,7 +260,7 @@ impl<'v> BxlContext<'v> {
     }
 }
 
-#[starlark_value(type = "bxl_ctx")]
+#[starlark_value(type = "bxl_ctx", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for BxlContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -275,18 +271,6 @@ impl<'v> StarlarkValue<'v> for BxlContext<'v> {
 impl<'v> AllocValue<'v> for BxlContext<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
-    }
-}
-
-impl<'v> StarlarkTypeRepr for &'v BxlContext<'v> {
-    fn starlark_type_repr() -> Ty {
-        BxlContext::get_type_starlark_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v BxlContext<'v> {
-    fn unpack_value(x: Value<'v>) -> Option<&'v BxlContext<'v>> {
-        x.downcast_ref()
     }
 }
 

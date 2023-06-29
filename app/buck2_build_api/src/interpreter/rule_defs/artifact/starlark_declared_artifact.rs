@@ -28,9 +28,7 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::typing::Ty;
 use starlark::values::starlark_value;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -40,9 +38,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 
 use crate::artifact_groups::ArtifactGroup;
@@ -216,7 +212,7 @@ impl<'v> AllocValue<'v> for StarlarkDeclaredArtifact {
     }
 }
 
-#[starlark_value(type = "artifact")]
+#[starlark_value(type = "artifact", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -233,18 +229,6 @@ impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
-    }
-}
-
-impl<'v> StarlarkTypeRepr for &'v StarlarkDeclaredArtifact {
-    fn starlark_type_repr() -> Ty {
-        StarlarkDeclaredArtifact::get_type_starlark_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v StarlarkDeclaredArtifact {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        value.downcast_ref::<StarlarkDeclaredArtifact>()
     }
 }
 

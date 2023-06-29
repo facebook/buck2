@@ -36,9 +36,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
-use starlark::typing::Ty;
 use starlark::values::starlark_value;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
@@ -143,7 +141,7 @@ impl<'v> EnsuredArtifactGroup<'v> {
     }
 }
 
-#[starlark_value(type = "ensured_artifact_group")]
+#[starlark_value(type = "ensured_artifact_group", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroup<'v>
 where
     Self: ProvidesStaticType<'v>,
@@ -160,7 +158,7 @@ where
     }
 }
 
-#[starlark_value(type = "ensured_artifact_group_inner")]
+#[starlark_value(type = "ensured_artifact_group_inner", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroupInner
 where
     Self: ProvidesStaticType<'v>,
@@ -168,18 +166,6 @@ where
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         self.ags.hash(hasher);
         Ok(())
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v EnsuredArtifactGroup<'v> {
-    fn unpack_value(x: Value<'v>) -> Option<&'v EnsuredArtifactGroup<'v>> {
-        x.downcast_ref()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v EnsuredArtifactGroupInner {
-    fn unpack_value(x: Value<'v>) -> Option<&'v EnsuredArtifactGroupInner> {
-        x.downcast_ref()
     }
 }
 
@@ -290,30 +276,6 @@ impl<'v> AllocValue<'v> for EnsuredArtifactGroupInner {
     }
 }
 
-impl<'v> StarlarkTypeRepr for &'v EnsuredArtifact {
-    fn starlark_type_repr() -> Ty {
-        EnsuredArtifact::get_type_starlark_repr()
-    }
-}
-
-impl<'v> StarlarkTypeRepr for &'v EnsuredArtifactGroup<'v> {
-    fn starlark_type_repr() -> Ty {
-        EnsuredArtifactGroup::get_type_starlark_repr()
-    }
-}
-
-impl<'v> StarlarkTypeRepr for &'v EnsuredArtifactGroupInner {
-    fn starlark_type_repr() -> Ty {
-        EnsuredArtifactGroupInner::get_type_starlark_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v EnsuredArtifact {
-    fn unpack_value(x: Value<'v>) -> Option<&'v EnsuredArtifact> {
-        x.downcast_ref()
-    }
-}
-
 impl Serialize for EnsuredArtifact {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -341,7 +303,7 @@ impl Serialize for EnsuredArtifactGroupInner {
     }
 }
 
-#[starlark_value(type = "ensured_artifact")]
+#[starlark_value(type = "ensured_artifact", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifact
 where
     Self: ProvidesStaticType<'v>,

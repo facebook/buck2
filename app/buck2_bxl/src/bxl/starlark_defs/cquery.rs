@@ -27,10 +27,8 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::typing::Ty;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -39,7 +37,6 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
-use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -73,7 +70,7 @@ pub struct StarlarkCQueryCtx<'v> {
     target_platform: Option<TargetLabel>,
 }
 
-#[starlark_value(type = "cqueryctx")]
+#[starlark_value(type = "cqueryctx", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkCQueryCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -84,18 +81,6 @@ impl<'v> StarlarkValue<'v> for StarlarkCQueryCtx<'v> {
 impl<'v> AllocValue<'v> for StarlarkCQueryCtx<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
-    }
-}
-
-impl<'v> StarlarkTypeRepr for &'v StarlarkCQueryCtx<'v> {
-    fn starlark_type_repr() -> Ty {
-        StarlarkCQueryCtx::get_type_starlark_repr()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v StarlarkCQueryCtx<'v> {
-    fn unpack_value(x: Value<'v>) -> Option<&'v StarlarkCQueryCtx<'v>> {
-        x.downcast_ref()
     }
 }
 
