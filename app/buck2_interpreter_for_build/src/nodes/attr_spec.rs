@@ -20,8 +20,6 @@ use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::values::AttrValues;
-use buck2_node::visibility::VisibilitySpecification;
-use buck2_node::visibility::WithinViewSpecification;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use starlark::docs::DocString;
@@ -124,19 +122,15 @@ impl AttributeSpecExt for AttributeSpec {
                     CoercedValue::Default => {}
                 }
             } else if is_visibility {
-                if internals.super_package.visibility() != &VisibilitySpecification::DEFAULT {
-                    attr_values.push_sorted(
-                        attr_idx,
-                        CoercedAttr::Visibility(internals.super_package.visibility().dupe()),
-                    );
-                }
+                attr_values.push_sorted(
+                    attr_idx,
+                    CoercedAttr::Visibility(internals.super_package.visibility().dupe()),
+                );
             } else if is_with_view {
-                if internals.super_package.within_view() != &WithinViewSpecification::PUBLIC {
-                    attr_values.push_sorted(
-                        attr_idx,
-                        CoercedAttr::WithinView(internals.super_package.within_view().dupe()),
-                    );
-                }
+                attr_values.push_sorted(
+                    attr_idx,
+                    CoercedAttr::WithinView(internals.super_package.within_view().dupe()),
+                );
             }
         }
 
