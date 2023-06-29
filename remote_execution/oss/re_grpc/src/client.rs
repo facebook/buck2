@@ -174,8 +174,9 @@ fn prepare_uri(uri: Uri, tls: bool) -> anyhow::Result<Uri> {
         Some("grpc") | Some("dns") | Some("ipv4") | Some("ipv6") | None => {}
         Some(scheme) => {
             return Err(anyhow::anyhow!(
-                "Invalid URI scheme: `{}` (you should omit it)",
-                scheme
+                "Invalid URI scheme: `{}` for `{}` (you should omit it)",
+                scheme,
+                uri,
             ));
         }
     };
