@@ -346,6 +346,7 @@ def python_executable(
         info_to_interface(library_info),
         flatten(raw_deps),
         compile,
+        dbg_source_db,
     )
     if python_toolchain.emit_dependency_metadata:
         exe.sub_targets["dep-report"] = [create_dep_report(ctx, python_toolchain, main_module, library_info)]
@@ -379,7 +380,8 @@ def convert_python_library_to_executable(
         main_module: "string",
         library: PythonLibraryInterface.type,
         deps: ["dependency"],
-        compile: bool.type = False) -> PexProviders.type:
+        compile: bool.type = False,
+        dbg_source_db: [DefaultInfo.type, None] = None) -> PexProviders.type:
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -394,6 +396,7 @@ def convert_python_library_to_executable(
     }
 
     extensions = {}
+    extra_artifacts = {}
     extra_manifests = None
     for manifest in library.iter_manifests():
         if manifest.extensions:
@@ -576,16 +579,19 @@ def convert_python_library_to_executable(
         preload_names = [paths.join("runtime", "lib", n) for n in preload_names]
 
         # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
-        artifacts = dict(extension_info.artifacts)
+        extra_artifacts.update(dict(extension_info.artifacts))
         native_libs["runtime/bin/{}".format(ctx.attrs.executable_name)] = LinkedObject(
             output = executable_info.binary,
             dwp = executable_info.dwp,
         )
-        artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
-        extra_manifests = create_manifest_for_source_map(ctx, "extension_stubs", artifacts)
 
+        extra_artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
     else:
         native_libs = {name: shared_lib.lib for name, shared_lib in library.shared_libraries().items()}
+
+    if dbg_source_db:
+        extra_artifacts["dbg-db.json"] = dbg_source_db.default_outputs[0]
+    extra_manifests = create_manifest_for_source_map(ctx, "extra_manifests", extra_artifacts)
 
     # Combine sources and extensions into a map of all modules.
     pex_modules = PexModules(
