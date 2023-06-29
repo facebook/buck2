@@ -154,6 +154,9 @@ impl AnonTargetKey {
         let entries = attributes.collect_entries();
         let attrs_spec = rule.attributes();
         let mut attrs = OrderedMap::with_capacity(attrs_spec.len());
+
+        let anon_attr_ctx = AnonAttrCtx::new(execution_platform);
+
         for (k, v) in entries {
             if k == "name" {
                 name = Some(Self::coerce_name(v)?);
@@ -165,7 +168,7 @@ impl AnonTargetKey {
                     .ok_or_else(|| AnonTargetsError::UnknownAttribute(k.to_owned()))?;
                 attrs.insert(
                     k.to_owned(),
-                    Self::coerce_to_anon_target_attr(attr.coercer(), v)
+                    Self::coerce_to_anon_target_attr(attr.coercer(), v, &anon_attr_ctx)
                         .with_context(|| format!("Error coercing attribute `{}`", k))?,
                 );
             }
@@ -175,7 +178,7 @@ impl AnonTargetKey {
                 if let Some(x) = a.default() {
                     attrs.insert(
                         k.to_owned(),
-                        Self::coerced_to_anon_target_attr(x, a.coercer())?,
+                        Self::coerced_to_anon_target_attr(x, a.coercer(), &anon_attr_ctx)?,
                     );
                 } else {
                     return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into());
@@ -242,17 +245,20 @@ impl AnonTargetKey {
         }
     }
 
-    fn coerce_to_anon_target_attr(attr: &AttrType, x: Value) -> anyhow::Result<AnonTargetAttr> {
-        let ctx = AnonAttrCtx::new();
-
+    fn coerce_to_anon_target_attr(
+        attr: &AttrType,
+        x: Value,
+        ctx: &AnonAttrCtx,
+    ) -> anyhow::Result<AnonTargetAttr> {
         attr.coerce_item(AttrIsConfigurable::No, &ctx, x)
     }
 
     fn coerced_to_anon_target_attr(
         x: &CoercedAttr,
         ty: &AttrType,
+        ctx: &AnonAttrCtx,
     ) -> anyhow::Result<AnonTargetAttr> {
-        AnonTargetAttr::from_coerced_attr(x, ty, &AnonAttrCtx::new())
+        AnonTargetAttr::from_coerced_attr(x, ty, ctx)
     }
 
     pub(crate) async fn resolve(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
@@ -432,16 +438,18 @@ impl AnonTargetKey {
 }
 
 /// Several attribute functions need a context, make one that is mostly useless.
-struct AnonAttrCtx {
+pub struct AnonAttrCtx {
     cfg: ConfigurationData,
     transitions: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    pub execution_platform_resolution: ExecutionPlatformResolution,
 }
 
 impl AnonAttrCtx {
-    fn new() -> Self {
+    fn new(execution_platform_resolution: &ExecutionPlatformResolution) -> Self {
         Self {
             cfg: ConfigurationData::unspecified(),
             transitions: OrderedMap::new(),
+            execution_platform_resolution: execution_platform_resolution.clone(),
         }
     }
 }

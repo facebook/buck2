@@ -43,12 +43,13 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::anon_target_attr::AnonTargetAttr;
+use crate::anon_targets::AnonAttrCtx;
 
 pub trait AnonTargetAttrTypeCoerce {
     fn coerce_item(
         &self,
         configurable: AttrIsConfigurable,
-        _ctx: &dyn AttrCoercionContext,
+        ctx: &AnonAttrCtx,
         value: Value,
     ) -> anyhow::Result<AnonTargetAttr>;
 }
@@ -57,7 +58,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
     fn coerce_item(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
+        ctx: &AnonAttrCtx,
         value: Value,
     ) -> anyhow::Result<AnonTargetAttr> {
         match self.0.as_ref() {
@@ -190,10 +191,7 @@ impl AnonTargetCoercionError {
     }
 }
 
-fn to_anon_target_any(
-    value: Value,
-    ctx: &dyn AttrCoercionContext,
-) -> anyhow::Result<AnonTargetAttr> {
+fn to_anon_target_any(value: Value, ctx: &AnonAttrCtx) -> anyhow::Result<AnonTargetAttr> {
     if value.is_none() {
         Ok(AnonTargetAttr::None)
     } else if let Some(x) = value.unpack_bool() {
@@ -238,7 +236,7 @@ fn to_anon_target_any(
 fn to_anon_target_dict(
     dict_attr_type: &DictAttrType,
     configurable: AttrIsConfigurable,
-    ctx: &dyn AttrCoercionContext,
+    ctx: &AnonAttrCtx,
     value: Value,
 ) -> anyhow::Result<AnonTargetAttr> {
     if let Some(dict) = DictRef::from_value(value) {
@@ -275,7 +273,7 @@ fn to_anon_target_dict(
 fn to_anon_target_one_of(
     one_of_attr_type: &OneOfAttrType,
     configurable: AttrIsConfigurable,
-    ctx: &dyn AttrCoercionContext,
+    ctx: &AnonAttrCtx,
     value: Value,
 ) -> anyhow::Result<AnonTargetAttr> {
     let mut errs = Vec::new();
@@ -295,7 +293,7 @@ fn to_anon_target_one_of(
 fn to_anon_target_tuple(
     tuple_attr_type: &TupleAttrType,
     configurable: AttrIsConfigurable,
-    ctx: &dyn AttrCoercionContext,
+    ctx: &AnonAttrCtx,
     value: Value,
 ) -> anyhow::Result<AnonTargetAttr> {
     let coerce = |value, items: &[Value]| {
@@ -334,7 +332,7 @@ fn to_anon_target_tuple(
 fn to_anon_target_list(
     list_attr_type: &ListAttrType,
     configurable: AttrIsConfigurable,
-    ctx: &dyn AttrCoercionContext,
+    ctx: &AnonAttrCtx,
     value: Value,
 ) -> anyhow::Result<AnonTargetAttr> {
     if let Some(list) = ListRef::from_value(value) {
