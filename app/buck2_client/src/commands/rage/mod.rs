@@ -12,6 +12,7 @@ mod materializer;
 mod rage_dumps;
 mod source_control;
 mod system_info;
+mod thread_dump;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -200,6 +201,9 @@ pub struct RageCommand {
     /// Where buck2 rage is being called from
     #[clap(long, arg_enum, default_value_t = Origin::Unspecified)]
     origin: Origin,
+    /// Obtain thread dump for debugging
+    #[clap(long)]
+    thread_dump: bool,
 }
 
 impl RageCommand {
@@ -256,6 +260,16 @@ impl RageCommand {
                 timeout,
                 || materializer::upload_materializer_state(&buckd, &client_ctx, &manifold_id),
             );
+            let thread_dump = {
+                let title = "Thread dump Manifold path".to_owned();
+                if self.thread_dump {
+                    RageSection::get(title, timeout, || {
+                        thread_dump::upload_thread_dump(&buckd, &manifold_id)
+                    })
+                } else {
+                    RageSection::get_skipped(title)
+                }
+            };
             let build_info_command = {
                 let title = "Associated invocation info".to_owned();
                 match selected_invocation.as_ref() {
@@ -282,6 +296,7 @@ impl RageCommand {
                 hg_snapshot_id,
                 dice_dump,
                 materializer_state,
+                thread_dump,
                 build_info,
                 event_log_dump,
             ) = tokio::join!(
@@ -290,6 +305,7 @@ impl RageCommand {
                 hg_snapshot_id_command,
                 dice_dump_command,
                 materializer_state,
+                thread_dump,
                 build_info_command,
                 event_log_command,
             );
@@ -299,6 +315,7 @@ impl RageCommand {
                 hg_snapshot_id.to_string(),
                 dice_dump.to_string(),
                 materializer_state.to_string(),
+                thread_dump.to_string(),
                 build_info.to_string(),
                 event_log_dump.to_string(),
             ];
@@ -313,6 +330,7 @@ impl RageCommand {
                 hg_snapshot_id,
                 dice_dump,
                 materializer_state,
+                thread_dump,
                 event_log_dump,
                 build_info,
             )
@@ -331,6 +349,7 @@ impl RageCommand {
         hg_snapshot_id: RageSection<String>,
         dice_dump: RageSection<String>,
         materializer_state: RageSection<String>,
+        thread_dump: RageSection<String>,
         event_log_dump: RageSection<String>,
         build_info: RageSection<build_info::BuildInfo>,
     ) -> anyhow::Result<()> {
@@ -339,6 +358,7 @@ impl RageCommand {
             hashmap! (
                 "dice_dump" => dice_dump.output(),
                 "materializer_state" => materializer_state.output(),
+                "thread_dump" => thread_dump.output(),
                 "daemon_stderr_dump" => daemon_stderr_dump.output(),
                 "hg_snapshot_id" => hg_snapshot_id.output(),
                 "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),

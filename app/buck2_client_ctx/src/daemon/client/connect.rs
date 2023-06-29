@@ -505,6 +505,10 @@ impl BootstrapBuckdClient {
         self.kill("client expected different buckd constraints")
             .await
     }
+
+    pub fn pid(&self) -> i64 {
+        self.info.pid
+    }
 }
 
 /// The settings prior to connecting to the Buck daemon.
