@@ -38,7 +38,7 @@
           IOKit
           Security
         ]);
-        packages = [ pkgs.cargo-bloat my-rust-bin ];
+        packages = [ pkgs.cargo-bloat my-rust-bin pkgs.mold pkgs.reindeer pkgs.lld_16 pkgs.clang_16 ];
         shellHook = ''
           export BUCK2_BUILD_PROTOC=${pkgs.protobuf}/bin/protoc
           export BUCK2_BUILD_PROTOC_INCLUDE=${pkgs.protobuf}/include
