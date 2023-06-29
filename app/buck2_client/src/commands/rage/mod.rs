@@ -8,8 +8,8 @@
  */
 
 mod build_info;
+mod dice;
 mod materializer;
-mod rage_dumps;
 mod source_control;
 mod system_info;
 mod thread_dump;
@@ -253,7 +253,7 @@ impl RageCommand {
             );
             let dice_dump_command =
                 RageSection::get("Dice dump Manifold path".to_owned(), timeout, || async {
-                    rage_dumps::upload_dice_dump(buckd.clone()?, dice_dump_dir, &manifold_id).await
+                    dice::upload_dice_dump(buckd.clone()?, dice_dump_dir, &manifold_id).await
                 });
             let materializer_state = RageSection::get(
                 "Materializer state Manifold path".to_owned(),
