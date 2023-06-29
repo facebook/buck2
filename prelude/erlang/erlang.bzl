@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":erlang_application.bzl", "StartTypeValues", "erlang_application_impl")
+load(":erlang_application.bzl", "erlang_application_impl")
 load(":erlang_application_includes.bzl", "erlang_application_includes_impl")
 load(":erlang_escript.bzl", "erlang_escript_impl")
 load(":erlang_otp_application.bzl", "normalize_application")
@@ -13,86 +13,7 @@ load(":erlang_release.bzl", "erlang_release_impl")
 load(":erlang_tests.bzl", "erlang_test_impl", "erlang_tests_macro")
 load(":erlang_toolchain.bzl", "erlang_otp_binaries_impl")
 
-# all rules have an optional contacts attribute
-common_attributes = {
-    "contacts": attrs.list(attrs.string(), default = []),
-    "labels": attrs.list(attrs.string(), default = []),
-    "os_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None),
-}
-
-common_shell_attributes = {
-    "shell_configs": attrs.set(attrs.dep(), default = read_config("erlang", "shell_configs", "").split()),
-    "shell_libs": attrs.set(attrs.dep(), default = ["prelude//erlang/shell:buck2_shell_utils"]),
-}
-
-common_application_attributes = dict({
-    "applications": attrs.list(attrs.dep(), default = []),
-    "included_applications": attrs.list(attrs.dep(), default = []),
-    "version": attrs.string(default = "1.0.0"),
-    "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
-}, **common_shell_attributes)
-
-# target attributes for public erlang targets
-rules_attributes = {
-    "erlang_app": dict({
-        "app_src": attrs.option(attrs.source(), default = None),
-        "build_edoc_chunks": attrs.bool(default = True),
-        "env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None),
-        "erl_opts": attrs.option(attrs.list(attrs.string()), default = None),
-        "extra_includes": attrs.list(attrs.dep(), default = []),
-        "includes": attrs.list(attrs.source(), default = []),
-        "metadata": attrs.option(attrs.dict(key = attrs.string(), value = attrs.one_of(attrs.string(), attrs.list(attrs.string()))), default = None),
-        "mod": attrs.option(attrs.tuple(attrs.string(), attrs.list(attrs.string())), default = None),
-        "resources": attrs.list(attrs.dep(), default = []),
-        "srcs": attrs.list(attrs.source(), default = []),
-        "use_global_parse_transforms": attrs.bool(default = True),
-    }, **common_application_attributes),
-    "erlang_app_includes": {
-        "application_name": attrs.string(),
-        "includes": attrs.list(attrs.source(), default = []),
-        "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
-    },
-    "erlang_escript": {
-        "deps": attrs.list(attrs.dep()),
-        "emu_args": attrs.list(attrs.string(), default = []),
-        "include_priv": attrs.bool(default = False),
-        "main_module": attrs.option(attrs.string(), default = None),
-        "resources": attrs.list(attrs.dep(), default = []),
-        "script_name": attrs.option(attrs.string(), default = None),
-        "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
-    },
-    "erlang_otp_binaries": {
-        "erl": attrs.source(),
-        "erlc": attrs.source(),
-        "escript": attrs.source(),
-    },
-    "erlang_release": {
-        "applications": attrs.list(attrs.one_of(attrs.dep(), attrs.tuple(attrs.dep(), attrs.enum(StartTypeValues)))),
-        "include_erts": attrs.bool(default = False),
-        "multi_toolchain": attrs.option(attrs.list(attrs.dep()), default = None),
-        "overlays": attrs.dict(key = attrs.string(), value = attrs.list(attrs.dep()), default = {}),
-        "release_name": attrs.option(attrs.string(), default = None),
-        "version": attrs.string(default = "1.0.0"),
-        "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
-    },
-    "erlang_test": dict({
-        "config_files": attrs.list(attrs.dep(), default = []),
-        "deps": attrs.list(attrs.dep(), default = []),
-        "env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
-        "extra_ct_hooks": attrs.list(attrs.string(), default = []),
-        "preamble": attrs.string(default = read_config("erlang", "erlang_test_preamble", "test:info(),test:ensure_initialized(),user_drv:start().")),
-        "property_tests": attrs.list(attrs.dep(), default = []),
-        "resources": attrs.list(attrs.dep(), default = []),
-        "suite": attrs.source(),
-        "_cli_lib": attrs.dep(default = "prelude//erlang/common_test/test_cli_lib:test_cli_lib"),
-        "_ct_opts": attrs.string(default = read_config("erlang", "erlang_test_ct_opts", "")),
-        "_providers": attrs.string(),
-        "_test_binary": attrs.dep(default = "prelude//erlang/common_test/test_binary:escript"),
-        "_test_binary_lib": attrs.dep(default = "prelude//erlang/common_test/test_binary:test_binary"),
-        "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
-        "_trampoline": attrs.option(attrs.dep(), default = None),
-    }, **common_shell_attributes),
-}
+# all attributes are now defined in prelude//decls:erlang_rules.bzl
 
 # target rules
 
@@ -103,11 +24,6 @@ implemented_rules = {
     "erlang_otp_binaries": erlang_otp_binaries_impl,
     "erlang_release": erlang_release_impl,
     "erlang_test": erlang_test_impl,
-}
-
-attributes = {
-    name: dict(rules_attributes[name], **common_attributes)
-    for name in rules_attributes
 }
 
 # Macros

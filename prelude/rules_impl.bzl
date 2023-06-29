@@ -25,7 +25,7 @@ load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
 
 # Erlang
-load("@prelude//erlang:erlang.bzl", _erlang_extra_attributes = "attributes", _erlang_implemented_rules = "implemented_rules")
+load("@prelude//erlang:erlang.bzl", _erlang_implemented_rules = "implemented_rules")
 
 # Git
 load("@prelude//git:git_fetch.bzl", "git_fetch_impl")
@@ -93,6 +93,7 @@ load("@prelude//decls/core_rules.bzl", "core_rules")
 load("@prelude//decls/cxx_rules.bzl", "cxx_rules")
 load("@prelude//decls/d_rules.bzl", "d_rules")
 load("@prelude//decls/dotnet_rules.bzl", "dotnet_rules")
+load("@prelude//decls/erlang_rules.bzl", "erlang_rules")
 load("@prelude//decls/git_rules.bzl", "git_rules")
 load("@prelude//decls/go_rules.bzl", "go_rules")
 load("@prelude//decls/groovy_rules.bzl", "groovy_rules")
@@ -133,6 +134,7 @@ rule_decl_records = [
     cxx_rules,
     d_rules,
     dotnet_rules,
+    erlang_rules,
     git_rules,
     go_rules,
     groovy_rules,
@@ -536,7 +538,6 @@ all_extra_attributes = _merge_dictionaries([
     _android_extra_attributes,
     _apple_extra_attributes,
     _config_extra_attributes,
-    _erlang_extra_attributes,
     _java_extra_attributes,
     _js_extra_attributes,
     _julia_extra_attributes,
