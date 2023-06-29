@@ -700,6 +700,7 @@ http_archive = prelude_rule(
           name = 'thrift-compiler-bin',
           out = 'thrift',
           cmd = 'cp $(location :thrift-archive)/bin/thrift $OUT',
+          executable = True,
         )
 
         genrule(
@@ -825,6 +826,7 @@ http_file = prelude_rule(
           name = 'thrift-compiler-bin',
           url = 'https://internal-mirror.example.com/bin/thrift-compiler',
           sha256 = 'c24932ccabb66fffb2d7122298f7f1f91e0b1f14e05168e3036333f84bdf58dc',
+          executable = True,
         )
 
         ```
