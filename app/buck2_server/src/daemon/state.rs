@@ -154,9 +154,6 @@ pub struct DaemonStateData {
     /// Http client used for materializer and RunAction implementations.
     pub http_client: CountingHttpClient,
 
-    /// Are we using buck-out as our cwd?
-    pub cwd_buck_out: bool,
-
     /// Did we enable eden I/O v2?
     pub eden_io_v2: bool,
 }
@@ -224,17 +221,10 @@ impl DaemonState {
 
         fs_util::create_dir_all(paths.buck_out_path()).context("Error creating buck_out_path")?;
 
-        let cwd_buck_out = init_ctx
-            .daemon_startup_config
-            .cwd_buck_out
-            .as_deref()
-            .map(RolloutPercentage::from_str)
-            .transpose()
-            .context("Invalid cwd_buck_out")?
-            .unwrap_or_else(RolloutPercentage::never)
-            .roll();
+        let materialization_method =
+            MaterializationMethod::try_new_from_config(legacy_configs.get(cells.root_cell()).ok())?;
 
-        if cwd_buck_out {
+        if !matches!(materialization_method, MaterializationMethod::Eden) {
             fs_util::set_current_dir(paths.buck_out_path()).context("Error changing dirs")?;
             buck2_core::fs::cwd::cwd_will_not_change().context("Error initializing static cwd")?;
         }
@@ -295,8 +285,6 @@ impl DaemonState {
             })
             .collect::<anyhow::Result<_>>()?;
 
-        let materialization_method =
-            MaterializationMethod::try_new_from_config(legacy_configs.get(cells.root_cell()).ok())?;
         let disk_state_options = DiskStateOptions::new(root_config, materialization_method.dupe())?;
         let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?);
         let cache_dir_path = paths.cache_dir_path();
@@ -490,7 +478,6 @@ impl DaemonState {
             materializer_state_identity,
             enable_restarter,
             http_client,
-            cwd_buck_out,
             eden_io_v2,
         }))
     }
@@ -654,7 +641,6 @@ impl DaemonState {
                 "sqlite-materializer-state:{}",
                 data.disk_state_options.sqlite_materializer_state
             ),
-            format!("cwd-buck-out:{}", data.cwd_buck_out),
             format!("eden-io-v2:{}", data.eden_io_v2),
         ];
 

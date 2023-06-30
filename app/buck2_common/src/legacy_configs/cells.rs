@@ -432,7 +432,6 @@ pub struct ImmediateConfig {
 #[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DaemonStartupConfig {
     pub daemon_buster: Option<String>,
-    pub cwd_buck_out: Option<String>,
     pub digest_algorithms: Option<String>,
     pub source_digest_algorithm: Option<String>,
     pub eden_io_v2: Option<String>,
@@ -442,7 +441,6 @@ impl DaemonStartupConfig {
     fn new(config: &LegacyBuckConfig) -> Self {
         Self {
             daemon_buster: config.get("buck2", "daemon_buster").map(ToOwned::to_owned),
-            cwd_buck_out: config.get("buck2", "cwd_buck_out").map(ToOwned::to_owned),
             digest_algorithms: config
                 .get("buck2", "digest_algorithms")
                 .map(ToOwned::to_owned),
@@ -465,7 +463,6 @@ impl DaemonStartupConfig {
     pub fn testing_empty() -> Self {
         Self {
             daemon_buster: None,
-            cwd_buck_out: None,
             digest_algorithms: None,
             source_digest_algorithm: None,
             eden_io_v2: None,
