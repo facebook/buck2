@@ -85,6 +85,7 @@ pub use crate::values::types::none;
 pub use crate::values::types::range;
 pub use crate::values::types::record;
 pub use crate::values::types::regex;
+pub use crate::values::types::starlark_value_as_type;
 pub use crate::values::types::string;
 pub use crate::values::types::structs;
 pub use crate::values::types::tuple;
