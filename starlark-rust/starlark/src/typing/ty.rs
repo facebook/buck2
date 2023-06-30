@@ -711,10 +711,7 @@ impl Ty {
                 if rem.is_empty() {
                     if let Some(resolved) = &first.node.1 {
                         match resolved {
-                            ResolvedIdent::Slot(_, _) => {
-                                // Should not happen: only global identifiers are allowed in type.
-                                unknown()
-                            }
+                            ResolvedIdent::Slot(_, _) => unknown(),
                             ResolvedIdent::Global(v) => {
                                 let heap = Heap::new();
                                 match TypeCompiled::new(v.to_value(), &heap) {
