@@ -108,7 +108,7 @@ macro_rules! starlark_complex_values {
             impl<'v> $x<'v> {
                 #[allow(dead_code)]
                 #[inline]
-                fn from_value(
+                pub(crate) fn from_value(
                     x: $crate::values::Value<'v>,
                 ) -> Option<$crate::__macro_refs::Either<&'v Self, &'v [< Frozen $x >]>> {
                     if let Some(x) = x.unpack_frozen() {

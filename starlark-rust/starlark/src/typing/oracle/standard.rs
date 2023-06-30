@@ -57,7 +57,7 @@ impl OracleStandard {
         add::<crate::values::none::NoneType>(&mut fallback);
         add::<crate::values::range::Range>(&mut fallback);
         add::<crate::values::record::field::FrozenField>(&mut fallback);
-        add::<crate::values::record::FrozenRecordType>(&mut fallback);
+        add::<crate::values::record::record_type::FrozenRecordType>(&mut fallback);
         add::<crate::values::regex::StarlarkRegex>(&mut fallback);
         add::<crate::values::dict::value::DictGen<crate::values::dict::value::FrozenDictData>>(
             &mut fallback,

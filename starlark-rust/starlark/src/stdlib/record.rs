@@ -24,7 +24,7 @@ use crate as starlark;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
 use crate::values::record::field::Field;
-use crate::values::record::RecordType;
+use crate::values::record::record_type::RecordType;
 use crate::values::typing::TypeCompiled;
 use crate::values::Heap;
 use crate::values::Value;
