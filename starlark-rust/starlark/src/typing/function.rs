@@ -27,6 +27,7 @@ use crate::codemap::Spanned;
 use crate::typing::error::TypingError;
 use crate::typing::ty::TyCustomImpl;
 use crate::typing::Ty;
+use crate::typing::TypingAttr;
 use crate::typing::TypingOracleCtx;
 
 /// An argument being passed to a function
@@ -182,10 +183,6 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         Some("function")
     }
 
-    fn has_type_attr(&self) -> bool {
-        self.0.has_type_attr()
-    }
-
     fn validate_call(
         &self,
         span: Span,
@@ -193,6 +190,20 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError> {
         self.0.validate_call(span, args, oracle)
+    }
+
+    fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+        if attr == TypingAttr::Regular("type") && self.0.has_type_attr() {
+            Some(Ok(Ty::string()))
+        } else {
+            // TODO(nga): some types (like record types) pretend to be functions,
+            //   so we don't know which attributes they have.
+            None
+        }
+    }
+
+    fn union2(x: Box<Self>, other: Box<Self>) -> Result<Box<Self>, (Box<Self>, Box<Self>)> {
+        if x == other { Ok(x) } else { Err((x, other)) }
     }
 }
 

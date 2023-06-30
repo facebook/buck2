@@ -60,7 +60,7 @@ pub struct TypingOracleCtx<'a> {
 impl<'a> TypingOracle for TypingOracleCtx<'a> {
     fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         match ty {
-            Ty::Struct(s) => s.attribute(attr),
+            Ty::Custom(c) => c.0.attribute(attr),
             ty => self.oracle.attribute(ty, attr),
         }
     }
@@ -250,7 +250,7 @@ impl<'a> TypingOracleCtx<'a> {
                     },
                 )),
             },
-            Ty::List(_) | Ty::Dict(_) | Ty::Tuple(_) | Ty::Struct { .. } => Err(self.mk_error(
+            Ty::List(_) | Ty::Dict(_) | Ty::Tuple(_) => Err(self.mk_error(
                 span,
                 TypingOracleCtxError::CallToNonCallable {
                     ty: fun.to_string(),

@@ -66,7 +66,7 @@ impl TyCustomFunctionImpl for StructType {
                 Arg::Kwargs(_) => extra = true,
             }
         }
-        Ok(Ty::Struct(TyStruct { fields, extra }))
+        Ok(Ty::custom(TyStruct { fields, extra }))
     }
 }
 

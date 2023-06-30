@@ -77,7 +77,7 @@ fn test_oracle() {
 
     fn has_type(x: &Result<Ty, ()>) -> bool {
         match x {
-            Ok(Ty::Custom(c)) => c.0.has_type_attr(),
+            Ok(Ty::Custom(c)) => matches!(c.0.attribute(TypingAttr::Regular("type")), Some(Ok(_))),
             _ => false,
         }
     }

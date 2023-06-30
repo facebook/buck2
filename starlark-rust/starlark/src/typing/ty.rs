@@ -16,6 +16,8 @@
  */
 
 use std::any;
+use std::any::Any;
+use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
@@ -126,8 +128,6 @@ pub enum Ty {
     Tuple(Vec<Ty>),
     /// A dictionary, with key and value types
     Dict(Box<(Ty, Ty)>),
-    /// A `struct`.
-    Struct(TyStruct),
     /// Custom type.
     Custom(TyCustom),
 }
@@ -192,30 +192,34 @@ impl TyUnion {
 /// Custom type implementation. [`Display`] must implement the representation of the type.
 pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync + 'static {
     fn as_name(&self) -> Option<&str>;
-    fn has_type_attr(&self) -> bool {
-        false
-    }
     fn validate_call(
         &self,
         span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError>;
+    fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>>;
+    fn union2(x: Box<Self>, other: Box<Self>) -> Result<Box<Self>, (Box<Self>, Box<Self>)>;
 }
 
 pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {
     fn eq_token(&self) -> PartialEqAny;
     fn cmp_token(&self) -> (OrdAny, &'static str);
+    fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
     fn clone_box(&self) -> Box<dyn TyCustomDyn>;
     fn as_name(&self) -> Option<&str>;
-    fn has_type_attr(&self) -> bool;
     fn validate_call(
         &self,
         span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError>;
+    fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>>;
+    fn union2(
+        self: Box<Self>,
+        other: Box<dyn TyCustomDyn>,
+    ) -> Result<Box<dyn TyCustomDyn>, (Box<dyn TyCustomDyn>, Box<dyn TyCustomDyn>)>;
 }
 
 impl<T: TyCustomImpl> TyCustomDyn for T {
@@ -227,16 +231,16 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         (OrdAny::new(self), any::type_name::<Self>())
     }
 
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
     fn clone_box(&self) -> Box<dyn TyCustomDyn> {
         Box::new(self.clone())
     }
 
     fn as_name(&self) -> Option<&str> {
         self.as_name()
-    }
-
-    fn has_type_attr(&self) -> bool {
-        self.has_type_attr()
     }
 
     fn validate_call(
@@ -247,6 +251,24 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
     ) -> Result<Ty, TypingError> {
         self.validate_call(span, args, oracle)
     }
+
+    fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+        self.attribute(attr)
+    }
+
+    fn union2(
+        self: Box<Self>,
+        other: Box<dyn TyCustomDyn>,
+    ) -> Result<Box<dyn TyCustomDyn>, (Box<dyn TyCustomDyn>, Box<dyn TyCustomDyn>)> {
+        if TypeId::of::<Self>() == other.eq_token().type_id() {
+            let other: Box<Self> = other.into_any().downcast().unwrap();
+            T::union2(self, other)
+                .map::<Box<dyn TyCustomDyn>, _>(|x| x)
+                .map_err::<(Box<dyn TyCustomDyn>, Box<dyn TyCustomDyn>), _>(|(x, y)| (x, y))
+        } else {
+            Err((self, other))
+        }
+    }
 }
 
 #[derive(Debug, derive_more::Display, Allocative)]
@@ -255,6 +277,24 @@ pub struct TyCustom(pub(crate) Box<dyn TyCustomDyn>);
 impl TyCustom {
     pub(crate) fn as_name(&self) -> Option<&str> {
         self.0.as_name()
+    }
+
+    pub(crate) fn union2(x: TyCustom, y: TyCustom) -> Result<TyCustom, (TyCustom, TyCustom)> {
+        x.0.union2(y.0)
+            .map(TyCustom)
+            .map_err(|(x, y)| (TyCustom(x), TyCustom(y)))
+    }
+
+    #[allow(clippy::if_same_then_else, clippy::needless_bool)]
+    pub(crate) fn intersects(x: &TyCustom, y: &TyCustom) -> bool {
+        if x.as_name() == Some("function") && y.as_name() == Some("function") {
+            true
+        } else if x.0.eq_token().type_id() == y.0.eq_token().type_id() {
+            // FIXME: Can probably be a bit more precise here
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -333,7 +373,7 @@ impl Ty {
             "function" => {
                 Self::function(vec![Param::args(Ty::Any), Param::kwargs(Ty::Any)], Ty::Any)
             }
-            "struct" => Self::Struct(TyStruct::any()),
+            "struct" => Self::custom(TyStruct::any()),
             "never" => Self::Never,
             // Note that "tuple" cannot be converted to Ty::Tuple
             // since we don't know the length of the tuple.
@@ -350,7 +390,6 @@ impl Ty {
             Ty::List(_) => Some("list"),
             Ty::Tuple(_) => Some("tuple"),
             Ty::Dict(_) => Some("dict"),
-            Ty::Struct { .. } => Some("struct"),
             Ty::Never => Some("never"),
             Ty::Custom(c) => c.as_name(),
             Ty::Any | Ty::Union(_) | Ty::Iter(_) => None,
@@ -454,9 +493,9 @@ impl Ty {
             (Ty::Dict(x), Ty::Dict(y)) => {
                 Either::Left(Ty::dict(Ty::union2(x.0, y.0), Ty::union2(x.1, y.1)))
             }
-            (Ty::Struct(x), Ty::Struct(y)) => match TyStruct::union2(x, y) {
-                Ok(u) => Either::Left(Ty::Struct(u)),
-                Err((x, y)) => Either::Right((Ty::Struct(x), Ty::Struct(y))),
+            (Ty::Custom(x), Ty::Custom(y)) => match TyCustom::union2(x, y) {
+                Ok(u) => Either::Left(Ty::Custom(u)),
+                Err((x, y)) => Either::Right((Ty::Custom(x), Ty::Custom(y))),
             },
             xy => Either::Right(xy),
         });
@@ -545,9 +584,6 @@ impl Ty {
                     Ok(Ty::unions(rs))
                 }
             }
-            Ty::Custom(c) if attr == TypingAttr::Regular("type") && c.0.has_type_attr() => {
-                Ok(Ty::string())
-            }
             _ => match ctx.oracle.attribute(self, attr) {
                 Some(r) => r,
                 None => Ok(ctx.approximation("oracle.attribute", format!("{}.{}", self, attr))),
@@ -583,10 +619,7 @@ impl Ty {
                         Some(yy) => x.intersects(&yy, oracle),
                         None => false,
                     },
-                    (Ty::Struct { .. }, Ty::Struct { .. }) => {
-                        // FIXME: Can probably be a bit more precise here
-                        true
-                    }
+                    (Ty::Custom(x), Ty::Custom(y)) => TyCustom::intersects(x, y),
                     (x, y)
                         if x.as_name() == Some("function") && y.as_name() == Some("function") =>
                     {
@@ -781,7 +814,6 @@ impl Display for Ty {
                 }
             }
             Ty::Dict(k_v) => write!(f, "{{{}: {}}}", k_v.0, k_v.1),
-            Ty::Struct(s) => Display::fmt(s, f),
             Ty::Custom(c) => Display::fmt(c, f),
         }
     }

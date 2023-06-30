@@ -135,7 +135,7 @@ False < True
     assert::fail("x = {}; x < x", "`compare` not supported");
     assert::fail("{} < {1: 2}", "`compare` not supported");
     assert::fail("range(1) < range(2)", "`compare` not supported");
-    assert::fail("repr < str", "`compare` not supported");
+    assert::fail("noop(repr) < str", "`compare` not supported");
 }
 
 #[test]

@@ -932,7 +932,6 @@ impl<'v> TypeCompiled<Value<'v>> {
                 let v = TypeCompiled::from_ty(v, heap);
                 TypeCompiled::type_dict_of(k, v, heap)
             }
-            Ty::Struct(_) => TypeCompiled::from_str("struct", heap),
             Ty::Never | Ty::Iter(_) | Ty::Custom(_) => {
                 // There are no runtime matchers for these types.
                 TypeCompiled::ty_other(ty.clone(), heap)

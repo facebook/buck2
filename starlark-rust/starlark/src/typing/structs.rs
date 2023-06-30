@@ -22,10 +22,16 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 
+use crate::codemap::Span;
+use crate::codemap::Spanned;
+use crate::typing::error::TypingError;
+use crate::typing::ty::TyCustomImpl;
+use crate::typing::Arg;
 use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
+use crate::typing::TypingOracleCtx;
 
 /// Struct type.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
@@ -45,8 +51,23 @@ impl TyStruct {
             extra: true,
         }
     }
+}
 
-    pub(crate) fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+impl TyCustomImpl for TyStruct {
+    fn as_name(&self) -> Option<&str> {
+        Some("struct")
+    }
+
+    fn validate_call(
+        &self,
+        span: Span,
+        _args: &[Spanned<Arg>],
+        oracle: TypingOracleCtx,
+    ) -> Result<Ty, TypingError> {
+        Err(oracle.msg_error(span, "struct instances are not callable"))
+    }
+
+    fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         match attr {
             TypingAttr::Regular(attr) => match self.fields.get(attr) {
                 Some(ty) => Some(Ok(ty.clone())),
@@ -54,14 +75,14 @@ impl TyStruct {
                 _ => Some(Err(())),
             },
             TypingAttr::BinOp(TypingBinOp::Less) => Some(Ok(Ty::function(
-                vec![Param::pos_only(Ty::Struct(TyStruct::any()))],
+                vec![Param::pos_only(Ty::custom(TyStruct::any()))],
                 Ty::bool(),
             ))),
             _ => Some(Err(())),
         }
     }
 
-    pub(crate) fn union2(a: TyStruct, b: TyStruct) -> Result<TyStruct, (TyStruct, TyStruct)> {
+    fn union2(a: Box<Self>, b: Box<Self>) -> Result<Box<Self>, (Box<Self>, Box<Self>)> {
         if a == b {
             // Fast path.
             Ok(a)
@@ -71,10 +92,10 @@ impl TyStruct {
                 assert_eq!(a_k, b_k);
                 fields.insert(a_k, Ty::union2(a_v, b_v));
             }
-            Ok(TyStruct {
+            Ok(Box::new(TyStruct {
                 fields,
                 extra: a.extra,
-            })
+            }))
         } else {
             Err((a, b))
         }
