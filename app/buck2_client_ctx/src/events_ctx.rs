@@ -105,8 +105,8 @@ pub struct EventsCtx<'a> {
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum FileTailerEvent {
-    Stdout(String),
-    Stderr(String),
+    Stdout(Vec<u8>),
+    Stderr(Vec<u8>),
 }
 
 pub struct FileTailers {
@@ -172,7 +172,7 @@ impl<'a> EventsCtx<'a> {
     async fn dispatch_tailer_event(&mut self, event: FileTailerEvent) -> anyhow::Result<()> {
         match event {
             FileTailerEvent::Stdout(stdout) => self.handle_tailer_stdout(&stdout).await,
-            FileTailerEvent::Stderr(line) => self.handle_tailer_stderr(line.trim_end()).await,
+            FileTailerEvent::Stderr(stderr) => self.handle_tailer_stderr(&stderr).await,
         }
     }
 
@@ -395,12 +395,14 @@ fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Res
 }
 
 impl<'a> EventsCtx<'a> {
-    async fn handle_tailer_stdout(&mut self, raw_output: &str) -> anyhow::Result<()> {
-        self.handle_subscribers(|subscriber| subscriber.handle_output(raw_output.as_bytes()))
+    async fn handle_tailer_stdout(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+        self.handle_subscribers(|subscriber| subscriber.handle_output(raw_output))
             .await
     }
 
-    async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+    async fn handle_tailer_stderr(&mut self, stderr: &[u8]) -> anyhow::Result<()> {
+        let stderr = String::from_utf8_lossy(stderr);
+        let stderr = stderr.trim_end();
         self.handle_subscribers(|subscriber| subscriber.handle_tailer_stderr(stderr))
             .await
     }

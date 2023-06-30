@@ -607,7 +607,7 @@ mod tests {
     #[tokio::test]
     async fn test_tailer() -> anyhow::Result<()> {
         let mut file = tempfile::NamedTempFile::new()?;
-        writeln!(file, "before")?;
+        file.write_all(b"before\n")?;
 
         // If we could control the interval for tailer polling, we could reliably
         // test more of the behavior. For now, just test a simple case.
@@ -617,12 +617,22 @@ mod tests {
             sender,
             StdoutOrStderr::Stdout,
         )?;
-        writeln!(file, "after")?;
+
+        let ok_line = b"after\n";
+        let invalid_utf8_line = b"\xc3\x28\n";
+
+        file.write_all(ok_line.as_slice())?;
+        file.write_all(invalid_utf8_line.as_slice())?;
+
         // have to sleep long enough for a read or else this test is racy.
         tokio::time::sleep(Duration::from_millis(250)).await;
         std::mem::drop(tailer);
         assert_eq!(
-            FileTailerEvent::Stdout("after\n".to_owned()),
+            FileTailerEvent::Stdout((*ok_line).into()),
+            receiver.recv().await.unwrap()
+        );
+        assert_eq!(
+            FileTailerEvent::Stdout((*invalid_utf8_line).into()),
             receiver.recv().await.unwrap()
         );
 

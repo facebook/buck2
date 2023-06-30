@@ -87,8 +87,8 @@ impl FileTailer {
                         }
                     }
 
-                    let mut line = String::new();
-                    while reader.read_line(&mut line).unwrap() != 0 {
+                    let mut line = Vec::new();
+                    while reader.read_until(b'\n', &mut line).unwrap() != 0 {
                         let event = match stdout_or_stderr {
                             StdoutOrStderr::Stdout => FileTailerEvent::Stdout(line),
                             StdoutOrStderr::Stderr => FileTailerEvent::Stderr(line),
@@ -96,7 +96,7 @@ impl FileTailer {
                         if sender.send(event).is_err() {
                             break;
                         }
-                        line = String::new();
+                        line = Vec::new();
                     }
                 }
             })
