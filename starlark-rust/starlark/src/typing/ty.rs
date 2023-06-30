@@ -39,13 +39,12 @@ use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocType;
-use crate::eval::compiler::scope::payload::CstExpr;
+use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
-use crate::syntax::ast::AstLiteral;
-use crate::syntax::ast::ExprP;
+use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
@@ -657,7 +656,7 @@ impl Ty {
             TypecheckMode::Lint => {
                 // TODO(nga): remove this branch: in lint, populate types in CstPayload
                 //   before running typechecking, and always fetch the type from the payload.
-                Ok(Self::from_expr(&x.expr, approximations))
+                Self::from_type_expr_for_lint(x, codemap, approximations)
             }
             TypecheckMode::Compiler => match x.payload {
                 Some(ty) => Ok(ty.as_ty()),
@@ -670,61 +669,79 @@ impl Ty {
         }
     }
 
+    fn from_type_expr_for_lint(
+        x: &CstTypeExpr,
+        codemap: &CodeMap,
+        approximations: &mut Vec<Approximation>,
+    ) -> Result<Self, InternalError> {
+        let x = TypeExprUnpackP::unpack(&x.expr, codemap)
+            .map_err(InternalError::from_eval_exception)?;
+        Ok(Self::from_expr_impl(&x, approximations))
+    }
+
     // This should go away when `ExprType` is disconnected from `Expr`.
-    fn from_expr(x: &CstExpr, approximations: &mut Vec<Approximation>) -> Self {
+    fn from_expr_impl(
+        x: &Spanned<TypeExprUnpackP<CstPayload>>,
+        approximations: &mut Vec<Approximation>,
+    ) -> Self {
         let mut unknown = || {
             approximations.push(Approximation::new("Unknown type", x));
             Ty::Any
         };
         match &x.node {
-            ExprP::Tuple(xs) => Ty::Tuple(xs.map(|x| Self::from_expr(x, approximations))),
-            ExprP::Dot(x, b) if &**b == "type" => match &***x {
-                ExprP::Identifier(x) => match x.node.0.as_str() {
-                    "str" => Ty::string(),
-                    x => Ty::name(x),
-                },
-                _ => unknown(),
-            },
-            ExprP::Literal(AstLiteral::String(x)) => {
+            TypeExprUnpackP::Tuple(xs) => {
+                Ty::Tuple(xs.map(|x| Self::from_expr_impl(x, approximations)))
+            }
+            TypeExprUnpackP::Any(xs) => {
+                Ty::unions(xs.map(|x| Self::from_expr_impl(x, approximations)))
+            }
+            TypeExprUnpackP::ListOf(x) => Ty::list(Self::from_expr_impl(x, approximations)),
+            TypeExprUnpackP::DictOf(k, v) => Ty::dict(
+                Self::from_expr_impl(k, approximations),
+                Self::from_expr_impl(v, approximations),
+            ),
+            TypeExprUnpackP::Literal(x) => {
                 if x.is_empty() || x.starts_with('_') {
                     Ty::Any
                 } else {
-                    Ty::name(x.as_str())
+                    Ty::name(x)
                 }
             }
-            ExprP::List(x) => {
-                if x.len() == 1 {
-                    Ty::list(Self::from_expr(&x[0], approximations))
-                } else {
-                    Ty::unions(x.map(|x| Self::from_expr(x, approximations)))
-                }
-            }
-            ExprP::Dict(x) if x.len() == 1 => Ty::dict(
-                Self::from_expr(&x[0].0, approximations),
-                Self::from_expr(&x[0].1, approximations),
-            ),
-            ExprP::Identifier(x) => {
-                if let Some(resolved) = &x.node.1 {
-                    match resolved {
-                        ResolvedIdent::Slot(_, _) => {
-                            // Should not happen: only global identifiers are allowed in type.
-                            unknown()
-                        }
-                        ResolvedIdent::Global(v) => {
-                            let heap = Heap::new();
-                            match TypeCompiled::new(v.to_value(), &heap) {
-                                Ok(ty) => ty.as_ty(),
-                                Err(_) => unknown(),
+            TypeExprUnpackP::Path(first, rem) => {
+                if rem.is_empty() {
+                    if let Some(resolved) = &first.node.1 {
+                        match resolved {
+                            ResolvedIdent::Slot(_, _) => {
+                                // Should not happen: only global identifiers are allowed in type.
+                                unknown()
+                            }
+                            ResolvedIdent::Global(v) => {
+                                let heap = Heap::new();
+                                match TypeCompiled::new(v.to_value(), &heap) {
+                                    Ok(ty) => ty.as_ty(),
+                                    Err(_) => unknown(),
+                                }
                             }
                         }
+                    } else {
+                        // Scopes must be resolved, but we can still run typechecking
+                        // if scope resolution fails.
+                        unknown()
+                    }
+                } else if rem.len() == 1 {
+                    if rem[0].node == "type" {
+                        if first.node.0 == "str" {
+                            Ty::string()
+                        } else {
+                            Ty::name(&first.node.0)
+                        }
+                    } else {
+                        unknown()
                     }
                 } else {
-                    // Scopes must be resolved, but we can still run typechecking
-                    // if scope resolution fails.
                     unknown()
                 }
             }
-            _ => unknown(),
         }
     }
 
