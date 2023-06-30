@@ -41,6 +41,14 @@ enum TypeExprUnpackError {
 #[derive(Debug)]
 pub(crate) enum TypeExprUnpackP<'a, P: AstPayload> {
     Path(&'a AstIdentP<P>, Vec<Spanned<&'a str>>),
+    /// `list[str]`.
+    Index(&'a AstIdentP<P>, Box<Spanned<TypeExprUnpackP<'a, P>>>),
+    /// `dict[str, int]`.
+    Index2(
+        &'a AstIdentP<P>,
+        Box<Spanned<TypeExprUnpackP<'a, P>>>,
+        Box<Spanned<TypeExprUnpackP<'a, P>>>,
+    ),
     Any(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     ListOf(Box<Spanned<TypeExprUnpackP<'a, P>>>),
     DictOf(
@@ -104,8 +112,33 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                 // That expression has type string which is the type name.
             }
             ExprP::Call(..) => err("call"),
-            ExprP::Index(..) => err("array indirection"),
-            ExprP::Index2(..) => err("array indirection 2"),
+            ExprP::Index(a_i) => {
+                let (a, i) = &**a_i;
+                match &a.node {
+                    ExprP::Identifier(ident) => {
+                        let i = TypeExprUnpackP::unpack(i, codemap)?;
+                        Ok(Spanned {
+                            span,
+                            node: TypeExprUnpackP::Index(ident, Box::new(i)),
+                        })
+                    }
+                    _ => err("array indirection where array is not an identifier"),
+                }
+            }
+            ExprP::Index2(a_i0_i1) => {
+                let (a, i0, i1) = &**a_i0_i1;
+                match &a.node {
+                    ExprP::Identifier(ident) => {
+                        let i0 = TypeExprUnpackP::unpack(i0, codemap)?;
+                        let i1 = TypeExprUnpackP::unpack(i1, codemap)?;
+                        Ok(Spanned {
+                            span,
+                            node: TypeExprUnpackP::Index2(ident, Box::new(i0), Box::new(i1)),
+                        })
+                    }
+                    _ => err("array indirection 2 where array is not an identifier"),
+                }
+            }
             ExprP::Slice(..) => err("slice"),
             ExprP::Identifier(ident) => Ok(Spanned {
                 span,

@@ -45,6 +45,7 @@ use crate::values::dict::value::FrozenDict;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
 use crate::values::float::StarlarkFloat;
+use crate::values::function::SpecialBuiltinFunction;
 use crate::values::int::PointerI32;
 use crate::values::list::value::FrozenList;
 use crate::values::list::AllocList;
@@ -366,7 +367,11 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// x == {'a': 1} and y == {'x': 2, 'a': 1}
     /// # "#);
     /// ```
-    #[starlark(as_type = FrozenDict, speculative_exec_safe)]
+    #[starlark(
+        as_type = FrozenDict,
+        speculative_exec_safe,
+        special_builtin_function = SpecialBuiltinFunction::Dict,
+    )]
     fn dict<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> anyhow::Result<Dict<'v>> {
         // Dict is super hot, and has a slightly odd signature, so we can do a bunch of special cases on it.
         // In particular, we don't generate the kwargs if there are no positional arguments.
@@ -784,7 +789,11 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// list("strings are not iterable") # error: not supported
     /// # "#, r#"Expected type `iter("")` but got `str.type`"#);
     /// ```
-    #[starlark(as_type = FrozenList, speculative_exec_safe)]
+    #[starlark(
+        as_type = FrozenList,
+        speculative_exec_safe,
+        special_builtin_function = SpecialBuiltinFunction::List,
+    )]
     fn list<'v>(
         #[starlark(require = pos)] a: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         heap: &'v Heap,

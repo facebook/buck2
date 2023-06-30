@@ -1,0 +1,17 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+def new_list_dict_syntax(x: dict[str, int]) -> list[str]:
+    return list(x.keys())
+
+# Check type is properly parsed from the function return type.
+x = new_list_dict_syntax({"a": 1, "b": 2})
+
+No errors.
+
+Interfaces:
+x: [str.type]

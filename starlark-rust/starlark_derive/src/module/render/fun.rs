@@ -69,6 +69,21 @@ impl StarFun {
         }
     }
 
+    fn special_builtin_function_expr(&self) -> TokenStream {
+        match &self.special_builtin_function {
+            Some(x) => quote_spanned! {
+                self.span()=>
+                std::option::Option::Some(#x)
+            },
+            None => {
+                quote_spanned! {
+                    self.span()=>
+                    std::option::Option::None
+                }
+            }
+        }
+    }
+
     fn type_str(&self) -> TokenStream {
         match &self.as_type {
             Some(x) => quote_spanned! {
@@ -220,6 +235,7 @@ impl StarFun {
         let typ = self.type_expr();
         let ty_custom = self.ty_custom_expr();
         let struct_name = self.struct_name();
+        let special_builtin_function = self.special_builtin_function_expr();
 
         if self.is_method() {
             Ok(quote_spanned! {self.span()=>
@@ -243,6 +259,7 @@ impl StarFun {
                     #documentation_var,
                     #typ,
                     #ty_custom,
+                    #special_builtin_function,
                     #struct_name {
                         #struct_fields_init
                     },

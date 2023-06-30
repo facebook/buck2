@@ -387,3 +387,17 @@ x.append(x)
 "#,
     );
 }
+
+#[test]
+fn test_new_list_dict_syntax() {
+    TypeCheck::new().ty("x").check(
+        "new_list_dict_syntax",
+        r#"
+def new_list_dict_syntax(x: dict[str, int]) -> list[str]:
+    return list(x.keys())
+
+# Check type is properly parsed from the function return type.
+x = new_list_dict_syntax({"a": 1, "b": 2})
+"#,
+    );
+}

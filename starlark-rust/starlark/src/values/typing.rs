@@ -190,8 +190,7 @@ pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {
 )]
 #[repr(transparent)]
 pub(crate) struct TypeCompiled<V>(
-    /// `V` is a starlark value which implements `type_matches_value`.
-    /// Such values are not visible to the user.
+    /// `V` is `TypeCompiledImplAsStarlarkValue`.
     V,
 );
 
@@ -264,6 +263,10 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 
     pub(crate) fn to_value(self) -> TypeCompiled<Value<'v>> {
         TypeCompiled(self.0.to_value())
+    }
+
+    pub(crate) fn to_inner(self) -> V {
+        self.0
     }
 
     pub(crate) fn write_hash(self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
@@ -910,7 +913,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         }
     }
 
-    fn from_ty(ty: &Ty, heap: &'v Heap) -> Self {
+    pub(crate) fn from_ty(ty: &Ty, heap: &'v Heap) -> Self {
         match ty {
             Ty::Any => TypeCompiled::type_anything(),
             Ty::Union(xs) => {
@@ -1177,6 +1180,44 @@ def f(x: ty):
 f("x")
 "#,
             "Expected type `int.type` but got `str.type`",
+        );
+    }
+
+    #[test]
+    fn test_new_list_dict_syntax_pass() {
+        assert::pass(
+            r#"
+def uuu(x: list[int]):
+    pass
+
+uuu([1, 2, 3])
+"#,
+        );
+    }
+
+    #[test]
+    fn test_new_list_dict_syntax_fail_compile_time() {
+        assert::fail(
+            r#"
+def uuu(x: list[int]):
+    pass
+
+uuu(["mm"])
+"#,
+            "Expected type `[int.type]` but got `[str.type]`",
+        );
+    }
+
+    #[test]
+    fn test_new_list_dict_syntax_fail_runtime() {
+        assert::fail(
+            r#"
+def uuu(x: list[int]):
+    pass
+
+noop(uuu)(["mm"])
+"#,
+            r#"Value `["mm"]` of type `list` does not match"#,
         );
     }
 }

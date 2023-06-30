@@ -107,6 +107,7 @@ pub(crate) struct StarFun {
     /// `anyhow::Result<T>`.
     pub return_type: Type,
     pub starlark_ty_custom_function: Option<Expr>,
+    pub special_builtin_function: Option<Expr>,
     pub speculative_exec_safe: bool,
     pub body: Block,
     pub source: StarFunSource,

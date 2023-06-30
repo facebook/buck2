@@ -39,6 +39,7 @@ use crate::values::function::NativeAttribute;
 use crate::values::function::NativeCallableRawDocs;
 use crate::values::function::NativeFunc;
 use crate::values::function::NativeMeth;
+use crate::values::function::SpecialBuiltinFunction;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 use crate::values::structs::AllocStruct;
 use crate::values::types::function::NativeFunction;
@@ -301,6 +302,7 @@ impl GlobalsBuilder {
         raw_docs: NativeCallableRawDocs,
         typ: Option<FrozenStringValue>,
         ty: Option<Ty>,
+        special_builtin_function: Option<SpecialBuiltinFunction>,
         f: F,
     ) where
         F: NativeFunc,
@@ -314,6 +316,7 @@ impl GlobalsBuilder {
                 typ,
                 ty,
                 raw_docs: Some(raw_docs),
+                special_builtin_function,
             },
         )
     }

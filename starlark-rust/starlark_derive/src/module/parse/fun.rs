@@ -54,6 +54,7 @@ struct FnAttrs {
     is_attribute: bool,
     as_type: Option<syn::Path>,
     starlark_ty_custom_function: Option<Expr>,
+    special_builtin_function: Option<Expr>,
     speculative_exec_safe: bool,
     docstring: Option<String>,
     /// Rest attributes
@@ -172,6 +173,10 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
                 parser.parse::<Token![=]>()?;
                 attrs.starlark_ty_custom_function = Some(parser.parse::<Expr>()?);
                 continue;
+            } else if ident == "special_builtin_function" {
+                parser.parse::<Token![=]>()?;
+                attrs.special_builtin_function = Some(parser.parse::<Expr>()?);
+                continue;
             }
             return Err(syn::Error::new(
                 ident.span(),
@@ -265,6 +270,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
         speculative_exec_safe,
         docstring,
         starlark_ty_custom_function,
+        special_builtin_function,
         attrs,
     } = parse_fn_attrs(func.span(), func.attrs)?;
 
@@ -380,6 +386,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
             eval,
             return_type,
             starlark_ty_custom_function,
+            special_builtin_function,
             speculative_exec_safe,
             body: *func.block,
             source,

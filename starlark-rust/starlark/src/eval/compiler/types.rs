@@ -17,6 +17,7 @@
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::eval::compiler::constants::Constants;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstParameter;
@@ -52,6 +53,10 @@ enum TypesError {
     ModuleVariableNotSet(String),
     #[error("Type payload not set (internal error)")]
     TypePayloadNotSet,
+    #[error("[] can only be applied to list function in type expression")]
+    TypeIndexOnNonList,
+    #[error("[,] can only be applied to dict function in type expression")]
+    TypeIndexOnNonDict,
 }
 
 impl<'v> Compiler<'v, '_, '_> {
@@ -93,6 +98,34 @@ impl<'v> Compiler<'v, '_, '_> {
         ty.map_err(|e| EvalException::new(e, span, &self.codemap))
     }
 
+    fn eval_ident_in_type_expr(&mut self, ident: &CstIdent) -> Result<Value<'v>, EvalException> {
+        let Some(ident_payload) = &ident.node.1 else {
+            return Err(EvalException::new(
+                TypesError::UnresolvedIdentifier.into(),
+                ident.span,
+                &self.codemap,
+            ));
+        };
+        match ident_payload {
+            ResolvedIdent::Slot(Slot::Local(..), _) => Err(EvalException::new(
+                TypesError::LocalIdentifier.into(),
+                ident.span,
+                &self.codemap,
+            )),
+            ResolvedIdent::Slot(Slot::Module(module_slot_id), _) => {
+                match self.eval.module_env.slots().get_slot(*module_slot_id) {
+                    Some(v) => Ok(v),
+                    None => Err(EvalException::new(
+                        TypesError::ModuleVariableNotSet(ident.node.0.clone()).into(),
+                        ident.span,
+                        &self.codemap,
+                    )),
+                }
+            }
+            ResolvedIdent::Global(v) => Ok(v.to_value()),
+        }
+    }
+
     /// We may use non-frozen values as types, so we don't reuse `expr_ident` function
     /// which is used in normal compilation.
     fn eval_path_as_type(
@@ -100,35 +133,7 @@ impl<'v> Compiler<'v, '_, '_> {
         first: &CstIdent,
         rem: &[Spanned<&str>],
     ) -> Result<TypeCompiled<Value<'v>>, EvalException> {
-        let Some(ident_payload) = &first.node.1 else {
-            return Err(EvalException::new(
-                TypesError::UnresolvedIdentifier.into(),
-                first.span,
-                &self.codemap,
-            ));
-        };
-        let mut value = match ident_payload {
-            ResolvedIdent::Slot(Slot::Local(..), _) => {
-                return Err(EvalException::new(
-                    TypesError::LocalIdentifier.into(),
-                    first.span,
-                    &self.codemap,
-                ));
-            }
-            ResolvedIdent::Slot(Slot::Module(module_slot_id), _) => {
-                match self.eval.module_env.slots().get_slot(*module_slot_id) {
-                    Some(v) => v,
-                    None => {
-                        return Err(EvalException::new(
-                            TypesError::ModuleVariableNotSet(first.node.0.clone()).into(),
-                            first.span,
-                            &self.codemap,
-                        ));
-                    }
-                }
-            }
-            ResolvedIdent::Global(v) => v.to_value(),
-        };
+        let mut value = self.eval_ident_in_type_expr(first)?;
         for step in rem {
             value = value
                 .get_attr_error(step.node, self.eval.heap())
@@ -147,6 +152,41 @@ impl<'v> Compiler<'v, '_, '_> {
     ) -> Result<TypeCompiled<Value<'v>>, EvalException> {
         match expr.node {
             TypeExprUnpackP::Path(ident, rem) => self.eval_path_as_type(ident, &rem),
+            TypeExprUnpackP::Index(a, i) => {
+                let a = self.eval_ident_in_type_expr(a)?;
+                if !a.ptr_eq(Constants::get().fn_list.0.to_value()) {
+                    return Err(EvalException::new(
+                        TypesError::TypeIndexOnNonList.into(),
+                        expr.span,
+                        &self.codemap,
+                    ));
+                }
+                let i = self.eval_expr_as_type(*i)?;
+                let t = a
+                    .get_ref()
+                    .at(i.to_inner(), self.eval.heap())
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
+                Ok(TypeCompiled::new(t, self.eval.heap())
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?)
+            }
+            TypeExprUnpackP::Index2(a, i0, i1) => {
+                let a = self.eval_ident_in_type_expr(a)?;
+                if !a.ptr_eq(Constants::get().fn_dict.0.to_value()) {
+                    return Err(EvalException::new(
+                        TypesError::TypeIndexOnNonDict.into(),
+                        expr.span,
+                        &self.codemap,
+                    ));
+                }
+                let i0 = self.eval_expr_as_type(*i0)?;
+                let i1 = self.eval_expr_as_type(*i1)?;
+                let t = a
+                    .get_ref()
+                    .at2(i0.to_inner(), i1.to_inner(), self.eval.heap())
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
+                Ok(TypeCompiled::new(t, self.eval.heap())
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?)
+            }
             TypeExprUnpackP::Any(xs) => {
                 let xs = xs.into_try_map(|x| self.eval_expr_as_type(x))?;
                 Ok(TypeCompiled::type_any_of(xs, self.eval.heap()))

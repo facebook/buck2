@@ -39,6 +39,8 @@ use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocType;
+use crate::eval::compiler::constants::Constants;
+use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::scope::ResolvedIdent;
@@ -60,6 +62,7 @@ use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::structs::TyStruct;
 use crate::typing::TypingOracle;
 use crate::values::typing::TypeCompiled;
+use crate::values::FrozenValue;
 use crate::values::Heap;
 
 /// A typing operation wasn't able to produce a precise result,
@@ -688,6 +691,14 @@ impl Ty {
             approximations.push(Approximation::new("Unknown type", x));
             Ty::Any
         };
+
+        fn ident_global(ident: &CstIdent) -> Option<FrozenValue> {
+            match &ident.node.1 {
+                Some(ResolvedIdent::Global(x)) => Some(*x),
+                _ => None,
+            }
+        }
+
         match &x.node {
             TypeExprUnpackP::Tuple(xs) => {
                 Ty::Tuple(xs.map(|x| Self::from_expr_impl(x, approximations)))
@@ -709,20 +720,13 @@ impl Ty {
             }
             TypeExprUnpackP::Path(first, rem) => {
                 if rem.is_empty() {
-                    if let Some(resolved) = &first.node.1 {
-                        match resolved {
-                            ResolvedIdent::Slot(_, _) => unknown(),
-                            ResolvedIdent::Global(v) => {
-                                let heap = Heap::new();
-                                match TypeCompiled::new(v.to_value(), &heap) {
-                                    Ok(ty) => ty.as_ty(),
-                                    Err(_) => unknown(),
-                                }
-                            }
+                    if let Some(v) = ident_global(first) {
+                        let heap = Heap::new();
+                        match TypeCompiled::new(v.to_value(), &heap) {
+                            Ok(ty) => ty.as_ty(),
+                            Err(_) => unknown(),
                         }
                     } else {
-                        // Scopes must be resolved, but we can still run typechecking
-                        // if scope resolution fails.
                         unknown()
                     }
                 } else if rem.len() == 1 {
@@ -737,6 +741,68 @@ impl Ty {
                     }
                 } else {
                     unknown()
+                }
+            }
+            TypeExprUnpackP::Index(a, i) => {
+                if let Some(a) = ident_global(a) {
+                    if !a.to_value().ptr_eq(Constants::get().fn_list.0.to_value()) {
+                        approximations.push(Approximation::new("Not list", x));
+                        return Ty::Any;
+                    }
+                    let i = Self::from_expr_impl(i, approximations);
+                    let heap = Heap::new();
+                    let i = TypeCompiled::from_ty(&i, &heap);
+                    match a.to_value().get_ref().at(i.to_inner(), &heap) {
+                        Ok(t) => match TypeCompiled::new(t, &heap) {
+                            Ok(ty) => ty.as_ty(),
+                            Err(_) => {
+                                approximations
+                                    .push(Approximation::new("TypeCompiled::new failed", x));
+                                Ty::Any
+                            }
+                        },
+                        Err(e) => {
+                            approximations.push(Approximation::new("Getitem failed", e));
+                            Ty::Any
+                        }
+                    }
+                } else {
+                    approximations.push(Approximation::new("Not global", x));
+                    Ty::Any
+                }
+            }
+            TypeExprUnpackP::Index2(a, i0, i1) => {
+                if let Some(a) = ident_global(a) {
+                    if !a.to_value().ptr_eq(Constants::get().fn_dict.0.to_value()) {
+                        approximations.push(Approximation::new("Not dict", x));
+                        return Ty::Any;
+                    }
+                    let i0 = Self::from_expr_impl(i0, approximations);
+                    let i1 = Self::from_expr_impl(i1, approximations);
+                    let heap = Heap::new();
+                    let i0 = TypeCompiled::from_ty(&i0, &heap);
+                    let i1 = TypeCompiled::from_ty(&i1, &heap);
+                    match a
+                        .to_value()
+                        .get_ref()
+                        .at2(i0.to_inner(), i1.to_inner(), &heap)
+                    {
+                        Ok(t) => match TypeCompiled::new(t, &heap) {
+                            Ok(ty) => ty.as_ty(),
+                            Err(_) => {
+                                approximations
+                                    .push(Approximation::new("TypeCompiled::new failed", x));
+                                Ty::Any
+                            }
+                        },
+                        Err(e) => {
+                            approximations.push(Approximation::new("Getitem2 failed", e));
+                            Ty::Any
+                        }
+                    }
+                } else {
+                    approximations.push(Approximation::new("Not global", x));
+                    Ty::Any
                 }
             }
         }
