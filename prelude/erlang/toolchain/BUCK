@@ -9,7 +9,11 @@ erlang_parse_transform(
 # export escripts for testing
 filegroup(
     name = "util_scripts",
-    srcs = glob(["*.escript", "*.sh", "*.erl"]),
+    srcs = glob([
+        "*.escript",
+        "*.sh",
+        "*.erl",
+    ]),
     visibility = ["PUBLIC"],
 )
 
@@ -22,8 +26,12 @@ toolchain_utilities(
     edoc = "edoc_cli.escript",
     erlc_trampoline = "erlc_trampoline.sh",
     escript_builder = "escript_builder.escript",
+    include_erts = "include_erts.escript",
     release_variables_builder = "release_variables_builder.escript",
-    utility_modules = ["edoc_doclet_chunks.erl", "edoc_report.erl"],
+    utility_modules = [
+        "edoc_doclet_chunks.erl",
+        "edoc_report.erl",
+    ],
     visibility = ["PUBLIC"],
 )
 

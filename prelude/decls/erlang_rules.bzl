@@ -195,9 +195,8 @@ rules_attributes = {
                 [`permanent`](https://www.erlang.org/doc/man/application.html#type-restart_type).
             """),
         "include_erts": attrs.bool(default = False, doc = """
-                **Note**: This is not implemented yet.
-
                 This field controls wether OTP applications and the Erlang runtime system should be included as part of the release.
+                Please note, that at the moment the erts folder is just `erts/`.
             """),
         "multi_toolchain": attrs.option(attrs.list(attrs.dep()), default = None, doc = """
                 This field controls wether the release should be built with a single toolchain, or multiple toolchains. In the

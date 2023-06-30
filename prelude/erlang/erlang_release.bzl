@@ -79,6 +79,9 @@ def _build_release(ctx: "context", toolchain: "Toolchain", apps: ErlAppDependenc
     # Overlays
     overlays = _build_overlays(ctx, toolchain)
 
+    # erts
+    maybe_erts = _build_erts(ctx, toolchain)
+
     # link output
     all_outputs = {}
     for outputs in [
@@ -86,6 +89,7 @@ def _build_release(ctx: "context", toolchain: "Toolchain", apps: ErlAppDependenc
         boot_scripts,
         overlays,
         release_variables,
+        maybe_erts,
     ]:
         all_outputs.update(outputs)
 
@@ -261,6 +265,33 @@ def _build_release_variables(ctx: "context", toolchain: "Toolchain") -> {"string
         identifier = action_identifier(toolchain, release_name),
     )
     return {short_path: release_variables}
+
+def _build_erts(ctx: "context", toolchain: "Toolchain") -> {"string": "artifact"}:
+    if not ctx.attrs.include_erts:
+        return {}
+
+    release_name = _relname(ctx)
+
+    short_path = "erts"
+
+    erts_dir = paths.join(
+        erlang_build.utils.build_dir(toolchain),
+        release_name,
+        short_path,
+    )
+
+    output_artifact = ctx.actions.declare_output(erts_dir)
+    ctx.actions.run(
+        cmd_args([
+            toolchain.otp_binaries.escript,
+            toolchain.include_erts,
+            output_artifact.as_output(),
+        ]),
+        category = "include_erts",
+        identifier = action_identifier(toolchain, release_name),
+    )
+
+    return {short_path: output_artifact}
 
 def _symlink_multi_toolchain_output(ctx: "context", toolchain_artifacts: {"string": {"string": "artifact"}}) -> "artifact":
     link_spec = {}

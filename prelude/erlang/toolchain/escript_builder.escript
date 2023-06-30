@@ -22,6 +22,8 @@
 -module(app_src_builder).
 -author("loscher@fb.com").
 
+-export([main/1]).
+
 -include_lib("kernel/include/file.hrl").
 
 -mode(compile).
