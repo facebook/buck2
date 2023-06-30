@@ -397,7 +397,6 @@ def convert_python_library_to_executable(
 
     extensions = {}
     extra_artifacts = {}
-    extra_manifests = None
     for manifest in library.iter_manifests():
         if manifest.extensions:
             _merge_extensions(extensions, manifest.label, manifest.extensions)
