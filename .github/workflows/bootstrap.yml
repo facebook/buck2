@@ -1,0 +1,34 @@
+name: Buck2 with Buck2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - os: 'ubuntu-22.04'
+            triple: 'x86_64-unknown-linux-gnu'
+          # TODO FIXME (aseipp): broken with nix, needs some tweaks in the cxx_toolchain for c++abi i think...
+          #- os: 'macos-12'
+          #  triple: 'x86_64-apple-darwin'
+
+    runs-on: ${{ matrix.target.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v4
+      - name: Run the Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v1
+      - name: Generate unvendored shims with Reindeer
+        run: nix develop --command reindeer --third-party-dir shim/third-party/rust buckify
+      - name: Download the last Buck2 binary prerelease
+        run: |
+          unzstd -o buck2 <(curl -sLo - https://github.com/facebook/buck2/releases/download/latest/buck2-${{ matrix.target.triple }}.zst)
+          chmod +x ./buck2
+      - name: Build Buck2 with Buck2
+        run: nix develop --command $PWD/buck2 build //:buck2
