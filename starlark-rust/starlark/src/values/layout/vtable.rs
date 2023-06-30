@@ -339,6 +339,15 @@ impl<'v> AValueDyn<'v> {
         (self.vtable.starlark_value.at)(self.value, index, heap)
     }
 
+    pub(crate) fn at2(
+        self,
+        index0: Value<'v>,
+        index1: Value<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
+        (self.vtable.starlark_value.at2)(self.value, index0, index1, heap, Private)
+    }
+
     #[inline]
     pub(crate) fn is_in(self, collection: Value<'v>) -> anyhow::Result<bool> {
         (self.vtable.starlark_value.is_in)(self.value, collection)

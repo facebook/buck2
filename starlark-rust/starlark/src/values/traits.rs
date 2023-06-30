@@ -415,6 +415,17 @@ pub trait StarlarkValue<'v>:
         ValueError::unsupported_with(self, "[]", index)
     }
 
+    /// Return the result of `a[index0, index1]` if `a` is indexable by two parameters.
+    fn at2(
+        &self,
+        _index0: Value<'v>,
+        _index1: Value<'v>,
+        _heap: &'v Heap,
+        _private: Private,
+    ) -> anyhow::Result<Value<'v>> {
+        ValueError::unsupported(self, "[,]")
+    }
+
     /// Extract a slice of the underlying object if the object is indexable. The
     /// result will be object between `start` and `stop` (both of them are
     /// added length() if negative and then clamped between 0 and length()).

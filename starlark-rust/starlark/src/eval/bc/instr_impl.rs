@@ -88,12 +88,6 @@ use crate::values::StringValue;
 use crate::values::StringValueLike;
 use crate::values::Value;
 
-#[derive(Debug, thiserror::Error)]
-enum InstrImplError {
-    #[error("ArrayIndex2 instruction is not implemented")]
-    ArrayIndex2IsNotImplemented,
-}
-
 /// Instructions which either fail or proceed to the following instruction,
 /// and it returns error with span.
 pub(crate) trait InstrNoFlowImpl: 'static {
@@ -460,12 +454,17 @@ impl InstrNoFlowImpl for InstrArrayIndex2Impl {
 
     #[cold]
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
-        _frame: BcFramePtr<'v>,
+        eval: &mut Evaluator<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        _arg: &Self::Arg,
+        (array, index0, index1, target): &(BcSlotIn, BcSlotIn, BcSlotIn, BcSlotOut),
     ) -> anyhow::Result<()> {
-        Err(InstrImplError::ArrayIndex2IsNotImplemented.into())
+        let array = frame.get_bc_slot(*array);
+        let index0 = frame.get_bc_slot(*index0);
+        let index1 = frame.get_bc_slot(*index1);
+        let value = array.get_ref().at2(index0, index1, eval.heap())?;
+        frame.set_bc_slot(*target, value);
+        Ok(())
     }
 }
 
