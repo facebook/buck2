@@ -42,6 +42,7 @@
 //! ```
 
 pub(crate) mod field;
+pub(crate) mod globals;
 pub(crate) mod instance;
 pub(crate) mod record_type;
 

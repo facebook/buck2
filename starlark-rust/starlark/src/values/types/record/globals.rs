@@ -30,7 +30,7 @@ use crate::values::Heap;
 use crate::values::Value;
 
 #[starlark_module]
-pub fn global(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_record(builder: &mut GlobalsBuilder) {
     /// A `record` type represents a set of named values, each with their own type.
     ///
     /// For example:

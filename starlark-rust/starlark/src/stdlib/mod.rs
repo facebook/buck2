@@ -31,13 +31,13 @@ pub(crate) mod json;
 pub(crate) mod partial;
 
 pub(crate) mod list;
-pub(crate) mod record;
 pub(crate) mod string;
 pub(crate) mod structs;
 pub(crate) mod util;
 
 pub use extra::PrintHandler;
 
+use crate::values::record::globals::register_record;
 use crate::values::typing;
 
 /// Return the default global environment, it is not yet frozen so that a caller
@@ -113,7 +113,7 @@ impl LibraryExtension {
         use LibraryExtension::*;
         match self {
             StructType => structs::global(builder),
-            RecordType => record::global(builder),
+            RecordType => register_record(builder),
             EnumType => enumeration::global(builder),
             Map => extra::map(builder),
             Filter => extra::filter(builder),
