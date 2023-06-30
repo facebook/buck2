@@ -45,7 +45,10 @@ impl Drop for FileTailer {
     fn drop(&mut self) {
         // If the thread has exited then don't error here.
         let _ignored = self.end_signaller.take().unwrap().send(());
-        self.thread.take().unwrap().join().unwrap();
+        match self.thread.take().unwrap().join() {
+            Ok(()) => {}
+            Err(e) => std::panic::resume_unwind(e),
+        }
     }
 }
 
