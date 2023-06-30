@@ -49,6 +49,11 @@ mod fbcode {
         pub force_enable_deduplicate_find_missing: Option<bool>,
 
         pub features_config_path: Option<String>,
+
+        // curl reactor
+        pub curl_reactor_max_number_of_retries: Option<i32>,
+        pub curl_reactor_connection_timeout_ms: Option<i32>,
+        pub curl_reactor_request_timeout_ms: Option<i32>,
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
@@ -97,6 +102,18 @@ mod fbcode {
                 )?,
                 features_config_path: legacy_config
                     .parse(BUCK2_RE_CLIENT_CFG_SECTION, "features_config_path")?,
+                curl_reactor_max_number_of_retries: legacy_config.parse(
+                    BUCK2_RE_CLIENT_CFG_SECTION,
+                    "curl_reactor_max_number_of_retries",
+                )?,
+                curl_reactor_connection_timeout_ms: legacy_config.parse(
+                    BUCK2_RE_CLIENT_CFG_SECTION,
+                    "curl_reactor_connection_timeout_ms",
+                )?,
+                curl_reactor_request_timeout_ms: legacy_config.parse(
+                    BUCK2_RE_CLIENT_CFG_SECTION,
+                    "curl_reactor_request_timeout_ms",
+                )?,
             })
         }
 

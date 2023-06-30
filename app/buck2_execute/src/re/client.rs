@@ -446,6 +446,7 @@ impl RemoteExecutionClientImpl {
                 use remote_execution::create_default_config;
                 use remote_execution::CASDaemonClientCfg;
                 use remote_execution::CopyPolicy;
+                use remote_execution::CurlReactorConfig;
                 use remote_execution::EmbeddedCASDaemonClientCfg;
                 use remote_execution::RichClientMode;
 
@@ -547,6 +548,35 @@ impl RemoteExecutionClientImpl {
 
                 re_client_config.check_file_existence_when_no_cache_enabled = false;
                 re_client_config.check_parent_directories_exist = false;
+                if static_metadata.curl_reactor_max_number_of_retries.is_some()
+                    || static_metadata.curl_reactor_connection_timeout_ms.is_some()
+                    || static_metadata.curl_reactor_request_timeout_ms.is_some()
+                {
+                    let mut curl_config = CurlReactorConfig {
+                        ..Default::default()
+                    };
+
+                    if let Some(max_number_of_retries) =
+                        static_metadata.curl_reactor_max_number_of_retries
+                    {
+                        curl_config.max_number_of_retries = max_number_of_retries;
+                    }
+
+                    if let Some(request_timeout_ms) =
+                        static_metadata.curl_reactor_request_timeout_ms
+                    {
+                        curl_config.request_timeout_ms = request_timeout_ms;
+                    }
+
+                    if let Some(connection_timeout_ms) =
+                        static_metadata.curl_reactor_connection_timeout_ms
+                    {
+                        curl_config.connection_timeout_ms = connection_timeout_ms;
+                    }
+
+                    re_client_config.curl_reactor_config = Some(curl_config);
+                }
+
                 re_client_config.features_config_path = static_metadata
                     .features_config_path
                     .as_deref()
