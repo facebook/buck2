@@ -254,19 +254,13 @@ def _python_library_macro_stub(
         **kwargs
     )
 
-def _versioned_alias_macro_stub(versions = {}, target_compatible_with = [], **kwargs):
+def _versioned_alias_macro_stub(versions = {}, **kwargs):
     project = paths.basename(package_name())
-    if read_config("fbcode", "tp2_compatible_with") == "true":
-        target_compatible_with += select({"DEFAULT": ["ovr_config//:none"]} | {
-            _tp2_constraint(project, version): []
-            for version in versions
-        })
     __rules__["alias"](
         actual = select({
             _tp2_constraint(project, version): actual
             for version, actual in versions.items()
         }),
-        target_compatible_with = target_compatible_with,
         **kwargs
     )
 
