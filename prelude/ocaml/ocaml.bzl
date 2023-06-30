@@ -9,7 +9,7 @@
 
 # IMPORTANT: Don't land your change without running these tests!
 # ```
-#   buck2 build --num-threads 4 `buck query "kind('ocaml_binary', 'fbcode//hphp/hack/...')"
+# buck2 build --num-threads 4 $(buck2 uquery "kind('ocaml_binary', 'fbcode//hphp/...')")
 # ```
 #
 # If you are really, really keen, this command builds all hack, not just the
