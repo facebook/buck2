@@ -49,6 +49,9 @@ impl InternalError {
 pub struct TypingError(EvalException);
 
 impl TypingError {
+    // TODO(nga): some errors we create, we ignore later. For example, when typechecking a union,
+    //   if either variant is good, we ignore the other variant errors.
+    //   So we pay for expensive error creation we ignore. Make this function cheap.
     #[cold]
     pub(crate) fn msg(message: impl Display, span: Span, codemap: &CodeMap) -> TypingError {
         TypingError(EvalException::new(
