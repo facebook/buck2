@@ -87,7 +87,7 @@ impl PackageImplicitImports {
                 let import_path = parse_import(&cell_alias_resolver, &root_path, import)?;
                 // Package implicit imports are only going to be used for a top-level module in
                 // the same cell, so we can set that early.
-                let import_path = ImportPath::new(import_path, cell_name)?;
+                let import_path = ImportPath::new_with_build_file_cells(import_path, cell_name)?;
                 let mut symbols = HashMap::new();
                 for spec in symbol_specs.split("::") {
                     let (alias, symbol) = match spec.split_once('=') {

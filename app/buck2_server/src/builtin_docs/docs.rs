@@ -75,7 +75,7 @@ fn parse_import_paths(
                 symbol_pattern,
                 &PARSE_OPTIONS,
             )?;
-            ImportPath::new(path, current_cell)
+            ImportPath::new_with_build_file_cells(path, current_cell)
         })
         .collect()
 }

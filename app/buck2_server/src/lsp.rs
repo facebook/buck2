@@ -207,9 +207,8 @@ impl DocsCache {
             .get_interpreter_calculator(cell_resolver.root_cell(), bfc)
             .await?;
 
-        let root_import_path = ImportPath::new(
+        let root_import_path = ImportPath::new_same_cell(
             cell_resolver.get_cell_path(ProjectRelativePath::new("non_existent.bzl")?)?,
-            bfc,
         )?;
         let starlark_file = StarlarkPath::LoadFile(&root_import_path);
         let loaded_import_path = calculator.resolve_load(starlark_file, &path).await?;
@@ -454,13 +453,9 @@ impl<'a> BuckLspContext<'a> {
             Some(e) if e == "bxl" => Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(
                 cell_path,
             )?)),
-            _ => {
-                let bfc = BuildFileCell::new(cell_path.cell());
-
-                Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
-                    cell_path, bfc,
-                )?))
-            }
+            _ => Ok(OwnedStarlarkModulePath::LoadFile(
+                ImportPath::new_same_cell(cell_path)?,
+            )),
         }
     }
 

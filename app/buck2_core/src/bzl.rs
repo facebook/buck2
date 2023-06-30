@@ -39,7 +39,18 @@ pub struct ImportPath {
 }
 
 impl ImportPath {
-    pub fn new(path: CellPath, build_file_cell: BuildFileCell) -> anyhow::Result<Self> {
+    /// We evaluate `bzl` files multiple times: for each cell we evaluate `bzl` file again.
+    /// We want to stop doing that.
+    /// This function is for call sites where we don't care about the build file cell.
+    pub fn new_same_cell(path: CellPath) -> anyhow::Result<Self> {
+        let build_file_cell = BuildFileCell::new(path.cell());
+        Self::new_with_build_file_cells(path, build_file_cell)
+    }
+
+    pub fn new_with_build_file_cells(
+        path: CellPath,
+        build_file_cell: BuildFileCell,
+    ) -> anyhow::Result<Self> {
         if path.parent().is_none() {
             return Err(ImportPathError::Invalid(path).into());
         }
@@ -94,7 +105,7 @@ impl ImportPath {
             CellRelativePath::unchecked_new(cell_relative_path)
                 .join(FileName::unchecked_new(filename)),
         );
-        Self::new(
+        Self::new_with_build_file_cells(
             cell_path,
             BuildFileCell::new(CellName::testing_new(build_file_cell)),
         )

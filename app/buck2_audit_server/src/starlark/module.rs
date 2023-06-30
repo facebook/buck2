@@ -49,7 +49,7 @@ pub(crate) async fn server_execute(
                 },
             )?;
 
-            let import_path = ImportPath::new(path, current_cell)?;
+            let import_path = ImportPath::new_with_build_file_cells(path, current_cell)?;
 
             let loaded_module = dice_ctx
                 .get_loaded_module(StarlarkModulePath::LoadFile(&import_path))

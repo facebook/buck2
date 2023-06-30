@@ -207,18 +207,15 @@ impl LoadResolver for InterpreterLoadResolver {
         // checks in t-sets, which would fail if we had > 1 copy of the prelude.
         if let Some(prelude_import) = self.config.global_state.configuror.prelude_import() {
             if is_prelude_path(&path, prelude_import) {
-                let cell = path.cell();
-                return Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
-                    path,
-                    BuildFileCell::new(cell),
-                )?));
+                return Ok(OwnedStarlarkModulePath::LoadFile(
+                    ImportPath::new_same_cell(path)?,
+                ));
             }
         }
 
-        Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
-            path,
-            self.build_file_cell,
-        )?))
+        Ok(OwnedStarlarkModulePath::LoadFile(
+            ImportPath::new_with_build_file_cells(path, self.build_file_cell)?,
+        ))
     }
 }
 

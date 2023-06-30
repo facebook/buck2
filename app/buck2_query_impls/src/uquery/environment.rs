@@ -16,7 +16,6 @@ use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -504,10 +503,7 @@ async fn top_level_imports_by_build_file<'c>(
     let mut top_level_import_by_build_file = HashMap::<ArcCellPath, Vec<ImportPath>>::new();
 
     for file in bzlfiles {
-        let imports = vec![ImportPath::new(
-            file.as_ref().clone(),
-            BuildFileCell::new(file.cell()),
-        )?];
+        let imports = vec![ImportPath::new_same_cell(file.as_ref().clone())?];
         top_level_import_by_build_file.insert(file.dupe(), imports);
     }
 

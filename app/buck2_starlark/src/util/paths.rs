@@ -17,7 +17,6 @@ use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::io::IoProvider;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -109,10 +108,8 @@ async fn starlark_file(
             } else if recursive.is_none() || proj_path.as_str().ends_with(".bzl") {
                 // If a file was asked for explicitly, and is nothing else, treat it as .bzl file
                 // If it's not explicit, just ignore it (probably a source file)
-                let build_file_cell = BuildFileCell::new(cell_path.cell());
-                files.push(OwnedStarlarkPath::LoadFile(ImportPath::new(
+                files.push(OwnedStarlarkPath::LoadFile(ImportPath::new_same_cell(
                     cell_path,
-                    build_file_cell,
                 )?));
             }
         }

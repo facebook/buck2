@@ -52,7 +52,7 @@ impl ImplicitImportPaths {
 
                 // root imports are only going to be used by a top-level module in the cell they
                 // are defined, so we can set the build_file_cell early.
-                ImportPath::new(path, cell_name)
+                ImportPath::new_with_build_file_cells(path, cell_name)
             })
             .map_or(Ok(None), |e: anyhow::Result<ImportPath>| e.map(Some))?;
         let package_imports = PackageImplicitImports::new(
