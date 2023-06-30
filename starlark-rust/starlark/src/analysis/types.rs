@@ -38,6 +38,7 @@ pub(crate) trait LintWarning: Display {
 
 /// A private version of lint without the inner trait erased, useful so we can test
 /// using full matching, but then erase the internal details when exporting to users.
+#[derive(Debug)]
 pub(crate) struct LintT<T> {
     pub location: FileSpan,
     pub original: String,
