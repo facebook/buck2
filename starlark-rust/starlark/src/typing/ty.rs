@@ -44,7 +44,6 @@ use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
-use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::ExprP;
 use crate::typing::ctx::TypingContext;
@@ -725,12 +724,6 @@ impl Ty {
                     unknown()
                 }
             }
-            ExprP::Call(fun, args) if args.len() == 1 => match (&fun.node, &args[0].node) {
-                (ExprP::Identifier(name), ArgumentP::Positional(arg)) if name.node.0 == "iter" => {
-                    Ty::iter(Ty::from_expr(arg, approximations))
-                }
-                _ => unknown(),
-            },
             _ => unknown(),
         }
     }
