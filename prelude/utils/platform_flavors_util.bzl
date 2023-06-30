@@ -6,8 +6,8 @@
 # of this source tree.
 
 def by_platform(
-        platform_flavors: [str.type],
-        xs: [(str.type, "_a")]) -> ["_a"]:
+        platform_flavors: [str],
+        xs: [(str, "_a")]) -> ["_a"]:
     """
     Resolve platform-flavor-specific parameters, given the list of platform
     flavors to match against.  Meant to mirror the usage of

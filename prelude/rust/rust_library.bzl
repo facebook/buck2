@@ -416,7 +416,7 @@ def _default_providers(
         param_artifact: {BuildParams.type: RustLinkStyleInfo.type},
         rustdoc: "artifact",
         rustdoc_test: ["cmd_args", None],
-        check_artifacts: {str.type: "artifact"},
+        check_artifacts: {str: "artifact"},
         expand: "artifact",
         sources: "artifact") -> ["provider"]:
     targets = {}

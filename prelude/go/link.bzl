@@ -36,7 +36,7 @@ load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
 # Provider wrapping packages used for linking.
 GoPkgLinkInfo = provider(fields = [
-    "pkgs",  # {str.type: "artifact"}
+    "pkgs",  # {str: "artifact"}
 ])
 
 GoBuildMode = enum(
@@ -44,14 +44,14 @@ GoBuildMode = enum(
     "c_shared",
 )
 
-def _build_mode_param(mode: GoBuildMode.type) -> str.type:
+def _build_mode_param(mode: GoBuildMode.type) -> str:
     if mode == GoBuildMode("executable"):
         return "exe"
     if mode == GoBuildMode("c_shared"):
         return "c-shared"
     fail("unexpected: {}", mode)
 
-def get_inherited_link_pkgs(deps: ["dependency"]) -> {str.type: GoPkg.type}:
+def get_inherited_link_pkgs(deps: ["dependency"]) -> {str: GoPkg.type}:
     return merge_pkgs([d[GoPkgLinkInfo].pkgs for d in deps if GoPkgLinkInfo in d])
 
 def _process_shared_dependencies(ctx: "context", artifact: "artifact", deps: ["dependency"], link_style: LinkStyle.type):
@@ -84,13 +84,13 @@ def _process_shared_dependencies(ctx: "context", artifact: "artifact", deps: ["d
 def link(
         ctx: "context",
         main: "artifact",
-        pkgs: {str.type: "artifact"} = {},
+        pkgs: {str: "artifact"} = {},
         deps: ["dependency"] = [],
         build_mode: GoBuildMode.type = GoBuildMode("executable"),
-        link_mode: [str.type, None] = None,
+        link_mode: [str, None] = None,
         link_style: LinkStyle.type = LinkStyle("static"),
         linker_flags: [""] = [],
-        shared: bool.type = False):
+        shared: bool = False):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     if go_toolchain.env_go_os == "windows":
         executable_extension = ".exe"

@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _internal_tool(default: str.type) -> "attribute":
+def _internal_tool(default: str) -> "attribute":
     return attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = default))
 
 # Factored out of prelude//toolchains/rust.bzl to keep only the user-facing

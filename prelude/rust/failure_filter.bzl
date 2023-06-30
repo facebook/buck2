@@ -24,10 +24,10 @@ RustFailureFilter = provider(fields = [
 def failure_filter(
         ctx: "context",
         compile_ctx: CompileContext.type,
-        prefix: str.type,
+        prefix: str,
         predecl_out: ["artifact", None],
         failprov: "RustFailureFilter",
-        short_cmd: str.type) -> "artifact":
+        short_cmd: str) -> "artifact":
     toolchain_info = compile_ctx.toolchain_info
     failure_filter_action = toolchain_info.failure_filter_action
 

@@ -62,15 +62,15 @@ ArchiveLinkable = record(
     archive = field(Archive.type),
     # If a bitcode bundle was created for this artifact it will be present here
     bitcode_bundle = field(["artifact", None], None),
-    linker_type = field(str.type),
-    link_whole = field(bool.type, False),
+    linker_type = field(str),
+    link_whole = field(bool, False),
     _type = field(LinkableType.type, LinkableType("archive")),
 )
 
 # A shared lib.
 SharedLibLinkable = record(
     lib = field("artifact"),
-    link_without_soname = field(bool.type, False),
+    link_without_soname = field(bool, False),
     _type = field(LinkableType.type, LinkableType("shared")),
 )
 
@@ -79,8 +79,8 @@ ObjectsLinkable = record(
     objects = field([["artifact"], None], None),
     # Any of the objects that are in bitcode format
     bitcode_bundle = field(["artifact", None], None),
-    linker_type = field(str.type),
-    link_whole = field(bool.type, False),
+    linker_type = field(str),
+    link_whole = field(bool, False),
     _type = field(LinkableType.type, LinkableType("objects")),
 )
 
@@ -88,7 +88,7 @@ ObjectsLinkable = record(
 FrameworksLinkable = record(
     # A list of trimmed framework paths, example: ["Foundation", "UIKit"]
     # Used to construct `-framework` args.
-    framework_names = field([str.type], []),
+    framework_names = field([str], []),
     # A list of unresolved framework paths (i.e., containing $SDKROOT, etc).
     # Used to construct `-F` args for compilation and linking.
     #
@@ -98,9 +98,9 @@ FrameworksLinkable = record(
     # and then linked by as part of an `apple_binary()` using another
     # compatible toolchain. The resolved framework directories passed
     # using `-F` would be different for the compilation and the linking.
-    unresolved_framework_paths = field([str.type], []),
+    unresolved_framework_paths = field([str], []),
     # A list of library names, used to construct `-l` args.
-    library_names = field([str.type], []),
+    library_names = field([str], []),
     _type = field(LinkableType.type, LinkableType("frameworks")),
 )
 
@@ -113,7 +113,7 @@ SwiftmoduleLinkable = record(
 SwiftRuntimeLinkable = record(
     # Only store whether the runtime is required, so that linker flags
     # are only materialized _once_ (no duplicates) on the link line.
-    runtime_required = field(bool.type, False),
+    runtime_required = field(bool, False),
     _type = field(LinkableType.type, LinkableType("swift_runtime")),
 )
 
@@ -123,7 +123,7 @@ LinkableTypes = [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.t
 LinkInfo = record(
     # An informative name for this LinkInfo. This may be used in user messages
     # or when constructing intermediate output paths and does not need to be unique.
-    name = field([str.type, None], None),
+    name = field([str, None], None),
     # Opaque cmd_arg-likes to be added pre/post this item on a linker command line.
     pre_flags = field([""], []),
     post_flags = field([""], []),
@@ -312,14 +312,14 @@ def _link_info_stripped_filelist(infos: "LinkInfos"):
     info = infos.stripped or infos.default
     return link_info_filelist(info)
 
-def _link_info_has_default_filelist(children: [bool.type], infos: ["LinkInfos", None]) -> bool.type:
+def _link_info_has_default_filelist(children: [bool], infos: ["LinkInfos", None]) -> bool:
     if infos:
         info = infos.default
         if link_info_filelist(info):
             return True
     return any(children)
 
-def _link_info_has_stripped_filelist(children: [bool.type], infos: ["LinkInfos", None]) -> bool.type:
+def _link_info_has_stripped_filelist(children: [bool], infos: ["LinkInfos", None]) -> bool:
     if infos:
         info = infos.stripped or infos.default
         if link_info_filelist(info):
@@ -461,7 +461,7 @@ def merge_link_infos(
 
 def get_link_info(
         infos: LinkInfos.type,
-        prefer_stripped: bool.type = False) -> LinkInfo.type:
+        prefer_stripped: bool = False) -> LinkInfo.type:
     """
     Helper for getting a `LinkInfo` out of a `LinkInfos`.
     """
@@ -479,14 +479,14 @@ def get_link_info(
 # raw arguments we want to include (used for e.g. per-target link flags).
 LinkArgs = record(
     # A LinkInfosTSet + a flag indicating if stripped is preferred.
-    tset = field([(LinkInfosTSet.type, bool.type), None], None),
+    tset = field([(LinkInfosTSet.type, bool), None], None),
     # A list of LinkInfos
     infos = field([[LinkInfo.type], None], None),
     # A bunch of flags.
     flags = field(["_arglike", None], None),
 )
 
-def unpack_link_args(args: LinkArgs.type, is_shared: [bool.type, None] = None, link_ordering: [LinkOrdering.type, None] = None) -> "_arglike":
+def unpack_link_args(args: LinkArgs.type, is_shared: [bool, None] = None, link_ordering: [LinkOrdering.type, None] = None) -> "_arglike":
     if args.tset != None:
         (tset, stripped) = args.tset
         ordering = link_ordering.value if link_ordering else "preorder"
@@ -592,7 +592,7 @@ def map_to_link_infos(links: [LinkArgs.type]) -> ["LinkInfo"]:
 def get_link_args(
         merged: "MergedLinkInfo",
         link_style: LinkStyle.type,
-        prefer_stripped: bool.type = False) -> LinkArgs.type:
+        prefer_stripped: bool = False) -> LinkArgs.type:
     """
     Return `LinkArgs` for `MergedLinkInfo`  given a link style and a strip preference.
     """
@@ -661,7 +661,7 @@ def merge_framework_linkables(linkables: [[FrameworksLinkable.type, None]]) -> F
         library_names = unique_library_names.keys(),
     )
 
-def wrap_with_no_as_needed_shared_libs_flags(linker_type: str.type, link_info: LinkInfo.type) -> LinkInfo.type:
+def wrap_with_no_as_needed_shared_libs_flags(linker_type: str, link_info: LinkInfo.type) -> LinkInfo.type:
     """
     Wrap link info in args used to prevent linkers from dropping unused shared
     library dependencies from the e.g. DT_NEEDED tags of the link.

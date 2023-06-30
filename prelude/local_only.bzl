@@ -8,7 +8,7 @@
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_link_execution_preference")
 
-def link_cxx_binary_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", None] = None) -> bool.type:
+def link_cxx_binary_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", None] = None) -> bool:
     # Core tools are linked on RE because they are
     # a) small enough to do so and
     # b) don't get build stamping so they do cache correctly.
@@ -20,7 +20,7 @@ def link_cxx_binary_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", 
 def get_resolved_cxx_binary_link_execution_preference(
         ctx: "context",
         links: ["label"],
-        force_full_hybrid_if_capable: bool.type,
+        force_full_hybrid_if_capable: bool,
         cxx_toolchain: ["CxxToolchainInfo", None] = None) -> LinkExecutionPreference.type:
     if force_full_hybrid_if_capable:
         return LinkExecutionPreference("full_hybrid")
@@ -38,16 +38,16 @@ def get_resolved_cxx_binary_link_execution_preference(
     # Else use the preference on the target.
     return get_link_execution_preference(ctx, links)
 
-def package_python_locally(ctx: "context", python_toolchain: "PythonToolchainInfo") -> bool.type:
+def package_python_locally(ctx: "context", python_toolchain: "PythonToolchainInfo") -> bool:
     if _is_core_tool(ctx) or getattr(ctx.attrs, "_package_remotely", False):
         return False
 
     return python_toolchain.build_standalone_binaries_locally
 
-def _is_core_tool(ctx: "context") -> bool.type:
+def _is_core_tool(ctx: "context") -> bool:
     return "is_core_tool" in ctx.attrs.labels
 
-def _cxx_toolchain_sets_link_binaries_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", None]) -> bool.type:
+def _cxx_toolchain_sets_link_binaries_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", None]) -> bool:
     if not cxx_toolchain:
         cxx_toolchain = get_cxx_toolchain_info(ctx)
     return cxx_toolchain.linker_info.link_binaries_locally

@@ -67,7 +67,7 @@ def _linkage(ctx: "context") -> Linkage.type:
     return Linkage("any")
 
 def _parse_macro(
-        arg: str.type) -> [(str.type, str.type, str.type), None]:
+        arg: str) -> [(str, str, str), None]:
     """
     Parse a lib reference macro (e.g. `$(lib 0)`, `$(rel-lib libfoo.so)`) into
     the format string used to format the arg, the name of the macro parsed, and
@@ -97,7 +97,7 @@ def _parse_macro(
 
 def _get_static_link_args(
         libs: ["artifact"],
-        args: [str.type]) -> [""]:
+        args: [str]) -> [""]:
     """
     Format a pair of static link string args and static libs into args to be
     passed to the link, by resolving macro references to libraries.
@@ -119,8 +119,8 @@ def _get_static_link_args(
     return link
 
 def _get_shared_link_args(
-        shared_libs: {str.type: "artifact"},
-        args: [str.type]) -> [""]:
+        shared_libs: {str: "artifact"},
+        args: [str]) -> [""]:
     """
     Format a pair of shared link string args and shared libs into args to be
     passed to the link, by resolving macro references to libraries.

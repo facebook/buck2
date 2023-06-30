@@ -112,7 +112,7 @@ def _get_scan_folder_args(dest: AppleBundleDestination.type, bundle_output: "art
         ],
     )
 
-def _compression_level_arg(compression_level: IpaCompressionLevel.type) -> str.type:
+def _compression_level_arg(compression_level: IpaCompressionLevel.type) -> str:
     if compression_level.value == "none":
         return "-0"
     elif compression_level.value == "default":

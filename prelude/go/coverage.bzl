@@ -23,7 +23,7 @@ GoCoverResult = record(
     variables = field("cmd_args"),
 )
 
-def cover_srcs(ctx: "context", pkg_name: str.type, mode: GoCoverageMode.type, srcs: "cmd_args") -> GoCoverResult.type:
+def cover_srcs(ctx: "context", pkg_name: str, mode: GoCoverageMode.type, srcs: "cmd_args") -> GoCoverResult.type:
     out_covered_src_dir = ctx.actions.declare_output("__covered_srcs__", dir = True)
     out_srcs_argsfile = ctx.actions.declare_output("covered_srcs.txt")
     out_coverage_vars_argsfile = ctx.actions.declare_output("coverage_vars.txt")

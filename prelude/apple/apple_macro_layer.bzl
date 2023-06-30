@@ -12,13 +12,13 @@ load(
 )
 
 AppleBuckConfigAttributeOverride = record(
-    name = field(str.type),
-    section = field(str.type, default = "apple"),
-    key = field(str.type),
-    positive_values = field([[str.type], [bool.type]], default = ["True", "true"]),
-    value_if_true = field([str.type, bool.type, None], default = True),
-    value_if_false = field([str.type, bool.type, None], default = False),
-    skip_if_false = field(bool.type, default = False),
+    name = field(str),
+    section = field(str, default = "apple"),
+    key = field(str),
+    positive_values = field([[str], [bool]], default = ["True", "true"]),
+    value_if_true = field([str, bool, None], default = True),
+    value_if_false = field([str, bool, None], default = False),
+    skip_if_false = field(bool, default = False),
 )
 
 APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE = AppleBuckConfigAttributeOverride(
@@ -48,7 +48,7 @@ _APPLE_BINARY_LOCAL_EXECUTION_OVERRIDES = [
     ),
 ]
 
-def apple_macro_layer_set_bool_override_attrs_from_config(overrides: [AppleBuckConfigAttributeOverride.type]) -> {str.type: "selector"}:
+def apple_macro_layer_set_bool_override_attrs_from_config(overrides: [AppleBuckConfigAttributeOverride.type]) -> {str: "selector"}:
     attribs = {}
     for override in overrides:
         config_value = read_config(override.section, override.key, None)

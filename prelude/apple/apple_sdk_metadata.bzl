@@ -6,12 +6,12 @@
 # of this source tree.
 
 AppleSdkMetadata = record(
-    name = field(str.type),
-    target_device_flags = field([str.type], []),
-    is_ad_hoc_code_sign_sufficient = field(bool.type),
-    info_plist_supported_platforms_values = field([str.type]),
-    min_version_plist_info_key = field(str.type),
-    actool_platform_override = field([str.type, None], None),
+    name = field(str),
+    target_device_flags = field([str], []),
+    is_ad_hoc_code_sign_sufficient = field(bool),
+    info_plist_supported_platforms_values = field([str]),
+    min_version_plist_info_key = field(str),
+    actool_platform_override = field([str, None], None),
 )
 
 IPhoneOSSdkMetadata = AppleSdkMetadata(
@@ -91,7 +91,7 @@ _SDK_MAP = {
     MacOSXCatalystSdkMetadata.name: MacOSXCatalystSdkMetadata,
 }
 
-def get_apple_sdk_metadata_for_sdk_name(name: str.type) -> AppleSdkMetadata.type:
+def get_apple_sdk_metadata_for_sdk_name(name: str) -> AppleSdkMetadata.type:
     sdk = _SDK_MAP.get(name)
     if sdk == None:
         fail("unrecognized sdk name: `{}`".format(name))

@@ -86,7 +86,7 @@ _CxxCompileCommand = record(
     # The argsfile of arguments from the rule and it's dependencies.
     argsfile = field(CompileArgsfile.type),
     headers_dep_files = field([_HeadersDepFiles.type, None]),
-    compiler_type = field(str.type),
+    compiler_type = field(str),
 )
 
 # Information about how to compile a source file.
@@ -126,7 +126,7 @@ CxxCompileOutput = record(
     # The compiled `.o` file.
     object = field("artifact"),
     object_format = field(CxxObjectFormat.type, CxxObjectFormat("native")),
-    object_has_external_debug_info = field(bool.type, False),
+    object_has_external_debug_info = field(bool, False),
     # Externally referenced debug info, which doesn't get linked with the
     # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
     # the `.dwo` when using `-gsplit-dwarf=split`).
@@ -139,7 +139,7 @@ def create_compile_cmds(
         impl_params: "CxxRuleConstructorParams",
         own_preprocessors: [CPreprocessor.type],
         inherited_preprocessor_infos: [CPreprocessorInfo.type],
-        absolute_path_prefix: [str.type, None]) -> CxxCompileCommandOutput.type:
+        absolute_path_prefix: [str, None]) -> CxxCompileCommandOutput.type:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
     and optional source file flags. Returns CxxCompileCommandOutput containing an array
@@ -251,7 +251,7 @@ def create_compile_cmds(
 def compile_cxx(
         ctx: "context",
         src_compile_cmds: [CxxSrcCompileCommand.type],
-        pic: bool.type = False) -> [CxxCompileOutput.type]:
+        pic: bool = False) -> [CxxCompileOutput.type]:
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
@@ -435,7 +435,7 @@ def _mk_argsfile(
         preprocessor: CPreprocessorInfo.type,
         ext: CxxExtension.type,
         headers_tag: "artifact_tag",
-        absolute_path_prefix: [str.type, None]) -> CompileArgsfile.type:
+        absolute_path_prefix: [str, None]) -> CompileArgsfile.type:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
@@ -496,7 +496,7 @@ def _mk_argsfile(
         args_without_file_prefix_args = args_without_file_prefix_args,
     )
 
-def _attr_compiler_flags(ctx: "context", ext: str.type) -> [""]:
+def _attr_compiler_flags(ctx: "context", ext: str) -> [""]:
     return (
         cxx_by_language_ext(ctx.attrs.lang_compiler_flags, ext, ctx.label) +
         flatten(cxx_by_platform(ctx, ctx.attrs.platform_compiler_flags)) +

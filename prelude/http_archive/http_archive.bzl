@@ -21,20 +21,20 @@ _ARCHIVE_EXTS = _TAR_FLAGS.keys() + [
     "zip",
 ]
 
-def _url_path(url: str.type) -> str.type:
+def _url_path(url: str) -> str:
     if "?" in url:
         return url.split("?")[0]
     else:
         return url
 
-def _type_from_url(url: str.type) -> [str.type, None]:
+def _type_from_url(url: str) -> [str, None]:
     url_path = _url_path(url)
     for filename_ext in _ARCHIVE_EXTS:
         if url_path.endswith("." + filename_ext):
             return filename_ext
     return None
 
-def _type(ctx: "context") -> str.type:
+def _type(ctx: "context") -> str:
     url = ctx.attrs.urls[0]
     typ = ctx.attrs.type
     if typ == None:
@@ -44,10 +44,10 @@ def _type(ctx: "context") -> str.type:
     return typ
 
 def _unarchive_cmd(
-        ext_type: str.type,
-        exec_is_windows: bool.type,
+        ext_type: str,
+        exec_is_windows: bool,
         archive: "artifact",
-        strip_prefix: [str.type, None]) -> "cmd_args":
+        strip_prefix: [str, None]) -> "cmd_args":
     if exec_is_windows:
         # So many hacks.
         if ext_type == "tar.zst":
@@ -98,7 +98,7 @@ def _unarchive_cmd(
     else:
         fail()
 
-def _tar_strip_prefix_flags(strip_prefix: [str.type, None]) -> [str.type]:
+def _tar_strip_prefix_flags(strip_prefix: [str, None]) -> [str]:
     if strip_prefix:
         # count nonempty path components in the prefix
         count = len(filter(lambda c: c != "", strip_prefix.split("/")))

@@ -19,7 +19,7 @@ load(
 load("@prelude//utils:utils.bzl", "flatten")
 
 GHCiPreloadDepsInfo = record(
-    preload_symlinks = {str.type: "artifact"},
+    preload_symlinks = {str: "artifact"},
     preload_deps_root = "artifact",
 )
 

@@ -32,11 +32,11 @@ LinkableProvidersTSet = transitive_set()
 CxxExtensionLinkInfo = provider(
     fields = [
         "linkable_providers",  # LinkableProvidersTSet.type
-        "artifacts",  # {str.type: "_a"}
-        "python_module_names",  # {str.type: str.type}
+        "artifacts",  # {str: "_a"}
+        "python_module_names",  # {str: str}
         "dlopen_deps",  # {"label": LinkableProviders.type}
         # Native python extensions that can't be linked into the main executable.
-        "unembeddable_extensions",  # {str.type: LinkableProviders.type}
+        "unembeddable_extensions",  # {str: LinkableProviders.type}
         # Native libraries that are only available as shared libs.
         "shared_only_libs",  # {"label": LinkableProviders.type}
     ],
@@ -46,9 +46,9 @@ def merge_cxx_extension_info(
         actions: "actions",
         deps: ["dependency"],
         linkable_providers: [LinkableProviders.type, None] = None,
-        artifacts: {str.type: "_a"} = {},
-        python_module_names: {str.type: str.type} = {},
-        unembeddable_extensions: {str.type: LinkableProviders.type} = {},
+        artifacts: {str: "_a"} = {},
+        python_module_names: {str: str} = {},
+        unembeddable_extensions: {str: LinkableProviders.type} = {},
         shared_deps: ["dependency"] = []) -> CxxExtensionLinkInfo.type:
     linkable_provider_children = []
     artifacts = dict(artifacts)
@@ -96,12 +96,12 @@ def merge_cxx_extension_info(
 
 def rewrite_static_symbols(
         ctx: "context",
-        suffix: str.type,
+        suffix: str,
         pic_objects: ["artifact"],
         non_pic_objects: ["artifact"],
         libraries: {LinkStyle.type: LinkInfos.type},
         cxx_toolchain: "CxxToolchainInfo",
-        suffix_all: bool.type = False) -> {LinkStyle.type: LinkInfos.type}:
+        suffix_all: bool = False) -> {LinkStyle.type: LinkInfos.type}:
     symbols_file = _write_syms_file(
         ctx = ctx,
         name = ctx.label.name + "_rename_syms",
@@ -165,11 +165,11 @@ def rewrite_static_symbols(
 
 def _write_syms_file(
         ctx: "context",
-        name: str.type,
+        name: str,
         objects: ["artifact"],
-        suffix: str.type,
+        suffix: str,
         cxx_toolchain: "CxxToolchainInfo",
-        suffix_all: bool.type = False) -> "artifact":
+        suffix_all: bool = False) -> "artifact":
     """
     Take a list of objects and append a suffix to all  defined symbols.
     """
@@ -226,7 +226,7 @@ def _write_syms_file(
 
 def suffix_symbols(
         ctx: "context",
-        suffix: str.type,
+        suffix: str,
         objects: ["artifact"],
         symbols_file: "artifact",
         cxx_toolchain: "CxxToolchainInfo") -> (ObjectsLinkable.type, ObjectsLinkable.type):

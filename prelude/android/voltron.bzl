@@ -89,7 +89,7 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
 
     return [DefaultInfo(default_output = output)]
 
-def get_target_to_module_mapping(ctx: "context", deps_by_platform: {str.type: ["dependency"]}) -> ["artifact", None]:
+def get_target_to_module_mapping(ctx: "context", deps_by_platform: {str: ["dependency"]}) -> ["artifact", None]:
     if not ctx.attrs.application_module_configs:
         return None
 
@@ -126,8 +126,8 @@ def _get_base_cmd_and_output(
         android_packageable_infos: ["AndroidPackageableInfo"],
         shared_libraries: ["SharedLibrary"],
         android_toolchain: "AndroidToolchainInfo",
-        application_module_configs: {str.type: ["dependency"]},
-        application_module_dependencies: [{str.type: [str.type]}, None],
+        application_module_configs: {str: ["dependency"]},
+        application_module_dependencies: [{str: [str]}, None],
         application_module_blocklist: [[["dependency"]], None]) -> ("cmd_args", "artifact"):
     deps_map = {}
     for android_packageable_info in android_packageable_infos:
@@ -182,25 +182,25 @@ def _get_base_cmd_and_output(
 
 ROOT_MODULE = "dex"
 
-def is_root_module(module: str.type) -> bool.type:
+def is_root_module(module: str) -> bool:
     return module == ROOT_MODULE
 
-def all_targets_in_root_module(_module: str.type) -> str.type:
+def all_targets_in_root_module(_module: str) -> str:
     return ROOT_MODULE
 
 APKModuleGraphInfo = record(
-    module_list = [str.type],
+    module_list = [str],
     target_to_module_mapping_function = "function",
     module_to_canary_class_name_function = "function",
     module_to_module_deps_function = "function",
 )
 
 def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo.type:
-    def root_module_canary_class_name(module: str.type):
+    def root_module_canary_class_name(module: str):
         expect(is_root_module(module))
         return "secondary"
 
-    def root_module_deps(module: str.type):
+    def root_module_deps(module: str):
         expect(is_root_module(module))
         return []
 
@@ -236,15 +236,15 @@ def get_apk_module_graph_info(
         target, module = line.split(" ")
         target_to_module_mapping[target] = module
 
-    def target_to_module_mapping_function(raw_target: str.type) -> str.type:
+    def target_to_module_mapping_function(raw_target: str) -> str:
         mapped_module = target_to_module_mapping.get(raw_target)
         expect(mapped_module != None, "No module found for target {}!".format(raw_target))
         return mapped_module
 
-    def module_to_canary_class_name_function(voltron_module: str.type) -> str.type:
+    def module_to_canary_class_name_function(voltron_module: str) -> str:
         return module_to_canary_class_name_map.get(voltron_module)
 
-    def module_to_module_deps_function(voltron_module: str.type) -> list.type:
+    def module_to_module_deps_function(voltron_module: str) -> list:
         return module_to_module_deps_map.get(voltron_module)
 
     return APKModuleGraphInfo(

@@ -145,20 +145,20 @@ CxxExecutableOutput = record(
     # Files that will likely need to be included as .hidden() arguments
     # when executing the executable (ex. RunInfo())
     runtime_files = ["_arglike"],
-    sub_targets = {str.type: [DefaultInfo.type]},
+    sub_targets = {str: [DefaultInfo.type]},
     # The LinkArgs used to create the final executable in 'binary'.
     link_args = [LinkArgs.type],
     # External components needed to debug the executable.
     external_debug_info = [ExternalDebugInfoTSet.type, None],
-    shared_libs = {str.type: LinkedObject.type},
+    shared_libs = {str: LinkedObject.type},
     # All link group links that were generated in the executable.
-    auto_link_groups = field({str.type: LinkedObject.type}, {}),
+    auto_link_groups = field({str: LinkedObject.type}, {}),
     compilation_db = CxxCompilationDbInfo.type,
     xcode_data = XcodeDataInfo.type,
     linker_map_data = [CxxLinkerMapData.type, None],
 )
 
-def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> CxxExecutableOutput.type:
+def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool = False) -> CxxExecutableOutput.type:
     absolute_path_prefix = apple_get_xcode_absolute_path_prefix()
 
     # Gather preprocessor inputs.
@@ -600,15 +600,15 @@ _CxxLinkExecutableResult = record(
 def _link_into_executable(
         ctx: "context",
         links: [LinkArgs.type],
-        shared_libs: {str.type: LinkedObject.type},
-        link_weight: int.type,
-        binary_extension: str.type,
+        shared_libs: {str: LinkedObject.type},
+        link_weight: int,
+        binary_extension: str,
         link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
-        enable_distributed_thinlto: bool.type = False,
-        strip: bool.type = False,
+        enable_distributed_thinlto: bool = False,
+        strip: bool = False,
         link_ordering: [LinkOrdering.type, None] = None,
         strip_args_factory = None,
-        category_suffix: [str.type, None] = None) -> _CxxLinkExecutableResult.type:
+        category_suffix: [str, None] = None) -> _CxxLinkExecutableResult.type:
     output = ctx.actions.declare_output("{}{}".format(get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
         ctx.actions,
@@ -640,5 +640,5 @@ def _link_into_executable(
         linker_map_data = link_result.linker_map_data,
     )
 
-def get_cxx_executable_product_name(ctx: "context") -> str.type:
+def get_cxx_executable_product_name(ctx: "context") -> str:
     return ctx.label.name + ("-wrapper" if cxx_use_bolt(ctx) else "")

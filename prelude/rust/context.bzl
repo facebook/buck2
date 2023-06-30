@@ -15,15 +15,15 @@ load(":rust_toolchain.bzl", "RustToolchainInfo")
 # (rustdoc just relays bunch of the same args to rustc when trying to gen docs)
 CommonArgsInfo = record(
     args = field("cmd_args"),
-    subdir = field(str.type),
-    tempfile = field(str.type),
-    short_cmd = field(str.type),
-    is_check = field(bool.type),
+    subdir = field(str),
+    tempfile = field(str),
+    short_cmd = field(str),
+    is_check = field(bool),
     crate_map = field([(CrateName.type, "label")]),
 )
 
 ExternArg = record(
-    flags = str.type,
+    flags = str,
     lib = field("artifact"),
 )
 

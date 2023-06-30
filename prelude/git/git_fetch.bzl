@@ -7,7 +7,7 @@
 
 _HEX_DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
 
-def _is_40_hex(rev: str.type) -> bool.type:
+def _is_40_hex(rev: str) -> bool:
     if len(rev) != 40:
         return False
     for digit in rev.elems():

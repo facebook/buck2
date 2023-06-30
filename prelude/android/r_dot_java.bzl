@@ -22,7 +22,7 @@ def get_dummy_r_dot_java(
         ctx: "context",
         merge_android_resources_tool: RunInfo.type,
         android_resources: ["AndroidResourceInfo"],
-        union_package: [str.type, None]) -> "JavaLibraryInfo":
+        union_package: [str, None]) -> "JavaLibraryInfo":
     r_dot_java_source_code = _generate_r_dot_java_source_code(ctx, merge_android_resources_tool, android_resources, "dummy_r_dot_java", union_package = union_package)
     library_output = _generate_and_compile_r_dot_java(
         ctx,
@@ -39,13 +39,13 @@ def generate_r_dot_javas(
         ctx: "context",
         merge_android_resources_tool: RunInfo.type,
         android_resources: ["AndroidResourceInfo"],
-        banned_duplicate_resource_types: [str.type],
+        banned_duplicate_resource_types: [str],
         uber_r_dot_txt_files: ["artifact"],
         override_symbols_paths: ["artifact"],
         duplicate_resources_allowlist: ["artifact", None],
-        union_package: [str.type, None],
+        union_package: [str, None],
         referenced_resources_lists: ["artifact"],
-        generate_strings_and_ids_separately: [bool.type, None] = True) -> ["JavaLibraryInfo"]:
+        generate_strings_and_ids_separately: [bool, None] = True) -> ["JavaLibraryInfo"]:
     r_dot_java_source_code = _generate_r_dot_java_source_code(
         ctx,
         merge_android_resources_tool,
@@ -93,14 +93,14 @@ def _generate_r_dot_java_source_code(
         ctx: "context",
         merge_android_resources_tool: RunInfo.type,
         android_resources: ["AndroidResourceInfo"],
-        identifier: str.type,
+        identifier: str,
         force_final_resources_ids = False,
         generate_strings_and_ids_separately = False,
-        banned_duplicate_resource_types: [str.type] = [],
+        banned_duplicate_resource_types: [str] = [],
         uber_r_dot_txt_files: ["artifact"] = [],
         override_symbols_paths: ["artifact"] = [],
         duplicate_resources_allowlist: ["artifact", None] = None,
-        union_package: [str.type, None] = None,
+        union_package: [str, None] = None,
         referenced_resources_lists: ["artifact"] = []) -> RDotJavaSourceCode.type:
     merge_resources_cmd = cmd_args(merge_android_resources_tool)
 
@@ -176,8 +176,8 @@ def _generate_r_dot_java_source_code(
 def _generate_and_compile_r_dot_java(
         ctx: "context",
         r_dot_java_source_code_zipped: "artifact",
-        identifier: str.type,
-        remove_classes: [str.type] = []) -> JavaClasspathEntry.type:
+        identifier: str,
+        remove_classes: [str] = []) -> JavaClasspathEntry.type:
     r_dot_java_out = ctx.actions.declare_output("{}.jar".format(identifier))
 
     compile_to_jar(

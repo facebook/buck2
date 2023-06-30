@@ -13,7 +13,7 @@ load("@prelude//utils:utils.bzl", "expect", "map_idx")
 # A group of sources that all have the same canonical name. The main_source is arbitrary but
 # consistent (it is just the first source encountered when processing the src files).
 GroupedSource = record(
-    canonical_name = str.type,
+    canonical_name = str,
     main_source = "artifact",
     additional_sources = ["artifact"],
 )
@@ -38,7 +38,7 @@ def _get_grouped_srcs(ctx: "context") -> [GroupedSource.type]:
 
     return grouped_srcs.values()
 
-def _get_virtual_path(ctx: "context", src: "artifact", base_path: [str.type, None]) -> str.type:
+def _get_virtual_path(ctx: "context", src: "artifact", base_path: [str, None]) -> str:
     package = ctx.label.package
     if base_path and base_path not in ["", "."]:
         package = paths.join(package, base_path)
@@ -47,8 +47,8 @@ def _get_virtual_path(ctx: "context", src: "artifact", base_path: [str.type, Non
 
 def _build_js_files(
         ctx: "context",
-        transform_profile: str.type,
-        flavors: [str.type],
+        transform_profile: str,
+        flavors: [str],
         grouped_srcs: [GroupedSource.type]) -> ["artifact"]:
     if not grouped_srcs:
         return []
@@ -102,8 +102,8 @@ def _build_js_files(
 
 def _build_library_files(
         ctx: "context",
-        transform_profile: str.type,
-        flavors: [str.type],
+        transform_profile: str,
+        flavors: [str],
         js_files: ["artifact"]) -> "artifact":
     output_path = ctx.actions.declare_output("{}/library_files".format(transform_profile))
     command_args_file = ctx.actions.write_json(
@@ -130,9 +130,9 @@ def _build_library_files(
 
 def _build_js_library(
         ctx: "context",
-        transform_profile: str.type,
+        transform_profile: str,
         library_files: "artifact",
-        flavors: [str.type],
+        flavors: [str],
         js_library_deps: ["artifact"]) -> "artifact":
     output_path = ctx.actions.declare_output("{}.jslib".format(transform_profile))
     job_args = {

@@ -40,7 +40,7 @@ def linker_map_args(ctx, linker_map) -> LinkArgs.type:
         fail("Linker type {} not supported".format(linker_type))
     return LinkArgs(flags = flags)
 
-def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], output_short_path: [str.type, None]) -> (["LinkArgs"], ["artifact", None]):
+def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], output_short_path: [str, None]) -> (["LinkArgs"], ["artifact", None]):
     """
     Takes LinkArgs, and if they enable the DWO output dir hack, returns updated
     args and a DWO dir as output. If they don't, just returns the args as-is.
@@ -89,8 +89,8 @@ def make_link_args(
         ctx: "context",
         links: ["LinkArgs"],
         suffix = None,
-        output_short_path: [str.type, None] = None,
-        is_shared: [bool.type, None] = None,
+        output_short_path: [str, None] = None,
+        is_shared: [bool, None] = None,
         link_ordering: ["LinkOrdering", None] = None) -> ("_arglike", ["_hidden"], ["artifact", None], ["artifact", None]):
     """
     Merges LinkArgs. Returns the args, files that must be present for those
@@ -163,7 +163,7 @@ def make_link_args(
 
     return (args, [args] + hidden, dwo_dir, pdb_artifact)
 
-def shared_libs_symlink_tree_name(output: "artifact") -> str.type:
+def shared_libs_symlink_tree_name(output: "artifact") -> str:
     return "__{}__shared_libs_symlink_tree".format(output.short_path)
 
 # Returns a tuple of:
@@ -175,7 +175,7 @@ def executable_shared_lib_arguments(
         label: "label",
         cxx_toolchain: CxxToolchainInfo.type,
         output: "artifact",
-        shared_libs: {str.type: "LinkedObject"}) -> ([""], ["_arglike"], ["artifact", None]):
+        shared_libs: {str: "LinkedObject"}) -> ([""], ["_arglike"], ["artifact", None]):
     extra_args = []
     runtime_files = []
     shared_libs_symlink_tree = None

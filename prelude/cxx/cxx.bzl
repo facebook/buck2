@@ -132,7 +132,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         _external_debug_info: ["transitive_set", None],
         dwp: ["artifact", None],
         pdb: ["artifact", None],
-        linker_map: [CxxLinkerMapData.type, None]) -> ({str.type: ["provider"]}, ["provider"]):
+        linker_map: [CxxLinkerMapData.type, None]) -> ({str: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
     sub_targets = {}
@@ -168,7 +168,7 @@ def cxx_library_impl(ctx: "context") -> ["provider"]:
     output = cxx_library_parameterized(ctx, params)
     return output.providers
 
-def _only_shared_mappings(group: Group.type) -> bool.type:
+def _only_shared_mappings(group: Group.type) -> bool:
     """
     Return whether this group only has explicit "shared" linkage mappings,
     which indicates a group that re-uses pre-linked libs.
@@ -229,7 +229,7 @@ def cxx_binary_impl(ctx: "context") -> ["provider"]:
 def _prebuilt_item(
         ctx: "context",
         item: ["", None],
-        platform_items: [[(str.type, "_a")], None]) -> ["_a", None]:
+        platform_items: [[(str, "_a")], None]) -> ["_a", None]:
     """
     Parse the given item that can be specified by regular and platform-specific
     parameters.

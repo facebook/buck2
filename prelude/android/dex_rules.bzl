@@ -60,12 +60,12 @@ load("@prelude//paths.bzl", "paths")
 _DEX_MERGE_OPTIONS = ["--no-desugar", "--no-optimize"]
 
 SplitDexMergeConfig = record(
-    dex_compression = str.type,
-    primary_dex_patterns = [str.type],
-    secondary_dex_weight_limit_bytes = int.type,
+    dex_compression = str,
+    primary_dex_patterns = [str],
+    secondary_dex_weight_limit_bytes = int,
 )
 
-def _get_dex_compression(ctx: "context") -> str.type:
+def _get_dex_compression(ctx: "context") -> str:
     is_exopackage_enabled_for_secondary_dexes = _is_exopackage_enabled_for_secondary_dex(ctx)
     default_dex_compression = "jar" if is_exopackage_enabled_for_secondary_dexes else "raw"
     dex_compression = getattr(ctx.attrs, "dex_compression", None) or default_dex_compression
@@ -90,7 +90,7 @@ def get_single_primary_dex(
         ctx: "context",
         android_toolchain: "AndroidToolchainInfo",
         java_library_jars: ["artifact"],
-        is_optimized: bool.type) -> "DexFilesInfo":
+        is_optimized: bool) -> "DexFilesInfo":
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
         "It doesn't make sense to enable secondary dex exopackage for single dex builds!",
@@ -123,10 +123,10 @@ def get_multi_dex(
         ctx: "context",
         android_toolchain: "AndroidToolchainInfo",
         java_library_jars_to_owners: {"artifact": "target_label"},
-        primary_dex_patterns: [str.type],
+        primary_dex_patterns: [str],
         proguard_configuration_output_file: ["artifact", None],
         proguard_mapping_output_file: ["artifact", None],
-        is_optimized: bool.type,
+        is_optimized: bool,
         apk_module_graph_file: ["artifact", None] = None) -> "DexFilesInfo":
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
@@ -288,7 +288,7 @@ def merge_to_single_dex(
 
 DexInputWithSpecifiedClasses = record(
     lib = "DexLibraryInfo",
-    dex_class_names = [str.type],
+    dex_class_names = [str],
 )
 
 DexInputsWithClassNamesAndWeightEstimatesFile = record(
@@ -313,19 +313,19 @@ DexInputsWithClassNamesAndWeightEstimatesFile = record(
 # secondary_dex_metadata_line artifacts and write them to a single metadata.txt file.
 # We do that for raw compression too, since it also has a metadata.txt file.
 SecondaryDexMetadataConfig = record(
-    secondary_dex_compression = str.type,
-    secondary_dex_metadata_path = [str.type, None],
+    secondary_dex_compression = str,
+    secondary_dex_metadata_path = [str, None],
     secondary_dex_metadata_file = ["artifact", None],
     secondary_dex_metadata_line = "artifact",
-    secondary_dex_canary_class_name = str.type,
+    secondary_dex_canary_class_name = str,
 )
 
 def _get_secondary_dex_jar_metadata_config(
         actions: "actions",
-        secondary_dex_path: str.type,
-        module: str.type,
+        secondary_dex_path: str,
+        module: str,
         module_to_canary_class_name_function: "function",
-        index: int.type) -> SecondaryDexMetadataConfig.type:
+        index: int) -> SecondaryDexMetadataConfig.type:
     secondary_dex_metadata_path = secondary_dex_path + ".meta"
     return SecondaryDexMetadataConfig(
         secondary_dex_compression = "jar",
@@ -337,9 +337,9 @@ def _get_secondary_dex_jar_metadata_config(
 
 def _get_secondary_dex_raw_metadata_config(
         actions: "actions",
-        module: str.type,
+        module: str,
         module_to_canary_class_name_function: "function",
-        index: int.type) -> SecondaryDexMetadataConfig.type:
+        index: int) -> SecondaryDexMetadataConfig.type:
     return SecondaryDexMetadataConfig(
         secondary_dex_compression = "raw",
         secondary_dex_metadata_path = None,
@@ -348,7 +348,7 @@ def _get_secondary_dex_raw_metadata_config(
         secondary_dex_canary_class_name = _get_fully_qualified_canary_class_name(module, module_to_canary_class_name_function, index + 1),
     )
 
-def _get_filter_dex_batch_size() -> int.type:
+def _get_filter_dex_batch_size() -> int:
     return 100
 
 def _filter_pre_dexed_libs(
@@ -356,7 +356,7 @@ def _filter_pre_dexed_libs(
         android_toolchain: "AndroidToolchainInfo",
         primary_dex_patterns_file: "artifact",
         pre_dexed_libs: ["DexLibraryInfo"],
-        batch_number: int.type) -> DexInputsWithClassNamesAndWeightEstimatesFile.type:
+        batch_number: int) -> DexInputsWithClassNamesAndWeightEstimatesFile.type:
     weight_estimate_and_filtered_class_names_file = actions.declare_output("class_names_and_weight_estimates_for_batch_{}".format(batch_number))
 
     filter_dex_cmd = cmd_args([
@@ -377,7 +377,7 @@ def _filter_pre_dexed_libs(
     return DexInputsWithClassNamesAndWeightEstimatesFile(libs = pre_dexed_libs, weight_estimate_and_filtered_class_names_file = weight_estimate_and_filtered_class_names_file)
 
 _SortedPreDexedInputs = record(
-    module = str.type,
+    module = str,
     primary_dex_inputs = [DexInputWithSpecifiedClasses.type],
     secondary_dex_inputs = [[DexInputWithSpecifiedClasses.type]],
 )
@@ -684,7 +684,7 @@ def _sort_pre_dexed_files(
 
     return sorted_pre_dexed_inputs_map.values()
 
-def _get_raw_secondary_dex_name(index: int.type, module: str.type) -> str.type:
+def _get_raw_secondary_dex_name(index: int, module: str) -> str:
     # Root module begins at 2 (primary classes.dex is 1)
     # Non-root module begins at 1 (classes.dex)
     if is_root_module(module):
@@ -694,20 +694,20 @@ def _get_raw_secondary_dex_name(index: int.type, module: str.type) -> str.type:
     else:
         return "classes{}.dex".format(module, index + 1)
 
-def _get_raw_secondary_dex_path(index: int.type, module: str.type):
+def _get_raw_secondary_dex_path(index: int, module: str):
     if is_root_module(module):
         return _get_raw_secondary_dex_name(index, module)
     else:
         return "assets/{}/{}".format(module, _get_raw_secondary_dex_name(index, module))
 
-def _get_jar_secondary_dex_path(index: int.type, module: str.type):
+def _get_jar_secondary_dex_path(index: int, module: str):
     return "{}/{}-{}.dex.jar".format(
         _get_secondary_dex_subdir(module),
         "secondary" if is_root_module(module) else module,
         index + 1,
     )
 
-def _get_secondary_dex_subdir(module: str.type):
+def _get_secondary_dex_subdir(module: str):
     return "assets/{}".format("secondary-program-dex-jars" if is_root_module(module) else module)
 
 # We create "canary" classes and add them to each secondary dex jar to ensure each jar has a class
@@ -719,8 +719,8 @@ _CANARY_CLASS_INTERFACE_DEFINITION = "public interface Canary {}"
 
 def _create_canary_class(
         ctx: "context",
-        index: int.type,
-        module: str.type,
+        index: int,
+        module: str,
         module_to_canary_class_name_function: "function",
         dex_toolchain: DexToolchainInfo.type) -> DexInputWithSpecifiedClasses.type:
     prefix = module_to_canary_class_name_function(module)
@@ -738,12 +738,12 @@ def _create_canary_class(
         dex_class_names = [_get_fully_qualified_canary_class_name(module, module_to_canary_class_name_function, index).replace(".", "/") + ".class"],
     )
 
-def _get_fully_qualified_canary_class_name(module: str.type, module_to_canary_class_name_function: "function", index: int.type) -> str.type:
+def _get_fully_qualified_canary_class_name(module: str, module_to_canary_class_name_function: "function", index: int) -> str:
     prefix = module_to_canary_class_name_function(module)
     index_string = str(index)
     if len(index_string) == 1:
         index_string = "0" + index_string
     return _CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE.format(prefix, index_string)
 
-def _is_exopackage_enabled_for_secondary_dex(ctx: "context") -> bool.type:
+def _is_exopackage_enabled_for_secondary_dex(ctx: "context") -> bool:
     return "secondary_dex" in getattr(ctx.attrs, "exopackage_modes", [])

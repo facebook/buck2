@@ -10,5 +10,5 @@ _SKIP_COPYING_SWIFT_STDLIB_EXTENSIONS = [
     ".appex",
 ]
 
-def should_copy_swift_stdlib(bundle_extension: str.type) -> bool.type:
+def should_copy_swift_stdlib(bundle_extension: str) -> bool:
     return bundle_extension not in _SKIP_COPYING_SWIFT_STDLIB_EXTENSIONS

@@ -90,7 +90,7 @@ JavaClasspathEntry = record(
     # abi_as_dir is the abi .jar unzipped into a directory. If available, it is used to provide
     # .class level granularity for javacd and kotlincd dep-files.
     abi_as_dir = field(["artifact", None]),
-    required_for_source_only_abi = field(bool.type),
+    required_for_source_only_abi = field(bool),
 )
 
 def _args_for_ast_dumper(entry: JavaClasspathEntry.type):
@@ -126,7 +126,7 @@ JavaPackagingDep = record(
     label = "label",
     jar = ["artifact", None],
     dex = ["DexLibraryInfo", None],
-    is_prebuilt_jar = bool.type,
+    is_prebuilt_jar = bool,
     proguard_config = ["artifact", None],
 
     # An output that is used solely by the system to have an artifact bound to the target (that the core can then use to find
@@ -241,7 +241,7 @@ def make_compile_outputs(
         source_only_abi: ["artifact", None] = None,
         classpath_abi: ["artifact", None] = None,
         classpath_abi_dir: ["artifact", None] = None,
-        required_for_source_only_abi: bool.type = False,
+        required_for_source_only_abi: bool = False,
         annotation_processor_output: ["artifact", None] = None) -> JavaCompileOutputs.type:
     expect(classpath_abi != None or classpath_abi_dir == None, "A classpath_abi_dir should only be provided if a classpath_abi is provided!")
     return JavaCompileOutputs(
@@ -299,11 +299,11 @@ def create_java_packaging_dep(
         ctx: "context",
         library_jar: ["artifact", None] = None,
         output_for_classpath_macro: ["artifact", None] = None,
-        needs_desugar: bool.type = False,
+        needs_desugar: bool = False,
         desugar_deps: ["artifact"] = [],
-        is_prebuilt_jar: bool.type = False,
-        has_srcs: bool.type = True,
-        dex_weight_factor: int.type = 1,
+        is_prebuilt_jar: bool = False,
+        has_srcs: bool = True,
+        dex_weight_factor: int = 1,
         proguard_config: ["artifact", None] = None) -> "JavaPackagingDep":
     dex_toolchain = getattr(ctx.attrs, "_dex_toolchain", None)
     if library_jar != None and has_srcs and dex_toolchain != None and ctx.attrs._dex_toolchain[DexToolchainInfo].d8_command != None:
@@ -382,10 +382,10 @@ def _create_non_template_providers(
         exported_deps: ["dependency"] = [],
         exported_provided_deps: ["dependency"] = [],
         runtime_deps: ["dependency"] = [],
-        needs_desugar: bool.type = False,
+        needs_desugar: bool = False,
         desugar_classpath: ["artifact"] = [],
-        is_prebuilt_jar: bool.type = False,
-        has_srcs: bool.type = True,
+        is_prebuilt_jar: bool = False,
+        has_srcs: bool = True,
         proguard_config: ["artifact", None] = None) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type):
     """Creates java library providers of type `JavaLibraryInfo` and `JavaPackagingInfo`.
 
@@ -443,9 +443,9 @@ def create_java_library_providers(
         provided_deps: ["dependency"] = [],
         exported_provided_deps: ["dependency"] = [],
         runtime_deps: ["dependency"] = [],
-        needs_desugar: bool.type = False,
-        is_prebuilt_jar: bool.type = False,
-        has_srcs: bool.type = True,
+        needs_desugar: bool = False,
+        is_prebuilt_jar: bool = False,
+        has_srcs: bool = True,
         generated_sources: ["artifact"] = [],
         annotation_jars_dir: ["artifact", None] = None,
         proguard_config: ["artifact", None] = None) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):

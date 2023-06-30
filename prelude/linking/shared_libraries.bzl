@@ -15,8 +15,8 @@ load("@prelude//linking:strip.bzl", "strip_shared_library")
 SharedLibrary = record(
     lib = field(LinkedObject.type),
     stripped_lib = field(["artifact", None]),
-    can_be_asset = field(bool.type),
-    for_primary_apk = field(bool.type),
+    can_be_asset = field(bool),
+    for_primary_apk = field(bool),
     label = field("label"),
 )
 
@@ -25,7 +25,7 @@ SharedLibraries = record(
     # Since the SONAME is what the dynamic loader uses to uniquely identify
     # libraries, using this as the key allows easily detecting conflicts from
     # dependencies.
-    libraries = field({str.type: SharedLibrary.type}),
+    libraries = field({str: SharedLibrary.type}),
 )
 
 # T-set of SharedLibraries
@@ -45,7 +45,7 @@ def _get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo.type) -> "list":
 
 def create_shared_libraries(
         ctx: "context",
-        libraries: {str.type: LinkedObject.type}) -> SharedLibraries.type:
+        libraries: {str: LinkedObject.type}) -> SharedLibraries.type:
     """
     Take a mapping of dest -> src and turn it into a mapping that will be
     passed around in providers. Used for both srcs, and resources.
@@ -68,9 +68,9 @@ def create_shared_libraries(
 
 # We do a lot of merging library maps, so don't use O(n) type annotations
 def _merge_lib_map(
-        # {str.type: SharedLibrary.type}
+        # {str: SharedLibrary.type}
         dest_mapping,
-        # {str.type: SharedLibrary.type}
+        # {str: SharedLibrary.type}
         mapping_to_merge) -> None:
     """
     Merges a mapping_to_merge into `dest_mapping`. Fails if different libraries
@@ -116,7 +116,7 @@ def merge_shared_libraries(
     return SharedLibraryInfo(set = set)
 
 def traverse_shared_library_info(
-        info: "SharedLibraryInfo"):  # -> {str.type: SharedLibrary.type}:
+        info: "SharedLibraryInfo"):  # -> {str: SharedLibrary.type}:
     libraries = {}
     if info.set:
         for libs in info.set.traverse():

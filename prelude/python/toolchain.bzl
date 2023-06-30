@@ -68,7 +68,7 @@ PythonPlatformInfo = provider(fields = [
 def get_platform_attr(
         python_platform_info: "PythonPlatformInfo",
         cxx_platform_info: "CxxPlatformInfo",
-        xs: [(str.type, "_a")]) -> ["_a"]:
+        xs: [(str, "_a")]) -> ["_a"]:
     """
     Take a platform_* value, and the non-platform version, and concat into a list
     of values based on the cxx/python platform

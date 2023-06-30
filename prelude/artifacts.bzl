@@ -53,7 +53,7 @@ def unpack_artifacts(artifacts: [["artifact", "dependency"]]) -> [("artifact", [
 
     return out
 
-def unpack_artifact_map(artifacts: {str.type: ["artifact", "dependency"]}) -> {str.type: ("artifact", ["_arglike"])}:
+def unpack_artifact_map(artifacts: {str: ["artifact", "dependency"]}) -> {str: ("artifact", ["_arglike"])}:
     """
     Unpack a list of `artifact` and `ArtifactGroupInfo` into a flattened list
     of `artifact`s

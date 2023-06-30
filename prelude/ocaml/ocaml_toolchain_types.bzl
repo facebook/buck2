@@ -56,7 +56,7 @@ OCamlLinkInfo = provider(
 # A record of an OCaml library.
 OCamlLibraryInfo = record(
     # The library target name: e.g. "`foo`"
-    name = str.type,
+    name = str,
     # The full library target: e.g. "`fbcode//...:foo`"
     target = "label",
     # .a (C archives e.g. `libfoo_stubs.a`)
@@ -98,13 +98,13 @@ OCamlLibraryInfo = record(
 def merge_ocaml_link_infos(lis: ["OCamlLinkInfo"]) -> "OCamlLinkInfo":
     return OCamlLinkInfo(info = dedupe(flatten([li.info for li in lis])))
 
-def project_expand(value: {str.type: ["artifact"]}):
+def project_expand(value: {str: ["artifact"]}):
     return value["expand"]
 
-def project_ide(value: {str.type: ["artifact"]}):
+def project_ide(value: {str: ["artifact"]}):
     return value["ide"]
 
-def project_bytecode(value: {str.type: ["artifact"]}):
+def project_bytecode(value: {str: ["artifact"]}):
     return value["bytecode"]
 
 OtherOutputsTSet = transitive_set(
@@ -115,7 +115,7 @@ OtherOutputsInfo = provider(
     fields = ["info"],  # :OtherOutputsTSet
 )
 
-def merge_other_outputs_info(ctx: "context", value: {str.type: ["artifact"]}, infos: ["OtherOutputsInfo"]) -> "OtherOutputsInfo":
+def merge_other_outputs_info(ctx: "context", value: {str: ["artifact"]}, infos: ["OtherOutputsInfo"]) -> "OtherOutputsInfo":
     return OtherOutputsInfo(
         info =
             ctx.actions.tset(

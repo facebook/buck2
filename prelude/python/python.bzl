@@ -20,7 +20,7 @@ PythonLibraryManifests = record(
     resources = field([(ManifestInfo.type, ["_arglike"]), None]),
     bytecode = field([{PycInvalidationMode.type: ManifestInfo.type}, None]),
     dep_manifest = field([ManifestInfo.type, None]),
-    extensions = field([{str.type: "_a"}, None]),
+    extensions = field([{str: "_a"}, None]),
 )
 
 def _bytecode_artifacts(invalidation_mode: PycInvalidationMode.type):
@@ -48,7 +48,7 @@ def _hidden_resources(value: PythonLibraryManifests.type):
         return []
     return value.resources[1]
 
-def _has_hidden_resources(children: [bool.type], value: [PythonLibraryManifests.type, None]):
+def _has_hidden_resources(children: [bool], value: [PythonLibraryManifests.type, None]):
     if value:
         if value.resources and len(value.resources[1]) > 0:
             return True

@@ -16,7 +16,7 @@ load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
 # Provider wrapping packages used for compiling.
 GoPkgCompileInfo = provider(fields = [
-    "pkgs",  # {str.type: GoPkg.type}
+    "pkgs",  # {str: GoPkg.type}
 ])
 
 # Provider for test targets that test a library. Contains information for
@@ -24,16 +24,16 @@ GoPkgCompileInfo = provider(fields = [
 GoTestInfo = provider(fields = [
     "deps",  # ["dependency"]
     "srcs",  # ["source"]
-    "pkg_name",  # str.type
+    "pkg_name",  # str
 ])
 
-def _out_root(shared: bool.type = False):
+def _out_root(shared: bool = False):
     return "__shared__" if shared else "__static__"
 
-def get_inherited_compile_pkgs(deps: ["dependency"]) -> {str.type: GoPkg.type}:
+def get_inherited_compile_pkgs(deps: ["dependency"]) -> {str: GoPkg.type}:
     return merge_pkgs([d[GoPkgCompileInfo].pkgs for d in deps if GoPkgCompileInfo in d])
 
-def get_filtered_srcs(ctx: "context", srcs: ["artifact"], tests: bool.type = False) -> "cmd_args":
+def get_filtered_srcs(ctx: "context", srcs: ["artifact"], tests: bool = False) -> "cmd_args":
     """
     Filter the input sources based on build pragma
     """
@@ -60,7 +60,7 @@ def get_filtered_srcs(ctx: "context", srcs: ["artifact"], tests: bool.type = Fal
     # Add filtered srcs to compile command.
     return cmd_args(filtered_srcs, format = "@{}").hidden(srcs)
 
-def _get_import_map(pkgs: [str.type]) -> {str.type: str.type}:
+def _get_import_map(pkgs: [str]) -> {str: str}:
     """
     Return the import remappings for vendor paths.
     """
@@ -82,8 +82,8 @@ def _get_import_map(pkgs: [str.type]) -> {str.type: str.type}:
 
 def _assemble_cmd(
         ctx: "context",
-        flags: [str.type] = [],
-        shared: bool.type = False) -> "cmd_args":
+        flags: [str] = [],
+        shared: bool = False) -> "cmd_args":
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     cmd = cmd_args()
     cmd.add(go_toolchain.assembler)
@@ -94,11 +94,11 @@ def _assemble_cmd(
 
 def _compile_cmd(
         ctx: "context",
-        pkg_name: str.type,
-        pkgs: {str.type: "artifact"} = {},
+        pkg_name: str,
+        pkgs: {str: "artifact"} = {},
         deps: ["dependency"] = [],
-        flags: [str.type] = [],
-        shared: bool.type = False) -> "cmd_args":
+        flags: [str] = [],
+        shared: bool = False) -> "cmd_args":
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
     cmd = cmd_args()
@@ -135,13 +135,13 @@ def _compile_cmd(
 
 def compile(
         ctx: "context",
-        pkg_name: str.type,
+        pkg_name: str,
         srcs: "cmd_args",
-        pkgs: {str.type: "artifact"} = {},
+        pkgs: {str: "artifact"} = {},
         deps: ["dependency"] = [],
-        compile_flags: [str.type] = [],
-        assemble_flags: [str.type] = [],
-        shared: bool.type = False) -> "artifact":
+        compile_flags: [str] = [],
+        assemble_flags: [str] = [],
+        shared: bool = False) -> "artifact":
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     root = _out_root(shared)
     output = ctx.actions.declare_output(root, paths.basename(pkg_name) + ".a")

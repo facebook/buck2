@@ -10,31 +10,31 @@ AppleToolchainInfo = provider(fields = [
     "codesign_allocate",  # "RunInfo"
     "codesign_identities_command",  # ["RunInfo", None]
     "codesign",  # "RunInfo"
-    "compile_resources_locally",  # bool.type
+    "compile_resources_locally",  # bool
     "copy_scene_kit_assets",  # "RunInfo"
     "cxx_platform_info",  # "CxxPlatformInfo"
     "cxx_toolchain_info",  # "CxxToolchainInfo"
     "dsymutil",  # "RunInfo"
     "dwarfdump",  # ["RunInfo", None]
-    "extra_linker_outputs",  # [str.type]
+    "extra_linker_outputs",  # [str]
     "ibtool",  # "RunInfo"
     "installer",  # label
     "libtool",  # "RunInfo"
     "lipo",  # "RunInfo"
-    "min_version",  # [None, str.type]
+    "min_version",  # [None, str]
     "momc",  # "RunInfo"
     "odrcov",  # ["RunInfo", None]
-    "platform_path",  # [str.type, artifact]
-    "sdk_build_version",  # "[None, str.type]"
+    "platform_path",  # [str, artifact]
+    "sdk_build_version",  # "[None, str]"
     # SDK name to be passed to tools (e.g. actool), equivalent to ApplePlatform::getExternalName() in v1.
-    "sdk_name",  # str.type
-    "sdk_path",  # [str.type, artifact]
+    "sdk_name",  # str
+    "sdk_path",  # [str, artifact]
     # TODO(T124581557) Make it non-optional once there is no "selected xcode" toolchain
-    "sdk_version",  # [None, str.type]
+    "sdk_version",  # [None, str]
     "swift_toolchain_info",  # "SwiftToolchainInfo"
     "watch_kit_stub_binary",  # "artifact"
-    "xcode_build_version",  # "[None, str.type]"
-    "xcode_version",  # "[None, str.type]"
+    "xcode_build_version",  # "[None, str]"
+    "xcode_version",  # "[None, str]"
     "xctest",  # "RunInfo"
 ])
 

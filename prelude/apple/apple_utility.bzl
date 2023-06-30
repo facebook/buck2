@@ -23,20 +23,20 @@ _TARGET_TRIPLE_MAP = {
     "watchsimulator": "apple-watchos{}-simulator".format(_VERSION_PLACEHOLDER),
 }
 
-def get_explicit_modules_env_var(uses_explicit_modules: bool.type) -> dict.type:
+def get_explicit_modules_env_var(uses_explicit_modules: bool) -> dict:
     return ({"EXPLICIT_MODULES_ENABLED": "TRUE"} if uses_explicit_modules else {})
 
 def get_apple_cxx_headers_layout(ctx: "context") -> CxxHeadersLayout.type:
     namespace = value_or(ctx.attrs.header_path_prefix, ctx.attrs.name)
     return CxxHeadersLayout(namespace = namespace, naming = CxxHeadersNaming("apple"))
 
-def get_module_name(ctx: "context") -> str.type:
+def get_module_name(ctx: "context") -> str:
     return ctx.attrs.module_name or ctx.attrs.header_path_prefix or ctx.attrs.name
 
-def has_apple_toolchain(ctx: "context") -> bool.type:
+def has_apple_toolchain(ctx: "context") -> bool:
     return hasattr(ctx.attrs, "_apple_toolchain")
 
-def get_versioned_target_triple(ctx: "context") -> str.type:
+def get_versioned_target_triple(ctx: "context") -> str:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     swift_toolchain_info = apple_toolchain_info.swift_toolchain_info
 
@@ -58,7 +58,7 @@ def expand_relative_prefixed_sdk_path(
         sdk_path: "cmd_args",
         swift_resource_dir: "cmd_args",
         platform_path: "cmd_args",
-        path_to_expand: str.type) -> "cmd_args":
+        path_to_expand: str) -> "cmd_args":
     path_expansion_map = {
         "$PLATFORM_DIR": platform_path,
         "$RESOURCEDIR": swift_resource_dir,
@@ -74,7 +74,7 @@ def expand_relative_prefixed_sdk_path(
 
     return expanded_cmd
 
-def get_disable_pch_validation_flags() -> [str.type]:
+def get_disable_pch_validation_flags() -> [str]:
     """
     We need to disable PCH validation for some actions like Swift compilation and Swift PCM generation.
     Currently, we don't have a mechanism to compile with enabled pch validation and Swift explicit modules,

@@ -29,7 +29,7 @@ for min_sdk in get_min_sdk_version_range():
 def _cpu_split_transition_instrumentation_test_apk_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
-        attrs: struct.type) -> {str.type: PlatformInfo.type}:
+        attrs: struct.type) -> {str: PlatformInfo.type}:
     cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
     if attrs._is_force_single_cpu:
         cpu_filters = cpu_filters[0:1]
@@ -47,7 +47,7 @@ def _cpu_split_transition_instrumentation_test_apk_impl(
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
-        attrs: struct.type) -> {str.type: PlatformInfo.type}:
+        attrs: struct.type) -> {str: PlatformInfo.type}:
     cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
     if attrs._is_force_single_cpu:
         cpu_filters = cpu_filters[0:1]
@@ -67,9 +67,9 @@ def _cpu_split_transition_impl(
 def _cpu_split_transition(
         platform: PlatformInfo.type,
         refs: struct.type,
-        cpu_filters: [str.type],
-        min_sdk_version: [int.type, None],
-        build_only_native_code_on_secondary_platforms: bool.type) -> {str.type: PlatformInfo.type}:
+        cpu_filters: [str],
+        min_sdk_version: [int, None],
+        build_only_native_code_on_secondary_platforms: bool) -> {str: PlatformInfo.type}:
     cpu = refs.cpu
     x86 = refs.x86[ConstraintValueInfo]
     x86_64 = refs.x86_64[ConstraintValueInfo]
@@ -191,7 +191,7 @@ do_not_build_only_native_code_transition = transition(
     },
 )
 
-def get_deps_by_platform(ctx: "context") -> {str.type: ["dependency"]}:
+def get_deps_by_platform(ctx: "context") -> {str: ["dependency"]}:
     deps_by_platform = {}
     for dep_dict in ctx.attrs.deps:
         for platform, dep in dep_dict.items():
@@ -201,7 +201,7 @@ def get_deps_by_platform(ctx: "context") -> {str.type: ["dependency"]}:
 
     return deps_by_platform
 
-def _get_min_sdk_constraint_value(min_sdk_version: int.type, refs: struct.type) -> ConstraintValueInfo.type:
+def _get_min_sdk_constraint_value(min_sdk_version: int, refs: struct.type) -> ConstraintValueInfo.type:
     constraint_name = get_min_sdk_version_constraint_value_name(min_sdk_version)
     constraint = getattr(refs, constraint_name, None)
     if not constraint:

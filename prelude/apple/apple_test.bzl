@@ -215,10 +215,10 @@ def _get_bundle_loader_flags(binary: ["cmd_args", None]) -> [""]:
 def _xcode_populate_attributes(
         ctx: "context",
         srcs: [CxxSrcWithFlags.type],
-        argsfiles: {str.type: CompileArgsfile.type},
+        argsfiles: {str: CompileArgsfile.type},
         xctest_bundle: "artifact",
         test_host_app_binary: ["cmd_args", None],
-        **_kwargs) -> {str.type: ""}:
+        **_kwargs) -> {str: ""}:
     data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     data["output"] = xctest_bundle
     if test_host_app_binary:
@@ -231,7 +231,7 @@ def _get_xctest_framework_search_paths(ctx: "context") -> ("cmd_args", "cmd_args
     xctest_framework_search_path = cmd_args([toolchain.platform_path, "Developer/Library/Frameworks"], delimiter = "/")
     return (xctest_swiftmodule_search_path, xctest_framework_search_path)
 
-def _get_xctest_framework_search_paths_flags(ctx: "context") -> [["cmd_args", str.type]]:
+def _get_xctest_framework_search_paths_flags(ctx: "context") -> [["cmd_args", str]]:
     xctest_swiftmodule_search_path, xctest_framework_search_path = _get_xctest_framework_search_paths(ctx)
     return [
         "-I",
@@ -240,7 +240,7 @@ def _get_xctest_framework_search_paths_flags(ctx: "context") -> [["cmd_args", st
         xctest_framework_search_path,
     ]
 
-def _get_xctest_framework_linker_flags(ctx: "context") -> [["cmd_args", str.type]]:
+def _get_xctest_framework_linker_flags(ctx: "context") -> [["cmd_args", str]]:
     xctest_swiftmodule_search_path, xctest_framework_search_path = _get_xctest_framework_search_paths(ctx)
     return [
         "-L",

@@ -15,11 +15,11 @@ def dwp_available(ctx: "context"):
 def run_dwp_action(
         ctx: "context",
         obj: "artifact",
-        identifier: [str.type, None],
-        category_suffix: [str.type, None],
+        identifier: [str, None],
+        category_suffix: [str, None],
         referenced_objects: ["_arglike", ["artifact"]],
         dwp_output: "artifact",
-        local_only: bool.type):
+        local_only: bool):
     args = cmd_args()
     dwp = get_cxx_toolchain_info(ctx).binary_utilities_info.dwp
 
@@ -49,9 +49,9 @@ def dwp(
         obj: "artifact",
         # An identifier that will uniquely name this link action in the context of a category. Useful for
         # differentiating multiple link actions in the same rule.
-        identifier: [str.type, None],
+        identifier: [str, None],
         # A category suffix that will be added to the category of the link action that is generated.
-        category_suffix: [str.type, None],
+        category_suffix: [str, None],
         # All `.o`/`.dwo` paths referenced in `obj`.
         # TODO(T110378122): Ideally, referenced objects are a list of artifacts,
         # but currently we don't track them properly.  So, we just pass in the full

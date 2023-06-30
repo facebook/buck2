@@ -9,12 +9,12 @@ XCODE_DATA_SUB_TARGET = "xcode-data"
 _XCODE_DATA_FILE_NAME = "xcode_data.json"
 
 XcodeDataInfo = provider(fields = [
-    "data",  # {str.type: _a}
+    "data",  # {str: _a}
 ])
 
 def generate_xcode_data(
         ctx: "context",
-        rule_type: str.type,
+        rule_type: str,
         output: ["artifact", None],
         populate_rule_specific_attributes_func: ["function", None] = None,
         **kwargs) -> (["DefaultInfo"], XcodeDataInfo.type):

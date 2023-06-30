@@ -25,7 +25,7 @@ ScriptOs = enum("unix", "windows")
 #
 def cmd_script(
         ctx: "context",
-        name: str.type,
+        name: str,
         cmd: "cmd_args",
         os: ScriptOs.type) -> "cmd_args":
     shell_quoted = cmd_args(cmd, quote = "shell")

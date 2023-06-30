@@ -68,7 +68,7 @@ def build_apk(
         dex_files_info: "DexFilesInfo",
         native_library_info: "AndroidBinaryNativeLibsInfo",
         resources_info: "AndroidBinaryResourcesInfo",
-        compress_resources_dot_arsc: bool.type = False) -> "artifact":
+        compress_resources_dot_arsc: bool = False) -> "artifact":
     output_apk = actions.declare_output("{}.apk".format(label.name))
 
     apk_builder_args = cmd_args([
@@ -189,7 +189,7 @@ def generate_install_config(ctx: "context") -> "artifact":
     data = get_install_config()
     return ctx.actions.write_json("install_android_options.json", data)
 
-def get_install_config() -> {str.type: ""}:
+def get_install_config() -> {str: ""}:
     # TODO: read from toolchains
     install_config = {
         "adb_restart_on_failure": read_config("adb", "adb_restart_on_failure", "true"),

@@ -213,11 +213,11 @@ _CxxAllLibraryOutputs = record(
     # The link infos that are part of each output based on link style.
     libraries = field({LinkStyle.type: LinkInfos.type}),
     # Extra sub targets to be returned as outputs of this rule, by link style.
-    sub_targets = field({LinkStyle.type: {str.type: [DefaultInfo.type]}}, default = {}),
+    sub_targets = field({LinkStyle.type: {str: [DefaultInfo.type]}}, default = {}),
     # Extra providers to be returned consumers of this rule.
     providers = field(["provider"], default = []),
     # Shared object name to shared library mapping.
-    solibs = field({str.type: LinkedObject.type}),
+    solibs = field({str: LinkedObject.type}),
 )
 
 # The output of compiling all the source files in the library, containing
@@ -235,10 +235,10 @@ _CxxCompiledSourcesOutput = record(
     # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
     # the `.dwo` when using `-gsplit-dwarf=split`).
     external_debug_info = field([["artifact"], None]),
-    objects_have_external_debug_info = field(bool.type, False),
+    objects_have_external_debug_info = field(bool, False),
     # PIC Object files
     pic_objects = field([["artifact"], None]),
-    pic_objects_have_external_debug_info = field(bool.type, False),
+    pic_objects_have_external_debug_info = field(bool, False),
     pic_external_debug_info = field([["artifact"], None]),
     # json file with trace information about clang compilation
     pic_clang_traces = field([["artifact"], None]),
@@ -256,7 +256,7 @@ _CxxLibraryParameterizedOutput = record(
     # The other outputs available
     all_outputs = field([_CxxAllLibraryOutputs.type, None], None),
     # Any generated sub targets as requested by impl_params
-    sub_targets = field({str.type: ["provider"]}),
+    sub_targets = field({str: ["provider"]}),
     # Any generated providers as requested by impl_params
     providers = field(["provider"]),
     # XcodeDataInfo provider, returned separately as we cannot check
@@ -754,7 +754,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         bitcode_bundle = bitcode_bundle,
     )
 
-def get_default_cxx_library_product_name(ctx, impl_params) -> str.type:
+def get_default_cxx_library_product_name(ctx, impl_params) -> str:
     preferred_linkage = cxx_attr_preferred_linkage(ctx)
     link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage)
     if link_style in (LinkStyle("static"), LinkStyle("static_pic")):
@@ -768,7 +768,7 @@ def cxx_compile_srcs(
         own_preprocessors: [CPreprocessor.type],
         inherited_non_exported_preprocessor_infos: [CPreprocessorInfo.type],
         inherited_exported_preprocessor_infos: [CPreprocessorInfo.type],
-        absolute_path_prefix: [str.type, None],
+        absolute_path_prefix: [str, None],
         preferred_linkage: Linkage.type) -> _CxxCompiledSourcesOutput.type:
     """
     Compile objects we'll need for archives and shared libraries.
@@ -848,7 +848,7 @@ def _form_library_outputs(
         preferred_linkage: Linkage.type,
         shared_links: LinkArgs.type,
         extra_static_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
-        gnu_use_link_groups: bool.type,
+        gnu_use_link_groups: bool,
         link_execution_preference: LinkExecutionPreference.type) -> _CxxAllLibraryOutputs.type:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
@@ -988,15 +988,15 @@ def _strip_objects(ctx: "context", objects: ["artifact"]) -> ["artifact"]:
 def _get_shared_library_links(
         ctx: "context",
         linkable_graph_node_map_func,
-        link_group: [str.type, None],
-        link_group_mappings: [{"label": str.type}, None],
+        link_group: [str, None],
+        link_group_mappings: [{"label": str}, None],
         link_group_preferred_linkage: {"label": Linkage.type},
-        link_group_libs: {str.type: LinkGroupLib.type},
+        link_group_libs: {str: LinkGroupLib.type},
         exported_deps: ["dependency"],
         non_exported_deps: ["dependency"],
         force_link_group_linking,
         frameworks_linkable: [FrameworksLinkable.type, None],
-        force_static_follows_dependents: bool.type = True,
+        force_static_follows_dependents: bool = True,
         swiftmodule_linkable: [SwiftmoduleLinkable.type, None] = None,
         swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> ("LinkArgs", [DefaultInfo.type, None], LinkExecutionPreference.type):
     """
@@ -1072,7 +1072,7 @@ def _get_shared_library_links(
 
     return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets), link_execution_preference
 
-def _use_pic(link_style: LinkStyle.type) -> bool.type:
+def _use_pic(link_style: LinkStyle.type) -> bool:
     """
     Whether this link style requires PIC objects.
     """
@@ -1085,10 +1085,10 @@ def _static_library(
         ctx: "context",
         impl_params: "CxxRuleConstructorParams",
         objects: ["artifact"],
-        pic: bool.type,
-        stripped: bool.type,
+        pic: bool,
+        stripped: bool,
         extra_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
-        objects_have_external_debug_info: bool.type = False,
+        objects_have_external_debug_info: bool = False,
         external_debug_info: [ExternalDebugInfoTSet.type, None] = None,
         bitcode_objects: [["artifact"], None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
@@ -1177,8 +1177,8 @@ def _static_library(
 def _bitcode_bundle(
         ctx: "context",
         objects: [["artifact"], None],
-        pic: bool.type = False,
-        stripped: bool.type = False,
+        pic: bool = False,
+        stripped: bool = False,
         name_extra = "") -> [BitcodeBundle.type, None]:
     if objects == None or len(objects) == 0:
         return None
@@ -1191,7 +1191,7 @@ _CxxSharedLibraryResult = record(
     # Result from link, includes the shared lib, linker map data etc
     link_result = CxxLinkResult.type,
     # Shared library name (e.g. SONAME)
-    soname = str.type,
+    soname = str,
     objects_bitcode_bundle = ["artifact", None],
     # `LinkInfo` used to link against the shared library.
     info = LinkInfo.type,
@@ -1203,7 +1203,7 @@ def _shared_library(
         objects: ["artifact"],
         external_debug_info: [ExternalDebugInfoTSet.type, None],
         dep_infos: "LinkArgs",
-        gnu_use_link_groups: bool.type,
+        gnu_use_link_groups: bool,
         extra_linker_flags: ["_arglike"],
         link_execution_preference: LinkExecutionPreference.type,
         link_ordering: [LinkOrdering.type, None] = None) -> _CxxSharedLibraryResult.type:
@@ -1310,10 +1310,10 @@ def _shared_library(
         ),
     )
 
-def _attr_reexport_all_header_dependencies(ctx: "context") -> bool.type:
+def _attr_reexport_all_header_dependencies(ctx: "context") -> bool:
     return value_or(ctx.attrs.reexport_all_header_dependencies, False)
 
-def _soname(ctx: "context", impl_params) -> str.type:
+def _soname(ctx: "context", impl_params) -> str:
     """
     Get the shared library name to set for the given C++ library.
     """
@@ -1323,19 +1323,19 @@ def _soname(ctx: "context", impl_params) -> str.type:
         return get_shared_library_name_for_param(linker_info, explicit_soname)
     return get_default_shared_library_name(linker_info, ctx.label)
 
-def _base_static_library_name(ctx: "context", stripped: bool.type) -> str.type:
+def _base_static_library_name(ctx: "context", stripped: bool) -> str:
     return ctx.label.name + ".stripped" if stripped else ctx.label.name
 
-def _archive_name(name: str.type, pic: bool.type, extension: str.type) -> str.type:
+def _archive_name(name: str, pic: bool, extension: str) -> str:
     return "lib{}{}.{}".format(name, ".pic" if pic else "", extension)
 
-def _bitcode_bundle_name(name: str.type, pic: bool.type, stripped: bool.type = False) -> str.type:
+def _bitcode_bundle_name(name: str, pic: bool, stripped: bool = False) -> str:
     return "{}{}{}.bc".format(name, ".pic" if pic else "", ".stripped" if stripped else "")
 
-def _attr_link_whole(ctx: "context") -> bool.type:
+def _attr_link_whole(ctx: "context") -> bool:
     return value_or(ctx.attrs.link_whole, False)
 
-def use_archives(ctx: "context") -> bool.type:
+def use_archives(ctx: "context") -> bool:
     """
     Whether this rule should use archives to package objects when producing
     link input for dependents.

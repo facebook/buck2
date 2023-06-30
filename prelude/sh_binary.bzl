@@ -18,7 +18,7 @@ def _derive_link(artifact):
 
     return paths.join(artifact.owner.package, artifact.owner.name)
 
-def _generate_script(name: str.type, main: "artifact", resources: ["artifact"], actions: "actions", is_windows: bool.type) -> ("artifact", "artifact"):
+def _generate_script(name: str, main: "artifact", resources: ["artifact"], actions: "actions", is_windows: bool) -> ("artifact", "artifact"):
     main_path = main.short_path
     if is_windows:
         main_link = main_path if main_path.endswith(".bat") or main_path.endswith(".cmd") else main_path + ".bat"

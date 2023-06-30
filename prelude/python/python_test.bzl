@@ -18,7 +18,7 @@ load(":python_library.bzl", "py_attr_resources", "qualify_srcs")
 
 def _write_test_modules_list(
         ctx: "context",
-        srcs: {str.type: "artifact"}) -> (str.type, "artifact"):
+        srcs: {str: "artifact"}) -> (str, "artifact"):
     """
     Generate a python source file with a list of all test modules.
     """

@@ -219,7 +219,7 @@ _APPLE_PLATFORM_NAME_PREFIXES = [
     "appletvsimulator",
 ]
 
-def _get_default_use_dep_files(platform_name: str.type) -> bool.type:
+def _get_default_use_dep_files(platform_name: str) -> bool:
     # All Apple platforms use Clang which supports the standard dep files format
     for apple_platform_name_prefix in _APPLE_PLATFORM_NAME_PREFIXES:
         if apple_platform_name_prefix in platform_name:
@@ -235,7 +235,7 @@ def _get_header_mode(ctx: "context") -> HeaderMode.type:
     else:
         return HeaderMode("symlink_tree_only")
 
-def _get_shared_library_name_format(ctx: "context") -> str.type:
+def _get_shared_library_name_format(ctx: "context") -> str:
     linker_type = ctx.attrs.linker_type
     extension = ctx.attrs.shared_library_extension
     if extension == "":
@@ -243,7 +243,7 @@ def _get_shared_library_name_format(ctx: "context") -> str.type:
     prefix = "" if extension == "dll" else "lib"
     return prefix + "{}." + extension
 
-def _get_shared_library_versioned_name_format(ctx: "context") -> str.type:
+def _get_shared_library_versioned_name_format(ctx: "context") -> str:
     linker_type = ctx.attrs.linker_type
     extension_format = ctx.attrs.shared_library_versioned_extension_format.replace("%s", "{}")
     if extension_format == "":
@@ -251,7 +251,7 @@ def _get_shared_library_versioned_name_format(ctx: "context") -> str.type:
     prefix = "" if extension_format == "dll" else "lib"
     return prefix + "{}." + extension_format
 
-def _get_maybe_wrapped_msvc(compiler: "RunInfo", compiler_type: str.type, msvc_hermetic_exec: "RunInfo") -> "RunInfo":
+def _get_maybe_wrapped_msvc(compiler: "RunInfo", compiler_type: str, msvc_hermetic_exec: "RunInfo") -> "RunInfo":
     if compiler_type == "windows":
         return RunInfo(args = cmd_args(msvc_hermetic_exec, compiler))
     return compiler

@@ -159,7 +159,7 @@ registration_spec = RuleRegistrationSpec(
     },
 )
 
-def _is_label_included(label: "label", selection_criteria: _SelectionCriteria.type) -> bool.type:
+def _is_label_included(label: "label", selection_criteria: _SelectionCriteria.type) -> bool:
     # If no include criteria are provided, we then include everything, as long as it is not excluded.
     if selection_criteria.include_build_target_patterns or selection_criteria.include_regular_expressions:
         if not _check_if_label_matches_patterns_or_expressions(label, selection_criteria.include_build_target_patterns, selection_criteria.include_regular_expressions):
@@ -168,7 +168,7 @@ def _is_label_included(label: "label", selection_criteria: _SelectionCriteria.ty
     # If included (above snippet), ensure that this target is not excluded.
     return not _check_if_label_matches_patterns_or_expressions(label, selection_criteria.exclude_build_target_patterns, selection_criteria.exclude_regular_expressions)
 
-def _check_if_label_matches_patterns_or_expressions(label: "label", patterns: ["BuildTargetPattern"], expressions: ["regex"]) -> bool.type:
+def _check_if_label_matches_patterns_or_expressions(label: "label", patterns: ["BuildTargetPattern"], expressions: ["regex"]) -> bool:
     for pattern in patterns:
         if pattern.matches(label):
             return True

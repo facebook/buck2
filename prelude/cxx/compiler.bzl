@@ -10,7 +10,7 @@ load(":cxx_toolchain_types.bzl", "DepTrackingMode")
 
 # TODO(T110378132): Added here for compat with v1, but this might make more
 # sense on the toolchain definition.
-def get_flags_for_reproducible_build(compiler_type: str.type) -> [str.type]:
+def get_flags_for_reproducible_build(compiler_type: str) -> [str]:
     """
     Return flags needed to make compilations reproducible (e.g. avoiding
     embedding the working directory into debug info.
@@ -29,7 +29,7 @@ def get_flags_for_reproducible_build(compiler_type: str.type) -> [str.type]:
 
     return flags
 
-def get_flags_for_colorful_output(compiler_type: str.type) -> [str.type]:
+def get_flags_for_colorful_output(compiler_type: str) -> [str]:
     """
     Return flags for enabling colorful diagnostic output.
     """
@@ -47,7 +47,7 @@ def get_flags_for_colorful_output(compiler_type: str.type) -> [str.type]:
 # wrapper_args -> the arguments used by the dep_file_processor to determine how to process the dep files
 # compiler_args -> args passed to the compiler when generating dependencies
 
-def cc_dep_files(actions: "actions", filename_base: str.type, _input_file: "artifact") -> (cmd_args.type, cmd_args.type):
+def cc_dep_files(actions: "actions", filename_base: str, _input_file: "artifact") -> (cmd_args.type, cmd_args.type):
     intermediary_dep_file = actions.declare_output(
         paths.join("__dep_files_intermediaries__", filename_base),
     ).as_output()
@@ -56,13 +56,13 @@ def cc_dep_files(actions: "actions", filename_base: str.type, _input_file: "arti
 
 def tree_style_cc_dep_files(
         _actions: "actions",
-        _filename_base: str.type,
+        _filename_base: str,
         input_file: "artifact") -> (cmd_args.type, cmd_args.type):
     return (cmd_args(input_file), cmd_args(["-H"]))
 
 def windows_cc_dep_files(
         _actions: "actions",
-        _filename_base: str.type,
+        _filename_base: str,
         input_file: "artifact") -> (cmd_args.type, cmd_args.type):
     return (cmd_args(input_file), cmd_args(["/showIncludes"]))
 
@@ -78,13 +78,13 @@ def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode.type)
 
     return None
 
-def get_pic_flags(compiler_type: str.type) -> [str.type]:
+def get_pic_flags(compiler_type: str) -> [str]:
     if compiler_type in ["clang", "gcc"]:
         return ["-fPIC"]
     else:
         return []
 
-def get_output_flags(compiler_type: str.type, output: "artifact") -> [""]:
+def get_output_flags(compiler_type: str, output: "artifact") -> [""]:
     if compiler_type in ["windows", "clang_cl", "windows_ml64"]:
         return [cmd_args(output.as_output(), format = "/Fo{}")]
     else:

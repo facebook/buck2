@@ -21,7 +21,7 @@ AndroidBinaryNativeLibsInfo = record(
     root_module_native_lib_assets = ["artifact"],
     non_root_module_native_lib_assets = ["artifact"],
     native_libs_for_primary_apk = ["artifact"],
-    unstripped_libs = {"artifact": str.type},
+    unstripped_libs = {"artifact": str},
 )
 
 AndroidBinaryResourcesInfo = record(
@@ -51,14 +51,14 @@ AndroidBinaryResourcesInfo = record(
 
 # Information about an `android_build_config`
 BuildConfigField = record(
-    type = str.type,
-    name = str.type,
-    value = str.type,
+    type = str,
+    name = str,
+    value = str,
 )
 
 AndroidBuildConfigInfo = provider(
     fields = [
-        "package",  # str.type
+        "package",  # str
         "build_config_fields",  # ["BuildConfigField"]
     ],
 )
@@ -82,10 +82,10 @@ AndroidApkUnderTestInfo = provider(
     fields = [
         "java_packaging_deps",  # set_type("JavaPackagingDep")
         "keystore",  # "KeystoreInfo"
-        "manifest_entries",  # dict.type
+        "manifest_entries",  # dict
         "prebuilt_native_library_dirs",  # set_type("PrebuiltNativeLibraryDir")
-        "platforms",  # [str.type]
-        "primary_platform",  # str.type
+        "platforms",  # [str]
+        "primary_platform",  # str
         "resource_infos",  # set_type("ResourceInfos")
         "shared_libraries",  # set_type("SharedLibrary")
     ],
@@ -100,8 +100,8 @@ AndroidInstrumentationApkInfo = provider(
 PrebuiltNativeLibraryDir = record(
     raw_target = "target_label",
     dir = "artifact",  # contains subdirectories for different ABIs.
-    for_primary_apk = bool.type,
-    is_asset = bool.type,
+    for_primary_apk = bool,
+    is_asset = bool,
 )
 
 def _artifacts(value: "ManifestInfo"):
@@ -142,7 +142,7 @@ AndroidResourceInfo = provider(
         # output of running `aapt2_compile` on the resources, if resources are present
         "aapt2_compile_output",  # ["artifact", None]
         #  if False, then the "res" are not affected by the strings-as-assets resource filter
-        "allow_strings_as_assets_resource_filtering",  # bool.type
+        "allow_strings_as_assets_resource_filtering",  # bool
         # assets defined by this rule. May be empty
         "assets",  # ["artifact", None]
         # manifest file used by the resources, if resources are present

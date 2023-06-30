@@ -8,8 +8,8 @@
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftObjectFormat", "SwiftToolchainInfo")
 
 def traverse_sdk_modules_graph(
-        swift_sdk_module_name_to_deps: {str.type: "dependency"},
-        clang_sdk_module_name_to_deps: {str.type: "dependency"},
+        swift_sdk_module_name_to_deps: {str: "dependency"},
+        clang_sdk_module_name_to_deps: {str: "dependency"},
         sdk_module_dep: "dependency"):
     if SdkUncompiledModuleInfo not in sdk_module_dep:
         return

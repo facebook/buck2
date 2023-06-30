@@ -11,7 +11,7 @@ SwiftPCMUncompiledInfo = provider(fields = [
     "exported_preprocessor",  # CPreprocessor
     "exported_deps",  # ["dependency"]
     "propagated_preprocessor_args_cmd",  # cmd_args
-    "uncompiled_sdk_modules",  # [str.type] a list of required sdk modules
+    "uncompiled_sdk_modules",  # [str] a list of required sdk modules
 ])
 
 # A tset can't be returned from the rule, so we need to wrap it into a provider.

@@ -72,12 +72,12 @@ def _get_non_sdk_unresolved_framework_directories(frameworks: [""]) -> [""]:
     # won't be found and those for macOS platform will be used.
     return dedupe(filter(None, [_non_sdk_unresolved_framework_directory(x) for x in frameworks]))
 
-def to_framework_name(framework_path: str.type) -> str.type:
+def to_framework_name(framework_path: str) -> str:
     name, ext = paths.split_extension(paths.basename(framework_path))
     expect(ext == ".framework", "framework `{}` missing `.framework` suffix", framework_path)
     return name
 
-def _library_name(library: str.type) -> str.type:
+def _library_name(library: str) -> str:
     if ":" in library:
         fail("Invalid library: {}. Use the field 'linker_flags' with $(location ) macro if you want to pass in a BUCK target for libraries.".format(library))
 
@@ -86,10 +86,10 @@ def _library_name(library: str.type) -> str.type:
         fail("unexpected library: {}".format(library))
     return paths.split_extension(name[3:])[0]
 
-def _expand_sdk_framework_paths(ctx: "context", unresolved_framework_paths: [str.type]) -> ["cmd_args"]:
+def _expand_sdk_framework_paths(ctx: "context", unresolved_framework_paths: [str]) -> ["cmd_args"]:
     return [_expand_sdk_framework_path(ctx, unresolved_framework_path) for unresolved_framework_path in unresolved_framework_paths]
 
-def _expand_sdk_framework_path(ctx: "context", framework_path: str.type) -> "cmd_args":
+def _expand_sdk_framework_path(ctx: "context", framework_path: str) -> "cmd_args":
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     path_expansion_map = {
         "$PLATFORM_DIR/": apple_toolchain_info.platform_path,
@@ -113,7 +113,7 @@ def _expand_sdk_framework_path(ctx: "context", framework_path: str.type) -> "cmd
 
     return cmd_args(framework_path)
 
-def _non_sdk_unresolved_framework_directory(framework_path: str.type) -> [str.type, None]:
+def _non_sdk_unresolved_framework_directory(framework_path: str) -> [str, None]:
     # We must only drop any framework paths that are part of the implicit
     # framework search paths in the linker + compiler, all other paths
     # must be expanded and included as part of the command.
@@ -127,7 +127,7 @@ def apple_build_link_args_with_deduped_flags(
         info: "MergedLinkInfo",
         frameworks_linkable: [FrameworksLinkable.type, None],
         link_style: "LinkStyle",
-        prefer_stripped: bool.type = False,
+        prefer_stripped: bool = False,
         swiftmodule_linkable: [SwiftmoduleLinkable.type, None] = None,
         swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> LinkArgs.type:
     link_info = _link_info_from_linkables(ctx, [info.frameworks[link_style], frameworks_linkable], [swiftmodule_linkable], [info.swift_runtime[link_style], swift_runtime_linkable])

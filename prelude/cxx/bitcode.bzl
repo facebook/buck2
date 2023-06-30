@@ -21,13 +21,13 @@ BitcodeBundleInfo = provider(fields = [
     "bitcode_bundle",
 ])
 
-def _bundle_locally(ctx: "context", linker_info: "LinkerInfo") -> bool.type:
+def _bundle_locally(ctx: "context", linker_info: "LinkerInfo") -> bool:
     archive_locally = linker_info.archive_objects_locally
     if hasattr(ctx.attrs, "_archive_objects_locally_override"):
         return value_or(ctx.attrs._archive_objects_locally_override, archive_locally)
     return archive_locally
 
-def _bundle(ctx: "context", name: str.type, args: "cmd_args", prefer_local: bool.type) -> "artifact":
+def _bundle(ctx: "context", name: str, args: "cmd_args", prefer_local: bool) -> "artifact":
     llvm_link = get_cxx_toolchain_info(ctx).llvm_link
     if llvm_link == None:
         fail("Bitcode generation not supported when no LLVM linker, the `cxx_toolchain` has no `llvm_link`.")
@@ -45,7 +45,7 @@ def _bundle(ctx: "context", name: str.type, args: "cmd_args", prefer_local: bool
 # Creates a static library given a list of object files.
 def make_bitcode_bundle(
         ctx: "context",
-        name: str.type,
+        name: str,
         objects: ["artifact"]) -> [BitcodeBundle.type, None]:
     if len(objects) == 0:
         fail("no objects to archive")

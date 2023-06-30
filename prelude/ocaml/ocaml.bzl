@@ -100,7 +100,7 @@ load(":ocaml_toolchain_types.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlTo
 BuildMode = enum("native", "bytecode", "expand")
 
 # Native vs. bytecode compiler.
-def _is_native(mode: "BuildMode") -> bool.type:
+def _is_native(mode: "BuildMode") -> bool:
     return mode.value in ("native", "expand")
 
 # The type of the return value of the `_compile()` function.
@@ -132,7 +132,7 @@ def _compile_result_to_tuple(r):
 
 # ---
 
-def _by_platform(ctx: "context", xs: [(str.type, ["_a"])]) -> ["_a"]:
+def _by_platform(ctx: "context", xs: [(str, ["_a"])]) -> ["_a"]:
     platform = get_cxx_platform_info(ctx).name
     return flatten(by_platform([platform], xs))
 
@@ -155,7 +155,7 @@ def _attr_deps_other_outputs_infos(ctx: "context") -> ["OtherOutputsInfo"]:
 # We want to pass a series of arguments as a command, but the OCaml compiler
 # only lets us pass a single script. Therefore, produce a script that contains
 # many arguments.
-def _mk_script(ctx: "context", file: str.type, args: [""], env: {str.type: ""}) -> "cmd_args":
+def _mk_script(ctx: "context", file: str, args: [""], env: {str: ""}) -> "cmd_args":
     lines = ["#!/usr/bin/env bash"]
     for name, val in env.items():
         lines.append(cmd_args(val, format = "export {}={{}}".format(name)))
@@ -169,7 +169,7 @@ def _mk_script(ctx: "context", file: str.type, args: [""], env: {str.type: ""}) 
     return cmd_args(script).hidden(args, env.values())
 
 # An environment in which a custom `bin` is at the head of `$PATH`.
-def _mk_env(ctx: "context") -> {str.type: "cmd_args"}:
+def _mk_env(ctx: "context") -> {str: "cmd_args"}:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
     # "Partial linking" (via `ocamlopt.opt -output-obj`) emits calls to `ld -r
@@ -211,7 +211,7 @@ def _mk_ld(ctx: "context", link_args: [""], ld_sh_filename: "") -> "cmd_args":
 # `build_mode`. It produces a script that forwards arguments to the ocaml
 # compiler (one of `ocamlopt.opt` vs `ocamlc.opt` consistent with the value of
 # `build_mode`) in the environment of a local 'bin' directory.
-def _mk_ocaml_compiler(ctx: "context", env: {str.type: ""}, build_mode: BuildMode.type) -> "cmd_args":
+def _mk_ocaml_compiler(ctx: "context", env: {str: ""}, build_mode: BuildMode.type) -> "cmd_args":
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     compiler = ocaml_toolchain.ocaml_compiler if _is_native(build_mode) else ocaml_toolchain.ocaml_bytecode_compiler
     script_name = "ocamlopt" + build_mode.value + ".sh"

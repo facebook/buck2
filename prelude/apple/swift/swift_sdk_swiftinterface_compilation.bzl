@@ -16,7 +16,7 @@ load(":swift_toolchain_types.bzl", "SdkCompiledModuleInfo", "SdkUncompiledModule
 def get_swift_interface_anon_targets(
         ctx: "context",
         uncompiled_sdk_deps: ["dependency"],
-        swift_cxx_args: [str.type]):
+        swift_cxx_args: [str]):
     deps = [
         {
             "dep": uncompiled_sdk_dep,

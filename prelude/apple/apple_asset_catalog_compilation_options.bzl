@@ -6,13 +6,13 @@
 # of this source tree.
 
 AppleAssetCatalogsCompilationOptions = record(
-    enable_notices = field(bool.type),
-    enable_warnings = field(bool.type),
-    enable_errors = field(bool.type),
-    compress_pngs = field(bool.type),
-    optimization = field(str.type),
-    output_format = field(str.type),
-    extra_flags = field([str.type]),
+    enable_notices = field(bool),
+    enable_warnings = field(bool),
+    enable_errors = field(bool),
+    compress_pngs = field(bool),
+    optimization = field(str),
+    output_format = field(str),
+    extra_flags = field([str]),
 )
 
 def get_apple_asset_catalogs_compilation_options(ctx: "context") -> AppleAssetCatalogsCompilationOptions.type:

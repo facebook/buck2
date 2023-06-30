@@ -20,14 +20,14 @@ _BuildTargetPatternKind = enum(
 
 BuildTargetPattern = record(
     kind = field(_BuildTargetPatternKind.type),
-    cell = field([str.type, None], None),
-    path = field(str.type),
-    name = field([str.type, None], None),
+    cell = field([str, None], None),
+    path = field(str),
+    name = field([str, None], None),
     matches = field("function"),
     as_string = field("function"),
 )
 
-def parse_build_target_pattern(pattern: str.type) -> BuildTargetPattern.type:
+def parse_build_target_pattern(pattern: str) -> BuildTargetPattern.type:
     expect(len(pattern) >= len(_ROOT_SYMBOL) + 1, "Invalid build target pattern, pattern too short: {}".format(pattern))
 
     root_position = pattern.find(_ROOT_SYMBOL)
@@ -70,7 +70,7 @@ def parse_build_target_pattern(pattern: str.type) -> BuildTargetPattern.type:
     expect(len(path) == 0 or path[-1:] != _PATH_SYMBOL, "Invalid build target pattern, path cannot end with `{}`: {}".format(_PATH_SYMBOL, pattern))
 
     # buildifier: disable=uninitialized - self is initialized
-    def matches(label: ["label", "target_label"]) -> bool.type:
+    def matches(label: ["label", "target_label"]) -> bool:
         if self.cell and self.cell != label.cell:
             return False
 
@@ -92,7 +92,7 @@ def parse_build_target_pattern(pattern: str.type) -> BuildTargetPattern.type:
             fail("Unknown build target pattern kind.")
 
     # buildifier: disable=uninitialized - self is initialized
-    def as_string() -> str.type:
+    def as_string() -> str:
         normalized_cell = self.cell if self.cell else ""
         if self.kind == _BuildTargetPatternKind("single"):
             return "{}//{}:{}".format(normalized_cell, self.path, self.name)

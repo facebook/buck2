@@ -19,7 +19,7 @@ JsLibraryInfo = provider(
 
 JsBundleInfo = provider(
     fields = [
-        "bundle_name",  # str.type
+        "bundle_name",  # str
         # Directory containing the built JavaScript.
         "built_js",  # "artifact",
         # Source map belonging to the built JavaScript.

@@ -1008,14 +1008,14 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     "vmnet": {"maccatalyst": (13, 0, 0), "macosx": (10, 10, 0)},
 }
 
-def _parse_version(version: str.type) -> (int.type, int.type, int.type):
+def _parse_version(version: str) -> (int, int, int):
     result = [0, 0, 0]
     components = [int(x) for x in version.split(".")]
     for i in range(0, len(components)):
         result[i] = components[i]
     return (result[0], result[1], result[2])
 
-def get_framework_linker_args(ctx: "context", framework_names: [str.type]) -> [str.type]:
+def get_framework_linker_args(ctx: "context", framework_names: [str]) -> [str]:
     if not has_apple_toolchain(ctx):
         return _get_unchecked_framework_linker_args(framework_names)
 
@@ -1051,7 +1051,7 @@ def get_framework_linker_args(ctx: "context", framework_names: [str.type]) -> [s
 
     return args
 
-def _get_unchecked_framework_linker_args(framework_names: [str.type]) -> [str.type]:
+def _get_unchecked_framework_linker_args(framework_names: [str]) -> [str]:
     args = []
     for f in framework_names:
         args.append("-framework")
@@ -1059,5 +1059,5 @@ def _get_unchecked_framework_linker_args(framework_names: [str.type]) -> [str.ty
 
     return args
 
-def _version_is_greater_than(x: (int.type, int.type, int.type), y: (int.type, int.type, int.type)) -> bool.type:
+def _version_is_greater_than(x: (int, int, int), y: (int, int, int)) -> bool:
     return x[0] > y[0] or (x[0] == y[0] and x[1] > y[1]) or (x[0] == y[0] and x[1] == y[1] and x[2] > y[2])

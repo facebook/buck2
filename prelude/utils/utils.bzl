@@ -7,7 +7,7 @@
 
 # General utilities shared between multiple rules.
 
-def is_any(predicate: "function", iterable: ["_a"]) -> bool.type:
+def is_any(predicate: "function", iterable: ["_a"]) -> bool:
     """
     This expression lazily iterates the container with 0 new allocations.
     In the event that the iterable is empty, it will return False.
@@ -28,7 +28,7 @@ def is_any(predicate: "function", iterable: ["_a"]) -> bool.type:
             return True
     return False
 
-def is_all(predicate: "function", iterable: ["_a"]) -> bool.type:
+def is_all(predicate: "function", iterable: ["_a"]) -> bool:
     """
     This expression lazily iterates the container with 0 new allocations.
     In the event that the iterable is empty, it will return False.
@@ -61,12 +61,12 @@ def flatten_dict(xss: [{"_a": "_b"}]) -> {"_a": "_b"}:
     return {k: v for xs in xss for k, v in xs.items()}
 
 # Fail if given condition is not met.
-def expect(x: bool.type, msg: str.type = "condition not expected", *fmt):
+def expect(x: bool, msg: str = "condition not expected", *fmt):
     if not x:
         fmt_msg = msg.format(*fmt)
         fail(fmt_msg)
 
-def expect_non_none(val, msg: str.type = "unexpected none", *fmt_args, **fmt_kwargs):
+def expect_non_none(val, msg: str = "unexpected none", *fmt_args, **fmt_kwargs):
     """
     Require the given value not be `None`.
     """
@@ -74,7 +74,7 @@ def expect_non_none(val, msg: str.type = "unexpected none", *fmt_args, **fmt_kwa
         fail(msg.format(*fmt_args, **fmt_kwargs))
     return val
 
-def from_named_set(srcs: [{str.type: ["artifact", "dependency"]}, [["artifact", "dependency"]]]) -> {str.type: ["artifact", "dependency"]}:
+def from_named_set(srcs: [{str: ["artifact", "dependency"]}, [["artifact", "dependency"]]]) -> {str: ["artifact", "dependency"]}:
     """
     Normalize parameters of optionally named sources to a dictionary mapping
     names to sources, deriving the name from the short path when it's not

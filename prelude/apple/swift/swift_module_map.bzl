@@ -12,13 +12,13 @@ load(
 
 def write_swift_module_map(
         ctx: "context",
-        module_name: str.type,
+        module_name: str,
         sdk_deps: [SdkCompiledModuleInfo.type]) -> "artifact":
     return write_swift_module_map_with_swift_deps(ctx, module_name, sdk_deps, [])
 
 def write_swift_module_map_with_swift_deps(
         ctx: "context",
-        module_name: str.type,
+        module_name: str,
         sdk_swift_deps: [SdkCompiledModuleInfo.type],
         swift_deps: ["artifact"]) -> "artifact":
     deps = {}

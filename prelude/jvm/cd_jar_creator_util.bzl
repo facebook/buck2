@@ -17,14 +17,14 @@ load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode")
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name")
 load("@prelude//utils:utils.bzl", "expect")
 
-def add_java_7_8_bootclasspath(target_level: int.type, bootclasspath_entries: ["artifact"], java_toolchain: "JavaToolchainInfo") -> ["artifact"]:
+def add_java_7_8_bootclasspath(target_level: int, bootclasspath_entries: ["artifact"], java_toolchain: "JavaToolchainInfo") -> ["artifact"]:
     if target_level == 7:
         return bootclasspath_entries + java_toolchain.bootclasspath_7
     if target_level == 8:
         return bootclasspath_entries + java_toolchain.bootclasspath_8
     return bootclasspath_entries
 
-def declare_prefixed_output(actions: "actions", prefix: [str.type, None], output: str.type, dir: bool.type = False) -> "artifact":
+def declare_prefixed_output(actions: "actions", prefix: [str, None], output: str, dir: bool = False) -> "artifact":
     return actions.declare_output(declare_prefixed_name(output, prefix), dir = dir)
 
 # The library and the toolchain can both set a specific abi generation
@@ -70,7 +70,7 @@ def get_abi_generation_mode(
 # Note that we don't actually use abspath and instead enable JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD
 TargetType = enum("library", "source_abi", "source_only_abi")
 
-def encode_abi_generation_mode(mode: AbiGenerationMode.type) -> str.type:
+def encode_abi_generation_mode(mode: AbiGenerationMode.type) -> str:
     return {
         AbiGenerationMode("none"): "NONE",
         AbiGenerationMode("class"): "CLASS",
@@ -78,7 +78,7 @@ def encode_abi_generation_mode(mode: AbiGenerationMode.type) -> str.type:
         AbiGenerationMode("source_only"): "SOURCE_ONLY",
     }[mode]
 
-def encode_target_type(target_type: TargetType.type) -> str.type:
+def encode_target_type(target_type: TargetType.type) -> str:
     if target_type == TargetType("library"):
         return "LIBRARY"
     if target_type == TargetType("source_abi"):
@@ -96,10 +96,10 @@ OutputPaths = record(
 )
 
 # Converted to str so that we get the right result when written as json.
-def base_qualified_name(label: "label") -> str.type:
+def base_qualified_name(label: "label") -> str:
     return "{}:{}".format(label.path, label.name)
 
-def get_qualified_name(label: "label", target_type: TargetType.type) -> str.type:
+def get_qualified_name(label: "label", target_type: TargetType.type) -> str:
     # These should match the names for subtargets in java_library.bzl
     return {
         TargetType("library"): base_qualified_name(label),
@@ -107,7 +107,7 @@ def get_qualified_name(label: "label", target_type: TargetType.type) -> str.type
         TargetType("source_only_abi"): base_qualified_name(label) + "[source-only-abi]",
     }[target_type]
 
-def define_output_paths(actions: "actions", prefix: [str.type, None], label: "label") -> OutputPaths.type:
+def define_output_paths(actions: "actions", prefix: [str, None], label: "label") -> OutputPaths.type:
     # currently, javacd requires that at least some outputs are in the root
     # output dir. so we put all of them there. If javacd is updated we
     # could consolidate some of these into one subdir.
@@ -148,7 +148,7 @@ def encode_output_paths(label: "label", paths: OutputPaths.type, target_type: Ta
         libraryTargetFullyQualifiedName = base_qualified_name(label),
     )
 
-def encode_jar_params(remove_classes: [str.type], output_paths: OutputPaths.type) -> struct.type:
+def encode_jar_params(remove_classes: [str], output_paths: OutputPaths.type) -> struct.type:
     return struct(
         jarPath = output_paths.jar.as_output(),
         removeEntryPredicate = struct(
@@ -258,24 +258,24 @@ def encode_plugin_params(plugin_params: ["PluginParams", None]) -> [struct.type,
     return encoded_plugin_params
 
 def encode_base_jar_command(
-        javac_tool: [str.type, "RunInfo", "artifact", None],
+        javac_tool: [str, "RunInfo", "artifact", None],
         target_type: TargetType.type,
         output_paths: OutputPaths.type,
-        remove_classes: [str.type],
+        remove_classes: [str],
         label: "label",
         compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
         classpath_jars_tag: "artifact_tag",
         bootclasspath_entries: ["artifact"],
-        source_level: int.type,
-        target_level: int.type,
+        source_level: int,
+        target_level: int,
         abi_generation_mode: [AbiGenerationMode.type, None],
         srcs: ["artifact"],
-        resources_map: {str.type: "artifact"},
+        resources_map: {str: "artifact"},
         ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
         extra_arguments: "cmd_args",
         source_only_abi_compiling_deps: ["JavaClasspathEntry"],
-        track_class_usage: bool.type) -> struct.type:
+        track_class_usage: bool) -> struct.type:
     library_jar_params = encode_jar_params(remove_classes, output_paths)
     qualified_name = get_qualified_name(label, target_type)
     if target_type == TargetType("source_only_abi"):
@@ -340,7 +340,7 @@ def encode_base_jar_command(
 
 def setup_dep_files(
         actions: "actions",
-        actions_identifier: [str.type, None],
+        actions_identifier: [str, None],
         cmd: "cmd_args",
         classpath_jars_tag: "artifact_tag",
         used_classes_json_outputs: ["artifact"],
@@ -375,13 +375,13 @@ def setup_dep_files(
     return new_cmd
 
 def prepare_cd_exe(
-        qualified_name: str.type,
+        qualified_name: str,
         java: RunInfo.type,
         compiler: "artifact",
         worker: WorkerInfo.type,
-        debug_port: [int.type, None],
+        debug_port: [int, None],
         debug_target: ["label", None],
-        extra_jvm_args: [str.type],
+        extra_jvm_args: [str],
         extra_jvm_args_target: ["label", None]) -> tuple.type:
     local_only = False
     jvm_args = ["-XX:-MaxFDLimit"]
@@ -416,7 +416,7 @@ def prepare_cd_exe(
 # location.
 def prepare_final_jar(
         actions: "actions",
-        actions_identifier: [str.type, None],
+        actions_identifier: [str, None],
         output: ["artifact", None],
         output_paths: OutputPaths.type,
         additional_compiled_srcs: ["artifact", None],
@@ -447,11 +447,11 @@ def prepare_final_jar(
 
 def generate_abi_jars(
         actions: "actions",
-        actions_identifier: [str.type, None],
+        actions_identifier: [str, None],
         label: "label",
         abi_generation_mode: [AbiGenerationMode.type, None],
         additional_compiled_srcs: ["artifact", None],
-        is_building_android_binary: bool.type,
+        is_building_android_binary: bool,
         class_abi_generator: "dependency",
         final_jar: "artifact",
         compiling_deps_tset: [JavaCompilingDepsTSet.type, None],

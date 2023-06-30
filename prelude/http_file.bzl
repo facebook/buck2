@@ -9,14 +9,14 @@ load("@prelude//utils:utils.bzl", "expect", "value_or")
 
 def http_file_shared(
         actions: "actions",
-        name: str.type,
-        url: str.type,
-        vpnless_url: [None, str.type],
-        is_executable: bool.type,
-        is_exploded_zip: bool.type,
+        name: str,
+        url: str,
+        vpnless_url: [None, str],
+        is_executable: bool,
+        is_exploded_zip: bool,
         unzip_tool: [RunInfo.type, None],
-        sha1: [None, str.type],
-        sha256 = [None, str.type]) -> ["provider"]:
+        sha1: [None, str],
+        sha256 = [None, str]) -> ["provider"]:
     output = actions.declare_output(name)
     downloaded_output = actions.declare_output("exploded_zip") if is_exploded_zip else output
     actions.download_file(

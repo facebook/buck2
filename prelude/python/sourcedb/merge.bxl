@@ -9,8 +9,8 @@ def do_merge(
         ctx: "bxl_ctx",
         actions: "actions",
         built_sourcedbs: {"target_label": "artifact"},
-        merger_target: str.type,
-        command_category: str.type) -> "ensured_artifact":
+        merger_target: str,
+        command_category: str) -> "ensured_artifact":
     merger_input = actions.write_json("merge_input.json", built_sourcedbs)
     merger_output = actions.declare_output("merged_db.json")
     merger = ctx.analysis(

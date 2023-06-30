@@ -18,12 +18,12 @@ JuliaToolchainInfo = provider(fields = [
 ])
 
 JllInfo = record(
-    name = field(str.type),
-    libs = field(dict.type),  # Julia name to label
+    name = field(str),
+    libs = field(dict),  # Julia name to label
 )
 
 JuliaLibrary = record(
-    uuid = str.type,
+    uuid = str,
     src_labels = "",
     srcs = "",
     project_toml = "",
@@ -53,7 +53,7 @@ JuliaLibraryInfo = provider(fields = [
 def create_julia_library_info(
         actions: "actions",
         label: "label",
-        uuid: str.type = "",
+        uuid: str = "",
         src_labels: "" = [],
         project_toml: "" = None,
         srcs: "" = [],

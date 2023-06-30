@@ -25,7 +25,7 @@ load(
 # here, in the context of the top-level packaging rule.
 LinkableRootInfo = provider(fields = [
     "link_infos",  # LinkInfos.type
-    "name",  # [str.type, None]
+    "name",  # [str, None]
     "deps",  # ["label"]
     "shared_root",  # SharedOmnibusRoot.type, either this or no_shared_root_reason is set.
     "no_shared_root_reason",  # OmnibusPrivateRootProductCause.type
@@ -52,7 +52,7 @@ AnnotatedLinkableRoot = record(
 
 LinkableNode = record(
     # Attribute labels on the target.
-    labels = field([str.type], []),
+    labels = field([str], []),
     # Preferred linkage for this target.
     preferred_linkage = field(Linkage.type, Linkage("any")),
     # Linkable deps of this target.
@@ -68,7 +68,7 @@ LinkableNode = record(
     link_infos = field({LinkStyle.type: LinkInfos.type}, {}),
     # Shared libraries provided by this target.  Used if this target is
     # excluded.
-    shared_libs = field({str.type: LinkedObject.type}, {}),
+    shared_libs = field({str: LinkedObject.type}, {}),
 )
 
 LinkableGraphNode = record(
@@ -109,7 +109,7 @@ def create_linkable_node(
         deps: ["dependency"] = [],
         exported_deps: ["dependency"] = [],
         link_infos: {LinkStyle.type: LinkInfos.type} = {},
-        shared_libs: {str.type: LinkedObject.type} = {}) -> LinkableNode.type:
+        shared_libs: {str: LinkedObject.type} = {}) -> LinkableNode.type:
     for link_style in get_link_styles_for_linkage(preferred_linkage):
         expect(
             link_style in link_infos,
@@ -194,7 +194,7 @@ def linkable_graph(dep: "dependency") -> [LinkableGraph.type, None]:
 def get_link_info(
         node: LinkableNode.type,
         link_style: LinkStyle.type,
-        prefer_stripped: bool.type = False) -> LinkInfo.type:
+        prefer_stripped: bool = False) -> LinkInfo.type:
     info = _get_link_info(
         node.link_infos[link_style],
         prefer_stripped = prefer_stripped,

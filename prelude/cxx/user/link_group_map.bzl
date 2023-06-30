@@ -35,9 +35,9 @@ load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//decls/common.bzl", "Linkage", "Traversal")
 
 def _v1_attrs(
-        optional_root: bool.type = False,
+        optional_root: bool = False,
         # Whether we should parse `root` fields as a `dependency`, instead of a `label`.
-        root_is_dep: bool.type = True):
+        root_is_dep: bool = True):
     if root_is_dep:
         attrs_root = attrs.dep(providers = [
             LinkGroupLibInfo,

@@ -13,9 +13,9 @@ load("@prelude//utils:utils.bzl", "expect")
 
 def _build_js_bundle(
         ctx: "context",
-        bundle_name_out: str.type,
+        bundle_name_out: str,
         js_bundle_info: JsBundleInfo.type,
-        named_output: str.type) -> JsBundleInfo.type:
+        named_output: str) -> JsBundleInfo.type:
     env_vars = {
         "DEPENDENCIES": cmd_args(js_bundle_info.dependencies_file),
         "JS_BUNDLE_NAME": cmd_args(js_bundle_info.bundle_name),
@@ -74,7 +74,7 @@ def _build_js_bundle(
 
 def _get_extra_providers(
         ctx: "context",
-        skip_resources: bool.type,
+        skip_resources: bool,
         initial_target: ["provider_collection", "dependency"],
         js_bundle_out: JsBundleInfo.type) -> ["provider"]:
     providers = []

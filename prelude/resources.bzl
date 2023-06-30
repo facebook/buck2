@@ -10,13 +10,13 @@ ResourceInfo = provider(fields = [
     # A map containing all resources from transitive dependencies.  The keys
     # are rule labels and the values are maps of resource names (the name used
     # to lookup the resource at runtime) and the actual resource artifact.
-    "resources",  # {"label": {str.type: ("artifact", ["hidden"])}}
+    "resources",  # {"label": {str: ("artifact", ["hidden"])}}
 ])
 
 def gather_resources(
         label: "label",
-        resources: {str.type: ("artifact", ["_arglike"])} = {},
-        deps: ["dependency"] = []) -> {"label": {str.type: ("artifact", ["_arglike"])}}:
+        resources: {str: ("artifact", ["_arglike"])} = {},
+        deps: ["dependency"] = []) -> {"label": {str: ("artifact", ["_arglike"])}}:
     """
     Return the resources for this rule and its transitive deps.
     """
@@ -36,9 +36,9 @@ def gather_resources(
 
 def create_resource_db(
         ctx: "context",
-        name: str.type,
+        name: str,
         binary: "artifact",
-        resources: {str.type: ("artifact", ["_arglike"])}) -> "artifact":
+        resources: {str: ("artifact", ["_arglike"])}) -> "artifact":
     """
     Generate a resource DB for resources for the given binary, relativized to
     the binary's working directory.

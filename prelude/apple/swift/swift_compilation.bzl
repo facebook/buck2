@@ -124,7 +124,7 @@ def get_swift_anonymous_targets(ctx: "context", get_apple_library_providers: "fu
     )
     return ctx.actions.anon_targets(pcm_targets + sdk_pcm_targets + swift_interface_anon_targets).map(get_apple_library_providers)
 
-def get_swift_cxx_flags(ctx: "context") -> [str.type]:
+def get_swift_cxx_flags(ctx: "context") -> [str]:
     """Iterates through `swift_compiler_flags` and returns a list of flags that might affect Clang compilation"""
     gather, next = ([], False)
     for f in ctx.attrs.swift_compiler_flags:
@@ -144,8 +144,8 @@ def get_swift_cxx_flags(ctx: "context") -> [str.type]:
 def compile_swift(
         ctx: "context",
         srcs: [CxxSrcWithFlags.type],
-        parse_as_library: bool.type,
-        deps_providers: list.type,
+        parse_as_library: bool,
+        deps_providers: list,
         exported_headers: [CHeader.type],
         objc_modulemap_pp_info: [CPreprocessor.type, None],
         extra_search_paths_flags: ["_arglike"] = []) -> [SwiftCompilationOutput.type, None]:
@@ -309,8 +309,8 @@ def _compile_object(
 
 def _compile_with_argsfile(
         ctx: "context",
-        category_prefix: str.type,
-        extension: str.type,
+        category_prefix: str,
+        extension: str,
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
         additional_flags: "cmd_args",
@@ -357,10 +357,10 @@ def _compile_with_argsfile(
 
 def _get_shared_flags(
         ctx: "context",
-        deps_providers: list.type,
-        parse_as_library: bool.type,
+        deps_providers: list,
+        parse_as_library: bool,
         underlying_module: ["SwiftPCMCompiledInfo", None],
-        module_name: str.type,
+        module_name: str,
         objc_headers: [CHeader.type],
         objc_modulemap_pp_info: [CPreprocessor.type, None],
         extra_search_paths_flags: ["_arglike"] = []) -> "cmd_args":
@@ -637,7 +637,7 @@ def _header_basename(header: ["artifact", "string"]) -> "string":
     else:
         return header.basename
 
-def uses_explicit_modules(ctx: "context") -> bool.type:
+def uses_explicit_modules(ctx: "context") -> bool:
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     return ctx.attrs.uses_explicit_modules and is_sdk_modules_provided(swift_toolchain)
 

@@ -11,7 +11,7 @@ DexLibraryInfo = provider(
         # remaining fields should be ignored.
         "dex",  # ["artifact", None]
         # a unique string identifier for this DEX file
-        "identifier",  # [str.type, None]
+        "identifier",  # [str, None]
         # the names of the .class files that went into the DEX file
         "class_names",  # ["artifact", None]
         # resources that are referenced by the classes in this DEX file
@@ -27,9 +27,9 @@ def get_dex_produced_from_java_library(
         ctx: "context",
         dex_toolchain: "DexToolchainInfo",
         jar_to_dex: "artifact",
-        needs_desugar: bool.type = False,
+        needs_desugar: bool = False,
         desugar_deps: ["artifact"] = [],
-        weight_factor: int.type = 1) -> "DexLibraryInfo":
+        weight_factor: int = 1) -> "DexLibraryInfo":
     # TODO(T102963008) check whether the java_library actually contains any classes
 
     d8_cmd = cmd_args(dex_toolchain.d8_command[RunInfo])

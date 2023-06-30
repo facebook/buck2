@@ -22,7 +22,7 @@ load(":packages.bzl", "go_attr_pkg_name")
 
 def _gen_test_main(
         ctx: "context",
-        pkg_name: str.type,
+        pkg_name: str,
         coverage_mode: [GoCoverageMode.type, None],
         coverage_vars: ["cmd_args", None],
         srcs: "cmd_args") -> "artifact":

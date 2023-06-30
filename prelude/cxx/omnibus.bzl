@@ -94,7 +94,7 @@ OmnibusSpec = record(
 )
 
 OmnibusPrivateRootProductCause = record(
-    category = field(str.type),
+    category = field(str),
     # Miss-assigned label
     label = field(["label", None], default = None),
     # Its actual disposiiton
@@ -117,16 +117,16 @@ AnnotatedOmnibusRootProduct = record(
 
 SharedOmnibusRoot = record(
     product = field(OmnibusRootProduct.type),
-    linker_type = field(str.type),
+    linker_type = field(str),
     required_body = field(["label"]),
     required_exclusions = field(["label"]),
-    prefer_stripped_objects = field(bool.type),
+    prefer_stripped_objects = field(bool),
 )
 
 # The result of the omnibus link.
 OmnibusSharedLibraries = record(
     omnibus = field([LinkedObject.type, None], None),
-    libraries = field({str.type: LinkedObject.type}, {}),
+    libraries = field({str: LinkedObject.type}, {}),
     roots = field({"label": AnnotatedOmnibusRootProduct.type}, {}),
     exclusion_roots = field(["label"]),
     excluded = field(["label"]),
@@ -176,9 +176,9 @@ def create_linkable_root(
         ctx: "context",
         graph: LinkableGraph.type,
         link_infos: LinkInfos.type,
-        name: [str.type, None] = None,
+        name: [str, None] = None,
         deps: ["dependency"] = [],
-        create_shared_root: bool.type = False) -> LinkableRootInfo.type:
+        create_shared_root: bool = False) -> LinkableRootInfo.type:
     # Only include dependencies that are linkable.
     deps = linkable_deps(deps)
 
@@ -318,7 +318,7 @@ def _exclusions_from_env(env: OmnibusEnvironment.type, graph: OmnibusGraph.type)
 
     return {label: None for label in excluded}
 
-def _is_excluded_by_environment(label: "label", env: OmnibusEnvironment.type) -> bool.type:
+def _is_excluded_by_environment(label: "label", env: OmnibusEnvironment.type) -> bool:
     return label.raw_target() in env.exclusions
 
 def _omnibus_soname(ctx):
@@ -374,7 +374,7 @@ def _create_root(
         link_deps: ["label"],
         omnibus: "artifact",
         extra_ldflags: [""] = [],
-        prefer_stripped_objects: bool.type = False) -> OmnibusRootProduct.type:
+        prefer_stripped_objects: bool = False) -> OmnibusRootProduct.type:
     """
     Link a root omnibus node.
     """
@@ -498,8 +498,8 @@ def _create_root(
 
 def _requires_private_root(
         candidate: SharedOmnibusRoot.type,
-        linker_type: str.type,
-        prefer_stripped_objects: bool.type,
+        linker_type: str,
+        prefer_stripped_objects: bool,
         spec: OmnibusSpec.type) -> [OmnibusPrivateRootProductCause.type, None]:
     if candidate.linker_type != linker_type:
         return OmnibusPrivateRootProductCause(category = "linker_type")
@@ -527,9 +527,9 @@ def _requires_private_root(
 
 def _extract_global_symbols_from_link_args(
         ctx: "context",
-        name: str.type,
-        link_args: [["artifact", "resolved_macro", "cmd_args", str.type]],
-        prefer_local: bool.type = False) -> "artifact":
+        name: str,
+        link_args: [["artifact", "resolved_macro", "cmd_args", str]],
+        prefer_local: bool = False) -> "artifact":
     """
     Extract global symbols explicitly set in the given linker args (e.g.
     `-Wl,--export-dynamic-symbol=<sym>`).
@@ -575,7 +575,7 @@ def _create_global_symbols_version_script(
         ctx: "context",
         roots: [AnnotatedOmnibusRootProduct.type],
         excluded: ["artifact"],
-        link_args: [["artifact", "resolved_macro", "cmd_args", str.type]]) -> "artifact":
+        link_args: [["artifact", "resolved_macro", "cmd_args", str]]) -> "artifact":
     """
     Generate a version script exporting symbols from from the given objects and
     link args.
@@ -615,13 +615,13 @@ def _create_global_symbols_version_script(
         symbol_files = global_symbols_files,
     )
 
-def _is_static_only(info: LinkableNode.type) -> bool.type:
+def _is_static_only(info: LinkableNode.type) -> bool:
     """
     Return whether this can only be linked statically.
     """
     return info.preferred_linkage == Linkage("static")
 
-def _is_shared_only(info: LinkableNode.type) -> bool.type:
+def _is_shared_only(info: LinkableNode.type) -> bool:
     """
     Return whether this can only use shared linking
     """
@@ -632,7 +632,7 @@ def _create_omnibus(
         spec: OmnibusSpec.type,
         annotated_root_products,
         extra_ldflags: [""] = [],
-        prefer_stripped_objects: bool.type = False) -> LinkedObject.type:
+        prefer_stripped_objects: bool = False) -> LinkedObject.type:
     inputs = []
 
     # Undefined symbols roots...
@@ -870,7 +870,7 @@ def create_omnibus_libraries(
         ctx: "context",
         graph: OmnibusGraph.type,
         extra_ldflags: [""] = [],
-        prefer_stripped_objects: bool.type = False) -> OmnibusSharedLibraries.type:
+        prefer_stripped_objects: bool = False) -> OmnibusSharedLibraries.type:
     spec = _build_omnibus_spec(ctx, graph)
 
     # Create dummy omnibus
@@ -925,7 +925,7 @@ def create_omnibus_libraries(
         dispositions = spec.dispositions,
     )
 
-def is_known_omnibus_root(ctx: "context") -> bool.type:
+def is_known_omnibus_root(ctx: "context") -> bool:
     env = ctx.attrs._omnibus_environment
     if not env:
         return False
@@ -943,13 +943,13 @@ def is_known_omnibus_root(ctx: "context") -> bool.type:
 
     return False
 
-def explicit_roots_enabled(ctx: "context") -> bool.type:
+def explicit_roots_enabled(ctx: "context") -> bool:
     env = ctx.attrs._omnibus_environment
     if not env:
         return False
     return env[OmnibusEnvironment].enable_explicit_roots
 
-def use_hybrid_links_for_libomnibus(ctx: "context") -> bool.type:
+def use_hybrid_links_for_libomnibus(ctx: "context") -> bool:
     env = ctx.attrs._omnibus_environment
     if not env:
         return False

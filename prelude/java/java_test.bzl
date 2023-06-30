@@ -38,7 +38,7 @@ def build_junit_test(
         tests_java_library_info: "JavaLibraryInfo",
         tests_java_packaging_info: "JavaPackagingInfo",
         tests_class_to_source_info: [JavaClassToSourceMapInfo.type, None] = None,
-        extra_cmds: list.type = [],
+        extra_cmds: list = [],
         extra_classpath_entries: ["artifact"] = []) -> ExternalRunnerTestInfo.type:
     java_test_toolchain = ctx.attrs._java_test_toolchain[JavaTestToolchainInfo]
 
@@ -144,7 +144,7 @@ def build_junit_test(
     )
     return test_info
 
-def _get_native_libs_env(ctx: "context") -> dict.type:
+def _get_native_libs_env(ctx: "context") -> dict:
     if not ctx.attrs.use_cxx_libraries:
         return {}
 

@@ -57,8 +57,8 @@ load(":resources.bzl", "rust_attr_resources")
 def _rust_binary_common(
         ctx: "context",
         compile_ctx: CompileContext.type,
-        default_roots: [str.type],
-        extra_flags: [str.type]) -> ([[DefaultInfo.type, RunInfo.type]], "cmd_args"):
+        default_roots: [str],
+        extra_flags: [str]) -> ([[DefaultInfo.type, RunInfo.type]], "cmd_args"):
     toolchain_info = compile_ctx.toolchain_info
 
     simple_crate = attr_simple_crate_for_filenames(ctx)

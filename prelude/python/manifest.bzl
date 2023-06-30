@@ -23,7 +23,7 @@ ManifestInfo = record(
 def create_dep_manifest_for_source_map(
         ctx: "context",
         python_toolchain: PythonToolchainInfo.type,
-        srcs: {str.type: "artifact"}) -> ManifestInfo.type:
+        srcs: {str: "artifact"}) -> ManifestInfo.type:
     entries = []
     artifacts = []
     for path, artifact in srcs.items():
@@ -47,8 +47,8 @@ def create_dep_manifest_for_source_map(
 
 def _write_manifest(
         ctx: "context",
-        name: str.type,
-        entries: [(str.type, "artifact", str.type)]) -> "artifact":
+        name: str,
+        entries: [(str, "artifact", str)]) -> "artifact":
     """
     Serialize the given source manifest entries to a JSON file.
     """
@@ -56,8 +56,8 @@ def _write_manifest(
 
 def create_manifest_for_entries(
         ctx: "context",
-        name: str.type,
-        entries: [(str.type, "artifact", str.type)]) -> ManifestInfo.type:
+        name: str,
+        entries: [(str, "artifact", str)]) -> ManifestInfo.type:
     """
     Generate a source manifest for the given list of sources.
     """
@@ -68,8 +68,8 @@ def create_manifest_for_entries(
 
 def create_manifest_for_source_map(
         ctx: "context",
-        param: str.type,
-        srcs: {str.type: "artifact"}) -> ManifestInfo.type:
+        param: str,
+        srcs: {str: "artifact"}) -> ManifestInfo.type:
     """
     Generate a source manifest for the given map of sources from the given rule.
     """
@@ -82,7 +82,7 @@ def create_manifest_for_source_map(
 
 def create_manifest_for_source_dir(
         ctx: "context",
-        param: str.type,
+        param: str,
         extracted: "artifact") -> ManifestInfo.type:
     """
     Generate a source manifest for the given directory of sources from the given
@@ -100,9 +100,9 @@ def create_manifest_for_source_dir(
 
 def create_manifest_for_extensions(
         ctx: "context",
-        extensions: {str.type: ("_a", "label")},
+        extensions: {str: ("_a", "label")},
         # Whether to include DWP files.
-        dwp: bool.type = False) -> ManifestInfo.type:
+        dwp: bool = False) -> ManifestInfo.type:
     entries = []
     for dest, (lib, label) in extensions.items():
         entries.append((dest, lib.output, str(label.raw_target())))

@@ -47,7 +47,7 @@ def _merge_asset_catalog_specs(ctx: "context", xs: [AppleAssetCatalogSpec.type])
     dirs = dedupe(flatten([x.dirs for x in xs]))
     return AppleAssetCatalogSpec(app_icon = app_icon, dirs = dirs, launch_image = launch_image)
 
-def _get_at_most_one_attribute(ctx: "context", xs: ["_record"], attr_name: str.type) -> ["StringWithSourceTarget", None]:
+def _get_at_most_one_attribute(ctx: "context", xs: ["_record"], attr_name: str) -> ["StringWithSourceTarget", None]:
     all_values = dedupe(filter(None, [getattr(x, attr_name) for x in xs]))
     if len(all_values) > 1:
         fail("At most one asset catalog in the dependencies of `{}` can have an `{}` attribute. At least 2 catalogs are providing it: `{}` and `{}`.".format(_get_target(ctx), attr_name, all_values[0].source, all_values[1].source))
@@ -56,7 +56,7 @@ def _get_at_most_one_attribute(ctx: "context", xs: ["_record"], attr_name: str.t
     else:
         return None
 
-def _get_target(ctx: "context") -> str.type:
+def _get_target(ctx: "context") -> str:
     return ctx.label.package + ":" + ctx.label.name
 
 def _get_actool_command(ctx: "context", info: AppleAssetCatalogSpec.type, catalog_output: "output_artifact", plist_output: "output_artifact", compilation_options: AppleAssetCatalogsCompilationOptions.type) -> "cmd_args":

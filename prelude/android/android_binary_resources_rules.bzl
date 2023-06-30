@@ -22,14 +22,14 @@ def get_android_binary_resources_info(
         deps: ["dependency"],
         android_packageable_info: "AndroidPackageableInfo",
         java_packaging_deps: ["JavaPackagingDep"],
-        use_proto_format: bool.type,
+        use_proto_format: bool,
         referenced_resources_lists: ["artifact"],
         apk_module_graph_file: ["artifact", None] = None,
-        manifest_entries: dict.type = {},
+        manifest_entries: dict = {},
         resource_infos_to_exclude: [set_type, None] = None,
-        generate_strings_and_ids_separately: [bool.type, None] = True,
-        aapt2_min_sdk: [str.type, None] = None,
-        aapt2_preferred_density: [str.type, None] = None) -> "AndroidBinaryResourcesInfo":
+        generate_strings_and_ids_separately: [bool, None] = True,
+        aapt2_min_sdk: [str, None] = None,
+        aapt2_preferred_density: [str, None] = None) -> "AndroidBinaryResourcesInfo":
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unfiltered_resource_infos = [
         resource_info
@@ -326,11 +326,11 @@ def _maybe_filter_resources(
     )
 
 ResourcesFilter = record(
-    densities = [str.type],
-    downscale = bool.type,
+    densities = [str],
+    downscale = bool,
 )
 
-def _get_resources_filter(resources_filter_strings: [str.type]) -> [ResourcesFilter.type, None]:
+def _get_resources_filter(resources_filter_strings: [str]) -> [ResourcesFilter.type, None]:
     if not resources_filter_strings:
         return None
 
@@ -343,10 +343,10 @@ def _get_resources_filter(resources_filter_strings: [str.type]) -> [ResourcesFil
 
 def _maybe_generate_string_source_map(
         actions: "actions",
-        should_build_source_string_map: bool.type,
+        should_build_source_string_map: bool,
         resource_infos: [AndroidResourceInfo.type],
         android_toolchain: AndroidToolchainInfo.type,
-        is_voltron_string_source_map: bool.type = False) -> ["artifact", None]:
+        is_voltron_string_source_map: bool = False) -> ["artifact", None]:
     if not should_build_source_string_map or len(resource_infos) == 0:
         return None
 
@@ -412,7 +412,7 @@ def _maybe_package_strings_as_assets(
 def _get_manifest(
         ctx: "context",
         android_packageable_info: "AndroidPackageableInfo",
-        manifest_entries: dict.type) -> "artifact":
+        manifest_entries: dict) -> "artifact":
     robolectric_manifest = getattr(ctx.attrs, "robolectric_manifest", None)
     if robolectric_manifest:
         return robolectric_manifest
@@ -460,9 +460,9 @@ def _get_manifest(
 def _get_module_manifests(
         ctx: "context",
         android_packageable_info: "AndroidPackageableInfo",
-        manifest_entries: dict.type,
+        manifest_entries: dict,
         apk_module_graph_file: ["artifact", None],
-        use_proto_format: bool.type,
+        use_proto_format: bool,
         primary_resources_apk: "artifact") -> ["artifact"]:
     if not apk_module_graph_file:
         return []
@@ -529,7 +529,7 @@ def _get_module_manifests(
 # and optionally an "exopackaged assets APK" and the hash for that APK.
 def _merge_assets(
         ctx: "context",
-        is_exopackaged_enabled_for_resources: bool.type,
+        is_exopackaged_enabled_for_resources: bool,
         base_apk: "artifact",
         resource_infos: ["AndroidResourceInfo"],
         cxx_resources: ["artifact", None]) -> ("artifact", ["artifact", None], ["artifact", None]):
@@ -563,9 +563,9 @@ def _merge_assets(
         return merged_assets_output, None, None
 
 def get_effective_banned_duplicate_resource_types(
-        duplicate_resource_behavior: str.type,
-        allowed_duplicate_resource_types: [str.type],
-        banned_duplicate_resource_types: [str.type]) -> [str.type]:
+        duplicate_resource_behavior: str,
+        allowed_duplicate_resource_types: [str],
+        banned_duplicate_resource_types: [str]) -> [str]:
     if duplicate_resource_behavior == "allow_by_default":
         expect(
             len(allowed_duplicate_resource_types) == 0,
@@ -596,5 +596,5 @@ def _get_cxx_resources(ctx: "context", deps: ["dependency"]) -> ["artifact", Non
 
     return ctx.actions.symlinked_dir("cxx_resources_dir", symlink_tree_dict) if symlink_tree_dict else None
 
-def _is_store_strings_as_assets(resource_compression: str.type) -> bool.type:
+def _is_store_strings_as_assets(resource_compression: str) -> bool:
     return resource_compression == "enabled_strings_only" or resource_compression == "enabled_with_strings_as_assets"

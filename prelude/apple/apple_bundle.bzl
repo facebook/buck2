@@ -53,7 +53,7 @@ AppleBundleBinaryOutput = record(
     binary = field("artifact"),
     debuggable_info = field([AppleDebuggableInfo.type, None], None),
     # In the case of watchkit, the `ctx.attrs.binary`'s not set, and we need to create a stub binary.
-    is_watchkit_stub_binary = field(bool.type, False),
+    is_watchkit_stub_binary = field(bool, False),
 )
 
 def _get_binary(ctx: "context") -> AppleBundleBinaryOutput.type:
@@ -70,7 +70,7 @@ def _get_binary(ctx: "context") -> AppleBundleBinaryOutput.type:
 
     return _maybe_scrub_binary(ctx, binary_dep)
 
-def _get_bundle_dsym_name(ctx: "context") -> str.type:
+def _get_bundle_dsym_name(ctx: "context") -> str:
     return paths.replace_extension(get_bundle_dir_name(ctx), ".dSYM")
 
 def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutput.type:
@@ -285,7 +285,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
         extra_output_provider,
     ]
 
-def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str.type: ""}:
+def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str: ""}:
     data = {
         "deployment_version": get_bundle_min_target_version(ctx),
         "info_plist": ctx.attrs.info_plist,
@@ -333,7 +333,7 @@ def _extra_output_provider(ctx: "context") -> AppleBundleExtraOutputsInfo.type:
 
 def generate_install_data(
         ctx: "context",
-        plist_path: str.type,
+        plist_path: str,
         populate_rule_specific_attributes_func: ["function", None] = None,
         **kwargs) -> "artifact":
     data = {

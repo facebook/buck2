@@ -14,21 +14,21 @@ def get_aapt2_link(
         android_toolchain: "AndroidToolchainInfo",
         aapt2_compile_rules: ["artifact"],
         android_manifest: "artifact",
-        includes_vector_drawables: bool.type,
-        no_auto_version: bool.type,
-        no_version_transitions: bool.type,
-        no_auto_add_overlay: bool.type,
-        no_resource_removal: bool.type,
-        should_keep_raw_values: bool.type,
-        package_id_offset: int.type,
+        includes_vector_drawables: bool,
+        no_auto_version: bool,
+        no_version_transitions: bool,
+        no_auto_add_overlay: bool,
+        no_resource_removal: bool,
+        should_keep_raw_values: bool,
+        package_id_offset: int,
         resource_stable_ids: ["artifact", None],
-        preferred_density: [str.type, None],
-        min_sdk: [str.type, None],
-        filter_locales: bool.type,
-        locales: [str.type],
+        preferred_density: [str, None],
+        min_sdk: [str, None],
+        filter_locales: bool,
+        locales: [str],
         compiled_resource_apks: ["artifact"],
-        additional_aapt2_params: [str.type],
-        extra_filtered_resources: [str.type]) -> (Aapt2LinkInfo.type, Aapt2LinkInfo.type):
+        additional_aapt2_params: [str],
+        extra_filtered_resources: [str]) -> (Aapt2LinkInfo.type, Aapt2LinkInfo.type):
     link_infos = []
     for use_proto_format in [False, True]:
         if use_proto_format:
@@ -129,7 +129,7 @@ def get_module_manifest_in_proto_format(
         android_toolchain: "AndroidToolchainInfo",
         android_manifest: "artifact",
         primary_resources_apk: "artifact",
-        module_name: str.type) -> "artifact":
+        module_name: str) -> "artifact":
     aapt2_command = cmd_args(android_toolchain.aapt2)
     aapt2_command.add("link")
 

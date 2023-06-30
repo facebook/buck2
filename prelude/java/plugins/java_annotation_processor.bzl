@@ -30,8 +30,8 @@ JavaProcessorsInfo = provider(
 )
 
 AnnotationProcessorParams = record(
-    affects_abi = field(bool.type),
-    supports_source_only_abi = field(bool.type),
+    affects_abi = field(bool),
+    supports_source_only_abi = field(bool),
     processors = field(["string"]),
     params = field(["string"]),
     deps = field(["JavaPackagingDepTSet", None]),
@@ -111,7 +111,7 @@ def create_ksp_ap_params(ctx: "context", plugins: ["dependency"]) -> [Annotation
         supports_source_only_abi = False,
     )
 
-def _get_processor_type(processor_class: str.type) -> JavaProcessorsType.type:
+def _get_processor_type(processor_class: str) -> JavaProcessorsType.type:
     if processor_class.startswith("KSP:"):
         return JavaProcessorsType("ksp_annotation_processor")
 

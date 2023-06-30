@@ -11,11 +11,11 @@
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
-def cxx_use_bolt(ctx: "context") -> bool.type:
+def cxx_use_bolt(ctx: "context") -> bool:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     return cxx_toolchain_info.bolt_enabled and ctx.attrs.bolt_profile != None
 
-def bolt_gdb_index(ctx: "context", bolt_output: "artifact", identifier: [str.type, None]) -> "artifact":
+def bolt_gdb_index(ctx: "context", bolt_output: "artifact", identifier: [str, None]) -> "artifact":
     # Run gdb-indexer
     # gdb-indexer <input_binary> -o <output_binary>
     gdb_index_output_name = bolt_output.short_path.removesuffix("-pre_gdb_index") + "-gdb_index"
@@ -54,7 +54,7 @@ def bolt_gdb_index(ctx: "context", bolt_output: "artifact", identifier: [str.typ
 
     return objcopy_output
 
-def bolt(ctx: "context", prebolt_output: "artifact", identifier: [str.type, None]) -> "artifact":
+def bolt(ctx: "context", prebolt_output: "artifact", identifier: [str, None]) -> "artifact":
     output_name = prebolt_output.short_path.removesuffix("-wrapper") + ("-pre_gdb_index" if (ctx.attrs.bolt_gdb_index != None) else "")
     postbolt_output = ctx.actions.declare_output(output_name)
     bolt_msdk = get_cxx_toolchain_info(ctx).binary_utilities_info.bolt_msdk

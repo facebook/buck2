@@ -24,12 +24,12 @@ AppleResourceSpec = record(
     variant_files = field(["artifact"], []),
     # Map from locale to list of files for that locale, e.g.
     # `{ "ru.lproj" : ["Localizable.strings"] }`
-    named_variant_files = field({str.type: ["artifact"]}, {}),
-    codesign_files_on_copy = field(bool.type, False),
+    named_variant_files = field({str: ["artifact"]}, {}),
+    codesign_files_on_copy = field(bool, False),
 )
 
 # Used when invoking `ibtool`, `actool` and `momc`
 AppleResourceProcessingOptions = record(
-    prefer_local = field(bool.type, False),
-    allow_cache_upload = field(bool.type, False),
+    prefer_local = field(bool, False),
+    allow_cache_upload = field(bool, False),
 )

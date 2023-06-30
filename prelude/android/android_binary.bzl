@@ -21,16 +21,16 @@ load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_
 load("@prelude//utils:utils.bzl", "expect")
 
 AndroidBinaryInfo = record(
-    sub_targets = dict.type,
+    sub_targets = dict,
     java_packaging_deps = ["JavaPackagingDep"],
-    deps_by_platform = dict.type,
-    primary_platform = str.type,
+    deps_by_platform = dict,
+    primary_platform = str,
     dex_files_info = "DexFilesInfo",
     native_library_info = "AndroidBinaryNativeLibsInfo",
     resources_info = "AndroidBinaryResourcesInfo",
 )
 
-def get_binary_info(ctx: "context", use_proto_format: bool.type) -> AndroidBinaryInfo.type:
+def get_binary_info(ctx: "context", use_proto_format: bool) -> AndroidBinaryInfo.type:
     sub_targets = {}
 
     _verify_params(ctx)

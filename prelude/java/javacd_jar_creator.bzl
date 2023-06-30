@@ -42,30 +42,30 @@ base_command_params = struct(
 
 def create_jar_artifact_javacd(
         actions: "actions",
-        actions_identifier: [str.type, None],
+        actions_identifier: [str, None],
         abi_generation_mode: [AbiGenerationMode.type, None],
         java_toolchain: "JavaToolchainInfo",
         label,
         output: ["artifact", None],
         javac_tool: ["", None],
         srcs: ["artifact"],
-        remove_classes: [str.type],
+        remove_classes: [str],
         resources: ["artifact"],
-        resources_root: [str.type, None],
+        resources_root: [str, None],
         manifest_file: ["artifact", None],
         ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
-        source_level: int.type,
-        target_level: int.type,
+        source_level: int,
+        target_level: int,
         deps: ["dependency"],
-        required_for_source_only_abi: bool.type,
+        required_for_source_only_abi: bool,
         source_only_abi_deps: ["dependency"],
         extra_arguments: "cmd_args",
         additional_classpath_entries: ["artifact"],
         additional_compiled_srcs: ["artifact", None],
         bootclasspath_entries: ["artifact"],
-        is_building_android_binary: bool.type,
-        is_creating_subtarget: bool.type = False) -> "JavaCompileOutputs":
+        is_building_android_binary: bool,
+        is_creating_subtarget: bool = False) -> "JavaCompileOutputs":
     if javac_tool != None:
         # TODO(cjhopman): We can probably handle this better. I think we should be able to just use the non-javacd path.
         fail("cannot set explicit javac on library when using javacd")
@@ -173,16 +173,16 @@ def create_jar_artifact_javacd(
 
     # buildifier: disable=uninitialized
     def define_javacd_action(
-            category_prefix: str.type,
-            actions_identifier: [str.type, None],
+            category_prefix: str,
+            actions_identifier: [str, None],
             encoded_command: struct.type,
-            qualified_name: str.type,
+            qualified_name: str,
             output_paths: OutputPaths.type,
             classpath_jars_tag: "artifact_tag",
             abi_dir: ["artifact", None],
             target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None],
-            is_creating_subtarget: bool.type = False,
+            is_creating_subtarget: bool = False,
             source_only_abi_compiling_deps: ["JavaClasspathEntry"] = []):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 

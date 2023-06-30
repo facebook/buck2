@@ -28,19 +28,19 @@ AppleBundleDestination = enum(
 )
 
 AppleBundleDestinationPaths = record(
-    resources = field(str.type, ""),
-    frameworks = field(str.type, ""),
-    executables = field(str.type, ""),
-    plugins = field(str.type, ""),
-    xpcservices = field(str.type, ""),
-    metadata = field(str.type, ""),
-    watchapp = field(str.type, ""),
-    headers = field(str.type, ""),
-    modules = field(str.type, ""),
-    quicklook = field(str.type, ""),
-    watchkitstub = field(str.type, ""),
-    bundleroot = field(str.type, ""),
-    loginitems = field(str.type, ""),
+    resources = field(str, ""),
+    frameworks = field(str, ""),
+    executables = field(str, ""),
+    plugins = field(str, ""),
+    xpcservices = field(str, ""),
+    metadata = field(str, ""),
+    watchapp = field(str, ""),
+    headers = field(str, ""),
+    modules = field(str, ""),
+    quicklook = field(str, ""),
+    watchkitstub = field(str, ""),
+    bundleroot = field(str, ""),
+    loginitems = field(str, ""),
 )
 
 _IOSBundleDestinationPaths = AppleBundleDestinationPaths(
@@ -85,19 +85,19 @@ _MacOSFrameworkBundleDestinationPaths = AppleBundleDestinationPaths(
     modules = "Modules",
 )
 
-def _get_apple_bundle_destinations_for_sdk_name(name: str.type) -> AppleBundleDestinationPaths.type:
+def _get_apple_bundle_destinations_for_sdk_name(name: str) -> AppleBundleDestinationPaths.type:
     if name == "macosx" or name == "maccatalyst":
         return _MacOSBundleDestinationPaths
     else:
         return _IOSBundleDestinationPaths
 
-def _get_apple_framework_bundle_destinations_for_sdk_name(name: str.type) -> AppleBundleDestinationPaths.type:
+def _get_apple_framework_bundle_destinations_for_sdk_name(name: str) -> AppleBundleDestinationPaths.type:
     if name == "macosx" or name == "maccatalyst":
         return _MacOSFrameworkBundleDestinationPaths
     else:
         return _IOSFrameworkBundleDestinationPaths
 
-def bundle_relative_path_for_destination(destination: AppleBundleDestination.type, sdk_name: str.type, extension: str.type) -> str.type:
+def bundle_relative_path_for_destination(destination: AppleBundleDestination.type, sdk_name: str, extension: str) -> str:
     if extension == "framework":
         bundle_destinations = _get_apple_framework_bundle_destinations_for_sdk_name(sdk_name)
     else:

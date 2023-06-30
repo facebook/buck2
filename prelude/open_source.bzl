@@ -5,6 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def is_open_source() -> bool.type:
+def is_open_source() -> bool:
     # @oss-disable: return False 
     return True # @oss-enable

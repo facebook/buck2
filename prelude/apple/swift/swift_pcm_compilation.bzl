@@ -34,7 +34,7 @@ PcmDepTSet = transitive_set(args_projections = {
     "clang_deps": _project_as_clang_deps,
 })
 
-def get_compiled_pcm_deps_tset(ctx: "context", pcm_deps_providers: list.type) -> PcmDepTSet.type:
+def get_compiled_pcm_deps_tset(ctx: "context", pcm_deps_providers: list) -> PcmDepTSet.type:
     pcm_deps = [
         pcm_deps_provider[WrappedSwiftPCMCompiledInfo].tset
         for pcm_deps_provider in pcm_deps_providers
@@ -45,7 +45,7 @@ def get_compiled_pcm_deps_tset(ctx: "context", pcm_deps_providers: list.type) ->
 def get_swift_pcm_anon_targets(
         ctx: "context",
         uncompiled_deps: ["dependency"],
-        swift_cxx_args: [str.type]):
+        swift_cxx_args: [str]):
     deps = [
         {
             "dep": uncompiled_dep,
@@ -61,8 +61,8 @@ def get_swift_pcm_anon_targets(
 
 def _compile_with_argsfile(
         ctx: "context",
-        category: str.type,
-        module_name: str.type,
+        category: str,
+        module_name: str,
         args: "cmd_args",
         additional_cmd: "cmd_args"):
     shell_quoted_cmd = cmd_args(args, quote = "shell")
@@ -212,7 +212,7 @@ def compile_underlying_pcm(
         ctx: "context",
         uncompiled_pcm_info: "SwiftPCMUncompiledInfo",
         compiled_pcm_deps_providers,
-        swift_cxx_args: [str.type]) -> "SwiftPCMCompiledInfo":
+        swift_cxx_args: [str]) -> "SwiftPCMCompiledInfo":
     module_name = get_module_name(ctx)
 
     # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers
@@ -255,11 +255,11 @@ def compile_underlying_pcm(
 
 def _get_base_pcm_flags(
         ctx: "context",
-        module_name: str.type,
+        module_name: str,
         uncompiled_pcm_info: SwiftPCMUncompiledInfo.type,
         sdk_deps_tset: SDKDepTSet.type,
         pcm_deps_tset: PcmDepTSet.type,
-        swift_cxx_args: [str.type]) -> ("cmd_args", "cmd_args", "artifact"):
+        swift_cxx_args: [str]) -> ("cmd_args", "cmd_args", "artifact"):
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     cmd = cmd_args()

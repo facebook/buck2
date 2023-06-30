@@ -101,11 +101,11 @@ def _package_style(ctx: "context") -> PackageStyle.type:
 
 # We do a lot of merging extensions, so don't use O(n) type annotations
 def _merge_extensions(
-        # {str.type: ("_a", "label")}
+        # {str: ("_a", "label")}
         extensions,
         # "label"
         incoming_label,
-        # {str.type: "_a"}
+        # {str: "_a"}
         incoming_extensions) -> None:
     """
     Merges a incoming_extensions into `extensions`. Fails if duplicate dests exist.
@@ -132,7 +132,7 @@ def _merge_extensions(
 
 def _get_root_link_group_specs(
         libs: [LinkableProviders.type],
-        extensions: {str.type: LinkableProviders.type}) -> [LinkGroupLibSpec.type]:
+        extensions: {str: LinkableProviders.type}) -> [LinkGroupLibSpec.type]:
     """
     Walk the linkable graph finding dlopen-able C++ libs.
     """
@@ -224,7 +224,7 @@ def _get_link_group_info(
         ctx: "context",
         link_deps: [LinkableProviders.type],
         libs: [LinkableProviders.type],
-        extensions: {str.type: LinkableProviders.type},
+        extensions: {str: LinkableProviders.type},
         shared_only_libs: [LinkableProviders.type]) -> (LinkGroupInfo.type, [LinkGroupLibSpec.type]):
     """
     Return the `LinkGroupInfo` and link group lib specs to use for this binary.
@@ -284,10 +284,10 @@ def _get_link_group_info(
 
 def python_executable(
         ctx: "context",
-        main_module: str.type,
-        srcs: {str.type: "artifact"},
-        resources: {str.type: ("artifact", ["_arglike"])},
-        compile: bool.type = False) -> PexProviders.type:
+        main_module: str,
+        srcs: {str: "artifact"},
+        resources: {str: ("artifact", ["_arglike"])},
+        compile: bool = False) -> PexProviders.type:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
 
@@ -363,7 +363,7 @@ def python_executable(
 def create_dep_report(
         ctx: "context",
         python_toolchain: PythonToolchainInfo.type,
-        main_module: str.type,
+        main_module: str,
         library_info: PythonLibraryInfo.type) -> DefaultInfo.type:
     out = ctx.actions.declare_output("dep-report.json")
     cmd = cmd_args()
@@ -380,7 +380,7 @@ def convert_python_library_to_executable(
         main_module: "string",
         library: PythonLibraryInterface.type,
         deps: ["dependency"],
-        compile: bool.type = False,
+        compile: bool = False,
         dbg_source_db: [DefaultInfo.type, None] = None) -> PexProviders.type:
     extra = {}
 

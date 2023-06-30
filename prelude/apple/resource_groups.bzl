@@ -20,8 +20,8 @@ load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 
 ResourceGroupInfo = provider(fields = [
     "groups",  # [Group.type]
-    "groups_hash",  # str.type
-    "mappings",  # {"label": str.type}
+    "groups_hash",  # str
+    "mappings",  # {"label": str}
     # Additional deps needed to cover labels referenced by the groups above.
     # This is useful in cases where the consumer of this provider won't already
     # have deps covering these.
@@ -34,7 +34,7 @@ ResourceGroupInfo = provider(fields = [
 ResourceGraphNode = record(
     label = field("label"),
     # Attribute labels on the target.
-    labels = field([str.type], []),
+    labels = field([str], []),
     # Deps of this target which might have resources transitively.
     deps = field(["label"], []),
     # Exported deps of this target which might have resources transitively.
@@ -58,7 +58,7 @@ ResourceGraph = provider(fields = [
 
 def create_resource_graph(
         ctx: "context",
-        labels: [str.type],
+        labels: [str],
         deps: ["dependency"],
         exported_deps: ["dependency"],
         resource_spec: [AppleResourceSpec.type, None] = None,
@@ -115,8 +115,8 @@ def get_resource_group_info(ctx: "context") -> [ResourceGroupInfo.type, None]:
 def get_filtered_resources(
         root: "label",
         resource_graph_node_map_func,
-        resource_group: [str.type, None],
-        resource_group_mappings: [{"label": str.type}, None]) -> ([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type], [SceneKitAssetsSpec.type]):
+        resource_group: [str, None],
+        resource_group_mappings: [{"label": str}, None]) -> ([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type], [SceneKitAssetsSpec.type]):
     """
     Walks the provided DAG and collects resources matching resource groups definition.
     """

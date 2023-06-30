@@ -16,7 +16,7 @@ load(
     "get_java_packaging_info",
 )
 
-def _generate_script(generate_wrapper: bool.type, native_libs: {str.type: "SharedLibrary"}) -> bool.type:
+def _generate_script(generate_wrapper: bool, native_libs: {str: "SharedLibrary"}) -> bool:
     # if `generate_wrapper` is set and no native libs then it should be a wrapper script as result,
     # otherwise fat jar will be generated (inner jar or script will be included inside a final fat jar)
     return generate_wrapper and len(native_libs) == 0
@@ -25,9 +25,9 @@ def _create_fat_jar(
         ctx: "context",
         java_toolchain: JavaToolchainInfo.type,
         jars: "cmd_args",
-        native_libs: {str.type: "SharedLibrary"},
-        do_not_create_inner_jar: bool.type,
-        generate_wrapper: bool.type) -> ["artifact"]:
+        native_libs: {str: "SharedLibrary"},
+        do_not_create_inner_jar: bool,
+        generate_wrapper: bool) -> ["artifact"]:
     extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
     output = ctx.actions.declare_output("{}.{}".format(ctx.label.name, extension))
 
@@ -125,7 +125,7 @@ def _create_fat_jar(
 
 def _get_run_cmd(
         attrs: struct.type,
-        script_mode: bool.type,
+        script_mode: bool,
         main_artifact: "artifact",
         java_toolchain: JavaToolchainInfo.type) -> "cmd_args":
     if script_mode:

@@ -78,7 +78,7 @@ load(":xcode.bzl", "apple_populate_xcode_attributes")
 
 AppleLibraryAdditionalParams = record(
     # Name of the top level rule utilizing the apple_library rule.
-    rule_type = str.type,
+    rule_type = str,
     # Extra flags to be passed to the linker.
     extra_exported_link_flags = field(["_arglike"], []),
     # Extra flags to be passed to the Swift compiler.
@@ -95,7 +95,7 @@ AppleLibraryAdditionalParams = record(
     generate_providers = field(CxxRuleProviderParams.type, CxxRuleProviderParams()),
     # Forces link group linking logic, even when there's no mapping. Link group linking
     # without a mapping is equivalent to statically linking the whole transitive dep graph.
-    force_link_group_linking = field(bool.type, False),
+    force_link_group_linking = field(bool, False),
 )
 
 def apple_library_impl(ctx: "context") -> ["promise", ["provider"]]:
@@ -129,7 +129,7 @@ def apple_library_impl(ctx: "context") -> ["promise", ["provider"]]:
     else:
         return get_apple_library_providers([])
 
-def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", params: AppleLibraryAdditionalParams.type, deps_providers: list.type = []) -> CxxRuleConstructorParams.type:
+def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", params: AppleLibraryAdditionalParams.type, deps_providers: list = []) -> CxxRuleConstructorParams.type:
     cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
     # First create a modulemap if necessary. This is required for importing
@@ -254,8 +254,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     )
 
 def _get_extra_linker_flags_and_outputs(
-        _ctx: "context") -> (["_arglike"], {str.type: [DefaultInfo.type]}): # @oss-enable
-        # @oss-disable: ctx: "context") -> (["_arglike"], {str.type: [DefaultInfo.type]}): 
+        _ctx: "context") -> (["_arglike"], {str: [DefaultInfo.type]}): # @oss-enable
+        # @oss-disable: ctx: "context") -> (["_arglike"], {str: [DefaultInfo.type]}): 
     # @oss-disable: return add_extra_linker_outputs(ctx) 
     return [], {} # @oss-enable
 
@@ -277,7 +277,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         external_debug_info: ["transitive_set", None],
         _dwp: ["artifact", None],
         _pdb: ["artifact", None],
-        linker_map: [CxxLinkerMapData.type, None]) -> ({str.type: ["provider"]}, ["provider"]):
+        linker_map: [CxxLinkerMapData.type, None]) -> ({str: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
 
@@ -323,9 +323,9 @@ def _get_linker_flags(ctx: "context") -> "cmd_args":
 def _xcode_populate_attributes(
         ctx,
         srcs: ["CxxSrcWithFlags"],
-        argsfiles: {str.type: CompileArgsfile.type},
+        argsfiles: {str: CompileArgsfile.type},
         populate_xcode_attributes_func: "function",
-        **_kwargs) -> {str.type: ""}:
+        **_kwargs) -> {str: ""}:
     # Overwrite the product name
     data = populate_xcode_attributes_func(ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     return data

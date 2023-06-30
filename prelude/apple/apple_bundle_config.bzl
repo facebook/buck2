@@ -5,13 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _maybe_get_bool(config: str.type, default: [None, bool.type]) -> [None, bool.type]:
+def _maybe_get_bool(config: str, default: [None, bool]) -> [None, bool]:
     result = read_config("apple", config, None)
     if result == None:
         return default
     return result.lower() == "true"
 
-def apple_bundle_config() -> {str.type: ""}:
+def apple_bundle_config() -> {str: ""}:
     return {
         "_bundling_cache_buster": read_config("apple", "bundling_cache_buster", None),
         "_bundling_log_file_enabled": _maybe_get_bool("bundling_log_file_enabled", False),

@@ -8,7 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 
 def normalise_metadata(data: ["string", ["string"]]) -> ["cmd_args", ["cmd_args"]]:
-    if type(data) == list.type:
+    if type(data) == type([]):
         return [cmd_args(item) for item in data]
     else:
         return cmd_args(data)

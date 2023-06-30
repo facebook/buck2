@@ -211,7 +211,7 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo.type) -> [None, AppleBundle
         codesign_on_copy = codesign_on_copy,
     )
 
-def _bundle_parts_for_dirs(generated_dirs: ["artifact"], destination: AppleBundleDestination.type, copy_contents_only: bool.type) -> [AppleBundlePart.type]:
+def _bundle_parts_for_dirs(generated_dirs: ["artifact"], destination: AppleBundleDestination.type, copy_contents_only: bool) -> [AppleBundlePart.type]:
     return [AppleBundlePart(
         source = generated_dir,
         destination = destination,
@@ -252,10 +252,10 @@ def _run_ibtool(
         ctx: "context",
         raw_file: "artifact",
         output: "output_artifact",
-        action_flags: [str.type],
-        target_device: [None, str.type],
-        action_identifier: str.type,
-        output_is_dir: bool.type) -> None:
+        action_flags: [str],
+        target_device: [None, str],
+        action_identifier: str,
+        output_is_dir: bool) -> None:
     # TODO(T110378103): detect and add minimum deployment target automatically
     # TODO(T110378113): add support for ibtool modules (turned on by `ibtool_module_flag` field of `apple_bundle` rule)
 
@@ -299,8 +299,8 @@ def _compile_ui_resource(
         ctx: "context",
         raw_file: "artifact",
         output: "output_artifact",
-        target_device: [None, str.type] = None,
-        output_is_dir: bool.type = False) -> None:
+        target_device: [None, str] = None,
+        output_is_dir: bool = False) -> None:
     _run_ibtool(
         ctx = ctx,
         raw_file = raw_file,
@@ -315,8 +315,8 @@ def _link_ui_resource(
         ctx: "context",
         raw_file: "artifact",
         output: "output_artifact",
-        target_device: [None, str.type] = None,
-        output_is_dir: bool.type = False) -> None:
+        target_device: [None, str] = None,
+        output_is_dir: bool = False) -> None:
     _run_ibtool(
         ctx = ctx,
         raw_file = raw_file,
@@ -331,8 +331,8 @@ def _process_apple_resource_file_if_needed(
         ctx: "context",
         file: "artifact",
         destination: AppleBundleDestination.type,
-        destination_relative_path: [str.type, None],
-        codesign_on_copy: bool.type = False) -> AppleBundlePart.type:
+        destination_relative_path: [str, None],
+        codesign_on_copy: bool = False) -> AppleBundlePart.type:
     output_dir = "_ProcessedResources"
     basename = paths.basename(file.short_path)
     output_is_contents_dir = False
@@ -368,12 +368,12 @@ def _process_apple_resource_file_if_needed(
 # Returns a path relative to the _parent_ of the lproj dir.
 # For example, given a variant file with a short path of`XX/YY.lproj/ZZ`
 # it would return `YY.lproj/ZZ`.
-def _get_dest_subpath_for_variant_file(variant_file: "artifact") -> str.type:
+def _get_dest_subpath_for_variant_file(variant_file: "artifact") -> str:
     dir_name = paths.basename(paths.dirname(variant_file.short_path))
     if not dir_name.endswith("lproj"):
         fail("Variant files have to be in a directory with name ending in '.lproj' but `{}` was not.".format(variant_file.short_path))
     file_name = paths.basename(variant_file.short_path)
     return paths.join(dir_name, file_name)
 
-def get_is_watch_bundle(ctx: "context") -> bool.type:
+def get_is_watch_bundle(ctx: "context") -> bool:
     return ctx.attrs._apple_toolchain[AppleToolchainInfo].watch_kit_stub_binary != None

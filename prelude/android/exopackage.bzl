@@ -11,7 +11,7 @@ RESOURCES = 4
 MODULES = 8
 ARCH64 = 16
 
-def get_exopackage_flags(exopackage_modes: [str.type]) -> int.type:
+def get_exopackage_flags(exopackage_modes: [str]) -> int:
     flags = 0
 
     for (name, flag) in [

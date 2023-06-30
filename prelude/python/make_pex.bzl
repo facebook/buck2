@@ -29,17 +29,17 @@ PexModules = record(
     manifests = field(PythonLibraryManifestsInterface.type),
     extensions = field([ManifestInfo.type, None], None),
     extra_manifests = field([ManifestInfo.type, None], None),
-    compile = field(bool.type, False),
+    compile = field(bool, False),
 )
 
 # The output of pex creation. It's everything needed to make the DefaultInfo and RunInfo
 # providers.
 PexProviders = record(
     default_output = field("artifact"),
-    other_outputs = [("_arglike", str.type)],
-    other_outputs_prefix = [str.type, None],
+    other_outputs = [("_arglike", str)],
+    other_outputs_prefix = [str, None],
     hidden_resources = [("_arglike")],
-    sub_targets = {str.type: ["provider"]},
+    sub_targets = {str: ["provider"]},
     run_cmd = cmd_args.type,
 )
 
@@ -87,7 +87,7 @@ def _srcs(srcs: [""], format = "{}") -> "cmd_args":
 def _fail_at_build_time(
         ctx: "context",
         python_toolchain: "PythonToolchainInfo",
-        msg: str.type) -> PexProviders.type:
+        msg: str) -> PexProviders.type:
     error_message = ctx.actions.write("__error_message", msg)
     dummy_output = ctx.actions.declare_output("__dummy_output")
     cmd = cmd_args([
@@ -108,8 +108,8 @@ def _fail_at_build_time(
 def _fail(
         ctx: "context",
         python_toolchain: "PythonToolchainInfo",
-        suffix: str.type,
-        msg: str.type) -> PexProviders.type:
+        suffix: str,
+        msg: str) -> PexProviders.type:
     if suffix:
         return _fail_at_build_time(ctx, python_toolchain, msg)
 
@@ -129,8 +129,8 @@ def make_pex(
         package_style: PackageStyle.type,
         build_args: ["_arglike"],
         pex_modules: PexModules.type,
-        shared_libraries: {str.type: (LinkedObject.type, bool.type)},
-        main_module: str.type,
+        shared_libraries: {str: (LinkedObject.type, bool)},
+        main_module: str,
         hidden_resources: [None, ["_arglike"]]) -> PexProviders.type:
     """
     Passes a standardized set of flags to a `make_pex` binary to create a python
@@ -199,15 +199,15 @@ def _make_pex_impl(
         make_pex_cmd: [RunInfo.type, None],
         package_style: PackageStyle.type,
         build_args: ["_arglike"],
-        shared_libraries: {str.type: (LinkedObject.type, bool.type)},
+        shared_libraries: {str: (LinkedObject.type, bool)},
         preload_libraries: "cmd_args",
         common_modules_args: "cmd_args",
-        dep_artifacts: [("_arglike", str.type)],
-        main_module: str.type,
+        dep_artifacts: [("_arglike", str)],
+        main_module: str,
         hidden_resources: [None, ["_arglike"]],
         manifest_module: [None, "_arglike"],
         pex_modules: PexModules.type,
-        output_suffix: str.type) -> PexProviders.type:
+        output_suffix: str) -> PexProviders.type:
     name = "{}{}".format(ctx.attrs.name, output_suffix)
     standalone = package_style == PackageStyle("standalone")
 
@@ -319,7 +319,7 @@ def _make_pex_impl(
         run_cmd = cmd_args(run_args).hidden([a for a, _ in runtime_files] + hidden_resources),
     )
 
-def _preload_libraries_args(ctx: "context", shared_libraries: {str.type: (LinkedObject.type, bool.type)}) -> "cmd_args":
+def _preload_libraries_args(ctx: "context", shared_libraries: {str: (LinkedObject.type, bool)}) -> "cmd_args":
     preload_libraries_path = ctx.actions.write(
         "__preload_libraries.txt",
         cmd_args([
@@ -332,11 +332,11 @@ def _preload_libraries_args(ctx: "context", shared_libraries: {str.type: (Linked
 
 def _pex_bootstrap_args(
         python_interpreter: "_arglike",
-        python_interpreter_flags: [None, str.type],
+        python_interpreter_flags: [None, str],
         python_host_interpreter: "_arglike",
-        main_module: str.type,
+        main_module: str,
         output: "artifact",
-        shared_libraries: {str.type: (LinkedObject.type, bool.type)},
+        shared_libraries: {str: (LinkedObject.type, bool)},
         preload_libraries: "cmd_args",
         symlink_tree_path: [None, "artifact"],
         package_style: PackageStyle.type) -> "cmd_args":
@@ -365,7 +365,7 @@ def _pex_bootstrap_args(
 def _pex_modules_common_args(
         ctx: "context",
         pex_modules: PexModules.type,
-        shared_libraries: {str.type: LinkedObject.type}) -> ("cmd_args", [("_arglike", str.type)]):
+        shared_libraries: {str: LinkedObject.type}) -> ("cmd_args", [("_arglike", str)]):
     srcs = []
     src_artifacts = []
     deps = []
@@ -446,11 +446,11 @@ def _pex_modules_common_args(
 def _pex_modules_args(
         ctx: "context",
         common_args: "cmd_args",
-        dep_artifacts: [("_arglike", str.type)],
+        dep_artifacts: [("_arglike", str)],
         symlink_tree_path: [None, "artifact"],
         manifest_module: ["_arglike", None],
         pex_modules: PexModules.type,
-        output_suffix: str.type) -> "cmd_args":
+        output_suffix: str) -> "cmd_args":
     """
     Produces args to deal with a PEX's modules. Returns args to pass to the
     modules builder, and artifacts the resulting modules would require at
@@ -487,7 +487,7 @@ def _pex_modules_args(
 
     return cmd
 
-def _hidden_resources_error_message(current_target: "label", hidden_resources) -> str.type:
+def _hidden_resources_error_message(current_target: "label", hidden_resources) -> str:
     """
     Friendlier error message about putting non-python resources into standalone bins
     """

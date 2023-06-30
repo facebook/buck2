@@ -93,7 +93,7 @@ def cxx_attr_preferred_linkage(ctx: "context") -> Linkage.type:
 
     return Linkage(preferred_linkage)
 
-def cxx_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])}:
+def cxx_attr_resources(ctx: "context") -> {str: ("artifact", ["_arglike"])}:
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
@@ -121,7 +121,7 @@ def cxx_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])}
 
 def cxx_mk_shlib_intf(
         ctx: "context",
-        name: str.type,
+        name: str,
         shared_lib: "artifact") -> "artifact":
     """
     Convert the given shared library into an interface used for linking.
@@ -140,10 +140,10 @@ def cxx_mk_shlib_intf(
     )
     return output
 
-def cxx_is_gnu(ctx: "context") -> bool.type:
+def cxx_is_gnu(ctx: "context") -> bool:
     return get_cxx_toolchain_info(ctx).linker_info.type == "gnu"
 
-def cxx_use_shlib_intfs(ctx: "context") -> bool.type:
+def cxx_use_shlib_intfs(ctx: "context") -> bool:
     """
     Return whether we should use shared library interfaces for linking.
     """
@@ -157,7 +157,7 @@ def cxx_use_shlib_intfs(ctx: "context") -> bool.type:
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     return linker_info.shlib_interfaces != "disabled" and linker_info.type == "gnu"
 
-def cxx_platform_supported(ctx: "context") -> bool.type:
+def cxx_platform_supported(ctx: "context") -> bool:
     """
     Return whether this rule's `supported_platforms_regex` matches the current
     platform name.

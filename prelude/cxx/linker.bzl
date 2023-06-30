@@ -13,13 +13,13 @@ load("@prelude//utils:utils.bzl", "expect")
 # TODO(T110378136): It might make more sense to pass these in via the toolchain.
 Linker = record(
     # The extension to use for the shared library if not set in the toolchain.
-    default_shared_library_extension = str.type,
+    default_shared_library_extension = str,
     # The format to use for the versioned shared library extension if not set in the toolchain.
-    default_shared_library_versioned_extension_format = str.type,
+    default_shared_library_versioned_extension_format = str,
     # How to format arguments to the linker to set a shared lib name.
-    shared_library_name_linker_flags_format = [str.type],
+    shared_library_name_linker_flags_format = [str],
     # Flags to pass to the linker to make it generate a shared library.
-    shared_library_flags = [str.type],
+    shared_library_flags = [str],
 )
 
 # Allows overriding the default shared library flags.
@@ -27,9 +27,9 @@ Linker = record(
 # linking against the bundle loader.
 SharedLibraryFlagOverrides = record(
     # How to format arguments to the linker to set a shared lib name.
-    shared_library_name_linker_flags_format = [str.type],
+    shared_library_name_linker_flags_format = [str],
     # Flags to pass to the linker to make it generate a shared library.
-    shared_library_flags = [str.type],
+    shared_library_flags = [str],
 )
 
 LINKERS = {
@@ -57,14 +57,14 @@ LINKERS = {
 
 PDB_SUB_TARGET = "pdb"
 
-def _sanitize(s: str.type) -> str.type:
+def _sanitize(s: str) -> str:
     return s.replace("/", "_")
 
 # NOTE(agallagher): Does this belong in the native/shared_libraries.bzl?
 def get_shared_library_name(
         linker_info: LinkerInfo.type,
-        short_name: str.type,
-        version: [str.type, None] = None):
+        short_name: str,
+        version: [str, None] = None):
     """
     Generate a platform-specific shared library name based for the given rule.
     """
@@ -73,7 +73,7 @@ def get_shared_library_name(
     else:
         return linker_info.shared_library_versioned_name_format.format(short_name, version)
 
-def _parse_ext_macro(name: str.type) -> [(str.type, [str.type, None]), None]:
+def _parse_ext_macro(name: str) -> [(str, [str, None]), None]:
     """
     Parse the `$(ext[ <version>])` macro from a user-specific library name,
     which expands to a platform-specific suffix (e.g. `.so`, `.dylib`).  If an
@@ -97,7 +97,7 @@ def _parse_ext_macro(name: str.type) -> [(str.type, [str.type, None]), None]:
     expect(rest.startswith(" "))
     return (base, rest[1:-1])
 
-def get_shared_library_name_for_param(linker_info: LinkerInfo.type, name: str.type):
+def get_shared_library_name_for_param(linker_info: LinkerInfo.type, name: str):
     """
     Format a user-provided shared library name, supporting v1's `$(ext)` suffix.
     """
@@ -122,7 +122,7 @@ def get_default_shared_library_name(linker_info: LinkerInfo.type, label: "label"
     short_name = "{}_{}".format(_sanitize(label.package), _sanitize(label.name))
     return get_shared_library_name(linker_info, short_name)
 
-def get_shared_library_name_linker_flags(linker_type: str.type, soname: str.type, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> [str.type]:
+def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> [str]:
     """
     Arguments to pass to the linker to set the given soname.
     """
@@ -136,7 +136,7 @@ def get_shared_library_name_linker_flags(linker_type: str.type, soname: str.type
         for f in shared_library_name_linker_flags_format
     ]
 
-def get_shared_library_flags(linker_type: str.type, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> [str.type]:
+def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> [str]:
     """
     Arguments to pass to the linker to link a shared library.
     """
@@ -145,7 +145,7 @@ def get_shared_library_flags(linker_type: str.type, flag_overrides: [SharedLibra
 
     return LINKERS[linker_type].shared_library_flags
 
-def get_link_whole_args(linker_type: str.type, inputs: ["artifact"]) -> [""]:
+def get_link_whole_args(linker_type: str, inputs: ["artifact"]) -> [""]:
     """
     Return linker args used to always link all the given inputs.
     """
@@ -171,7 +171,7 @@ def get_link_whole_args(linker_type: str.type, inputs: ["artifact"]) -> [""]:
 
     return args
 
-def get_objects_as_library_args(linker_type: str.type, objects: ["artifact"]) -> [""]:
+def get_objects_as_library_args(linker_type: str, objects: ["artifact"]) -> [""]:
     """
     Return linker args used to link the given objects as a library.
     """
@@ -189,7 +189,7 @@ def get_objects_as_library_args(linker_type: str.type, objects: ["artifact"]) ->
 
     return args
 
-def get_ignore_undefined_symbols_flags(linker_type: str.type) -> [str.type]:
+def get_ignore_undefined_symbols_flags(linker_type: str) -> [str]:
     """
     Return linker args used to suppress undefined symbol errors.
     """
@@ -206,7 +206,7 @@ def get_ignore_undefined_symbols_flags(linker_type: str.type) -> [str.type]:
 
     return args
 
-def get_no_as_needed_shared_libs_flags(linker_type: str.type) -> [str.type]:
+def get_no_as_needed_shared_libs_flags(linker_type: str) -> [str]:
     """
     Return linker args used to prevent linkers from dropping unused shared
     library dependencies from the e.g. DT_NEEDED tags of the link.
@@ -223,7 +223,7 @@ def get_no_as_needed_shared_libs_flags(linker_type: str.type) -> [str.type]:
 
     return args
 
-def get_output_flags(linker_type: str.type, output: "artifact") -> ["_argslike"]:
+def get_output_flags(linker_type: str, output: "artifact") -> ["_argslike"]:
     if linker_type == "windows":
         return ["/Brepro", cmd_args(output.as_output(), format = "/OUT:{}")]
     else:
@@ -231,8 +231,8 @@ def get_output_flags(linker_type: str.type, output: "artifact") -> ["_argslike"]
 
 def get_import_library(
         ctx: "context",
-        linker_type: str.type,
-        output_short_path: str.type) -> (["artifact", None], ["_argslike"]):
+        linker_type: str,
+        output_short_path: str) -> (["artifact", None], ["_argslike"]):
     if linker_type == "windows":
         import_library = ctx.actions.declare_output(output_short_path + ".imp.lib")
         return import_library, [cmd_args(import_library.as_output(), format = "/IMPLIB:{}")]
@@ -240,7 +240,7 @@ def get_import_library(
         return None, []
 
 def get_rpath_origin(
-        linker_type: str.type) -> str.type:
+        linker_type: str) -> str:
     """
     Return the macro that runtime loaders resolve to the main executable at
     runtime.
@@ -254,8 +254,8 @@ def get_rpath_origin(
     fail("Linker type {} not supported".format(linker_type))
 
 def is_pdb_generated(
-        linker_type: str.type,
-        linker_flags: [[str.type, "resolved_macro"]]) -> bool.type:
+        linker_type: str,
+        linker_flags: [[str, "resolved_macro"]]) -> bool:
     if linker_type != "windows":
         return False
     for flag in reversed(linker_flags):

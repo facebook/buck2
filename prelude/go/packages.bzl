@@ -14,13 +14,13 @@ GoPkg = record(
     static = field("artifact"),
 )
 
-def go_attr_pkg_name(ctx: "context") -> str.type:
+def go_attr_pkg_name(ctx: "context") -> str:
     """
     Return the Go package name for the given context corresponding to a rule.
     """
     return value_or(ctx.attrs.package_name, ctx.label.package)
 
-def merge_pkgs(pkgss: [{str.type: "_pkg"}]) -> {str.type: "_pkg"}:
+def merge_pkgs(pkgss: [{str: "_pkg"}]) -> {str: "_pkg"}:
     """
     Merge mappings of packages into a single mapping, throwing an error on
     conflicts.
@@ -36,7 +36,7 @@ def merge_pkgs(pkgss: [{str.type: "_pkg"}]) -> {str.type: "_pkg"}:
 
     return all_pkgs
 
-def pkg_artifacts(pkgs: {str.type: GoPkg.type}, shared: bool.type = False) -> {str.type: "artifact"}:
+def pkg_artifacts(pkgs: {str: GoPkg.type}, shared: bool = False) -> {str: "artifact"}:
     """
     Return a map package name to a `shared` or `static` package artifact.
     """

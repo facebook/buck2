@@ -7,7 +7,7 @@
 
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
-def strip_debug_info(ctx: "context", name: str.type, obj: "artifact") -> "artifact":
+def strip_debug_info(ctx: "context", name: str, obj: "artifact") -> "artifact":
     """
     Strip debug information from an object.
     """

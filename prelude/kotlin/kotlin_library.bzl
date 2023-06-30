@@ -211,14 +211,14 @@ def _create_kotlin_sources(
 
     return kotlinc_output, kapt_generated_sources_output, ksp_zipped_sources_output
 
-def _is_ksp_plugin(plugin: str.type) -> bool.type:
+def _is_ksp_plugin(plugin: str) -> bool:
     return "symbol-processing" in plugin
 
 def _add_plugins(
         ctx: "context",
         kotlinc_cmd_args: "cmd_args",
         compile_kotlin_cmd: "cmd_args",
-        is_ksp: bool.type):
+        is_ksp: bool):
     for plugin, plugin_options in ctx.attrs.kotlin_compiler_plugins.items():
         if _is_ksp_plugin(str(plugin)) != is_ksp:
             continue
@@ -262,7 +262,7 @@ def build_kotlin_library(
         ctx: "context",
         additional_classpath_entries: ["artifact"] = [],
         bootclasspath_entries: ["artifact"] = [],
-        extra_sub_targets: dict.type = {}) -> "JavaProviders":
+        extra_sub_targets: dict = {}) -> "JavaProviders":
     srcs = ctx.attrs.srcs
     has_kotlin_srcs = is_any(lambda src: src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar"), srcs)
 

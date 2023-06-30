@@ -12,7 +12,7 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//ocaml:ocaml_toolchain_types.bzl", "OCamlPlatformInfo", "OCamlToolchainInfo")
 
-def _toolchain(lang: str.type, providers: [""]) -> "attribute":
+def _toolchain(lang: str, providers: [""]) -> "attribute":
     return attrs.default_only(attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers))
 
 def _cxx_toolchain() -> "attribute":
@@ -23,7 +23,7 @@ def _ocaml_toolchain() -> "attribute":
 
 # --
 
-def prebuilt_ocaml_library_attributes() -> dict.type:
+def prebuilt_ocaml_library_attributes() -> dict:
     return {
         # These fields in 'attributes.bzl' are wrong.
         #
@@ -38,19 +38,19 @@ def prebuilt_ocaml_library_attributes() -> dict.type:
         "native_lib": attrs.option(attrs.source(), default = None),
     }
 
-def ocaml_binary_attributes() -> dict.type:
+def ocaml_binary_attributes() -> dict:
     return {
         "_cxx_toolchain": _cxx_toolchain(),
         "_ocaml_toolchain": _ocaml_toolchain(),
     }
 
-def ocaml_library_attributes() -> dict.type:
+def ocaml_library_attributes() -> dict:
     return {
         "_cxx_toolchain": _cxx_toolchain(),
         "_ocaml_toolchain": _ocaml_toolchain(),
     }
 
-def ocaml_object_attributes() -> dict.type:
+def ocaml_object_attributes() -> dict:
     return {
         "bytecode_only": attrs.option(attrs.bool(), default = None),
         "compiler_flags": attrs.list(attrs.arg(), default = []),
@@ -70,7 +70,7 @@ def ocaml_object_attributes() -> dict.type:
         "_ocaml_toolchain": _ocaml_toolchain(),
     }
 
-def ocaml_shared_attributes() -> dict.type:
+def ocaml_shared_attributes() -> dict:
     return {
         "bytecode_only": attrs.option(attrs.bool(), default = None),
         "compiler_flags": attrs.list(attrs.arg(), default = []),

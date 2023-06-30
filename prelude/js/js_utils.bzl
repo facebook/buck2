@@ -59,7 +59,7 @@ ASSET_EXTENSIONS = [
 # Matches the default value for resolver.platforms in metro-config
 ASSET_PLATFORMS = ["ios", "android", "windows", "web"]
 
-def get_apple_resource_providers_for_js_bundle(ctx: "context", js_bundle_info: JsBundleInfo.type, platform: str.type, skip_resources: bool.type) -> [ResourceGraph.type]:
+def get_apple_resource_providers_for_js_bundle(ctx: "context", js_bundle_info: JsBundleInfo.type, platform: str, skip_resources: bool) -> [ResourceGraph.type]:
     if platform != "ios":
         return []
 
@@ -80,11 +80,11 @@ def get_apple_resource_providers_for_js_bundle(ctx: "context", js_bundle_info: J
         resource_spec = resource_spec,
     )]
 
-def _strip_platform_from_asset_name(name: str.type) -> str.type:
+def _strip_platform_from_asset_name(name: str) -> str:
     name_without_extension, extension = paths.split_extension(name)
     return name_without_extension if extension[1:] in ASSET_PLATFORMS else name
 
-def _strip_scale_from_asset_name(name: str.type) -> str.type:
+def _strip_scale_from_asset_name(name: str) -> str:
     scale_start = -1
     for i in range(len(name)):
         char = name[i]
@@ -101,7 +101,7 @@ def _strip_scale_from_asset_name(name: str.type) -> str.type:
 
     return name
 
-def get_canonical_src_name(src: str.type) -> str.type:
+def get_canonical_src_name(src: str) -> str:
     dirname = paths.dirname(src)
     basename = paths.basename(src)
     filename, extension = paths.split_extension(basename)
@@ -113,14 +113,14 @@ def get_canonical_src_name(src: str.type) -> str.type:
 
     return paths.join(dirname, filename + extension)
 
-def get_flavors(ctx: "context") -> [str.type]:
+def get_flavors(ctx: "context") -> [str]:
     flavors = [ctx.attrs._platform]
     if ctx.attrs._is_release:
         flavors.append("release")
 
     return flavors
 
-def get_bundle_name(ctx: "context", default_bundle_name: str.type) -> str.type:
+def get_bundle_name(ctx: "context", default_bundle_name: str) -> str:
     bundle_name_for_flavor_map = {key: value for key, value in ctx.attrs.bundle_name_for_flavor}
     flavors = bundle_name_for_flavor_map.keys()
     for flavor in flavors:
@@ -139,8 +139,8 @@ def run_worker_commands(
         ctx: "context",
         worker_tool: "dependency",
         command_args_files: ["artifact"],
-        identifier: str.type,
-        category: str.type,
+        identifier: str,
+        category: str,
         hidden_artifacts = ["cmd_args"]):
     worker_tool_info = worker_tool[WorkerToolInfo]
     worker_command = worker_tool_info.command.copy()

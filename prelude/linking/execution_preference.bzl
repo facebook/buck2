@@ -27,10 +27,10 @@ LinkExecutionPreferenceInfo = provider(fields = [
 ])
 
 _ActionExecutionAttributes = record(
-    full_hybrid = field(bool.type, default = False),
-    local_only = field(bool.type, default = False),
-    prefer_local = field(bool.type, default = False),
-    prefer_remote = field(bool.type, default = False),
+    full_hybrid = field(bool, default = False),
+    local_only = field(bool, default = False),
+    prefer_local = field(bool, default = False),
+    prefer_remote = field(bool, default = False),
 )
 
 def link_execution_preference_attr():

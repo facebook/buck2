@@ -20,7 +20,7 @@ LinkGroupLib = record(
     # The label of the owning target (if any).
     label = field(["label", None], None),
     # The shared libs to package for this link group.
-    shared_libs = field({str.type: LinkedObject.type}),
+    shared_libs = field({str: LinkedObject.type}),
     # The link info to link against this link group.
     shared_link_infos = field(LinkInfos.type),
 )
@@ -28,13 +28,13 @@ LinkGroupLib = record(
 # Provider propagating info about transitive link group libs.
 LinkGroupLibInfo = provider(fields = [
     # A map of link group names to their shared libraries.
-    "libs",  # {str.type: LinkGroupLib.type}
+    "libs",  # {str: LinkGroupLib.type}
 ])
 
 def gather_link_group_libs(
-        libs: [{str.type: LinkGroupLib.type}] = [],
+        libs: [{str: LinkGroupLib.type}] = [],
         children: [LinkGroupLibInfo.type] = [],
-        deps: ["dependency"] = []) -> {str.type: LinkGroupLib.type}:
+        deps: ["dependency"] = []) -> {str: LinkGroupLib.type}:
     """
     Return all link groups libs deps and top-level libs.
     """
@@ -47,8 +47,8 @@ def gather_link_group_libs(
 
 def merge_link_group_lib_info(
         label: ["label", None] = None,
-        name: [str.type, None] = None,
-        shared_libs: [{str.type: LinkedObject.type}, None] = None,
+        name: [str, None] = None,
+        shared_libs: [{str: LinkedObject.type}, None] = None,
         shared_link_infos: [LinkInfos.type, None] = None,
         deps: ["dependency"] = []) -> LinkGroupLibInfo.type:
     """

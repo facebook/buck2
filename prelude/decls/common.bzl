@@ -14,11 +14,11 @@ def validate_uri(_s):
     return True
 
 prelude_rule = record(
-    name = field(str.type),
-    docs = field([str.type, None], None),
-    examples = field([str.type, None], None),
-    further = field([str.type, None], None),
-    attrs = field({str.type: "attribute"}),
+    name = field(str),
+    docs = field([str, None], None),
+    examples = field([str, None], None),
+    further = field([str, None], None),
+    attrs = field({str: "attribute"}),
     impl = field(["function", None], None),
 )
 

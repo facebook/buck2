@@ -23,7 +23,7 @@ load(":link_info.bzl", "CrateName")
 def extern_arg(
         ctx: "context",
         compile_ctx: CompileContext.type,
-        flags: [str.type],
+        flags: [str],
         crate: CrateName.type,
         lib: "artifact") -> "cmd_args":
     if flags == []:

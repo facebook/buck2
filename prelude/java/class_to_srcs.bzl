@@ -42,7 +42,7 @@ def create_class_to_source_map_info(
 
 def create_class_to_source_map_from_jar(
         actions: "actions",
-        name: str.type,
+        name: str,
         java_toolchain: JavaToolchainInfo.type,
         jar: "artifact",
         srcs: ["artifact"],
@@ -60,7 +60,7 @@ def create_class_to_source_map_from_jar(
 
 def merge_class_to_source_map_from_jar(
         actions: "actions",
-        name: str.type,
+        name: str,
         java_test_toolchain: JavaTestToolchainInfo.type,
         mapping: ["artifact", None] = None,
         relative_to: ["cell_root", None] = None,

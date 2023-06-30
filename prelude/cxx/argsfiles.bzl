@@ -24,12 +24,12 @@ CompileArgsfile = record(
 
 CompileArgsfiles = record(
     # Relative path argsfiles used for build actions, mapped by extension.
-    relative = field({str.type: CompileArgsfile.type}, default = {}),
+    relative = field({str: CompileArgsfile.type}, default = {}),
     # Absolute path argsfiles used for extra outputs, mapped by extension.
-    absolute = field({str.type: CompileArgsfile.type}, default = {}),
+    absolute = field({str: CompileArgsfile.type}, default = {}),
 )
 
-def get_argsfiles_output(ctx: "context", argsfile_by_ext: {str.type: CompileArgsfile.type}, summary_name: str.type) -> DefaultInfo.type:
+def get_argsfiles_output(ctx: "context", argsfile_by_ext: {str: CompileArgsfile.type}, summary_name: str) -> DefaultInfo.type:
     argsfiles = []
     argsfile_names = cmd_args()
     dependent_outputs = []

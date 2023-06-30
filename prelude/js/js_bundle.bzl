@@ -14,8 +14,8 @@ load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
 def _build_dependencies_file(
         ctx: "context",
-        transform_profile: str.type,
-        flavors: [str.type],
+        transform_profile: str,
+        flavors: [str],
         transitive_js_library_outputs: "transitive_set_args_projection") -> "artifact":
     dependencies_file = ctx.actions.declare_output("{}/dependencies_file", transform_profile)
 
@@ -57,11 +57,11 @@ def _build_dependencies_file(
 
 def _build_js_bundle(
         ctx: "context",
-        bundle_name: str.type,
-        ram_bundle_name: str.type,
-        ram_bundle_command: str.type,
-        transform_profile: str.type,
-        flavors: [str.type],
+        bundle_name: str,
+        ram_bundle_name: str,
+        ram_bundle_command: str,
+        transform_profile: str,
+        flavors: [str],
         transitive_js_library_outputs: "transitive_set_args_projection",
         dependencies_file: "artifact") -> JsBundleInfo.type:
     base_dir = "{}_{}".format(ram_bundle_name, transform_profile) if ram_bundle_name else transform_profile
@@ -127,7 +127,7 @@ def _build_js_bundle(
         dependencies_file = dependencies_file,
     )
 
-def _get_fallback_transform_profile(ctx: "context") -> str.type:
+def _get_fallback_transform_profile(ctx: "context") -> str:
     if ctx.attrs.fallback_transform_profile in TRANSFORM_PROFILES:
         return ctx.attrs.fallback_transform_profile
 
@@ -139,7 +139,7 @@ def _get_fallback_transform_profile(ctx: "context") -> str.type:
 def _get_default_providers(js_bundle_info: JsBundleInfo.type) -> ["provider"]:
     return [DefaultInfo(default_output = js_bundle_info.built_js)]
 
-def _get_android_resource_info(ctx: "context", js_bundle_info: JsBundleInfo.type, identifier: str.type) -> "AndroidResourceInfo":
+def _get_android_resource_info(ctx: "context", js_bundle_info: JsBundleInfo.type, identifier: str) -> "AndroidResourceInfo":
     aapt2_compile_output = aapt2_compile(
         ctx,
         js_bundle_info.res,
@@ -159,7 +159,7 @@ def _get_android_resource_info(ctx: "context", js_bundle_info: JsBundleInfo.type
         text_symbols = get_text_symbols(ctx, js_bundle_info.res, [], identifier),
     )
 
-def _get_extra_providers(ctx: "context", js_bundle_info: JsBundleInfo.type, identifier: str.type) -> ["provider"]:
+def _get_extra_providers(ctx: "context", js_bundle_info: JsBundleInfo.type, identifier: str) -> ["provider"]:
     providers = [js_bundle_info]
     if ctx.attrs._platform == "android":
         resource_info = _get_android_resource_info(ctx, js_bundle_info, identifier)

@@ -21,7 +21,7 @@ def _get_bundle_target_name(ctx: "context"):
         return ctx.attrs._bundle_target_name
     return ctx.attrs.name
 
-def get_product_name(ctx: "context") -> str.type:
+def get_product_name(ctx: "context") -> str:
     return ctx.attrs.product_name if hasattr(ctx.attrs, "product_name") and ctx.attrs.product_name != None else _get_bundle_target_name(ctx)
 
 def get_extension_attr(ctx: "context") -> "":
@@ -30,7 +30,7 @@ def get_extension_attr(ctx: "context") -> "":
 # Derives the effective deployment target for the bundle. It's
 # usually the deployment target of the binary if present,
 # otherwise it falls back to other values (see implementation).
-def get_bundle_min_target_version(ctx: "context") -> str.type:
+def get_bundle_min_target_version(ctx: "context") -> str:
     binary_min_version = None
 
     # Could be not set for e.g. watchOS bundles which have a stub

@@ -17,7 +17,7 @@ def command_alias_impl(ctx):
     else:
         return _command_alias_impl_target_unix(ctx, exec_is_windows)
 
-def _command_alias_impl_target_unix(ctx, exec_is_windows: bool.type):
+def _command_alias_impl_target_unix(ctx, exec_is_windows: bool):
     if ctx.attrs.exe == None:
         base = RunInfo()
     else:
@@ -76,7 +76,7 @@ def _command_alias_impl_target_unix(ctx, exec_is_windows: bool.type):
         RunInfo(args = run_info_args),
     ]
 
-def _command_alias_impl_target_windows(ctx, exec_is_windows: bool.type):
+def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
     # If a windows specific exe is specified, take that. Otherwise just use the default exe.
     windows_exe = ctx.attrs.platform_exe.get("windows")
     if windows_exe != None:
@@ -136,9 +136,9 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool.type):
 def _relativize_path(
         ctx,
         trampoline_args: "cmd_args",
-        extension: str.type,
-        var: str.type,
-        exec_is_windows: bool.type) -> "artifact":
+        extension: str,
+        var: str,
+        exec_is_windows: bool) -> "artifact":
     # Depending on where this action is done, we need to either run sed or a custom Windows sed-equivalent script
     # TODO(marwhal): Bias the exec platform to be the same as target platform to simplify the relativization logic
     if exec_is_windows:
@@ -148,8 +148,8 @@ def _relativize_path(
 
 def _relativize_path_unix(
         ctx,
-        extension: str.type,
-        var: str.type,
+        extension: str,
+        var: str,
         trampoline_args: "cmd_args") -> "artifact":
     # FIXME(ndmitchell): more straightforward relativization with better API
     non_materialized_reference = ctx.actions.write("dummy", "")
@@ -178,8 +178,8 @@ def _relativize_path_unix(
 
 def _relativize_path_windows(
         ctx,
-        extension: str.type,
-        var: str.type,
+        extension: str,
+        var: str,
         trampoline_args: "cmd_args") -> "artifact":
     # FIXME(ndmitchell): more straightforward relativization with better API
     non_materialized_reference = ctx.actions.write("dummy", "")
@@ -189,7 +189,7 @@ def _relativize_path_windows(
 
     return trampoline
 
-def _add_platform_case_to_trampoline_args(trampoline_args: "cmd_args", platform_name: str.type, base: RunInfo.type, args: ["_arglike"]):
+def _add_platform_case_to_trampoline_args(trampoline_args: "cmd_args", platform_name: str, base: RunInfo.type, args: ["_arglike"]):
     trampoline_args.add("    {})".format(platform_name))
     _add_args_declaration_to_trampoline_args(trampoline_args, base, args)
     trampoline_args.add("        ;;")

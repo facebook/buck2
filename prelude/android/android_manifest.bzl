@@ -28,7 +28,7 @@ def generate_android_manifest(
         ctx: "context",
         generate_manifest: RunInfo.type,
         manifest_skeleton: "artifact",
-        module_name: str.type,
+        module_name: str,
         manifests: ["ManifestTSet", ["artifact"], None],
         placeholder_entries: "dict") -> ("artifact", "artifact"):
     generate_manifest_cmd = cmd_args(generate_manifest)

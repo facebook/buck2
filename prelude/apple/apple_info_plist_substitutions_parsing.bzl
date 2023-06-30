@@ -17,7 +17,7 @@
 _SOURCE_ROOT_PREFIX = "$(SOURCE_ROOT)/"
 _CODE_SIGN_ENTITLEMENTS_KEY = "CODE_SIGN_ENTITLEMENTS"
 
-def _find_first_variable(string: str.type) -> [(str.type, (str.type, str.type)), None]:
+def _find_first_variable(string: str) -> [(str, (str, str)), None]:
     """
     If variable like `$(FOO)` is not found in `string` returns `None`, else returns tuple
     with first element equal to variable name (e.g. `FOO`) and second element equal to tuple
@@ -36,7 +36,7 @@ def _find_first_variable(string: str.type) -> [(str.type, (str.type, str.type)),
     suffix = string[variable_end + 1:]
     return (variable, (prefix, suffix))
 
-def _expand_codesign_entitlements_path(info_plist_substitutions: {str.type: str.type}, path: str.type) -> str.type:
+def _expand_codesign_entitlements_path(info_plist_substitutions: {str: str}, path: str) -> str:
     path = path.strip()
     for _ in range(100):
         if path.startswith(_SOURCE_ROOT_PREFIX):
@@ -51,7 +51,7 @@ def _expand_codesign_entitlements_path(info_plist_substitutions: {str.type: str.
         path = prefix + maybe_value + suffix
     fail("Too many iteration (loop might be present) to expand `{}` with substitutions `{}`".format(path, info_plist_substitutions))
 
-def parse_codesign_entitlements(info_plist_substitutions: [{str.type: str.type}, None]) -> [str.type, None]:
+def parse_codesign_entitlements(info_plist_substitutions: [{str: str}, None]) -> [str, None]:
     if not info_plist_substitutions:
         return None
     maybe_path = info_plist_substitutions.get(_CODE_SIGN_ENTITLEMENTS_KEY)

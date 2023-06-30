@@ -140,7 +140,7 @@ _SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY = [
     MacOSXCatalystSdkMetadata.name,
 ]
 
-def _needs_entitlements_in_binary(ctx: "context") -> bool.type:
+def _needs_entitlements_in_binary(ctx: "context") -> bool:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     return apple_toolchain_info.sdk_name in _SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY
 

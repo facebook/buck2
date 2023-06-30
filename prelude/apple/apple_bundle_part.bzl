@@ -26,13 +26,13 @@ AppleBundlePart = record(
     # Empty string value is applicable only when `source` is a directory,
     # in such case only content of the directory will be copied, as opposed to the directory itself.
     # When value is `None`, directory or file will be copied as it is, without renaming.
-    new_name = field([str.type, None], None),
+    new_name = field([str, None], None),
     # Marks parts which should be code signed separately from the whole bundle.
-    codesign_on_copy = field(bool.type, False),
+    codesign_on_copy = field(bool, False),
 )
 
 SwiftStdlibArguments = record(
-    primary_binary_rel_path = field(str.type),
+    primary_binary_rel_path = field(str),
 )
 
 def bundle_output(ctx: "context") -> "artifact":
@@ -174,10 +174,10 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         **run_incremental_args
     )
 
-def get_bundle_dir_name(ctx: "context") -> str.type:
+def get_bundle_dir_name(ctx: "context") -> str:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
 
-def get_apple_bundle_part_relative_destination_path(ctx: "context", part: AppleBundlePart.type) -> str.type:
+def get_apple_bundle_part_relative_destination_path(ctx: "context", part: AppleBundlePart.type) -> str:
     bundle_relative_path = bundle_relative_path_for_destination(part.destination, get_apple_sdk_name(ctx), ctx.attrs.extension)
     destination_file_or_directory_name = part.new_name if part.new_name != None else paths.basename(part.source.short_path)
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
@@ -219,7 +219,7 @@ def _entitlements_file(ctx: "context") -> ["artifact", None]:
 
     return ctx.attrs._codesign_entitlements
 
-def _should_include_entitlements(ctx: "context", codesign_type: CodeSignType.type) -> bool.type:
+def _should_include_entitlements(ctx: "context", codesign_type: CodeSignType.type) -> bool:
     if codesign_type.value == "distribution":
         return True
 

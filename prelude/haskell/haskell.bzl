@@ -134,11 +134,11 @@ HaskellLibraryProvider = provider(
 # A record of a Haskell library.
 HaskellLibraryInfo = record(
     # The library target name: e.g. "rts"
-    name = str.type,
+    name = str,
     # package config database: e.g. platform009/build/ghc/lib/package.conf.d
     db = "artifact",
     # e.g. "base-4.13.0.0"
-    id = str.type,
+    id = str,
     import_dirs = ["artifact"],
     stub_dirs = ["artifact"],
 
@@ -150,12 +150,12 @@ HaskellLibraryInfo = record(
     # Package version, used to specify the full package when exposing it,
     # e.g. filepath-1.4.2.1, deepseq-1.4.4.0.
     # Internal packages default to 1.0.0, e.g. `fbcode-dsi-logger-hs-types-1.0.0`.
-    version = str.type,
+    version = str,
 )
 
 # --
 
-def _by_platform(ctx: "context", xs: [(str.type, ["_a"])]) -> ["_a"]:
+def _by_platform(ctx: "context", xs: [(str, ["_a"])]) -> ["_a"]:
     platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
     return flatten(by_platform([platform], xs))
 
@@ -200,11 +200,11 @@ def _attr_preferred_linkage(ctx: "context") -> Linkage.type:
 
 # --
 
-def _is_haskell_src(x: str.type) -> bool.type:
+def _is_haskell_src(x: str) -> bool:
     _, ext = paths.split_extension(x)
     return ext in _HASKELL_EXTENSIONS
 
-def _src_to_module_name(x: str.type) -> str.type:
+def _src_to_module_name(x: str) -> str:
     base, _ext = paths.split_extension(x)
     return base.replace("/", ".")
 
@@ -346,7 +346,7 @@ PackagesInfo = record(
 def get_packages_info(
         ctx: "context",
         link_style: LinkStyle.type,
-        specify_pkg_version: bool.type) -> PackagesInfo.type:
+        specify_pkg_version: bool) -> PackagesInfo.type:
     # Collect library dependencies. Note that these don't need to be in a
     # particular order and we really want to remove duplicates (there
     # are a *lot* of duplicates).
@@ -402,7 +402,7 @@ CompileResultInfo = record(
     producing_indices = field("bool"),
 )
 
-def _link_style_extensions(link_style: LinkStyle.type) -> (str.type, str.type):
+def _link_style_extensions(link_style: LinkStyle.type) -> (str, str):
     if link_style == LinkStyle("shared"):
         return ("dyn_o", "dyn_hi")
     elif link_style == LinkStyle("static_pic"):
@@ -413,7 +413,7 @@ def _link_style_extensions(link_style: LinkStyle.type) -> (str.type, str.type):
 
 def _output_extensions(
         link_style: LinkStyle.type,
-        profiled: bool.type) -> (str.type, str.type):
+        profiled: bool) -> (str, str):
     osuf, hisuf = _link_style_extensions(link_style)
     if profiled:
         return ("p_" + osuf, "p_" + hisuf)
@@ -423,7 +423,7 @@ def _output_extensions(
 def _srcs_to_objfiles(
         ctx: "context",
         odir: "artifact",
-        osuf: str.type) -> "cmd_args":
+        osuf: str) -> "cmd_args":
     objfiles = cmd_args()
     for src in ctx.attrs.srcs:
         # Don't link boot sources, as they're only meant to be used for compiling.
@@ -553,8 +553,8 @@ PKGCONF=$3
 def _make_package(
         ctx: "context",
         link_style: LinkStyle.type,
-        pkgname: str.type,
-        libname: str.type,
+        pkgname: str,
+        libname: str,
         hlis: [HaskellLibraryInfo.type],
         hi: "artifact",
         lib: "artifact") -> "artifact":

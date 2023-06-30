@@ -24,14 +24,14 @@ _APPLE_MIN_VERSION_FLAG_SDK_MAP = {
 # apple_toolchain() min version as a fallback. This is the central place
 # where the version for a particular node is defined, no other places
 # should be accessing `attrs.target_sdk_version` or `attrs.min_version`.
-def get_min_deployment_version_for_node(ctx: "context") -> [None, str.type]:
+def get_min_deployment_version_for_node(ctx: "context") -> [None, str]:
     toolchain_min_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].min_version
     if toolchain_min_version == "":
         toolchain_min_version = None
     return getattr(ctx.attrs, "target_sdk_version", None) or toolchain_min_version
 
 # Returns the min deployment flag to pass to the compiler + linker
-def _get_min_deployment_version_target_flag(ctx: "context") -> [None, str.type]:
+def _get_min_deployment_version_target_flag(ctx: "context") -> [None, str]:
     target_sdk_version = get_min_deployment_version_for_node(ctx)
     if target_sdk_version == None:
         return None
@@ -65,7 +65,7 @@ def _get_min_deployment_version_target_flag(ctx: "context") -> [None, str.type]:
 # non-default value. Otherwise, we end up with multiple version flags,
 # one added by the toolchain and then additional overrides by targets.
 
-def get_min_deployment_version_target_linker_flags(ctx: "context") -> [str.type]:
+def get_min_deployment_version_target_linker_flags(ctx: "context") -> [str]:
     min_version_flag = _get_min_deployment_version_target_flag(ctx)
     return [min_version_flag] if min_version_flag != None else []
 

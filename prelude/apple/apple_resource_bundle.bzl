@@ -53,7 +53,7 @@ _RESOURCE_BUNDLE_FIELDS = [
     "resource_group_map",
 ]
 
-def make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs) -> [None, str.type]:
+def make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs) -> [None, str]:
     # The `apple_resource_bundle()` target will _always_ be Xcode-based, so resources can always be used
     # from there. `resources_toolchain_enabled` exists only as a killswitch (or for testing/debugging purposes).
     # By default, we consistently get all resources from `apple_resource_bundle()` target across all OSes and

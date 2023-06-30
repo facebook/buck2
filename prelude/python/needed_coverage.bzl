@@ -10,7 +10,7 @@ load("@prelude//utils:utils.bzl", "expect")
 # All modules owned by a library. This will be used by top-level tests to find
 # paths that corresponds to the library.
 PythonNeededCoverageInfo = provider(fields = [
-    "modules",  # {str.type: str.type}
+    "modules",  # {str: str}
 ])
 
 PythonNeededCoverage = record(
@@ -18,11 +18,11 @@ PythonNeededCoverage = record(
     # associated modules.
     ratio = field(float.type),
     # Modules that need to be covered.
-    modules = field([str.type]),
+    modules = field([str]),
 )
 
 def _parse_python_needed_coverage_spec(
-        raw_spec: (int.type, "dependency", [str.type, None])) -> PythonNeededCoverage.type:
+        raw_spec: (int, "dependency", [str, None])) -> PythonNeededCoverage.type:
     ratio_percentage, dep, specific_module = raw_spec
 
     if ratio_percentage < 0 or ratio_percentage > 100:
@@ -50,5 +50,5 @@ def _parse_python_needed_coverage_spec(
     )
 
 def parse_python_needed_coverage_specs(
-        raw_specs: [(int.type, "dependency", [str.type, None])]) -> [PythonNeededCoverage.type]:
+        raw_specs: [(int, "dependency", [str, None])]) -> [PythonNeededCoverage.type]:
     return [_parse_python_needed_coverage_spec(raw_spec) for raw_spec in raw_specs]

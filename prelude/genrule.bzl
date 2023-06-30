@@ -40,19 +40,19 @@ _BUILD_ROOT_LABELS = {label: True for label in [
 # that behavior.
 _NO_SRCS_ENVIRONMENT_LABEL = "no_srcs_environment"
 
-def _requires_build_root(ctx: "context") -> bool.type:
+def _requires_build_root(ctx: "context") -> bool:
     for label in ctx.attrs.labels:
         if label in _BUILD_ROOT_LABELS:
             return True
     return False
 
-def _requires_local(ctx: "context") -> bool.type:
+def _requires_local(ctx: "context") -> bool:
     return genrule_labels_require_local(ctx.attrs.labels)
 
-def _ignore_artifacts(ctx: "context") -> bool.type:
+def _ignore_artifacts(ctx: "context") -> bool:
     return "buck2_ignore_artifacts" in ctx.attrs.labels
 
-def _requires_no_srcs_environment(ctx: "context") -> bool.type:
+def _requires_no_srcs_environment(ctx: "context") -> bool:
     return _NO_SRCS_ENVIRONMENT_LABEL in ctx.attrs.labels
 
 # We don't want to use cache mode in open source because the config keys that drive it aren't wired up
@@ -60,7 +60,7 @@ def _requires_no_srcs_environment(ctx: "context") -> bool.type:
 _USE_CACHE_MODE = False # @oss-enable
 
 # Extra attributes required by every genrule based on genrule_impl
-def genrule_attributes() -> {str.type: "attribute"}:
+def genrule_attributes() -> {str: "attribute"}:
     attributes = {
         "metadata_env_var": attrs.option(attrs.string(), default = None),
         "metadata_path": attrs.option(attrs.string(), default = None),
@@ -90,7 +90,7 @@ def genrule_impl(ctx: "context") -> ["provider"]:
     # Buck2 clears the output directory before execution, and thus src/sh too.
     return process_genrule(ctx, ctx.attrs.out, ctx.attrs.outs)
 
-def _declare_output(ctx: "context", path: str.type) -> "artifact":
+def _declare_output(ctx: "context", path: str) -> "artifact":
     if path == ".":
         return ctx.actions.declare_output("out", dir = True)
     elif path.endswith("/"):
@@ -98,7 +98,7 @@ def _declare_output(ctx: "context", path: str.type) -> "artifact":
     else:
         return ctx.actions.declare_output("out", path)
 
-def _project_output(out: "artifact", path: str.type) -> "artifact":
+def _project_output(out: "artifact", path: str) -> "artifact":
     if path == ".":
         return out
     elif path.endswith("/"):
@@ -108,10 +108,10 @@ def _project_output(out: "artifact", path: str.type) -> "artifact":
 
 def process_genrule(
         ctx: "context",
-        out_attr: [str.type, None],
-        outs_attr: [dict.type, None],
-        extra_env_vars: dict.type = {},
-        identifier: [str.type, None] = None) -> ["provider"]:
+        out_attr: [str, None],
+        outs_attr: [dict, None],
+        extra_env_vars: dict = {},
+        identifier: [str, None] = None) -> ["provider"]:
     if (out_attr != None) and (outs_attr != None):
         fail("Only one of `out` and `outs` should be set. Got out=`%s`, outs=`%s`" % (repr(out_attr), repr(outs_attr)))
 
