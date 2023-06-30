@@ -101,8 +101,10 @@ mod unix {
                 Intercept::All,
                 hyper_unix_connector::Uri::new(socket_path, "/").into(),
             );
-            let proxy_connector = ProxyConnector::from_proxy(UnixClient, proxy)
-                .context("Failed to create proxy connector to unix domain scoket")?;
+
+            // X2PAgent does all TLS for us, hence the _unsecured bit.
+            let proxy_connector = ProxyConnector::from_proxy_unsecured(UnixClient, proxy);
+
             Ok(Self {
                 inner: SecureHttpClient::with_connector(proxy_connector, DEFAULT_MAX_REDIRECTS),
             })

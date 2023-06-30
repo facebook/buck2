@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use bytes::Bytes;
 use futures::stream::BoxStream;
 use hyper::Request;
@@ -43,13 +42,15 @@ impl SecureProxiedClient {
             .enable_http2()
             .build();
 
+        // Note: we use the `unsecured()` constructor here, but all that does is not load TLS config. We pass our own TLS config below:
+        let mut proxy_connector = ProxyConnector::unsecured(https_connector);
+
         // This connector wraps the above and _also_ establishes a secure connection to
         // the proxy, re-using the same TLS config for the above connector.
         //
         // The net effect is that we can establish a secure connection to the proxy and
         // have that tunnel our secure connection to the destination.
-        let mut proxy_connector = ProxyConnector::new(https_connector)
-            .context("Error creating secured proxy connector")?;
+
         proxy_connector.set_tls(Some(TlsConnector::from(Arc::new(config))));
         proxy_connector.extend_proxies(proxies);
 
@@ -72,6 +73,7 @@ impl HttpClient for SecureProxiedClient {
 #[cfg(test)]
 #[cfg(any(fbcode_build, cargo_internal_build))]
 mod tests {
+    use anyhow::Context as _;
     use httptest::matchers::*;
     use httptest::responders;
     use httptest::Expectation;
