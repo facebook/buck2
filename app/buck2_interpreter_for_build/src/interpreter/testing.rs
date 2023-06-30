@@ -33,6 +33,7 @@ use buck2_interpreter::import_paths::ImplicitImportPaths;
 use buck2_interpreter::path::OwnedStarlarkModulePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
+use buck2_interpreter::prelude_path::PreludePath;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
 use dupe::Dupe;
@@ -57,7 +58,7 @@ pub struct Tester {
     configs: LegacyBuckConfigs,
     loaded_modules: LoadedModules,
     additional_globals: Vec<AdditionalGlobalsFn>,
-    prelude_path: Option<ImportPath>,
+    prelude_path: Option<PreludePath>,
 }
 
 /// These functions will be available in the starlark environment for all code running through a Tester.
@@ -181,7 +182,7 @@ impl Tester {
     }
 
     pub fn set_prelude(&mut self, prelude_import: ImportPath) {
-        self.prelude_path = Some(prelude_import);
+        self.prelude_path = Some(PreludePath::testing_new(prelude_import));
     }
 
     fn interpreter(&self) -> anyhow::Result<Arc<InterpreterForCell>> {

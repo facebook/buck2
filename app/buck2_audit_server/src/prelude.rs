@@ -49,7 +49,7 @@ impl AuditSubcommand for AuditPreludeCommand {
                 writeln!(
                     stdout,
                     "{}",
-                    ctx.get_loaded_module_from_import_path(&prelude_path)
+                    ctx.get_loaded_module_from_import_path(prelude_path.import_path())
                         .await?
                         .env()
                         .describe()

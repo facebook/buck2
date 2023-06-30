@@ -20,6 +20,7 @@ use crate::file_loader::ModuleDeps;
 use crate::file_type::StarlarkFileType;
 use crate::path::PackageFilePath;
 use crate::path::StarlarkModulePath;
+use crate::prelude_path::PreludePath;
 
 #[async_trait]
 pub trait InterpreterCalculationImpl: Send + Sync + 'static {
@@ -49,7 +50,7 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
         file_type: StarlarkFileType,
     ) -> anyhow::Result<Globals>;
 
-    async fn prelude_import(&self, ctx: &DiceComputations) -> anyhow::Result<Option<ImportPath>>;
+    async fn prelude_import(&self, ctx: &DiceComputations) -> anyhow::Result<Option<PreludePath>>;
 }
 
 pub static INTERPRETER_CALCULATION_IMPL: LateBinding<&'static dyn InterpreterCalculationImpl> =

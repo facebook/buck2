@@ -14,13 +14,13 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
-use buck2_core::bzl::ImportPath;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter::path::StarlarkModulePath;
+use buck2_interpreter::prelude_path::PreludePath;
 use dupe::Dupe;
 use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
@@ -80,7 +80,7 @@ pub struct BuildInterpreterConfiguror {
     /// * Parent directory of prelude import (e.g. `prelude//`) is considered special:
     ///   imports from that directory are evaluated with prelude cell context,
     ///   not with caller cell context (see the comments in `resolve_load`)
-    prelude_import: Option<ImportPath>,
+    prelude_import: Option<PreludePath>,
     host_info: HostInfo,
     record_target_call_stack: bool,
     skip_targets_with_duplicate_names: bool,
@@ -94,7 +94,7 @@ pub struct BuildInterpreterConfiguror {
 
 impl BuildInterpreterConfiguror {
     pub fn new(
-        prelude_import: Option<ImportPath>,
+        prelude_import: Option<PreludePath>,
         host_platform: InterpreterHostPlatform,
         host_architecture: InterpreterHostArchitecture,
         host_xcode_version: Option<XcodeVersionInfo>,
@@ -216,7 +216,7 @@ impl BuildInterpreterConfiguror {
         ))
     }
 
-    pub fn prelude_import(&self) -> Option<&ImportPath> {
+    pub fn prelude_import(&self) -> Option<&PreludePath> {
         self.prelude_import.as_ref()
     }
 }

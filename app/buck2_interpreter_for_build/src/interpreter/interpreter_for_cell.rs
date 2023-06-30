@@ -38,6 +38,7 @@ use buck2_interpreter::path::OwnedStarlarkPath;
 use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
+use buck2_interpreter::prelude_path::PreludePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use dupe::Dupe;
@@ -206,7 +207,7 @@ impl LoadResolver for InterpreterLoadResolver {
         // as using the exported rules from the prelude would. This matters notably for identity
         // checks in t-sets, which would fail if we had > 1 copy of the prelude.
         if let Some(prelude_import) = self.config.global_state.configuror.prelude_import() {
-            if is_prelude_path(&path, prelude_import) {
+            if prelude_import.is_prelude_path(&path) {
                 return Ok(OwnedStarlarkModulePath::LoadFile(
                     ImportPath::new_same_cell(path)?,
                 ));
@@ -217,10 +218,6 @@ impl LoadResolver for InterpreterLoadResolver {
             ImportPath::new_with_build_file_cells(path, self.build_file_cell)?,
         ))
     }
-}
-
-fn is_prelude_path(import_path: &CellPath, prelude_import: &ImportPath) -> bool {
-    import_path.starts_with(prelude_import.path_parent())
 }
 
 impl InterpreterForCell {
@@ -272,7 +269,7 @@ impl InterpreterForCell {
         if let Some(prelude_import) = self.prelude_import(starlark_path) {
             let prelude_env = loaded_modules
                 .map
-                .get(&StarlarkModulePath::LoadFile(prelude_import))
+                .get(&StarlarkModulePath::LoadFile(prelude_import.import_path()))
                 .with_context(|| {
                     format!(
                         "Should've had an env for the prelude import `{}` (internal error)",
@@ -372,14 +369,13 @@ impl InterpreterForCell {
         self.implicit_import_paths.root_import.clone()
     }
 
-    fn prelude_import(&self, import: StarlarkPath) -> Option<&ImportPath> {
+    fn prelude_import(&self, import: StarlarkPath) -> Option<&PreludePath> {
         let prelude_import = self.global_state.configuror.prelude_import();
         if let Some(prelude_import) = prelude_import {
             let import_path = import.path();
 
             // Only return the prelude for things outside the prelude directory.
-            if import.unpack_build_file().is_some()
-                || !is_prelude_path(&import_path, prelude_import)
+            if import.unpack_build_file().is_some() || !prelude_import.is_prelude_path(&import_path)
             {
                 return Some(prelude_import);
             }
@@ -415,7 +411,7 @@ impl InterpreterForCell {
             )?;
             let mut implicit_imports = Vec::new();
             if let Some(i) = self.prelude_import(import) {
-                implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i.clone()));
+                implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i.import_path().clone()));
             }
             if let StarlarkPath::BuildFile(build_file) = import {
                 if let Some(i) = self.package_import(build_file) {

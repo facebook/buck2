@@ -143,12 +143,12 @@ pub async fn get_prelude_docs(
 ) -> anyhow::Result<Vec<Doc>> {
     let cell_resolver = ctx.get_cell_resolver().await?;
     let prelude_path = prelude_path(&cell_resolver)?;
-    get_docs_from_module(ctx, prelude_path, Some(existing_globals)).await
+    get_docs_from_module(ctx, prelude_path.import_path(), Some(existing_globals)).await
 }
 
 async fn get_docs_from_module(
     ctx: &DiceComputations,
-    import_path: ImportPath,
+    import_path: &ImportPath,
     // If we want to promote `native`, what should we exclude
     promote_native: Option<&HashSet<&str>>,
 ) -> anyhow::Result<Vec<Doc>> {
@@ -159,7 +159,7 @@ async fn get_docs_from_module(
         import_path.path().parent().unwrap(),
         import_path.path().path().file_name().unwrap()
     );
-    let module = ctx.get_loaded_module_from_import_path(&import_path).await?;
+    let module = ctx.get_loaded_module_from_import_path(import_path).await?;
     let frozen_module = module.env();
     let mut module_docs = frozen_module.documentation();
 
@@ -305,8 +305,8 @@ async fn docs(
     }
 
     let module_calcs: Vec<_> = lookups
-        .into_iter()
-        .map(|import_path| async { get_docs_from_module(&dice_ctx, import_path, None).await })
+        .iter()
+        .map(|import_path| get_docs_from_module(&dice_ctx, import_path, None))
         .collect();
 
     let modules_docs = futures::future::try_join_all(module_calcs).await?;

@@ -16,6 +16,7 @@ use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::import_paths::HasImportPaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
+use buck2_interpreter::prelude_path::PreludePath;
 use dice::DiceTransaction;
 use starlark::environment::Globals;
 
@@ -25,7 +26,7 @@ pub(crate) struct Environment {
     pub(crate) globals: Globals,
     /// The path to the prelude, if the prelude is loaded in this file.
     /// Note that in a BUCK file the `native` value is also exploded into the top-level.
-    prelude: Option<ImportPath>,
+    prelude: Option<PreludePath>,
     /// A path that is implicitly loaded as additional globals.
     preload: Option<ImportPath>,
 }
@@ -48,7 +49,9 @@ impl Environment {
             .prelude_import(dice)
             .await?
         {
-            Some(prelude) if path_type == StarlarkFileType::Buck || prelude.cell() != cell => {
+            Some(prelude)
+                if path_type == StarlarkFileType::Buck || prelude.import_path().cell() != cell =>
+            {
                 Some(prelude)
             }
             _ => None,
@@ -80,7 +83,9 @@ impl Environment {
         }
 
         if let Some(prelude) = &self.prelude {
-            let m = dice.get_loaded_module_from_import_path(prelude).await?;
+            let m = dice
+                .get_loaded_module_from_import_path(prelude.import_path())
+                .await?;
             for x in m.env().names() {
                 names.insert(x.as_str().to_owned());
             }

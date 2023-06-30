@@ -33,6 +33,7 @@ use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
+use buck2_interpreter::prelude_path::PreludePath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -204,7 +205,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .dupe())
     }
 
-    async fn prelude_import(&self, ctx: &DiceComputations) -> anyhow::Result<Option<ImportPath>> {
+    async fn prelude_import(&self, ctx: &DiceComputations) -> anyhow::Result<Option<PreludePath>> {
         Ok(ctx
             .get_global_interpreter_state()
             .await?
