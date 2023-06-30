@@ -35,7 +35,9 @@ use crate::coerce::coerce;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
+use crate::private::Private;
 use crate::starlark_complex_values;
+use crate::typing::Ty;
 use crate::values::exported_name::ExportedName;
 use crate::values::exported_name::FrozenExportedName;
 use crate::values::exported_name::MutableExportedName;
@@ -203,6 +205,15 @@ where
         }
     }
 
+    fn eval_type(&self, _private: Private) -> Option<Ty> {
+        // Very basic type, only checks the name.
+        // Should also behave like a function.
+        //
+        // If record is not assigned to a variable (`typ` is unset), this code is unreachable.
+
+        self.typ.borrow().as_ref().map(|t| Ty::name(t.as_str()))
+    }
+
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
         fn eq<'v>(
             a: &RecordTypeGen<impl ValueLike<'v>, impl ExportedName>,
@@ -235,5 +246,57 @@ where
 
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
         self.typ.try_export_as(variable_name);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::assert;
+
+    #[test]
+    fn test_record_type_as_type_pass() {
+        assert::pass(
+            r"
+RecPass = record(a = field(int), b = field(int))
+
+def f_pass(x: RecPass):
+    return x.a
+
+f_pass(RecPass(a = 1, b = 2))
+",
+        );
+    }
+
+    #[test]
+    fn test_record_type_as_type_compile_time() {
+        assert::fail(
+            r"
+RecFailCt1 = record(a = field(int), b = field(int))
+RecFailCt2 = record(a = field(int), b = field(int))
+
+def f_fail_ct(x: RecFailCt1):
+    return x.a
+
+f_fail_ct(RecFailCt2(a = 1, b = 2))
+",
+            // TODO(nga): this is runtime error, not compile time.
+            "Value `record(a=1, b=2)` of type `record` does not match",
+        );
+    }
+
+    #[test]
+    fn test_record_type_as_type_runtime() {
+        assert::fail(
+            r"
+RecFailRt1 = record(a = field(int), b = field(int))
+RecFailRt2 = record(a = field(int), b = field(int))
+
+def f_fail_rt(x: RecFailRt1):
+    return x.a
+
+noop(f_fail_rt)(RecFailRt2(a = 1, b = 2))
+",
+            "Value `record(a=1, b=2)` of type `record` does not match the type annotation",
+        );
     }
 }

@@ -1006,11 +1006,10 @@ f(8) == False"#,
             "def f_compile_time(i: bool.type):\n pass\nf_compile_time(1)",
             "Expected type `bool.type` but got `int.type`",
         );
-        a.fails(
+        a.pass(
             r#"Foo = record(value=int.type)
 def f(v: bool.type) -> Foo:
     return Foo(value=1)"#,
-            &[r#"record(value=field(int.type))"#],
         );
         a.fails(
             r#"Bar = enum("bar")
