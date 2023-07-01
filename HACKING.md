@@ -115,3 +115,16 @@ have written. Some rules:
 - Lists should use square brackets, e.g. ``Available targets: [`aa`, `bb`]``.
 - Error messages should start with an upper case letter. Error messages should
   not end with a period.
+
+## Open-source differences
+
+Most code is shared as-is between open source and the internal Meta version of
+Buck2. However, there are some exceptions:
+
+* The open-source remote execution client is different, because our internal
+  one works with custom servers/infrastructure that is not publicly available.
+* There are places controlled with `is_open_source()` which change configuration
+  between the internal and open source versions.
+* Some places use `@oss-enable` or `@oss-disable` to comment/uncomment lines
+  of code. The internal code is visible, but the comment markers are moved
+  during export/import of code.
