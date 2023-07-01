@@ -30,6 +30,7 @@ use crate::typing::function::TyFunction;
 use crate::typing::Ty;
 use crate::typing::TyName;
 use crate::typing::TypingAttr;
+use crate::typing::TypingBinOp;
 use crate::typing::TypingOracle;
 
 #[derive(Debug, thiserror::Error)]
@@ -59,10 +60,29 @@ pub struct TypingOracleCtx<'a> {
 
 impl<'a> TypingOracle for TypingOracleCtx<'a> {
     fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
-        match ty {
-            Ty::Custom(c) => c.0.attribute(attr),
-            ty => self.oracle.attribute(ty, attr),
-        }
+        Some(Ok(match ty {
+            ty if ty == &Ty::none() => return Some(Err(())),
+            Ty::Tuple(tys) => match attr {
+                TypingAttr::BinOp(TypingBinOp::In) => {
+                    Ty::function(vec![Param::pos_only(Ty::unions(tys.clone()))], Ty::bool())
+                }
+                TypingAttr::Iter => Ty::unions(tys.clone()),
+                TypingAttr::Index => {
+                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::unions(tys.clone()))
+                }
+                _ => return Some(Err(())),
+            },
+            Ty::Name(x) if x == "tuple" => match attr {
+                TypingAttr::Iter => Ty::Any,
+                TypingAttr::BinOp(TypingBinOp::In) => {
+                    Ty::function(vec![Param::pos_only(Ty::Any)], Ty::bool())
+                }
+                TypingAttr::Index => Ty::function(vec![Param::pos_only(Ty::int())], Ty::Any),
+                _ => return Some(Err(())),
+            },
+            Ty::Custom(c) => return c.0.attribute(attr),
+            ty => return self.oracle.attribute(ty, attr),
+        }))
     }
 
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {

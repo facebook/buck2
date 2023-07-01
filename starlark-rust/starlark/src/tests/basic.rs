@@ -129,13 +129,13 @@ False < True
 (1, 3) < (1, 3, 4)
 "#,
     );
-    assert::fail("None < None", "`compare` not supported");
-    assert::fail("(None, ) < (None, )", "`compare` not supported");
-    assert::fail("x = (None,); x < x", "`compare` not supported");
-    assert::fail("x = {}; x < x", "`compare` not supported");
-    assert::fail("{} < {1: 2}", "`compare` not supported");
-    assert::fail("range(1) < range(2)", "`compare` not supported");
-    assert::fail("noop(repr) < str", "`compare` not supported");
+    assert::fail("noop(None) < None", "`compare` not supported");
+    assert::fail_skip_typecheck("(None, ) < (None, )", "`compare` not supported");
+    assert::fail_skip_typecheck("x = (None,); x < x", "`compare` not supported");
+    assert::fail_skip_typecheck("x = {}; x < x", "`compare` not supported");
+    assert::fail_skip_typecheck("{} < {1: 2}", "`compare` not supported");
+    assert::fail_skip_typecheck("range(1) < range(2)", "`compare` not supported");
+    assert::fail_skip_typecheck("repr < str", "`compare` not supported");
 }
 
 #[test]

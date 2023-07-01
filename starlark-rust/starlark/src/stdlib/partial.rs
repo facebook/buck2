@@ -184,7 +184,8 @@ mod tests {
         let sum = r#"
 def sum(a, b, *args, **kwargs):
     # print("a=%s b=%s args=%s kwargs=%s" % (a, b, args, kwargs))
-    args = (a, b) + args
+    # TODO(nga): fix typecheck.
+    args = noop((a, b)) + args
     return [args, kwargs]
 "#;
 

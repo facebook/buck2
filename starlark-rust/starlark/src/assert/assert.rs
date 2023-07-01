@@ -694,6 +694,13 @@ pub fn fail(program: &str, msg: &str) -> anyhow::Error {
     Assert::new().fail(program, msg)
 }
 
+#[cfg(test)]
+pub(crate) fn fail_skip_typecheck(program: &str, msg: &str) -> anyhow::Error {
+    let mut a = Assert::new();
+    a.disable_static_typechecking();
+    a.fail(program, msg)
+}
+
 /// See [`Assert::fails`].
 pub fn fails(program: &str, msgs: &[&str]) -> anyhow::Error {
     Assert::new().fails(program, msgs)

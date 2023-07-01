@@ -232,6 +232,8 @@ assert_eq(orig, [1, 2, 3])
         r#"
 orig = (1, 2)
 x = orig
+# TODO(nga): typechecker should accept it.
+x = noop(x)
 x += (3,)
 assert_eq(x, (1, 2, 3))
 assert_eq(orig, (1, 2))
