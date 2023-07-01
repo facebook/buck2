@@ -120,6 +120,18 @@ pub(crate) enum ParameterP<P: AstPayload> {
     KwArgs(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
 }
 
+impl<P: AstPayload> ParameterP<P> {
+    pub(crate) fn ident(&self) -> Option<&AstAssignIdentP<P>> {
+        match self {
+            ParameterP::Normal(x, _)
+            | ParameterP::WithDefaultValue(x, _, _)
+            | ParameterP::Args(x, _)
+            | ParameterP::KwArgs(x, _) => Some(x),
+            ParameterP::NoArgs => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) enum AstLiteral {
     Int(AstInt),
