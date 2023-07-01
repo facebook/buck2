@@ -7,6 +7,7 @@
 
 load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
 load("@prelude//decls/common.bzl", "prelude_rule")
+load("@prelude//open_source.bzl", "is_open_source")
 
 # Combine the attributes we generate, we the custom implementations we have.
 load("@prelude//rules_impl.bzl", "extra_attributes", "extra_implemented_rules", "rule_decl_records", "toolchain_rule_names", "transitions")
@@ -37,7 +38,8 @@ def _mk_rule(rule_spec: "") -> "rule":
 
     # Fat platforms is an idea specific to our toolchains, so doesn't apply to
     # open source. Ideally this restriction would be done at the toolchain level.
-    fat_platform_compatible = True # @oss-enable
+    if is_open_source():
+        fat_platform_compatible = True
 
     if not fat_platform_compatible:
         # copy so we don't try change the passed in object
