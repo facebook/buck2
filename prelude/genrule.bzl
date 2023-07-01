@@ -10,6 +10,7 @@
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
 load("@prelude//:genrule_toolchain.bzl", "GenruleToolchainInfo")
+load("@prelude//:open_source.bzl", "is_open_source")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
@@ -56,8 +57,7 @@ def _requires_no_srcs_environment(ctx: "context") -> bool:
     return _NO_SRCS_ENVIRONMENT_LABEL in ctx.attrs.labels
 
 # We don't want to use cache mode in open source because the config keys that drive it aren't wired up
-# @oss-disable: _USE_CACHE_MODE = True 
-_USE_CACHE_MODE = False # @oss-enable
+_USE_CACHE_MODE = not is_open_source()
 
 # Extra attributes required by every genrule based on genrule_impl
 def genrule_attributes() -> {str: "attribute"}:
