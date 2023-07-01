@@ -48,6 +48,7 @@ parking_lot = { workspace = true }
 tokio-util = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+url = { workspace = true }
 
 
 allocative = { workspace = true }

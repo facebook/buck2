@@ -45,7 +45,11 @@ pub trait AsHttpError {
     fn as_http_error(&self) -> Option<&HttpError>;
 }
 
-pub async fn http_retry<Exec, F, T, E>(exec: Exec, mut intervals: Vec<Duration>) -> Result<T, E>
+pub async fn http_retry<Exec, F, T, E>(
+    dl_url: &str,
+    exec: Exec,
+    mut intervals: Vec<Duration>,
+) -> Result<T, E>
 where
     Exec: Fn() -> F,
     E: AsHttpError + std::fmt::Display,
@@ -53,6 +57,13 @@ where
 {
     intervals.insert(0, Duration::from_secs(0));
     let mut backoff = intervals.into_iter().peekable();
+
+    let host = url::Url::parse(dl_url)
+        .unwrap()
+        .host_str()
+        .unwrap()
+        .to_owned();
+    let mut retries = 0;
 
     while let Some(duration) = backoff.next() {
         tokio::time::sleep(duration).await;
@@ -64,11 +75,18 @@ where
         if let Some(http_error) = http_error {
             if http_error.is_retryable() {
                 if let Some(b) = backoff.peek() {
-                    tracing::warn!(
-                        "Retrying a HTTP error after {} seconds: {:#}",
-                        b.as_secs(),
-                        http_error
-                    );
+                    let secs = b.as_secs();
+                    if secs > 30 {
+                        // NOTE (aseipp): 30 seconds is arbitrary for this, but
+                        // at that point things will be pretty annoying!
+                        tracing::warn!(
+                            host = host,
+                            retries = retries,
+                            "Egregious HTTP backoff - retrying slow request in {} seconds",
+                            secs,
+                        );
+                    }
+                    retries += 1;
                     continue;
                 }
             }
@@ -143,29 +161,33 @@ mod tests {
 
     #[tokio::test]
     async fn test_http_retry_success() {
+        let url = "http://example.com";
         let mock = Mock::new(vec![ok_response()]);
-        let result = http_retry(|| mock.exec(), retries(0)).await;
+        let result = http_retry(url, || mock.exec(), retries(0)).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_http_retry_retryable() {
+        let url = "http://example.com";
         let mock = Mock::new(vec![retryable(), ok_response()]);
-        let result = http_retry(|| mock.exec(), retries(1)).await;
+        let result = http_retry(url, || mock.exec(), retries(1)).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_http_retry_exhaust_retries() {
+        let url = "http://example.com";
         let mock = Mock::new(vec![retryable(), ok_response()]);
-        let result = http_retry(|| mock.exec(), retries(0)).await;
+        let result = http_retry(url, || mock.exec(), retries(0)).await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn test_http_retry_non_retryable() {
+        let url = "http://example.com";
         let mock = Mock::new(vec![non_retryable(), ok_response()]);
-        let result = http_retry(|| mock.exec(), retries(1)).await;
+        let result = http_retry(url, || mock.exec(), retries(1)).await;
         assert!(result.is_err());
     }
 }

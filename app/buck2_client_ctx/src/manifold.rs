@@ -467,6 +467,7 @@ impl ManifoldClient {
         }
 
         let res = http_retry(
+            &url,
             || async {
                 self.client
                     .put(&url, buf.clone(), headers.clone())
@@ -499,6 +500,7 @@ impl ManifoldClient {
         );
 
         let res = http_retry(
+            &url,
             || async {
                 self.client
                     .post(&url, buf.clone(), vec![])

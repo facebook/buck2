@@ -101,6 +101,7 @@ impl AsHttpError for HttpDownloadError {
 
 pub async fn http_head(client: &dyn HttpClient, url: &str) -> anyhow::Result<Response<()>> {
     let response = http_retry(
+        url,
         || async {
             client
                 .head(url)
@@ -128,6 +129,7 @@ pub async fn http_download(
     }
 
     Ok(http_retry(
+        url,
         || async {
             let file = fs_util::create_file(&abs_path).map_err(HttpDownloadError::IoError)?;
 
