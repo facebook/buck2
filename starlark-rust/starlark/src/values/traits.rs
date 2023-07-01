@@ -241,6 +241,7 @@ pub trait StarlarkValue<'v>:
     /// Please do not implement this method or `get_type`,
     /// but use [`#[starlark_value]`](crate::values::starlark_value) proc macro.
     #[doc(hidden)]
+    #[starlark_internal_vtable(skip)]
     fn please_use_starlark_type_macro();
 
     /// Type is special in Starlark, it is implemented differently than user defined types.
@@ -248,7 +249,8 @@ pub trait StarlarkValue<'v>:
     ///
     /// This function must not be implemented outside of starlark crate.
     #[doc(hidden)]
-    fn is_special(_: Private) -> bool {
+    #[starlark_internal_vtable(skip)]
+    fn is_special(_private: Private) -> bool {
         false
     }
 
@@ -462,6 +464,7 @@ pub trait StarlarkValue<'v>:
 
     /// Implement iteration over the value of this container by providing
     /// the values in a `Vec`.
+    #[starlark_internal_vtable(skip)]
     fn iterate_collect(&self, _heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
         ValueError::unsupported(self, "(iter)")
     }

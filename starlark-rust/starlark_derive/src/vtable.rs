@@ -18,6 +18,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
+use syn::parse::ParseStream;
 use syn::parse_macro_input;
 use syn::spanned::Spanned;
 use syn::FnArg;
@@ -35,6 +36,22 @@ struct VTableEntry {
     field: TokenStream,
     init: TokenStream,
     init_for_black_hole: TokenStream,
+}
+
+#[derive(Debug, Default)]
+struct StarlarkInternalVTableAttrs {
+    skip: bool,
+}
+
+impl syn::parse::Parse for StarlarkInternalVTableAttrs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let ident = input.parse::<syn::Ident>()?;
+        if ident == "skip" {
+            Ok(StarlarkInternalVTableAttrs { skip: true })
+        } else {
+            Err(syn::Error::new(ident.span(), "unknown attribute"))
+        }
+    }
 }
 
 impl Gen {
@@ -135,23 +152,42 @@ impl Gen {
         })
     }
 
+    fn process_item_attrs(
+        &self,
+        attrs: &[syn::Attribute],
+    ) -> syn::Result<(StarlarkInternalVTableAttrs, Vec<syn::Attribute>)> {
+        let mut new_attrs = Vec::new();
+        let mut item_attrs: Option<StarlarkInternalVTableAttrs> = None;
+        for attr in attrs {
+            if attr.path().is_ident("starlark_internal_vtable") {
+                if item_attrs.is_some() {
+                    return Err(syn::Error::new(attr.span(), "duplicate attribute"));
+                }
+                item_attrs = Some(attr.parse_args()?);
+            } else {
+                new_attrs.push(attr.clone());
+            }
+        }
+        Ok((item_attrs.unwrap_or_default(), new_attrs))
+    }
+
     fn gen_starlark_value_vtable(&self) -> syn::Result<TokenStream> {
         let mut fields = Vec::new();
         let mut inits = Vec::new();
         let mut init_black_holes = Vec::new();
-        for item in &self.starlark_value.items {
+        let mut starlark_value = self.starlark_value.clone();
+        for item in &mut starlark_value.items {
             let m = match item {
                 TraitItem::Fn(m) => m,
                 _ => continue,
             };
-            // Don't need it.
-            if m.sig.ident == "is_special"
-                || m.sig.ident == "please_use_starlark_type_macro"
-                || m.sig.ident == "extra_memory"
-                || m.sig.ident == "iterate_collect"
-            {
+
+            let (item_attrs, new_attrs) = self.process_item_attrs(&m.attrs)?;
+            m.attrs = new_attrs;
+            if item_attrs.skip {
                 continue;
             }
+
             let VTableEntry {
                 field,
                 init,
@@ -164,6 +200,9 @@ impl Gen {
 
         Ok(quote_spanned! {
             self.starlark_value.span() =>
+
+            #starlark_value
+
             pub(crate) struct StarlarkValueVTable {
                 #(#fields),*
             }
@@ -196,8 +235,7 @@ pub(crate) fn starlark_internal_vtable(
     _attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    let input_clone = input.clone();
-    let starlark_value = parse_macro_input!(input_clone as ItemTrait);
+    let starlark_value = parse_macro_input!(input as ItemTrait);
 
     let gen = Gen { starlark_value };
     let generated = match gen.gen_starlark_value_vtable() {
@@ -207,10 +245,7 @@ pub(crate) fn starlark_internal_vtable(
         }
     };
 
-    let input = TokenStream::from(input);
-
     proc_macro::TokenStream::from(quote! {
-        #input
         #generated
     })
 }
