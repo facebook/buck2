@@ -1,0 +1,35 @@
+# In the quest to make buck2 build under stable rustc, crates can and will
+# eventually become fully stable compatible, along with their dependencies.
+# These crates should be built here to ensure they don't regress.
+
+name: Regression test rustc-stable crates
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        rust_version: [stable] # Add more versions here, e.g. MSRV
+        cargo_flags: [""] # Add more flags here, e.g. --all-features
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9
+      - name: Install Rust (${{ matrix.rust_version }})
+        uses: dtolnay/rust-toolchain@0e66bd3e6b38ec0ad5312288c83e47c143e6b09e
+        with:
+          toolchain:  ${{ matrix.rust_version }}
+      - name: Build crates
+        run: |
+          PS=(
+            "starlark"
+          )
+          for x in "${PS[@]}"; do
+            cargo build -p $x ${{ matrix.cargo_flags }}
+          done
