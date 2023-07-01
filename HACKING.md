@@ -121,10 +121,57 @@ have written. Some rules:
 Most code is shared as-is between open source and the internal Meta version of
 Buck2. However, there are some exceptions:
 
-* The open-source remote execution client is different, because our internal
-  one works with custom servers/infrastructure that is not publicly available.
-* There are places controlled with `is_open_source()` which change configuration
+- The open-source remote execution client is different, because our internal one
+  works with custom servers/infrastructure that is not publicly available.
+- There are places controlled with `is_open_source()` which change configuration
   between the internal and open source versions.
-* Some places use `@oss-enable` or `@oss-disable` to comment/uncomment lines
-  of code. The internal code is visible, but the comment markers are moved
-  during export/import of code.
+- Some places use `@oss-enable` or `@oss-disable` to comment/uncomment lines of
+  code. The internal code is visible, but the comment markers are moved during
+  export/import of code.
+
+## Unstable `rustc` features
+
+<!-- [tag:unstable-rustc] -->
+
+TL;DR: Buck2 developers **are free to use unstable `rustc` features**. Please
+submit patches to change this if you are interested in building buck2 with a
+stable Rust compiler. Follow issue https://github.com/facebook/buck2/issues/265
+for more information and changes to this policy.
+
+Buck2 currently uses unstable features of `rustc` freely. Actually, building and
+using Buck2 requires an exact version of `rustc` that is checked at build time;
+this required version is identical within Meta and outside. No other version is
+supported or allowed.
+
+However, there is some outside desire to move away from using unstable Rust
+features; the primary motivators for this being:
+
+- Consumption by parties who may not allow unstable toolchains when procuring
+  tools; and
+- Compiler stability (occasionally we find ICEs in some nightly versions that
+  are likely surfaced in part due to unstable features)
+
+See https://github.com/facebook/buck2/issues/265 for some discussion and
+examples.
+
+But this is a very low priority, since most users will end up using `buck2` as a
+binary; they are isolated from such details. As a result, there is currently
+**NO** commitment to keep the codebase working with the stable `rustc` release.
+If such a thing happens, it will be decided and &mdash; most likely, very loudly
+&mdash; communicated and enforced beforehand.
+
+If you want to build buck2 with a stable Rust compiler, please help out and
+submit patches. If you are _not_ concerned with this, then carry on as usual,
+though it would be nice to avoid "gratuitous" unstable features if you can
+manage it, perhaps at the expense of few small extra lines of code or something.
+
+**NOTE**: If you want to look around the codebase for notes on unstable feature
+usage, and to keep track of progress, please keep track of issue #265 above; you
+can also use the **[tagref]** tool to search for references to this task in the
+codebase with the following command and learn more or help:
+
+[tagref]: https://github.com/stepchowfun/tagref
+
+```bash
+tagref list-refs | grep ref:unstable-rustc
+```
