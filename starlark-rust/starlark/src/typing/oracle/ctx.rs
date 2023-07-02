@@ -80,7 +80,7 @@ impl<'a> TypingOracle for TypingOracleCtx<'a> {
                 TypingAttr::Index => Ty::function(vec![Param::pos_only(Ty::int())], Ty::Any),
                 _ => return Some(Err(())),
             },
-            Ty::Custom(c) => return c.0.attribute(attr),
+            Ty::Custom(c) => return c.0.attribute_dyn(attr),
             ty => return self.oracle.attribute(ty, attr),
         }))
     }
@@ -280,7 +280,7 @@ impl<'a> TypingOracleCtx<'a> {
                 // Unknown type, may be callable.
                 Ok(Ty::Any)
             }
-            Ty::Custom(t) => t.0.validate_call(span, args, *self),
+            Ty::Custom(t) => t.0.validate_call_dyn(span, args, *self),
             Ty::Union(variants) => {
                 let mut successful = Vec::new();
                 let mut errors = Vec::new();

@@ -208,16 +208,16 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     fn cmp_token(&self) -> (OrdAny, &'static str);
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
-    fn clone_box(&self) -> Box<dyn TyCustomDyn>;
-    fn as_name(&self) -> Option<&str>;
-    fn validate_call(
+    fn clone_box_dyn(&self) -> Box<dyn TyCustomDyn>;
+    fn as_name_dyn(&self) -> Option<&str>;
+    fn validate_call_dyn(
         &self,
         span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError>;
-    fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>>;
-    fn union2(
+    fn attribute_dyn(&self, attr: TypingAttr) -> Option<Result<Ty, ()>>;
+    fn union2_dyn(
         self: Box<Self>,
         other: Box<dyn TyCustomDyn>,
     ) -> Result<Box<dyn TyCustomDyn>, (Box<dyn TyCustomDyn>, Box<dyn TyCustomDyn>)>;
@@ -236,15 +236,15 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self
     }
 
-    fn clone_box(&self) -> Box<dyn TyCustomDyn> {
+    fn clone_box_dyn(&self) -> Box<dyn TyCustomDyn> {
         Box::new(self.clone())
     }
 
-    fn as_name(&self) -> Option<&str> {
+    fn as_name_dyn(&self) -> Option<&str> {
         self.as_name()
     }
 
-    fn validate_call(
+    fn validate_call_dyn(
         &self,
         span: Span,
         args: &[Spanned<Arg>],
@@ -253,11 +253,11 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self.validate_call(span, args, oracle)
     }
 
-    fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute_dyn(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         self.attribute(attr)
     }
 
-    fn union2(
+    fn union2_dyn(
         self: Box<Self>,
         other: Box<dyn TyCustomDyn>,
     ) -> Result<Box<dyn TyCustomDyn>, (Box<dyn TyCustomDyn>, Box<dyn TyCustomDyn>)> {
@@ -277,11 +277,11 @@ pub struct TyCustom(pub(crate) Box<dyn TyCustomDyn>);
 
 impl TyCustom {
     pub(crate) fn as_name(&self) -> Option<&str> {
-        self.0.as_name()
+        self.0.as_name_dyn()
     }
 
     pub(crate) fn union2(x: TyCustom, y: TyCustom) -> Result<TyCustom, (TyCustom, TyCustom)> {
-        x.0.union2(y.0)
+        x.0.union2_dyn(y.0)
             .map(TyCustom)
             .map_err(|(x, y)| (TyCustom(x), TyCustom(y)))
     }
@@ -335,7 +335,7 @@ impl Ord for TyCustom {
 
 impl Clone for TyCustom {
     fn clone(&self) -> TyCustom {
-        TyCustom(self.0.clone_box())
+        TyCustom(self.0.clone_box_dyn())
     }
 }
 
