@@ -80,9 +80,13 @@ impl syn::parse::Parse for StarlarkValueAttrs {
 struct ImplStarlarkValue<'a> {
     input: &'a syn::ItemImpl,
     lifetime_param: &'a syn::Lifetime,
+    attrs: StarlarkValueAttrs,
 }
 
-fn is_impl_starlark_value(input: &syn::ItemImpl) -> syn::Result<ImplStarlarkValue> {
+fn is_impl_starlark_value(
+    input: &syn::ItemImpl,
+    attrs: StarlarkValueAttrs,
+) -> syn::Result<ImplStarlarkValue> {
     let err = "expected `impl StarlarkValue for ...`";
     let Some((_, path, _)) = &input.trait_ else {
         return Err(syn::Error::new_spanned(
@@ -121,92 +125,100 @@ fn is_impl_starlark_value(input: &syn::ItemImpl) -> syn::Result<ImplStarlarkValu
     Ok(ImplStarlarkValue {
         input,
         lifetime_param,
+        attrs,
     })
 }
 
-fn impl_unpack_value(
-    input: &ImplStarlarkValue,
-    unpack_value: bool,
-    starlark_type_repr: bool,
-) -> syn::Result<proc_macro2::TokenStream> {
-    if !unpack_value && !starlark_type_repr {
-        return Ok(proc_macro2::TokenStream::new());
+impl<'a> ImplStarlarkValue<'a> {
+    fn span(&self) -> proc_macro2::Span {
+        self.input.span()
     }
 
-    if !unpack_value || !starlark_type_repr {
-        return Err(syn::Error::new_spanned(
-            input.input,
-            "`UnpackValue` and `StarlarkTypeRepr` can only be specified together",
-        ));
-    }
-
-    for param in &input.input.generics.params {
-        match param {
-            syn::GenericParam::Lifetime(_) => {}
-            _ => {
-                return Err(syn::Error::new_spanned(
-                    param,
-                    "only lifetime parameters are supported to implement `UnpackValue` or `StarlarkTypeRepr`",
-                ));
-            }
+    /// Impl `UnpackValue for &T`.
+    fn impl_unpack_value(&self) -> syn::Result<proc_macro2::TokenStream> {
+        if !self.attrs.unpack_value && !self.attrs.starlark_type_repr {
+            return Ok(proc_macro2::TokenStream::new());
         }
-    }
 
-    let lt = input.lifetime_param;
-    let params = &input.input.generics.params;
-    let where_clause = &input.input.generics.where_clause;
-    let self_ty = &input.input.self_ty;
-    Ok(quote_spanned! {
-        input.input.span() =>
+        if !self.attrs.unpack_value || !self.attrs.starlark_type_repr {
+            return Err(syn::Error::new_spanned(
+                self.input,
+                "`UnpackValue` and `StarlarkTypeRepr` can only be specified together",
+            ));
+        }
 
-        impl<#params> starlark::values::type_repr::StarlarkTypeRepr for &#lt #self_ty
-        #where_clause
-        {
-            fn starlark_type_repr() -> starlark::typing::Ty {
-                <#self_ty as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+        for param in &self.input.generics.params {
+            match param {
+                syn::GenericParam::Lifetime(_) => {}
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        param,
+                        "only lifetime parameters are supported to implement `UnpackValue` or `StarlarkTypeRepr`",
+                    ));
+                }
             }
         }
 
-        impl<#params> starlark::values::UnpackValue<#lt> for &#lt #self_ty
-        #where_clause
-        {
-            fn unpack_value(value: starlark::values::Value<#lt>) -> Option<&#lt #self_ty> {
-                starlark::values::ValueLike::downcast_ref(value)
+        let lt = self.lifetime_param;
+        let params = &self.input.generics.params;
+        let where_clause = &self.input.generics.where_clause;
+        let self_ty = &self.input.self_ty;
+        Ok(quote_spanned! {
+            self.span() =>
+
+            impl<#params> starlark::values::type_repr::StarlarkTypeRepr for &#lt #self_ty
+            #where_clause
+            {
+                fn starlark_type_repr() -> starlark::typing::Ty {
+                    <#self_ty as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+                }
             }
-        }
-    })
+
+            impl<#params> starlark::values::UnpackValue<#lt> for &#lt #self_ty
+            #where_clause
+            {
+                fn unpack_value(value: starlark::values::Value<#lt>) -> Option<&#lt #self_ty> {
+                    starlark::values::ValueLike::downcast_ref(value)
+                }
+            }
+        })
+    }
+
+    fn please_use_starlark_type_macro(&self) -> syn::Result<syn::ImplItem> {
+        syn::parse2(quote_spanned! { self.span() =>
+            fn please_use_starlark_type_macro() {}
+        })
+    }
+
+    fn const_type(&self) -> syn::Result<syn::ImplItem> {
+        let typ = &self.attrs.typ;
+        syn::parse2(quote_spanned! { self.span() =>
+            const TYPE: &'static str = #typ;
+        })
+    }
+
+    fn get_type_value_static(&self) -> syn::Result<syn::ImplItem> {
+        let typ = &self.attrs.typ;
+        syn::parse2(quote_spanned! { self.span() =>
+            #[inline]
+            fn get_type_value_static() -> starlark::values::FrozenStringValue {
+                starlark::const_frozen_string!(#typ)
+            }
+        })
+    }
 }
 
 fn derive_starlark_value_impl(
     attr: StarlarkValueAttrs,
     mut input: syn::ItemImpl,
 ) -> syn::Result<proc_macro2::TokenStream> {
-    let StarlarkValueAttrs {
-        typ,
-        unpack_value,
-        starlark_type_repr,
-    } = attr;
+    let impl_starlark_value = is_impl_starlark_value(&input, attr)?;
 
-    let impl_starlark_value = is_impl_starlark_value(&input)?;
+    let impl_unpack_value = impl_starlark_value.impl_unpack_value()?;
 
-    let impl_unpack_value =
-        impl_unpack_value(&impl_starlark_value, unpack_value, starlark_type_repr)?;
-
-    let please_use_starlark_type_macro: syn::ImplItem =
-        syn::parse2(quote_spanned! { input.span() =>
-            fn please_use_starlark_type_macro() {}
-        })?;
-
-    let const_type: syn::ImplItem = syn::parse2(quote_spanned! { input.span() =>
-        const TYPE: &'static str = #typ;
-    })?;
-
-    let get_type_value_static: syn::ImplItem = syn::parse2(quote_spanned! { input.span() =>
-        #[inline]
-        fn get_type_value_static() -> starlark::values::FrozenStringValue {
-            starlark::const_frozen_string!(#typ)
-        }
-    })?;
+    let please_use_starlark_type_macro = impl_starlark_value.please_use_starlark_type_macro()?;
+    let const_type = impl_starlark_value.const_type()?;
+    let get_type_value_static = impl_starlark_value.get_type_value_static()?;
 
     input.items.splice(
         0..0,
