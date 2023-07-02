@@ -59,7 +59,8 @@ def extract_symbol_names(
 
     ctx.actions.run(
         [
-            "/bin/bash",
+            "/usr/bin/env",
+            "bash",
             "-c",
             cmd_args(output.as_output(), format = script),
             "",
@@ -117,7 +118,8 @@ def _create_symbols_file_from_script(
     all_symbol_files = cmd_args(all_symbol_files).hidden(symbol_files)
     output = actions.declare_output(name)
     cmd = [
-        "/bin/bash",
+        "/usr/bin/env",
+        "bash",
         "-c",
         script,
         "",

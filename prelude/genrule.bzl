@@ -286,7 +286,7 @@ def process_genrule(
     if is_windows:
         script_args = ["cmd.exe", "/v:off", "/c", sh_script]
     else:
-        script_args = ["/bin/bash", "-e", sh_script]
+        script_args = ["/usr/bin/env", "bash", "-e", sh_script]
 
     # Only set metadata arguments when they are non-null
     metadata_args = {}

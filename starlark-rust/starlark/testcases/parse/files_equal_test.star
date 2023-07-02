@@ -22,7 +22,7 @@ def _impl(ctx):
   ctx.actions.write(
       output=ctx.outputs.executable,
       content="\n".join([
-          "#!/bin/bash",
+          "#!/usr/bin/env bash",
           "function checksum() {",
           "  if command -v openssl >/dev/null; then",
           "    openssl sha1 $1 | cut -f 2 -d ' '",

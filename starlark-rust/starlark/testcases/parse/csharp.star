@@ -99,7 +99,7 @@ def _make_csc_arglist(ctx, output, depinfo, extra_refs=[]):
   return args
 
 _NUNIT_LAUNCHER_SCRIPT = """\
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ -e "$0.runfiles" ]]; then
   cd $0.runfiles/{workspace}
@@ -132,7 +132,7 @@ def _make_nunit_launcher(ctx, depinfo, output):
   ctx.file_action(output=ctx.outputs.executable, content=content)
 
 _LAUNCHER_SCRIPT = """\
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 

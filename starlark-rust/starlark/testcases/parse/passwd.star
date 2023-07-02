@@ -54,7 +54,7 @@ passwd_file = rule(
         "gid": attr.int(default = 1000),
         "info": attr.string(default = "user"),
         "home": attr.string(default = "/home"),
-        "shell": attr.string(default = "/bin/bash"),
+        "shell": attr.string(default = "/usr/bin/env bash"),
         "build_tar": attr.label(
             default = Label("@bazel_tools//tools/build_defs/pkg:build_tar"),
             cfg = "host",

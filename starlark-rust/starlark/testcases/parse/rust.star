@@ -480,7 +480,7 @@ def _rust_bench_test_impl(ctx):
   ctx.file_action(
       output = rust_bench_test,
       content = " ".join([
-          "#!/bin/bash\n",
+          "#!/usr/bin/env bash\n",
           "set -e\n",
           "%s --bench\n" % test_binary.short_path]),
       executable = True)
@@ -598,7 +598,7 @@ def _rust_doc_test_impl(ctx):
   # to be executed to run the test.
   toolchain = _rust_toolchain(ctx)
   doc_test_cmd = " ".join(
-      ["#!/bin/bash\n"] +
+      ["#!/usr/bin/env bash\n"] +
       ["set -e\n"] +
       depinfo.setup_cmd +
       [

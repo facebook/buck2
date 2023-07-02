@@ -43,7 +43,7 @@ def _generate_script(name: str, main: "artifact", resources: ["artifact"], actio
     # BUCK_DEFAULT_RUNTIME_RESOURCES).
     if not is_windows:
         script_content = cmd_args([
-            "#!/bin/bash",
+            "#!/usr/bin/env bash",
             "set -e",
             # This is awkward for two reasons: args doesn't support format strings
             # and will insert a newline between items and so __RESOURCES_ROOT

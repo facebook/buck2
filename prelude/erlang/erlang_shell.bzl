@@ -56,7 +56,7 @@ def _build_run_info(
     content.add("")
 
     shell_script = ctx.actions.write("start_shell.sh", content)
-    shell_cmd = cmd_args(["/bin/bash", shell_script])
+    shell_cmd = cmd_args(["/usr/bin/env", "bash", shell_script])
 
     # depend on input paths
     for code_path in app_paths + additional_paths:

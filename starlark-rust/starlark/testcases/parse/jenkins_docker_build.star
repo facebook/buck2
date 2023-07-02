@@ -100,7 +100,8 @@ def jenkins_docker_build(name, plugins = None, base = "//jenkins/base", configs 
       entrypoint = [
           "/bin/tini",
           "--",
-          "/bin/bash",
+          "/usr/bin/env",
+          "bash",
           "-c",
           "[ -d /opt/lib ] && chown -R jenkins /opt/lib; su jenkins -c /usr/local/bin/jenkins.sh",
       ],

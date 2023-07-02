@@ -17,7 +17,7 @@ def get_preprocessed_java_classes(ctx: "context", input_jars = {"artifact": "tar
         allow_args = True,
     )
 
-    preprocess_cmd = cmd_args(["/bin/bash", sh_script])
+    preprocess_cmd = cmd_args(["/usr/bin/env", "bash", sh_script])
     preprocess_cmd.hidden(cmd_args(ctx.attrs.preprocess_java_classes_bash))
     for dep in ctx.attrs.preprocess_java_classes_deps:
         preprocess_cmd.hidden(dep[DefaultInfo].default_outputs + dep[DefaultInfo].other_outputs)

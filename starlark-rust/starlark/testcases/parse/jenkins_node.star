@@ -84,7 +84,8 @@ EOF
         files = [":%s.docker-launcher.sh" % name],
         data_path = ".",
         entrypoint = [
-            "/bin/bash",
+            "/usr/bin/env",
+            "bash",
             "/%s.docker-launcher.sh" % name,
         ],
         visibility = visibility,

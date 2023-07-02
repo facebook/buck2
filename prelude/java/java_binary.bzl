@@ -129,7 +129,7 @@ def _get_run_cmd(
         main_artifact: "artifact",
         java_toolchain: JavaToolchainInfo.type) -> "cmd_args":
     if script_mode:
-        return cmd_args(["/bin/bash", main_artifact])
+        return cmd_args(["/usr/bin/env", "bash", main_artifact])
     else:
         return cmd_args([java_toolchain.java[RunInfo]] + attrs.java_args_for_run_info + ["-jar", main_artifact])
 

@@ -35,7 +35,7 @@ def _impl(ctx):
         exports.append("export %s='%s'" % (k, ctx.os.environ[k]))
     ctx.symlink(docker, "docker-bin")
     ctx.file("docker.sh", "\n".join([
-        "#!/bin/bash",
+        "#!/usr/bin/env bash",
         "\n".join(exports),
 """BIN="$0"
 while [ -L "${BIN}" ]; do
