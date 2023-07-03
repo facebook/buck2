@@ -692,7 +692,7 @@ pub(crate) mod helpers {
                 .begin_column as u32
         }
 
-        pub(crate) fn span(&self, identifier: &str) -> ResolvedSpan {
+        pub(crate) fn resolved_span(&self, identifier: &str) -> ResolvedSpan {
             *self
                 .ranges
                 .get(identifier)
@@ -802,8 +802,8 @@ mod test {
         let module = parsed.module()?;
 
         let expected: Definition = IdentifierDefinition::LoadedLocation {
-            source: parsed.span("print_click"),
-            destination: parsed.span("print"),
+            source: parsed.resolved_span("print_click"),
+            destination: parsed.resolved_span("print"),
             path: "bar.star".to_owned(),
             name: "other_print".to_owned(),
         }
@@ -849,12 +849,12 @@ mod test {
         let module = parsed.module()?;
 
         let expected_add = Definition::from(IdentifierDefinition::Location {
-            source: parsed.span("add_click"),
-            destination: parsed.span("add"),
+            source: parsed.resolved_span("add_click"),
+            destination: parsed.resolved_span("add"),
         });
         let expected_invalid = Definition::from(IdentifierDefinition::Location {
-            source: parsed.span("invalid_symbol_click"),
-            destination: parsed.span("invalid_symbol"),
+            source: parsed.resolved_span("invalid_symbol_click"),
+            destination: parsed.resolved_span("invalid_symbol"),
         });
 
         assert_eq!(
@@ -912,8 +912,8 @@ mod test {
 
         assert_eq!(
             Definition::from(IdentifierDefinition::Location {
-                source: parsed.span("x_param"),
-                destination: parsed.span("x")
+                source: parsed.resolved_span("x_param"),
+                destination: parsed.resolved_span("x")
             }),
             module.find_definition_at_location(
                 parsed.begin_line("x_param"),
@@ -950,8 +950,8 @@ mod test {
 
         assert_eq!(
             Definition::from(IdentifierDefinition::Location {
-                source: parsed.span("x_var"),
-                destination: parsed.span("x")
+                source: parsed.resolved_span("x_var"),
+                destination: parsed.resolved_span("x")
             }),
             module.find_definition_at_location(
                 parsed.begin_line("x_var"),
@@ -960,8 +960,8 @@ mod test {
         );
         assert_eq!(
             Definition::from(IdentifierDefinition::Location {
-                source: parsed.span("y_var1"),
-                destination: parsed.span("y2")
+                source: parsed.resolved_span("y_var1"),
+                destination: parsed.resolved_span("y2")
             }),
             module.find_definition_at_location(
                 parsed.begin_line("y_var1"),
@@ -971,8 +971,8 @@ mod test {
 
         assert_eq!(
             Definition::from(IdentifierDefinition::Location {
-                source: parsed.span("y_var2"),
-                destination: parsed.span("y1")
+                source: parsed.resolved_span("y_var2"),
+                destination: parsed.resolved_span("y1")
             }),
             module.find_definition_at_location(
                 parsed.begin_line("y_var2"),
@@ -981,7 +981,7 @@ mod test {
         );
         assert_eq!(
             Definition::from(IdentifierDefinition::Unresolved {
-                source: parsed.span("z_var"),
+                source: parsed.resolved_span("z_var"),
                 name: "z".to_owned()
             }),
             module.find_definition_at_location(
@@ -1078,7 +1078,7 @@ mod test {
 
         fn test(parsed: &FixtureWithRanges, module: &LspModule, name: &str) {
             let expected = Definition::from(IdentifierDefinition::StringLiteral {
-                source: parsed.span(&format!("{}_click", name)),
+                source: parsed.resolved_span(&format!("{}_click", name)),
                 literal: name.to_owned(),
             });
             let actual = module
@@ -1129,12 +1129,12 @@ mod test {
 
         let expected = |span_id: &str, segments: &[&str]| -> Definition {
             let root_definition_location = IdentifierDefinition::Unresolved {
-                source: parsed.span(&format!("{}_root", span_id)),
+                source: parsed.resolved_span(&format!("{}_root", span_id)),
                 name: "foo".to_owned(),
             };
             if segments.len() > 1 {
                 DottedDefinition {
-                    source: parsed.span(span_id),
+                    source: parsed.resolved_span(span_id),
                     root_definition_location,
                     segments: segments.iter().map(|s| (*s).to_owned()).collect(),
                 }
@@ -1184,14 +1184,14 @@ mod test {
 
         let expected = |span_id: &str, segments: &[&str]| -> Definition {
             let root_definition_location = IdentifierDefinition::LoadedLocation {
-                source: parsed.span(&format!("{}_root", span_id)),
-                destination: parsed.span("root"),
+                source: parsed.resolved_span(&format!("{}_root", span_id)),
+                destination: parsed.resolved_span("root"),
                 path: "defs.bzl".to_owned(),
                 name: "foo".to_owned(),
             };
             if segments.len() > 1 {
                 DottedDefinition {
-                    source: parsed.span(span_id),
+                    source: parsed.resolved_span(span_id),
                     root_definition_location,
                     segments: segments.iter().map(|s| (*s).to_owned()).collect(),
                 }
@@ -1240,12 +1240,12 @@ mod test {
 
         let expected = |span_id: &str, segments: &[&str]| -> Definition {
             let root_definition_location = IdentifierDefinition::Location {
-                source: parsed.span(&format!("{}_root", span_id)),
-                destination: parsed.span("root"),
+                source: parsed.resolved_span(&format!("{}_root", span_id)),
+                destination: parsed.resolved_span("root"),
             };
             if segments.len() > 1 {
                 DottedDefinition {
-                    source: parsed.span(span_id),
+                    source: parsed.resolved_span(span_id),
                     root_definition_location,
                     segments: segments.iter().map(|s| (*s).to_owned()).collect(),
                 }

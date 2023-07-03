@@ -991,8 +991,8 @@ mod test {
 
         let expected_location = expected_location_link_from_spans(
             bar_uri.clone(),
-            foo.span("baz_click"),
-            bar.span("baz"),
+            foo.resolved_span("baz_click"),
+            bar.resolved_span("baz"),
         );
 
         let mut server = TestServer::new()?;
@@ -1040,8 +1040,8 @@ mod test {
 
         let expected_location = expected_location_link_from_spans(
             bar_uri.clone(),
-            foo.span("baz_click"),
-            bar.span("baz"),
+            foo.resolved_span("baz_click"),
+            bar.resolved_span("baz"),
         );
 
         let mut server = TestServer::new()?;
@@ -1085,8 +1085,8 @@ mod test {
 
         let expected_location = expected_location_link_from_spans(
             bar_uri.clone(),
-            foo.span("baz_click"),
-            bar.span("baz"),
+            foo.resolved_span("baz_click"),
+            bar.resolved_span("baz"),
         );
 
         let mut server = TestServer::new()?;
@@ -1127,8 +1127,8 @@ mod test {
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
         let expected_location = expected_location_link_from_spans(
             foo_uri.clone(),
-            foo.span("baz_click"),
-            foo.span("baz_loc"),
+            foo.resolved_span("baz_click"),
+            foo.resolved_span("baz_loc"),
         );
 
         let mut server = TestServer::new()?;
@@ -1171,8 +1171,8 @@ mod test {
 
         let expected_location = expected_location_link_from_spans(
             foo_uri.clone(),
-            foo.span("not_baz"),
-            foo.span("not_baz_loc"),
+            foo.resolved_span("not_baz"),
+            foo.resolved_span("not_baz_loc"),
         );
 
         let mut server = TestServer::new()?;
@@ -1217,8 +1217,8 @@ mod test {
 
         let expected_location = expected_location_link_from_spans(
             bar_uri.clone(),
-            foo.span("baz_click"),
-            bar.span("baz"),
+            foo.resolved_span("baz_click"),
+            bar.resolved_span("baz"),
         );
 
         let mut server = TestServer::new()?;
@@ -1262,8 +1262,8 @@ mod test {
 
         let expected_location = expected_location_link_from_spans(
             foo_uri.clone(),
-            foo.span("not_baz_loc"),
-            foo.span("not_baz_loc"),
+            foo.resolved_span("not_baz_loc"),
+            foo.resolved_span("not_baz_loc"),
         );
 
         let mut server = TestServer::new()?;
@@ -1311,7 +1311,7 @@ mod test {
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
 
         let expected_location = LocationLink {
-            origin_selection_range: Some(foo.span("bar_click").into()),
+            origin_selection_range: Some(foo.resolved_span("bar_click").into()),
             target_uri: bar_uri,
             target_range: Default::default(),
             target_selection_range: Default::default(),
@@ -1358,7 +1358,7 @@ mod test {
 
         let bar_contents = r#""Just <bar>a string</bar>""#;
         let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
-        let bar_range = bar.span("bar");
+        let bar_range = bar.resolved_span("bar");
         let bar_range_str = format!(
             "{}:{}:{}:{}",
             bar_range.begin_line, bar_range.begin_column, bar_range.end_line, bar_range.end_column
@@ -1457,7 +1457,7 @@ mod test {
             };
             let expected_location = expected_location_link_from_spans(
                 bar_uri.clone(),
-                foo.span(&format!("{}_click", name)),
+                foo.resolved_span(&format!("{}_click", name)),
                 range,
             );
 
@@ -1564,7 +1564,7 @@ mod test {
         let response = goto_definition_response_location(&mut server, req_id)?;
 
         let expected = LocationLink {
-            origin_selection_range: Some(foo.span("bar").into()),
+            origin_selection_range: Some(foo.resolved_span("bar").into()),
             target_uri: bar_uri,
             target_range: Default::default(),
             target_selection_range: Default::default(),
@@ -1582,7 +1582,7 @@ mod test {
         let response = goto_definition_response_location(&mut server, req_id)?;
 
         let expected = LocationLink {
-            origin_selection_range: Some(foo.span("baz").into()),
+            origin_selection_range: Some(foo.resolved_span("baz").into()),
             target_uri: baz_uri,
             target_range: Default::default(),
             target_selection_range: Default::default(),
@@ -1600,7 +1600,7 @@ mod test {
         let response = goto_definition_response_location(&mut server, req_id)?;
 
         let expected = LocationLink {
-            origin_selection_range: Some(foo.span("dir1").into()),
+            origin_selection_range: Some(foo.resolved_span("dir1").into()),
             target_uri: dir1_uri,
             target_range: Default::default(),
             target_selection_range: Default::default(),
@@ -1619,7 +1619,7 @@ mod test {
         let response = goto_definition_response_location(&mut server, req_id)?;
 
         let expected = LocationLink {
-            origin_selection_range: Some(foo.span("dir2").into()),
+            origin_selection_range: Some(foo.resolved_span("dir2").into()),
             target_uri: dir2_uri,
             target_range: Default::default(),
             target_selection_range: Default::default(),
@@ -1731,8 +1731,8 @@ mod test {
 
         let expected_n1_location = expected_location_link_from_spans(
             native_uri,
-            foo.span("click_n1"),
-            native.span("n1_loc"),
+            foo.resolved_span("click_n1"),
+            native.resolved_span("n1_loc"),
         );
 
         let goto_definition = goto_definition_request(
@@ -1748,8 +1748,8 @@ mod test {
 
         let expected_n2_location = expected_location_link_from_spans(
             foo_uri.clone(),
-            foo.span("click_n2"),
-            foo.span("n2_loc"),
+            foo.resolved_span("click_n2"),
+            foo.resolved_span("n2_loc"),
         );
 
         let goto_definition = goto_definition_request(
@@ -1856,8 +1856,8 @@ mod test {
             .map(|(fixture, uri, id)| {
                 expected_location_link_from_spans(
                     (*uri).clone(),
-                    foo.span(id),
-                    fixture.span(&format!("dest_{}", id)),
+                    foo.resolved_span(id),
+                    fixture.resolved_span(&format!("dest_{}", id)),
                 )
             })
             .collect::<Vec<_>>();
