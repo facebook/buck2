@@ -73,7 +73,7 @@ enum Command {
         ///
         /// This option requires the presence of `rustc` in the `$PATH`, as rust-project
         /// will run `rustc --print sysroot` and ignore any other `sysroot` configuration.
-        #[clap(conflicts_with = "sysroot", default_value = "false")]
+        #[clap(long, conflicts_with = "sysroot", default_value = "false")]
         prefer_rustup_managed_toolchain: bool,
 
         /// The directory containing the Rust source code, including std.
