@@ -393,7 +393,7 @@ impl MethodsBuilder {
             name,
             true,
             docstring,
-            Ty::name(value.to_value().get_type()),
+            V::starlark_type_repr(),
             move |_, _| Ok(value.to_value()),
         );
     }
