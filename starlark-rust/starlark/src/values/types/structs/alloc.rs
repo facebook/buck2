@@ -57,11 +57,10 @@ impl AllocStruct<iter::Empty<(String, String)>> {
     pub const EMPTY: AllocStruct<iter::Empty<(String, String)>> = AllocStruct(iter::empty());
 }
 
-impl<'v, K, V, S> StarlarkTypeRepr for AllocStruct<S>
+impl<K, V, S> StarlarkTypeRepr for AllocStruct<S>
 where
     S: IntoIterator<Item = (K, V)>,
-    K: AllocStringValue<'v>,
-    V: AllocValue<'v>,
+    V: StarlarkTypeRepr,
 {
     fn starlark_type_repr() -> Ty {
         Struct::starlark_type_repr()

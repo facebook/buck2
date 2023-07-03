@@ -24,7 +24,9 @@ use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
 
+use crate::typing::Ty;
 use crate::values::none::NoneType;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -57,6 +59,12 @@ impl Default for OwnedFrozenValue {
 impl Display for OwnedFrozenValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.value, f)
+    }
+}
+
+impl StarlarkTypeRepr for OwnedFrozenValue {
+    fn starlark_type_repr() -> Ty {
+        FrozenValue::starlark_type_repr()
     }
 }
 

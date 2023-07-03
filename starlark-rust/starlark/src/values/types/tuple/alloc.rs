@@ -48,10 +48,9 @@ impl AllocTuple<iter::Empty<FrozenValue>> {
     pub const EMPTY: AllocTuple<iter::Empty<FrozenValue>> = AllocTuple(iter::empty());
 }
 
-impl<'v, T> StarlarkTypeRepr for AllocTuple<T>
+impl<T> StarlarkTypeRepr for AllocTuple<T>
 where
     T: IntoIterator,
-    T::Item: AllocValue<'v>,
 {
     fn starlark_type_repr() -> Ty {
         Ty::name(TupleRef::TYPE)

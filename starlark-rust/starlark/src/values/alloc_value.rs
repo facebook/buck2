@@ -92,7 +92,7 @@ impl<A: AllocFrozenValue, B: AllocFrozenValue> AllocFrozenValue for Either<A, B>
 }
 
 /// Trait for things that can be allocated on a [`FrozenHeap`] producing a [`FrozenValue`].
-pub trait AllocFrozenValue {
+pub trait AllocFrozenValue: StarlarkTypeRepr {
     /// Allocate a value in the frozen heap and return a reference to the allocated value.
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue;
 }

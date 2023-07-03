@@ -239,9 +239,9 @@ impl<V: AllocFrozenValue> AllocFrozenValue for Vec<V> {
     }
 }
 
-impl<'a, 'v, V: 'a> StarlarkTypeRepr for &'a [V]
+impl<'a, V: 'a> StarlarkTypeRepr for &'a [V]
 where
-    &'a V: AllocValue<'v> + StarlarkTypeRepr,
+    &'a V: StarlarkTypeRepr,
 {
     fn starlark_type_repr() -> Ty {
         Vec::<&'a V>::starlark_type_repr()

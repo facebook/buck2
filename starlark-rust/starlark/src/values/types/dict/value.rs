@@ -123,6 +123,12 @@ impl<'v> AllocValue<'v> for Dict<'v> {
     }
 }
 
+impl StarlarkTypeRepr for FrozenDictData {
+    fn starlark_type_repr() -> Ty {
+        Ty::dict(Ty::Any, Ty::Any)
+    }
+}
+
 impl AllocFrozenValue for FrozenDictData {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         if self.content.is_empty() {
