@@ -338,13 +338,6 @@ pub struct Identifier {
     pub location: Option<Location>,
 }
 
-/// The type of a given parameter, field, etc.
-#[derive(Debug, Clone, PartialEq, Serialize, Allocative)]
-pub struct DocType {
-    /// The type string that one would find in a starlark expression.
-    pub raw_type: Ty,
-}
-
 /// Documents a full module.
 #[derive(Debug, Clone, PartialEq, Serialize, Default, Allocative)]
 pub struct DocModule {
@@ -456,7 +449,7 @@ impl DocFunction {
             .ret
             .typ
             .as_ref()
-            .map(|t| format!(" -> {}", t.raw_type))
+            .map(|t| format!(" -> {}", t))
             .unwrap_or_default();
 
         format!("def {}{}{}:\n{}    pass", name, params, ret, docstring)
@@ -475,7 +468,7 @@ impl DocFunction {
     pub fn from_docstring(
         kind: DocStringKind,
         mut params: Vec<DocParam>,
-        return_type: Option<DocType>,
+        return_type: Option<Ty>,
         raw_docstring: Option<&str>,
         dot_type: Option<String>,
     ) -> Self {
@@ -588,7 +581,7 @@ pub enum DocParam {
         name: String,
         docs: Option<DocString>,
         #[serde(rename = "type")]
-        typ: Option<DocType>,
+        typ: Option<Ty>,
         /// If present, this parameter has a default value. This is the `repr()` of that value.
         default_value: Option<String>,
     },
@@ -601,14 +594,14 @@ pub enum DocParam {
         name: String,
         docs: Option<DocString>,
         #[serde(rename = "type")]
-        typ: Option<DocType>,
+        typ: Option<Ty>,
     },
     /// Represents the "**kwargs" style of argument.
     Kwargs {
         name: String,
         docs: Option<DocString>,
         #[serde(rename = "type")]
-        typ: Option<DocType>,
+        typ: Option<Ty>,
     },
 }
 
@@ -634,8 +627,8 @@ impl DocParam {
                 default_value,
                 ..
             } => match (typ.as_ref(), default_value.as_ref()) {
-                (Some(t), Some(default)) => format!("{}: {} = {}", name, t.raw_type, default),
-                (Some(t), None) => format!("{}: {}", name, t.raw_type),
+                (Some(t), Some(default)) => format!("{}: {} = {}", name, t, default),
+                (Some(t), None) => format!("{}: {}", name, t),
                 (None, Some(default)) => format!("{} = {}", name, default),
                 (None, None) => name.clone(),
             },
@@ -643,7 +636,7 @@ impl DocParam {
             DocParam::OnlyPosBefore => "/".to_owned(),
             DocParam::Args { name, typ, .. } | DocParam::Kwargs { name, typ, .. } => {
                 match typ.as_ref() {
-                    Some(typ) => format!("{}: {}", name, typ.raw_type),
+                    Some(typ) => format!("{}: {}", name, typ),
                     None => name.clone(),
                 }
             }
@@ -657,7 +650,7 @@ pub struct DocReturn {
     /// Extra semantic details around the returned value's meaning.
     pub docs: Option<DocString>,
     #[serde(rename = "type")]
-    pub typ: Option<DocType>,
+    pub typ: Option<Ty>,
 }
 
 impl DocReturn {
@@ -671,7 +664,7 @@ impl DocReturn {
 pub struct DocProperty {
     pub docs: Option<DocString>,
     #[serde(rename = "type")]
-    pub typ: Option<DocType>,
+    pub typ: Option<Ty>,
 }
 
 impl DocProperty {
@@ -688,9 +681,9 @@ impl DocProperty {
             // }
             // (Some(t), None) => format!(r#"_{}: {} = None"#, name, t.raw_type),
             (Some(t), Some(ds)) => {
-                format!("{}\n# type: {}\n_{} = None", ds, t.raw_type, name)
+                format!("{}\n# type: {}\n_{} = None", ds, t, name)
             }
-            (Some(t), None) => format!("# type: {}\n_{} = None", t.raw_type, name),
+            (Some(t), None) => format!("# type: {}\n_{} = None", t, name),
 
             (None, Some(ds)) => format!("{}\n_{} = None", ds, name),
             (None, None) => format!("_{} = None", name),
@@ -715,9 +708,7 @@ impl DocMember {
             Some(DocItem::Property(x)) => DocMember::Property(x),
             _ => DocMember::Property(DocProperty {
                 docs: None,
-                typ: Some(DocType {
-                    raw_type: value.get_type_starlark_repr(),
-                }),
+                typ: Some(value.get_type_starlark_repr()),
             }),
         }
     }
@@ -1167,9 +1158,7 @@ mod tests {
         "#;
 
         let kind = DocStringKind::Starlark;
-        let return_type = Some(DocType {
-            raw_type: Ty::int(),
-        });
+        let return_type = Some(Ty::int());
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),
             params: vec![
@@ -1245,9 +1234,7 @@ mod tests {
         "#;
 
         let kind = DocStringKind::Rust;
-        let return_type = Some(DocType {
-            raw_type: Ty::int(),
-        });
+        let return_type = Some(Ty::int());
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),
             params: vec![

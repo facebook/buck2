@@ -43,7 +43,6 @@ use crate::docs::DocFunction;
 use crate::docs::DocItem;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
-use crate::docs::DocType;
 use crate::environment::FrozenModuleData;
 use crate::environment::Globals;
 use crate::eval::bc::bytecode::Bc;
@@ -76,6 +75,7 @@ use crate::eval::Arguments;
 use crate::slice_vec_ext::SliceExt;
 use crate::starlark_complex_values;
 use crate::syntax::ast::ParameterP;
+use crate::typing::Ty;
 use crate::values::frozen_ref::AtomicFrozenRefOption;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::typing::TypeCompiled;
@@ -544,22 +544,13 @@ impl<'v> Def<'v> {
 
 impl<'v, T1: ValueLike<'v>> DefGen<T1> {
     fn docs(&self) -> Option<DocItem> {
-        let parameter_types: HashMap<usize, DocType> = self
+        let parameter_types: HashMap<usize, Ty> = self
             .parameter_types
             .iter()
-            .map(|(idx, _, ty)| {
-                (
-                    idx.0 as usize,
-                    DocType {
-                        raw_type: ty.as_ty(),
-                    },
-                )
-            })
+            .map(|(idx, _, ty)| (idx.0 as usize, ty.as_ty()))
             .collect();
 
-        let return_type = self.return_type.map(|r| DocType {
-            raw_type: r.as_ty(),
-        });
+        let return_type = self.return_type.map(|r| r.as_ty());
 
         let function_docs = DocFunction::from_docstring(
             DocStringKind::Starlark,

@@ -20,7 +20,6 @@ use starlark::docs::DocObject;
 use starlark::docs::DocProperty;
 use starlark::docs::DocReturn;
 use starlark::docs::DocString;
-use starlark::docs::DocType;
 use starlark::environment::GlobalsBuilder;
 use starlark::typing::Ty;
 use starlark::values::ValueLike;
@@ -48,7 +47,7 @@ pub trait ProviderCallableLike {
         overall: &Option<DocString>,
         fields: &[&str],
         field_docs: &[Option<DocString>],
-        field_types: &[Option<DocType>],
+        field_types: &[Option<Ty>],
     ) -> Option<DocItem> {
         let members = itertools::izip!(fields.iter(), field_docs.iter(), field_types.iter())
             .map(|(name, docs, return_type)| {
@@ -110,11 +109,7 @@ pub trait ProviderCallableLike {
                     Some("Provides a number of fields that can be accessed:".to_owned()),
                 ];
                 for (name, member) in members {
-                    let typ = member
-                        .typ
-                        .as_ref()
-                        .map_or(&Ty::Any, |x| &x.raw_type)
-                        .to_string();
+                    let typ = member.typ.as_ref().unwrap_or(&Ty::Any).to_string();
                     let description = member.docs.map_or_else(
                         || "field".to_owned(),
                         |x| x.summary + &x.details.unwrap_or_default(),
@@ -127,9 +122,7 @@ pub trait ProviderCallableLike {
                 });
                 let ret = DocReturn {
                     docs: ret.docs,
-                    typ: Some(DocType {
-                        raw_type: Ty::name(&name),
-                    }),
+                    typ: Some(Ty::name(&name)),
                 };
                 Some(DocItem::Function(DocFunction {
                     docs,

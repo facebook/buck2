@@ -38,7 +38,6 @@ use crate::docs::DocFunction;
 use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
-use crate::docs::DocType;
 use crate::eval::compiler::constants::Constants;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
@@ -862,10 +861,10 @@ impl Ty {
         }
     }
 
-    pub(crate) fn from_docs_type(ty: &Option<DocType>) -> Self {
+    pub(crate) fn from_docs_type(ty: &Option<Ty>) -> Self {
         match ty {
             None => Ty::Any,
-            Some(x) => x.raw_type.clone(),
+            Some(x) => x.clone(),
         }
     }
 }

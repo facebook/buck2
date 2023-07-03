@@ -190,9 +190,7 @@ impl ProviderCodegen {
                         let rust_type = input.parse::<LitStr>()?.value();
                         let rust_type: proc_macro2::TokenStream = rust_type.parse()?;
                         Ok(quote! {
-                            Some(starlark::docs::DocType {
-                                raw_type: <#rust_type>::starlark_type_repr(),
-                            })
+                            Some(<#rust_type>::starlark_type_repr())
                         })
                     } else {
                         Ok(quote! { None })

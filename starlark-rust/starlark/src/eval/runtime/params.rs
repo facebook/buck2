@@ -34,7 +34,6 @@ use crate::coerce::Coerce;
 use crate::collections::symbol_map::SymbolMap;
 use crate::docs::DocParam;
 use crate::docs::DocString;
-use crate::docs::DocType;
 use crate::eval::runtime::arguments::ArgSymbol;
 use crate::eval::runtime::arguments::ArgumentsImpl;
 use crate::eval::runtime::arguments::FunctionError;
@@ -42,6 +41,7 @@ use crate::eval::runtime::arguments::ResolvedArgName;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::hint::unlikely;
+use crate::typing::Ty;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
 use crate::values::Heap;
@@ -656,7 +656,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     ///                    that parameter
     pub fn documentation(
         &self,
-        mut parameter_types: HashMap<usize, DocType>,
+        mut parameter_types: HashMap<usize, Ty>,
         mut parameter_docs: HashMap<String, Option<DocString>>,
     ) -> Vec<DocParam> {
         let mut pos_only = 0;
@@ -784,7 +784,6 @@ mod tests {
     use crate::docs::DocParam;
     use crate::docs::DocString;
     use crate::docs::DocStringKind;
-    use crate::docs::DocType;
     use crate::eval::compiler::def::FrozenDef;
     use crate::eval::runtime::params::ParameterKind;
     use crate::eval::ParametersSpec;
@@ -865,9 +864,7 @@ mod tests {
             DocParam::Arg {
                 name: "a".to_owned(),
                 docs: None,
-                typ: Some(DocType {
-                    raw_type: Ty::int(),
-                }),
+                typ: Some(Ty::int()),
                 default_value: Some("_".to_owned()),
             },
             DocParam::Arg {
@@ -878,12 +875,7 @@ mod tests {
             },
         ];
         let mut types = HashMap::new();
-        types.insert(
-            1,
-            DocType {
-                raw_type: Ty::int(),
-            },
-        );
+        types.insert(1, Ty::int());
         let mut docs = HashMap::new();
         docs.insert("a".to_owned(), None);
         docs.insert(

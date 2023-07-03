@@ -26,7 +26,6 @@ use starlark::docs::DocParam;
 use starlark::docs::DocReturn;
 use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
-use starlark::docs::DocType;
 use starlark::typing::Ty;
 
 fn rule_tester() -> Tester {
@@ -326,7 +325,7 @@ fn returns_documentation() -> anyhow::Result<()> {
         DocParam::Arg {
             name: name.to_owned(),
             docs: DocString::from_docstring(DocStringKind::Starlark, &format!("{} docs", name)),
-            typ: Some(DocType { raw_type }),
+            typ: Some(raw_type),
             default_value: default.map(String::from),
         }
     }
@@ -338,7 +337,6 @@ fn returns_documentation() -> anyhow::Result<()> {
             .starlark_types()
             .into_iter()
             .enumerate()
-            .map(|(i, raw_type)| (i, DocType { raw_type }))
             .collect(),
         empty_spec.docstrings(),
     );
@@ -366,9 +364,7 @@ fn returns_documentation() -> anyhow::Result<()> {
         params,
         ret: DocReturn {
             docs: None,
-            typ: Some(DocType {
-                raw_type: Ty::none(),
-            }),
+            typ: Some(Ty::none()),
         },
         dot_type: None,
     });

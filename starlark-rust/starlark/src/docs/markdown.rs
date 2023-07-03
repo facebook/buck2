@@ -28,7 +28,7 @@ use crate::docs::DocObject;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocString;
-use crate::docs::DocType;
+use crate::typing::Ty;
 
 /// The style of output that is being generated
 #[derive(Copy, Clone, Dupe)]
@@ -275,7 +275,7 @@ const MAX_LENGTH_BEFORE_MULTILINE: usize = 80;
 /// produce a function prototype.
 enum TypeRenderer<'a> {
     /// A general "type".
-    Type(&'a Option<DocType>),
+    Type(&'a Option<Ty>),
     /// A function, with some extra formatting options.
     Function {
         /// The function name in the prototype as well.
@@ -286,14 +286,14 @@ enum TypeRenderer<'a> {
 
 impl<'a> RenderMarkdown for TypeRenderer<'a> {
     fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        fn raw_type(t: &Option<DocType>) -> String {
+        fn raw_type(t: &Option<Ty>) -> String {
             match t {
-                Some(t) => t.raw_type.to_string(),
+                Some(t) => t.to_string(),
                 _ => "\"\"".to_owned(),
             }
         }
 
-        fn raw_type_prefix(prefix: &str, t: &Option<DocType>) -> String {
+        fn raw_type_prefix(prefix: &str, t: &Option<Ty>) -> String {
             if t.is_some() {
                 format!("{prefix}{}", raw_type(t))
             } else {

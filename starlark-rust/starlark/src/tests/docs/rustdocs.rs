@@ -126,7 +126,7 @@ def with_arguments(*args, **kwargs) -> int.type: pass
         x.replace("\\\"int\\\"", "int.type")
             .replace("\\\"bool\\\"", "bool.type")
             .replace("\\\"string\\\"", "str.type")
-            .replace("Some(DocType { raw_type: Any })", "None")
+            .replace("Some(Any)", "None")
             .replace("\\\"_\\\"", "_")
     }
 

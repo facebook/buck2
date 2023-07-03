@@ -596,7 +596,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
         .filter(|(_, a)| a.pass_style != StarArgPassStyle::Args) // these aren't coerced according to their type (Vec vs tuple)
         .map(|(i, arg)| {
             let typ_str = render_starlark_type(span, arg.without_option());
-            quote_spanned!(span=> (#i, starlark::docs::DocType { raw_type: #typ_str }) )
+            quote_spanned!(span=> (#i, #typ_str) )
         })
         .collect();
 
@@ -606,14 +606,11 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
     let documentation = quote_spanned!(span=>
         let #var_name = {
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
-            let return_type = starlark::docs::DocType {
-                raw_type: #return_type_str
-            };
             starlark::values::function::NativeCallableRawDocs {
                 rust_docstring: #docs,
                 signature: #documentation_signature,
                 parameter_types,
-                return_type,
+                return_type: #return_type_str,
                 dot_type: #dot_type,
             }
         };

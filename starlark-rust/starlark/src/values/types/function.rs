@@ -34,7 +34,6 @@ use crate::docs::DocItem;
 use crate::docs::DocProperty;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
-use crate::docs::DocType;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersParser;
@@ -157,8 +156,8 @@ impl<T> NativeAttr for T where
 pub struct NativeCallableRawDocs {
     pub rust_docstring: Option<&'static str>,
     pub signature: ParametersSpec<FrozenValue>,
-    pub parameter_types: HashMap<usize, DocType>,
-    pub return_type: DocType,
+    pub parameter_types: HashMap<usize, Ty>,
+    pub return_type: Ty,
     pub dot_type: Option<&'static str>,
 }
 
@@ -409,9 +408,7 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
             .docstring
             .as_ref()
             .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
-        let typ = Some(DocType {
-            raw_type: self.typ.clone(),
-        });
+        let typ = Some(self.typ.clone());
         Some(DocItem::Property(DocProperty { docs: ds, typ }))
     }
 }
