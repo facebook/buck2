@@ -40,7 +40,7 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::uniplate::Visit;
 use crate::syntax::AstModule;
 
-/// The location of a definition for a given identifier. See [`AstModule::find_definition`].
+/// The location of a definition for a given identifier. See [`AstModule::find_definition_at_location`].
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) enum IdentifierDefinition {
     /// The definition was found at this location in the current file.
@@ -224,7 +224,7 @@ impl LspModule {
     ///
     /// This method also handles scoping properly (i.e. an access of "foo" in a function
     /// will return location of the parameter "foo", even if there is a global called "foo").
-    pub(crate) fn find_definition(&self, line: u32, col: u32) -> Definition {
+    pub(crate) fn find_definition_at_location(&self, line: u32, col: u32) -> Definition {
         // TODO(nmj): This should probably just store references to all of the AST nodes
         //            when the LSPModule object is created, and then we can do a much faster
         //            lookup, especially in cases where a file has not been changed, so the
@@ -501,8 +501,11 @@ impl LspModule {
         symbol_to_lookup
             .and_then(|span| {
                 let resolved = self.ast.codemap.resolve_span(span);
-                self.find_definition(resolved.begin_line as u32, resolved.begin_column as u32)
-                    .local_destination()
+                self.find_definition_at_location(
+                    resolved.begin_line as u32,
+                    resolved.begin_column as u32,
+                )
+                .local_destination()
             })
             .or_else(|| match (arg_span, identifier_span) {
                 (Some(span), _) => Some(self.ast.codemap.resolve_span(span)),
@@ -807,15 +810,15 @@ mod test {
         .into();
         assert_eq!(
             expected,
-            module.find_definition(parsed.begin_line("p1"), parsed.begin_column("p1"))
+            module.find_definition_at_location(parsed.begin_line("p1"), parsed.begin_column("p1"))
         );
         assert_eq!(
             expected,
-            module.find_definition(parsed.begin_line("p2"), parsed.begin_column("p2"))
+            module.find_definition_at_location(parsed.begin_line("p2"), parsed.begin_column("p2"))
         );
         assert_eq!(
             expected,
-            module.find_definition(parsed.begin_line("p3"), parsed.begin_column("p3"))
+            module.find_definition_at_location(parsed.begin_line("p3"), parsed.begin_column("p3"))
         );
         Ok(())
     }
@@ -856,28 +859,28 @@ mod test {
 
         assert_eq!(
             expected_add,
-            module.find_definition(parsed.begin_line("a1"), parsed.begin_column("a1"))
+            module.find_definition_at_location(parsed.begin_line("a1"), parsed.begin_column("a1"))
         );
         assert_eq!(
             expected_add,
-            module.find_definition(parsed.begin_line("a2"), parsed.begin_column("a2"))
+            module.find_definition_at_location(parsed.begin_line("a2"), parsed.begin_column("a2"))
         );
         assert_eq!(
             expected_add,
-            module.find_definition(parsed.begin_line("a3"), parsed.begin_column("a3"))
+            module.find_definition_at_location(parsed.begin_line("a3"), parsed.begin_column("a3"))
         );
 
         assert_eq!(
             expected_invalid,
-            module.find_definition(parsed.begin_line("i1"), parsed.begin_column("i1"))
+            module.find_definition_at_location(parsed.begin_line("i1"), parsed.begin_column("i1"))
         );
         assert_eq!(
             expected_invalid,
-            module.find_definition(parsed.begin_line("i2"), parsed.begin_column("i2"))
+            module.find_definition_at_location(parsed.begin_line("i2"), parsed.begin_column("i2"))
         );
         assert_eq!(
             expected_invalid,
-            module.find_definition(parsed.begin_line("i3"), parsed.begin_column("i3"))
+            module.find_definition_at_location(parsed.begin_line("i3"), parsed.begin_column("i3"))
         );
         Ok(())
     }
@@ -912,7 +915,10 @@ mod test {
                 source: parsed.span("x_param"),
                 destination: parsed.span("x")
             }),
-            module.find_definition(parsed.begin_line("x_param"), parsed.begin_column("x_param"))
+            module.find_definition_at_location(
+                parsed.begin_line("x_param"),
+                parsed.begin_column("x_param")
+            )
         );
         Ok(())
     }
@@ -947,14 +953,20 @@ mod test {
                 source: parsed.span("x_var"),
                 destination: parsed.span("x")
             }),
-            module.find_definition(parsed.begin_line("x_var"), parsed.begin_column("x_var"))
+            module.find_definition_at_location(
+                parsed.begin_line("x_var"),
+                parsed.begin_column("x_var")
+            )
         );
         assert_eq!(
             Definition::from(IdentifierDefinition::Location {
                 source: parsed.span("y_var1"),
                 destination: parsed.span("y2")
             }),
-            module.find_definition(parsed.begin_line("y_var1"), parsed.begin_column("y_var1"))
+            module.find_definition_at_location(
+                parsed.begin_line("y_var1"),
+                parsed.begin_column("y_var1")
+            )
         );
 
         assert_eq!(
@@ -962,14 +974,20 @@ mod test {
                 source: parsed.span("y_var2"),
                 destination: parsed.span("y1")
             }),
-            module.find_definition(parsed.begin_line("y_var2"), parsed.begin_column("y_var2"))
+            module.find_definition_at_location(
+                parsed.begin_line("y_var2"),
+                parsed.begin_column("y_var2")
+            )
         );
         assert_eq!(
             Definition::from(IdentifierDefinition::Unresolved {
                 source: parsed.span("z_var"),
                 name: "z".to_owned()
             }),
-            module.find_definition(parsed.begin_line("z_var"), parsed.begin_column("z_var"))
+            module.find_definition_at_location(
+                parsed.begin_line("z_var"),
+                parsed.begin_column("z_var")
+            )
         );
         Ok(())
     }
@@ -1001,7 +1019,10 @@ mod test {
 
         assert_eq!(
             Definition::from(IdentifierDefinition::NotFound),
-            module.find_definition(parsed.begin_line("no_def"), parsed.begin_column("no_def"))
+            module.find_definition_at_location(
+                parsed.begin_line("no_def"),
+                parsed.begin_column("no_def")
+            )
         );
 
         Ok(())
@@ -1060,7 +1081,8 @@ mod test {
                 source: parsed.span(&format!("{}_click", name)),
                 literal: name.to_owned(),
             });
-            let actual = module.find_definition(parsed.begin_line(name), parsed.begin_column(name));
+            let actual = module
+                .find_definition_at_location(parsed.begin_line(name), parsed.begin_column(name));
 
             assert_eq!(
                 expected, actual,
@@ -1123,7 +1145,10 @@ mod test {
         };
 
         let find_definition = |span_id: &str| {
-            module.find_definition(parsed.begin_line(span_id), parsed.begin_column(span_id))
+            module.find_definition_at_location(
+                parsed.begin_line(span_id),
+                parsed.begin_column(span_id),
+            )
         };
 
         let expected_foo = expected("foo", &["foo"]);
@@ -1177,7 +1202,10 @@ mod test {
         };
 
         let find_definition = |span_id: &str| {
-            module.find_definition(parsed.begin_line(span_id), parsed.begin_column(span_id))
+            module.find_definition_at_location(
+                parsed.begin_line(span_id),
+                parsed.begin_column(span_id),
+            )
         };
 
         let expected_foo = expected("foo", &["foo"]);
@@ -1228,7 +1256,10 @@ mod test {
         };
 
         let find_definition = |span_id: &str| {
-            module.find_definition(parsed.begin_line(span_id), parsed.begin_column(span_id))
+            module.find_definition_at_location(
+                parsed.begin_line(span_id),
+                parsed.begin_column(span_id),
+            )
         };
 
         let expected_foo = expected("foo", &["foo"]);

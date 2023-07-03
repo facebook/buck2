@@ -549,7 +549,7 @@ impl<T: LspContext> Backend<T> {
 
         let location = match self.get_ast(&uri) {
             Some(ast) => {
-                let location = ast.find_definition(line, character);
+                let location = ast.find_definition_at_location(line, character);
                 let source = location.source().unwrap_or_default();
                 match location {
                     Definition::Identifier(definition) => {
