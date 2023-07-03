@@ -30,6 +30,14 @@ from typing import Dict, IO, List, NamedTuple, Optional, Tuple
 
 DEBUG = False
 
+if sys.version_info[:2] < (3, 7):
+    print("Python 3.7 or newer is required!", file=sys.stderr)
+    print(
+        "Using {} from {}".format(platform.python_version(), sys.executable),
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
 
 def key_value_arg(s: str) -> Tuple[str, str]:
     key_value = s.split("=", maxsplit=1)
