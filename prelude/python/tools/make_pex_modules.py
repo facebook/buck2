@@ -145,23 +145,30 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _same_pyc(src1: Path, src2: Path) -> bool:
+def _same_pyc(src1: Tuple[Path, str], src2: Tuple[Path, str]) -> bool:
     """
     Given two paths to .pyc files, return True if they are the same.
     """
     # As of 3.7, .pyc files are deterministic and have a hash of the original source
     # file in their first 16 bytes. See https://peps.python.org/pep-0552/#specification
-    total_size = os.path.getsize(src1)
-    if total_size != os.path.getsize(src2):
-        return False
-    to_read = min(total_size, 16)
-    buf_size = 4096
-    with open(src1, mode="rb") as fa, open(src2, mode="rb") as fb:
-        while to_read > 0:
-            chunk_size = min(to_read, buf_size)
-            if fa.read(chunk_size) != fb.read(chunk_size):
-                return False
-            to_read -= chunk_size
+    src1_path, src1_origin = src1
+    src2_path, src2_origin = src2
+    try:
+        total_size = os.path.getsize(src1_path)
+        if total_size != os.path.getsize(src2_path):
+            return False
+        to_read = min(total_size, 16)
+        buf_size = 4096
+        with open(src1_path, mode="rb") as fa, open(src2_path, mode="rb") as fb:
+            while to_read > 0:
+                chunk_size = min(to_read, buf_size)
+                if fa.read(chunk_size) != fb.read(chunk_size):
+                    return False
+                to_read -= chunk_size
+    except FileNotFoundError:
+        # pyc files might not be materialized yet; in these cases we fall back to comparing the origins,
+        # which should be the path of the original source file
+        return src1_origin == src2_origin
     return True
 
 
@@ -191,7 +198,9 @@ def add_path_mapping(
         prev, prev_origin = path_mapping[new_dest]
         if prev != link_path and not (
             new_dest.suffix == ".pyc"
-            and _same_pyc(src, (new_dest.parent / prev).resolve())
+            and _same_pyc(
+                (src, origin), ((new_dest.parent / prev).resolve(), prev_origin)
+            )
         ):
             raise ValueError(
                 "Destination path `{}` specified at both {} and {} (`{}` before relativisation)".format(
