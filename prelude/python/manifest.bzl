@@ -83,7 +83,8 @@ def create_manifest_for_source_map(
 def create_manifest_for_source_dir(
         ctx: "context",
         param: str,
-        extracted: "artifact") -> ManifestInfo.type:
+        extracted: "artifact",
+        exclude: [str, None]) -> ManifestInfo.type:
     """
     Generate a source manifest for the given directory of sources from the given
     rule.
@@ -93,6 +94,8 @@ def create_manifest_for_source_dir(
     cmd.add("--origin={}".format(ctx.label.raw_target()))
     cmd.add(cmd_args(manifest.as_output(), format = "--output={}"))
     cmd.add(extracted)
+    if exclude != None:
+        cmd.add("--exclude={}".format(exclude))
     ctx.actions.run(cmd, category = "py_source_manifest", identifier = param)
 
     # TODO: enumerate directory?

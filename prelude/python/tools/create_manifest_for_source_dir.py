@@ -9,6 +9,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 from typing import List
 
@@ -18,8 +19,13 @@ def main(argv: List[str]) -> None:
     parser.add_argument("--output", type=argparse.FileType("w"), default=sys.stdout)
     parser.add_argument("--origin", help="description of source origin")
     parser.add_argument("--prefix", help="prefix to prepend to destinations")
+    parser.add_argument("--exclude", help="RE pattern to exclude files")
     parser.add_argument("extracted", help="path to directory of sources")
     args = parser.parse_args(argv[1:])
+
+    exclude = None
+    if args.exclude:
+        exclude = re.compile(args.exclude)
 
     entries = []
     for root, dirs, files in os.walk(args.extracted):
@@ -30,6 +36,8 @@ def main(argv: List[str]) -> None:
         files.sort()
         for name in files:
             path = os.path.join(root, name)
+            if exclude is not None and exclude.search(path):
+                continue
             dest = os.path.relpath(path, args.extracted)
             if args.prefix is not None:
                 dest = os.path.join(args.prefix, dest)
