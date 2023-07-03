@@ -214,13 +214,13 @@ impl TryFrom<&LspUrl> for Url {
 pub struct StringLiteralResult {
     /// The path that a string literal resolves to.
     pub url: LspUrl,
-    /// A function that takes the AstModule at path specified by `url` and that same url, and
+    /// A function that takes the AstModule at path specified by `url`, and
     /// allows resolving a location to jump to within the specific URL if desired.
     ///
     /// If `None`, then just jump to the URL. Do not attempt to load the file.
     #[derivative(Debug = "ignore")]
     pub location_finder:
-        Option<Box<dyn FnOnce(&AstModule, &LspUrl) -> anyhow::Result<Option<Range>> + Send>>,
+        Option<Box<dyn FnOnce(&AstModule) -> anyhow::Result<Option<Range>> + Send>>,
 }
 
 fn _assert_string_literal_result_is_send() {
@@ -498,7 +498,7 @@ impl<T: LspContext> Backend<T> {
                         let result =
                             self.get_ast_or_load_from_disk(&url)
                                 .and_then(|ast| match ast {
-                                    Some(module) => location_finder(&module.ast, &url),
+                                    Some(module) => location_finder(&module.ast),
                                     None => Ok(None),
                                 });
                         if let Err(e) = &result {

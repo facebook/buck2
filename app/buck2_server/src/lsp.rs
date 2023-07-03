@@ -548,7 +548,7 @@ impl<'a> BuckLspContext<'a> {
                                     Ok(url) => {
                                         let string_literal = StringLiteralResult {
                                             url,
-                                            location_finder: Some(Box::new(|ast, _url| {
+                                            location_finder: Some(Box::new(|ast| {
                                                 Ok(Self::find_target(ast, target))
                                             })),
                                         };
