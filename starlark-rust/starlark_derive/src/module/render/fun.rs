@@ -606,11 +606,9 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
     let documentation = quote_spanned!(span=>
         let #var_name = {
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
-            let return_type = Some(
-                starlark::docs::DocType {
-                    raw_type: #return_type_str
-                }
-            );
+            let return_type = starlark::docs::DocType {
+                raw_type: #return_type_str
+            };
             starlark::values::function::NativeCallableRawDocs {
                 rust_docstring: #docs,
                 signature: #documentation_signature,

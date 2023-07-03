@@ -158,7 +158,7 @@ pub struct NativeCallableRawDocs {
     pub rust_docstring: Option<&'static str>,
     pub signature: ParametersSpec<FrozenValue>,
     pub parameter_types: HashMap<usize, DocType>,
-    pub return_type: Option<DocType>,
+    pub return_type: DocType,
     pub dot_type: Option<&'static str>,
 }
 
@@ -169,7 +169,7 @@ impl NativeCallableRawDocs {
             DocStringKind::Rust,
             self.signature
                 .documentation(self.parameter_types.clone(), HashMap::new()),
-            self.return_type.clone(),
+            Some(self.return_type.clone()),
             self.rust_docstring,
             self.dot_type.map(ToOwned::to_owned),
         )
