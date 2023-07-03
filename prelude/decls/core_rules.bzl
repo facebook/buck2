@@ -759,7 +759,7 @@ http_archive = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "sha1": attrs.option(attrs.string(), default = None),
-            "exec_deps": attrs.dep(providers = [HttpArchiveExecDeps], default = "prelude//http_archive/tools:exec_deps", doc = """
+            "exec_deps": attrs.exec_dep(providers = [HttpArchiveExecDeps], default = "prelude//http_archive/tools:exec_deps", doc = """
                 When using http_archive as an anon target, the rule invoking the
                 anon target needs to mirror this attribute into its own
                 attributes, and forward the provider into the anon target

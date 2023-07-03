@@ -68,7 +68,7 @@ download_protoc_distribution = rule(
         "exe_extension": attrs.string(),
         "sha256": attrs.string(),
         "url": attrs.string(),
-        "_http_archive_exec_deps": attrs.default_only(attrs.dep(providers = [HttpArchiveExecDeps], default = "prelude//http_archive/tools:exec_deps")),
+        "_http_archive_exec_deps": attrs.default_only(attrs.exec_dep(providers = [HttpArchiveExecDeps], default = "prelude//http_archive/tools:exec_deps")),
     },
 )
 

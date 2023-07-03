@@ -22,7 +22,7 @@ def _http_archive_exec_deps_impl(ctx: "context") -> ["provider"]:
 http_archive_exec_deps = rule(
     impl = _http_archive_exec_deps_impl,
     attrs = {
-        "create_exclusion_list": attrs.default_only(attrs.exec_dep(default = "prelude//http_archive/tools:create_exclusion_list")),
-        "exec_os_type": attrs.default_only(attrs.exec_dep(default = "prelude//os_lookup/targets:os_lookup")),
+        "create_exclusion_list": attrs.default_only(attrs.dep(default = "prelude//http_archive/tools:create_exclusion_list")),
+        "exec_os_type": attrs.default_only(attrs.dep(default = "prelude//os_lookup/targets:os_lookup")),
     },
 )
