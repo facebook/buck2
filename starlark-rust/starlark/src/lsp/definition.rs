@@ -17,15 +17,15 @@
 
 use std::iter;
 
-use crate::analysis::bind::scope;
-use crate::analysis::bind::Assigner;
-use crate::analysis::bind::Bind;
-use crate::analysis::bind::Scope;
 use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::lsp::bind::scope;
+use crate::lsp::bind::Assigner;
+use crate::lsp::bind::Bind;
+use crate::lsp::bind::Scope;
 use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignP;

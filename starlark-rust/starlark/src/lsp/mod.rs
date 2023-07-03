@@ -18,6 +18,8 @@
 //! The server that allows IDEs to evaluate and interpret starlark code according
 //! to the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/).
 
+mod bind;
+mod definition;
 pub mod server;
 mod symbols;
 #[cfg(all(test, not(windows)))]

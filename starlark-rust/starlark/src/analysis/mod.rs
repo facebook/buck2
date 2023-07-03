@@ -24,8 +24,6 @@ pub use types::Lint;
 use crate::analysis::types::LintT;
 use crate::syntax::AstModule;
 
-mod bind;
-pub(crate) mod definition;
 mod dubious;
 pub(crate) mod exported;
 mod find_call_name;
