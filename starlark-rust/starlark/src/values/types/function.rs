@@ -168,7 +168,7 @@ impl NativeCallableRawDocs {
             DocStringKind::Rust,
             self.signature
                 .documentation(self.parameter_types.clone(), HashMap::new()),
-            Some(self.return_type.clone()),
+            self.return_type.clone(),
             self.rust_docstring,
             self.dot_type.map(ToOwned::to_owned),
         )
@@ -408,7 +408,7 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
             .docstring
             .as_ref()
             .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
-        let typ = Some(self.typ.clone());
+        let typ = self.typ.clone();
         Some(DocItem::Property(DocProperty { docs: ds, typ }))
     }
 }

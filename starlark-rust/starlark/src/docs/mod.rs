@@ -365,7 +365,7 @@ impl DocModule {
 }
 
 /// Documents a single function.
-#[derive(Debug, Clone, PartialEq, Serialize, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Allocative)]
 pub struct DocFunction {
     /// Documentation for the function. If parsed, this should generally be the first statement
     /// of a function's body if that statement is a string literal. Any sections like "Args:",
@@ -445,10 +445,8 @@ impl DocFunction {
                 ds
             })
             .unwrap_or_default();
-        let ret = self
-            .ret
-            .typ
-            .as_ref()
+        let ret = Some(&self.ret.typ)
+            .filter(|t| t != &&Ty::Any)
             .map(|t| format!(" -> {}", t))
             .unwrap_or_default();
 
@@ -468,7 +466,7 @@ impl DocFunction {
     pub fn from_docstring(
         kind: DocStringKind,
         mut params: Vec<DocParam>,
-        return_type: Option<Ty>,
+        return_type: Ty,
         raw_docstring: Option<&str>,
         dot_type: Option<String>,
     ) -> Self {
@@ -581,7 +579,7 @@ pub enum DocParam {
         name: String,
         docs: Option<DocString>,
         #[serde(rename = "type")]
-        typ: Option<Ty>,
+        typ: Ty,
         /// If present, this parameter has a default value. This is the `repr()` of that value.
         default_value: Option<String>,
     },
@@ -594,14 +592,14 @@ pub enum DocParam {
         name: String,
         docs: Option<DocString>,
         #[serde(rename = "type")]
-        typ: Option<Ty>,
+        typ: Ty,
     },
     /// Represents the "**kwargs" style of argument.
     Kwargs {
         name: String,
         docs: Option<DocString>,
         #[serde(rename = "type")]
-        typ: Option<Ty>,
+        typ: Ty,
     },
 }
 
@@ -626,31 +624,38 @@ impl DocParam {
                 typ,
                 default_value,
                 ..
-            } => match (typ.as_ref(), default_value.as_ref()) {
-                (Some(t), Some(default)) => format!("{}: {} = {}", name, t, default),
-                (Some(t), None) => format!("{}: {}", name, t),
-                (None, Some(default)) => format!("{} = {}", name, default),
-                (None, None) => name.clone(),
+            } => match (typ, default_value.as_ref()) {
+                (Ty::Any, Some(default)) => format!("{} = {}", name, default),
+                (Ty::Any, None) => name.clone(),
+                (t, Some(default)) => format!("{}: {} = {}", name, t, default),
+                (t, None) => format!("{}: {}", name, t),
             },
             DocParam::NoArgs => "*".to_owned(),
             DocParam::OnlyPosBefore => "/".to_owned(),
-            DocParam::Args { name, typ, .. } | DocParam::Kwargs { name, typ, .. } => {
-                match typ.as_ref() {
-                    Some(typ) => format!("{}: {}", name, typ),
-                    None => name.clone(),
-                }
-            }
+            DocParam::Args { name, typ, .. } | DocParam::Kwargs { name, typ, .. } => match typ {
+                Ty::Any => name.clone(),
+                typ => format!("{}: {}", name, typ),
+            },
         }
     }
 }
 
 /// Details about the return value of a function.
-#[derive(Debug, Clone, PartialEq, Serialize, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Serialize, Allocative)]
 pub struct DocReturn {
     /// Extra semantic details around the returned value's meaning.
     pub docs: Option<DocString>,
     #[serde(rename = "type")]
-    pub typ: Option<Ty>,
+    pub typ: Ty,
+}
+
+impl Default for DocReturn {
+    fn default() -> Self {
+        DocReturn {
+            docs: None,
+            typ: Ty::Any,
+        }
+    }
 }
 
 impl DocReturn {
@@ -660,17 +665,17 @@ impl DocReturn {
 }
 
 /// A single property of an object. These are explicitly not functions (see [`DocMember`]).
-#[derive(Debug, Clone, PartialEq, Serialize, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Serialize, Allocative)]
 pub struct DocProperty {
     pub docs: Option<DocString>,
     #[serde(rename = "type")]
-    pub typ: Option<Ty>,
+    pub typ: Ty,
 }
 
 impl DocProperty {
     fn render_as_code(&self, name: &str) -> String {
         match (
-            self.typ.as_ref(),
+            &self.typ,
             self.docs.as_ref().map(DocString::render_as_quoted_code),
         ) {
             // TODO(nmj): The starlark syntax needs to be updated to support type
@@ -680,13 +685,12 @@ impl DocProperty {
             //     format!("{}\n_{}: {} = None", ds, name, t.raw_type)
             // }
             // (Some(t), None) => format!(r#"_{}: {} = None"#, name, t.raw_type),
-            (Some(t), Some(ds)) => {
+            (Ty::Any, Some(ds)) => format!("{}\n_{} = None", ds, name),
+            (Ty::Any, None) => format!("_{} = None", name),
+            (t, Some(ds)) => {
                 format!("{}\n# type: {}\n_{} = None", ds, t, name)
             }
-            (Some(t), None) => format!("# type: {}\n_{} = None", t, name),
-
-            (None, Some(ds)) => format!("{}\n_{} = None", ds, name),
-            (None, None) => format!("_{} = None", name),
+            (t, None) => format!("# type: {}\n_{} = None", t, name),
         }
     }
 }
@@ -708,7 +712,7 @@ impl DocMember {
             Some(DocItem::Property(x)) => DocMember::Property(x),
             _ => DocMember::Property(DocProperty {
                 docs: None,
-                typ: Some(value.get_type_starlark_repr()),
+                typ: value.get_type_starlark_repr(),
             }),
         }
     }
@@ -1134,7 +1138,7 @@ mod tests {
         DocParam::Arg {
             name: name.to_owned(),
             docs: None,
-            typ: None,
+            typ: Ty::Any,
             default_value: None,
         }
     }
@@ -1158,20 +1162,20 @@ mod tests {
         "#;
 
         let kind = DocStringKind::Starlark;
-        let return_type = Some(Ty::int());
+        let return_type = Ty::int();
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),
             params: vec![
                 DocParam::Arg {
                     name: "**kwargs".to_owned(),
                     docs: DocString::from_docstring(kind, "Docs for kwargs"),
-                    typ: None,
+                    typ: Ty::Any,
                     default_value: None,
                 },
                 DocParam::Arg {
                     name: "*args".to_owned(),
                     docs: DocString::from_docstring(kind, "Docs for args"),
-                    typ: None,
+                    typ: Ty::Any,
                     default_value: None,
                 },
                 DocParam::Arg {
@@ -1184,13 +1188,13 @@ mod tests {
                             "over three lines"
                         ),
                     ),
-                    typ: None,
+                    typ: Ty::Any,
                     default_value: None,
                 },
                 DocParam::Arg {
                     name: "arg_foo".to_owned(),
                     docs: DocString::from_docstring(kind, "The argument named foo"),
-                    typ: None,
+                    typ: Ty::Any,
                     default_value: None,
                 },
             ],
@@ -1234,7 +1238,7 @@ mod tests {
         "#;
 
         let kind = DocStringKind::Rust;
-        let return_type = Some(Ty::int());
+        let return_type = Ty::int();
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),
             params: vec![
@@ -1248,13 +1252,13 @@ mod tests {
                             "over three lines"
                         ),
                     ),
-                    typ: None,
+                    typ: Ty::Any,
                     default_value: None,
                 },
                 DocParam::Arg {
                     name: "arg_foo".to_owned(),
                     docs: DocString::from_docstring(kind, "The argument named foo"),
-                    typ: None,
+                    typ: Ty::Any,
                     default_value: None,
                 },
             ],

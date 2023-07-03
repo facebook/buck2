@@ -79,7 +79,7 @@ And some assertions:
 ## notypes
 
 ```python
-def notypes(a: "") -> ""
+def notypes(a)
 ```
 
 ---

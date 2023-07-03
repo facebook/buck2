@@ -809,13 +809,13 @@ impl Ty {
 
     pub(crate) fn from_docs_member(member: &DocMember) -> Self {
         match member {
-            DocMember::Property(x) => Self::from_docs_type(&x.typ),
+            DocMember::Property(x) => x.typ.clone(),
             DocMember::Function(x) => Self::from_docs_function(x),
         }
     }
 
     pub(crate) fn from_docs_property(property: &DocProperty) -> Self {
-        Self::from_docs_type(&property.typ)
+        property.typ.clone()
     }
 
     pub(crate) fn from_docs_function(function: &DocFunction) -> Self {
@@ -830,9 +830,9 @@ impl Ty {
                     ..
                 } => {
                     let mut r = if seen_no_args {
-                        Param::name_only(name, Ty::from_docs_type(typ))
+                        Param::name_only(name, typ.clone())
                     } else {
-                        Param::pos_or_name(name, Ty::from_docs_type(typ))
+                        Param::pos_or_name(name, typ.clone())
                     };
                     if default_value.is_some() {
                         r = r.optional();
@@ -849,22 +849,15 @@ impl Ty {
                 DocParam::NoArgs => seen_no_args = true,
                 DocParam::Args { typ, .. } => {
                     seen_no_args = true;
-                    params.push(Param::args(Ty::from_docs_type(typ)))
+                    params.push(Param::args(typ.clone()))
                 }
-                DocParam::Kwargs { typ, .. } => params.push(Param::kwargs(Ty::from_docs_type(typ))),
+                DocParam::Kwargs { typ, .. } => params.push(Param::kwargs(typ.clone())),
             }
         }
-        let result = Self::from_docs_type(&function.ret.typ);
+        let result = function.ret.typ.clone();
         match &function.dot_type {
             None => Ty::function(params, result),
             Some(type_attr) => Ty::ctor_function(type_attr, params, result),
-        }
-    }
-
-    pub(crate) fn from_docs_type(ty: &Option<Ty>) -> Self {
-        match ty {
-            None => Ty::Any,
-            Some(x) => x.clone(),
         }
     }
 }

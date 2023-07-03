@@ -53,7 +53,7 @@ pub trait ProviderCallableLike {
             .map(|(name, docs, return_type)| {
                 let prop = DocProperty {
                     docs: docs.clone(),
-                    typ: return_type.clone(),
+                    typ: return_type.clone().unwrap_or(Ty::Any),
                 };
                 (*name, prop)
             })
@@ -109,7 +109,7 @@ pub trait ProviderCallableLike {
                     Some("Provides a number of fields that can be accessed:".to_owned()),
                 ];
                 for (name, member) in members {
-                    let typ = member.typ.as_ref().unwrap_or(&Ty::Any).to_string();
+                    let typ = member.typ.to_string();
                     let description = member.docs.map_or_else(
                         || "field".to_owned(),
                         |x| x.summary + &x.details.unwrap_or_default(),
@@ -122,7 +122,7 @@ pub trait ProviderCallableLike {
                 });
                 let ret = DocReturn {
                     docs: ret.docs,
-                    typ: Some(Ty::name(&name)),
+                    typ: Ty::name(&name),
                 };
                 Some(DocItem::Function(DocFunction {
                     docs,

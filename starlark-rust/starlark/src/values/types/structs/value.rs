@@ -41,6 +41,7 @@ use crate::docs::DocMember;
 use crate::docs::DocObject;
 use crate::docs::DocProperty;
 use crate::starlark_complex_value;
+use crate::typing::Ty;
 use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
 use crate::values::structs::unordered_hasher::UnorderedHasher;
@@ -180,7 +181,7 @@ where
                         name,
                         DocMember::Property(DocProperty {
                             docs: None,
-                            typ: None,
+                            typ: Ty::Any,
                         }),
                     ),
                 }

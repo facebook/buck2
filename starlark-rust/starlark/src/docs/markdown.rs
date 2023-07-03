@@ -275,7 +275,7 @@ const MAX_LENGTH_BEFORE_MULTILINE: usize = 80;
 /// produce a function prototype.
 enum TypeRenderer<'a> {
     /// A general "type".
-    Type(&'a Option<Ty>),
+    Type(&'a Ty),
     /// A function, with some extra formatting options.
     Function {
         /// The function name in the prototype as well.
@@ -286,18 +286,14 @@ enum TypeRenderer<'a> {
 
 impl<'a> RenderMarkdown for TypeRenderer<'a> {
     fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        fn raw_type(t: &Option<Ty>) -> String {
-            match t {
-                Some(t) => t.to_string(),
-                _ => "\"\"".to_owned(),
-            }
+        fn raw_type(t: &Ty) -> String {
+            t.to_string()
         }
 
-        fn raw_type_prefix(prefix: &str, t: &Option<Ty>) -> String {
-            if t.is_some() {
-                format!("{prefix}{}", raw_type(t))
-            } else {
-                String::new()
+        fn raw_type_prefix(prefix: &str, t: &Ty) -> String {
+            match t {
+                Ty::Any => String::new(),
+                t => format!("{prefix}{}", raw_type(t)),
             }
         }
 

@@ -325,7 +325,7 @@ fn returns_documentation() -> anyhow::Result<()> {
         DocParam::Arg {
             name: name.to_owned(),
             docs: DocString::from_docstring(DocStringKind::Starlark, &format!("{} docs", name)),
-            typ: Some(raw_type),
+            typ: raw_type,
             default_value: default.map(String::from),
         }
     }
@@ -364,7 +364,7 @@ fn returns_documentation() -> anyhow::Result<()> {
         params,
         ret: DocReturn {
             docs: None,
-            typ: Some(Ty::none()),
+            typ: Ty::none(),
         },
         dot_type: None,
     });
