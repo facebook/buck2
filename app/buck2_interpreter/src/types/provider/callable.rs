@@ -18,7 +18,6 @@ use starlark::docs::DocItem;
 use starlark::docs::DocMember;
 use starlark::docs::DocObject;
 use starlark::docs::DocProperty;
-use starlark::docs::DocReturn;
 use starlark::docs::DocString;
 use starlark::environment::GlobalsBuilder;
 use starlark::typing::Ty;
@@ -83,7 +82,7 @@ pub trait ProviderCallableLike {
                     .collect(),
             })),
             Some((
-                name,
+                _name,
                 DocFunction {
                     docs,
                     params,
@@ -120,10 +119,6 @@ pub trait ProviderCallableLike {
                     summary,
                     details: Some(details.iter().flatten().join("\n\n")),
                 });
-                let ret = DocReturn {
-                    docs: ret.docs,
-                    typ: Ty::name(&name),
-                };
                 Some(DocItem::Function(DocFunction {
                     docs,
                     params,
