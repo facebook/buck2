@@ -1,0 +1,20 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+# TODO(nga): fix.
+x = 1 + 1.0
+
+Error:
+error: Expected type `int.type` but got `"float"`
+ --> filename:3:9
+  |
+3 | x = 1 + 1.0
+  |         ^^^
+  |
+
+Interfaces:
+x: "never"

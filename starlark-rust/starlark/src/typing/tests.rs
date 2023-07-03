@@ -403,3 +403,14 @@ x = new_list_dict_syntax({"a": 1, "b": 2})
 "#,
     );
 }
+
+#[test]
+fn test_int_plus_float() {
+    TypeCheck::new().ty("x").check(
+        "int_plus_float",
+        r#"
+# TODO(nga): fix.
+x = 1 + 1.0
+"#,
+    );
+}
