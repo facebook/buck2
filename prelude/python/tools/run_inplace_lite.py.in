@@ -6,6 +6,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# LINKTREEDIR=<MODULES_DIR>
+
 main_module = "<MAIN_MODULE>"
 modules_dir = "<MODULES_DIR>"
 
