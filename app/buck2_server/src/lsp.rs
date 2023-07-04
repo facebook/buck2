@@ -60,6 +60,7 @@ use lsp_types::Url;
 use starlark::codemap::Span;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
+use starlark::docs::DocModule;
 use starlark::docs::Identifier;
 use starlark::docs::Location;
 use starlark::errors::EvalMessage;
@@ -736,6 +737,19 @@ impl<'a> LspContext for BuckLspContext<'a> {
                     .await?;
                 Ok(docs_cache.url_for_symbol(symbol).cloned())
             }))
+    }
+
+    fn render_as_load(
+        &self,
+        _target: &LspUrl,
+        _current_file: &LspUrl,
+        _workspace_root: Option<&Path>,
+    ) -> anyhow::Result<String> {
+        Err(anyhow::anyhow!("Not yet implemented, render_as_load"))
+    }
+
+    fn get_environment(&self, _uri: &LspUrl) -> DocModule {
+        DocModule::default()
     }
 }
 

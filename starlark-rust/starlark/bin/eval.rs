@@ -30,6 +30,7 @@ use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::render_docs_as_code;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
+use starlark::docs::DocModule;
 use starlark::environment::FrozenModule;
 use starlark::environment::Globals;
 use starlark::environment::Module;
@@ -351,6 +352,19 @@ impl LspContext for Context {
         symbol: &str,
     ) -> anyhow::Result<Option<LspUrl>> {
         Ok(self.builtin_symbols.get(symbol).cloned())
+    }
+
+    fn render_as_load(
+        &self,
+        _target: &LspUrl,
+        _current_file: &LspUrl,
+        _workspace_root: Option<&Path>,
+    ) -> anyhow::Result<String> {
+        Err(anyhow::anyhow!("Not yet implemented, render_as_load"))
+    }
+
+    fn get_environment(&self, _uri: &LspUrl) -> DocModule {
+        DocModule::default()
     }
 }
 

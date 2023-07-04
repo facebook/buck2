@@ -61,6 +61,8 @@ use crate::docs::render_docs_as_code;
 use crate::docs::Doc;
 use crate::docs::DocFunction;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
+use crate::docs::DocModule;
 use crate::docs::Identifier;
 use crate::docs::Location;
 use crate::errors::EvalMessage;
@@ -93,6 +95,14 @@ enum ResolveLoadError {
     MissingCurrentFilePath(PathBuf),
     #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
     WrongScheme(String, LspUrl),
+}
+
+#[derive(thiserror::Error, Debug)]
+enum RenderLoadError {
+    #[error("Path `{}` provided, which does not seem to contain a filename", .0.display())]
+    MissingTargetFilename(PathBuf),
+    #[error("Urls `{}` and `{}` was expected to be of type `{}`", .1, .2, .0)]
+    WrongScheme(String, LspUrl, LspUrl),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -170,6 +180,51 @@ impl LspContext for TestServerContext {
         }
     }
 
+    fn render_as_load(
+        &self,
+        target: &LspUrl,
+        current_file: &LspUrl,
+        workspace_root: Option<&Path>,
+    ) -> anyhow::Result<String> {
+        match (target, current_file) {
+            (LspUrl::File(target_path), LspUrl::File(current_file_path)) => {
+                let target_package = target_path.parent();
+                let current_file_package = current_file_path.parent();
+                let target_filename = target_path.file_name();
+
+                // If both are in the same package, return a relative path.
+                if matches!((target_package, current_file_package), (Some(a), Some(b)) if a == b) {
+                    return match target_filename {
+                        Some(filename) => Ok(format!(":{}", filename.to_string_lossy())),
+                        None => {
+                            Err(RenderLoadError::MissingTargetFilename(target_path.clone()).into())
+                        }
+                    };
+                }
+
+                let target_path = workspace_root
+                    .and_then(|root| target_path.strip_prefix(root).ok())
+                    .unwrap_or(target_path);
+
+                Ok(format!(
+                    "//{}:{}",
+                    target_package
+                        .map(|path| path.to_string_lossy())
+                        .unwrap_or_default(),
+                    target_filename
+                        .unwrap_or(target_path.as_os_str())
+                        .to_string_lossy()
+                ))
+            }
+            _ => Err(RenderLoadError::WrongScheme(
+                "file://".to_owned(),
+                target.clone(),
+                current_file.clone(),
+            )
+            .into()),
+        }
+    }
+
     fn resolve_string_literal(
         &self,
         literal: &str,
@@ -227,6 +282,17 @@ impl LspContext for TestServerContext {
         symbol: &str,
     ) -> anyhow::Result<Option<LspUrl>> {
         Ok(self.builtin_symbols.get(symbol).cloned())
+    }
+
+    fn get_environment(&self, _uri: &LspUrl) -> DocModule {
+        DocModule {
+            docs: None,
+            members: self
+                .builtin_symbols
+                .keys()
+                .map(|name| (name.clone(), DocMember::Function(DocFunction::default())))
+                .collect(),
+        }
     }
 }
 

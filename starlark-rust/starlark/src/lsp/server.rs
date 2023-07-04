@@ -69,6 +69,7 @@ use serde::Serializer;
 
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
+use crate::docs::DocModule;
 use crate::lsp::definition::Definition;
 use crate::lsp::definition::DottedDefinition;
 use crate::lsp::definition::IdentifierDefinition;
@@ -272,7 +273,19 @@ pub trait LspContext {
         workspace_root: Option<&Path>,
     ) -> anyhow::Result<LspUrl>;
 
-    /// Resolve a string literal into a Url and a function that specifies a locaction within that
+    /// Render the target URL to use as a path in a `load()` statement. If `target` is
+    /// in the same package as `current_file`, the result is a relative path.
+    ///
+    /// `target` is the file that should be loaded by `load()`.
+    /// `current_file` is the file that the `load()` statement will be inserted into.
+    fn render_as_load(
+        &self,
+        target: &LspUrl,
+        current_file: &LspUrl,
+        workspace_root: Option<&Path>,
+    ) -> anyhow::Result<String>;
+
+    /// Resolve a string literal into a Url and a function that specifies a location within that
     /// target file.
     ///
     /// This can be used for things like file paths in string literals, build targets, etc.
@@ -295,6 +308,9 @@ pub trait LspContext {
             .map(|content| self.parse_file_with_contents(uri, content));
         Ok(result)
     }
+
+    /// Get the preloaded environment for a particular file.
+    fn get_environment(&self, uri: &LspUrl) -> DocModule;
 
     /// Get the LSPUrl for a global symbol if possible.
     ///
