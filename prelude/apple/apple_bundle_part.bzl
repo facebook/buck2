@@ -17,7 +17,7 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
 # Defines where and what should be copied into
 AppleBundlePart = record(
-    # A file of directory which content should be copied
+    # A file or directory which content should be copied
     source = field("artifact"),
     # Where the source should be copied, the actual destination directory
     # inside bundle depends on target platform
