@@ -292,7 +292,12 @@ impl LspContext for Context {
         }
     }
 
-    fn resolve_load(&self, path: &str, current_file: &LspUrl) -> anyhow::Result<LspUrl> {
+    fn resolve_load(
+        &self,
+        path: &str,
+        current_file: &LspUrl,
+        _workspace_root: Option<&Path>,
+    ) -> anyhow::Result<LspUrl> {
         let path = PathBuf::from(path);
         match current_file {
             LspUrl::File(current_file_path) => {
@@ -314,13 +319,15 @@ impl LspContext for Context {
         &self,
         literal: &str,
         current_file: &LspUrl,
+        workspace_root: Option<&Path>,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
-        self.resolve_load(literal, current_file).map(|url| {
-            Some(StringLiteralResult {
-                url,
-                location_finder: None,
+        self.resolve_load(literal, current_file, workspace_root)
+            .map(|url| {
+                Some(StringLiteralResult {
+                    url,
+                    location_finder: None,
+                })
             })
-        })
     }
 
     fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>> {

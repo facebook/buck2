@@ -593,7 +593,12 @@ impl<'a> LspContext for BuckLspContext<'a> {
             }))
     }
 
-    fn resolve_load(&self, path: &str, current_file: &LspUrl) -> anyhow::Result<LspUrl> {
+    fn resolve_load(
+        &self,
+        path: &str,
+        current_file: &LspUrl,
+        _workspace_root: Option<&Path>,
+    ) -> anyhow::Result<LspUrl> {
         let dispatcher = self.server_ctx.events().dupe();
         self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
@@ -637,6 +642,7 @@ impl<'a> LspContext for BuckLspContext<'a> {
         &self,
         literal: &str,
         current_file: &LspUrl,
+        _workspace_root: Option<&Path>,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
         let dispatcher = self.server_ctx.events().dupe();
         self.runtime

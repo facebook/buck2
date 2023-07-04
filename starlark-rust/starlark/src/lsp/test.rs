@@ -147,7 +147,12 @@ impl LspContext for TestServerContext {
         }
     }
 
-    fn resolve_load(&self, path: &str, current_file: &LspUrl) -> anyhow::Result<LspUrl> {
+    fn resolve_load(
+        &self,
+        path: &str,
+        current_file: &LspUrl,
+        _workspace_root: Option<&Path>,
+    ) -> anyhow::Result<LspUrl> {
         let path = PathBuf::from(path);
         match current_file {
             LspUrl::File(current_file_path) => {
@@ -169,6 +174,7 @@ impl LspContext for TestServerContext {
         &self,
         literal: &str,
         current_file: &LspUrl,
+        workspace_root: Option<&Path>,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
         let re = regex::Regex::new(r#"--(\d+):(\d+)$"#)?;
         let (literal, span) = match re.captures(literal) {
@@ -183,7 +189,7 @@ impl LspContext for TestServerContext {
             }
             None => (literal.to_owned(), None),
         };
-        self.resolve_load(&literal, current_file)
+        self.resolve_load(&literal, current_file, workspace_root)
             .map(|url| match &url {
                 LspUrl::File(u) => match u.extension() {
                     Some(e) if e == "star" => Some(StringLiteralResult {

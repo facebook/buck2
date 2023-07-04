@@ -60,6 +60,7 @@ use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
 use lsp_types::Url;
 use lsp_types::WorkDoneProgressOptions;
+use lsp_types::WorkspaceFolder;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -264,7 +265,12 @@ pub trait LspContext {
     ///        implementation defined.
     /// `current_file` is the the file that is including the `load()` statement, and should be used
     ///                if `path` is "relative" in a semantic sense.
-    fn resolve_load(&self, path: &str, current_file: &LspUrl) -> anyhow::Result<LspUrl>;
+    fn resolve_load(
+        &self,
+        path: &str,
+        current_file: &LspUrl,
+        workspace_root: Option<&Path>,
+    ) -> anyhow::Result<LspUrl>;
 
     /// Resolve a string literal into a Url and a function that specifies a locaction within that
     /// target file.
@@ -276,6 +282,7 @@ pub trait LspContext {
         &self,
         literal: &str,
         current_file: &LspUrl,
+        workspace_root: Option<&Path>,
     ) -> anyhow::Result<Option<StringLiteralResult>>;
 
     /// Get the contents of a starlark program at a given path, if it exists.
@@ -402,8 +409,16 @@ impl<T: LspContext> Backend<T> {
     /// NOTE: This uses the last valid parse of a file as a basis for symbol locations.
     /// If a file has changed and does result in a valid parse, then symbol locations may
     /// be slightly incorrect.
-    fn goto_definition(&self, id: RequestId, params: GotoDefinitionParams) {
-        self.send_response(new_response(id, self.find_definition(params)));
+    fn goto_definition(
+        &self,
+        id: RequestId,
+        params: GotoDefinitionParams,
+        initialize_params: &InitializeParams,
+    ) {
+        self.send_response(new_response(
+            id,
+            self.find_definition(params, initialize_params),
+        ));
     }
 
     /// Get the file contents of a starlark: URI.
@@ -418,9 +433,14 @@ impl<T: LspContext> Backend<T> {
         self.send_response(new_response(id, response));
     }
 
-    fn resolve_load_path(&self, path: &str, current_uri: &LspUrl) -> anyhow::Result<LspUrl> {
+    fn resolve_load_path(
+        &self,
+        path: &str,
+        current_uri: &LspUrl,
+        workspace_root: Option<&Path>,
+    ) -> anyhow::Result<LspUrl> {
         match current_uri {
-            LspUrl::File(_) => self.context.resolve_load(path, current_uri),
+            LspUrl::File(_) => self.context.resolve_load(path, current_uri, workspace_root),
             LspUrl::Starlark(_) | LspUrl::Other(_) => {
                 Err(ResolveLoadError::WrongScheme("file://".to_owned(), current_uri.clone()).into())
             }
@@ -453,6 +473,7 @@ impl<T: LspContext> Backend<T> {
         source: ResolvedSpan,
         member: Option<&str>,
         uri: LspUrl,
+        workspace_root: Option<&Path>,
     ) -> anyhow::Result<Option<LocationLink>> {
         let ret = match definition {
             IdentifierDefinition::Location {
@@ -465,7 +486,7 @@ impl<T: LspContext> Backend<T> {
                 name,
                 ..
             } => {
-                let load_uri = self.resolve_load_path(&path, &uri)?;
+                let load_uri = self.resolve_load_path(&path, &uri, workspace_root)?;
                 let loaded_location =
                     self.get_ast_or_load_from_disk(&load_uri)?
                         .and_then(|ast| match member {
@@ -481,13 +502,15 @@ impl<T: LspContext> Backend<T> {
             }
             IdentifierDefinition::NotFound => None,
             IdentifierDefinition::LoadPath { path, .. } => {
-                match self.resolve_load_path(&path, &uri) {
+                match self.resolve_load_path(&path, &uri, workspace_root) {
                     Ok(load_uri) => Self::location_link(source, &load_uri, Range::default())?,
                     Err(_) => None,
                 }
             }
             IdentifierDefinition::StringLiteral { literal, .. } => {
-                let literal = self.context.resolve_string_literal(&literal, &uri)?;
+                let literal =
+                    self.context
+                        .resolve_string_literal(&literal, &uri, workspace_root)?;
                 match literal {
                     Some(StringLiteralResult {
                         url,
@@ -540,6 +563,7 @@ impl<T: LspContext> Backend<T> {
     fn find_definition(
         &self,
         params: GotoDefinitionParams,
+        initialize_params: &InitializeParams,
     ) -> anyhow::Result<GotoDefinitionResponse> {
         let uri = params
             .text_document_position_params
@@ -548,15 +572,21 @@ impl<T: LspContext> Backend<T> {
             .try_into()?;
         let line = params.text_document_position_params.position.line;
         let character = params.text_document_position_params.position.character;
+        let workspace_root =
+            Self::get_workspace_root(initialize_params.workspace_folders.as_ref(), &uri);
 
         let location = match self.get_ast(&uri) {
             Some(ast) => {
                 let location = ast.find_definition_at_location(line, character);
                 let source = location.source().unwrap_or_default();
                 match location {
-                    Definition::Identifier(definition) => {
-                        self.resolve_definition_location(definition, source, None, uri)?
-                    }
+                    Definition::Identifier(definition) => self.resolve_definition_location(
+                        definition,
+                        source,
+                        None,
+                        uri,
+                        workspace_root.as_deref(),
+                    )?,
                     // In this case we don't pass the name along in the root_definition_location,
                     // so it's simpler to do the lookup here, rather than threading a ton of
                     // information through.
@@ -582,6 +612,7 @@ impl<T: LspContext> Backend<T> {
                                 .as_str(),
                         ),
                         uri,
+                        workspace_root.as_deref(),
                     )?,
                 }
             }
@@ -593,6 +624,21 @@ impl<T: LspContext> Backend<T> {
             None => vec![],
         };
         Ok(GotoDefinitionResponse::Link(response))
+    }
+
+    fn get_workspace_root(
+        workspace_roots: Option<&Vec<WorkspaceFolder>>,
+        target: &LspUrl,
+    ) -> Option<PathBuf> {
+        match target {
+            LspUrl::File(target) => workspace_roots.and_then(|roots| {
+                roots
+                    .iter()
+                    .filter_map(|root| root.uri.to_file_path().ok())
+                    .find(|root| target.starts_with(root))
+            }),
+            _ => None,
+        }
     }
 }
 
@@ -622,7 +668,7 @@ impl<T: LspContext> Backend<T> {
         ));
     }
 
-    fn main_loop(&self, _params: InitializeParams) -> anyhow::Result<()> {
+    fn main_loop(&self, initialize_params: InitializeParams) -> anyhow::Result<()> {
         self.log_message(MessageType::INFO, "Starlark server initialised");
         for msg in &self.connection.receiver {
             match msg {
@@ -630,7 +676,7 @@ impl<T: LspContext> Backend<T> {
                     // TODO(nmj): Also implement DocumentSymbols so that some logic can
                     //            be handled client side.
                     if let Some(params) = as_request::<GotoDefinition>(&req) {
-                        self.goto_definition(req.id, params);
+                        self.goto_definition(req.id, params, &initialize_params);
                     } else if let Some(params) = as_request::<StarlarkFileContentsRequest>(&req) {
                         self.get_starlark_file_contents(req.id, params);
                     } else if self.connection.handle_shutdown(&req)? {
