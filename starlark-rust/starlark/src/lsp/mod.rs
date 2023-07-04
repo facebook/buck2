@@ -20,6 +20,7 @@
 
 mod bind;
 mod definition;
+mod exported;
 pub mod server;
 mod symbols;
 #[cfg(all(test, not(windows)))]

@@ -25,7 +25,6 @@ use crate::analysis::types::LintT;
 use crate::syntax::AstModule;
 
 mod dubious;
-pub(crate) mod exported;
 mod find_call_name;
 mod flow;
 mod incompatible;

@@ -19,9 +19,9 @@
 
 use starlark_map::small_map::SmallMap;
 
-use crate::analysis::exported::SymbolKind;
 use crate::codemap::CodeMap;
 use crate::codemap::LineCol;
+use crate::lsp::exported::SymbolKind;
 use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::StmtP;
