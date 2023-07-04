@@ -104,6 +104,7 @@ def _get_actool_command(ctx: "context", info: AppleAssetCatalogSpec.type, catalo
     wrapper_script, _ = ctx.actions.write(
         "actool_wrapper.sh",
         [
+            cmd_args("set -euo pipefail"),
             cmd_args('export TMPDIR="$(mktemp -d)"'),
             cmd_args(actool_command, delimiter = " "),
             cmd_args(catalog_output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}'),

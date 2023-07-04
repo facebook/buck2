@@ -44,6 +44,7 @@ def compile_apple_core_data(ctx: "context", specs: [AppleCoreDataSpec.type], pro
     wrapper_script, _ = ctx.actions.write(
         "momc_wrapper.sh",
         [
+            cmd_args("set -euo pipefail"),
             cmd_args('export TMPDIR="$(mktemp -d)"'),
             cmd_args(momc_commands),
             cmd_args(output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}'),

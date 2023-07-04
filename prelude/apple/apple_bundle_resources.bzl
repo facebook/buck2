@@ -282,6 +282,7 @@ def _run_ibtool(
         wrapper_script, _ = ctx.actions.write(
             "ibtool_wrapper.sh",
             [
+                cmd_args("set -euo pipefail"),
                 cmd_args('export TMPDIR="$(mktemp -d)"'),
                 cmd_args(cmd_args(ibtool_command), delimiter = " "),
                 cmd_args(output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}'),

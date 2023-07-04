@@ -65,6 +65,7 @@ def _get_swift_support_dir(ctx, bundle_output: "artifact", bundle_info: AppleBun
     script, _ = ctx.actions.write(
         "build_swift_support.sh",
         [
+            cmd_args("set -euo pipefail"),
             cmd_args(swift_support_dir, format = "mkdir -p {}"),
             cmd_args(
                 [
