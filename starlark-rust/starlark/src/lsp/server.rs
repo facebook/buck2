@@ -67,6 +67,7 @@ use serde::Serialize;
 use serde::Serializer;
 
 use crate::codemap::ResolvedSpan;
+use crate::codemap::Span;
 use crate::lsp::definition::Definition;
 use crate::lsp::definition::DottedDefinition;
 use crate::lsp::definition::IdentifierDefinition;
@@ -219,8 +220,7 @@ pub struct StringLiteralResult {
     ///
     /// If `None`, then just jump to the URL. Do not attempt to load the file.
     #[derivative(Debug = "ignore")]
-    pub location_finder:
-        Option<Box<dyn FnOnce(&AstModule) -> anyhow::Result<Option<Range>> + Send>>,
+    pub location_finder: Option<Box<dyn FnOnce(&AstModule) -> anyhow::Result<Option<Span>> + Send>>,
 }
 
 fn _assert_string_literal_result_is_send() {
@@ -498,7 +498,9 @@ impl<T: LspContext> Backend<T> {
                         let result =
                             self.get_ast_or_load_from_disk(&url)
                                 .and_then(|ast| match ast {
-                                    Some(module) => location_finder(&module.ast),
+                                    Some(module) => location_finder(&module.ast).map(|span| {
+                                        span.map(|span| module.ast.codemap.resolve_span(span))
+                                    }),
                                     None => Ok(None),
                                 });
                         if let Err(e) = &result {
@@ -1358,10 +1360,10 @@ mod test {
 
         let bar_contents = r#""Just <bar>a string</bar>""#;
         let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
-        let bar_range = bar.resolved_span("bar");
-        let bar_range_str = format!(
-            "{}:{}:{}:{}",
-            bar_range.begin_line, bar_range.begin_column, bar_range.end_line, bar_range.end_column
+        let bar_resolved_span = bar.resolved_span("bar");
+        let bar_span_str = format!(
+            "{}:{}",
+            bar_resolved_span.begin_column, bar_resolved_span.end_column
         );
 
         let foo_contents = dedent(
@@ -1442,7 +1444,7 @@ mod test {
             "#,
         )
         .trim()
-        .replace("{bar_range}", &bar_range_str);
+        .replace("{bar_range}", &bar_span_str);
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
 
         let mut server = TestServer::new()?;
@@ -1451,7 +1453,7 @@ mod test {
 
         let mut test = |name: &str, expect_range: bool| -> anyhow::Result<()> {
             let range = if expect_range {
-                bar_range
+                bar_resolved_span
             } else {
                 Default::default()
             };

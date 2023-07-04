@@ -47,8 +47,6 @@ use lsp_types::GotoCapability;
 use lsp_types::InitializeParams;
 use lsp_types::InitializeResult;
 use lsp_types::InitializedParams;
-use lsp_types::Position;
-use lsp_types::Range;
 use lsp_types::TextDocumentClientCapabilities;
 use lsp_types::TextDocumentContentChangeEvent;
 use lsp_types::TextDocumentItem;
@@ -57,6 +55,8 @@ use lsp_types::VersionedTextDocumentIdentifier;
 use maplit::hashmap;
 use serde::de::DeserializeOwned;
 
+use crate::codemap::Pos;
+use crate::codemap::Span;
 use crate::docs::render_docs_as_code;
 use crate::docs::Doc;
 use crate::docs::DocFunction;
@@ -170,20 +170,15 @@ impl LspContext for TestServerContext {
         literal: &str,
         current_file: &LspUrl,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
-        let re = regex::Regex::new(r#"--(\d+):(\d+):(\d+):(\d+)$"#)?;
-        let (literal, range) = match re.captures(literal) {
+        let re = regex::Regex::new(r#"--(\d+):(\d+)$"#)?;
+        let (literal, span) = match re.captures(literal) {
             Some(cap) => {
-                let start_line = cap.get(1).unwrap().as_str().parse().unwrap();
-                let start_col = cap.get(2).unwrap().as_str().parse().unwrap();
-                let end_line = cap.get(3).unwrap().as_str().parse().unwrap();
-                let end_col = cap.get(4).unwrap().as_str().parse().unwrap();
-                let range = Range::new(
-                    Position::new(start_line, start_col),
-                    Position::new(end_line, end_col),
-                );
+                let start_pos = cap.get(1).unwrap().as_str().parse().unwrap();
+                let end_pos = cap.get(2).unwrap().as_str().parse().unwrap();
+                let span = Span::new(Pos::new(start_pos), Pos::new(end_pos));
                 (
                     literal[0..cap.get(0).unwrap().start()].to_owned(),
-                    Some(range),
+                    Some(span),
                 )
             }
             None => (literal.to_owned(), None),
@@ -193,7 +188,7 @@ impl LspContext for TestServerContext {
                 LspUrl::File(u) => match u.extension() {
                     Some(e) if e == "star" => Some(StringLiteralResult {
                         url,
-                        location_finder: Some(Box::new(move |_ast| Ok(range))),
+                        location_finder: Some(Box::new(move |_ast| Ok(span))),
                     }),
                     _ => Some(StringLiteralResult {
                         url,

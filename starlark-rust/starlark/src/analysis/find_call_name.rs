@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::syntax::ast::Argument;
@@ -30,7 +29,7 @@ impl AstModule {
     ///
     /// NOTE: If the AST is exposed in the future, this function may be removed and implemented
     ///       by specific programs instead.
-    pub fn find_function_call_with_name(&self, name: &str) -> Option<ResolvedSpan> {
+    pub fn find_function_call_with_name(&self, name: &str) -> Option<Span> {
         let mut ret = None;
 
         fn visit_expr(ret: &mut Option<Span>, name: &str, node: &AstExpr) {
@@ -64,7 +63,7 @@ impl AstModule {
         }
 
         self.statement.visit_expr(|x| visit_expr(&mut ret, name, x));
-        ret.map(|span| self.codemap.resolve_span(span))
+        ret
     }
 }
 
@@ -95,7 +94,9 @@ def x(name = "foo_name"):
                 end_line: 1,
                 end_column: 3
             }),
-            module.find_function_call_with_name("foo_name")
+            module
+                .find_function_call_with_name("foo_name")
+                .map(|span| module.codemap.resolve_span(span))
         );
         assert_eq!(None, module.find_function_call_with_name("bar_name"));
         Ok(())

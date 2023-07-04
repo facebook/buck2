@@ -56,8 +56,8 @@ use gazebo::prelude::StrExt;
 use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::Message;
-use lsp_types::Range;
 use lsp_types::Url;
+use starlark::codemap::Span;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
 use starlark::docs::Identifier;
@@ -565,9 +565,8 @@ impl<'a> BuckLspContext<'a> {
         }
     }
 
-    fn find_target(ast: &AstModule, target: TargetName) -> Option<Range> {
+    fn find_target(ast: &AstModule, target: TargetName) -> Option<Span> {
         ast.find_function_call_with_name(target.as_str())
-            .map(Range::from)
     }
 }
 
