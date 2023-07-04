@@ -28,7 +28,7 @@ use crate::syntax::AstModule;
 /// The type of an exported symbol.
 /// If unknown, will use `Any`.
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Dupe, Hash)]
-pub enum SymbolKind {
+pub(crate) enum SymbolKind {
     /// Any kind of symbol.
     Any,
     /// The symbol represents something that can be called, for example
@@ -47,19 +47,19 @@ impl SymbolKind {
 
 /// A symbol. Returned from [`AstModule::exported_symbols`].
 #[derive(Debug, PartialEq, Eq, Clone, Dupe, Hash)]
-pub struct Symbol<'a> {
+pub(crate) struct Symbol<'a> {
     /// The name of the symbol.
-    pub name: &'a str,
+    pub(crate) name: &'a str,
     /// The location of its definition.
-    pub span: FileSpan,
+    pub(crate) span: FileSpan,
     /// The type of symbol it represents.
-    pub kind: SymbolKind,
+    pub(crate) kind: SymbolKind,
 }
 
 impl AstModule {
     /// Which symbols are exported by this module. These are the top-level assignments,
     /// including function definitions. Any symbols that start with `_` are not exported.
-    pub fn exported_symbols<'a>(&'a self) -> Vec<Symbol<'a>> {
+    pub(crate) fn exported_symbols<'a>(&'a self) -> Vec<Symbol<'a>> {
         // Map since we only want to store the first of each export
         // IndexMap since we want the order to match the order they were defined in
         let mut result: SmallMap<&'a str, _> = SmallMap::new();
