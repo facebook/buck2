@@ -112,6 +112,13 @@ struct AndroidInstallOptions {
         help = "Have the launched Android process wait for the debugger. Here for compatibility with buck1 - it is automatically forwarded to the installer"
     )]
     wait_for_debugger: bool,
+
+    #[clap(
+        short,
+        long,
+        help = "Use this option to uninstall an installed app before installing again. Here for compatibility with buck1 - it is automatically forwarded to the installer"
+    )]
+    uninstall: bool,
 }
 
 #[async_trait]
@@ -150,6 +157,9 @@ impl StreamingCommand for InstallCommand {
         }
         if self.android_install_opts.wait_for_debugger {
             extra_run_args.push("-w".to_owned());
+        }
+        if self.android_install_opts.uninstall {
+            extra_run_args.push("-u".to_owned());
         }
 
         let context = ctx.client_context(
