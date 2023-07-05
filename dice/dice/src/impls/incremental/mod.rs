@@ -117,7 +117,7 @@ impl IncrementalEngine {
         eval: SyncEvaluator,
         event_dispatcher: DiceEventDispatcher,
     ) -> CancellableResult<DiceComputedValue> {
-        promise.get_or_complete(|| {
+        promise.sync_get_or_complete(|| {
             event_dispatcher.started(k);
 
             debug!(msg = "running projection");

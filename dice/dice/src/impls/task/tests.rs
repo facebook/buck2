@@ -308,7 +308,7 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .get_or_complete(|| DiceComputedValue::new(
+            .sync_get_or_complete(|| DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
                 Arc::new(CellHistory::empty())
             ))?
@@ -414,7 +414,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .get_or_complete(|| DiceComputedValue::new(
+            .sync_get_or_complete(|| DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
                 Arc::new(CellHistory::empty())
             ))?
@@ -473,7 +473,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .get_or_complete(|| DiceComputedValue::new(
+            .sync_get_or_complete(|| DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
                 Arc::new(CellHistory::empty())
             ))?
@@ -551,7 +551,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .get_or_complete(|| DiceComputedValue::new(
+            .sync_get_or_complete(|| DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
                 Arc::new(CellHistory::empty())
             ))?

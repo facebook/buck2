@@ -68,7 +68,7 @@ impl DicePromise {
 
     /// Get the value if already complete, or complete it. Note that `f` may run even if the result
     /// is not used.
-    pub(crate) fn get_or_complete(
+    pub(crate) fn sync_get_or_complete(
         self,
         f: impl FnOnce() -> DiceComputedValue,
     ) -> CancellableResult<DiceComputedValue> {

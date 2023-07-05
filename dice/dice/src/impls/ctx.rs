@@ -552,7 +552,7 @@ pub(crate) mod testing {
                 .depended_on_by(ParentKey::None)
                 .not_cancelled()
                 .expect("just created")
-                .get_or_complete(|| v);
+                .sync_get_or_complete(|| v);
 
             match self.cache.get(k) {
                 DiceTaskRef::Computed(_) => panic!("cannot inject already computed task"),
