@@ -106,9 +106,9 @@ impl DiceTaskWorker {
         }
     }
 
-    pub(crate) async fn do_work<'a>(
+    pub(crate) async fn do_work<'a, 'b>(
         self,
-        handle: &'a DiceTaskHandle<'a>,
+        handle: &'a DiceTaskHandle<'b>,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         let state = DiceWorkerStateAwaitingPrevious::new(self.k, self.cycles, handle);
 

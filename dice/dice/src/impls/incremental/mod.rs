@@ -159,7 +159,7 @@ impl IncrementalEngine {
         k: DiceKey,
         eval: &AsyncEvaluator,
         events_dispatcher: DiceEventDispatcher,
-        task_state: DiceWorkerStateLookupNode<'_>,
+        task_state: DiceWorkerStateLookupNode<'_, '_>,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         let v = eval.per_live_version_ctx.get_version();
         let (tx, rx) = oneshot::channel();
@@ -235,7 +235,7 @@ impl IncrementalEngine {
         k: DiceKey,
         eval: &AsyncEvaluator,
         event_dispatcher: &DiceEventDispatcher,
-        task_state: DiceWorkerStateComputing<'_>,
+        task_state: DiceWorkerStateComputing<'_, '_>,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         event_dispatcher.started(k);
         scopeguard::defer! {
@@ -296,7 +296,7 @@ impl IncrementalEngine {
         eval: AsyncEvaluator,
         verified_versions: &VersionRanges,
         deps: Arc<Vec<DiceKey>>,
-        check_deps_state: &DiceWorkerStateCheckingDeps<'_>,
+        check_deps_state: &DiceWorkerStateCheckingDeps<'_, '_>,
     ) -> CancellableResult<DidDepsChange> {
         trace!(deps = ?deps);
 

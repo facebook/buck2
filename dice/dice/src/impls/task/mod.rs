@@ -35,7 +35,7 @@ pub(crate) fn spawn_dice_task<S>(
     key: DiceKey,
     spawner: &dyn Spawner<S>,
     ctx: &S,
-    f: impl for<'a> FnOnce(&'a mut DiceTaskHandle<'_>) -> BoxFuture<'a, Box<dyn Any + Send>> + Send,
+    f: impl for<'a, 'b> FnOnce(&'a mut DiceTaskHandle<'b>) -> BoxFuture<'a, Box<dyn Any + Send>> + Send,
 ) -> DiceTask {
     let internal = DiceTaskInternal::new(key);
 

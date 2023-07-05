@@ -24,17 +24,17 @@ use crate::result::Cancelled;
 
 /// Represents when we are in a spawned dice task worker and are currently waiting for the previous
 /// cancelled instance of this task to finish cancelling.
-pub(crate) struct DiceWorkerStateAwaitingPrevious<'a> {
+pub(crate) struct DiceWorkerStateAwaitingPrevious<'a, 'b> {
     k: DiceKey,
     cycles: UserCycleDetectorData,
-    internals: &'a DiceTaskHandle<'a>,
+    internals: &'a DiceTaskHandle<'b>,
 }
 
-impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
+impl<'a, 'b> DiceWorkerStateAwaitingPrevious<'a, 'b> {
     pub(crate) fn new(
         k: DiceKey,
         cycles: UserCycleDetectorData,
-        handle: &'a DiceTaskHandle<'a>,
+        handle: &'a DiceTaskHandle<'b>,
     ) -> Self {
         debug!(msg = "Task started. Waiting for previously cancelled task if any");
         Self {
@@ -53,7 +53,7 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
         DiceWorkerStateFinishedAndCached { value }
     }
 
-    pub(crate) fn previously_cancelled(self) -> DiceWorkerStateLookupNode<'a> {
+    pub(crate) fn previously_cancelled(self) -> DiceWorkerStateLookupNode<'a, 'b> {
         debug!(msg = "previously cancelled task was cancelled");
 
         self.internals.report_initial_lookup();
@@ -65,7 +65,7 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
         }
     }
 
-    pub(crate) fn no_previous_task(self) -> DiceWorkerStateLookupNode<'a> {
+    pub(crate) fn no_previous_task(self) -> DiceWorkerStateLookupNode<'a, 'b> {
         debug!(msg = "no previous task to wait for");
 
         self.internals.report_initial_lookup();
@@ -80,14 +80,17 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
 
 /// Represents when we are currently looking up the current requested key from the core state, and
 /// are waiting for it to respond.
-pub(crate) struct DiceWorkerStateLookupNode<'a> {
+pub(crate) struct DiceWorkerStateLookupNode<'a, 'b> {
     k: DiceKey,
     cycles: UserCycleDetectorData,
-    internals: &'a DiceTaskHandle<'a>,
+    internals: &'a DiceTaskHandle<'b>,
 }
 
-impl<'a> DiceWorkerStateLookupNode<'a> {
-    pub(crate) fn checking_deps(self, eval: &AsyncEvaluator) -> DiceWorkerStateCheckingDeps<'a> {
+impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
+    pub(crate) fn checking_deps(
+        self,
+        eval: &AsyncEvaluator,
+    ) -> DiceWorkerStateCheckingDeps<'a, 'b> {
         debug!(msg = "found existing entry with mismatching version. checking if deps changed.",);
 
         self.internals.checking_deps();
@@ -104,7 +107,7 @@ impl<'a> DiceWorkerStateLookupNode<'a> {
         }
     }
 
-    pub(crate) fn lookup_dirtied(self, eval: &AsyncEvaluator) -> DiceWorkerStateComputing<'a> {
+    pub(crate) fn lookup_dirtied(self, eval: &AsyncEvaluator) -> DiceWorkerStateComputing<'a, 'b> {
         debug!(msg = "lookup requires recompute.");
 
         self.internals.computing();
@@ -133,12 +136,12 @@ impl<'a> DiceWorkerStateLookupNode<'a> {
 
 /// When the spawned dice task worker is checking if the dependencies have changed since the last
 /// time this node was verified, and are waiting for the results of the dependency re-computation.
-pub(crate) struct DiceWorkerStateCheckingDeps<'a> {
+pub(crate) struct DiceWorkerStateCheckingDeps<'a, 'b> {
     cycles: KeyComputingUserCycleDetectorData,
-    internals: &'a DiceTaskHandle<'a>,
+    internals: &'a DiceTaskHandle<'b>,
 }
 
-impl<'a> DiceWorkerStateCheckingDeps<'a> {
+impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
     pub(crate) fn cycles_for_dep(
         &self,
         dep: DiceKey,
@@ -147,7 +150,7 @@ impl<'a> DiceWorkerStateCheckingDeps<'a> {
         self.cycles.subrequest(dep, &eval.dice.key_index)
     }
 
-    pub(crate) fn deps_not_match(self) -> DiceWorkerStateComputing<'a> {
+    pub(crate) fn deps_not_match(self) -> DiceWorkerStateComputing<'a, 'b> {
         debug!(msg = "deps changed");
         self.internals.computing();
 
@@ -187,17 +190,17 @@ impl<'a> DiceWorkerStateCheckingDeps<'a> {
 }
 
 /// When the spawned dice worker is currently computing the requested Key.
-pub(crate) struct DiceWorkerStateComputing<'a> {
+pub(crate) struct DiceWorkerStateComputing<'a, 'b> {
     cycles: KeyComputingUserCycleDetectorData,
-    internals: &'a DiceTaskHandle<'a>,
+    internals: &'a DiceTaskHandle<'b>,
 }
 
-impl<'a> DiceWorkerStateComputing<'a> {
+impl<'a, 'b> DiceWorkerStateComputing<'a, 'b> {
     pub(crate) fn evaluating(
         self,
     ) -> (
         KeyComputingUserCycleDetectorData,
-        DiceWorkerStateEvaluating<'a>,
+        DiceWorkerStateEvaluating<'a, 'b>,
     ) {
         (
             self.cycles,
@@ -209,11 +212,11 @@ impl<'a> DiceWorkerStateComputing<'a> {
 }
 
 /// When the spawned dice worker is currently actively evaluating the `Key::compute` function
-pub(crate) struct DiceWorkerStateEvaluating<'a> {
-    internals: &'a DiceTaskHandle<'a>,
+pub(crate) struct DiceWorkerStateEvaluating<'a, 'b> {
+    internals: &'a DiceTaskHandle<'b>,
 }
 
-impl<'a> DiceWorkerStateEvaluating<'a> {
+impl<'a, 'b> DiceWorkerStateEvaluating<'a, 'b> {
     pub(crate) fn cancellation_ctx(&self) -> &ExplicitCancellationContext {
         self.internals.cancellation_ctx()
     }
