@@ -522,6 +522,7 @@ def _compile(ctx: "context", compiler: "cmd_args", build_mode: BuildMode.type) -
                 if obj != None:
                     cmd.hidden(mk_out(obj))
                 if cmi != None:
+                    cmd.add("-intf-suffix", ",nomli,")  # ignore any .mlis that aren't explicit dependencies
                     cmd.hidden(mk_out(cmi))
                 else:
                     # An explicit '.mli' for this '.ml' is a dependency.
