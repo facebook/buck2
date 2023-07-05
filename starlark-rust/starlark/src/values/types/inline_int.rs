@@ -190,6 +190,8 @@ impl InlineInt {
         i32: TryFrom<I>,
     {
         let i = i32::try_from(i).ok().ok_or(InlineIntOverflow)?;
+        // Only absurd for certain bit widths
+        #[allow(clippy::absurd_extreme_comparisons)]
         if hint::likely(i >= Self::MIN.0 && i <= Self::MAX.0) {
             Ok(InlineInt(i))
         } else {
