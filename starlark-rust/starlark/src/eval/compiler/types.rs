@@ -73,10 +73,14 @@ impl<'v> Compiler<'v, '_, '_> {
         let Some(type_value) = expr.payload else {
             // This is unreachable. But unfortunately we do not return error here.
             // Still make an error in panic to produce nice panic message.
-            panic!("{:?}", EvalException::new(
-                TypesError::TypePayloadNotSet.into(),
-                expr.span,
-                &self.codemap));
+            panic!(
+                "{:?}",
+                EvalException::new(
+                    TypesError::TypePayloadNotSet.into(),
+                    expr.span,
+                    &self.codemap
+                )
+            );
         };
         if type_value.type_is_wildcard() {
             return None;

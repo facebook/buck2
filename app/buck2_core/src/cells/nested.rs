@@ -52,9 +52,10 @@ impl NestedCells {
         all_cells: &[(CellName, &CellRootPath)],
         this_cell: &CellRootPath,
     ) -> NestedCells {
-        Self::from_cell_paths_relative_to_this_cell(all_cells.iter()
-            .filter_map(|(cell_name, cell_root_path)| {
-                let Some(path_relative_to_this_cell) = cell_root_path.strip_prefix_opt(this_cell) else {
+        Self::from_cell_paths_relative_to_this_cell(all_cells.iter().filter_map(
+            |(cell_name, cell_root_path)| {
+                let Some(path_relative_to_this_cell) = cell_root_path.strip_prefix_opt(this_cell)
+                else {
                     return None;
                 };
 
@@ -62,7 +63,8 @@ impl NestedCells {
                     CellRelativePath::new(path_relative_to_this_cell),
                     *cell_name,
                 ))
-            }))
+            },
+        ))
     }
 
     pub fn matches<'a, 'b>(

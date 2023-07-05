@@ -70,14 +70,9 @@ pub(crate) fn parse_visibility_with_view(
     for item in list {
         let Some(item) = item.unpack_str() else {
             if StarlarkSelector::from_value(*item).is_some() {
-                return Err(VisibilityAttrTypeCoerceError::NotConfigurable(
-                    attr.to_repr(),
-                )
-                .into());
+                return Err(VisibilityAttrTypeCoerceError::NotConfigurable(attr.to_repr()).into());
             }
-            return Err(VisibilityAttrTypeCoerceError::WrongType(
-                attr.to_repr(),
-            ).into());
+            return Err(VisibilityAttrTypeCoerceError::WrongType(attr.to_repr()).into());
         };
 
         if item == VisibilityPattern::PUBLIC {

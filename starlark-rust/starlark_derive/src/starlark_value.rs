@@ -89,16 +89,10 @@ fn is_impl_starlark_value(
 ) -> syn::Result<ImplStarlarkValue> {
     let err = "expected `impl StarlarkValue for ...`";
     let Some((_, path, _)) = &input.trait_ else {
-        return Err(syn::Error::new_spanned(
-            input,
-            err,
-        ));
+        return Err(syn::Error::new_spanned(input, err));
     };
     let Some(last) = path.segments.last() else {
-        return Err(syn::Error::new_spanned(
-            path,
-            err,
-        ));
+        return Err(syn::Error::new_spanned(path, err));
     };
     if last.ident != "StarlarkValue" {
         return Err(syn::Error::new_spanned(&last.ident, err));

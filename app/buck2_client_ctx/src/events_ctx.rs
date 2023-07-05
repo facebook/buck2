@@ -71,9 +71,9 @@ impl From<tonic::Status> for BuckdCommunicationError {
 #[async_trait]
 pub trait PartialResultHandler {
     type PartialResult: TryFrom<
-        buck2_cli_proto::partial_result::PartialResult,
-        Error = buck2_cli_proto::partial_result::PartialResult,
-    >;
+            buck2_cli_proto::partial_result::PartialResult,
+            Error = buck2_cli_proto::partial_result::PartialResult,
+        >;
 
     async fn handle_partial_result(
         &mut self,

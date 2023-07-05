@@ -362,7 +362,7 @@ impl<'v> StarlarkIntRef<'v> {
                 Ok(StarlarkInt::Small(InlineInt::MINUS_ONE))
             } else {
                 Ok(StarlarkInt::Small(InlineInt::ZERO))
-            }
+            };
         };
 
         match self {

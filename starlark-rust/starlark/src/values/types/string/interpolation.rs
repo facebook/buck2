@@ -152,7 +152,9 @@ impl<'a> Iterator for PercentFormatParser<'a> {
                         _ => {
                             // Note we need to find the second character, not the second byte.
                             let Some(c) = rem.chars().nth(1) else {
-                                return Some(Err(StringInterpolationError::ExpectingFormatCharacter.into()));
+                                return Some(Err(
+                                    StringInterpolationError::ExpectingFormatCharacter.into(),
+                                ));
                             };
                             return Some(Err(
                                 StringInterpolationError::UnsupportedFormatCharacter(c).into(),
