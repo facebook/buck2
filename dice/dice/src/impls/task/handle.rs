@@ -62,8 +62,8 @@ impl<'a> DiceTaskHandle<'a> {
         let _ignore = self.result.insert(value);
     }
 
-    pub(crate) fn cancellation_ctx(&self) -> &ExplicitCancellationContext {
-        &self.cancellations
+    pub(crate) fn cancellation_ctx(&self) -> &'a ExplicitCancellationContext {
+        self.cancellations
     }
 
     #[cfg(test)]

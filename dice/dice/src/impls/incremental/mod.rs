@@ -171,7 +171,7 @@ impl IncrementalEngine {
         let state_result = rx.await.unwrap();
 
         match state_result {
-            VersionedGraphResult::Match(entry) => Ok(task_state.lookup_matches(entry)),
+            VersionedGraphResult::Match(entry) => task_state.lookup_matches(entry),
             VersionedGraphResult::Compute => {
                 self.compute(k, eval, &events_dispatcher, task_state.lookup_dirtied(eval))
                     .await
