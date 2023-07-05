@@ -65,13 +65,33 @@ def _get_python_library_manifests_from_targets(
         for analysis_result in ctx.analysis(targets).values()
     ])
 
-def _expand_and_filter_dependencies(
+def get_python_library_manifests_tset_from_targets(
         ctx: "bxl_ctx",
         actions: "actions",
-        root_targets: "target_set") -> ["configured_target_label"]:
-    manifests_of_transitive_dependencies = actions.tset(
+        root_targets: "target_set") -> PythonLibraryManifestsTSet.type:
+    return actions.tset(
         PythonLibraryManifestsTSet,
         children = _get_python_library_manifests_from_targets(ctx, root_targets),
+    )
+
+def get_python_library_manifests_tset_from_target_patterns(
+        ctx: "bxl_ctx",
+        query: "cqueryctx",
+        actions: "actions",
+        target_patterns: "_iterable_of_target_pattern") -> PythonLibraryManifestsTSet.type:
+    root_targets = _filter_root_targets(query, target_patterns)
+    return get_python_library_manifests_tset_from_targets(ctx, actions, root_targets)
+
+def do_query(
+        ctx: "bxl_ctx",
+        query: "cqueryctx",
+        actions: "actions",
+        target_patterns: "_iterable_of_target_pattern") -> ["configured_target_label"]:
+    manifests_of_transitive_dependencies = get_python_library_manifests_tset_from_target_patterns(
+        ctx,
+        query,
+        actions,
+        target_patterns,
     )
     return [
         manifest.label.configured_target()
@@ -79,17 +99,9 @@ def _expand_and_filter_dependencies(
         if manifest.src_types != None
     ]
 
-def do_query(
-        ctx: "bxl_ctx",
-        query: "cqueryctx",
-        actions: "actions",
-        target_patterns: "_iterable_of_target_pattern") -> ["configured_target_label"]:
-    root_targets = _filter_root_targets(query, target_patterns)
-    return _expand_and_filter_dependencies(ctx, actions, root_targets)
-
 def _do_query_entry_point(ctx: "bxl_ctx") -> None:
     query = ctx.cquery()
-    actions = ctx.actions_factory
+    actions = ctx.bxl_actions().actions
     targets = do_query(ctx, query, actions, [query.eval(target) for target in ctx.cli_args.target])
     ctx.output.print_json([target.raw_target() for target in targets])
 
