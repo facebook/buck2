@@ -168,8 +168,7 @@ fn dice_computations_are_parallel() {
     let n_thread = 10;
 
     let rt = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(n_thread)
-        .max_blocking_threads(n_thread)
+        .worker_threads(n_thread + 1)
         .build()
         .unwrap();
     let barrier = Arc::new(Barrier::new(n_thread));

@@ -12,6 +12,9 @@
 pub mod future;
 
 use std::future::Future;
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 
 use dupe::Dupe;
 use futures::FutureExt;
@@ -116,7 +119,31 @@ impl<'a> IgnoreCancellationGuard<'a> {
         if self.guard.exit_prevent_cancellation() {
             // If the current future should actually be cancelled now, we try to return
             // control to it immediately to allow cancellation to kick in faster.
-            tokio::task::yield_now().await;
+            // We don't use tokio's yield now as that changes the scheduling of the future so that
+            // the current task gets delayed to the end of the work queue.
+            // We simply want to re-enter the poll once to check for cancellation, so put it at the
+            // front of the work queue.
+            // Additionally, tokio's yield_now seem to fail to wake up tasks in some scenarios
+            // https://github.com/tokio-rs/tokio/discussions/5846
+            struct YieldAndReenter(bool);
+
+            impl Future for YieldAndReenter {
+                type Output = ();
+
+                fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                    if self.0 {
+                        Poll::Ready(())
+                    } else {
+                        // wake up immediately because we don't care about actually deferring the
+                        // future, we just want to re-enter the poll once to check cancellations.
+                        cx.waker().wake_by_ref();
+                        self.get_mut().0 = true;
+                        Poll::Pending
+                    }
+                }
+            }
+
+            YieldAndReenter(false).await
         }
     }
 
