@@ -20,7 +20,7 @@ use std::hash::Hasher;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::task::Poll;
+use std::time::Duration;
 
 use allocative::Allocative;
 use assert_matches::assert_matches;
@@ -28,9 +28,10 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::pin_mut;
-use futures::poll;
 use more_futures::cancellation::CancellationContext;
 use sorted_vector_map::sorted_vector_set;
+use tokio::sync::Mutex;
+use tokio::sync::Notify;
 
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
@@ -52,7 +53,6 @@ use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::handle::DiceTaskHandle;
-use crate::impls::task::sync_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
@@ -784,11 +784,85 @@ async fn mismatch_epoch_results_in_cancelled_result() {
 
 #[tokio::test]
 async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Result<()> {
+    #[derive(Allocative, Clone, Debug, Display)]
+    #[display(fmt = "{:?}", self)]
+    #[allocative(skip)]
+    struct DontRunTwice {
+        is_started: Arc<Notify>,
+        exclusive: Arc<Mutex<bool>>,
+        prevent_cancel: Arc<Notify>,
+    }
+
+    impl PartialEq for DontRunTwice {
+        fn eq(&self, _other: &Self) -> bool {
+            true
+        }
+    }
+    impl Eq for DontRunTwice {}
+    impl Hash for DontRunTwice {
+        fn hash<H: Hasher>(&self, _state: &mut H) {}
+    }
+
+    #[async_trait]
+    impl Key for DontRunTwice {
+        type Value = ();
+
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            cancellations: &CancellationContext,
+        ) -> Self::Value {
+            let mut guard = self
+                .exclusive
+                .try_lock()
+                .expect("Can only have one concurrent execution");
+
+            if *guard {
+                // Last attempt, return.
+            } else {
+                // Note that we did our first execution. Keep the lock held. The point of the
+                // test is to prove that nobody will get to run before we exit and drop it.
+                *guard = true;
+
+                cancellations
+                    .with_structured_cancellation(|obs| async move {
+                        // Resume the rest of the code.
+                        self.is_started.notify_one();
+                        // Wait for our cancellation.
+                        obs.await;
+
+                        // Yield. If the final evaluation is ready (that would be a bug!), it will
+                        // run now.
+                        tokio::task::yield_now().await;
+                        self.prevent_cancel.notified().await;
+                    })
+                    .await;
+
+                // Never return, but this bit will be the one that's cancelled.
+                futures::future::pending().await
+            }
+        }
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            x == y
+        }
+    }
+
     let dice = DiceModern::new(DiceData::new());
+
+    let exclusive = Arc::new(Mutex::new(false));
+    let is_started = Arc::new(Notify::new());
+    let prevent_cancel = Arc::new(Notify::new());
+
+    let key = DontRunTwice {
+        exclusive,
+        is_started: is_started.dupe(),
+        prevent_cancel: prevent_cancel.dupe(),
+    };
 
     let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
-    let k = dice.key_index.index_key(Finish);
+    let k = dice.key_index.index_key(key);
 
     let extra = std::sync::Arc::new(UserComputationData::new());
     let eval = AsyncEvaluator {
@@ -799,12 +873,18 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
     let cycles = UserCycleDetectorData::testing_new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
 
-    let first_task = unsafe { sync_dice_task(DiceKey { index: 0 }) };
-    let first_promise = first_task
-        .depended_on_by(ParentKey::None)
-        .not_cancelled()
-        .unwrap();
+    let first_task = IncrementalEngine::spawn_for_key(
+        k,
+        VersionEpoch::testing_new(0),
+        eval.dupe(),
+        cycles,
+        events_dispatcher.dupe(),
+        None,
+    );
+    is_started.notified().await;
+    first_task.cancel();
 
+    let cycles = UserCycleDetectorData::testing_new();
     let second_task = IncrementalEngine::spawn_for_key(
         k,
         VersionEpoch::testing_new(0),
@@ -837,21 +917,14 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
 
     pin_mut!(promise);
 
-    assert_matches!(poll!(&mut promise), Poll::Pending);
-    assert_matches!(poll!(&mut promise), Poll::Pending);
-    assert_matches!(poll!(&mut promise), Poll::Pending);
-    assert_matches!(poll!(&mut promise), Poll::Pending);
-    assert_matches!(poll!(&mut promise), Poll::Pending);
+    // if we poll before we allow cancellation, we shouldn't complete
+    // tokio doesn't always guarantee the yields switches between tasks so this makes the test
+    // slightly more resilient to scheduling
+    let res = tokio::time::timeout(Duration::from_secs(5), &mut promise).await;
 
-    first_promise.get_or_complete(|| {
-        DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValidValue::testing_new(
-                DiceKeyValue::<Finish>::new(()),
-            )),
-            Arc::new(CellHistory::empty()),
-        )
-    })?;
+    assert!(res.is_err());
 
+    prevent_cancel.notify_one();
     let _ignored = promise.await?;
 
     Ok(())
