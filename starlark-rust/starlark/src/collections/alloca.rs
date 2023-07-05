@@ -38,7 +38,7 @@ struct Buffer {
 
 impl Buffer {
     fn alloc(layout: Layout) -> Buffer {
-        let ptr = unsafe { alloc(layout) as *mut u8 };
+        let ptr = unsafe { alloc(layout) };
         let ptr = NonNull::new(ptr).unwrap();
         Buffer { ptr, layout }
     }

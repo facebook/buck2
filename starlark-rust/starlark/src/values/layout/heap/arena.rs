@@ -184,7 +184,7 @@ impl<A: ArenaAllocator> Arena<A> {
         unsafe {
             let repr = &mut *(p as *mut MaybeUninit<AValueRepr<T>>);
             let extra = slice::from_raw_parts_mut(
-                (p as *mut u8).add(AValueRepr::<T>::offset_of_extra()) as *mut _,
+                p.add(AValueRepr::<T>::offset_of_extra()) as *mut _,
                 extra_len,
             );
             (repr, extra)
