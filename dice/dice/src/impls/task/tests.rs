@@ -67,7 +67,7 @@ async fn simple_task() -> anyhow::Result<()> {
     let lock_dupe = lock.dupe();
     let locked = lock_dupe.lock().await;
 
-    let task = spawn_dice_task(DiceKey { index: 10 }, &TokioSpawner, &(), |mut handle| {
+    let task = spawn_dice_task(DiceKey { index: 10 }, &TokioSpawner, &(), |handle| {
         async move {
             // wait for the lock too
             let _lock = lock.lock().await;
@@ -127,7 +127,7 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
     let sent_finish = std::sync::Arc::new(Notify::new());
     let can_terminate = std::sync::Arc::new(Notify::new());
 
-    let task = spawn_dice_task(DiceKey { index: 500 }, &TokioSpawner, &(), |mut handle| {
+    let task = spawn_dice_task(DiceKey { index: 500 }, &TokioSpawner, &(), |handle| {
         let sent_finish = sent_finish.dupe();
         let can_terminate = can_terminate.dupe();
         async move {
@@ -219,7 +219,7 @@ async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn multiple_promises_all_completes() -> anyhow::Result<()> {
-    let task = spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |mut handle| {
+    let task = spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |handle| {
         async move {
             // wait for the lock too
             handle.finished(DiceComputedValue::new(
@@ -447,7 +447,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     let task = spawn_dice_task(DiceKey { index: 88 }, &TokioSpawner, &(), {
         let lock = lock.dupe();
-        |mut handle| {
+        |handle| {
             async move {
                 let _g = lock.lock().await;
                 // wait for the lock too
@@ -521,7 +521,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 
     let task = spawn_dice_task(DiceKey { index: 44 }, &TokioSpawner, &(), {
         let sem = sem.dupe();
-        |mut handle| {
+        |handle| {
             async move {
                 // wait for the lock too
                 handle.finished(DiceComputedValue::new(
