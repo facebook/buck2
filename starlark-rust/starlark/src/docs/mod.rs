@@ -832,7 +832,7 @@ pub fn render_docs_as_code(docs: &[Doc]) -> String {
         .partition(|d| matches!(d.item, DocItem::Module(_)));
     modules
         .into_iter()
-        .chain(non_modules.into_iter())
+        .chain(non_modules)
         .map(|d| d.render_as_code())
         .join("\n\n")
 }
