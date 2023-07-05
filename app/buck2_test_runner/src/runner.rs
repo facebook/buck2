@@ -124,6 +124,13 @@ impl Buck2TestRunner {
             testcases: Vec::new(),
         };
 
+        let config_args = self.config.test_arg.iter().map(|arg| ArgValue {
+            content: ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::Verbatim(
+                arg.to_owned(),
+            )),
+            format: None,
+        });
+
         let command = spec
             .command
             .into_iter()
@@ -131,6 +138,7 @@ impl Buck2TestRunner {
                 content: ArgValueContent::ExternalRunnerSpecValue(spec_value),
                 format: None,
             })
+            .chain(config_args)
             .collect();
 
         let config_env = self.config.env.iter().map(|EnvValue { name, value }| {

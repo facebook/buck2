@@ -23,15 +23,14 @@ pub struct Config {
     #[clap(long, default_value = "600", parse(try_from_str=try_parse_timeout_from_str))]
     pub timeout: Duration,
 
-    #[clap(flatten)]
-    ignored_args: IgnoredArgs,
-}
-
-/// Ignored args included for backwards compatibility.
-#[derive(Debug, Parser)]
-struct IgnoredArgs {
+    /// Ignored arg included for backwards compatibility.
     #[clap(long, hidden = true)]
     buck_test_info: String,
+
+    /// Passthrough argments to test binary.
+    /// Available as a workaround for when test features are available.
+    #[clap(long, multiple = true, allow_hyphen_values = true)]
+    pub test_arg: Vec<String>,
 }
 
 /// Uiltity that can be used to parse Env values from CLI arguments.
