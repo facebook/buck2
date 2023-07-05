@@ -32,7 +32,7 @@ use crate::codemap::Span;
 use crate::errors::Diagnostic;
 
 pub(crate) trait LintWarning: Display {
-    fn is_serious(&self) -> bool;
+    fn severity(&self) -> EvalSeverity;
     fn short_name(&self) -> &'static str;
 }
 
@@ -54,7 +54,7 @@ pub struct Lint {
     pub short_name: String,
     /// Is this code highly-likely to be wrong, rather
     /// than merely stylistically non-ideal.
-    pub serious: bool,
+    pub severity: EvalSeverity,
     /// A description of the underlying problem.
     pub problem: String,
     /// The source code at [`location`](Lint::location).
@@ -87,7 +87,7 @@ impl<T: LintWarning> LintT<T> {
         Lint {
             location: self.location,
             short_name: self.problem.short_name().to_owned(),
-            serious: self.problem.is_serious(),
+            severity: self.problem.severity(),
             problem: self.problem.to_string(),
             original: self.original,
         }
@@ -200,12 +200,7 @@ impl From<Lint> for EvalMessage {
         Self {
             path: x.location.filename().to_owned(),
             span: Some(x.location.resolve_span()),
-            severity: if x.serious {
-                EvalSeverity::Warning
-            } else {
-                // Start with all non-serious errors disabled, and ramp up from there
-                EvalSeverity::Disabled
-            },
+            severity: x.severity,
             name: x.short_name,
             description: x.problem,
             full_error_with_span: None,

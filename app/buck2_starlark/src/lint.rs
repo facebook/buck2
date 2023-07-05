@@ -31,6 +31,7 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 use starlark::codemap::FileSpan;
 use starlark::errors::Diagnostic;
+use starlark::errors::EvalSeverity;
 use starlark::errors::Lint;
 use starlark::syntax::AstModule;
 
@@ -104,7 +105,7 @@ async fn lint_file(
             Ok(vec![Lint {
                 location: span.unwrap_or_else(|| FileSpan::new(path_str, content)),
                 short_name: "parse_error".to_owned(),
-                serious: true,
+                severity: EvalSeverity::Error,
                 problem: format!("{:#}", message),
                 original: "".to_owned(),
             }])

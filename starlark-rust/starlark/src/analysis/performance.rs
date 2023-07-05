@@ -19,6 +19,7 @@ use thiserror::Error;
 
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
+use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::syntax::ast::Argument;
 use crate::syntax::ast::AstExpr;
@@ -40,8 +41,8 @@ pub(crate) enum Performance {
 }
 
 impl LintWarning for Performance {
-    fn is_serious(&self) -> bool {
-        true
+    fn severity(&self) -> EvalSeverity {
+        EvalSeverity::Warning
     }
 
     fn short_name(&self) -> &'static str {

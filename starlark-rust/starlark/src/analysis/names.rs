@@ -34,6 +34,7 @@ use thiserror::Error;
 
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
+use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -66,10 +67,10 @@ pub(crate) enum NameWarning {
 }
 
 impl LintWarning for NameWarning {
-    fn is_serious(&self) -> bool {
+    fn severity(&self) -> EvalSeverity {
         match self {
-            Self::UsingUnassigned(..) => true,
-            _ => false,
+            Self::UsingUnassigned(..) => EvalSeverity::Warning,
+            _ => EvalSeverity::Disabled,
         }
     }
 

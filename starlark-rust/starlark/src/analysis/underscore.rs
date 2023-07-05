@@ -21,6 +21,7 @@ use thiserror::Error;
 
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
+use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::syntax::ast::Assign;
 use crate::syntax::ast::AstExpr;
@@ -39,8 +40,8 @@ pub(crate) enum UnderscoreWarning {
 }
 
 impl LintWarning for UnderscoreWarning {
-    fn is_serious(&self) -> bool {
-        false
+    fn severity(&self) -> EvalSeverity {
+        EvalSeverity::Disabled
     }
 
     fn short_name(&self) -> &'static str {

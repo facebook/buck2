@@ -21,6 +21,7 @@ use thiserror::Error;
 
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
+use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
@@ -43,8 +44,8 @@ pub(crate) enum Dubious {
 }
 
 impl LintWarning for Dubious {
-    fn is_serious(&self) -> bool {
-        true
+    fn severity(&self) -> EvalSeverity {
+        EvalSeverity::Warning
     }
 
     fn short_name(&self) -> &'static str {

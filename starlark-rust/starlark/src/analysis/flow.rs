@@ -19,6 +19,7 @@ use thiserror::Error;
 
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
+use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::codemap::ResolvedFileSpan;
 use crate::codemap::Span;
@@ -51,11 +52,11 @@ pub(crate) enum FlowIssue {
 }
 
 impl LintWarning for FlowIssue {
-    fn is_serious(&self) -> bool {
+    fn severity(&self) -> EvalSeverity {
         match self {
             // Sometimes people add these to make flow clearer
-            FlowIssue::RedundantContinue | FlowIssue::RedundantReturn => false,
-            _ => true,
+            FlowIssue::RedundantContinue | FlowIssue::RedundantReturn => EvalSeverity::Disabled,
+            _ => EvalSeverity::Warning,
         }
     }
 
