@@ -194,14 +194,12 @@ impl IrSpanned<StmtCompiled> {
             expr.write_bc_cb(bc, |slot, bc| {
                 bc.write_instr::<InstrReturnCheckType>(span, slot);
             });
+        } else if let Some(value) = expr.as_value() {
+            bc.write_instr::<InstrReturnConst>(span, value);
         } else {
-            if let Some(value) = expr.as_value() {
-                bc.write_instr::<InstrReturnConst>(span, value);
-            } else {
-                expr.write_bc_cb(bc, |slot, bc| {
-                    bc.write_instr::<InstrReturn>(span, slot);
-                });
-            }
+            expr.write_bc_cb(bc, |slot, bc| {
+                bc.write_instr::<InstrReturn>(span, slot);
+            });
         }
     }
 
