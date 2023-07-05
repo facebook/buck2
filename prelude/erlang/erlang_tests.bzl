@@ -94,6 +94,10 @@ def erlang_tests_macro(
 
     common_attributes["labels"] = common_attributes.get("labels", []) + ["tpx-enable-artifact-reporting", "test-framework=39:erlang_common_test"]
 
+    additional_labels = read_config("erlang", "test_labels", None)
+    if additional_labels != None:
+        common_attributes["labels"] += additional_labels.split()
+
     for suite in suites:
         # forward resources and deps fields and generate erlang_test target
         (suite_name, _ext) = paths.split_extension(paths.basename(suite))
