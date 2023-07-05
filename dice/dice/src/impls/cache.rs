@@ -76,10 +76,6 @@ impl SharedCache {
 
     pub(crate) fn get(&self, key: DiceKey) -> DiceTaskRef {
         if let Some(computed) = self.try_get_computed(key) {
-            if self.data.is_cancelled.load(Ordering::Acquire) {
-                return DiceTaskRef::TransactionCancelled;
-            }
-
             return DiceTaskRef::Computed(computed);
         }
 
@@ -88,15 +84,11 @@ impl SharedCache {
         // Not we acquired the lock, check computed map again.
         let computed = self.try_get_computed(key);
 
-        if self.data.is_cancelled.load(Ordering::Acquire) {
-            return DiceTaskRef::TransactionCancelled;
-        }
-
         if let Some(computed) = computed {
             return DiceTaskRef::Computed(computed);
         }
 
-        match entry {
+        let working_entry = match entry {
             dashmap::mapref::entry::Entry::Occupied(e) => {
                 if let Some(Ok(result)) = e.get().get_finished_value() {
                     // Promote entry to computed.
@@ -122,7 +114,13 @@ impl SharedCache {
                 DiceTaskRef::Occupied(e)
             }
             dashmap::mapref::entry::Entry::Vacant(e) => DiceTaskRef::Vacant(e),
+        };
+
+        if self.data.is_cancelled.load(Ordering::Acquire) {
+            return DiceTaskRef::TransactionCancelled;
         }
+
+        working_entry
     }
 
     pub(crate) fn new() -> Self {
