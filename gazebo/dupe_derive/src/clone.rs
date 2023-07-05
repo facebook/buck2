@@ -20,6 +20,10 @@ pub fn derive_clone_(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let name = &input.ident;
     let body = duplicate_impl(&input.data, &quote! { ::std::clone::Clone::clone });
     let gen = quote! {
+        // Clippy wants us to use Copy if we can - we prefer to be agnostic.
+        // Add unknown_lints temporarily.
+        #[allow(unknown_lints)]
+        #[allow(clippy::incorrect_clone_impl_on_copy_type)]
         impl #impl_generics ::std::clone::Clone for #name #ty_generics #where_clause {
             fn clone(&self) -> Self {
                 #body
