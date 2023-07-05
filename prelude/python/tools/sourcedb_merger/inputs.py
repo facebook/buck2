@@ -26,13 +26,22 @@ class PartialBuildMap:
 
     @staticmethod
     def load_from_json(input_json: object) -> "PartialBuildMap":
-        if not isinstance(input_json, dict):
+        if not isinstance(input_json, list):
             raise BuildMapLoadError(
-                "Input JSON for build map should be a dict."
+                "Input JSON for manifest file should be a list."
                 f"Got {type(input_json)} instead"
             )
         result: Dict[str, str] = {}
-        for key, value in input_json.items():
+        for element in input_json:
+            if not isinstance(element, list):
+                raise BuildMapLoadError(
+                    f"Build map items are expected to be lists. Got `{element}`."
+                )
+            if len(element) < 3:
+                raise BuildMapLoadError(
+                    f"Build map items are expected to be length 3. Got `{len(element)}`."
+                )
+            key, value, _ = element
             if not isinstance(key, str):
                 raise BuildMapLoadError(
                     f"Build map keys are expected to be strings. Got `{key}`."
@@ -61,11 +70,14 @@ class TargetEntry:
 def load_targets_and_build_maps_from_json(
     buck_root: pathlib.Path, input_json: object
 ) -> Iterable[TargetEntry]:
-    if not isinstance(input_json, dict):
+    if not isinstance(input_json, list):
         raise BuildMapLoadError(
-            f"Input JSON should be a dict. Got {type(input_json)} instead"
+            f"Input JSON should be a list. Got {type(input_json)} instead"
         )
-    for key, value in input_json.items():
+    for element in input_json:
+        if element is None:
+            continue
+        key, value = element
         if not isinstance(key, str):
             raise BuildMapLoadError(
                 f"Target keys are expected to be strings. Got `{key}`."

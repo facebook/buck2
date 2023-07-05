@@ -79,6 +79,11 @@ def _source_type_manifests(value: PythonLibraryManifests.type):
         return []
     return value.src_types.manifest
 
+def _source_type_manifest_jsons(value: PythonLibraryManifests.type):
+    if value.src_types == None:
+        return None
+    return (value.label.raw_target(), value.src_types.manifest)
+
 def _source_type_artifacts(value: PythonLibraryManifests.type):
     if value.src_types == None:
         return []
@@ -107,6 +112,9 @@ PythonLibraryManifestsTSet = transitive_set(
         "{}_manifests".format(prefix): _bytecode_manifests(mode)
         for mode, prefix in _BYTECODE_PROJ_PREFIX.items()
     }.items()),
+    json_projections = {
+        "source_type_manifests_json": _source_type_manifest_jsons,
+    },
     reductions = {
         "has_hidden_resources": _has_hidden_resources,
     },

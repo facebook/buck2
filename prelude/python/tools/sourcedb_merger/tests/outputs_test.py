@@ -26,7 +26,7 @@ class OutputsTest(unittest.TestCase):
                 merge_partial_build_maps(
                     TargetEntry(
                         target=Target(target),
-                        build_map=PartialBuildMap.load_from_json(content),
+                        build_map=PartialBuildMap(content),
                     )
                     for target, content in build_maps.items()
                 ).to_build_map_json(),
