@@ -64,7 +64,7 @@ impl DiceTaskWorker {
             incremental,
         );
 
-        spawn_dice_task(k, &*spawner, &spawner_ctx, move |handle| {
+        spawn_dice_task(k, &*spawner, &spawner_ctx, move |mut handle| {
             async move {
                 // we hold onto the handle and drop it last after consuming the `worker`. This
                 // ensures any data being held for the actual evaluation is dropped before we

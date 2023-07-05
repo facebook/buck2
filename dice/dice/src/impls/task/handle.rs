@@ -20,6 +20,9 @@ use crate::impls::value::DiceComputedValue;
 pub(crate) struct DiceTaskHandle<'a> {
     pub(super) internal: Arc<DiceTaskInternal>,
     pub(super) cancellations: &'a ExplicitCancellationContext,
+    // holds the result while `DiceTaskHandle` is not dropped, then upon drop, stores it into
+    // `DiceTaskInternal`. So the result is never held in two spots at the same time.
+    result: Option<DiceComputedValue>,
 }
 
 /// After reporting that we are about to transition to a state, should we continue processing or
@@ -32,6 +35,17 @@ pub(crate) enum TaskState {
 }
 
 impl<'a> DiceTaskHandle<'a> {
+    pub(crate) fn new(
+        internal: Arc<DiceTaskInternal>,
+        cancellations: &'a ExplicitCancellationContext,
+    ) -> Self {
+        Self {
+            internal,
+            cancellations,
+            result: None,
+        }
+    }
+
     pub(crate) fn report_initial_lookup(&self) -> TaskState {
         self.internal.state.report_initial_lookup()
     }
@@ -44,8 +58,8 @@ impl<'a> DiceTaskHandle<'a> {
         self.internal.state.report_computing()
     }
 
-    pub(crate) fn finished(self, value: DiceComputedValue) {
-        let _ignore = self.internal.set_value(value);
+    pub(crate) fn finished(&mut self, value: DiceComputedValue) {
+        let _ignore = self.result.insert(value);
     }
 
     pub(crate) fn cancellation_ctx(&self) -> &ExplicitCancellationContext {
@@ -58,6 +72,7 @@ impl<'a> DiceTaskHandle<'a> {
             once_cell::sync::Lazy::new(|| DiceTaskHandle::<'static> {
                 internal: DiceTaskInternal::new(crate::impls::key::DiceKey { index: 99999 }),
                 cancellations: ExplicitCancellationContext::testing(),
+                result: None,
             });
 
         &TEST
@@ -66,7 +81,11 @@ impl<'a> DiceTaskHandle<'a> {
 
 impl<'a> Drop for DiceTaskHandle<'a> {
     fn drop(&mut self) {
-        if self.internal.read_value().is_none() {
+        if let Some(value) = self.result.take() {
+            // okay to ignore as it only errors on cancelled, in which case we don't care to set
+            // the result successfully.
+            let _ignore = self.internal.set_value(value);
+        } else {
             debug!("task is terminated");
 
             // This is only owned by the main worker task. If this was dropped, and no result was

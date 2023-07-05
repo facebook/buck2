@@ -16,12 +16,14 @@ use assert_matches::assert_matches;
 use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
+use futures::pin_mut;
 use futures::poll;
 use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
 use more_futures::spawner::TokioSpawner;
 use tokio::sync::Barrier;
 use tokio::sync::Mutex;
+use tokio::sync::Notify;
 use tokio::sync::Semaphore;
 
 use crate::api::computations::DiceComputations;
@@ -65,7 +67,7 @@ async fn simple_task() -> anyhow::Result<()> {
     let lock_dupe = lock.dupe();
     let locked = lock_dupe.lock().await;
 
-    let task = spawn_dice_task(DiceKey { index: 10 }, &TokioSpawner, &(), |handle| {
+    let task = spawn_dice_task(DiceKey { index: 10 }, &TokioSpawner, &(), |mut handle| {
         async move {
             // wait for the lock too
             let _lock = lock.lock().await;
@@ -121,6 +123,69 @@ async fn simple_task() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn not_ready_until_dropped() -> anyhow::Result<()> {
+    let sent_finish = std::sync::Arc::new(Notify::new());
+    let can_terminate = std::sync::Arc::new(Notify::new());
+
+    let task = spawn_dice_task(DiceKey { index: 500 }, &TokioSpawner, &(), |mut handle| {
+        let sent_finish = sent_finish.dupe();
+        let can_terminate = can_terminate.dupe();
+        async move {
+            // wait for the lock too
+            handle.finished(DiceComputedValue::new(
+                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
+                Arc::new(CellHistory::empty()),
+            ));
+
+            sent_finish.notify_one();
+
+            can_terminate.notified().await;
+
+            Box::new(()) as Box<dyn Any + Send + 'static>
+        }
+        .boxed()
+    });
+
+    let promise = task
+        .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
+        .not_cancelled()
+        .unwrap();
+    pin_mut!(promise);
+
+    assert_eq!(
+        task.inspect_waiters(),
+        Some(vec![ParentKey::Some(DiceKey { index: 1 })])
+    );
+
+    sent_finish.notified().await;
+
+    assert!(!task.internal.state.is_ready(Ordering::SeqCst));
+    assert!(!task.internal.state.is_terminated(Ordering::SeqCst));
+    assert!(task.is_pending());
+
+    assert_matches!(poll!(&mut promise), Poll::Pending);
+
+    can_terminate.notify_one();
+
+    let v = promise.await;
+
+    assert!(task.internal.state.is_ready(Ordering::SeqCst));
+    assert!(!task.internal.state.is_terminated(Ordering::SeqCst));
+    assert!(!task.is_pending());
+
+    assert!(
+        v?.value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
+    );
+
+    // check that the references have been dropped
+    assert_eq!(std::sync::Arc::strong_count(&can_terminate), 1);
+    assert_eq!(std::sync::Arc::strong_count(&sent_finish), 1);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
     let task = spawn_dice_task(DiceKey { index: 500 }, &TokioSpawner, &(), |handle| {
         async move {
@@ -154,7 +219,7 @@ async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn multiple_promises_all_completes() -> anyhow::Result<()> {
-    let task = spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |handle| {
+    let task = spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |mut handle| {
         async move {
             // wait for the lock too
             handle.finished(DiceComputedValue::new(
@@ -382,7 +447,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     let task = spawn_dice_task(DiceKey { index: 88 }, &TokioSpawner, &(), {
         let lock = lock.dupe();
-        |handle| {
+        |mut handle| {
             async move {
                 let _g = lock.lock().await;
                 // wait for the lock too
@@ -456,7 +521,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 
     let task = spawn_dice_task(DiceKey { index: 44 }, &TokioSpawner, &(), {
         let sem = sem.dupe();
-        |handle| {
+        |mut handle| {
             async move {
                 // wait for the lock too
                 handle.finished(DiceComputedValue::new(

@@ -45,10 +45,7 @@ pub(crate) fn spawn_dice_task<S>(
         {
             let internal = internal.dupe();
             |cancellations| {
-                let handle = DiceTaskHandle {
-                    internal,
-                    cancellations,
-                };
+                let handle = DiceTaskHandle::new(internal, cancellations);
 
                 f(handle)
             }
