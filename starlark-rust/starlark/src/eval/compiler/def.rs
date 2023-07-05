@@ -417,7 +417,7 @@ impl Compiler<'_, '_, '_> {
 
         self.enter_scope(scope_id);
 
-        let docstring = DocString::extract_raw_starlark_docstring(&suite);
+        let docstring = DocString::extract_raw_starlark_docstring(suite);
         let body = self.stmt(suite, false);
         let scope_id = self.exit_scope();
         let scope_names = self.scope_data.get_scope(scope_id);

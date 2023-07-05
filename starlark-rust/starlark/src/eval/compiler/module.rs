@@ -68,11 +68,11 @@ impl<'v> Compiler<'v, '_, '_> {
                     self.eval,
                 ));
             }
-            Some(loader) => expr_throw(loader.load(&name), span, self.eval)?,
+            Some(loader) => expr_throw(loader.load(name), span, self.eval)?,
         };
 
         for (our_name, their_name) in &load.node.args {
-            let (slot, _captured) = self.scope_data.get_assign_ident_slot(&our_name);
+            let (slot, _captured) = self.scope_data.get_assign_ident_slot(our_name);
             let slot = match slot {
                 Slot::Local(..) => unreachable!("symbol need to be resolved to module"),
                 Slot::Module(slot) => slot,

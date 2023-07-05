@@ -471,7 +471,7 @@ impl Compiler<'_, '_, '_> {
                 })
             }
             AssignP::Identifier(ident) => {
-                let (slot, captured) = self.scope_data.get_assign_ident_slot(&ident);
+                let (slot, captured) = self.scope_data.get_assign_ident_slot(ident);
                 match (slot, captured) {
                     (Slot::Local(slot), Captured::No) => {
                         let lhs = IrSpanned {
