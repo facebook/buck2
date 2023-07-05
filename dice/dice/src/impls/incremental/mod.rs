@@ -273,7 +273,7 @@ impl IncrementalEngine {
 
                     rx.await.unwrap()
                 }
-                Err(value) => CancellableResult::Ok(DiceComputedValue::new(
+                Err(value) => Ok(DiceComputedValue::new(
                     value,
                     Arc::new(CellHistory::verified(v)),
                 )),
