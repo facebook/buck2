@@ -51,7 +51,7 @@ where
         let context = context.dupe();
         let cancel = ExplicitCancellationContext { inner: context };
 
-        OwningFuture::new(cancel, f)
+        OwningFuture::new(cancel, |d| f(d))
     };
 
     let state = SharedState::new();

@@ -40,7 +40,7 @@ pub struct OwningFuture<T, D> {
 impl<T, D> OwningFuture<T, D> {
     pub fn new<F>(data: D, f: F) -> Pin<Box<Self>>
     where
-        F: for<'a> FnOnce(&'a D) -> BoxFuture<'a, T> + Send,
+        F: for<'a> FnOnce(&'a mut D) -> BoxFuture<'a, T> + Send,
     {
         let this = OwningFuture {
             data,
@@ -54,7 +54,7 @@ impl<T, D> OwningFuture<T, D> {
             // construction, so the self-reference will remain valid at least until this value
             // is dropped. Furthermore, the inner future is dropped before the `context` is dropped,
             // and so the reference will remain valid even during the drop of the `Future`
-            mem::transmute::<BoxFuture<'_, T>, BoxFuture<'static, T>>(f(&this.data))
+            mem::transmute::<BoxFuture<'_, T>, BoxFuture<'static, T>>(f(&mut this.data))
         };
 
         {
@@ -85,7 +85,7 @@ mod tests {
     async fn test_future() {
         struct SomeData(usize);
 
-        fn some_fn(d: &SomeData) -> BoxFuture<usize> {
+        fn some_fn(d: &mut SomeData) -> BoxFuture<usize> {
             async move { d.0 }.boxed()
         }
 
