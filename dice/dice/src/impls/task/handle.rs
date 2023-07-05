@@ -67,15 +67,12 @@ impl<'a> DiceTaskHandle<'a> {
     }
 
     #[cfg(test)]
-    pub(crate) fn testing_new() -> &'static DiceTaskHandle<'static> {
-        static TEST: once_cell::sync::Lazy<DiceTaskHandle> =
-            once_cell::sync::Lazy::new(|| DiceTaskHandle::<'static> {
-                internal: DiceTaskInternal::new(crate::impls::key::DiceKey { index: 99999 }),
-                cancellations: ExplicitCancellationContext::testing(),
-                result: None,
-            });
-
-        &TEST
+    pub(crate) fn testing_new() -> DiceTaskHandle<'static> {
+        DiceTaskHandle::<'static> {
+            internal: DiceTaskInternal::new(crate::impls::key::DiceKey { index: 99999 }),
+            cancellations: ExplicitCancellationContext::testing(),
+            result: None,
+        }
     }
 }
 
@@ -84,9 +81,10 @@ impl<'a> Drop for DiceTaskHandle<'a> {
         if let Some(value) = self.result.take() {
             // okay to ignore as it only errors on cancelled, in which case we don't care to set
             // the result successfully.
+            debug!("{:?} finished. Notifying result", self.internal.key);
             let _ignore = self.internal.set_value(value);
         } else {
-            debug!("task is terminated");
+            debug!("{:?} cancelled. Notifying cancellation", self.internal.key);
 
             // This is only owned by the main worker task. If this was dropped, and no result was
             // ever recorded, then we must have been terminated.

@@ -47,11 +47,11 @@ impl AsyncEvaluator {
         }
     }
 
-    pub(crate) async fn evaluate(
+    pub(crate) async fn evaluate<'a, 'b>(
         &self,
         key: DiceKey,
-        state: DiceWorkerStateComputing<'_, '_>,
-    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating> {
+        state: DiceWorkerStateComputing<'a, 'b>,
+    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
         let key_erased = self.dice.key_index.get(key);
 
         let (cycles, state) = state.evaluating();

@@ -69,17 +69,7 @@ impl DiceTaskWorker {
                 // we hold onto the handle and drop it last after consuming the `worker`. This
                 // ensures any data being held for the actual evaluation is dropped before we
                 // notify the future as done.
-                match worker.do_work(&handle).await {
-                    Ok(res) => {
-                        debug!("{:?} finished. Notifying result", k);
-                        handle.finished(res.value);
-                    }
-                    Err(Cancelled) => {
-                        // we drop the current handle, leaving the original `DiceTask` as terminated
-                        // state
-                        debug!("{:?} cancelled. Notifying cancellation", k);
-                    }
-                }
+                let _ignored = worker.do_work(handle).await;
 
                 Box::new(()) as Box<dyn Any + Send + 'static>
             }
@@ -106,14 +96,15 @@ impl DiceTaskWorker {
         }
     }
 
-    pub(crate) async fn do_work<'a, 'b>(
+    pub(crate) async fn do_work(
         self,
-        handle: &'a DiceTaskHandle<'b>,
+        handle: &mut DiceTaskHandle<'_>,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         let state = DiceWorkerStateAwaitingPrevious::new(self.k, self.cycles, handle);
 
         let state = if let Some(previous) = self.previously_cancelled_task {
-            handle
+            state
+                .internals
                 .cancellation_ctx()
                 .critical_section(|| previous.previous.await_termination())
                 .await;

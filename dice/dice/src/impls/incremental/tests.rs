@@ -51,6 +51,7 @@ use crate::impls::incremental::testing::DidDepsChangeExt;
 use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
+use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::sync_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
@@ -157,6 +158,8 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
+    let mut task_handle = DiceTaskHandle::testing_new();
+
     assert!(
         engine
             .compute_whether_dependencies_changed(
@@ -167,7 +170,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(1)
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
-                &DiceWorkerStateCheckingDeps::testing()
+                &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
             )
             .await?
             .is_changed()
@@ -197,7 +200,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(2)
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
-                &DiceWorkerStateCheckingDeps::testing()
+                &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
             )
             .await?
             .is_changed()
@@ -230,7 +233,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(2)
                 )]),
                 Arc::new(vec![DiceKey { index: 200 }]),
-                &DiceWorkerStateCheckingDeps::testing()
+                &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
             )
             .await?
             .is_changed()
