@@ -169,7 +169,7 @@ impl StreamingCommand for SubscribeCommand {
         &self.config_opts
     }
 
-    fn should_show_waiting_message(&self) -> bool {
+    fn should_expect_spans(&self) -> bool {
         // It's normal to get no open spans for this command
         false
     }

@@ -43,7 +43,7 @@ fn default_subscribers<'a, T: StreamingCommand>(
 ) -> anyhow::Result<Vec<Box<dyn EventSubscriber + 'a>>> {
     let console_opts = cmd.console_opts();
     let mut subscribers = vec![];
-    let show_waiting_message = cmd.should_show_waiting_message();
+    let expect_spans = cmd.should_expect_spans();
 
     // Need this to get information from one subscriber (event_log)
     // and log it in another (invocation_recorder)
@@ -53,7 +53,7 @@ fn default_subscribers<'a, T: StreamingCommand>(
         ctx.trace_id.dupe(),
         console_opts.console_type,
         ctx.verbosity,
-        show_waiting_message,
+        expect_spans,
         None,
         T::COMMAND_NAME,
         console_opts.superconsole_config(),
@@ -131,8 +131,15 @@ pub trait StreamingCommand: Sized + Send + Sync {
         argv.no_need_to_sanitize()
     }
 
-    /// Whether to show a "Waiting for daemon..." message in simple console during long waiting periods.
-    fn should_show_waiting_message(&self) -> bool {
+    /// Some commands should always be displaying
+    /// at least 1 ongoing process in the terminal, aka "spans".
+    /// This distinction has some implications:
+    /// - During waiting periods with no spans, we exhibit a "Waiting for daemon..." message
+    /// exclusively for these commands in the simple console.
+    /// - During extended waiting periods with no spans, we trigger an
+    /// automated `buck2 rage`. We only want this for commands where the constant
+    /// presence of spans is expected
+    fn should_expect_spans(&self) -> bool {
         true
     }
 

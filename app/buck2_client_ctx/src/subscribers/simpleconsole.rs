@@ -160,7 +160,7 @@ pub(crate) struct SimpleConsole<E> {
     tty_mode: TtyMode,
     verbosity: Verbosity,
     // Whether to show "Waiting for daemon..." when no root spans are received
-    show_waiting_message: bool,
+    expect_spans: bool,
     pub(crate) observer: EventObserver<E>,
     action_errors: Vec<ActionError>,
     last_print_time: Instant,
@@ -178,12 +178,12 @@ where
         trace_id: TraceId,
         isolation_dir: FileNameBuf,
         verbosity: Verbosity,
-        show_waiting_message: bool,
+        expect_spans: bool,
     ) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
-            show_waiting_message,
+            expect_spans,
             observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
@@ -198,12 +198,12 @@ where
         trace_id: TraceId,
         isolation_dir: FileNameBuf,
         verbosity: Verbosity,
-        show_waiting_message: bool,
+        expect_spans: bool,
     ) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
-            show_waiting_message,
+            expect_spans,
             observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
@@ -219,11 +219,11 @@ where
         trace_id: TraceId,
         isolation_dir: FileNameBuf,
         verbosity: Verbosity,
-        show_waiting_message: bool,
+        expect_spans: bool,
     ) -> Self {
         match SuperConsole::compatible() {
-            true => Self::with_tty(trace_id, isolation_dir, verbosity, show_waiting_message),
-            false => Self::without_tty(trace_id, isolation_dir, verbosity, show_waiting_message),
+            true => Self::with_tty(trace_id, isolation_dir, verbosity, expect_spans),
+            false => Self::without_tty(trace_id, isolation_dir, verbosity, expect_spans),
         }
     }
 
@@ -291,7 +291,7 @@ where
     }
 
     pub(crate) async fn detect_hangs(&mut self) -> anyhow::Result<()> {
-        if !self.show_waiting_message {
+        if !self.expect_spans {
             // No open spans are to be expected in this case (D37658796)
             return Ok(());
         };
@@ -574,7 +574,7 @@ where
     async fn tick(&mut self, _: &Tick) -> anyhow::Result<()> {
         self.detect_hangs().await?;
         if self.verbosity.print_status() && self.last_print_time.elapsed() > KEEPALIVE_TIME_LIMIT {
-            let mut show_stats = self.show_waiting_message;
+            let mut show_stats = self.expect_spans;
 
             let mut roots = self.observer().spans().iter_roots();
             let sample_event = roots.next();
@@ -604,7 +604,7 @@ where
                     show_stats = self.verbosity.always_print_stats_in_status();
                 }
                 None => {
-                    if self.show_waiting_message {
+                    if self.expect_spans {
                         echo!(
                             "Waiting on buck2 daemon {}...",
                             self.observer.session_info().trace_id

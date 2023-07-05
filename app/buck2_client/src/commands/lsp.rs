@@ -95,7 +95,7 @@ impl StreamingCommand for LspCommand {
         &self.config_opts
     }
 
-    fn should_show_waiting_message(&self) -> bool {
+    fn should_expect_spans(&self) -> bool {
         // If we're running the LSP, do not show "Waiting for daemon..." if we do not get any spans.
         false
     }
