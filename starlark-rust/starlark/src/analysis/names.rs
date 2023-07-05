@@ -69,7 +69,7 @@ pub(crate) enum NameWarning {
 impl LintWarning for NameWarning {
     fn severity(&self) -> EvalSeverity {
         match self {
-            Self::UsingUnassigned(..) => EvalSeverity::Warning,
+            Self::UsingUnassigned(..) | Self::UsingMaybeUndefined(..) => EvalSeverity::Warning,
             _ => EvalSeverity::Disabled,
         }
     }
