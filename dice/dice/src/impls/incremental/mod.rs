@@ -130,7 +130,7 @@ impl IncrementalEngine {
                 // send the update but don't wait for it
                 match eval_result.value.dupe().into_valid_value() {
                     Ok(value) => {
-                        let (tx, _rx) = tokio::sync::oneshot::channel();
+                        let (tx, _rx) = oneshot::channel();
                         state.request(StateRequest::UpdateComputed {
                             key: VersionedGraphKey::new(v, k),
                             epoch: version_epoch,
@@ -213,7 +213,7 @@ impl IncrementalEngine {
                         let task_state = task_state.deps_match()?;
 
                         // report reuse
-                        let (tx, rx) = tokio::sync::oneshot::channel();
+                        let (tx, rx) = oneshot::channel();
                         self.state.request(StateRequest::UpdateComputed {
                             key: VersionedGraphKey::new(v, k),
                             epoch: self.version_epoch,
@@ -261,7 +261,7 @@ impl IncrementalEngine {
 
             match eval_result.value.into_valid_value() {
                 Ok(value) => {
-                    let (tx, rx) = tokio::sync::oneshot::channel();
+                    let (tx, rx) = oneshot::channel();
                     self.state.request(StateRequest::UpdateComputed {
                         key: VersionedGraphKey::new(v, k),
                         epoch: self.version_epoch,
