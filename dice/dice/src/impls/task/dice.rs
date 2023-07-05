@@ -64,14 +64,14 @@ use crate::result::Cancelled;
 /// notification into the DiceTaskInternal
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct DiceTask {
-    pub(crate) internal: Arc<DiceTaskInternal>,
+    pub(super) internal: Arc<DiceTaskInternal>,
     /// Handle to cancel the spawned task
     #[allocative(skip)]
     pub(super) cancellations: Cancellations,
 }
 
-pub(crate) struct DiceTaskInternal {
-    pub(crate) key: DiceKey,
+pub(super) struct DiceTaskInternal {
+    pub(super) key: DiceKey,
     /// The internal progress state of the task
     pub(super) state: AtomicDiceTaskState,
 

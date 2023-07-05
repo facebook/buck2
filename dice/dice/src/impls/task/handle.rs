@@ -35,7 +35,7 @@ pub(crate) enum TaskState {
 }
 
 impl<'a> DiceTaskHandle<'a> {
-    pub(crate) fn new(
+    pub(super) fn new(
         internal: Arc<DiceTaskInternal>,
         cancellations: &'a ExplicitCancellationContext,
     ) -> Self {

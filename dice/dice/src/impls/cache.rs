@@ -21,13 +21,11 @@ use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
-use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::value::DiceComputedValue;
-use crate::result::CancellableResult;
 
 #[derive(Allocative)]
 struct Data {
-    completed: ShardedLockFreeRawTable<Arc<DiceTaskInternal>, 64>,
+    completed: ShardedLockFreeRawTable<Arc<DiceCompletedTask>, 64>,
     /// Completed tasks lazily moved into `completed` from this map.
     storage: DashMap<DiceKey, DiceTask, FnvBuildHasher>,
     is_cancelled: AtomicBool,
@@ -36,6 +34,12 @@ struct Data {
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct SharedCache {
     data: Arc<Data>,
+}
+
+#[derive(Allocative)]
+struct DiceCompletedTask {
+    key: DiceKey,
+    value: DiceComputedValue,
 }
 
 /// Reference to the task in the cache.
@@ -67,11 +71,7 @@ impl SharedCache {
         self.data
             .completed
             .lookup(hash, |task| task.key == key)
-            .map(|task| {
-                task.read_value()
-                    .expect("must be computed")
-                    .expect("must not be cancelled")
-            })
+            .map(|task| task.value.dupe())
     }
 
     pub(crate) fn get(&self, key: DiceKey) -> DiceTaskRef {
@@ -98,7 +98,7 @@ impl SharedCache {
 
         match entry {
             dashmap::mapref::entry::Entry::Occupied(e) => {
-                if let Some(CancellableResult::Ok(result)) = e.get().internal.read_value() {
+                if let Some(Ok(result)) = e.get().get_finished_value() {
                     // Promote entry to computed.
                     // So lookup will be faster next time.
 
@@ -106,7 +106,10 @@ impl SharedCache {
                     //   which `LockFreeRawTable` does not support yet.
                     let (_ignore, original) = self.data.completed.insert(
                         Self::key_hash(key),
-                        e.get().internal.dupe(),
+                        Arc::new(DiceCompletedTask {
+                            key,
+                            value: result.dupe(),
+                        }),
                         |a, b| a.key == b.key,
                         |task| Self::key_hash(task.key),
                     );
