@@ -57,6 +57,15 @@ commands:
             type $Env:USERPROFILE/.cargo/config
       - print_versions
 
+  setup_reindeer:
+    description: Install Reindeer
+    steps:
+      - run:
+          name: Install Reindeer
+          command: |
+            cargo install --locked --git https://github.com/facebookincubator/reindeer reindeer
+            reindeer --third-party-dir shim/third-party/rust buckify
+
 version: 2.1
 orbs:
   win: circleci/windows@2.2.0
@@ -111,8 +120,13 @@ jobs:
           command: |
             cd examples/no_prelude
             /tmp/artifacts/buck2 build //... -v 2
+      - setup_reindeer
+      - run:
+          name: Build `buck2` with `buck2`
+          command: |
+            /tmp/artifacts/buck2 build :buck2 -v 2
 
-  macos-build:
+  macos-build-and-test:
     description: |
       Build all with cargo for macOS
     macos:
@@ -160,6 +174,11 @@ jobs:
           command: |
             cd examples/no_prelude
             /tmp/artifacts/buck2 build //... -v 2
+      - setup_reindeer
+      - run:
+          name: Build `buck2` with `buck2`
+          command: |
+            /tmp/artifacts/buck2 build :buck2 -v 2
 
   windows-build-and-test:
     description: |
@@ -208,13 +227,19 @@ jobs:
             # TODO: Fix //cpp on CircleCI, some C++ includes are missing from the system
             /tmp/artifacts/buck2 build //go/... -v 2
             /tmp/artifacts/buck2 build //rust/... -v 2
+      - setup_reindeer
+      # TODO: Fix buck2 bootstrap for Windows
+      # - run:
+      #     name: Build `buck2` with `buck2`
+      #     command: |
+      #       /tmp/artifacts/buck2 build :buck2 -v 2
 
 workflows:
   build-and-test:
     jobs:
       - linux-build-and-test
       - linux-build-examples
-      - macos-build
+      - macos-build-and-test
       - macos-build-examples
       - windows-build-and-test
       - windows-build-examples
