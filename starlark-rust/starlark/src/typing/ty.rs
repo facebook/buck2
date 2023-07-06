@@ -58,11 +58,13 @@ use crate::typing::function::TyFunction;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingAttr;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::structs::TyStruct;
 use crate::typing::TypingOracle;
 use crate::values::typing::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::StarlarkValue;
 
 /// A typing operation wasn't able to produce a precise result,
 /// so made some kind of approximation.
@@ -119,6 +121,8 @@ pub enum Ty {
     /// Will never be a type that can be represented by another operation,
     /// e.g. never `"list"` because `Ty::List` could be used instead.
     Name(TyName),
+    /// Type is handled by `StarlarkValue` trait implementation.
+    StarlarkValue(TyStarlarkValue),
     /// Iter is a type that supports iteration, only used as arguments to primitive functions.
     /// The inner type is applicable for each iteration element.
     Iter(Box<Ty>),
@@ -168,6 +172,10 @@ impl TyName {
     /// Get the underlying `str` for a `TyName`.
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    pub(crate) fn new(name: &str) -> TyName {
+        TyName(name.to_owned())
     }
 }
 
@@ -387,6 +395,7 @@ impl Ty {
     pub fn as_name(&self) -> Option<&str> {
         match self {
             Ty::Name(x) => Some(x.as_str()),
+            Ty::StarlarkValue(t) => Some(t.as_name()),
             Ty::List(_) => Some("list"),
             Ty::Tuple(_) => Some("tuple"),
             Ty::Dict(_) => Some("dict"),
@@ -457,6 +466,11 @@ impl Ty {
             params,
             result: Box::new(result),
         }))
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn starlark_value<'v, T: StarlarkValue<'v>>() -> Self {
+        Ty::StarlarkValue(TyStarlarkValue::new::<T>())
     }
 
     pub(crate) fn is_any(&self) -> bool {
@@ -869,6 +883,7 @@ impl Display for Ty {
             Ty::Any => write!(f, "\"\""),
             Ty::Union(xs) => write!(f, "{}", xs),
             Ty::Name(x) => write!(f, "{}", x),
+            Ty::StarlarkValue(x) => write!(f, "{}", x),
             Ty::Iter(x) => write!(f, "iter({})", x),
             Ty::List(x) => write!(f, "[{}]", x),
             Ty::Tuple(xs) => {

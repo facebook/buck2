@@ -247,6 +247,25 @@ impl<'a> TypingOracleCtx<'a> {
         Ok((*fun.result).clone())
     }
 
+    fn validate_call_for_type_name(
+        &self,
+        span: Span,
+        ty: &TyName,
+        args: &[Spanned<Arg>],
+    ) -> Result<Ty, TypingError> {
+        match self.oracle.as_function(ty) {
+            None => {
+                // Unknown type, may be callable.
+                Ok(Ty::Any)
+            }
+            Some(Ok(f)) => self.validate_fn_call(span, &f, args),
+            Some(Err(())) => Err(self.mk_error(
+                span,
+                TypingOracleCtxError::CallToNonCallable { ty: ty.to_string() },
+            )),
+        }
+    }
+
     #[allow(clippy::collapsible_else_if)]
     pub(crate) fn validate_call(
         &self,
@@ -257,19 +276,11 @@ impl<'a> TypingOracleCtx<'a> {
         match fun {
             Ty::Never => Ok(Ty::Never),
             Ty::Any => Ok(Ty::Any),
-            Ty::Name(n) => match self.oracle.as_function(n) {
-                None => {
-                    // Unknown type, may be callable.
-                    Ok(Ty::Any)
-                }
-                Some(Ok(f)) => self.validate_fn_call(span, &f, args),
-                Some(Err(())) => Err(self.mk_error(
-                    span,
-                    TypingOracleCtxError::CallToNonCallable {
-                        ty: fun.to_string(),
-                    },
-                )),
-            },
+            Ty::Name(n) => self.validate_call_for_type_name(span, n, args),
+            Ty::StarlarkValue(t) => Err(self.mk_error(
+                span,
+                TypingOracleCtxError::CallToNonCallable { ty: t.to_string() },
+            )),
             Ty::List(_) | Ty::Dict(_) | Ty::Tuple(_) => Err(self.mk_error(
                 span,
                 TypingOracleCtxError::CallToNonCallable {
