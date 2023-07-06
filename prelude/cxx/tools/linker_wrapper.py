@@ -8,9 +8,11 @@
 
 import codecs
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
+import winreg
 
 
 def unquote(argument):
@@ -56,6 +58,37 @@ def expand_args(arguments):
     return expanded
 
 
+def find_windows_sdk(arch):
+    registry = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
+    # TODO: Support Windows 11
+    key_name = "SOFTWARE\\WOW6432Node\\Microsoft\\Microsoft SDKs\\Windows\\v10.0"
+    registry_key = winreg.OpenKey(registry, key_name)
+    installation_folder = winreg.QueryValueEx(registry_key, "InstallationFolder")[0]
+    sdk_version = winreg.QueryValueEx(registry_key, "ProductVersion")[0]
+    # Folder name has extra suffix.
+    sdk_version += ".0"
+    sdk_path = os.path.join(installation_folder, "Lib", sdk_version)
+    sdk_libpath = []
+    sdk_libpath.append(os.path.join(sdk_path, "ucrt", arch))
+    sdk_libpath.append(os.path.join(sdk_path, "um", arch))
+    return sdk_libpath
+
+
+def find_msvc_libpath(linker):
+    libpath = []
+    linker_path = shutil.which(linker)
+    parts = os.path.normpath(linker_path).split(os.sep)
+    arch = parts[-2]
+    assert arch in ["x86", "x64"], "Unsupported MSVC setup"
+    libpath.append(os.sep.join(parts[:-4] + ["lib", arch]))
+    try:
+        libpath.extend(find_windows_sdk(arch))
+    except FileNotFoundError:
+        print("Windows SDK is not installed")
+        sys.exit(1)
+    return ["/LIBPATH:" + p for p in libpath]
+
+
 def main():
     linker_real, rest = sys.argv[1], sys.argv[2:]
     working_dir = os.getcwd()
@@ -82,6 +115,10 @@ def main():
             argument = os.path.join(working_dir, argument)
 
         new_args.append(argument)
+
+    # Dynamically find LIBPATH for the current linker from system toolchain.
+    if linker_real in ["link.exe", "link"]:
+        new_args.extend(find_msvc_libpath(linker_real))
 
     # Based on rustc's @linker-arguments file construction.
     # https://github.com/rust-lang/rust/blob/1.69.0/compiler/rustc_codegen_ssa/src/back/link.rs#L1383-L1407

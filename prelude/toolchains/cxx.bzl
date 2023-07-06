@@ -62,6 +62,9 @@ def _system_cxx_toolchain_impl(ctx):
         static_library_extension = "lib"
         shared_library_name_format = "{}.dll"
         shared_library_versioned_name_format = "{}.dll"
+        additional_linker_flags = [
+            "msvcrt.lib",
+        ]
     elif ctx.attrs.linker == "g++" or ctx.attrs.cxx_compiler == "g++":
         pass
     else:
