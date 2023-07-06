@@ -19,7 +19,6 @@ use buck2_execute::digest_config::SetDigestConfig;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::WhichDice;
-use dice::WhichSpawner;
 
 /// Utility to configure the dice globals.
 /// One place to not forget to initialize something in all places.
@@ -51,10 +50,6 @@ pub async fn configure_dice_for_buck(
         Ok,
     )?;
 
-    let which_spawner = root_config
-        .and_then(|c| c.parse::<WhichSpawner>("buck2", "dice_spawner").transpose())
-        .unwrap_or(Ok(WhichSpawner::DropCancel))?;
-
     let mut dice = match which_dice {
         WhichDice::Legacy => Dice::builder(),
         WhichDice::Modern => Dice::modern(),
@@ -62,7 +57,7 @@ pub async fn configure_dice_for_buck(
     dice.set_io_provider(io);
     dice.set_digest_config(digest_config);
 
-    let dice = dice.build_with_which_spawner(detect_cycles, which_spawner);
+    let dice = dice.build(detect_cycles);
     let mut dice_ctx = dice.updater();
     dice_ctx.set_none_cell_resolver()?;
     dice_ctx.set_none_legacy_configs()?;

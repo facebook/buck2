@@ -196,7 +196,6 @@ use serde::Serializer;
 use crate::api::cycles::DetectCycles;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
-use crate::api::which::WhichSpawner;
 use crate::metrics::Metrics;
 use crate::DiceDataBuilderImpl;
 use crate::DiceImplementation;
@@ -284,15 +283,7 @@ impl DiceDataBuilder {
     }
 
     pub fn build(self, detect_cycles: DetectCycles) -> Arc<Dice> {
-        self.build_with_which_spawner(detect_cycles, WhichSpawner::ExplicitCancel)
-    }
-
-    pub fn build_with_which_spawner(
-        self,
-        detect_cycles: DetectCycles,
-        which_spawner: WhichSpawner,
-    ) -> Arc<Dice> {
-        self.0.build(detect_cycles, which_spawner)
+        self.0.build(detect_cycles)
     }
 }
 

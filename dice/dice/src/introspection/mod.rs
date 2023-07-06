@@ -58,7 +58,6 @@ mod tests {
     use crate::introspection::serialize_graph;
     use crate::DiceLegacy;
     use crate::HashMap;
-    use crate::WhichSpawner;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display(fmt = "{:?}", self)]
@@ -108,8 +107,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_serialization() -> anyhow::Result<()> {
-        let dice =
-            DiceLegacy::builder().build(DetectCycles::Disabled, WhichSpawner::ExplicitCancel);
+        let dice = DiceLegacy::builder().build(DetectCycles::Disabled);
         let ctx = dice.updater().commit().await;
         ctx.compute(&KeyA(3)).await?;
 
@@ -163,8 +161,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_serialization_dense() -> anyhow::Result<()> {
-        let dice =
-            DiceLegacy::builder().build(DetectCycles::Disabled, WhichSpawner::ExplicitCancel);
+        let dice = DiceLegacy::builder().build(DetectCycles::Disabled);
         let ctx = dice.updater().commit().await;
         ctx.compute(&KeyA(3)).await?;
 

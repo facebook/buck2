@@ -261,7 +261,6 @@ pub use crate::api::user_data::UserComputationData;
 pub use crate::api::user_data::UserCycleDetector;
 pub use crate::api::user_data::UserCycleDetectorGuard;
 pub use crate::api::which::WhichDice;
-pub use crate::api::which::WhichSpawner;
 use crate::impls::dice::DiceModern;
 use crate::impls::dice::DiceModernDataBuilder;
 use crate::introspection::graph::GraphIntrospectable;
@@ -376,11 +375,9 @@ impl DiceDataBuilderImpl {
         }
     }
 
-    pub fn build(self, detect_cycles: DetectCycles, which_spawner: WhichSpawner) -> Arc<Dice> {
+    pub fn build(self, detect_cycles: DetectCycles) -> Arc<Dice> {
         Dice::new(match self {
-            DiceDataBuilderImpl::Legacy(d) => {
-                DiceImplementation::Legacy(d.build(detect_cycles, which_spawner))
-            }
+            DiceDataBuilderImpl::Legacy(d) => DiceImplementation::Legacy(d.build(detect_cycles)),
             DiceDataBuilderImpl::Modern(d) => DiceImplementation::Modern(d.build(detect_cycles)),
         })
     }

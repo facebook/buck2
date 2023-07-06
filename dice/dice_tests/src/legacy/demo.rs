@@ -25,7 +25,6 @@ use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
-use dice::WhichSpawner;
 use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
 use tempfile::NamedTempFile;
@@ -145,8 +144,7 @@ async fn demo() -> anyhow::Result<()> {
     let temp = NamedTempFile::new().unwrap();
     let f = PathBuf::from(temp.path());
 
-    let dice = Dice::builder()
-        .build_with_which_spawner(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
+    let dice = Dice::builder().build(DetectCycles::Enabled);
 
     let mut ctx = dice.updater();
     ctx.set_encodings(Encoding::Utf8)?;
