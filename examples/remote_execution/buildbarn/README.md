@@ -32,9 +32,9 @@ Buildbarn Scheduler
 Instance name                                    Platform properties                                    Size  Timeo
    prefix                                                                                               class
 
-"fuse"        OSFamily="Linux" container-image="docker://ghcr.io/catthehacker/                          0     ∞
+"fuse"        OSFamily="linux" container-image="docker://ghcr.io/catthehacker/                          0     ∞
               ubuntu:act-22.04@sha256:5f9c35c25db1d51a8ddaae5c0ba8d3c163c5e9a4a6cc97acd409ac7eae239448"
-"hardlinking" OSFamily="Linux" container-image="docker://ghcr.io/catthehacker/                          0     ∞
+"hardlinking" OSFamily="linux" container-image="docker://ghcr.io/catthehacker/                          0     ∞
               ubuntu:act-22.04@sha256:5f9c35c25db1d51a8ddaae5c0ba8d3c163c5e9a4a6cc97acd409ac7eae239448"
 ```
 
