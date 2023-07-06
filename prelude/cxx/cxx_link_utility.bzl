@@ -207,9 +207,22 @@ def executable_shared_lib_arguments(
 
     return (extra_args, runtime_files, shared_libs_symlink_tree)
 
+def cxx_link_cmd_parts(ctx: "context") -> ("RunInfo", "cmd_args"):
+    toolchain = get_cxx_toolchain_info(ctx)
+
+    # `toolchain_linker_flags` can either be a list of strings, `cmd_args` or `None`,
+    # so we need to do a bit more work to satisfy the type checker
+    toolchain_linker_flags = toolchain.linker_info.linker_flags
+    if toolchain_linker_flags == None:
+        toolchain_linker_flags = cmd_args()
+    elif not type(toolchain_linker_flags) == "cmd_args":
+        toolchain_linker_flags = cmd_args(toolchain_linker_flags)
+
+    return toolchain.linker_info.linker, toolchain_linker_flags
+
 # The command line for linking with C++
 def cxx_link_cmd(ctx: "context") -> "cmd_args":
-    toolchain = get_cxx_toolchain_info(ctx)
-    command = cmd_args(toolchain.linker_info.linker)
-    command.add(toolchain.linker_info.linker_flags or [])
+    linker, toolchain_linker_flags = cxx_link_cmd_parts(ctx)
+    command = cmd_args(linker)
+    command.add(toolchain_linker_flags)
     return command
