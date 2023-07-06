@@ -595,8 +595,9 @@ impl<T: LspContext> Backend<T> {
                 }
             }
             IdentifierDefinition::StringLiteral { literal, .. } => {
-                let Ok(resolved_literal) = self.context
-                    .resolve_string_literal(&literal, uri, workspace_root)
+                let Ok(resolved_literal) =
+                    self.context
+                        .resolve_string_literal(&literal, uri, workspace_root)
                 else {
                     return Ok(None);
                 };
@@ -815,11 +816,10 @@ impl<T: LspContext> Backend<T> {
                 None => true,
             })
         {
-            let Ok(load_path) = self.context.render_as_load(
-                doc_uri,
-                current_document,
-                workspace_root,
-            ) else {
+            let Ok(load_path) =
+                self.context
+                    .render_as_load(doc_uri, current_document, workspace_root)
+            else {
                 continue;
             };
 
@@ -852,16 +852,16 @@ impl<T: LspContext> Backend<T> {
             })
             .filter(|(_, symbol)| !symbols.contains_key(symbol.name))
         {
-            let Ok(url) = self.context
-                    .resolve_load(symbol.loaded_from, doc_uri, workspace_root)
+            let Ok(url) = self
+                .context
+                .resolve_load(symbol.loaded_from, doc_uri, workspace_root)
             else {
                 continue;
             };
-            let Ok(load_path) = self.context.render_as_load(
-                &url,
-                current_document,
-                workspace_root
-            ) else {
+            let Ok(load_path) = self
+                .context
+                .render_as_load(&url, current_document, workspace_root)
+            else {
                 continue;
             };
 
@@ -1098,11 +1098,10 @@ impl<T: LspContext> Backend<T> {
                 })
             }
             IdentifierDefinition::StringLiteral { source, literal } => {
-                let Ok(resolved_literal) = self.context.resolve_string_literal(
-                    &literal,
-                    document_uri,
-                    workspace_root,
-                ) else {
+                let Ok(resolved_literal) =
+                    self.context
+                        .resolve_string_literal(&literal, document_uri, workspace_root)
+                else {
                     // We might just be hovering a string that's not a file/target/etc,
                     // so just return nothing.
                     return Ok(None);
