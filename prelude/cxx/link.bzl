@@ -32,7 +32,7 @@ load(":bitcode.bzl", "make_bitcode_bundle")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_link_utility.bzl",
-    "cxx_link_cmd",
+    "cxx_link_cmd_parts",
     "linker_map_args",
     "make_link_args",
 )
@@ -181,19 +181,25 @@ def cxx_link(
         children = external_debug_infos,
     )
 
+    linker, toolchain_linker_flags = cxx_link_cmd_parts(ctx)
+    all_link_args = cmd_args(toolchain_linker_flags)
+    all_link_args.add(get_output_flags(linker_info.type, output))
+    all_link_args.add(link_args)
+
     if linker_info.type == "windows":
-        shell_quoted_args = cmd_args(link_args)
+        shell_quoted_args = cmd_args(all_link_args)
     else:
-        shell_quoted_args = cmd_args(link_args, quote = "shell")
+        shell_quoted_args = cmd_args(all_link_args, quote = "shell")
     argfile, _ = ctx.actions.write(
         output.short_path + ".linker.argsfile",
         shell_quoted_args,
         allow_args = True,
     )
-    command = cxx_link_cmd(ctx)
-    command.add(get_output_flags(linker_info.type, output))
+
+    command = cmd_args(linker)
     command.add(cmd_args(argfile, format = "@{}"))
     command.hidden(hidden)
+    command.hidden(shell_quoted_args)
     category = "cxx_link"
     if category_suffix != None:
         category += "_" + category_suffix
