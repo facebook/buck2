@@ -26,6 +26,8 @@ use crate::lsp::bind::scope;
 use crate::lsp::bind::Assigner;
 use crate::lsp::bind::Bind;
 use crate::lsp::bind::Scope;
+use crate::lsp::exported::Symbol;
+use crate::lsp::loaded::LoadedSymbol;
 use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignP;
@@ -47,6 +49,7 @@ pub(crate) enum IdentifierDefinition {
     Location {
         source: ResolvedSpan,
         destination: ResolvedSpan,
+        name: String,
     },
     /// The symbol was loaded from another file. "destination" is the position within the
     /// "load()" statement, but additionally, the path in that load statement, and the
@@ -111,7 +114,11 @@ pub(crate) struct DottedDefinition {
 #[derive(Debug, Clone, Eq, PartialEq)]
 enum TempIdentifierDefinition<'a> {
     /// The location of the definition of the symbol at the current line/column
-    Location { source: Span, destination: Span },
+    Location {
+        source: Span,
+        destination: Span,
+        name: &'a str,
+    },
     LoadedLocation {
         source: Span,
         destination: Span,
@@ -264,7 +271,7 @@ impl LspModule {
     /// accessed at Pos is defined.
     fn find_definition_in_scope<'a>(scope: &'a Scope, pos: Pos) -> TempDefinition<'a> {
         /// Look for a name in the given scope, with a given source, and return the right
-        /// type of `TempIdentifierDefinition` based on whether / how the variable is bound.
+        /// type of [`TempIdentifierDefinition`] based on whether / how the variable is bound.
         fn resolve_get_in_scope<'a>(
             scope: &'a Scope,
             name: &'a str,
@@ -282,6 +289,7 @@ impl LspModule {
                 Some((_, span)) => TempIdentifierDefinition::Location {
                     source,
                     destination: *span,
+                    name,
                 },
                 // We know the symbol name, but it might only be available in
                 // an outer scope.
@@ -378,9 +386,11 @@ impl LspModule {
             TempIdentifierDefinition::Location {
                 source,
                 destination,
+                name,
             } => IdentifierDefinition::Location {
                 source: self.ast.codemap.resolve_span(source),
                 destination: self.ast.codemap.resolve_span(destination),
+                name: name.to_owned(),
             },
             TempIdentifierDefinition::Name { source, name } => match scope.bound.get(name) {
                 None => IdentifierDefinition::Unresolved {
@@ -398,6 +408,7 @@ impl LspModule {
                 Some((_, span)) => IdentifierDefinition::Location {
                     source: self.ast.codemap.resolve_span(source),
                     destination: self.ast.codemap.resolve_span(*span),
+                    name: name.to_owned(),
                 },
             },
             // If we could not find the symbol, see if the current position is within
@@ -417,15 +428,28 @@ impl LspModule {
         }
     }
 
+    /// Get the list of symbols exported by this module.
+    pub(crate) fn get_exported_symbols(&self) -> Vec<Symbol> {
+        self.ast.exported_symbols()
+    }
+
+    /// Get the list of symbols loaded by this module.
+    pub(crate) fn get_loaded_symbols(&self) -> Vec<LoadedSymbol<'_>> {
+        self.ast.loaded_symbols()
+    }
+
+    /// Attempt to find an exported symbol with the given name.
+    pub(crate) fn find_exported_symbol(&self, name: &str) -> Option<Symbol> {
+        self.ast
+            .exported_symbols()
+            .into_iter()
+            .find(|symbol| symbol.name == name)
+    }
+
     /// Attempt to find the location in this module where an exported symbol is defined.
-    pub(crate) fn find_exported_symbol(&self, name: &str) -> Option<ResolvedSpan> {
-        self.ast.exported_symbols().iter().find_map(|symbol| {
-            if symbol.name == name {
-                Some(symbol.span.resolve_span())
-            } else {
-                None
-            }
-        })
+    pub(crate) fn find_exported_symbol_span(&self, name: &str) -> Option<ResolvedSpan> {
+        self.find_exported_symbol(name)
+            .map(|symbol| symbol.span.resolve_span())
     }
 
     /// Attempt to find the location in this module where a member of a struct (named `name`)
@@ -851,10 +875,12 @@ mod test {
         let expected_add = Definition::from(IdentifierDefinition::Location {
             source: parsed.resolved_span("add_click"),
             destination: parsed.resolved_span("add"),
+            name: "add".to_owned(),
         });
         let expected_invalid = Definition::from(IdentifierDefinition::Location {
             source: parsed.resolved_span("invalid_symbol_click"),
             destination: parsed.resolved_span("invalid_symbol"),
+            name: "invalid_symbol".to_owned(),
         });
 
         assert_eq!(
@@ -913,7 +939,8 @@ mod test {
         assert_eq!(
             Definition::from(IdentifierDefinition::Location {
                 source: parsed.resolved_span("x_param"),
-                destination: parsed.resolved_span("x")
+                destination: parsed.resolved_span("x"),
+                name: "x".to_owned(),
             }),
             module.find_definition_at_location(
                 parsed.begin_line("x_param"),
@@ -951,7 +978,8 @@ mod test {
         assert_eq!(
             Definition::from(IdentifierDefinition::Location {
                 source: parsed.resolved_span("x_var"),
-                destination: parsed.resolved_span("x")
+                destination: parsed.resolved_span("x"),
+                name: "x".to_owned(),
             }),
             module.find_definition_at_location(
                 parsed.begin_line("x_var"),
@@ -961,7 +989,8 @@ mod test {
         assert_eq!(
             Definition::from(IdentifierDefinition::Location {
                 source: parsed.resolved_span("y_var1"),
-                destination: parsed.resolved_span("y2")
+                destination: parsed.resolved_span("y2"),
+                name: "y".to_owned(),
             }),
             module.find_definition_at_location(
                 parsed.begin_line("y_var1"),
@@ -972,7 +1001,8 @@ mod test {
         assert_eq!(
             Definition::from(IdentifierDefinition::Location {
                 source: parsed.resolved_span("y_var2"),
-                destination: parsed.resolved_span("y1")
+                destination: parsed.resolved_span("y1"),
+                name: "y".to_owned(),
             }),
             module.find_definition_at_location(
                 parsed.begin_line("y_var2"),
@@ -1242,6 +1272,7 @@ mod test {
             let root_definition_location = IdentifierDefinition::Location {
                 source: parsed.resolved_span(&format!("{}_root", span_id)),
                 destination: parsed.resolved_span("root"),
+                name: "foo".to_owned(),
             };
             if segments.len() > 1 {
                 DottedDefinition {

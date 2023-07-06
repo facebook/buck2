@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::slice;
+
 use dupe::Dupe;
 use itertools::Itertools;
 use starlark_map::small_map::SmallMap;
@@ -238,13 +240,24 @@ fn render_object(name: &str, object: &DocObject) -> String {
     render_members(name, true, &object.docs, &object.members)
 }
 
-fn render_doc_item(name: &str, item: &DocItem) -> String {
-    match &item {
+pub(crate) fn render_doc_item(name: &str, item: &DocItem) -> String {
+    match item {
         DocItem::Module(m) => render_module(name, m),
         DocItem::Object(o) => render_object(name, o),
         DocItem::Function(f) => render_function(name, f),
         DocItem::Property(p) => render_property(name, p),
     }
+}
+
+pub(crate) fn render_doc_member(name: &str, item: &DocMember) -> String {
+    match item {
+        DocMember::Function(f) => render_function(name, f),
+        DocMember::Property(p) => render_property(name, p),
+    }
+}
+
+pub(crate) fn render_doc_param(item: &DocParam) -> String {
+    render_function_parameters(slice::from_ref(item)).unwrap_or_default()
 }
 
 impl RenderMarkdown for Doc {

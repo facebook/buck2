@@ -19,8 +19,12 @@
 //! to the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/).
 
 mod bind;
+pub mod completion;
 mod definition;
+pub(crate) mod docs;
 mod exported;
+pub(crate) mod inspect;
+pub(crate) mod loaded;
 pub mod server;
 mod symbols;
 #[cfg(all(test, not(windows)))]

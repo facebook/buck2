@@ -17,127 +17,168 @@
 
 //! Find which symbols are in scope at a particular point.
 
-use starlark_map::small_map::SmallMap;
+use std::collections::HashMap;
 
 use crate::codemap::CodeMap;
 use crate::codemap::LineCol;
-use crate::lsp::exported::SymbolKind;
-use crate::syntax::ast::AstAssignIdent;
-use crate::syntax::ast::AstStmt;
+use crate::docs::DocItem;
+use crate::docs::DocParam;
+use crate::lsp::docs::get_doc_item_for_def;
+use crate::syntax::ast::AstPayload;
+use crate::syntax::ast::AstStmtP;
+use crate::syntax::ast::ExprP;
+use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
-use crate::syntax::AstModule;
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct SymbolWithDetails<'a> {
-    /// The symbol itself.
-    pub(crate) name: &'a str,
-    /// The type of symbol it represents.
-    pub(crate) kind: SymbolKind,
-    /// The file where the symbol was loaded, if it was loaded.
-    pub(crate) loaded_from: Option<&'a str>,
+pub(crate) enum SymbolKind {
+    Method,
+    Variable,
 }
 
-/// Find the symbols that are available in scope at a particular point that might be interesting
-/// for autocomplete.
-///
-/// * Currently does not look into variables bound in list/dict comprehensions (should be fixed one day).
-/// * Does not return local variables that start with an underscore (since they )
-#[allow(dead_code)] // Used shortly by the LSP
-pub(crate) fn find_symbols_at_position<'a>(
-    module: &'a AstModule,
-    position: LineCol,
-) -> Vec<SymbolWithDetails<'a>> {
-    fn walk<'a>(
-        codemap: &CodeMap,
-        position: LineCol,
-        stmt: &'a AstStmt,
-        top_level: bool,
-        symbols: &mut SmallMap<&'a str, SymbolWithDetails<'a>>,
-    ) {
-        fn add<'a>(
-            symbols: &mut SmallMap<&'a str, SymbolWithDetails<'a>>,
-            top_level: bool,
-            name: &'a AstAssignIdent,
-            kind: SymbolKind,
-            loaded_from: Option<&'a str>,
-        ) {
-            // Local variables which start with an underscore are ignored by convention,
-            // so don't consider them to be variables we are interested in reporting.
-            // They are more sinks to ignore warnings than variables.
-            if top_level || !name.0.starts_with('_') {
-                symbols.entry(&name.0).or_insert(SymbolWithDetails {
-                    name: &name.0,
-                    kind,
-                    loaded_from,
-                });
-            }
-        }
+#[derive(Debug, PartialEq)]
+pub(crate) struct Symbol {
+    pub(crate) name: String,
+    pub(crate) detail: Option<String>,
+    pub(crate) kind: SymbolKind,
+    pub(crate) doc: Option<DocItem>,
+    pub(crate) param: Option<DocParam>,
+}
 
-        match &**stmt {
-            StmtP::Assign(dest, rhs) => dest
-                .visit_lvalue(|x| add(symbols, top_level, x, SymbolKind::from_expr(&rhs.1), None)),
-            StmtP::AssignModify(dest, _, _) => {
-                dest.visit_lvalue(|x| add(symbols, top_level, x, SymbolKind::Any, None))
+/// Walk the AST recursively and discover symbols.
+pub(crate) fn find_symbols_at_location<P: AstPayload>(
+    codemap: &CodeMap,
+    ast: &AstStmtP<P>,
+    cursor_position: LineCol,
+) -> HashMap<String, Symbol> {
+    let mut symbols = HashMap::new();
+    fn walk<P: AstPayload>(
+        codemap: &CodeMap,
+        ast: &AstStmtP<P>,
+        cursor_position: LineCol,
+        symbols: &mut HashMap<String, Symbol>,
+    ) {
+        match &ast.node {
+            StmtP::Assign(dest, rhs) => {
+                let source = &rhs.as_ref().1;
+                dest.visit_lvalue(|x| {
+                    symbols.entry(x.0.clone()).or_insert_with(|| Symbol {
+                        name: x.0.clone(),
+                        kind: (match source.node {
+                            ExprP::Lambda(_) => SymbolKind::Method,
+                            _ => SymbolKind::Variable,
+                        }),
+                        detail: None,
+                        doc: None,
+                        param: None,
+                    });
+                })
             }
+            StmtP::AssignModify(dest, _, source) => dest.visit_lvalue(|x| {
+                symbols.entry(x.0.clone()).or_insert_with(|| Symbol {
+                    name: x.0.clone(),
+                    kind: (match source.node {
+                        ExprP::Lambda(_) => SymbolKind::Method,
+                        _ => SymbolKind::Variable,
+                    }),
+                    detail: None,
+                    doc: None,
+                    param: None,
+                });
+            }),
             StmtP::For(dest, over_body) => {
                 let (_, body) = &**over_body;
-                dest.visit_lvalue(|x| add(symbols, top_level, x, SymbolKind::Any, None));
-                walk(codemap, position, body, top_level, symbols);
+                dest.visit_lvalue(|x| {
+                    symbols.entry(x.0.clone()).or_insert_with(|| Symbol {
+                        name: x.0.clone(),
+                        kind: SymbolKind::Variable,
+                        detail: None,
+                        doc: None,
+                        param: None,
+                    });
+                });
+                walk(codemap, body, cursor_position, symbols);
             }
             StmtP::Def(def) => {
-                add(symbols, top_level, &def.name, SymbolKind::Function, None);
+                // Peek into the function definition to find the docstring.
+                let doc = get_doc_item_for_def(def);
+                symbols.entry(def.name.0.clone()).or_insert_with(|| Symbol {
+                    name: def.name.0.clone(),
+                    kind: SymbolKind::Method,
+                    detail: None,
+                    doc: doc.clone().map(DocItem::Function),
+                    param: None,
+                });
 
                 // Only recurse into method if the cursor is in it.
-                if codemap.resolve_span(def.body.span).contains(position) {
-                    for param in &def.params {
-                        if let Some(name) = param.split().0 {
-                            add(symbols, false, name, SymbolKind::Any, None)
+                if codemap
+                    .resolve_span(def.body.span)
+                    .contains(cursor_position)
+                {
+                    symbols.extend(def.params.iter().filter_map(|param| match &param.node {
+                        ParameterP::Normal(p, _) | ParameterP::WithDefaultValue(p, _, _) => {
+                            Some(
+                                (
+                                    p.0.clone(),
+                                    Symbol {
+                                        name: p.0.clone(),
+                                        kind: SymbolKind::Variable,
+                                        detail: None,
+                                        doc: None,
+                                        param: doc.as_ref().and_then(|doc| {
+                                            doc.find_param_with_name(&p.0).cloned()
+                                        }),
+                                    },
+                                ),
+                            )
                         }
-                    }
-                    walk(codemap, position, &def.body, false, symbols);
+                        _ => None,
+                    }));
+                    walk(codemap, &def.body, cursor_position, symbols);
                 }
             }
-            StmtP::Load(load) => {
-                for (name, _) in &load.args {
-                    add(
-                        symbols,
-                        top_level,
-                        name,
-                        SymbolKind::Any,
-                        Some(&**load.module),
-                    )
-                }
-            }
-            stmt => stmt.visit_stmt(|x| walk(codemap, position, x, top_level, symbols)),
+            StmtP::Load(load) => symbols.extend(load.args.iter().map(|(name, _)| {
+                (
+                    name.0.clone(),
+                    Symbol {
+                        name: name.0.clone(),
+                        detail: Some(format!("Loaded from {}", load.module.node)),
+                        // TODO: This should be dynamic based on the actual loaded value.
+                        kind: SymbolKind::Method,
+                        // TODO: Pull from the original file.
+                        doc: None,
+                        param: None,
+                    },
+                )
+            })),
+            stmt => stmt.visit_stmt(|x| walk(codemap, x, cursor_position, symbols)),
         }
     }
 
-    let mut symbols = SmallMap::new();
-    walk(
-        &module.codemap,
-        position,
-        &module.statement,
-        true,
-        &mut symbols,
-    );
-    symbols.into_values().collect()
+    walk(codemap, ast, cursor_position, &mut symbols);
+    symbols
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::collections::HashMap;
+
+    use super::find_symbols_at_location;
+    use super::Symbol;
+    use super::SymbolKind;
+    use crate::codemap::LineCol;
+    use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 
     #[test]
-    fn test_symbols_at_location() {
-        let modu = AstModule::parse(
+    fn global_symbols() {
+        let ast_module = AstModule::parse(
             "t.star",
-            r#"
-load("foo.star", "exported_a", renamed = "exported_b")
-def _method(param):
+            r#"load("foo.star", "exported_a", renamed = "exported_b")
+
+def method(param):
     pass
-    _local = 7
-    x = lambda _: 7
+
 my_var = True
         "#
             .to_owned(),
@@ -145,33 +186,131 @@ my_var = True
         )
         .unwrap();
 
-        let at_root = find_symbols_at_position(&modu, LineCol { line: 0, column: 0 });
-        let mut inside_method = find_symbols_at_position(&modu, LineCol { line: 3, column: 6 });
-        assert_eq!(inside_method.len(), 6);
-        inside_method.retain(|x| !at_root.contains(x));
-
-        let sym = |name, kind, loaded_from| SymbolWithDetails {
-            name,
-            kind,
-            loaded_from,
-        };
-
         assert_eq!(
-            at_root,
-            vec![
-                sym("exported_a", SymbolKind::Any, Some("foo.star")),
-                sym("renamed", SymbolKind::Any, Some("foo.star")),
-                sym("_method", SymbolKind::Function, None),
-                sym("my_var", SymbolKind::Any, None),
-            ]
+            find_symbols_at_location(
+                &ast_module.codemap,
+                &ast_module.statement,
+                LineCol { line: 6, column: 0 },
+            ),
+            HashMap::from([
+                (
+                    "exported_a".to_owned(),
+                    Symbol {
+                        name: "exported_a".to_owned(),
+                        detail: Some("Loaded from foo.star".to_owned()),
+                        kind: SymbolKind::Method,
+                        doc: None,
+                        param: None,
+                    },
+                ),
+                (
+                    "renamed".to_owned(),
+                    Symbol {
+                        name: "renamed".to_owned(),
+                        detail: Some("Loaded from foo.star".to_owned()),
+                        kind: SymbolKind::Method,
+                        doc: None,
+                        param: None,
+                    },
+                ),
+                (
+                    "method".to_owned(),
+                    Symbol {
+                        name: "method".to_owned(),
+                        detail: None,
+                        kind: SymbolKind::Method,
+                        doc: None,
+                        param: None,
+                    },
+                ),
+                (
+                    "my_var".to_owned(),
+                    Symbol {
+                        name: "my_var".to_owned(),
+                        detail: None,
+                        kind: SymbolKind::Variable,
+                        doc: None,
+                        param: None,
+                    },
+                ),
+            ])
         );
+    }
+
+    #[test]
+    fn inside_method() {
+        let ast_module = AstModule::parse(
+            "t.star",
+            r#"load("foo.star", "exported_a", renamed = "exported_b")
+
+def method(param):
+    pass
+
+my_var = True
+        "#
+            .to_owned(),
+            &Dialect::Standard,
+        )
+        .unwrap();
 
         assert_eq!(
-            inside_method,
-            vec![
-                sym("param", SymbolKind::Any, None),
-                sym("x", SymbolKind::Function, None),
-            ]
+            find_symbols_at_location(
+                &ast_module.codemap,
+                &ast_module.statement,
+                LineCol { line: 3, column: 4 },
+            ),
+            HashMap::from([
+                (
+                    "exported_a".to_owned(),
+                    Symbol {
+                        name: "exported_a".to_owned(),
+                        detail: Some("Loaded from foo.star".to_owned()),
+                        kind: SymbolKind::Method,
+                        doc: None,
+                        param: None,
+                    },
+                ),
+                (
+                    "renamed".to_owned(),
+                    Symbol {
+                        name: "renamed".to_owned(),
+                        detail: Some("Loaded from foo.star".to_owned()),
+                        kind: SymbolKind::Method,
+                        doc: None,
+                        param: None,
+                    },
+                ),
+                (
+                    "method".to_owned(),
+                    Symbol {
+                        name: "method".to_owned(),
+                        detail: None,
+                        kind: SymbolKind::Method,
+                        doc: None,
+                        param: None,
+                    },
+                ),
+                (
+                    "param".to_owned(),
+                    Symbol {
+                        name: "param".to_owned(),
+                        detail: None,
+                        kind: SymbolKind::Variable,
+                        doc: None,
+                        param: None,
+                    }
+                ),
+                (
+                    "my_var".to_owned(),
+                    Symbol {
+                        name: "my_var".to_owned(),
+                        detail: None,
+                        kind: SymbolKind::Variable,
+                        doc: None,
+                        param: None,
+                    },
+                ),
+            ])
         );
     }
 }

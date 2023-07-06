@@ -18,6 +18,7 @@
 //! Based on the reference lsp-server example at <https://github.com/rust-analyzer/lsp-server/blob/master/examples/goto_def.rs>.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::Path;
 use std::path::PathBuf;
@@ -28,6 +29,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_server::Notification;
@@ -40,24 +42,42 @@ use lsp_types::notification::DidCloseTextDocument;
 use lsp_types::notification::DidOpenTextDocument;
 use lsp_types::notification::LogMessage;
 use lsp_types::notification::PublishDiagnostics;
+use lsp_types::request::Completion;
 use lsp_types::request::GotoDefinition;
+use lsp_types::request::HoverRequest;
+use lsp_types::CompletionItem;
+use lsp_types::CompletionItemKind;
+use lsp_types::CompletionOptions;
+use lsp_types::CompletionParams;
+use lsp_types::CompletionResponse;
 use lsp_types::DefinitionOptions;
 use lsp_types::Diagnostic;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidCloseTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
+use lsp_types::Documentation;
 use lsp_types::GotoDefinitionParams;
 use lsp_types::GotoDefinitionResponse;
+use lsp_types::Hover;
+use lsp_types::HoverContents;
+use lsp_types::HoverParams;
+use lsp_types::HoverProviderCapability;
 use lsp_types::InitializeParams;
+use lsp_types::LanguageString;
 use lsp_types::LocationLink;
 use lsp_types::LogMessageParams;
+use lsp_types::MarkedString;
+use lsp_types::MarkupContent;
+use lsp_types::MarkupKind;
 use lsp_types::MessageType;
 use lsp_types::OneOf;
+use lsp_types::Position;
 use lsp_types::PublishDiagnosticsParams;
 use lsp_types::Range;
 use lsp_types::ServerCapabilities;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
+use lsp_types::TextEdit;
 use lsp_types::Url;
 use lsp_types::WorkDoneProgressOptions;
 use lsp_types::WorkspaceFolder;
@@ -67,14 +87,24 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::codemap::LineCol;
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
+use crate::codemap::Spanned;
+use crate::docs::markdown::render_doc_item;
+use crate::docs::markdown::render_doc_member;
+use crate::docs::markdown::render_doc_param;
+use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::lsp::definition::Definition;
 use crate::lsp::definition::DottedDefinition;
 use crate::lsp::definition::IdentifierDefinition;
 use crate::lsp::definition::LspModule;
+use crate::lsp::inspect::AutocompleteType;
 use crate::lsp::server::LoadContentsError::WrongScheme;
+use crate::lsp::symbols::find_symbols_at_location;
+use crate::syntax::ast::AssignIdentP;
+use crate::syntax::ast::AstPayload;
 use crate::syntax::AstModule;
 
 /// The request to get the file contents for a starlark: URI
@@ -339,12 +369,12 @@ pub(crate) enum LoadContentsError {
     WrongScheme(String, LspUrl),
 }
 
-struct Backend<T: LspContext> {
+pub(crate) struct Backend<T: LspContext> {
     connection: Connection,
-    context: T,
+    pub(crate) context: T,
     /// The `AstModule` from the last time that a file was opened / changed and parsed successfully.
     /// Entries are evicted when the file is closed.
-    last_valid_parse: RwLock<HashMap<LspUrl, Arc<LspModule>>>,
+    pub(crate) last_valid_parse: RwLock<HashMap<LspUrl, Arc<LspModule>>>,
 }
 
 /// The logic implementations of stuff
@@ -360,6 +390,26 @@ impl<T: LspContext> Backend<T> {
         ServerCapabilities {
             text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
             definition_provider,
+            completion_provider: Some(CompletionOptions {
+                trigger_characters: Some(vec![
+                    // e.g. function call
+                    "(".to_owned(),
+                    // e.g. list creation, function call
+                    ",".to_owned(),
+                    // e.g. when typing a load path
+                    "/".to_owned(),
+                    // e.g. dict creation
+                    ":".to_owned(),
+                    // e.g. variable assignment
+                    "=".to_owned(),
+                    // e.g. list creation
+                    "[".to_owned(),
+                    // e.g. string literal (load path, target name)
+                    "\"".to_owned(),
+                ]),
+                ..Default::default()
+            }),
+            hover_provider: Some(HoverProviderCapability::Simple(true)),
             ..ServerCapabilities::default()
         }
     }
@@ -369,7 +419,10 @@ impl<T: LspContext> Backend<T> {
         last_valid_parse.get(uri).duped()
     }
 
-    fn get_ast_or_load_from_disk(&self, uri: &LspUrl) -> anyhow::Result<Option<Arc<LspModule>>> {
+    pub(crate) fn get_ast_or_load_from_disk(
+        &self,
+        uri: &LspUrl,
+    ) -> anyhow::Result<Option<Arc<LspModule>>> {
         let module = match self.get_ast(uri) {
             Some(result) => Some(result),
             None => self
@@ -437,6 +490,24 @@ impl<T: LspContext> Backend<T> {
         ));
     }
 
+    /// Offers completion of known symbols in the current file.
+    fn completion(
+        &self,
+        id: RequestId,
+        params: CompletionParams,
+        initialize_params: &InitializeParams,
+    ) {
+        self.send_response(new_response(
+            id,
+            self.completion_options(params, initialize_params),
+        ));
+    }
+
+    /// Offers hover information for the symbol at the current cursor.
+    fn hover(&self, id: RequestId, params: HoverParams, initialize_params: &InitializeParams) {
+        self.send_response(new_response(id, self.hover_info(params, initialize_params)));
+    }
+
     /// Get the file contents of a starlark: URI.
     fn get_starlark_file_contents(&self, id: RequestId, params: StarlarkFileContentsParams) {
         let response: anyhow::Result<_> = match params.uri {
@@ -449,7 +520,7 @@ impl<T: LspContext> Backend<T> {
         self.send_response(new_response(id, response));
     }
 
-    fn resolve_load_path(
+    pub(crate) fn resolve_load_path(
         &self,
         path: &str,
         current_uri: &LspUrl,
@@ -488,29 +559,29 @@ impl<T: LspContext> Backend<T> {
         definition: IdentifierDefinition,
         source: ResolvedSpan,
         member: Option<&str>,
-        uri: LspUrl,
+        uri: &LspUrl,
         workspace_root: Option<&Path>,
     ) -> anyhow::Result<Option<LocationLink>> {
         let ret = match definition {
             IdentifierDefinition::Location {
                 destination: target,
                 ..
-            } => Self::location_link(source, &uri, target)?,
+            } => Self::location_link(source, uri, target)?,
             IdentifierDefinition::LoadedLocation {
                 destination: location,
                 path,
                 name,
                 ..
             } => {
-                let load_uri = self.resolve_load_path(&path, &uri, workspace_root)?;
+                let load_uri = self.resolve_load_path(&path, uri, workspace_root)?;
                 let loaded_location =
                     self.get_ast_or_load_from_disk(&load_uri)?
                         .and_then(|ast| match member {
                             Some(member) => ast.find_exported_symbol_and_member(&name, member),
-                            None => ast.find_exported_symbol(&name),
+                            None => ast.find_exported_symbol_span(&name),
                         });
                 match loaded_location {
-                    None => Self::location_link(source, &uri, location)?,
+                    None => Self::location_link(source, uri, location)?,
                     Some(loaded_location) => {
                         Self::location_link(source, &load_uri, loaded_location)?
                     }
@@ -518,16 +589,18 @@ impl<T: LspContext> Backend<T> {
             }
             IdentifierDefinition::NotFound => None,
             IdentifierDefinition::LoadPath { path, .. } => {
-                match self.resolve_load_path(&path, &uri, workspace_root) {
+                match self.resolve_load_path(&path, uri, workspace_root) {
                     Ok(load_uri) => Self::location_link(source, &load_uri, Range::default())?,
                     Err(_) => None,
                 }
             }
             IdentifierDefinition::StringLiteral { literal, .. } => {
-                let literal =
-                    self.context
-                        .resolve_string_literal(&literal, &uri, workspace_root)?;
-                match literal {
+                let Ok(resolved_literal) = self.context
+                    .resolve_string_literal(&literal, uri, workspace_root)
+                else {
+                    return Ok(None);
+                };
+                match resolved_literal {
                     Some(StringLiteralResult {
                         url,
                         location_finder: Some(location_finder),
@@ -542,10 +615,14 @@ impl<T: LspContext> Backend<T> {
                                     }),
                                     None => Ok(None),
                                 });
-                        if let Err(e) = &result {
-                            eprintln!("Error jumping to definition: {:#}", e);
-                        }
-                        let target_range = result.unwrap_or_default().unwrap_or_default();
+                        let result = match result {
+                            Ok(result) => result,
+                            Err(e) => {
+                                eprintln!("Error jumping to definition: {:#}", e);
+                                None
+                            }
+                        };
+                        let target_range = result.unwrap_or_default();
                         Self::location_link(source, &url, target_range)?
                     }
                     Some(StringLiteralResult {
@@ -556,7 +633,7 @@ impl<T: LspContext> Backend<T> {
                 }
             }
             IdentifierDefinition::Unresolved { name, .. } => {
-                match self.context.get_url_for_global_symbol(&uri, &name)? {
+                match self.context.get_url_for_global_symbol(uri, &name)? {
                     Some(uri) => {
                         let loaded_location =
                             self.get_ast_or_load_from_disk(&uri)?
@@ -564,7 +641,7 @@ impl<T: LspContext> Backend<T> {
                                     Some(member) => {
                                         ast.find_exported_symbol_and_member(&name, member)
                                     }
-                                    None => ast.find_exported_symbol(&name),
+                                    None => ast.find_exported_symbol_span(&name),
                                 });
 
                         Self::location_link(source, &uri, loaded_location.unwrap_or_default())?
@@ -600,7 +677,7 @@ impl<T: LspContext> Backend<T> {
                         definition,
                         source,
                         None,
-                        uri,
+                        &uri,
                         workspace_root.as_deref(),
                     )?,
                     // In this case we don't pass the name along in the root_definition_location,
@@ -627,7 +704,7 @@ impl<T: LspContext> Backend<T> {
                                 .expect("to have at least one component")
                                 .as_str(),
                         ),
-                        uri,
+                        &uri,
                         workspace_root.as_deref(),
                     )?,
                 }
@@ -640,6 +717,439 @@ impl<T: LspContext> Backend<T> {
             None => vec![],
         };
         Ok(GotoDefinitionResponse::Link(response))
+    }
+
+    fn completion_options(
+        &self,
+        params: CompletionParams,
+        initialize_params: &InitializeParams,
+    ) -> anyhow::Result<CompletionResponse> {
+        let uri = params.text_document_position.text_document.uri.try_into()?;
+        let line = params.text_document_position.position.line;
+        let character = params.text_document_position.position.character;
+
+        let symbols: Option<Vec<_>> = match self.get_ast(&uri) {
+            Some(document) => {
+                // Figure out what kind of position we are in, to determine the best type of
+                // autocomplete.
+                let autocomplete_type = document.ast.get_auto_complete_type(line, character);
+                let workspace_root =
+                    Self::get_workspace_root(initialize_params.workspace_folders.as_ref(), &uri);
+
+                match &autocomplete_type {
+                    None | Some(AutocompleteType::None) => None,
+                    Some(AutocompleteType::Default) => Some(
+                        self.default_completion_options(
+                            &uri,
+                            &document,
+                            line,
+                            character,
+                            workspace_root.as_deref(),
+                        )
+                        .collect(),
+                    ),
+                    Some(AutocompleteType::LoadPath { .. })
+                    | Some(AutocompleteType::String { .. }) => None,
+                    Some(AutocompleteType::LoadSymbol {
+                        path,
+                        current_span,
+                        previously_loaded,
+                    }) => Some(self.exported_symbol_options(
+                        path,
+                        *current_span,
+                        previously_loaded,
+                        &uri,
+                        workspace_root.as_deref(),
+                    )),
+                    Some(AutocompleteType::Parameter {
+                        function_name_span, ..
+                    }) => Some(
+                        self.parameter_name_options(
+                            function_name_span,
+                            &document,
+                            &uri,
+                            workspace_root.as_deref(),
+                        )
+                        .chain(self.default_completion_options(
+                            &uri,
+                            &document,
+                            line,
+                            character,
+                            workspace_root.as_deref(),
+                        ))
+                        .collect(),
+                    ),
+                    Some(AutocompleteType::Type) => Some(Self::type_completion_options().collect()),
+                }
+            }
+            None => None,
+        };
+
+        Ok(CompletionResponse::Array(symbols.unwrap_or_default()))
+    }
+
+    /// Using all currently loaded documents, gather a list of known exported
+    /// symbols. This list contains both the symbols exported from the loaded
+    /// files, as well as symbols loaded in the open files. Symbols that are
+    /// loaded from modules that are open are deduplicated.
+    pub(crate) fn get_all_exported_symbols<F, S>(
+        &self,
+        except_from: Option<&LspUrl>,
+        symbols: &HashMap<String, S>,
+        workspace_root: Option<&Path>,
+        current_document: &LspUrl,
+        format_text_edit: F,
+    ) -> Vec<CompletionItem>
+    where
+        F: Fn(&str, &str) -> TextEdit,
+    {
+        let mut seen = HashSet::new();
+        let mut result = Vec::new();
+
+        let all_documents = self.last_valid_parse.read().unwrap();
+
+        for (doc_uri, doc) in all_documents
+            .iter()
+            .filter(|&(doc_uri, _)| match except_from {
+                Some(uri) => doc_uri != uri,
+                None => true,
+            })
+        {
+            let Ok(load_path) = self.context.render_as_load(
+                doc_uri,
+                current_document,
+                workspace_root,
+            ) else {
+                continue;
+            };
+
+            for symbol in doc
+                .get_exported_symbols()
+                .into_iter()
+                .filter(|symbol| !symbols.contains_key(&symbol.name))
+            {
+                seen.insert(format!("{load_path}:{}", &symbol.name));
+
+                let text_edits = Some(vec![format_text_edit(&load_path, &symbol.name)]);
+                let mut completion_item: CompletionItem = symbol.into();
+                completion_item.detail = Some(format!("Load from {load_path}"));
+                completion_item.additional_text_edits = text_edits;
+
+                result.push(completion_item)
+            }
+        }
+
+        for (doc_uri, symbol) in all_documents
+            .iter()
+            .filter(|&(doc_uri, _)| match except_from {
+                Some(uri) => doc_uri != uri,
+                None => true,
+            })
+            .flat_map(|(doc_uri, doc)| {
+                doc.get_loaded_symbols()
+                    .into_iter()
+                    .map(move |symbol| (doc_uri, symbol))
+            })
+            .filter(|(_, symbol)| !symbols.contains_key(symbol.name))
+        {
+            let Ok(url) = self.context
+                    .resolve_load(symbol.loaded_from, doc_uri, workspace_root)
+            else {
+                continue;
+            };
+            let Ok(load_path) = self.context.render_as_load(
+                &url,
+                current_document,
+                workspace_root
+            ) else {
+                continue;
+            };
+
+            if seen.insert(format!("{}:{}", &load_path, symbol.name)) {
+                result.push(CompletionItem {
+                    label: symbol.name.to_owned(),
+                    detail: Some(format!("Load from {}", &load_path)),
+                    kind: Some(CompletionItemKind::CONSTANT),
+                    additional_text_edits: Some(vec![format_text_edit(&load_path, symbol.name)]),
+                    ..Default::default()
+                })
+            }
+        }
+
+        result
+    }
+
+    pub(crate) fn get_global_symbol_completion_items(
+        &self,
+        current_document: &LspUrl,
+    ) -> impl Iterator<Item = CompletionItem> + '_ {
+        self.context
+            .get_environment(current_document)
+            .members
+            .into_iter()
+            .map(|(symbol, documentation)| CompletionItem {
+                label: symbol.clone(),
+                kind: Some(match &documentation {
+                    DocMember::Function { .. } => CompletionItemKind::FUNCTION,
+                    _ => CompletionItemKind::CONSTANT,
+                }),
+                detail: documentation.get_doc_summary().map(|str| str.to_owned()),
+                documentation: Some(Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: render_doc_member(&symbol, &documentation),
+                })),
+                ..Default::default()
+            })
+    }
+
+    pub(crate) fn get_load_text_edit<P>(
+        module: &str,
+        symbol: &str,
+        ast: &LspModule,
+        last_load: Option<ResolvedSpan>,
+        existing_load: Option<&(Vec<(Spanned<AssignIdentP<P>>, Spanned<String>)>, Span)>,
+    ) -> TextEdit
+    where
+        P: AstPayload,
+    {
+        match existing_load {
+            Some((previously_loaded_symbols, load_span)) => {
+                // We're already loading a symbol from this module path, construct
+                // a text edit that amends the existing load.
+                let load_span = ast.ast.codemap.resolve_span(*load_span);
+                let mut load_args: Vec<(&str, &str)> = previously_loaded_symbols
+                    .iter()
+                    .map(|(assign, name)| (assign.0.as_str(), name.node.as_str()))
+                    .collect();
+                load_args.push((symbol, symbol));
+                load_args.sort_by(|(_, a), (_, b)| a.cmp(b));
+
+                TextEdit::new(
+                    Range::new(
+                        Position::new(load_span.begin_line as u32, load_span.begin_column as u32),
+                        Position::new(load_span.end_line as u32, load_span.end_column as u32),
+                    ),
+                    format!(
+                        "load(\"{module}\", {})",
+                        load_args
+                            .into_iter()
+                            .map(|(assign, import)| {
+                                if assign == import {
+                                    format!("\"{}\"", import)
+                                } else {
+                                    format!("{} = \"{}\"", assign, import)
+                                }
+                            })
+                            .join(", ")
+                    ),
+                )
+            }
+            None => {
+                // We're not yet loading from this module, construct a text edit that
+                // inserts a new load statement after the last one we found.
+                TextEdit::new(
+                    match last_load {
+                        Some(span) => Range::new(
+                            Position::new(span.end_line as u32, span.end_column as u32),
+                            Position::new(span.end_line as u32, span.end_column as u32),
+                        ),
+                        None => Range::new(Position::new(0, 0), Position::new(0, 0)),
+                    },
+                    format!(
+                        "{}load(\"{module}\", \"{symbol}\"){}",
+                        if last_load.is_some() { "\n" } else { "" },
+                        if last_load.is_some() { "" } else { "\n\n" },
+                    ),
+                )
+            }
+        }
+    }
+
+    /// Get completion items for each language keyword.
+    pub(crate) fn get_keyword_completion_items() -> impl Iterator<Item = CompletionItem> {
+        [
+            // Actual keywords
+            "and", "else", "load", "break", "for", "not", "continue", "if", "or", "def", "in",
+            "pass", "elif", "return", "lambda", //
+            // Reserved words
+            "as", "import", "is", "class", "nonlocal", "del", "raise", "except", "try", "finally",
+            "while", "from", "with", "global", "yield",
+        ]
+        .into_iter()
+        .map(|keyword| CompletionItem {
+            label: keyword.to_owned(),
+            kind: Some(CompletionItemKind::KEYWORD),
+            ..Default::default()
+        })
+    }
+
+    /// Get hover information for a given position in a document.
+    fn hover_info(
+        &self,
+        params: HoverParams,
+        initialize_params: &InitializeParams,
+    ) -> anyhow::Result<Hover> {
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .try_into()?;
+        let line = params.text_document_position_params.position.line;
+        let character = params.text_document_position_params.position.character;
+        let workspace_root =
+            Self::get_workspace_root(initialize_params.workspace_folders.as_ref(), &uri);
+
+        // Return an empty result as a "not found"
+        let not_found = Hover {
+            contents: HoverContents::Array(vec![]),
+            range: None,
+        };
+
+        Ok(match self.get_ast(&uri) {
+            Some(document) => {
+                let location = document.find_definition_at_location(line, character);
+                match location {
+                    Definition::Identifier(identifier_definition) => self
+                        .get_hover_for_identifier_definition(
+                            identifier_definition,
+                            &document,
+                            &uri,
+                            workspace_root.as_deref(),
+                        )?,
+                    Definition::Dotted(DottedDefinition {
+                        root_definition_location,
+                        ..
+                    }) => {
+                        // Not something we really support yet, so just provide hover information for
+                        // the root definition.
+                        self.get_hover_for_identifier_definition(
+                            root_definition_location,
+                            &document,
+                            &uri,
+                            workspace_root.as_deref(),
+                        )?
+                    }
+                }
+                .unwrap_or(not_found)
+            }
+            None => not_found,
+        })
+    }
+
+    fn get_hover_for_identifier_definition(
+        &self,
+        identifier_definition: IdentifierDefinition,
+        document: &LspModule,
+        document_uri: &LspUrl,
+        workspace_root: Option<&Path>,
+    ) -> anyhow::Result<Option<Hover>> {
+        Ok(match identifier_definition {
+            IdentifierDefinition::Location {
+                destination,
+                name,
+                source,
+            } => {
+                // TODO: This seems very inefficient. Once the document starts
+                // holding the `Scope` including AST nodes, this indirection
+                // should be removed.
+                find_symbols_at_location(
+                    &document.ast.codemap,
+                    &document.ast.statement,
+                    LineCol {
+                        line: destination.begin_line,
+                        column: destination.begin_column,
+                    },
+                )
+                .remove(&name)
+                .and_then(|symbol| {
+                    symbol
+                        .doc
+                        .map(|docs| Hover {
+                            contents: HoverContents::Array(vec![MarkedString::String(
+                                render_doc_item(&symbol.name, &docs),
+                            )]),
+                            range: Some(source.into()),
+                        })
+                        .or_else(|| {
+                            symbol.param.map(|docs| Hover {
+                                contents: HoverContents::Array(vec![MarkedString::String(
+                                    render_doc_param(&docs),
+                                )]),
+                                range: Some(source.into()),
+                            })
+                        })
+                })
+            }
+            IdentifierDefinition::LoadedLocation {
+                path, name, source, ..
+            } => {
+                // Symbol loaded from another file. Find the file and get the definition
+                // from there, hopefully including the docs.
+                let load_uri = self.resolve_load_path(&path, document_uri, workspace_root)?;
+                self.get_ast_or_load_from_disk(&load_uri)?.and_then(|ast| {
+                    ast.find_exported_symbol(&name).and_then(|symbol| {
+                        symbol.docs.map(|docs| Hover {
+                            contents: HoverContents::Array(vec![MarkedString::String(
+                                render_doc_item(&symbol.name, &docs),
+                            )]),
+                            range: Some(source.into()),
+                        })
+                    })
+                })
+            }
+            IdentifierDefinition::StringLiteral { source, literal } => {
+                let Ok(resolved_literal) = self.context.resolve_string_literal(
+                    &literal,
+                    document_uri,
+                    workspace_root,
+                ) else {
+                    // We might just be hovering a string that's not a file/target/etc,
+                    // so just return nothing.
+                    return Ok(None);
+                };
+                match resolved_literal {
+                    Some(StringLiteralResult {
+                        url,
+                        location_finder: Some(location_finder),
+                    }) => {
+                        // If there's an error loading the file to parse it, at least
+                        // try to get to the file.
+                        let module = if let Ok(Some(ast)) = self.get_ast_or_load_from_disk(&url) {
+                            ast
+                        } else {
+                            return Ok(None);
+                        };
+                        let result = location_finder(&module.ast)?;
+
+                        result.map(|location| Hover {
+                            contents: HoverContents::Array(vec![MarkedString::LanguageString(
+                                LanguageString {
+                                    language: "python".to_owned(),
+                                    value: module.ast.codemap.source_span(location).to_owned(),
+                                },
+                            )]),
+                            range: Some(source.into()),
+                        })
+                    }
+                    _ => None,
+                }
+            }
+            IdentifierDefinition::Unresolved { source, name } => {
+                // Try to resolve as a global symbol.
+                self.context
+                    .get_environment(document_uri)
+                    .members
+                    .into_iter()
+                    .find(|symbol| symbol.0 == name)
+                    .map(|symbol| Hover {
+                        contents: HoverContents::Array(vec![MarkedString::String(
+                            render_doc_member(&symbol.0, &symbol.1),
+                        )]),
+                        range: Some(source.into()),
+                    })
+            }
+            IdentifierDefinition::LoadPath { .. } | IdentifierDefinition::NotFound => None,
+        })
     }
 
     fn get_workspace_root(
@@ -695,6 +1205,10 @@ impl<T: LspContext> Backend<T> {
                         self.goto_definition(req.id, params, &initialize_params);
                     } else if let Some(params) = as_request::<StarlarkFileContentsRequest>(&req) {
                         self.get_starlark_file_contents(req.id, params);
+                    } else if let Some(params) = as_request::<Completion>(&req) {
+                        self.completion(req.id, params, &initialize_params);
+                    } else if let Some(params) = as_request::<HoverRequest>(&req) {
+                        self.hover(req.id, params, &initialize_params);
                     } else if self.connection.handle_shutdown(&req)? {
                         return Ok(());
                     }

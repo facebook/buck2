@@ -20,7 +20,7 @@
 // TODO(nga): document it
 #![allow(missing_docs)]
 
-mod markdown;
+pub(crate) mod markdown;
 
 use std::collections::HashMap;
 
@@ -349,7 +349,7 @@ pub struct DocModule {
 }
 
 impl DocModule {
-    fn render_as_code(&self) -> String {
+    pub(crate) fn render_as_code(&self) -> String {
         let mut res = self
             .docs
             .as_ref()
@@ -425,7 +425,7 @@ impl DocFunction {
         }
     }
 
-    fn render_as_code(&self, name: &str) -> String {
+    pub(crate) fn render_as_code(&self, name: &str) -> String {
         let params: Vec<_> = self.params.iter().map(DocParam::render_as_code).collect();
         let spacer_len = if params.is_empty() {
             0
@@ -451,6 +451,19 @@ impl DocFunction {
             .unwrap_or_default();
 
         format!("def {}{}{}:\n{}    pass", name, params, ret, docstring)
+    }
+
+    pub(crate) fn find_param_with_name(&self, param_name: &str) -> Option<&DocParam> {
+        self.params.iter().find(|p| match p {
+            DocParam::Arg { name, .. }
+            | DocParam::Args { name, .. }
+            | DocParam::Kwargs { name, .. }
+                if name == param_name =>
+            {
+                true
+            }
+            _ => false,
+        })
     }
 
     /// Parses function documentation out of a docstring
@@ -673,7 +686,7 @@ pub struct DocProperty {
 }
 
 impl DocProperty {
-    fn render_as_code(&self, name: &str) -> String {
+    pub(crate) fn render_as_code(&self, name: &str) -> String {
         match (
             &self.typ,
             self.docs.as_ref().map(DocString::render_as_quoted_code),
@@ -734,7 +747,7 @@ pub struct DocObject {
 }
 
 impl DocObject {
-    fn render_as_code(&self, name: &str) -> String {
+    pub(crate) fn render_as_code(&self, name: &str) -> String {
         let summary = self
             .docs
             .as_ref()
@@ -781,6 +794,55 @@ pub enum DocItem {
     Object(DocObject),
     Function(DocFunction),
     Property(DocProperty),
+}
+
+impl DocItem {
+    /// Get the underlying [`DocString`] for this item, if it exists.
+    pub fn get_doc_string(&self) -> Option<&DocString> {
+        match self {
+            DocItem::Module(m) => m.docs.as_ref(),
+            DocItem::Object(o) => o.docs.as_ref(),
+            DocItem::Function(f) => f.docs.as_ref(),
+            DocItem::Property(p) => p.docs.as_ref(),
+        }
+    }
+
+    /// Get the summary of the underlying [`DocString`] for this item, if it exists.
+    pub fn get_doc_summary(&self) -> Option<&str> {
+        self.get_doc_string().map(|ds| ds.summary.as_str())
+    }
+}
+
+impl DocMember {
+    /// Get the underlying [`DocString`] for this item, if it exists.
+    pub fn get_doc_string(&self) -> Option<&DocString> {
+        match self {
+            DocMember::Function(f) => f.docs.as_ref(),
+            DocMember::Property(p) => p.docs.as_ref(),
+        }
+    }
+
+    /// Get the summary of the underlying [`DocString`] for this item, if it exists.
+    pub fn get_doc_summary(&self) -> Option<&str> {
+        self.get_doc_string().map(|ds| ds.summary.as_str())
+    }
+}
+
+impl DocParam {
+    /// Get the underlying [`DocString`] for this item, if it exists.
+    pub fn get_doc_string(&self) -> Option<&DocString> {
+        match self {
+            DocParam::Arg { docs, .. }
+            | DocParam::Args { docs, .. }
+            | DocParam::Kwargs { docs, .. } => docs.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Get the summary of the underlying [`DocString`] for this item, if it exists.
+    pub fn get_doc_summary(&self) -> Option<&str> {
+        self.get_doc_string().map(|ds| ds.summary.as_str())
+    }
 }
 
 /// The main structure that represents the documentation for a given symbol / module.
