@@ -74,7 +74,7 @@ pub(crate) Starlark: AstStmt = "\n"* <l:@L> <s:(<Stmt> "\n"*)*> <r:@R>
 DefStmt: AstStmt = ASTS<DefStmt_> =>? Ok(dialect.check_def(codemap, <>)?);
 DefStmt_: Stmt =
   "def" <identifier> "(" <COMMA<ParameterTyped>> ")" <ReturnType> ":" <Suite>
-      =>? Ok(Stmt::check_def(<>, codemap)?);
+      =>? Ok(grammar_util::check_def(<>, codemap)?);
 
 ReturnType: Option<Box<AstTypeExpr>> = {
     "->" <TypeExpr> => Some(Box::new(<>)),
@@ -304,7 +304,7 @@ Test: AstExpr = {
 
 LambDef: AstExpr = {
     <l:@L> "lambda" <p:COMMA<Parameter>> ":" <e:Test> <r:@R>
-        =>? Ok(dialect.check_lambda(codemap, Expr::check_lambda(p, e, codemap)?.ast(l, r))?),
+        =>? Ok(dialect.check_lambda(codemap, grammar_util::check_lambda(p, e, codemap)?.ast(l, r))?),
 }
 
 // Binary operators
