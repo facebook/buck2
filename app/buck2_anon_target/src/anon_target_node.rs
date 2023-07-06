@@ -18,6 +18,7 @@ use allocative::Allocative;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -173,5 +174,10 @@ impl BaseDeferredKeyDyn for AnonTarget {
 
     fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
         self
+    }
+
+    fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
+        // TODO(wendyy) support exec platforms for anon targets
+        unimplemented!("Execution platforms are not supported for anon targets (yet)")
     }
 }

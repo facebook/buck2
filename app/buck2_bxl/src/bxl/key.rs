@@ -17,6 +17,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -180,5 +181,10 @@ impl BaseDeferredKeyDyn for BxlKeyData {
 
     fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
         self
+    }
+
+    fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
+        // TODO(wendyy) temporary
+        unimplemented!()
     }
 }

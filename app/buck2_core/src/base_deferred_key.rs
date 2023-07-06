@@ -21,6 +21,7 @@ use buck2_data::ToProtoMessage;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
 
+use crate::execution_types::execution::ExecutionPlatformResolution;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
@@ -42,6 +43,7 @@ pub trait BaseDeferredKeyDyn: Debug + Display + Any + Allocative + Send + Sync +
     fn configured_label(&self) -> Option<ConfiguredTargetLabel>;
     fn to_proto(&self) -> BaseDeferredKeyProto;
     fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
+    fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution;
 }
 
 #[derive(Debug, derive_more::Display, Dupe, Clone, Allocative)]
