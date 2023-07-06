@@ -27,6 +27,7 @@ pub(crate) mod cursors;
 mod dialect;
 #[cfg(test)]
 mod grammar_tests;
+pub(crate) mod grammar_util;
 pub(crate) mod lexer;
 #[cfg(test)]
 mod lexer_tests;

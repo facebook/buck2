@@ -15,6 +15,7 @@
 
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
+use crate::syntax::grammar_util;
 use crate::syntax::lexer;
 use crate::syntax::dialect::Dialect;
 use crate::syntax::ast::*;
@@ -68,7 +69,7 @@ COMMA<E>: Vec<E> =
         => v0.into_iter().chain(e1).collect();
 
 pub(crate) Starlark: AstStmt = "\n"* <l:@L> <s:(<Stmt> "\n"*)*> <r:@R>
-    => Stmt::statements(s, l, r);
+    => grammar_util::statements(s, l, r);
 
 DefStmt: AstStmt = ASTS<DefStmt_> =>? Ok(dialect.check_def(codemap, <>)?);
 DefStmt_: Stmt =
@@ -108,7 +109,7 @@ Type: Option<Box<AstTypeExpr>> = {
 Suite: AstStmt = {
     SimpleStmt<SmallStmt>,
     "\n"+ "INDENT" <l:@L> "\n"* <v:(<Stmt> "\n"*)+> <r:@R> "DEDENT"
-        => Stmt::statements(v, l, r)
+        => grammar_util::statements(v, l, r)
 };
 
 Stmt: AstStmt = { DefStmt, IfStmt, ForStmt, SimpleStmt<SmallStmt> };
