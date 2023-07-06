@@ -132,7 +132,7 @@ ElseStmt: AstStmt = {
 
 ForStmt: AstStmt = ASTS<ForStmt_>;
 ForStmt_: Stmt = "for" <e:ExprList> "in" <c:Test> ":" <s:Suite>
-    =>? Ok(Stmt::For(Stmt::check_assign(codemap, e)?, Box::new((c, s))));
+    =>? Ok(Stmt::For(grammar_util::check_assign(codemap, e)?, Box::new((c, s))));
 
 SimpleStmt<S>: AstStmt =
     <l:@L> <e:S> <v:(";" <S>)*> ";"? <r:@R> "\n" => {
@@ -175,7 +175,7 @@ AssignOp: Option<AssignOp> = {
 
 AssignStmt: AstStmt = ASTS<AssignStmt_>;
 AssignStmt_: Stmt = <lhs:TestList> <ty:Type> <op:AssignOp> <rhs:TestList>
-        =>? Ok(Stmt::check_assignment(codemap, <>)?);
+        =>? Ok(grammar_util::check_assignment(codemap, <>)?);
 
 // In python ExprStmt is an AssignStmt (
 // https://docs.python.org/3/reference/grammar.html). This ExprStmt is
@@ -291,7 +291,7 @@ Clause: Clause = {
     "if" <OrTest> => Clause::If(<>),
 };
 ForClause: ForClause = "for" <var:ExprList> "in" <over:OrTest>
-    =>? Ok(ForClause {var: Stmt::check_assign(codemap, var)?, over});
+    =>? Ok(ForClause {var: grammar_util::check_assign(codemap, var)?, over});
 
 
 // Base expression. Priorities are taken from Python 3 grammar.

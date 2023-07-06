@@ -24,14 +24,9 @@ use thiserror::Error;
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
 use crate::eval::compiler::EvalException;
-use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::Argument;
-use crate::syntax::ast::Assign;
 use crate::syntax::ast::AssignIdentP;
-use crate::syntax::ast::AssignOp;
-use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AstArgument;
-use crate::syntax::ast::AstAssign;
 use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstParameter;
@@ -60,14 +55,6 @@ enum ValidateError {
     NoTopLevelIf,
     #[error("`for` cannot be used outside `def` in this dialect")]
     NoTopLevelFor,
-    #[error("left-hand-side of assignment must take the form `a`, `a.b` or `a[b]`")]
-    InvalidLhs,
-    #[error("left-hand-side of modifying assignment cannot be a list or tuple")]
-    InvalidModifyLhs,
-    #[error("type annotations not allowed on augmented assignments")]
-    TypeAnnotationOnAssignOp,
-    #[error("type annotations not allowed on multiple assignments")]
-    TypeAnnotationOnTupleAssign,
 }
 
 #[derive(Eq, PartialEq, PartialOrd, Ord)]
@@ -277,66 +264,6 @@ impl Stmt {
             body: Box::new(stmts),
             payload: (),
         }))
-    }
-
-    pub(crate) fn check_assign(codemap: &CodeMap, x: AstExpr) -> Result<AstAssign, EvalException> {
-        Ok(Spanned {
-            span: x.span,
-            node: match x.node {
-                Expr::Tuple(xs) | Expr::List(xs) => {
-                    Assign::Tuple(xs.into_try_map(|x| Self::check_assign(codemap, x))?)
-                }
-                Expr::Dot(a, b) => Assign::Dot(a, b),
-                Expr::Index(a_b) => Assign::Index(a_b),
-                Expr::Identifier(x) => Assign::Identifier(x.into_map(|s| AssignIdentP(s.0, ()))),
-                _ => {
-                    return Err(EvalException::new(
-                        ValidateError::InvalidLhs.into(),
-                        x.span,
-                        codemap,
-                    ));
-                }
-            },
-        })
-    }
-
-    pub(crate) fn check_assignment(
-        codemap: &CodeMap,
-        lhs: AstExpr,
-        ty: Option<Box<AstTypeExpr>>,
-        op: Option<AssignOp>,
-        rhs: AstExpr,
-    ) -> Result<Stmt, EvalException> {
-        if op.is_some() {
-            // for augmented assignment, Starlark doesn't allow tuple/list
-            match &lhs.node {
-                Expr::Tuple(_) | Expr::List(_) => {
-                    return Err(EvalException::new(
-                        ValidateError::InvalidModifyLhs.into(),
-                        lhs.span,
-                        codemap,
-                    ));
-                }
-                _ => {}
-            }
-        }
-        let lhs = Self::check_assign(codemap, lhs)?;
-        if let Some(ty) = &ty {
-            let err = if op.is_some() {
-                Some(ValidateError::TypeAnnotationOnAssignOp)
-            } else if matches!(lhs.node, AssignP::Tuple(_)) {
-                Some(ValidateError::TypeAnnotationOnTupleAssign)
-            } else {
-                None
-            };
-            if let Some(err) = err {
-                return Err(EvalException::new(err.into(), ty.span, codemap));
-            }
-        }
-        Ok(match op {
-            None => Stmt::Assign(lhs, Box::new((ty.map(|x| *x), rhs))),
-            Some(op) => Stmt::AssignModify(lhs, op, Box::new(rhs)),
-        })
     }
 
     /// Validate all statements only occur where they are allowed to.
