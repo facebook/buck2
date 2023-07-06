@@ -13,6 +13,8 @@ from typing import Any, Dict, Set, Tuple
 
 from py38stdlib import STDLIB_MODULES
 
+__DEPS_KEY = "#deps"
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -38,7 +40,7 @@ def main() -> int:
                     if name not in node:
                         node[name] = {}
                     node = node[name]
-                node["deps"] = (dep_file, module)
+                node[__DEPS_KEY] = (dep_file, module)
 
     included = set(all_deps.keys())
     count, required, missing = ensure_deps(args.main, deps, all_deps)
@@ -63,8 +65,8 @@ def flatten_trie(trie: Dict[str, Any]):
     modules = []
     while to_search:
         node = to_search.pop()
-        if "deps" in node:
-            modules.append(node["deps"][1])
+        if __DEPS_KEY in node:
+            modules.append(node[__DEPS_KEY][1])
         else:
             to_search.extend(node.values())
     return modules
@@ -91,9 +93,9 @@ def ensure_deps(
             module_name_chunks.append(name)
             if name in node:
                 node = node[name]
-                if "deps" in node:
+                if __DEPS_KEY in node:
                     # means we are already in the module level. The rest of the module are just symbol name.
-                    deps_file = node["deps"][0]
+                    deps_file = node[__DEPS_KEY][0]
                     with open(deps_file, "r") as f:
                         dep_info = json.load(f)
                     to_search.extend(dep_info["modules"])
