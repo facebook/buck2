@@ -125,10 +125,7 @@ impl Symbol {
     pub fn as_str(&self) -> &str {
         // All safe because we promise we started out with a str
         unsafe {
-            let s = slice::from_raw_parts(
-                self.payload.as_ptr() as *const usize as *const u8,
-                self.len as usize,
-            );
+            let s = slice::from_raw_parts(self.payload.as_ptr() as *const u8, self.len as usize);
             str::from_utf8_unchecked(s)
         }
     }
