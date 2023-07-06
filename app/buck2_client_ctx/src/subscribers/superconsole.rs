@@ -831,10 +831,7 @@ fn lines_for_command_details(
             .with(Color::DarkRed)
             .attribute(Attribute::Bold),
     )]));
-    lines.extend(Lines::from_multiline_string(
-        &command_failed.stdout,
-        color(Color::DarkRed),
-    ));
+    lines.extend(Lines::from_colored_multiline_string(&command_failed.stdout));
     lines.push(Line::from_iter([Span::new_styled_lossy(
         "stderr:"
             .to_owned()
@@ -856,13 +853,6 @@ fn truncate(contents: &str) -> Option<String> {
         ))
     } else {
         None
-    }
-}
-
-fn color(color: Color) -> ContentStyle {
-    ContentStyle {
-        foreground_color: Some(color),
-        ..Default::default()
     }
 }
 
