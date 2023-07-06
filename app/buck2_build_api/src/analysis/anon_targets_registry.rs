@@ -11,8 +11,8 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
-use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_util::late_binding::LateBinding;
 use starlark::any::AnyLifetime;
 use starlark::values::dict::DictOf;

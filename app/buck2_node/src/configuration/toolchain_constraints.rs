@@ -11,10 +11,9 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
+use buck2_core::execution_types::execution::ExecutionPlatform;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
-
-use crate::configuration::execution::ExecutionPlatform;
 
 /// The constraint introduced on execution platform resolution by
 /// a toolchain rule (reached via a toolchain_dep).

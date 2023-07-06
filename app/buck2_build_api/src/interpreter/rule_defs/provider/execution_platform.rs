@@ -11,7 +11,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
-use buck2_node::configuration::execution::ExecutionPlatformResolution;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_simple_value;
 use starlark::values::starlark_value;

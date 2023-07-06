@@ -10,14 +10,14 @@
 //! Common utilities for bxl
 use std::sync::Arc;
 
-use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_common::executor_config::CommandGenerationOptions;
-use buck2_common::executor_config::Executor;
-use buck2_common::executor_config::LocalExecutorOptions;
-use buck2_common::executor_config::PathSeparatorKind;
 use buck2_core::configuration::pair::ConfigurationNoExec;
-use buck2_node::configuration::execution::ExecutionPlatform;
-use buck2_node::configuration::execution::ExecutionPlatformResolution;
+use buck2_core::execution_types::execution::ExecutionPlatform;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::execution_types::executor_config::CommandExecutorConfig;
+use buck2_core::execution_types::executor_config::CommandGenerationOptions;
+use buck2_core::execution_types::executor_config::Executor;
+use buck2_core::execution_types::executor_config::LocalExecutorOptions;
+use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use once_cell::sync::Lazy;
 
 // TODO(bobyf) this should be configured by the bxl function similar to

@@ -172,7 +172,7 @@ impl FromStr for OutputPathsBehavior {
 
 impl Default for OutputPathsBehavior {
     fn default() -> Self {
-        if buck2_core::is_open_source() {
+        if crate::is_open_source() {
             Self::OutputPaths
         } else {
             Self::Compatibility

@@ -12,9 +12,9 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest::CasDigestToReExt;

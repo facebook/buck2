@@ -22,6 +22,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_common::result::SharedResult;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
@@ -35,7 +36,6 @@ use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
-use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::StarlarkRuleType;
 use dice::DiceComputations;

@@ -10,17 +10,18 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
-use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
-use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::pair::ConfigurationNoExec;
-use buck2_core::target::label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 use indent_write::indentable::Indentable;
 use itertools::Itertools;
 use thiserror::Error;
+
+use crate::configuration::compatibility::IncompatiblePlatformReason;
+use crate::configuration::compatibility::IncompatiblePlatformReasonCause;
+use crate::configuration::data::ConfigurationData;
+use crate::configuration::pair::ConfigurationNoExec;
+use crate::execution_types::executor_config::CommandExecutorConfig;
+use crate::target::label::ConfiguredTargetLabel;
+use crate::target::label::TargetLabel;
 
 /// An execution platform is used for the execution deps of a target, those dependencies that
 /// need to be invoked as part of a build action or otherwise need to be configured against the

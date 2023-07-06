@@ -32,7 +32,6 @@ pub mod daemon_dir;
 pub mod dice;
 pub mod error_report;
 pub mod events;
-pub mod executor_config;
 pub mod external_symlink;
 pub mod file_ops;
 pub mod find_buildfile;

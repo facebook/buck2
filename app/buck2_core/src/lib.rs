@@ -47,6 +47,7 @@ pub mod cells;
 pub mod configuration;
 pub mod directory;
 pub mod env_helper;
+pub mod execution_types;
 pub mod fs;
 pub mod io_counters;
 pub mod logging;

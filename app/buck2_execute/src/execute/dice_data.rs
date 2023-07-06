@@ -11,7 +11,7 @@
 
 use std::sync::Arc;
 
-use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use dice::DiceComputations;
 use dice::DiceData;

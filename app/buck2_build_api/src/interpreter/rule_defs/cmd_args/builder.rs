@@ -137,10 +137,10 @@ impl CommandLineContext for AbsCommandLineContext<'_> {
 mod tests {
     use std::path::PathBuf;
 
-    use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellResolver;
+    use buck2_core::execution_types::executor_config::PathSeparatorKind;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;

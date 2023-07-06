@@ -18,7 +18,6 @@ use buck2_build_api::interpreter::rule_defs::provider::registration::register_bu
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
-use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
@@ -32,6 +31,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellsAggregator;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;

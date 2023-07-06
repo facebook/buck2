@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 
-use crate::configuration::execution::ExecutionPlatform;
+use crate::execution_types::execution::ExecutionPlatform;
 
 pub type ExecutionPlatforms = Arc<ExecutionPlatformsData>;
 

@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_common::executor_config::RemoteExecutorUseCase;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use remote_execution::RemoteExecutionMetadata;
 
 pub trait RemoteExecutionMetadataExt {

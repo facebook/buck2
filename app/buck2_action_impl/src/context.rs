@@ -39,8 +39,8 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info:
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use buck2_common::cas_digest::CasDigest;
-use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::category::Category;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;

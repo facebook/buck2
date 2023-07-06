@@ -28,9 +28,9 @@ mod tests {
     use buck2_build_api::deferred::types::DeferredTable;
     use buck2_build_api::deferred::types::DeferredValue;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
-    use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
     use buck2_core::base_deferred_key::BaseDeferredKey;
+    use buck2_core::execution_types::executor_config::CommandExecutorConfig;
     use buck2_core::fs::buck_out_path::BuckOutPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;

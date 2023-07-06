@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_common::executor_config::PathSeparatorKind;
+use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 
 pub struct ExecutorFs<'a> {

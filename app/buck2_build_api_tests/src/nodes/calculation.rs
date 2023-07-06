@@ -9,11 +9,11 @@
 
 use std::sync::Arc;
 
-use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_configured::configuration::calculation::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ProvidersLabel;

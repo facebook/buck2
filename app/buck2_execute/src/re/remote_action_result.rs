@@ -11,7 +11,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use anyhow::Context as _;
-use buck2_common::executor_config::RemoteExecutorUseCase;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_miniperf_proto::MiniperfCounter;
 use remote_execution::ActionResultResponse;
 use remote_execution::ExecuteResponse;
