@@ -61,6 +61,7 @@ use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::structs::TyStruct;
 use crate::typing::TypingOracle;
+use crate::values::none::NoneType;
 use crate::values::typing::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -383,6 +384,7 @@ impl Ty {
             }
             "struct" => Self::custom(TyStruct::any()),
             "never" => Self::Never,
+            "NoneType" => Self::none(),
             // Note that "tuple" cannot be converted to Ty::Tuple
             // since we don't know the length of the tuple.
             _ => Self::Name(TyName(name.to_owned())),
@@ -407,7 +409,7 @@ impl Ty {
 
     /// Create a `None` type.
     pub fn none() -> Self {
-        Self::name("NoneType")
+        Ty::starlark_value::<NoneType>()
     }
 
     /// Create a boolean type.
@@ -468,7 +470,6 @@ impl Ty {
         }))
     }
 
-    #[allow(dead_code)]
     pub(crate) fn starlark_value<'v, T: StarlarkValue<'v>>() -> Self {
         Ty::StarlarkValue(TyStarlarkValue::new::<T>())
     }

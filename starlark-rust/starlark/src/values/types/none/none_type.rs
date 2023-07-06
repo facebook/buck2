@@ -90,6 +90,10 @@ impl<'v> StarlarkValue<'v> for NoneType {
         Ok(StarlarkHashValue::new_unchecked(0xf9c2263d))
     }
 
+    fn get_type_starlark_repr() -> Ty {
+        Ty::none()
+    }
+
     fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
         Some(Ty::none())
     }
