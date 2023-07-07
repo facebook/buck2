@@ -15,6 +15,9 @@ use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::UqueryRequest;
 use buck2_cli_proto::UqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::events::HasEvents;
+use buck2_data::QueryEvaluationEnd;
+use buck2_data::QueryEvaluationStart;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -22,6 +25,7 @@ use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
+use dupe::Dupe;
 
 use crate::commands::query::printer::QueryResultPrinter;
 use crate::commands::query::printer::ShouldPrintProviders;
@@ -94,15 +98,26 @@ async fn uquery(
     let global_target_platform =
         target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
-    let query_result = QUERY_FRONTEND
-        .get()?
-        .eval_uquery(
-            &ctx,
-            server_ctx.working_dir(),
-            query,
-            query_args,
-            global_target_platform,
-        )
+    let query_frontend = QUERY_FRONTEND.get()?;
+    let ctx = &ctx;
+    let query_result = ctx
+        .per_transaction_data()
+        .get_dispatcher()
+        .dupe()
+        .span_async(QueryEvaluationStart {}, async move {
+            (
+                query_frontend
+                    .eval_uquery(
+                        ctx,
+                        server_ctx.working_dir(),
+                        query,
+                        query_args,
+                        global_target_platform,
+                    )
+                    .await,
+                QueryEvaluationEnd {},
+            )
+        })
         .await?;
 
     let result = match query_result {
