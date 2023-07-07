@@ -60,7 +60,6 @@ def expand_args(arguments):
 
 def find_windows_sdk(arch):
     registry = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
-    # TODO: Support Windows 11
     key_name = "SOFTWARE\\WOW6432Node\\Microsoft\\Microsoft SDKs\\Windows\\v10.0"
     registry_key = winreg.OpenKey(registry, key_name)
     installation_folder = winreg.QueryValueEx(registry_key, "InstallationFolder")[0]
