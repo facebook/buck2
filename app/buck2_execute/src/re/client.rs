@@ -366,12 +366,7 @@ impl RemoteExecutionClient {
     }
 
     pub fn get_network_stats(&self) -> anyhow::Result<RemoteExecutionClientStats> {
-        let updated = self
-            .data
-            .client
-            .client()
-            .get_network_stats()
-            .context("Error getting updated network stats")?;
+        let updated = RE::get_network_stats().context("Error getting updated network stats")?;
 
         let uploaded = updated.uploaded as u64;
         let downloaded = updated.downloaded as u64;

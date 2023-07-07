@@ -26,3 +26,12 @@ pub use grpc::*;
 pub use metadata::*;
 pub use request::*;
 pub use response::*;
+
+pub fn get_network_stats() -> anyhow::Result<NetworkStatisticsResponse> {
+    // TODO: Support this in this client.
+    Ok(NetworkStatisticsResponse {
+        downloaded: 0,
+        uploaded: 0,
+        _dot_dot_default: (),
+    })
+}

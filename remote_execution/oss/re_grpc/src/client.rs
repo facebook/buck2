@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::env::VarError;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use anyhow::Context;
 use buck2_re_configuration::Buck2OssReConfiguration;
@@ -400,18 +399,10 @@ pub struct GRPCClients {
     capabilities_client: CapabilitiesClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
 }
 
-#[derive(Default)]
-pub struct REState {
-    // TODO(aloiscochard): Update those values
-    network_uploaded: i64,   // in bytes
-    network_downloaded: i64, // in bytes
-}
-
 pub struct REClient {
     grpc_clients: GRPCClients,
     capabilities: RECapabilities,
     instance_name: InstanceName,
-    state: Mutex<REState>,
 }
 
 impl Drop for REClient {
@@ -479,7 +470,6 @@ impl REClient {
             grpc_clients,
             capabilities,
             instance_name,
-            state: Mutex::new(REState::default()),
         }
     }
 
@@ -774,15 +764,6 @@ impl REClient {
     pub fn get_session_id(&self) -> &str {
         // TODO(aloiscochard): Return a unique ID, ideally from the GRPC client
         "GRPC-SESSION-ID"
-    }
-
-    pub fn get_network_stats(&self) -> anyhow::Result<NetworkStatisticsResponse> {
-        let state = self.state.lock().unwrap_or_else(|e| e.into_inner());
-        Ok(NetworkStatisticsResponse {
-            downloaded: state.network_downloaded,
-            uploaded: state.network_uploaded,
-            _dot_dot_default: (),
-        })
     }
 
     pub fn get_experiment_name(&self) -> anyhow::Result<Option<String>> {
