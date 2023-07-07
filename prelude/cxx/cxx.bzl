@@ -113,7 +113,6 @@ load(
     ":preprocessor.bzl",
     "CPreprocessor",
     "CPreprocessorArgs",
-    "cxx_attr_exported_preprocessor_flags",
     "cxx_exported_preprocessor_info",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
@@ -317,7 +316,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     # Exported preprocessor info.
     inherited_pp_infos = cxx_inherited_preprocessor_infos(exported_first_order_deps)
     generic_exported_pre = cxx_exported_preprocessor_info(ctx, cxx_get_regular_cxx_headers_layout(ctx), [])
-    args = cxx_attr_exported_preprocessor_flags(ctx)
+    args = []
     compiler_type = get_cxx_toolchain_info(ctx).cxx_compiler_info.compiler_type
     if header_dirs != None:
         for x in header_dirs:
