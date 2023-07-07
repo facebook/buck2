@@ -13,4 +13,4 @@ x.append("")
 No errors.
 
 Interfaces:
-x: [[str.type, int.type]]
+x: [[int.type, str.type]]

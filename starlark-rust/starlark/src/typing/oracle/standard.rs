@@ -24,10 +24,8 @@ use crate::typing::oracle::docs::OracleDocs;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingOracle;
-use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
-use crate::values::string::StarlarkStr;
 use crate::values::StarlarkValue;
 
 /// A [`TypingOracle`] based on information from documentation.
@@ -192,7 +190,7 @@ impl TypingOracle for OracleStandard {
                 }
                 _ => return Some(Err(())),
             },
-            Ty::Name(x) if x == "string" => match attr {
+            Ty::StarlarkValue(x) if x.as_name() == "string" => match attr {
                 TypingAttr::BinOp(TypingBinOp::Less) => {
                     Ty::function(vec![Param::pos_only(Ty::string())], Ty::bool())
                 }
@@ -210,8 +208,7 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::BinOp(TypingBinOp::Percent) => {
                     Ty::function(vec![Param::pos_only(Ty::Any)], Ty::string())
                 }
-                TypingAttr::Regular(name) => match TyStarlarkValue::new::<StarlarkStr>().attr(name)
-                {
+                TypingAttr::Regular(name) => match x.attr(name) {
                     Ok(res) => res,
                     Err(()) => return Some(Err(())),
                 },

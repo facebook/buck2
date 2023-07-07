@@ -64,6 +64,7 @@ use crate::typing::TypingOracle;
 use crate::values::bool::StarlarkBool;
 use crate::values::float::StarlarkFloat;
 use crate::values::none::NoneType;
+use crate::values::string::StarlarkStr;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::typing::TypeCompiled;
 use crate::values::FrozenValue;
@@ -391,6 +392,7 @@ impl Ty {
             "bool" => Self::bool(),
             "int" => Self::int(),
             "float" => Self::float(),
+            "string" => Self::string(),
             // Note that "tuple" cannot be converted to Ty::Tuple
             // since we don't know the length of the tuple.
             _ => Self::Name(TyName(name.to_owned())),
@@ -435,7 +437,7 @@ impl Ty {
 
     /// Create a string type.
     pub fn string() -> Self {
-        Self::name("string")
+        Ty::starlark_value::<StarlarkStr>()
     }
 
     /// Create a list type.
