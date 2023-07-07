@@ -1,8 +1,7 @@
 # Tips and tricks for hacking on Buck2
 
 You might have been lead here by reading [CONTRIBUTING.md](/CONTRIBUTING.md). If
-not, please read that as well! That will give you the high level overview; this
-is the document is all about the needed elbow grease you'll have to apply.
+not, please read that as well! That will give you the high level overview; this document is all about the needed elbow grease you'll have to apply.
 
 ## Building the code
 
