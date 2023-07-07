@@ -131,14 +131,11 @@ impl DownloadFileAction {
             .expect("a single artifact by construction")
     }
 
-    fn url(&self, client: &dyn HttpClient) -> anyhow::Result<&Arc<str>> {
+    fn url(&self, client: &dyn HttpClient) -> &Arc<str> {
         if client.supports_vpnless() {
-            self.inner
-                .vpnless_url
-                .as_ref()
-                .context("Expected `vpnless_url` attribute for vpnless build")
+            self.inner.vpnless_url.as_ref().unwrap_or(&self.inner.url)
         } else {
-            Ok(&self.inner.url)
+            &self.inner.url
         }
     }
 
@@ -171,7 +168,7 @@ impl DownloadFileAction {
             None => return Ok(None),
         };
 
-        let url = self.url(client)?;
+        let url = self.url(client);
         let head = http_head(client, url).await?;
 
         let content_length = head
@@ -276,7 +273,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
         }
 
         let client = ctx.http_client();
-        let url = self.url(&client)?;
+        let url = self.url(&client);
 
         let (value, execution_kind) = {
             match self.declared_metadata(&client, ctx.digest_config()).await? {
