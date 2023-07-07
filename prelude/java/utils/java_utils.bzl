@@ -124,9 +124,8 @@ def get_class_to_source_map_info(
             actions = ctx.actions,
             java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
             name = ctx.attrs.name + ".class_to_srcs.json",
-            jar = outputs.classpath_entry.abi,
+            jar = outputs.classpath_entry.full_library,
             srcs = ctx.attrs.srcs,
-            jar_path = outputs.classpath_entry.full_library,
         )
         sub_targets["class-to-srcs"] = [DefaultInfo(default_output = class_to_srcs)]
     class_to_src_map_info = create_class_to_source_map_info(

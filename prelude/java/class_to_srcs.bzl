@@ -45,13 +45,10 @@ def create_class_to_source_map_from_jar(
         name: str,
         java_toolchain: JavaToolchainInfo.type,
         jar: "artifact",
-        srcs: ["artifact"],
-        jar_path: ["artifact", None] = None) -> "artifact":
+        srcs: ["artifact"]) -> "artifact":
     output = actions.declare_output(name)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map[RunInfo])
     cmd.add("-o", output.as_output())
-    if jar_path != None:
-        cmd.add(cmd_args(jar_path, format = "--jar-path={}").ignore_artifacts())
     cmd.add(jar)
     for src in srcs:
         cmd.add(cmd_args(src))

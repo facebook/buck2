@@ -17,10 +17,6 @@ def main(argv):
     parser.add_argument(
         "--output", "-o", type=argparse.FileType("w"), default=sys.stdin
     )
-    parser.add_argument(
-        "--jar-path",
-        help="JAR path to embed in the output JSON, if different scanned JAR",
-    )
     parser.add_argument("jar")
     parser.add_argument("sources", nargs="*")
     args = parser.parse_args(argv[1:])
@@ -60,7 +56,7 @@ def main(argv):
 
     json.dump(
         {
-            "jarPath": args.jar_path or args.jar,
+            "jarPath": args.jar,
             "classes": classes,
         },
         args.output,
