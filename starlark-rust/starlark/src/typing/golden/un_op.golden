@@ -1,0 +1,26 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+# Good.
+x = -1
+# Bad.
+y = ~True
+# Union good and bad.
+z = -(1 if True else "")
+
+Error:
+error: The attribute `unary ~` is not available on the type `bool.type`
+ --> filename:5:5
+  |
+5 | y = ~True
+  |     ^^^^^
+  |
+
+Interfaces:
+x: int.type
+y: "never"
+z: int.type

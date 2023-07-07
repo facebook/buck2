@@ -414,3 +414,18 @@ x = 1 + 1.0
 "#,
     );
 }
+
+#[test]
+fn test_un_op() {
+    TypeCheck::new().ty("x").ty("y").ty("z").check(
+        "un_op",
+        r#"
+# Good.
+x = -1
+# Bad.
+y = ~True
+# Union good and bad.
+z = -(1 if True else "")
+"#,
+    );
+}
