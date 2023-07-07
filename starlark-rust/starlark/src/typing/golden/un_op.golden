@@ -13,7 +13,7 @@ y = ~True
 z = -(1 if True else "")
 
 Error:
-error: The attribute `unary ~` is not available on the type `bool.type`
+error: Unary operator `~` is not available on the type `bool.type`
  --> filename:5:5
   |
 5 | y = ~True

@@ -25,7 +25,7 @@ use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
 
 /// Unary operator for [`TypingOracle::attribute`].
-#[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display)]
+#[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display, Debug)]
 pub enum TypingUnOp {
     /// `+`.
     #[display(fmt = "+")]
@@ -85,9 +85,6 @@ pub enum TypingBinOp {
 /// Attribute for [`TypingOracle::attribute`].
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display)]
 pub enum TypingAttr<'a> {
-    /// Apply unary operator.
-    #[display(fmt = "unary {}", _0)]
-    UnOp(TypingUnOp),
     /// Apply binary operator.
     #[display(fmt = "binary {}", _0)]
     BinOp(TypingBinOp),

@@ -55,6 +55,8 @@ enum TypingContextError {
     AttributeNotAvailable { typ: String, attr: String },
     #[error("The builtin `{name}` is not known")]
     UnknownBuiltin { name: String },
+    #[error("Unary operator `{un_op}` is not available on the type `{ty}`")]
+    UnaryOperatorNotAvailable { un_op: TypingUnOp, ty: Ty },
 }
 
 pub(crate) struct TypingContext<'a> {
@@ -144,6 +146,33 @@ impl TypingContext<'_> {
             node: self.expression_type(x),
         });
         self.expression_primitive_ty(name, t0, ts, span)
+    }
+
+    fn expression_un_op(&self, span: Span, arg: &CstExpr, un_op: TypingUnOp) -> Ty {
+        let ty = self.expression_type(arg);
+        if ty.is_never() || ty.is_any() {
+            return ty;
+        }
+        let mut results = Vec::new();
+        for variant in ty.iter_union() {
+            match variant {
+                Ty::StarlarkValue(ty) => match ty.un_op(un_op) {
+                    Ok(x) => results.push(Ty::StarlarkValue(x)),
+                    Err(()) => {}
+                },
+                _ => {
+                    // The rest do not support unary operators.
+                }
+            }
+        }
+        if results.is_empty() {
+            self.add_error(
+                span,
+                TypingContextError::UnaryOperatorNotAvailable { un_op, ty },
+            )
+        } else {
+            Ty::unions(results)
+        }
     }
 
     pub(crate) fn expression_bind_type(&self, x: &BindExpr) -> Ty {
@@ -351,15 +380,9 @@ impl TypingContext<'_> {
                     Ty::bool()
                 }
             }
-            ExprP::Minus(x) => {
-                self.expression_primitive(TypingAttr::UnOp(TypingUnOp::Minus), &[&**x], span)
-            }
-            ExprP::Plus(x) => {
-                self.expression_primitive(TypingAttr::UnOp(TypingUnOp::Plus), &[&**x], span)
-            }
-            ExprP::BitNot(x) => {
-                self.expression_primitive(TypingAttr::UnOp(TypingUnOp::BitNot), &[&**x], span)
-            }
+            ExprP::Minus(x) => self.expression_un_op(span, x, TypingUnOp::Minus),
+            ExprP::Plus(x) => self.expression_un_op(span, x, TypingUnOp::Plus),
+            ExprP::BitNot(x) => self.expression_un_op(span, x, TypingUnOp::BitNot),
             ExprP::Op(lhs, op, rhs) => {
                 let lhs = self.expression_type_spanned(lhs);
                 let rhs = self.expression_type_spanned(rhs);

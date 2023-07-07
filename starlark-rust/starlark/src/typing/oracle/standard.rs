@@ -162,10 +162,6 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::BinOp(TypingBinOp::Add) => {
                     Ty::function(vec![Param::pos_only(Ty::int())], Ty::int())
                 }
-                TypingAttr::UnOp(un_op) => match x.un_op(un_op) {
-                    Ok(res) => Ty::function(vec![], Ty::StarlarkValue(res)),
-                    Err(()) => return Some(Err(())),
-                },
                 TypingAttr::BinOp(TypingBinOp::Div) => {
                     Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float())
                 }
@@ -181,10 +177,6 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::BinOp(TypingBinOp::Add) => {
                     Ty::function(vec![Param::pos_only(Ty::float())], Ty::float())
                 }
-                TypingAttr::UnOp(un_op) => match x.un_op(un_op) {
-                    Ok(res) => Ty::function(vec![], Ty::StarlarkValue(res)),
-                    Err(()) => return Some(Err(())),
-                },
                 TypingAttr::BinOp(TypingBinOp::Div) => {
                     Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float())
                 }
