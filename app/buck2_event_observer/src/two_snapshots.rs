@@ -32,31 +32,24 @@ impl TwoSnapshots {
         Some(duration)
     }
 
-    /// User + system CPU time between two snapshots in percents.
-    pub fn cpu_percents(&self) -> Option<u32> {
+    fn per_micro_second(&self, field: impl Fn(&buck2_data::Snapshot) -> u64) -> Option<u64> {
         let (_, penultimate_snapshot) = self.penultimate.as_ref()?;
         let (_, last_snapshot) = self.last.as_ref()?;
         let duration = self.non_zero_duration()?;
-        let last_cpu_us = last_snapshot.buck2_user_cpu_us + last_snapshot.buck2_system_cpu_us;
-        let penultimate_cpu_us =
-            penultimate_snapshot.buck2_user_cpu_us + penultimate_snapshot.buck2_system_cpu_us;
-        if penultimate_cpu_us > 0 && last_cpu_us >= penultimate_cpu_us {
-            let cpu_us = last_cpu_us - penultimate_cpu_us;
-            Some((cpu_us * 100 / (duration.as_micros() as u64)) as u32)
-        } else {
-            None
-        }
+        let last_value = field(last_snapshot);
+        let penultimate_value = field(penultimate_snapshot);
+        let delta_value = last_value.checked_sub(penultimate_value)?;
+        Some(delta_value / duration.as_micros() as u64)
+    }
+
+    /// User + system CPU time between two snapshots in percents.
+    pub fn cpu_percents(&self) -> Option<u64> {
+        self.per_micro_second(|s| (s.buck2_user_cpu_us + s.buck2_system_cpu_us) * 100)
     }
 
     /// Measure bytes-per-second rate between two snapshots for some field.
     fn bytes_per_second(&self, field: impl Fn(&buck2_data::Snapshot) -> u64) -> Option<u64> {
-        let (_, penultimate_snapshot) = self.penultimate.as_ref()?;
-        let (_, last_snapshot) = self.last.as_ref()?;
-        let duration = self.non_zero_duration()?;
-        let last_bytes = field(last_snapshot);
-        let penultimate_bytes = field(penultimate_snapshot);
-        let bytes = last_bytes.checked_sub(penultimate_bytes)?;
-        Some(bytes * 1_000_000 / duration.as_micros() as u64)
+        self.per_micro_second(|s| field(s) * 1_000_000)
     }
 
     pub fn re_download_bytes_per_second(&self) -> Option<u64> {
