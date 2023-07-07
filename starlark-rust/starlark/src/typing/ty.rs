@@ -378,7 +378,7 @@ impl Ty {
     }
 
     /// Create a [`Ty::Name`], or one of the standard functions.
-    pub fn name(name: &str) -> Self {
+    pub(crate) fn name(name: &str) -> Self {
         match name {
             "list" => Self::List(Box::new(Ty::Any)),
             "dict" => Self::Dict(Box::new((Ty::Any, Ty::Any))),
