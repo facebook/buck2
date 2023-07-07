@@ -38,7 +38,7 @@ use buck2_core::tag_result;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::scribe;
 use buck2_events::sink::tee::TeeSink;
-use buck2_events::EventSink;
+use buck2_events::EventSinkWithStats;
 use buck2_events::EventSource;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -121,7 +121,7 @@ pub struct DaemonStateData {
     pub(crate) forkserver: Option<ForkserverClient>,
 
     #[allocative(skip)]
-    pub scribe_sink: Option<Arc<dyn EventSink>>,
+    pub scribe_sink: Option<Arc<dyn EventSinkWithStats>>,
 
     /// Whether or not to hash all commands
     pub hash_all_commands: bool,
@@ -567,7 +567,7 @@ impl DaemonState {
         retry_backoff: Duration,
         retry_attempts: usize,
         message_batch_size: Option<usize>,
-    ) -> anyhow::Result<Option<Arc<dyn EventSink>>> {
+    ) -> anyhow::Result<Option<Arc<dyn EventSinkWithStats>>> {
         facebook_only();
         scribe::new_thrift_scribe_sink_if_enabled(
             fb,
@@ -590,7 +590,7 @@ impl DaemonState {
         let (events, sink) = buck2_events::create_source_sink_pair();
         let data = self.data()?;
         let dispatcher = if let Some(scribe_sink) = data.scribe_sink.dupe() {
-            EventDispatcher::new(trace_id, TeeSink::new(scribe_sink, sink))
+            EventDispatcher::new(trace_id, TeeSink::new(scribe_sink.to_event_sync(), sink))
         } else {
             EventDispatcher::new(trace_id, sink)
         };

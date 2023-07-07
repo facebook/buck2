@@ -850,10 +850,7 @@ impl DaemonApi for BuckdServer {
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
             let snapshot = if req.snapshot {
                 let data = daemon_state.data()?;
-                Some(
-                    snapshot::SnapshotCollector::new(data.dupe(), data.scribe_sink.dupe() as _)
-                        .create_snapshot(),
-                )
+                Some(snapshot::SnapshotCollector::new(data.dupe()).create_snapshot())
             } else {
                 None
             };

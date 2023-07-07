@@ -10,7 +10,6 @@
 use crate::BuckEvent;
 use crate::ControlEvent;
 use crate::EventSink;
-use crate::EventSinkStats;
 
 /// A null EventSink that discards all messages sent to it.
 pub struct NullEventSink;
@@ -31,8 +30,4 @@ impl EventSink for NullEventSink {
     fn send(&self, _: BuckEvent) {}
 
     fn send_control(&self, _: ControlEvent) {}
-
-    fn stats(&self) -> Option<EventSinkStats> {
-        None
-    }
 }

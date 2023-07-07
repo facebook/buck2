@@ -250,6 +250,10 @@ pub trait EventSink: Send + Sync {
 
     /// Sends a control event into this sink, to be consumed elsewhere. Control events are not sent to gRPC clients.
     fn send_control(&self, control_event: ControlEvent);
+}
+
+pub trait EventSinkWithStats: Send + Sync {
+    fn to_event_sync(self: Arc<Self>) -> Arc<dyn EventSink>;
 
     /// Collects stats on this sink (e.g. messages accepted, rejected).
     fn stats(&self) -> Option<EventSinkStats>;
@@ -262,10 +266,6 @@ impl EventSink for Arc<dyn EventSink> {
 
     fn send_control(&self, control_event: ControlEvent) {
         EventSink::send_control(self.as_ref(), control_event);
-    }
-
-    fn stats(&self) -> Option<EventSinkStats> {
-        EventSink::stats(self.as_ref())
     }
 }
 

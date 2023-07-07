@@ -13,7 +13,6 @@ use crate::BuckEvent;
 use crate::ControlEvent;
 use crate::Event;
 use crate::EventSink;
-use crate::EventSinkStats;
 
 /// An EventSink implementation that pushes events onto an unbounded channel, to be consumed by receivers on said
 /// channel.
@@ -35,10 +34,6 @@ impl EventSink for ChannelEventSink {
         if let Err(e) = self.0.send(control_event.into()) {
             panic!("failed to send control event to ChannelEventSink: {}", e);
         }
-    }
-
-    fn stats(&self) -> Option<EventSinkStats> {
-        None
     }
 }
 

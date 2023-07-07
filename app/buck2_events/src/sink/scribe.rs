@@ -18,6 +18,7 @@ use fbinit::FacebookInit;
 #[cfg(fbcode_build)]
 mod fbcode {
 
+    use std::sync::Arc;
     use std::time::Duration;
     use std::time::SystemTime;
 
@@ -33,6 +34,7 @@ mod fbcode {
     use crate::ControlEvent;
     use crate::EventSink;
     use crate::EventSinkStats;
+    use crate::EventSinkWithStats;
     use crate::TraceId;
 
     // 1 MiB limit
@@ -316,6 +318,12 @@ mod fbcode {
         }
 
         fn send_control(&self, _control_event: ControlEvent) {}
+    }
+
+    impl EventSinkWithStats for ThriftScribeSink {
+        fn to_event_sync(self: Arc<Self>) -> Arc<dyn EventSink> {
+            self as _
+        }
 
         fn stats(&self) -> Option<EventSinkStats> {
             self.client
@@ -764,10 +772,13 @@ mod fbcode {
 
 #[cfg(not(fbcode_build))]
 mod fbcode {
+    use std::sync::Arc;
+
     use crate::BuckEvent;
     use crate::ControlEvent;
     use crate::EventSink;
     use crate::EventSinkStats;
+    use crate::EventSinkWithStats;
 
     pub struct ThriftScribeSink;
 
@@ -779,6 +790,12 @@ mod fbcode {
         fn send(&self, _event: BuckEvent) {}
 
         fn send_control(&self, _control_event: ControlEvent) {}
+    }
+
+    impl EventSinkWithStats for ThriftScribeSink {
+        fn to_event_sync(self: Arc<Self>) -> Arc<dyn EventSink> {
+            self as _
+        }
 
         fn stats(&self) -> Option<EventSinkStats> {
             None

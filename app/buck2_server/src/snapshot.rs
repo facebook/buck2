@@ -13,7 +13,6 @@ use std::time::Instant;
 
 use anyhow::Context as _;
 use buck2_core::io_counters::IoCounterKey;
-use buck2_events::EventSink;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_util::process_stats::process_stats;
 use buck2_util::system_stats::UnixSystemStats;
@@ -28,18 +27,13 @@ use crate::net_io::SystemNetworkIoCollector;
 pub struct SnapshotCollector {
     daemon: Arc<DaemonStateData>,
     net_io_collector: SystemNetworkIoCollector,
-    event_sink: Option<Arc<dyn EventSink>>,
 }
 
 impl SnapshotCollector {
-    pub fn new(
-        daemon: Arc<DaemonStateData>,
-        event_sink: Option<Arc<dyn EventSink>>,
-    ) -> SnapshotCollector {
+    pub fn new(daemon: Arc<DaemonStateData>) -> SnapshotCollector {
         SnapshotCollector {
             daemon,
             net_io_collector: SystemNetworkIoCollector::new(),
-            event_sink,
         }
     }
 
@@ -163,7 +157,12 @@ impl SnapshotCollector {
     }
 
     fn add_sink_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        if let Some(metrics) = self.event_sink.as_ref().and_then(|sink| sink.stats()) {
+        if let Some(metrics) = self
+            .daemon
+            .scribe_sink
+            .as_ref()
+            .and_then(|sink| sink.stats())
+        {
             snapshot.sink_successes = Some(metrics.successes);
             snapshot.sink_failures = Some(metrics.failures);
             snapshot.sink_buffer_depth = Some(metrics.buffered);

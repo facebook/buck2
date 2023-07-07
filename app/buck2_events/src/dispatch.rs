@@ -44,7 +44,6 @@ use crate::span::SpanId;
 use crate::BuckEvent;
 use crate::ControlEvent;
 use crate::EventSink;
-use crate::EventSinkStats;
 
 /// A type-erased and dupe-able container for EventSinks, containing some additional metadata useful for all events
 /// emitted through the dispatcher.
@@ -202,11 +201,6 @@ impl EventDispatcher {
     /// Returns the traceid for this event dispatcher.
     pub fn trace_id(&self) -> &TraceId {
         &self.trace_id
-    }
-
-    /// Collect stats for the underlying sink.
-    pub fn stats(&self) -> Option<EventSinkStats> {
-        self.sink.stats()
     }
 }
 
