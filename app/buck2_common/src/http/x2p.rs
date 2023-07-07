@@ -76,7 +76,6 @@ impl HttpClient for X2PAgentProxyClient {
     }
 }
 
-// TODO(skarlage): Remove this client once x2pagent http proxy is deployed and works.
 #[cfg(unix)]
 mod unix {
     use hyper_unix_connector::UnixClient;

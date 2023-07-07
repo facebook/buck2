@@ -105,6 +105,7 @@ fn http_client_for_internal() -> anyhow::Result<Arc<dyn HttpClient>> {
         tls_config_with_system_roots()?
     };
 
+    tracing::debug!("Using internal secure client");
     Ok(Arc::new(SecureHttpClient::new(
         tls_config,
         DEFAULT_MAX_REDIRECTS,
@@ -116,19 +117,25 @@ fn http_client_for_internal() -> anyhow::Result<Arc<dyn HttpClient>> {
 /// unix domain socket proxy path.
 #[cfg(fbcode_build)]
 fn http_client_for_vpnless() -> anyhow::Result<Arc<dyn HttpClient>> {
+    // Prefer unix domain socket proxy if it's available (unix-only).
+    #[cfg(unix)]
+    {
+        let proxy_path = cpe::x2p::proxy_url_http1();
+        if !proxy_path.is_empty() {
+            tracing::debug!("Using x2pagent unix socket proxy client at: {}", proxy_path);
+            let client = x2p::X2PAgentUnixSocketClient::new(proxy_path)?;
+            return Ok(Arc::new(client));
+        }
+    }
+
     if let Some(port) = cpe::x2p::http1_proxy_port() {
+        tracing::debug!("Using x2pagent http proxy client on port: {}", port);
         let client = x2p::X2PAgentProxyClient::new(port)?;
         Ok(Arc::new(client))
     } else {
-        #[cfg(unix)]
-        {
-            let proxy_path = cpe::x2p::proxy_url_http1();
-            let client = x2p::X2PAgentUnixSocketClient::new(proxy_path)?;
-            Ok(Arc::new(client))
-        }
-
-        #[cfg(not(unix))]
-        anyhow::bail!("VPNless unix domain socket http client not supported in non-unix");
+        anyhow::bail!(
+            "Expected unix domain socket or http proxy port for x2p client but did not find either"
+        );
     }
 }
 
