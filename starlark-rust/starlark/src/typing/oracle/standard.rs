@@ -27,9 +27,7 @@ use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
-use crate::values::float::StarlarkFloat;
 use crate::values::string::StarlarkStr;
-use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::StarlarkValue;
 
 /// A [`TypingOracle`] based on information from documentation.
@@ -156,7 +154,7 @@ impl TypingOracle for OracleStandard {
                     _ => return fallback(),
                 }
             }
-            Ty::Name(x) if x == "int" => match attr {
+            Ty::StarlarkValue(x) if x.as_name() == "int" => match attr {
                 TypingAttr::BinOp(TypingBinOp::Less) => {
                     Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool())
                 }
@@ -166,21 +164,16 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::BinOp(TypingBinOp::Add) => {
                     Ty::function(vec![Param::pos_only(Ty::int())], Ty::int())
                 }
-                TypingAttr::UnOp(un_op) => {
-                    match TyStarlarkValue::new::<StarlarkBigInt>().un_op(un_op) {
-                        Ok(_res) => {
-                            // TODO(nga): use `res`.
-                            Ty::function(vec![], Ty::Name(x.clone()))
-                        }
-                        Err(()) => return Some(Err(())),
-                    }
-                }
+                TypingAttr::UnOp(un_op) => match x.un_op(un_op) {
+                    Ok(res) => Ty::function(vec![], Ty::StarlarkValue(res)),
+                    Err(()) => return Some(Err(())),
+                },
                 TypingAttr::BinOp(TypingBinOp::Div) => {
                     Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float())
                 }
                 _ => return Some(Err(())),
             },
-            Ty::Name(x) if x == "float" => match attr {
+            Ty::StarlarkValue(x) if x.as_name() == "float" => match attr {
                 TypingAttr::BinOp(TypingBinOp::Less) => {
                     Ty::function(vec![Param::pos_only(Ty::float())], Ty::bool())
                 }
@@ -190,15 +183,10 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::BinOp(TypingBinOp::Add) => {
                     Ty::function(vec![Param::pos_only(Ty::float())], Ty::float())
                 }
-                TypingAttr::UnOp(un_op) => {
-                    match TyStarlarkValue::new::<StarlarkFloat>().un_op(un_op) {
-                        Ok(_res) => {
-                            // TODO(nga): use `res`.
-                            Ty::function(vec![], Ty::Name(x.clone()))
-                        }
-                        Err(()) => return Some(Err(())),
-                    }
-                }
+                TypingAttr::UnOp(un_op) => match x.un_op(un_op) {
+                    Ok(res) => Ty::function(vec![], Ty::StarlarkValue(res)),
+                    Err(()) => return Some(Err(())),
+                },
                 TypingAttr::BinOp(TypingBinOp::Div) => {
                     Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float())
                 }

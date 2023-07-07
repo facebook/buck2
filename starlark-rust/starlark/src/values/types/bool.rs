@@ -146,4 +146,8 @@ impl<'v> StarlarkValue<'v> for StarlarkBool {
     fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
         Some(Ty::bool())
     }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::bool()
+    }
 }
