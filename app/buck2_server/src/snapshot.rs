@@ -121,13 +121,9 @@ impl SnapshotCollector {
             snapshot: &mut buck2_data::Snapshot,
             re: &ReConnectionManager,
         ) -> anyhow::Result<()> {
-            let stats = match re
+            let stats = re
                 .get_network_stats()
-                .context("Error collecting network stats")?
-            {
-                Some(stats) => stats,
-                None => return Ok(()),
-            };
+                .context("Error collecting network stats")?;
 
             snapshot.re_download_bytes = stats.downloaded;
             snapshot.re_upload_bytes = stats.uploaded;

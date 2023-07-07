@@ -365,27 +365,16 @@ impl RemoteExecutionClient {
         self.data.client.client().get_experiment_name()
     }
 
-    pub fn get_network_stats(&self) -> anyhow::Result<RemoteExecutionClientStats> {
-        let updated = RE::get_network_stats().context("Error getting updated network stats")?;
-
-        let uploaded = updated.uploaded as u64;
-        let downloaded = updated.downloaded as u64;
-
-        Ok(RemoteExecutionClientStats {
-            uploaded,
-            downloaded,
-            uploads: RemoteExecutionClientOpStats::from(&self.data.uploads),
-            downloads: RemoteExecutionClientOpStats::from(&self.data.downloads),
-            executes: RemoteExecutionClientOpStats::from(&self.data.executes),
-            action_cache: RemoteExecutionClientOpStats::from(&self.data.action_cache),
-            write_action_results: RemoteExecutionClientOpStats::from(
-                &self.data.write_action_results,
-            ),
-            materializes: RemoteExecutionClientOpStats::from(&self.data.materializes),
-            get_digest_expirations: RemoteExecutionClientOpStats::from(
-                &self.data.get_digest_expirations,
-            ),
-        })
+    pub fn fill_network_stats(&self, stats: &mut RemoteExecutionClientStats) {
+        stats.uploads = RemoteExecutionClientOpStats::from(&self.data.uploads);
+        stats.downloads = RemoteExecutionClientOpStats::from(&self.data.downloads);
+        stats.executes = RemoteExecutionClientOpStats::from(&self.data.executes);
+        stats.action_cache = RemoteExecutionClientOpStats::from(&self.data.action_cache);
+        stats.write_action_results =
+            RemoteExecutionClientOpStats::from(&self.data.write_action_results);
+        stats.materializes = RemoteExecutionClientOpStats::from(&self.data.materializes);
+        stats.get_digest_expirations =
+            RemoteExecutionClientOpStats::from(&self.data.get_digest_expirations);
     }
 }
 

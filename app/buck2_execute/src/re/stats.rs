@@ -14,6 +14,7 @@ use std::sync::atomic::Ordering;
 use allocative::Allocative;
 use futures::FutureExt;
 
+#[derive(Default)]
 pub struct RemoteExecutionClientOpStats {
     pub started: u32,
     pub finished_successfully: u32,
@@ -30,6 +31,7 @@ impl From<&'_ OpStats> for RemoteExecutionClientOpStats {
     }
 }
 
+#[derive(Default)]
 pub struct RemoteExecutionClientStats {
     /// In bytes.
     pub uploaded: u64,

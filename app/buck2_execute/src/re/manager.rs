@@ -236,11 +236,24 @@ impl ReConnectionManager {
         }
     }
 
-    pub fn get_network_stats(&self) -> anyhow::Result<Option<RemoteExecutionClientStats>> {
+    pub fn get_network_stats(&self) -> anyhow::Result<RemoteExecutionClientStats> {
+        let client_stats = RE::get_network_stats().context("Error getting RE network stats")?;
+
+        // Those two fields come from RE and are always available.
+        let mut res = RemoteExecutionClientStats {
+            uploaded: client_stats.uploaded as _,
+            downloaded: client_stats.downloaded as _,
+            ..Default::default()
+        };
+
+        // The rest of the fields are known to be their default value if we don't have a client, so
+        // we ask the client to fill them iff we have one.
         let conn = self.data.read().unwrap().upgrade();
-        conn.as_ref()
-            .and_then(|lazy_client| lazy_client.with_client(|client| client.get_network_stats()))
-            .transpose()
+        if let Some(conn) = &conn {
+            conn.with_client(|client| client.fill_network_stats(&mut res));
+        }
+
+        Ok(res)
     }
 }
 
