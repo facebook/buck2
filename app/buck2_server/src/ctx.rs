@@ -13,7 +13,6 @@ use std::io::BufWriter;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::Arc;
-use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -42,7 +41,6 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::SetHttpClient;
 use buck2_common::io::trace::TracingIoProvider;
-use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
@@ -76,7 +74,6 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::SetMaterializer;
 use buck2_execute::re::client::RemoteExecutionClient;
 use buck2_execute::re::manager::ReConnectionHandle;
-use buck2_execute::re::manager::ReConnectionManager;
 use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
@@ -96,7 +93,6 @@ use buck2_interpreter_for_build::interpreter::globals::configure_bxl_file_global
 use buck2_interpreter_for_build::interpreter::globals::configure_extension_file_globals;
 use buck2_interpreter_for_build::interpreter::globals::configure_package_file_globals;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
-use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::concurrency::DiceDataProvider;
 use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
@@ -143,40 +139,12 @@ pub struct BaseServerCommandContext {
     pub _fb: fbinit::FacebookInit,
     /// Absolute path to the project root.
     pub project_root: ProjectRoot,
-    /// A reference to the dice graph. Most interesting things are accessible from this (and new interesting things should be
-    /// added there rather than as fields here). This has some per-request setup done already (like attaching a per-request
-    /// event dispatcher).
-    pub dice_manager: ConcurrencyHandler,
-    /// A reference to the I/O provider.
-    pub io: Arc<dyn IoProvider>,
-    /// The RE connection, managed such that all build commands that are concurrently active uses
-    /// the same connection.
-    pub re_client_manager: Arc<ReConnectionManager>,
-    /// Executor responsible for coordinating and rate limiting I/O.
-    pub blocking_executor: Arc<dyn BlockingExecutor>,
-    /// Object responsible for handling most materializations.
-    pub materializer: Arc<dyn Materializer>,
-    /// Forkserver connection, if any was started
-    pub forkserver: Option<ForkserverClient>,
     /// The event dispatcher for this command context.
     pub events: EventDispatcher,
-    /// Removes this command from the set of active commands when dropped.
-    pub _drop_guard: ActiveCommandDropGuard,
-    /// The file watcher that keeps buck2 up to date with disk changes.
-    pub file_watcher: Arc<dyn FileWatcher>,
-    /// Whether or not to hash all commands
-    pub hash_all_commands: bool,
-    /// Whether to try to read from the network action output cache when running
-    /// network actions like download_file; only useful for offline builds.
-    pub use_network_action_output_cache: bool,
-    /// Start time to track daemon uptime
-    pub daemon_start_time: Instant,
-    /// Mutex for creating symlinks
-    pub create_unhashed_outputs_lock: Arc<Mutex<()>>,
-    /// Http client used during run actions; shared with materializer.
-    pub http_client: CountingHttpClient,
     /// Underlying data that isn't command-level.
     pub(crate) daemon: Arc<DaemonStateData>,
+    /// Removes this command from the set of active commands when dropped.
+    pub _drop_guard: ActiveCommandDropGuard,
 }
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
@@ -282,14 +250,18 @@ impl<'a> ServerCommandContext<'a> {
             }
         }
 
-        let mut re_connection_handle = base_context.re_client_manager.get_re_connection();
+        let mut re_connection_handle = base_context.daemon.re_client_manager.get_re_connection();
 
         re_connection_handle.set_observer(Arc::new(Observer {
             events: base_context.events.dupe(),
         }));
 
         // Add argfiles read by client into IO tracing state.
-        if let Some(tracing_provider) = base_context.io.as_any().downcast_ref::<TracingIoProvider>()
+        if let Some(tracing_provider) = base_context
+            .daemon
+            .io
+            .as_any()
+            .downcast_ref::<TracingIoProvider>()
         {
             let argfiles: anyhow::Result<Vec<_>> = client_context
                 .argfiles
@@ -367,8 +339,11 @@ impl<'a> ServerCommandContext<'a> {
             .unwrap_or_default();
 
         let mut run_action_knobs = RunActionKnobs {
-            hash_all_commands: self.base_context.hash_all_commands,
-            use_network_action_output_cache: self.base_context.use_network_action_output_cache,
+            hash_all_commands: self.base_context.daemon.hash_all_commands,
+            use_network_action_output_cache: self
+                .base_context
+                .daemon
+                .use_network_action_output_cache,
             ..Default::default()
         };
 
@@ -384,18 +359,19 @@ impl<'a> ServerCommandContext<'a> {
             .map(|v| v.map_err(SharedError::from));
 
         let executor_config = get_default_executor_config(self.host_platform_override);
-        let blocking_executor: Arc<_> = self.base_context.blocking_executor.dupe();
-        let materializer = self.base_context.materializer.dupe();
+        let blocking_executor: Arc<_> = self.base_context.daemon.blocking_executor.dupe();
+        let materializer = self.base_context.daemon.materializer.dupe();
         let re_connection = Arc::new(self.get_re_connection());
 
-        let forkserver = self.base_context.forkserver.dupe();
+        let forkserver = self.base_context.daemon.forkserver.dupe();
 
         let upload_all_actions = self
             .build_options
             .as_ref()
             .map_or(false, |opts| opts.upload_all_actions);
 
-        let create_unhashed_symlink_lock = self.base_context.create_unhashed_outputs_lock.dupe();
+        let create_unhashed_symlink_lock =
+            self.base_context.daemon.create_unhashed_outputs_lock.dupe();
 
         DiceCommandDataProvider {
             cell_configs_loader: self.cell_configs_loader.dupe(),
@@ -418,7 +394,7 @@ impl<'a> ServerCommandContext<'a> {
                 .build_options
                 .as_ref()
                 .map_or(false, |opts| opts.keep_going),
-            http_client: self.base_context.http_client.dupe(),
+            http_client: self.base_context.daemon.http_client.dupe(),
         }
     }
 
@@ -431,7 +407,7 @@ impl<'a> ServerCommandContext<'a> {
             )?;
 
         Ok(DiceCommandUpdater {
-            file_watcher: self.base_context.file_watcher.dupe(),
+            file_watcher: self.base_context.daemon.file_watcher.dupe(),
             cell_config_loader: self.cell_configs_loader.dupe(),
             buck_out_dir: self.buck_out_dir.clone(),
             interpreter_platform,
@@ -447,7 +423,10 @@ impl<'a> ServerCommandContext<'a> {
     }
 
     pub fn get_re_connection(&self) -> ReConnectionHandle {
-        self.base_context.re_client_manager.get_re_connection()
+        self.base_context
+            .daemon
+            .re_client_manager
+            .get_re_connection()
     }
 }
 
@@ -739,7 +718,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
     }
 
     fn materializer(&self) -> Arc<dyn Materializer> {
-        self.base_context.materializer.dupe()
+        self.base_context.daemon.materializer.dupe()
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
@@ -753,7 +732,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         };
 
         Ok(DiceAccessor {
-            dice_handler: self.base_context.dice_manager.dupe(),
+            dice_handler: self.base_context.daemon.dice_manager.dupe(),
             data: Box::new(self.dice_data_constructor(build_signals_installer).await),
             setup: Box::new(self.dice_updater().await?),
             is_nested_invocation,
@@ -787,12 +766,12 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
         metadata.insert(
             "io_provider".to_owned(),
-            self.base_context.io.name().to_owned(),
+            self.base_context.daemon.io.name().to_owned(),
         );
 
         metadata.insert(
             "materializer".to_owned(),
-            self.base_context.materializer.name().to_owned(),
+            self.base_context.daemon.materializer.name().to_owned(),
         );
 
         if let Some(oncall) = &self.oncall {
@@ -841,6 +820,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         // Add legacy config paths to I/O tracing (if enabled).
         if let Some(tracing_provider) = self
             .base_context
+            .daemon
             .io
             .as_any()
             .downcast_ref::<TracingIoProvider>()

@@ -98,7 +98,7 @@ pub struct DaemonStateData {
     pub(crate) dice_manager: ConcurrencyHandler,
 
     /// Synced every time we run a command.
-    file_watcher: Arc<dyn FileWatcher>,
+    pub(crate) file_watcher: Arc<dyn FileWatcher>,
 
     /// Settled every time we run a command.
     pub io: Arc<dyn IoProvider>,
@@ -656,21 +656,9 @@ impl DaemonState {
         Ok(BaseServerCommandContext {
             _fb: self.fb,
             project_root: self.paths.project_root().clone(),
-            dice_manager: data.dice_manager.dupe(),
-            io: data.io.dupe(),
-            re_client_manager: data.re_client_manager.dupe(),
-            blocking_executor: data.blocking_executor.dupe(),
-            materializer: data.materializer.dupe(),
-            file_watcher: data.file_watcher.dupe(),
             events: dispatcher,
-            forkserver: data.forkserver.dupe(),
-            hash_all_commands: data.hash_all_commands,
-            use_network_action_output_cache: data.use_network_action_output_cache,
-            _drop_guard: drop_guard,
-            daemon_start_time: data.start_time,
-            create_unhashed_outputs_lock: data.create_unhashed_outputs_lock.dupe(),
-            http_client: data.http_client.dupe(),
             daemon: data.dupe(), // FIXME: Remove the duplicative fields.
+            _drop_guard: drop_guard,
         })
     }
 

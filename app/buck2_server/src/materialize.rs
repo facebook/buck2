@@ -45,6 +45,7 @@ async fn materialize(
         project_paths.push(ProjectRelativePath::new(&path)?.to_owned())
     }
     server_ctx
+        .daemon
         .materializer
         .ensure_materialized(project_paths)
         .await

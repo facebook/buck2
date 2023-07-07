@@ -30,6 +30,7 @@ pub(crate) async fn trace_io_command(
     span_async(start_event, async move {
         let tracing_provider = &context
             .base_context
+            .daemon
             .io
             .as_any()
             .downcast_ref::<TracingIoProvider>();
