@@ -15,20 +15,18 @@ use buck2_events::dispatch::EventDispatcher;
 use dupe::Dupe;
 use tokio::task::JoinHandle;
 
-use crate::ctx::BaseServerCommandContext;
-use crate::snapshot;
+use crate::snapshot::SnapshotCollector;
 
 // Spawns a thread to occasionally output snapshots of resource utilization.
 pub struct HeartbeatGuard {
     handle: JoinHandle<()>,
-    collector: snapshot::SnapshotCollector,
+    collector: SnapshotCollector,
     events: Arc<Mutex<Option<EventDispatcher>>>,
 }
 
 impl HeartbeatGuard {
-    pub fn new(ctx: &BaseServerCommandContext) -> Self {
-        let events = Arc::new(Mutex::new(Some(ctx.events.dupe())));
-        let collector = snapshot::SnapshotCollector::new(ctx.daemon.dupe());
+    pub fn new(events: EventDispatcher, collector: SnapshotCollector) -> Self {
+        let events = Arc::new(Mutex::new(Some(events)));
 
         // NOTE: This doesn't use the ambient dispatcher wrappers because we want to control the
         // exact lifetime of the dispatcher.

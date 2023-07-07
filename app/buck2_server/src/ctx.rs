@@ -125,6 +125,7 @@ use crate::daemon::state::DaemonStateData;
 use crate::dice_tracker::BuckDiceTracker;
 use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
+use crate::snapshot::SnapshotCollector;
 
 #[derive(Debug, thiserror::Error)]
 enum DaemonCommunicationError {
@@ -213,6 +214,7 @@ impl<'a> ServerCommandContext<'a> {
         starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
         build_options: Option<&CommonBuildOptions>,
         buck_out_dir: ProjectRelativePathBuf,
+        snapshot_collector: SnapshotCollector,
         cancellations: &'a ExplicitCancellationContext,
     ) -> anyhow::Result<Self> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
@@ -277,7 +279,8 @@ impl<'a> ServerCommandContext<'a> {
             Some(client_context.oncall.clone())
         };
 
-        let heartbeat_guard_handle = HeartbeatGuard::new(&base_context);
+        let heartbeat_guard_handle =
+            HeartbeatGuard::new(base_context.events.dupe(), snapshot_collector);
 
         let cell_configs_loader = Arc::new(CellConfigLoader {
             project_root: base_context.project_root.clone(),

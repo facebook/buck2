@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
 
 use anyhow::Context as _;
 use buck2_core::io_counters::IoCounterKey;
@@ -37,18 +36,10 @@ impl SnapshotCollector {
         }
     }
 
-    /// We emit a Snapshot before a BaseCommandContext is made available.
-    /// Initializes snapshot with all information we don't get off a BaseCommandContext.
-    /// This lets us send our first Snapshot before fully initializing/syncing.
-    pub fn pre_initialization_snapshot(daemon_start_time: Instant) -> buck2_data::Snapshot {
-        let mut snapshot = buck2_data::Snapshot::default();
-        add_system_metrics(&mut snapshot, daemon_start_time);
-        snapshot
-    }
-
     /// Create a new Snapshot.
     pub fn create_snapshot(&self) -> buck2_data::Snapshot {
-        let mut snapshot = Self::pre_initialization_snapshot(self.daemon.start_time);
+        let mut snapshot = buck2_data::Snapshot::default();
+        self.add_system_metrics(&mut snapshot);
         self.add_daemon_metrics(&mut snapshot);
         self.add_re_metrics(&mut snapshot);
         self.add_http_metrics(&mut snapshot);
@@ -190,37 +181,37 @@ impl SnapshotCollector {
             snapshot.network_interface_stats = HashMap::new();
         }
     }
-}
 
-fn add_system_metrics(snapshot: &mut buck2_data::Snapshot, daemon_start_time: Instant) {
-    let process_stats = process_stats();
-    if let Some(max_rss_bytes) = process_stats.max_rss_bytes {
-        snapshot.buck2_max_rss = max_rss_bytes;
-    }
-    if let Some(user_cpu_us) = process_stats.user_cpu_us {
-        snapshot.buck2_user_cpu_us = user_cpu_us;
-    }
-    if let Some(system_cpu_us) = process_stats.system_cpu_us {
-        snapshot.buck2_system_cpu_us = system_cpu_us;
-    }
-    snapshot.daemon_uptime_s = daemon_start_time.elapsed().as_secs();
-    snapshot.buck2_rss = process_stats.rss_bytes;
-    let allocator_stats = get_allocator_stats().ok();
-    if let Some(alloc_stats) = allocator_stats {
-        snapshot.malloc_bytes_active = alloc_stats.bytes_active;
-        snapshot.malloc_bytes_allocated = alloc_stats.bytes_allocated;
-    }
+    fn add_system_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        let process_stats = process_stats();
+        if let Some(max_rss_bytes) = process_stats.max_rss_bytes {
+            snapshot.buck2_max_rss = max_rss_bytes;
+        }
+        if let Some(user_cpu_us) = process_stats.user_cpu_us {
+            snapshot.buck2_user_cpu_us = user_cpu_us;
+        }
+        if let Some(system_cpu_us) = process_stats.system_cpu_us {
+            snapshot.buck2_system_cpu_us = system_cpu_us;
+        }
+        snapshot.daemon_uptime_s = self.daemon.start_time.elapsed().as_secs();
+        snapshot.buck2_rss = process_stats.rss_bytes;
+        let allocator_stats = get_allocator_stats().ok();
+        if let Some(alloc_stats) = allocator_stats {
+            snapshot.malloc_bytes_active = alloc_stats.bytes_active;
+            snapshot.malloc_bytes_allocated = alloc_stats.bytes_allocated;
+        }
 
-    if let Some(UnixSystemStats {
-        load1,
-        load5,
-        load15,
-    }) = UnixSystemStats::get()
-    {
-        snapshot.unix_system_stats = Some(buck2_data::UnixSystemStats {
+        if let Some(UnixSystemStats {
             load1,
             load5,
             load15,
-        });
+        }) = UnixSystemStats::get()
+        {
+            snapshot.unix_system_stats = Some(buck2_data::UnixSystemStats {
+                load1,
+                load5,
+                load15,
+            });
+        }
     }
 }

@@ -93,6 +93,7 @@ use crate::file_status::file_status_command;
 use crate::lsp::run_lsp_server_command;
 use crate::materialize::materialize_command;
 use crate::snapshot;
+use crate::snapshot::SnapshotCollector;
 use crate::subscription::run_subscription_server_command;
 use crate::trace_io::trace_io_command;
 
@@ -458,9 +459,10 @@ impl BuckdServer {
         } = ActiveCommand::new(&dispatch, client_ctx);
         let data = daemon_state.data()?;
 
-        dispatch.instant_event(Box::new(
-            snapshot::SnapshotCollector::pre_initialization_snapshot(data.start_time),
-        ));
+        // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
+        // as a baseline.
+        let snapshot_collector = SnapshotCollector::new(data.dupe());
+        dispatch.instant_event(Box::new(snapshot_collector.create_snapshot()));
 
         let resp = streaming(
             req,
@@ -480,6 +482,7 @@ impl BuckdServer {
                             opts.starlark_profiler_instrumentation_override(&req)?,
                             req.build_options(),
                             daemon_state.paths.buck_out_dir(),
+                            snapshot_collector,
                             cancellations,
                         )?;
 
