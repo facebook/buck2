@@ -383,9 +383,7 @@ impl Ty {
         match name {
             "list" => Self::List(Box::new(Ty::Any)),
             "dict" => Self::Dict(Box::new((Ty::Any, Ty::Any))),
-            "function" => {
-                Self::function(vec![Param::args(Ty::Any), Param::kwargs(Ty::Any)], Ty::Any)
-            }
+            "function" => Self::any_function(),
             "struct" => Self::custom(TyStruct::any()),
             "never" => Self::Never,
             "NoneType" => Self::none(),
@@ -476,6 +474,11 @@ impl Ty {
             params,
             result: Box::new(result),
         }))
+    }
+
+    /// Function type that accepts any arguments and returns any result.
+    pub(crate) fn any_function() -> Self {
+        Self::custom(TyCustomFunction(TyFunction::any()))
     }
 
     pub(crate) fn starlark_value<'v, T: StarlarkValue<'v>>() -> Self {

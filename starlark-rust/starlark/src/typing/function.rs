@@ -218,6 +218,17 @@ pub struct TyFunction {
     pub result: Box<Ty>,
 }
 
+impl TyFunction {
+    /// Function type that accepts any arguments and returns any result.
+    pub(crate) fn any() -> TyFunction {
+        TyFunction {
+            type_attr: "".to_owned(),
+            params: vec![Param::args(Ty::Any), Param::kwargs(Ty::Any)],
+            result: Box::new(Ty::Any),
+        }
+    }
+}
+
 impl Display for TyFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let TyFunction { params, result, .. } = self;
