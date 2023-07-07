@@ -17,7 +17,6 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use crate::action_stats::ActionStats;
 use crate::debug_events::DebugEventsState;
 use crate::dice_state::DiceState;
-use crate::io_state::IoState;
 use crate::re_state::ReState;
 use crate::session_info::SessionInfo;
 use crate::span_tracker::BuckEventSpanTracker;
@@ -31,7 +30,6 @@ pub struct EventObserver<E> {
     re_state: ReState,
     two_snapshots: TwoSnapshots, // NOTE: We got many more copies of this than we should.
     session_info: SessionInfo,
-    io_state: IoState,
     test_state: TestState,
     starlark_debugger_state: StarlarkDebuggerState,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
@@ -53,7 +51,6 @@ where
                 trace_id,
                 test_session: None,
             },
-            io_state: IoState::default(),
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
             extra: E::new(),
@@ -91,7 +88,6 @@ where
                         Snapshot(snapshot) => {
                             self.re_state.update(event.timestamp(), snapshot);
                             self.two_snapshots.update(event.timestamp(), snapshot);
-                            self.io_state.update(event.timestamp(), snapshot);
                         }
                         TestDiscovery(discovery) => {
                             use buck2_data::test_discovery::Data::*;
@@ -146,10 +142,6 @@ where
 
     pub fn session_info(&self) -> &SessionInfo {
         &self.session_info
-    }
-
-    pub fn io_state(&self) -> &IoState {
-        &self.io_state
     }
 
     pub fn starlark_debugger_state(&self) -> &StarlarkDebuggerState {

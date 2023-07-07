@@ -26,7 +26,6 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::event_observer::EventObserverExtra;
 use buck2_event_observer::humanized::HumanizedBytes;
-use buck2_event_observer::io_state::io_in_flight_non_zero_counters;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::command_to_string;
@@ -45,6 +44,7 @@ use termwiz::escape::ControlCode;
 
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
+use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
 
 /// buck2 daemon info is printed to stderr if there are no other updates available
 /// within this duration.

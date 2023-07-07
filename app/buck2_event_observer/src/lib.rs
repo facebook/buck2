@@ -16,7 +16,6 @@ pub mod display;
 pub mod event_observer;
 pub mod fmt_duration;
 pub mod humanized;
-pub mod io_state;
 pub mod last_command_execution_kind;
 pub mod pending_estimate;
 pub mod re_state;

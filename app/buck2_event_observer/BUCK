@@ -19,7 +19,6 @@ rust_library(
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2_common:buck2_common",
-        "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_events:buck2_events",
         "//buck2/app/buck2_test_api:buck2_test_api",

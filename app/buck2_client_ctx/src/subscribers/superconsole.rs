@@ -64,7 +64,7 @@ mod common;
 pub(crate) mod debug_events;
 mod debugger;
 pub(crate) mod dice;
-mod io;
+pub(crate) mod io;
 mod re;
 pub mod session_info;
 pub mod test;
@@ -173,7 +173,7 @@ impl<'s> Component for BuckRootComponent<'s> {
         draw.draw(
             &IoHeader {
                 super_console_config: &self.state.config,
-                io_state: self.state.simple_console.observer.io_state(),
+                two_snapshots: self.state.simple_console.observer.two_snapshots(),
             },
             mode,
         )?;
