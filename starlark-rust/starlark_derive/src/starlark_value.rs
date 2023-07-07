@@ -219,6 +219,34 @@ impl<'a> ImplStarlarkValue<'a> {
             const #constant_name: bool = #has;
         })
     }
+
+    /// There's an function with given name.
+    fn has_fn(&self, name: &str) -> bool {
+        self.input.items.iter().any(|item| {
+            if let syn::ImplItem::Fn(fn_) = item {
+                fn_.sig.ident == name
+            } else {
+                false
+            }
+        })
+    }
+
+    /// `fn attr_ty()`.
+    fn attr_ty(&self) -> syn::Result<Option<syn::ImplItem>> {
+        if self.has_fn("attr_ty") {
+            // User has custom `attr_ty` implementation.
+            Ok(None)
+        } else if !self.has_fn("get_attr") {
+            Ok(Some(syn::parse2(quote_spanned! { self.span() =>
+                fn attr_ty(_attr: &str) -> ::std::option::Option<starlark::typing::Ty> {
+                    ::std::option::Option::None
+                }
+            })?))
+        } else {
+            // Use default implementation which returns `Any`.
+            Ok(None)
+        }
+    }
 }
 
 fn derive_starlark_value_impl(
@@ -235,6 +263,7 @@ fn derive_starlark_value_impl(
     let has_plus = impl_starlark_value.has_unop("HAS_PLUS", "plus")?;
     let has_minus = impl_starlark_value.has_unop("HAS_MINUS", "minus")?;
     let has_bit_not = impl_starlark_value.has_unop("HAS_BIT_NOT", "bit_not")?;
+    let attr_ty = impl_starlark_value.attr_ty()?;
 
     input.items.splice(
         0..0,
@@ -245,7 +274,9 @@ fn derive_starlark_value_impl(
             has_plus,
             has_minus,
             has_bit_not,
-        ],
+        ]
+        .into_iter()
+        .chain(attr_ty),
     );
 
     Ok(quote_spanned! {

@@ -27,6 +27,8 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::docs::DocItem;
+use crate::typing::Ty;
 use crate::typing::TyName;
 use crate::typing::TypingUnOp;
 use crate::values::traits::StarlarkValueVTable;
@@ -41,8 +43,7 @@ struct TyStarlarkValueVTable {
     has_plus: bool,
     has_minus: bool,
     has_bit_not: bool,
-    // Not used now, but will be used later.
-    _vtable: StarlarkValueVTable,
+    vtable: StarlarkValueVTable,
 }
 
 struct TyStarlarkValueVTableGet<'v, T: StarlarkValue<'v>>(PhantomData<&'v T>);
@@ -53,7 +54,7 @@ impl<'v, T: StarlarkValue<'v>> TyStarlarkValueVTableGet<'v, T> {
         has_plus: T::HAS_PLUS,
         has_minus: T::HAS_MINUS,
         has_bit_not: T::HAS_BIT_NOT,
-        _vtable: StarlarkValueVTableGet::<T>::VTABLE,
+        vtable: StarlarkValueVTableGet::<T>::VTABLE,
     };
 }
 
@@ -128,5 +129,29 @@ impl TyStarlarkValue {
             TypingUnOp::BitNot => self.vtable.has_bit_not,
         };
         if has { Ok(self) } else { Err(()) }
+    }
+
+    pub(crate) fn attr(self, name: &str) -> Result<Ty, ()> {
+        if let Some(methods) = (self.vtable.vtable.get_methods)() {
+            if let Some(method) = methods.get(name) {
+                if let Some(doc) = method.documentation() {
+                    match doc {
+                        DocItem::Function(method) => return Ok(Ty::from_docs_function(&method)),
+                        DocItem::Property(property) => {
+                            return Ok(Ty::from_docs_property(&property));
+                        }
+                        DocItem::Object(_) | DocItem::Module(_) => {
+                            // unreachable: only methods and properties are in `methods`.
+                        }
+                    }
+                } else {
+                    // unreachable: both methods and attributes have documentation.
+                }
+            }
+        }
+        if let Some(ty) = (self.vtable.vtable.attr_ty)(name) {
+            return Ok(ty);
+        }
+        Err(())
     }
 }

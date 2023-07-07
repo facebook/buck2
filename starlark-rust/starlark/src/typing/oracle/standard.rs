@@ -28,6 +28,7 @@ use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
 use crate::values::float::StarlarkFloat;
+use crate::values::string::StarlarkStr;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::StarlarkValue;
 
@@ -67,7 +68,6 @@ impl OracleStandard {
         add::<crate::values::list::value::ListGen<crate::values::list::value::FrozenListData>>(
             &mut fallback,
         );
-        add::<crate::values::string::StarlarkStr>(&mut fallback);
         add::<crate::values::structs::value::FrozenStruct>(&mut fallback);
         add::<crate::values::tuple::value::FrozenTuple>(&mut fallback);
 
@@ -222,6 +222,11 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::BinOp(TypingBinOp::Percent) => {
                     Ty::function(vec![Param::pos_only(Ty::Any)], Ty::string())
                 }
+                TypingAttr::Regular(name) => match TyStarlarkValue::new::<StarlarkStr>().attr(name)
+                {
+                    Ok(res) => res,
+                    Err(()) => return Some(Err(())),
+                },
                 _ => return fallback(),
             },
             Ty::Name(x) if x == "range" => match attr {

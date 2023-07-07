@@ -541,6 +541,14 @@ pub trait StarlarkValue<'v>:
         ValueError::unsupported(self, "len()")
     }
 
+    /// Attribute type, for the typechecker.
+    ///
+    /// If [`get_attr`](StarlarkValue::get_attr) is implemented,
+    /// `#[starlark_value]` proc macro will generate this to return `Some(Any)`.
+    fn attr_ty(_name: &str) -> Option<Ty> {
+        Some(Ty::Any)
+    }
+
     /// Get an attribute for the current value as would be returned by dotted
     /// expression (i.e. `a.attribute`).
     ///
