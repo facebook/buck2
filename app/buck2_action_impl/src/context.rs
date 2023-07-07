@@ -23,7 +23,6 @@ use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkOutputOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -64,6 +63,7 @@ use starlark::values::dict::DictOf;
 use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
+use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkIter;
 use starlark::values::StringValue;
@@ -261,9 +261,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] content: Value<'v>,
         #[starlark(require = named, default = false)] with_inputs: bool,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<
-        Either<ValueTyped<'v, StarlarkDeclaredArtifact>, ValueOfUnchecked<'v, CommandLineArg<'v>>>,
-    > {
+    ) -> anyhow::Result<impl AllocValue<'v>> {
         let mut this = this.state();
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
@@ -280,10 +278,12 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         // TODO(cjhopman): The with_inputs thing can go away once we have artifact dependencies (we'll still
         // need the UnregisteredWriteJsonAction::cli() to represent the dependency though).
         if with_inputs {
+            // TODO(nga): we use `AllocValue`, so this function return type for this branch
+            //   is `write_json_cli_args`. We want just `cmd_args`,
+            //   because users don't care about precise type.
+            //   Do it when we migrate to new types not based on strings.
             let cli = UnregisteredWriteJsonAction::cli(value.to_value(), content)?;
-            // Note we are using `ValueOfUnchecked` here because
-            // we want to declare return type as `cmd_args`, not `write_json_cli_args`.
-            Ok(Either::Right(ValueOfUnchecked::new(eval.heap().alloc(cli))))
+            Ok(Either::Right(cli))
         } else {
             Ok(Either::Left(value))
         }
