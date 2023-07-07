@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::time::SystemTime;
-
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
@@ -20,7 +18,6 @@ use crate::two_snapshots::TwoSnapshots;
 pub struct ReState {
     session_id: Option<String>,
     first_snapshot: Option<buck2_data::Snapshot>,
-    two_snapshots: TwoSnapshots,
 }
 
 impl ReState {
@@ -28,7 +25,6 @@ impl ReState {
         Self {
             session_id: None,
             first_snapshot: None,
-            two_snapshots: TwoSnapshots::default(),
         }
     }
 
@@ -36,17 +32,20 @@ impl ReState {
         self.session_id = Some(session.session_id.clone());
     }
 
-    pub fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
+    pub fn update(&mut self, snapshot: &buck2_data::Snapshot) {
         if self.first_snapshot.is_none() {
             self.first_snapshot = Some(snapshot.clone());
         }
-        self.two_snapshots.update(timestamp, snapshot);
     }
 
-    pub fn render_header(&self, draw_mode: DrawMode) -> Option<String> {
+    pub fn render_header(
+        &self,
+        two_snapshots: &TwoSnapshots,
+        draw_mode: DrawMode,
+    ) -> Option<String> {
         let mut parts = Vec::new();
 
-        if let (Some(first), Some((_, last))) = (&self.first_snapshot, &self.two_snapshots.last) {
+        if let (Some(first), Some((_, last))) = (&self.first_snapshot, &two_snapshots.last) {
             if last.re_upload_bytes > 0
                 || last.re_download_bytes > 0
                 || last.http_download_bytes > 0
@@ -69,16 +68,13 @@ impl ReState {
                             }
                         }
 
-                        let re_upload_bytes_per_second = self
-                            .two_snapshots
+                        let re_upload_bytes_per_second = two_snapshots
                             .re_upload_bytes_per_second()
                             .unwrap_or_default();
-                        let re_download_bytes_per_second = self
-                            .two_snapshots
+                        let re_download_bytes_per_second = two_snapshots
                             .re_download_bytes_per_second()
                             .unwrap_or_default();
-                        let http_download_bytes_per_second = self
-                            .two_snapshots
+                        let http_download_bytes_per_second = two_snapshots
                             .http_download_bytes_per_second()
                             .unwrap_or_default();
                         format!(
@@ -148,9 +144,9 @@ impl ReState {
         Ok(Some(Line::unstyled(&line)?))
     }
 
-    fn render_detailed(&self) -> anyhow::Result<Vec<Line>> {
+    fn render_detailed(&self, two_snapshots: &TwoSnapshots) -> anyhow::Result<Vec<Line>> {
         let mut r = Vec::new();
-        if let (Some(first), Some((_, last))) = (&self.first_snapshot, &self.two_snapshots.last) {
+        if let (Some(first), Some((_, last))) = (&self.first_snapshot, &two_snapshots.last) {
             r.extend(self.render_detailed_items(
                 "re_uploads",
                 last.re_uploads_started,
@@ -202,14 +198,19 @@ impl ReState {
         Ok(r)
     }
 
-    pub fn render(&self, detailed: bool, draw_mode: DrawMode) -> anyhow::Result<Lines> {
-        let header = match self.render_header(draw_mode) {
+    pub fn render(
+        &self,
+        two_snapshots: &TwoSnapshots,
+        detailed: bool,
+        draw_mode: DrawMode,
+    ) -> anyhow::Result<Lines> {
+        let header = match self.render_header(two_snapshots, draw_mode) {
             Some(header) => header,
             None => return Ok(Lines::new()),
         };
         let mut lines = vec![Line::unstyled(&header)?];
         if detailed {
-            lines.extend(self.render_detailed()?);
+            lines.extend(self.render_detailed(two_snapshots)?);
         }
         Ok(Lines(lines))
     }

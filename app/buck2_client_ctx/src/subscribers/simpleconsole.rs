@@ -242,11 +242,16 @@ where
     }
 
     fn print_stats_while_waiting(&mut self) -> anyhow::Result<()> {
-        if let Some(h) = self.observer().re_state().render_header(DrawMode::Normal) {
+        let snapshots = self.observer().two_snapshots();
+
+        if let Some(h) = self
+            .observer()
+            .re_state()
+            .render_header(snapshots, DrawMode::Normal)
+        {
             echo!("{}", h)?;
         }
 
-        let snapshots = self.observer().two_snapshots();
         let last_snapshot_ts = snapshots.last.as_ref().map(|(ts, _)| *ts);
 
         // We normally send snapshots more often than we print this, so we'd expect the
@@ -435,6 +440,8 @@ where
         _command: &buck2_data::CommandEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
+        let snapshots = self.observer().two_snapshots();
+
         if self.verbosity.print_status() && self.observer().action_stats().log_stats() {
             let cache_hit_percentage = self.observer().action_stats().action_cache_hit_percentage();
             echo!("Cache hits: {}%", cache_hit_percentage)?;
@@ -456,7 +463,11 @@ where
             }
         }
 
-        if let Some(re) = &self.observer().re_state().render_header(DrawMode::Final) {
+        if let Some(re) = &self
+            .observer()
+            .re_state()
+            .render_header(snapshots, DrawMode::Final)
+        {
             echo!("{}", re)?;
         }
 

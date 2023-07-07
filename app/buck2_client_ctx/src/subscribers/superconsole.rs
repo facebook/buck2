@@ -167,6 +167,7 @@ impl<'s> Component for BuckRootComponent<'s> {
             &ReHeader {
                 super_console_config: &self.state.config,
                 re_state: self.state.simple_console.observer.re_state(),
+                two_snapshots: self.state.simple_console.observer.two_snapshots(),
             },
             mode,
         )?;

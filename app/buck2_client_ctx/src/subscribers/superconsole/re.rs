@@ -8,6 +8,7 @@
  */
 
 use buck2_event_observer::re_state::ReState;
+use buck2_event_observer::two_snapshots::TwoSnapshots;
 use superconsole::Component;
 
 use crate::subscribers::superconsole::SuperConsoleConfig;
@@ -16,6 +17,7 @@ use crate::subscribers::superconsole::SuperConsoleConfig;
 pub(crate) struct ReHeader<'a> {
     pub(crate) super_console_config: &'a SuperConsoleConfig,
     pub(crate) re_state: &'a ReState,
+    pub(crate) two_snapshots: &'a TwoSnapshots,
 }
 
 impl<'a> Component for ReHeader<'a> {
@@ -25,7 +27,10 @@ impl<'a> Component for ReHeader<'a> {
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
-        self.re_state
-            .render(self.super_console_config.enable_detailed_re, mode)
+        self.re_state.render(
+            self.two_snapshots,
+            self.super_console_config.enable_detailed_re,
+            mode,
+        )
     }
 }

@@ -86,7 +86,7 @@ where
                             self.re_state.add_re_session(re_session);
                         }
                         Snapshot(snapshot) => {
-                            self.re_state.update(event.timestamp(), snapshot);
+                            self.re_state.update(snapshot);
                             self.two_snapshots.update(event.timestamp(), snapshot);
                         }
                         TestDiscovery(discovery) => {
