@@ -10,6 +10,14 @@ rust_library(
         ["src/**/*.rs"],
     ) + ["src/pattern/target_pattern.md"],
     doctests = False,  # FIXME
+    os_deps = [
+        (
+            "windows",
+            [
+                "fbsource//third-party/rust:common-path",
+            ],
+        ),
+    ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:maplit",

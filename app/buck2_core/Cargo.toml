@@ -8,7 +8,6 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 arc-swap = { workspace = true }
 blake3 = { workspace = true }
-common-path = { workspace = true }
 compact_str = { workspace = true }
 tempfile = { workspace = true }
 derive_more = { workspace = true }
@@ -54,6 +53,9 @@ sorted_vector_map = { workspace = true }
 
 buck2_data = { workspace = true }
 buck2_util = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+common-path = { workspace = true}
 
 [dev-dependencies]
 maplit = { workspace = true }
