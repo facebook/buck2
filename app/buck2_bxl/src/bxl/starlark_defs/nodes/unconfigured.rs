@@ -31,7 +31,6 @@ use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkCoercedAttr;
-use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkTargetNodeCoercedAttributes;
 
 pub mod attribute;
 
@@ -66,25 +65,6 @@ impl<'a> UnpackValue<'a> for StarlarkTargetNode {
 /// Methods for unconfigured target node.
 #[starlark_module]
 fn target_node_value_methods(builder: &mut MethodsBuilder) {
-    /// DO NOT USE. Will be deprecated.
-    ///
-    /// Gets the coerced attributes from the unconfigured target node. Returns an iterable `starlark_attributes`
-    /// object.
-    ///
-    /// Sample usage:
-    /// ```text
-    /// def _impl_attributes(ctx):
-    ///     target_node = ctx.uquery().eval("owner('path/to/file')")[0]
-    ///     for attr in target_node.attributes:
-    ///         ctx.output.print(attr)
-    /// ```
-    #[starlark(attribute)]
-    fn attributes<'v>(this: StarlarkTargetNode, heap: &Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc(StarlarkTargetNodeCoercedAttributes {
-            inner: heap.alloc(this),
-        }))
-    }
-
     /// Gets the coerced attributes from the unconfigured target node. Returns a struct.
     ///
     /// Sample usage:
