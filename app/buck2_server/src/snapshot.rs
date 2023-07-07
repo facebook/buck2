@@ -12,53 +12,34 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context as _;
-use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_events::EventSink;
-use buck2_execute::execute::blocking::BlockingExecutor;
-use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_util::process_stats::process_stats;
 use buck2_util::system_stats::UnixSystemStats;
-use dice::Dice;
 use dupe::Dupe;
 
+use crate::daemon::state::DaemonStateData;
 use crate::jemalloc_stats::get_allocator_stats;
 use crate::net_io::SystemNetworkIoCollector;
 
 /// Stores state handles necessary to produce snapshots.
 #[derive(Clone, Dupe)]
 pub struct SnapshotCollector {
-    re_client_manager: Arc<ReConnectionManager>,
-    blocking_executor: Arc<dyn BlockingExecutor>,
-    daemon_start_time: Instant,
-    dice: Arc<Dice>,
-    materializer: Arc<dyn Materializer>,
-    event_sink: Option<Arc<dyn EventSink>>,
+    daemon: Arc<DaemonStateData>,
     net_io_collector: SystemNetworkIoCollector,
-    /// This is only used to obtain statistics from the HTTP client.
-    http_client: CountingHttpClient,
+    event_sink: Option<Arc<dyn EventSink>>,
 }
 
 impl SnapshotCollector {
     pub fn new(
-        re_client_manager: Arc<ReConnectionManager>,
-        blocking_executor: Arc<dyn BlockingExecutor>,
-        daemon_start_time: Instant,
-        dice: Arc<Dice>,
-        materializer: Arc<dyn Materializer>,
+        daemon: Arc<DaemonStateData>,
         event_sink: Option<Arc<dyn EventSink>>,
-        http_client: CountingHttpClient,
     ) -> SnapshotCollector {
         SnapshotCollector {
-            re_client_manager,
-            blocking_executor,
-            daemon_start_time,
-            dice,
-            materializer,
-            event_sink,
+            daemon,
             net_io_collector: SystemNetworkIoCollector::new(),
-            http_client,
+            event_sink,
         }
     }
 
@@ -73,7 +54,7 @@ impl SnapshotCollector {
 
     /// Create a new Snapshot.
     pub fn create_snapshot(&self) -> buck2_data::Snapshot {
-        let mut snapshot = Self::pre_initialization_snapshot(self.daemon_start_time);
+        let mut snapshot = Self::pre_initialization_snapshot(self.daemon.start_time);
         self.add_daemon_metrics(&mut snapshot);
         self.add_re_metrics(&mut snapshot);
         self.add_http_metrics(&mut snapshot);
@@ -86,7 +67,8 @@ impl SnapshotCollector {
     }
 
     fn add_daemon_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        snapshot.blocking_executor_io_queue_size = self.blocking_executor.queue_size() as u64;
+        snapshot.blocking_executor_io_queue_size =
+            self.daemon.blocking_executor.queue_size() as u64;
     }
 
     fn add_io_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
@@ -159,25 +141,25 @@ impl SnapshotCollector {
         }
 
         // Nothing we can do if we get an error, unfortunately.
-        if let Err(e) = inner(snapshot, &self.re_client_manager) {
+        if let Err(e) = inner(snapshot, &self.daemon.re_client_manager) {
             tracing::debug!("Error collecting network stats: {:#}", e);
         }
     }
 
     fn add_http_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        let stats = self.http_client.get_updated_http_network_stats();
+        let stats = self.daemon.http_client.get_updated_http_network_stats();
         snapshot.http_download_bytes = stats.downloaded_bytes;
     }
 
     fn add_dice_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        let metrics = self.dice.metrics();
+        let metrics = self.daemon.dice_manager.unsafe_dice().metrics();
         snapshot.dice_key_count = metrics.key_count as u64;
         snapshot.dice_currently_active_key_count = metrics.currently_active_key_count as u64;
         snapshot.dice_active_transaction_count = metrics.active_transaction_count;
     }
 
     fn add_materializer_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        self.materializer.add_snapshot_stats(snapshot);
+        self.daemon.materializer.add_snapshot_stats(snapshot);
     }
 
     fn add_sink_metrics(&self, snapshot: &mut buck2_data::Snapshot) {

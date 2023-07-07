@@ -670,6 +670,7 @@ impl DaemonState {
             daemon_start_time: data.start_time,
             create_unhashed_outputs_lock: data.create_unhashed_outputs_lock.dupe(),
             http_client: data.http_client.dupe(),
+            daemon: data.dupe(), // FIXME: Remove the duplicative fields.
         })
     }
 

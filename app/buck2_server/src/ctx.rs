@@ -125,6 +125,7 @@ use crate::configs::parse_legacy_cells;
 use crate::daemon::common::get_default_executor_config;
 use crate::daemon::common::parse_concurrency;
 use crate::daemon::common::CommandExecutorFactory;
+use crate::daemon::state::DaemonStateData;
 use crate::dice_tracker::BuckDiceTracker;
 use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
@@ -174,6 +175,8 @@ pub struct BaseServerCommandContext {
     pub create_unhashed_outputs_lock: Arc<Mutex<()>>,
     /// Http client used during run actions; shared with materializer.
     pub http_client: CountingHttpClient,
+    /// Underlying data that isn't command-level.
+    pub(crate) daemon: Arc<DaemonStateData>,
 }
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for

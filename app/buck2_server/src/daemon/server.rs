@@ -851,16 +851,8 @@ impl DaemonApi for BuckdServer {
             let snapshot = if req.snapshot {
                 let data = daemon_state.data()?;
                 Some(
-                    snapshot::SnapshotCollector::new(
-                        data.re_client_manager.dupe(),
-                        data.blocking_executor.dupe(),
-                        data.start_time,
-                        data.dice_manager.unsafe_dice().dupe(),
-                        data.materializer.dupe(),
-                        data.scribe_sink.dupe() as _,
-                        data.http_client.dupe(),
-                    )
-                    .create_snapshot(),
+                    snapshot::SnapshotCollector::new(data.dupe(), data.scribe_sink.dupe() as _)
+                        .create_snapshot(),
                 )
             } else {
                 None

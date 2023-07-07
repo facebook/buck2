@@ -29,13 +29,8 @@ impl HeartbeatGuard {
     pub fn new(ctx: &BaseServerCommandContext) -> Self {
         let events = Arc::new(Mutex::new(Some(ctx.events.dupe())));
         let collector = snapshot::SnapshotCollector::new(
-            ctx.re_client_manager.dupe(),
-            ctx.blocking_executor.dupe(),
-            ctx.daemon_start_time,
-            ctx.dice_manager.unsafe_dice().dupe(),
-            ctx.materializer.dupe(),
-            Some(ctx.events.sink().dupe()),
-            ctx.http_client.dupe(),
+            ctx.daemon.dupe(),
+            Some(ctx.events.sink().dupe()), // This seems rather wrong and dubious.
         );
 
         // NOTE: This doesn't use the ambient dispatcher wrappers because we want to control the
