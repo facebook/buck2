@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use proc_macro2::Ident;
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
@@ -33,9 +34,9 @@ struct Gen {
 }
 
 struct VTableEntry {
-    field: TokenStream,
-    init: TokenStream,
-    init_for_black_hole: TokenStream,
+    field: syn::Field,
+    init: syn::FieldValue,
+    init_for_black_hole: syn::FieldValue,
 }
 
 #[derive(Debug, Default)]
@@ -55,22 +56,38 @@ impl syn::parse::Parse for StarlarkInternalVTableAttrs {
 }
 
 impl Gen {
+    fn parse_named_field(field: TokenStream) -> syn::Result<syn::Field> {
+        struct FieldParser {
+            field: syn::Field,
+        }
+
+        impl syn::parse::Parse for FieldParser {
+            fn parse(input: ParseStream) -> syn::Result<Self> {
+                Ok(FieldParser {
+                    field: syn::Field::parse_named(input)?,
+                })
+            }
+        }
+
+        Ok(syn::parse2::<FieldParser>(field)?.field)
+    }
+
     fn vtable_entry(&self, method: &TraitItemFn) -> syn::Result<VTableEntry> {
         let fn_name = &method.sig.ident;
         let fn_ret_type = &method.sig.output;
-        let mut field_fn_param_types = Vec::new();
-        let mut field_params_names = Vec::new();
-        let mut field_init_args = Vec::new();
+        let mut field_fn_param_types: Vec<syn::Type> = Vec::new();
+        let mut field_params_names: Vec<Ident> = Vec::new();
+        let mut field_init_args: Vec<syn::Expr> = Vec::new();
         for param in &method.sig.inputs {
             match param {
                 FnArg::Receiver(_) => {
-                    field_fn_param_types.push(quote_spanned! {method.sig.span()=>
+                    field_fn_param_types.push(syn::parse_quote_spanned! {method.sig.span()=>
                         crate::values::layout::vtable::StarlarkValueRawPtr
                     });
-                    field_params_names.push(quote_spanned! {method.sig.span()=>
+                    field_params_names.push(syn::parse_quote_spanned! {method.sig.span()=>
                         this
                     });
-                    field_init_args.push(quote_spanned! {method.sig.span()=>
+                    field_init_args.push(syn::parse_quote_spanned! {method.sig.span()=>
                         this.value_ref::<T>()
                     });
                 }
@@ -80,24 +97,24 @@ impl Gen {
                         _ => return Err(syn::Error::new(p.span(), "parameter must be identifier")),
                     };
                     let ty = &p.ty;
-                    field_fn_param_types.push(quote_spanned! {method.sig.span()=>
+                    field_fn_param_types.push(syn::parse_quote_spanned! {method.sig.span()=>
                         #ty
                     });
-                    field_params_names.push(quote_spanned! {method.sig.span()=>
+                    field_params_names.push(syn::parse_quote_spanned! {method.sig.span()=>
                         #name
                     });
-                    field_init_args.push(quote_spanned! {method.sig.span()=>
+                    field_init_args.push(syn::parse_quote_spanned! {method.sig.span()=>
                         // We do `transmute` to get rid of lifetimes, see below.
                         std::mem::transmute(#name)
                     });
                 }
             }
         }
-        let field_init_param_pairs: Vec<TokenStream> = field_fn_param_types
+        let field_init_param_pairs: Vec<syn::FnArg> = field_fn_param_types
             .iter()
             .zip(field_params_names.iter())
             .map(|(ty, name)| {
-                quote_spanned! {method.sig.span()=>
+                syn::parse_quote_spanned! {method.sig.span()=>
                     #name: #ty
                 }
             })
@@ -110,12 +127,13 @@ impl Gen {
                 }
             }
         };
-        let field = quote_spanned! {method.sig.span()=>
+        let field = Self::parse_named_field(quote_spanned! {method.sig.span()=>
             pub(crate) #fn_name: for<'a, 'v> fn(
                 #(#field_fn_param_types),*
             ) #ret
-        };
-        let init = quote_spanned! {method.sig.span()=>
+        })?;
+
+        let init = syn::parse_quote_spanned! {method.sig.span()=>
             #fn_name: {
                 // It is important to put vtable entry into named function
                 // instead of anonymous callback so function name is meaningful in profiler output.
@@ -140,7 +158,7 @@ impl Gen {
                 #fn_name::<T>
             }
         };
-        let init_for_black_hole = quote_spanned! {method.sig.span()=>
+        let init_for_black_hole = syn::parse_quote_spanned! {method.sig.span()=>
             #fn_name: |#(#field_params_names),*| {
                 panic!("BlackHole")
             }
