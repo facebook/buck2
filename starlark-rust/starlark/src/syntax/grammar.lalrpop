@@ -13,14 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
 use crate::syntax::grammar_util;
 use crate::syntax::lexer;
-use crate::syntax::dialect::Dialect;
 use crate::syntax::ast::*;
+use crate::syntax::state::ParserState;
 
-grammar(codemap: &CodeMap, dialect: &Dialect);
+grammar<'a>(state: &mut ParserState<'a>);
 
 #[inline]
 ASTS<E>: AstStmt = <l:@L> <e:E> <r:@R>
@@ -71,10 +70,10 @@ COMMA<E>: Vec<E> =
 pub(crate) Starlark: AstStmt = "\n"* <l:@L> <s:(<Stmt> "\n"*)*> <r:@R>
     => grammar_util::statements(s, l, r);
 
-DefStmt: AstStmt = ASTS<DefStmt_> =>? Ok(dialect.check_def(codemap, <>)?);
+DefStmt: AstStmt = ASTS<DefStmt_> =>? Ok(state.dialect.check_def(state.codemap, <>)?);
 DefStmt_: Stmt =
   "def" <identifier> "(" <COMMA<ParameterTyped>> ")" <ReturnType> ":" <Suite>
-      =>? Ok(grammar_util::check_def(<>, codemap)?);
+      =>? Ok(grammar_util::check_def(<>, state.codemap)?);
 
 ReturnType: Option<Box<AstTypeExpr>> = {
     "->" <TypeExpr> => Some(Box::new(<>)),
@@ -86,7 +85,7 @@ Parameter_: Parameter = {
     <n:AssignIdent> "=" <e:Test> => Parameter::WithDefaultValue(n, None, Box::new(e)),
     <AssignIdent>                => Parameter::Normal(<>, None),
     "*" <AssignIdent>            => Parameter::Args(<>, None),
-    <l:@L> "*" <r:@R>                 =>? Ok(dialect.check_keyword_only_arguments(codemap, l, r, Parameter::NoArgs)?),
+    <l:@L> "*" <r:@R>                 =>? Ok(state.dialect.check_keyword_only_arguments(state.codemap, l, r, Parameter::NoArgs)?),
     "**" <AssignIdent>           => Parameter::KwArgs(<>, None),
 };
 
@@ -95,11 +94,11 @@ ParameterTyped_: Parameter = {
     <n:AssignIdent> <t:Type> "=" <e:Test> => Parameter::WithDefaultValue(n, t, Box::new(e)),
     <AssignIdent> <Type>                  => Parameter::Normal(<>),
     "*" <AssignIdent> <Type>              => Parameter::Args(<>),
-    <l:@L> "*" <r:@R>                          =>? Ok(dialect.check_keyword_only_arguments(codemap, l, r, Parameter::NoArgs)?),
+    <l:@L> "*" <r:@R>                          =>? Ok(state.dialect.check_keyword_only_arguments(state.codemap, l, r, Parameter::NoArgs)?),
     "**" <AssignIdent> <Type>             => Parameter::KwArgs(<>),
 };
 
-TypeExpr: AstTypeExpr = <Test> =>? Ok(dialect.check_type(codemap, <>)?);
+TypeExpr: AstTypeExpr = <Test> =>? Ok(state.dialect.check_type(state.codemap, <>)?);
 
 Type: Option<Box<AstTypeExpr>> = {
     ":" <TypeExpr> => Some(Box::new(<>)),
@@ -132,7 +131,7 @@ ElseStmt: AstStmt = {
 
 ForStmt: AstStmt = ASTS<ForStmt_>;
 ForStmt_: Stmt = "for" <e:ExprList> "in" <c:Test> ":" <s:Suite>
-    =>? Ok(Stmt::For(grammar_util::check_assign(codemap, e)?, Box::new((c, s))));
+    =>? Ok(Stmt::For(grammar_util::check_assign(state.codemap, e)?, Box::new((c, s))));
 
 SimpleStmt<S>: AstStmt =
     <l:@L> <e:S> <v:(";" <S>)*> ";"? <r:@R> "\n" => {
@@ -175,7 +174,7 @@ AssignOp: Option<AssignOp> = {
 
 AssignStmt: AstStmt = ASTS<AssignStmt_>;
 AssignStmt_: Stmt = <lhs:TestList> <ty:Type> <op:AssignOp> <rhs:TestList>
-        =>? Ok(grammar_util::check_assignment(codemap, <>)?);
+        =>? Ok(grammar_util::check_assignment(state.codemap, <>)?);
 
 // In python ExprStmt is an AssignStmt (
 // https://docs.python.org/3/reference/grammar.html). This ExprStmt is
@@ -225,7 +224,7 @@ PrimaryExpr: AstExpr = {
     <l:@L> <e:PrimaryExpr> "." <i:identifier> <r:@R>
         => Expr::Dot(Box::new(e), i).ast(l, r),
     <l:@L> <e:PrimaryExpr> "(" <a:COMMA<Argument>> ")" <r:@R>
-        =>? Ok(Expr::check_call(e, a, codemap)?.ast(l, r)),
+        =>? Ok(Expr::check_call(e, a, state.codemap)?.ast(l, r)),
     <l:@L> <e:PrimaryExpr> "[" <i1:Test?> ":" <i2:Test?> <i3:(":" <Test?>)?> "]"
         <r:@R> => {
           Expr::Slice(Box::new(e), i1.map(|x| Box::new(x)), i2.map(|x| Box::new(x)), i3.unwrap_or(None).map(|x| Box::new(x)))
@@ -291,7 +290,7 @@ Clause: Clause = {
     "if" <OrTest> => Clause::If(<>),
 };
 ForClause: ForClause = "for" <var:ExprList> "in" <over:OrTest>
-    =>? Ok(ForClause {var: grammar_util::check_assign(codemap, var)?, over});
+    =>? Ok(ForClause {var: grammar_util::check_assign(state.codemap, var)?, over});
 
 
 // Base expression. Priorities are taken from Python 3 grammar.
@@ -304,7 +303,7 @@ Test: AstExpr = {
 
 LambDef: AstExpr = {
     <l:@L> "lambda" <p:COMMA<Parameter>> ":" <e:Test> <r:@R>
-        =>? Ok(dialect.check_lambda(codemap, grammar_util::check_lambda(p, e, codemap)?.ast(l, r))?),
+        =>? Ok(state.dialect.check_lambda(state.codemap, grammar_util::check_lambda(p, e, state.codemap)?.ast(l, r))?),
 }
 
 // Binary operators

@@ -34,6 +34,7 @@ mod lexer_tests;
 pub(crate) mod module;
 pub(crate) mod parser;
 pub(crate) mod payload_map;
+pub(crate) mod state;
 #[cfg(test)]
 mod testcases;
 pub(crate) mod type_expr;

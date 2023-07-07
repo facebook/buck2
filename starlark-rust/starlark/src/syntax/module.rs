@@ -35,6 +35,7 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::grammar::StarlarkParser;
 use crate::syntax::lexer::Lexer;
 use crate::syntax::lexer::Token;
+use crate::syntax::state::ParserState;
 use crate::syntax::AstLoad;
 use crate::syntax::Dialect;
 
@@ -162,7 +163,13 @@ impl AstModule {
     pub fn parse(filename: &str, content: String, dialect: &Dialect) -> anyhow::Result<Self> {
         let codemap = CodeMap::new(filename.to_owned(), content);
         let lexer = Lexer::new(codemap.source(), dialect, codemap.dupe());
-        match StarlarkParser::new().parse(&codemap, dialect, lexer) {
+        match StarlarkParser::new().parse(
+            &mut ParserState {
+                codemap: &codemap,
+                dialect,
+            },
+            lexer,
+        ) {
             Ok(v) => Ok(AstModule::create(codemap, v, dialect)?),
             Err(p) => Err(parse_error_add_span(p, codemap.source().len(), &codemap)),
         }
