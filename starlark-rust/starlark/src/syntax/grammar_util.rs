@@ -41,6 +41,7 @@ use crate::syntax::ast::Parameter;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
 use crate::syntax::ast::ToAst;
+use crate::syntax::state::ParserState;
 
 #[derive(Debug, thiserror::Error)]
 enum GrammarUtilError {
@@ -141,22 +142,15 @@ fn test_param_name<'a, T>(
     argset: &mut HashSet<&'a str>,
     n: &'a AstAssignIdent,
     arg: &Spanned<T>,
-    codemap: &CodeMap,
-) -> Result<(), EvalException> {
+    parser_state: &mut ParserState,
+) {
     if argset.contains(n.node.0.as_str()) {
-        return Err(EvalException::new(
-            ArgumentUseOrderError::DuplicateParameterName.into(),
-            arg.span,
-            codemap,
-        ));
+        parser_state.error(arg.span, ArgumentUseOrderError::DuplicateParameterName);
     }
     argset.insert(&n.node.0);
-    Ok(())
 }
 
-fn check_parameters(parameters: &[AstParameter], codemap: &CodeMap) -> Result<(), EvalException> {
-    let err = |span, msg: ArgumentUseOrderError| Err(EvalException::new(msg.into(), span, codemap));
-
+fn check_parameters<'a>(parameters: &[AstParameter], parser_state: &mut ParserState<'a>) {
     // you can't repeat argument names
     let mut argset = HashSet::new();
     // You can't have more than one *args/*, **kwargs
@@ -170,53 +164,53 @@ fn check_parameters(parameters: &[AstParameter], codemap: &CodeMap) -> Result<()
         match &arg.node {
             Parameter::Normal(n, ..) => {
                 if seen_kwargs || seen_optional {
-                    return err(arg.span, ArgumentUseOrderError::PositionalThenNonPositional);
+                    parser_state
+                        .error(arg.span, ArgumentUseOrderError::PositionalThenNonPositional);
                 }
-                test_param_name(&mut argset, n, arg, codemap)?;
+                test_param_name(&mut argset, n, arg, parser_state);
             }
             Parameter::WithDefaultValue(n, ..) => {
                 if seen_kwargs {
-                    return err(arg.span, ArgumentUseOrderError::DefaultParameterAfterStars);
+                    parser_state.error(arg.span, ArgumentUseOrderError::DefaultParameterAfterStars);
                 }
                 seen_optional = true;
-                test_param_name(&mut argset, n, arg, codemap)?;
+                test_param_name(&mut argset, n, arg, parser_state);
             }
             Parameter::NoArgs => {
                 if seen_args || seen_kwargs {
-                    return err(arg.span, ArgumentUseOrderError::ArgsParameterAfterStars);
+                    parser_state.error(arg.span, ArgumentUseOrderError::ArgsParameterAfterStars);
                 }
                 seen_args = true;
             }
             Parameter::Args(n, ..) => {
                 if seen_args || seen_kwargs {
-                    return err(arg.span, ArgumentUseOrderError::ArgsParameterAfterStars);
+                    parser_state.error(arg.span, ArgumentUseOrderError::ArgsParameterAfterStars);
                 }
                 seen_args = true;
-                test_param_name(&mut argset, n, arg, codemap)?;
+                test_param_name(&mut argset, n, arg, parser_state);
             }
             Parameter::KwArgs(n, ..) => {
                 if seen_kwargs {
-                    return err(arg.span, ArgumentUseOrderError::MultipleKwargs);
+                    parser_state.error(arg.span, ArgumentUseOrderError::MultipleKwargs);
                 }
                 seen_kwargs = true;
-                test_param_name(&mut argset, n, arg, codemap)?;
+                test_param_name(&mut argset, n, arg, parser_state);
             }
         }
     }
-    Ok(())
 }
 
 pub(crate) fn check_lambda(
     params: Vec<AstParameter>,
     body: AstExpr,
-    codemap: &CodeMap,
-) -> Result<Expr, EvalException> {
-    check_parameters(&params, codemap)?;
-    Ok(Expr::Lambda(LambdaP {
+    parser_state: &mut ParserState,
+) -> Expr {
+    check_parameters(&params, parser_state);
+    Expr::Lambda(LambdaP {
         params,
         body: Box::new(body),
         payload: (),
-    }))
+    })
 }
 
 pub(crate) fn check_def(
@@ -224,15 +218,15 @@ pub(crate) fn check_def(
     params: Vec<AstParameter>,
     return_type: Option<Box<AstTypeExpr>>,
     stmts: AstStmt,
-    codemap: &CodeMap,
-) -> Result<Stmt, EvalException> {
-    check_parameters(&params, codemap)?;
+    parser_state: &mut ParserState,
+) -> Stmt {
+    check_parameters(&params, parser_state);
     let name = name.into_map(|s| AssignIdentP(s, ()));
-    Ok(Stmt::Def(DefP {
+    Stmt::Def(DefP {
         name,
         params,
         return_type,
         body: Box::new(stmts),
         payload: (),
-    }))
+    })
 }

@@ -163,14 +163,21 @@ impl AstModule {
     pub fn parse(filename: &str, content: String, dialect: &Dialect) -> anyhow::Result<Self> {
         let codemap = CodeMap::new(filename.to_owned(), content);
         let lexer = Lexer::new(codemap.source(), dialect, codemap.dupe());
+        let mut errors = Vec::new();
         match StarlarkParser::new().parse(
             &mut ParserState {
                 codemap: &codemap,
                 dialect,
+                errors: &mut errors,
             },
             lexer,
         ) {
-            Ok(v) => Ok(AstModule::create(codemap, v, dialect)?),
+            Ok(v) => {
+                if let Some(err) = errors.into_iter().next() {
+                    return Err(err.into_anyhow());
+                }
+                Ok(AstModule::create(codemap, v, dialect)?)
+            }
             Err(p) => Err(parse_error_add_span(p, codemap.source().len(), &codemap)),
         }
     }
