@@ -24,9 +24,11 @@ use crate::typing::oracle::docs::OracleDocs;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingOracle;
-use crate::typing::oracle::traits::TypingUnOp;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::ty::Ty;
 use crate::typing::ty::TyName;
+use crate::values::float::StarlarkFloat;
+use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::StarlarkValue;
 
 /// A [`TypingOracle`] based on information from documentation.
@@ -164,7 +166,15 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::BinOp(TypingBinOp::Add) => {
                     Ty::function(vec![Param::pos_only(Ty::int())], Ty::int())
                 }
-                TypingAttr::UnOp(TypingUnOp::Minus) => Ty::function(vec![], Ty::int()),
+                TypingAttr::UnOp(un_op) => {
+                    match TyStarlarkValue::new::<StarlarkBigInt>().un_op(un_op) {
+                        Ok(_res) => {
+                            // TODO(nga): use `res`.
+                            Ty::function(vec![], Ty::Name(x.clone()))
+                        }
+                        Err(()) => return Some(Err(())),
+                    }
+                }
                 TypingAttr::BinOp(TypingBinOp::Div) => {
                     Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float())
                 }
@@ -180,7 +190,15 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::BinOp(TypingBinOp::Add) => {
                     Ty::function(vec![Param::pos_only(Ty::float())], Ty::float())
                 }
-                TypingAttr::UnOp(TypingUnOp::Minus) => Ty::function(vec![], Ty::float()),
+                TypingAttr::UnOp(un_op) => {
+                    match TyStarlarkValue::new::<StarlarkFloat>().un_op(un_op) {
+                        Ok(_res) => {
+                            // TODO(nga): use `res`.
+                            Ty::function(vec![], Ty::Name(x.clone()))
+                        }
+                        Err(()) => return Some(Err(())),
+                    }
+                }
                 TypingAttr::BinOp(TypingBinOp::Div) => {
                     Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float())
                 }

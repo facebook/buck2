@@ -200,6 +200,25 @@ impl<'a> ImplStarlarkValue<'a> {
             }
         })
     }
+
+    /// Emit a constant whether `StarlarkValue` overrides an unary operator.
+    /// Like this:
+    /// ```ignore
+    /// const HAS_PLUS: bool = true;
+    /// ```
+    fn has_unop(&self, constant_name: &str, fn_name: &str) -> syn::Result<syn::ImplItem> {
+        let has = self.input.items.iter().any(|item| {
+            if let syn::ImplItem::Fn(fn_) = item {
+                fn_.sig.ident == fn_name
+            } else {
+                false
+            }
+        });
+        let constant_name = syn::Ident::new(constant_name, self.span());
+        syn::parse2(quote_spanned! { self.span() =>
+            const #constant_name: bool = #has;
+        })
+    }
 }
 
 fn derive_starlark_value_impl(
@@ -213,6 +232,9 @@ fn derive_starlark_value_impl(
     let please_use_starlark_type_macro = impl_starlark_value.please_use_starlark_type_macro()?;
     let const_type = impl_starlark_value.const_type()?;
     let get_type_value_static = impl_starlark_value.get_type_value_static()?;
+    let has_plus = impl_starlark_value.has_unop("HAS_PLUS", "plus")?;
+    let has_minus = impl_starlark_value.has_unop("HAS_MINUS", "minus")?;
+    let has_bit_not = impl_starlark_value.has_unop("HAS_BIT_NOT", "bit_not")?;
 
     input.items.splice(
         0..0,
@@ -220,6 +242,9 @@ fn derive_starlark_value_impl(
             const_type,
             get_type_value_static,
             please_use_starlark_type_macro,
+            has_plus,
+            has_minus,
+            has_bit_not,
         ],
     );
 

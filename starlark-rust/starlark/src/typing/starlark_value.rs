@@ -28,6 +28,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::typing::TyName;
+use crate::typing::TypingUnOp;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
 use crate::values::StarlarkValue;
@@ -36,6 +37,10 @@ use crate::values::StarlarkValue;
 // we have two vtable instances for each type: this one, and the one within `AValue` vtable.
 struct TyStarlarkValueVTable {
     type_name: &'static str,
+    // TODO(nga): put these into generated `StarlarkValueVTable`.
+    has_plus: bool,
+    has_minus: bool,
+    has_bit_not: bool,
     // Not used now, but will be used later.
     _vtable: StarlarkValueVTable,
 }
@@ -45,6 +50,9 @@ struct TyStarlarkValueVTableGet<'v, T: StarlarkValue<'v>>(PhantomData<&'v T>);
 impl<'v, T: StarlarkValue<'v>> TyStarlarkValueVTableGet<'v, T> {
     const VTABLE: TyStarlarkValueVTable = TyStarlarkValueVTable {
         type_name: T::TYPE,
+        has_plus: T::HAS_PLUS,
+        has_minus: T::HAS_MINUS,
+        has_bit_not: T::HAS_BIT_NOT,
         _vtable: StarlarkValueVTableGet::<T>::VTABLE,
     };
 }
@@ -110,5 +118,15 @@ impl TyStarlarkValue {
 
     pub(crate) fn as_name(self) -> &'static str {
         self.vtable.type_name
+    }
+
+    /// Result of applying unary operator to this type.
+    pub(crate) fn un_op(self, un_op: TypingUnOp) -> Result<TyStarlarkValue, ()> {
+        let has = match un_op {
+            TypingUnOp::Plus => self.vtable.has_plus,
+            TypingUnOp::Minus => self.vtable.has_minus,
+            TypingUnOp::BitNot => self.vtable.has_bit_not,
+        };
+        if has { Ok(self) } else { Err(()) }
     }
 }
