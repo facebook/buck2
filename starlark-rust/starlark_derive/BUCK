@@ -9,6 +9,9 @@ rust_library(
         ["src/**/*.rs"],
     ),
     proc_macro = True,
+    visibility = [
+        "//buck2/starlark-rust/...",
+    ],
     deps = [
         "fbsource//third-party/rust:proc-macro2",
         "fbsource//third-party/rust:quote",

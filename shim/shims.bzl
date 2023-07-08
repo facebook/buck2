@@ -22,11 +22,15 @@ def rust_library(
         mapped_srcs = {},
         visibility = ["PUBLIC"],
         **kwargs):
-    _unused = (test_deps, test_env, named_deps)  # @unused
+    _unused = (test_deps, test_env, named_deps, visibility)  # @unused
     deps = _maybe_select_map(deps, _fix_deps)
     mapped_srcs = _maybe_select_map(mapped_srcs, _fix_mapped_srcs)
     if os_deps:
         deps += _select_os_deps(_fix_dict_deps(os_deps))
+
+    # Reset visibility because internal and external paths are different.
+    visibility = ["PUBLIC"]
+
     native.rust_library(
         rustc_flags = rustc_flags + [_CFG_BUCK_OSS_BUILD],
         deps = deps,
