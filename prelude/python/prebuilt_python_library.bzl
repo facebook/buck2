@@ -27,7 +27,7 @@ load(
     "create_python_library_info",
     "gather_dep_libraries",
 )
-load(":source_db.bzl", "create_source_db_no_deps_from_manifest")
+load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps_from_manifest")
 
 def prebuilt_python_library_impl(ctx: "context") -> ["provider"]:
     providers = []
@@ -62,7 +62,7 @@ def prebuilt_python_library_impl(ctx: "context") -> ["provider"]:
     )
     providers.append(linkable_graph)
 
-    sub_targets = {"source-db-no-deps": [create_source_db_no_deps_from_manifest(ctx, src_manifest), library_info]}
+    sub_targets = {"source-db-no-deps": [create_source_db_no_deps_from_manifest(ctx, src_manifest), create_python_source_db_info(library_info.manifests)]}
     providers.append(DefaultInfo(default_output = ctx.attrs.binary_src, sub_targets = sub_targets))
 
     # C++ resources.

@@ -5,7 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//python:python.bzl", "PythonLibraryInfo", "PythonLibraryManifestsTSet")
+load("@prelude//python:python.bzl", "PythonLibraryManifestsTSet")
+load("@prelude//python:source_db.bzl", "PythonSourceDBInfo")
 
 BUCK_PYTHON_RULE_KINDS = [
     "python_binary",
@@ -52,10 +53,10 @@ def _get_python_library_manifests_from_analysis_result(
     sub_target = analysis_result.providers()[DefaultInfo].sub_targets.get("source-db-no-deps")
     if sub_target == None:
         return None
-    python_library_info = sub_target.get(PythonLibraryInfo)
-    if python_library_info == None:
+    python_source_db_info = sub_target.get(PythonSourceDBInfo)
+    if python_source_db_info == None:
         return None
-    return python_library_info.manifests
+    return python_source_db_info.manifests
 
 def _get_python_library_manifests_from_targets(
         ctx: "bxl_ctx",

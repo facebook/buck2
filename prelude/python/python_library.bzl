@@ -45,7 +45,7 @@ load(
 )
 load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
 load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
-load(":source_db.bzl", "create_source_db", "create_source_db_no_deps")
+load(":source_db.bzl", "create_python_source_db_info", "create_source_db", "create_source_db_no_deps")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
 def dest_prefix(label: "label", base_module: [None, str]) -> str:
@@ -304,7 +304,7 @@ def python_library_impl(ctx: "context") -> ["provider"]:
 
     # Source DBs.
     sub_targets["source-db"] = [create_source_db(ctx, src_type_manifest, deps)]
-    sub_targets["source-db-no-deps"] = [create_source_db_no_deps(ctx, src_types), library_info]
+    sub_targets["source-db-no-deps"] = [create_source_db_no_deps(ctx, src_types), create_python_source_db_info(library_info.manifests)]
     providers.append(DefaultInfo(sub_targets = sub_targets))
 
     # Create, augment and provide the linkable graph.
