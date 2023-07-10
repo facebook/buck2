@@ -12,7 +12,6 @@ load(
 )
 load(
     "@prelude//cxx:debug.bzl",
-    "SplitDebugMode",
     "maybe_external_debug_info",
     "project_external_debug_info",
 )
@@ -87,12 +86,11 @@ def cxx_link(
         strip: bool = False,
         # A function/lambda which will generate the strip args using the ctx.
         strip_args_factory = None,
-        allow_bolt_optimization_and_dwp_generation: bool = True,
         import_library: ["artifact", None] = None) -> CxxLinkResult.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
-    should_generate_dwp = allow_bolt_optimization_and_dwp_generation and dwp_available(ctx) and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none")
+    should_generate_dwp = dwp_available(ctx)
     is_result_executable = result_type.value == "executable"
 
     if linker_info.generate_linker_maps:
@@ -236,7 +234,7 @@ def cxx_link(
         strip_args = strip_args_factory(ctx) if strip_args_factory else cmd_args()
         output = strip_shared_library(ctx, cxx_toolchain_info, output, strip_args)
 
-    final_output = output if not (allow_bolt_optimization_and_dwp_generation and is_result_executable and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
+    final_output = output if not (is_result_executable and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
     dwp_artifact = None
     if should_generate_dwp:
         # TODO(T110378144): Once we track split dwarf from compiles, we should

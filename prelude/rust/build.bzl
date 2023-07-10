@@ -16,7 +16,6 @@ load(
     "make_link_args",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
-load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:dwp.bzl", "dwp", "dwp_available")
 load(
     "@prelude//cxx:linker.bzl",
@@ -492,9 +491,7 @@ def rust_compile(
         filtered_outputs = outputs
 
     filtered_dwp_outputs = {}
-    if (is_binary and
-        dwp_available(ctx) and
-        get_cxx_toolchain_info(ctx).split_debug_mode != SplitDebugMode("none")):
+    if is_binary and dwp_available(ctx):
         for (emit, output) in outputs.items():
             filtered_dwp_outputs[emit] = dwp(
                 ctx,

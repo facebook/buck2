@@ -7,10 +7,13 @@
 
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":debug.bzl", "SplitDebugMode")
 
 def dwp_available(ctx: "context"):
-    dwp = get_cxx_toolchain_info(ctx).binary_utilities_info.dwp
-    return dwp != None
+    toolchain = get_cxx_toolchain_info(ctx)
+    dwp = toolchain.binary_utilities_info.dwp
+    split_debug_mode = toolchain.split_debug_mode
+    return dwp != None and split_debug_mode != SplitDebugMode("none")
 
 def run_dwp_action(
         ctx: "context",
