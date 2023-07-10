@@ -143,7 +143,7 @@ def _concat(*items):
             new_res.update(item)
             res = new_res
         else:
-            res += item
+            res += item  # buildifier: disable=dict-concatenation
 
     return res
 

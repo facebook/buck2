@@ -1,5 +1,3 @@
-# @lint-ignore-every BUCKFORMAT
-
 load("//test_utils.bzl", "assert_output")
 
 # buildifier: disable=no-effect
@@ -7,56 +5,60 @@ export_file(
     name = "al__.mli",
     visibility = [
         ":al__",
-        ":al__imp"
+        ":al__imp",
     ],
-
 ) if not host_info().os.is_windows else None
 
 # buildifier: disable=no-effect
 ocaml_library(
     name = "al__",
-    compiler_flags = [ "-no-alias-deps" ],
     srcs = [
-        ":al__.mli",
         "al__.ml",
+        ":al__.mli",
     ],
-    visibility = [ ":al__imp" ],
-
+    compiler_flags = ["-no-alias-deps"],
+    visibility = [":al__imp"],
 ) if not host_info().os.is_windows else None
 
 # buildifier: disable=no-effect
 ocaml_library(
     name = "al__imp",
+    srcs = glob(
+        ["al__*.ml*"],
+        exclude = ["al__.ml*"],
+    ),
     compiler_flags = [
-        "-open", "Al__"
+        "-open",
+        "Al__",
     ],
     ocamldep_flags = [
-        "-open", "Al__",
-        "-map", "$(location :al__.mli)"
+        "-open",
+        "Al__",
+        "-map",
+        "$(location :al__.mli)",
     ],
-    srcs = glob( [ "al__*.ml*" ], exclude = [ "al__.ml*" ] ),
-    deps = [ ":al__" ],
-    visibility = [ ":al" ],
-
+    visibility = [":al"],
+    deps = [":al__"],
 ) if not host_info().os.is_windows else None
 
 # buildifier: disable=no-effect
 ocaml_library(
     name = "al",
-    compiler_flags = [ "-open", "Al__" ],
-    srcs = glob( [ "al.ml*" ] ),
-    deps = [ ":al__imp" ],
-    visibility = [ "PUBLIC" ],
-
+    srcs = glob(["al.ml*"]),
+    compiler_flags = [
+        "-open",
+        "Al__",
+    ],
+    visibility = ["PUBLIC"],
+    deps = [":al__imp"],
 ) if not host_info().os.is_windows else None
 
 # buildifier: disable=no-effect
 ocaml_binary(
     name = "test-Al",
-    srcs = [ "test_Al.ml" ],
-    deps = [ ":al" ],
-    visibility = [ "PUBLIC" ],
-
+    srcs = ["test_Al.ml"],
+    visibility = ["PUBLIC"],
+    deps = [":al"],
 ) if not host_info().os.is_windows else None
 
 # buildifier: disable=no-effect
@@ -64,5 +66,4 @@ assert_output(
     name = "test-Al-check",
     command = "$(exe_target :test-Al)",
     output = "Hello world!",
-
 ) if not host_info().os.is_windows else None

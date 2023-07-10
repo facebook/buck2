@@ -8,6 +8,7 @@ oncall("buck2")
 # @oss-disable: _INCLUDE_EXECUTABLES = True 
 _INCLUDE_EXECUTABLES = False # @oss-enable
 
+# buildifier: disable=no-effect
 export_file(
     name = ".buck2",
 ) if _INCLUDE_EXECUTABLES else None

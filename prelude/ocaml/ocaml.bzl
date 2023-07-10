@@ -18,10 +18,6 @@
 # buck2 build --num-threads 4 fbcode//hphp/hack/...
 # ```
 
-# Buildifier gets confused and thinks all variables captured by
-# a lambda are uninitialised.
-# @lint-ignore-every BUILDIFIERLINT
-
 # To avoid name collisions (where '/' designates the build output
 # directory root):
 #
