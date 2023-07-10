@@ -599,44 +599,50 @@ impl LocalExecutor {
             self.forkserver.dupe(),
             cfg!(unix),
         ) {
-            match executor_stage_async(
-                {
-                    let stage = buck2_data::InitializeWorker {
-                        command: Some(buck2_data::WorkerInitCommand {
-                            argv: worker_spec.exe.clone(),
-                            env: request
-                                .env()
-                                .iter()
-                                .map(|(k, v)| buck2_data::EnvironmentEntry {
-                                    key: k.to_owned(),
-                                    value: v.to_owned(),
-                                })
-                                .collect(),
-                        }),
-                    };
-                    buck2_data::LocalStage {
-                        stage: Some(stage.into()),
-                    }
-                },
-                async move {
-                    // TODO(ctolliday - T155351378) set worker specific env via WorkerInfo, not from the action
-                    let env = request
-                        .env()
-                        .iter()
-                        .map(|(k, v)| (OsString::from(k), OsString::from(v)));
-                    worker_pool
-                        .get_or_create_worker(
-                            worker_spec,
-                            env,
-                            &self.root,
-                            forkserver.clone(),
-                            dispatcher,
-                        )
-                        .await
-                },
-            )
-            .await
-            {
+            // TODO(ctolliday - T155351378) set worker specific env via WorkerInfo, not from the action
+            let env = request
+                .env()
+                .iter()
+                .map(|(k, v)| (OsString::from(k), OsString::from(v)));
+            let (new_worker, worker_fut) = worker_pool.get_or_create_worker(
+                worker_spec,
+                env,
+                &self.root,
+                forkserver.clone(),
+                dispatcher,
+            );
+
+            if let Some(Ok(worker)) = worker_fut.peek() {
+                return ControlFlow::Continue((Some(worker.clone()), manager));
+            }
+
+            // Might make more sense for the stage to always be `WorkerWait` and for `WorkerInit` to be a separate, top level event
+            let stage = if new_worker {
+                buck2_data::LocalStage {
+                    stage: Some(
+                        buck2_data::WorkerInit {
+                            command: Some(buck2_data::WorkerInitCommand {
+                                argv: worker_spec.exe.clone(),
+                                env: request
+                                    .env()
+                                    .iter()
+                                    .map(|(k, v)| buck2_data::EnvironmentEntry {
+                                        key: k.to_owned(),
+                                        value: v.to_owned(),
+                                    })
+                                    .collect(),
+                            }),
+                        }
+                        .into(),
+                    ),
+                }
+            } else {
+                buck2_data::LocalStage {
+                    stage: Some(buck2_data::WorkerWait {}.into()),
+                }
+            };
+
+            match executor_stage_async(stage, worker_fut).await {
                 Ok(worker) => ControlFlow::Continue((Some(worker), manager)),
                 Err(e) => {
                     let res = {

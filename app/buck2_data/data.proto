@@ -1248,9 +1248,10 @@ message LocalStage {
     LocalMaterializeInputs materialize_inputs = 3;
     LocalPrepareOutputDirs prepare_outputs = 4;
     AcquireLocalResource acquire_local_resource = 5;
-    InitializeWorker initialize_worker = 6;
+    WorkerInit worker_init = 6;
     WorkerExecute worker_execute = 7;
     WorkerQueued worker_queued = 8;
+    WorkerWait worker_wait = 9;
   }
 }
 
@@ -1272,7 +1273,9 @@ message LocalPrepareOutputDirs {}
 
 message AcquireLocalResource {}
 
-message InitializeWorker {
+message WorkerWait {}
+
+message WorkerInit {
   WorkerInitCommand command = 1;
 }
 

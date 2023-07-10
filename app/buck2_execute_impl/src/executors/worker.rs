@@ -315,10 +315,10 @@ impl WorkerPool {
         root: &AbsNormPathBuf,
         forkserver: ForkserverClient,
         dispatcher: EventDispatcher,
-    ) -> WorkerFuture {
+    ) -> (bool, WorkerFuture) {
         let mut workers = self.workers.lock();
         if let Some(worker_fut) = workers.get(&worker_spec.id) {
-            worker_fut.clone()
+            (false, worker_fut.clone())
         } else {
             let worker_id = worker_spec.id;
             let worker_spec = worker_spec.clone();
@@ -334,7 +334,7 @@ impl WorkerPool {
             .shared();
 
             workers.insert(worker_id, fut.clone());
-            fut
+            (true, fut)
         }
     }
 }
