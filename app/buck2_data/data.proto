@@ -1250,10 +1250,13 @@ message LocalStage {
     AcquireLocalResource acquire_local_resource = 5;
     InitializeWorker initialize_worker = 6;
     WorkerExecute worker_execute = 7;
+    WorkerQueued worker_queued = 8;
   }
 }
 
 message LocalQueued {}
+
+message WorkerQueued {}
 
 message LocalExecute {
   LocalCommand command = 1;

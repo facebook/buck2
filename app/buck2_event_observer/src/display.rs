@@ -426,6 +426,7 @@ pub fn display_executor_stage(
                 Stage::AcquireLocalResource(_) => "acquire_local_resource",
                 Stage::InitializeWorker(_) => "initialize_worker",
                 Stage::WorkerExecute(_) => "worker_execute",
+                Stage::WorkerQueued(..) => "worker_queued",
             }
         }
     };
