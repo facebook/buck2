@@ -1,5 +1,5 @@
 
-#!/bin/bash
+#!/usr/bin/env bash
 # {argcomplete_hint}
 
 BASE_DIR={base_dir}

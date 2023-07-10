@@ -213,7 +213,8 @@ def _write_syms_file(
 
     ctx.actions.run(
         [
-            "/bin/bash",
+            "/usr/bin/env",
+            "bash",
             "-c",
             script,
         ],
@@ -257,7 +258,8 @@ def suffix_symbols(
         # Usage: objcopy [option(s)] in-file [out-file]
         ctx.actions.run(
             [
-                "/bin/bash",
+                "/usr/bin/env",
+                "bash",
                 "-c",
                 script,
             ],
