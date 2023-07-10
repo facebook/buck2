@@ -84,7 +84,7 @@ def _generate_script(name: str, main: "artifact", resources: ["artifact"], actio
             # Fully qualified script path.
             "set __SRC=%~f0",
             # This is essentially a realpath.
-            'for /f "tokens=2 delims=[]" %%a in (\'dir %__SRC% ^|find "<SYMLINK>"\') do set "__SRC=%%a"',
+            'for /f "tokens=2 delims=[]" %%a in (\'dir %__SRC% ^|%SYSTEMROOT%\\System32\\find.exe "<SYMLINK>"\') do set "__SRC=%%a"',
             # Get parent folder.
             'for %%a in ("%__SRC%") do set "__SCRIPT_DIR=%%~dpa"',
             "set BUCK_SH_BINARY_VERSION_UNSTABLE=2",
