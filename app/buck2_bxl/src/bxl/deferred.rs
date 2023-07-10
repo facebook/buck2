@@ -30,9 +30,8 @@ mod tests {
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::result::ToSharedResultExt;
     use buck2_core::base_deferred_key::BaseDeferredKey;
+    use buck2_core::execution_types::execution::ExecutionPlatformResolution;
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
-    use buck2_core::fs::buck_out_path::BuckOutPath;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::digest_config::SetDigestConfig;
@@ -45,6 +44,7 @@ mod tests {
     use indexmap::IndexSet;
 
     use crate::bxl::calculation::testing::BxlComputeKey;
+    use crate::bxl::eval::mk_stream_cache;
     use crate::bxl::key::BxlKey;
 
     #[derive(Allocative)]
@@ -82,7 +82,8 @@ mod tests {
         );
 
         let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::BxlLabel(
-            bxl.dupe().into_base_deferred_key_dyn_impl(),
+            bxl.dupe()
+                .into_base_deferred_key_dyn_impl(ExecutionPlatformResolution::unspecified()),
         )));
 
         let executed0 = Arc::new(AtomicBool::new(false));
@@ -101,14 +102,8 @@ mod tests {
                 BxlComputeKey(bxl.dupe()),
                 anyhow::Ok(BxlComputeResult {
                     bxl_result: Arc::new(BxlResult::BuildsArtifacts {
-                        output_loc: BuckOutPath::new(
-                            BaseDeferredKey::BxlLabel(bxl.dupe().into_base_deferred_key_dyn_impl()),
-                            ForwardRelativePathBuf::unchecked_new("test".to_owned()),
-                        ),
-                        error_loc: BuckOutPath::new(
-                            BaseDeferredKey::BxlLabel(bxl.dupe().into_base_deferred_key_dyn_impl()),
-                            ForwardRelativePathBuf::unchecked_new("error_test".to_owned()),
-                        ),
+                        output_loc: mk_stream_cache("test", &bxl),
+                        error_loc: mk_stream_cache("errortest", &bxl),
                         built: vec![],
                         artifacts: vec![],
                         deferred: deferred_result,

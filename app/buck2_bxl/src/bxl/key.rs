@@ -66,14 +66,24 @@ impl BxlKey {
         &self.0.bxl_args
     }
 
-    pub(crate) fn into_base_deferred_key_dyn_impl(self) -> Arc<dyn BaseDeferredKeyDyn> {
-        self.0
+    pub(crate) fn into_base_deferred_key_dyn_impl(
+        self,
+        execution_platform_resolution: ExecutionPlatformResolution,
+    ) -> Arc<dyn BaseDeferredKeyDyn> {
+        Arc::new(BxlDynamicKeyData {
+            key: self.0,
+            execution_platform_resolution,
+        })
     }
 
     pub(crate) fn from_base_deferred_key_dyn_impl(
         key: Arc<dyn BaseDeferredKeyDyn>,
     ) -> Option<Self> {
-        key.into_any().downcast().ok().map(BxlKey)
+        key.into_any()
+            .downcast()
+            .ok()
+            .map(BxlDynamicKey)
+            .map(|k| BxlKey(k.0.key.dupe()))
     }
 
     pub(crate) fn from_base_deferred_key_dyn_impl_err(
@@ -113,7 +123,16 @@ impl BxlKeyData {
     }
 }
 
-impl BaseDeferredKeyDyn for BxlKeyData {
+#[derive(Clone, derive_more::Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[display(fmt = "{}", "key")]
+struct BxlDynamicKeyData {
+    key: Arc<BxlKeyData>,
+    execution_platform_resolution: ExecutionPlatformResolution,
+}
+
+struct BxlDynamicKey(Arc<BxlDynamicKeyData>);
+
+impl BaseDeferredKeyDyn for BxlDynamicKeyData {
     fn eq_token(&self) -> PartialEqAny {
         PartialEqAny::new(self)
     }
@@ -131,12 +150,19 @@ impl BaseDeferredKeyDyn for BxlKeyData {
         action_key: Option<&str>,
         path: &ForwardRelativePath,
     ) -> ProjectRelativePathBuf {
-        let label = &self.spec;
+        let label = &self.key.spec;
         let cell_relative_path = label.bxl_path.path().path().as_str();
 
         let output_hash = {
             let mut hasher = DefaultHasher::new();
-            self.bxl_args.hash(&mut hasher);
+            self.key.bxl_args.hash(&mut hasher);
+            let output_hash = hasher.finish();
+            format!("{:x}", output_hash)
+        };
+
+        let exec_platform = {
+            let mut hasher = DefaultHasher::new();
+            self.execution_platform_resolution.hash(&mut hasher);
             let output_hash = hasher.finish();
             format!("{:x}", output_hash)
         };
@@ -164,6 +190,8 @@ impl BaseDeferredKeyDyn for BxlKeyData {
             "__",
             action_key.unwrap_or_default(),
             if action_key.is_none() { "" } else { "__" },
+            exec_platform.as_str(),
+            "__",
             "/",
             path.as_str(),
         ];
@@ -176,7 +204,7 @@ impl BaseDeferredKeyDyn for BxlKeyData {
     }
 
     fn to_proto(&self) -> BaseDeferredKeyProto {
-        BaseDeferredKeyProto::BxlKey(self.as_proto())
+        BaseDeferredKeyProto::BxlKey(self.key.as_proto())
     }
 
     fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
@@ -184,7 +212,6 @@ impl BaseDeferredKeyDyn for BxlKeyData {
     }
 
     fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
-        // TODO(wendyy) temporary
-        unimplemented!()
+        &self.execution_platform_resolution
     }
 }

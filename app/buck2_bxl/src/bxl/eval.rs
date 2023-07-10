@@ -23,6 +23,7 @@ use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::cells::CellResolver;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
@@ -122,27 +123,14 @@ pub(crate) async fn eval(
                     // futures that requires work to be done on the current thread, so using block_in_place
                     // should have no noticeable different compared to spawn_blocking
 
-                    // we put a file as our output stream cache. The file is associated with the `BxlKey`, which
-                    // is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping
-                    // the output file cache up to date.
-                    let output_stream = BuckOutPath::new(
-                        BaseDeferredKey::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl()),
-                        ForwardRelativePathBuf::unchecked_new(
-                            "__bxl_internal__/outputstream_cache".to_owned(),
-                        ),
-                    );
+                    let output_stream = mk_stream_cache("output", &key);
                     let file_path = artifact_fs
                         .buck_out_path_resolver()
                         .resolve_gen(&output_stream);
 
                     let file = RefCell::new(Box::new(project_fs.create_file(&file_path, false)?));
 
-                    let error_stream = BuckOutPath::new(
-                        BaseDeferredKey::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl()),
-                        ForwardRelativePathBuf::unchecked_new(
-                            "__bxl_internal__/errorstream_cache".to_owned(),
-                        ),
-                    );
+                    let error_stream = mk_stream_cache("error", &key);
                     let error_file_path = artifact_fs
                         .buck_out_path_resolver()
                         .resolve_gen(&error_stream);
@@ -299,6 +287,23 @@ pub(crate) async fn eval(
         Ok(res) => res?,
         Err(_) => panic!("only spawned one task"),
     }
+}
+
+// We use a file as our output/error stream cache. The file is associated with the `BxlDynamicKey` (created from `BxlKey`),
+// which is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping the output file
+// cache up to date. `BxlDynamicKey` requires an execution platform. We set the execution platform to be unspecified here
+// because BXL functions do not have execution platform resolutions
+pub(crate) fn mk_stream_cache(stream_type: &str, key: &BxlKey) -> BuckOutPath {
+    BuckOutPath::new(
+        BaseDeferredKey::BxlLabel(
+            key.dupe()
+                .into_base_deferred_key_dyn_impl(ExecutionPlatformResolution::unspecified()),
+        ),
+        ForwardRelativePathBuf::unchecked_new(format!(
+            "__bxl_internal__/{}stream_cache",
+            stream_type
+        )),
+    )
 }
 
 fn eval_bxl<'a>(
