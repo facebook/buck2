@@ -568,7 +568,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     sub_targets["debuginfo"] = [DefaultInfo(
         other_outputs = project_external_debug_info(
             actions = ctx.actions,
-            label = ctx.label,
             infos = [external_debug_info],
         ),
     )]
@@ -612,7 +611,6 @@ def _link_into_executable(
     output = ctx.actions.declare_output("{}{}".format(get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
         ctx.actions,
-        ctx.label,
         get_cxx_toolchain_info(ctx),
         output,
         shared_libs,

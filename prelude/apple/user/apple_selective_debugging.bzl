@@ -111,9 +111,10 @@ def _impl(ctx: "context") -> ["provider"]:
 
     def filter_debug_info(debug_info: "transitive_set_iterator") -> ["artifact"]:
         selected_debug_info = []
-        for info in debug_info:
-            if _is_label_included(info.label, selection_criteria):
-                selected_debug_info.extend(info.artifacts)
+        for infos in debug_info:
+            for info in infos:
+                if _is_label_included(info.label, selection_criteria):
+                    selected_debug_info.extend(info.artifacts)
         return selected_debug_info
 
     def preference_for_links(links: ["label"], deps_preferences: [LinkExecutionPreferenceInfo.type]) -> LinkExecutionPreference.type:

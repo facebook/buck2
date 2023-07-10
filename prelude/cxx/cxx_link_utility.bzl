@@ -172,7 +172,6 @@ def shared_libs_symlink_tree_name(output: "artifact") -> str:
 # - optional shared libs symlink tree symlinked_dir action
 def executable_shared_lib_arguments(
         actions: "actions",
-        label: "label",
         cxx_toolchain: CxxToolchainInfo.type,
         output: "artifact",
         shared_libs: {str: "LinkedObject"}) -> ([""], ["_arglike"], ["artifact", None]):
@@ -185,7 +184,6 @@ def executable_shared_lib_arguments(
     runtime_files.extend(
         project_external_debug_info(
             actions = actions,
-            label = label,
             infos = [shlib.external_debug_info for shlib in shared_libs.values()],
         ),
     )

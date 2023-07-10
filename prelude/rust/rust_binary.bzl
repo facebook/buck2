@@ -107,7 +107,6 @@ def _rust_binary_common(
                 shared_libs[soname] = shared_lib.lib
         extra_link_args, runtime_files, _ = executable_shared_lib_arguments(
             ctx.actions,
-            ctx.label,
             compile_ctx.cxx_toolchain_info,
             output,
             shared_libs,

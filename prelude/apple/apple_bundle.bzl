@@ -115,7 +115,6 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
 def _get_scrubbed_binary_dsym(ctx, binary: "artifact", external_debug_info: "ExternalDebugInfoTSet") -> "artifact":
     external_debug_info_args = project_external_debug_info(
         actions = ctx.actions,
-        label = ctx.label,
         infos = [external_debug_info],
     )
     dsym_artifact = get_apple_dsym(
@@ -168,7 +167,6 @@ def _get_debuggable_deps(ctx: "context", binary_output: AppleBundleBinaryOutput.
             executable = run_cmd,
             external_debug_info = project_external_debug_info(
                 actions = ctx.actions,
-                label = ctx.label,
                 infos = [binary_debuggable_info.external_debug_info] if binary_debuggable_info else [],
             ),
             action_identifier = get_bundle_dir_name(ctx),
@@ -235,7 +233,6 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
         DefaultInfo(
             other_outputs = project_external_debug_info(
                 actions = ctx.actions,
-                label = ctx.label,
                 infos = [external_debug_info],
             ),
         ),

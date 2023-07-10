@@ -10,7 +10,12 @@ load(
     "bolt",
     "cxx_use_bolt",
 )
-load("@prelude//cxx:debug.bzl", "SplitDebugMode", "maybe_external_debug_info")
+load(
+    "@prelude//cxx:debug.bzl",
+    "SplitDebugMode",
+    "maybe_external_debug_info",
+    "project_external_debug_info",
+)
 load(
     "@prelude//cxx/dist_lto:dist_lto.bzl",
     "cxx_dist_link",
@@ -241,7 +246,7 @@ def cxx_link(
         for link in links:
             dwp_inputs.add(unpack_link_args(link))
         if external_debug_info != None:
-            dwp_inputs.add(external_debug_info.project_as_args("external_debug_info"))
+            dwp_inputs.add(project_external_debug_info(ctx.actions, [external_debug_info]))
 
         dwp_artifact = dwp(
             ctx,

@@ -434,7 +434,6 @@ def _pex_modules_common_args(
 
     external_debug_info = project_external_debug_info(
         ctx.actions,
-        ctx.label,
         [lib.external_debug_info for lib in shared_libraries.values()],
     )
 
