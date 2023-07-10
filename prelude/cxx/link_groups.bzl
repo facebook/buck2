@@ -583,8 +583,8 @@ def _create_link_group(
 
     # link the rule
     link_result = cxx_link_shared_library(
-        ctx,
-        ctx.actions.declare_output(paths.join("__link_groups__", spec.name)),
+        ctx = ctx,
+        output = paths.join("__link_groups__", spec.name),
         name = spec.name if spec.is_shared_lib else None,
         links = [LinkArgs(infos = inputs)],
         category_suffix = category_suffix,
@@ -594,10 +594,9 @@ def _create_link_group(
     return link_result.linked_object
 
 def _stub_library(ctx: "context", name: str, extra_ldflags: [""] = []) -> LinkInfos.type:
-    output = ctx.actions.declare_output(name + ".stub")
-    cxx_link_shared_library(
-        ctx,
-        output,
+    link_result = cxx_link_shared_library(
+        ctx = ctx,
+        output = name + ".stub",
         name = name,
         links = [LinkArgs(flags = extra_ldflags)],
         identifier = name,
@@ -614,7 +613,7 @@ def _stub_library(ctx: "context", name: str, extra_ldflags: [""] = []) -> LinkIn
         default = wrap_with_no_as_needed_shared_libs_flags(
             linker_type = linker_info.type,
             link_info = LinkInfo(
-                linkables = [SharedLibLinkable(lib = output)],
+                linkables = [SharedLibLinkable(lib = link_result.linked_object.output)],
             ),
         ),
     )

@@ -8,7 +8,6 @@
 load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_preference")
 load(
     "@prelude//cxx:link.bzl",
-    "cxx_link_into_shared_library",
     "cxx_link_shared_library",
 )
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
@@ -259,17 +258,14 @@ def create_linkable_root(
 
             required_body.append(dep)
 
-        output = ctx.actions.declare_output(
-            "omnibus/" + value_or(name, get_default_shared_library_name(linker_info, ctx.label)),
-        )
-
+        output = "omnibus/" + value_or(name, get_default_shared_library_name(linker_info, ctx.label))
         link_result = cxx_link_shared_library(
-            ctx,
-            output,
+            ctx = ctx,
+            output = output,
             name = name,
             links = [LinkArgs(flags = env.shared_root_ld_flags), LinkArgs(infos = inputs)],
             category_suffix = "omnibus_root",
-            identifier = name or output.short_path,
+            identifier = name or output,
         )
         shared_library = link_result.linked_object
 
@@ -327,15 +323,14 @@ def _omnibus_soname(ctx):
 
 def create_dummy_omnibus(ctx: "context", extra_ldflags: [""] = []) -> "artifact":
     linker_info = get_cxx_toolchain_info(ctx).linker_info
-    output = ctx.actions.declare_output(get_shared_library_name(linker_info, "omnibus-dummy"))
-    cxx_link_shared_library(
-        ctx,
-        output,
+    link_result = cxx_link_shared_library(
+        ctx = ctx,
+        output = get_shared_library_name(linker_info, "omnibus-dummy"),
         name = _omnibus_soname(ctx),
         links = [LinkArgs(flags = extra_ldflags)],
         category_suffix = "dummy_omnibus",
     )
-    return output
+    return link_result.linked_object.output
 
 def _link_deps(
         link_infos: {"label": LinkableNode.type},
@@ -457,19 +452,19 @@ def _create_root(
         expect(actual_link_style == LinkStyle("shared"))
         inputs.append(get_link_info(node, actual_link_style))
 
-    output = ctx.actions.declare_output(value_or(root.name, get_default_shared_library_name(
+    output = value_or(root.name, get_default_shared_library_name(
         linker_info,
         label,
-    )))
+    ))
 
     # link the rule
     link_result = cxx_link_shared_library(
-        ctx,
-        output,
+        ctx = ctx,
+        output = output,
         name = root.name,
         links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
         category_suffix = "omnibus_root",
-        identifier = root.name or output.short_path,
+        identifier = root.name or output,
         # We prefer local execution because there are lot of cxx_link_omnibus_root
         # running simultaneously, so while their overall load is reasonable,
         # their peak execution load is very high.
@@ -729,16 +724,17 @@ def _create_omnibus(
 
     soname = _omnibus_soname(ctx)
 
-    link_result = cxx_link_into_shared_library(
-        ctx,
-        soname,
+    link_result = cxx_link_shared_library(
+        ctx = ctx,
+        output = soname,
+        name = soname,
         links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
         category_suffix = "omnibus",
         # TODO(T110378138): As with static C++ links, omnibus links are
         # currently too large for RE, so run them locally for now (e.g.
         # https://fb.prod.workplace.com/groups/buck2dev/posts/2953023738319012/).
         # NB: We explicitly pass a value here to override
-        # the linker_info.link_libraries_locally that's used by `cxx_link_into_shared_library`.
+        # the linker_info.link_libraries_locally that's used by `cxx_link_shared_library`.
         # That's because we do not want to apply the linking behavior universally,
         # just use it for omnibus.
         link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, [], use_hybrid_links_for_libomnibus(ctx), toolchain_info),

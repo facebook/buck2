@@ -274,7 +274,7 @@ def cxx_link(
 def cxx_link_shared_library(
         ctx: "context",
         # The destination for the link output.
-        output: "artifact",
+        output: str.type,
         # Optional soname to link into shared library.
         name: [str, None] = None,
         links: [LinkArgs.type] = [],
@@ -294,6 +294,8 @@ def cxx_link_shared_library(
     """
     Link a shared library into the supplied output.
     """
+    output = ctx.actions.declare_output(output)
+
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     linker_type = linker_info.type
     extra_args = []
@@ -327,40 +329,4 @@ def cxx_link_shared_library(
         link_ordering = link_ordering,
         link_weight = link_weight,
         link_execution_preference = link_execution_preference,
-    )
-
-def cxx_link_into_shared_library(
-        ctx: "context",
-        name: str,
-        links: [LinkArgs.type] = [],
-        # Whether to embed the library name as the SONAME.
-        soname: bool = True,
-        link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
-        link_ordering: [LinkOrdering.type, None] = None,
-        link_weight: int = 1,
-        enable_distributed_thinlto: bool = False,
-        # A category suffix that will be added to the category of the link action that is generated.
-        category_suffix: [str, None] = None,
-        # An identifier that will uniquely name this link action in the context of a category. Useful for
-        # differentiating multiple link actions in the same rule.
-        identifier: [str, None] = None,
-        # Overrides the default flags used to specify building shared libraries
-        shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
-        strip: bool = False,
-        strip_args_factory = None) -> CxxLinkResult.type:
-    output = ctx.actions.declare_output(name)
-    return cxx_link_shared_library(
-        ctx,
-        output,
-        name = name if soname else None,
-        links = links,
-        link_execution_preference = link_execution_preference,
-        link_weight = link_weight,
-        enable_distributed_thinlto = enable_distributed_thinlto,
-        category_suffix = category_suffix,
-        identifier = identifier,
-        link_ordering = link_ordering,
-        shared_library_flags = shared_library_flags,
-        strip = strip,
-        strip_args_factory = strip_args_factory,
     )

@@ -143,7 +143,6 @@ load(
     ":link.bzl",
     "CxxLinkResult",  # @unused Used as a type
     "CxxLinkerMapData",
-    "cxx_link_into_shared_library",
     "cxx_link_shared_library",
 )
 load(
@@ -1242,13 +1241,13 @@ def _shared_library(
         ),
         external_debug_info = external_debug_info,
     )
-    link_result = cxx_link_into_shared_library(
-        ctx,
-        soname,
-        [LinkArgs(infos = [link_info]), dep_infos],
+    link_result = cxx_link_shared_library(
+        ctx = ctx,
+        output = soname,
+        name = soname if impl_params.use_soname else None,
+        links = [LinkArgs(infos = [link_info]), dep_infos],
         identifier = soname,
         link_ordering = link_ordering,
-        soname = impl_params.use_soname,
         shared_library_flags = impl_params.shared_library_flags,
         strip = impl_params.strip_executable,
         strip_args_factory = impl_params.strip_args_factory,
@@ -1272,15 +1271,12 @@ def _shared_library(
             ),
             external_debug_info = link_info.external_debug_info,
         )
-        shlib_for_interface = ctx.actions.declare_output(
-            get_shared_library_name(
+        intf_link_result = cxx_link_shared_library(
+            ctx = ctx,
+            output = get_shared_library_name(
                 linker_info,
                 ctx.label.name + "-for-interface",
             ),
-        )
-        cxx_link_shared_library(
-            ctx,
-            output = shlib_for_interface,
             category_suffix = "interface",
             link_ordering = link_ordering,
             name = soname,
@@ -1290,7 +1286,7 @@ def _shared_library(
         )
 
         # Convert the shared library into an interface.
-        shlib_interface = cxx_mk_shlib_intf(ctx, ctx.label.name, shlib_for_interface)
+        shlib_interface = cxx_mk_shlib_intf(ctx, ctx.label.name, intf_link_result.linked_object.output)
 
         exported_shlib = shlib_interface
 

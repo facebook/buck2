@@ -88,7 +88,7 @@ load(
 load(
     ":link.bzl",
     "CxxLinkerMapData",  # @unused Used as a type
-    _cxx_link_into_shared_library = "cxx_link_into_shared_library",
+    "cxx_link_shared_library",
 )
 load(
     ":link_groups.bzl",
@@ -118,8 +118,6 @@ load(
     "cxx_merge_cpreprocessors",
     "format_system_include_arg",
 )
-
-cxx_link_into_shared_library = _cxx_link_into_shared_library
 
 #####################################################################
 # Operations
@@ -379,10 +377,11 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                         shlink_args.extend(exported_linker_flags)
                         shlink_args.extend(non_exported_linker_flags)
                         shlink_args.extend(get_link_whole_args(linker_type, [lib]))
-                        link_result = cxx_link_into_shared_library(
-                            ctx,
-                            soname,
-                            [
+                        link_result = cxx_link_shared_library(
+                            ctx = ctx,
+                            output = soname,
+                            name = soname,
+                            links = [
                                 LinkArgs(flags = shlink_args),
                                 # TODO(T110378118): As per v1, we always link against "shared"
                                 # dependencies when building a shaerd library.
