@@ -121,7 +121,7 @@ async fn build_action_no_redirect(
 
     let fut = async move {
         let (execute_result, command_reports) = executor
-            .execute(materialized_inputs, &action, cancellation)
+            .execute(materialized_inputs, action, cancellation)
             .await;
 
         let allow_omit_details = execute_result.is_ok();

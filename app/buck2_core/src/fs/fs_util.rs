@@ -556,7 +556,7 @@ mod tests {
         let tempdir = tempfile::tempdir()?;
         let root = tempdir.path().join("root");
         let root = AbsPath::new(&root)?;
-        create_dir_all(&root)?;
+        create_dir_all(root)?;
         let dir1 = root.join("dir1");
         let symlink_dir1 = root.join("symlink_dir1");
 
@@ -572,7 +572,7 @@ mod tests {
         assert_matches!(symlink_metadata(&symlink_dir1), Err(..));
 
         // Clean up
-        remove_dir_all(&root)?;
+        remove_dir_all(root)?;
         Ok(())
     }
 
@@ -581,7 +581,7 @@ mod tests {
         let tempdir = tempfile::tempdir()?;
         let root = tempdir.path().join("root");
         let root = AbsPath::new(&root)?;
-        create_dir_all(&root)?;
+        create_dir_all(root)?;
         let file1 = root.join("file1");
         let symlink_file1 = root.join("symlink_file1");
 

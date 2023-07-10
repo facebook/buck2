@@ -304,8 +304,7 @@ impl<T> PinnedDrop for DropCancelFuture<T> {
         // ignore the termination future of when we actually shutdown. The creator of this
         // DropCancelFuture has the termination future as well that it can use to observe termination
         // if it cares
-        let _cancel = self
-            .cancellation_handle
+        self.cancellation_handle
             .take()
             .expect("dropped twice")
             .cancel();

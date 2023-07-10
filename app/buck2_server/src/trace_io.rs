@@ -40,7 +40,7 @@ pub(crate) async fn trace_io_command(
         );
 
         let result = match (tracing_provider, respond_with_trace) {
-            (Some(provider), true) => build_response_with_trace(&context, provider).await,
+            (Some(provider), true) => build_response_with_trace(context, provider).await,
             (Some(_), false) => Ok(buck2_cli_proto::TraceIoResponse {
                 enabled: true,
                 trace: Vec::new(),

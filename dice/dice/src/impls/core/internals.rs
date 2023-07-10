@@ -297,7 +297,7 @@ mod tests {
             }
             .boxed()
         });
-        let _started_critical_section = arrive_cancel.acquire().await.unwrap().forget();
+        arrive_cancel.acquire().await.unwrap().forget();
 
         (
             yet_to_cancel_tasks,
@@ -322,7 +322,7 @@ mod tests {
             .boxed()
         });
 
-        let _started_critical_section = arrive_never_cancel.acquire().await.unwrap().forget();
+        arrive_never_cancel.acquire().await.unwrap().forget();
 
         never_cancel_tasks
     }

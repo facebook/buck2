@@ -398,7 +398,7 @@ impl CommandKind {
             CommandKind::Bxl(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Test(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Cquery(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Kill(cmd) => cmd.exec(matches, command_ctx).into(),
+            CommandKind::Kill(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Killall(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Root(cmd) => cmd.exec(matches, command_ctx).into(),

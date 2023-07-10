@@ -170,7 +170,7 @@ impl CommandLineArgLike for StarlarkPromiseArtifact {
     ) -> anyhow::Result<()> {
         match self.artifact.get() {
             Some(v) => {
-                cli.push_arg(ctx.resolve_artifact(&v)?.into_string());
+                cli.push_arg(ctx.resolve_artifact(v)?.into_string());
                 Ok(())
             }
             None => Err(PromiseArtifactError::UnresolvedAddedToCommandLine(self.clone()).into()),

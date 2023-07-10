@@ -82,7 +82,7 @@ fn build_dir_from_disk(
         } else if filetype.is_file() {
             let metadata = FileMetadata {
                 digest: TrackedFileDigest::new(
-                    FileDigest::from_file(&disk_path, digest_config)?,
+                    FileDigest::from_file(disk_path, digest_config)?,
                     digest_config.as_cas_digest_config(),
                 ),
                 is_executable: file.path().executable(),

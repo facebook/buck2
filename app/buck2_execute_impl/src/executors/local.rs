@@ -363,7 +363,7 @@ impl LocalExecutor {
                         .iter()
                         .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
                 )
-                .chain(local_resource_env_vars.iter().cloned())
+                .chain(local_resource_env_vars.iter().copied())
                 .chain(std::iter::once((
                     "BUCK2_DAEMON_UUID",
                     StrOrOsStr::from(daemon_uuid),

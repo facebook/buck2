@@ -25,9 +25,15 @@ use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 
 #[derive(Debug, Error)]
 pub(crate) enum PromiseArtifactResolveError {
-    #[error("artifact_promise(){} resolved promise was not an artifact (was `{1}`)", maybe_declared_at(&_0))]
+    #[error(
+        "artifact_promise(){} resolved promise was not an artifact (was `{1}`)",
+        maybe_declared_at(_0)
+    )]
     NotAnArtifact(Option<FileSpan>, String),
-    #[error("artifact_promise(){1}{} promise wasn't resolved", maybe_declared_at(&_0))]
+    #[error(
+        "artifact_promise(){1}{} promise wasn't resolved",
+        maybe_declared_at(_0)
+    )]
     PromiseNotResolved(Option<FileSpan>, String),
     #[error("artifact_promise() resolved multiple times")]
     AlreadyResolved,

@@ -250,7 +250,7 @@ impl AnonTargetKey {
         x: Value,
         ctx: &AnonAttrCtx,
     ) -> anyhow::Result<AnonTargetAttr> {
-        attr.coerce_item(AttrIsConfigurable::No, &ctx, x)
+        attr.coerce_item(AttrIsConfigurable::No, ctx, x)
     }
 
     fn coerced_to_anon_target_attr(

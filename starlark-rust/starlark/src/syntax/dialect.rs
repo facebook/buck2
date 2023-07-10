@@ -179,7 +179,7 @@ impl Dialect {
         TypeExprUnpackP::unpack(&x, codemap)?;
 
         Ok(x.into_map(|node| TypeExprP {
-            expr: Spanned { span, node },
+            expr: Spanned { node, span },
             payload: (),
         }))
     }

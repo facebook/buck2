@@ -49,7 +49,7 @@ impl AssociatedArtifacts {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &ArtifactGroup> {
-        self.0.iter().map(|v| v.iter()).flatten()
+        self.0.iter().flat_map(|v| v.iter())
     }
 
     pub fn is_empty(&self) -> bool {

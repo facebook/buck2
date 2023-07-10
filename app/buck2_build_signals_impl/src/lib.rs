@@ -609,7 +609,7 @@ fn create_build_signals() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignal
         activation_tracker: sender.dupe() as _,
     };
 
-    let deferred = Box::new(DeferredBuildSignalsImpl { receiver, sender });
+    let deferred = Box::new(DeferredBuildSignalsImpl { sender, receiver });
 
     (installer, deferred as _)
 }

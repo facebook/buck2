@@ -655,7 +655,7 @@ mod tests {
             move |cancellations| {
                 async move {
                     {
-                        let _cancel = handle_slot
+                        handle_slot
                             .lock()
                             .take()
                             .expect("Expected the guard to be here by now")

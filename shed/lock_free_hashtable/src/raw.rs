@@ -291,7 +291,7 @@ mod tests {
         assert_eq!(&1, v2);
         assert!(ptr::eq(v0, v2));
 
-        assert_eq!(vec![1], t.iter().cloned().collect::<Vec<_>>());
+        assert_eq!(vec![1], t.iter().copied().collect::<Vec<_>>());
     }
 
     #[test]
