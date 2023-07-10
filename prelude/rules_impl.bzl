@@ -482,9 +482,6 @@ inlined_extra_attributes = {
         "_omnibus_environment": omnibus_environment_attr(),
         "_target_os_type": buck.target_os_type_arg(),
     },
-    "prebuilt_cxx_library_group": {
-        "_cxx_toolchain": toolchains_common.cxx(),
-    },
 
     #python
     "prebuilt_python_library": {
