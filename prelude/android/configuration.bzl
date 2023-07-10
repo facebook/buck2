@@ -5,8 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM")
+load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
+load("@prelude//utils:utils.bzl", "expect")
 
 _REFS = {
     "arm64": "config//cpu/constraints:arm64",
@@ -32,7 +33,7 @@ def _cpu_split_transition_instrumentation_test_apk_impl(
         attrs: struct.type) -> {str: PlatformInfo.type}:
     cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
     if attrs._is_force_single_cpu:
-        cpu_filters = cpu_filters[0:1]
+        cpu_filters = [CPU_FILTER_FOR_PRIMARY_PLATFORM]
     elif attrs._is_force_single_default_cpu:
         cpu_filters = ["default"]
 
@@ -50,7 +51,7 @@ def _cpu_split_transition_impl(
         attrs: struct.type) -> {str: PlatformInfo.type}:
     cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
     if attrs._is_force_single_cpu:
-        cpu_filters = cpu_filters[0:1]
+        cpu_filters = [CPU_FILTER_FOR_PRIMARY_PLATFORM]
     elif attrs._is_force_single_default_cpu:
         cpu_filters = ["default"]
 
@@ -80,7 +81,8 @@ def _cpu_split_transition(
         default = refs.default_platform[PlatformInfo]
         return {CPU_FILTER_FOR_DEFAULT_PLATFORM: default}
 
-    cpu_name_to_cpu_constraint = {}
+    expect(CPU_FILTER_FOR_PRIMARY_PLATFORM == "arm64")
+    cpu_name_to_cpu_constraint = {"arm64": arm64}
     for cpu_filter in cpu_filters:
         if cpu_filter == "x86":
             cpu_name_to_cpu_constraint["x86"] = x86
@@ -89,7 +91,8 @@ def _cpu_split_transition(
         elif cpu_filter == "x86_64":
             cpu_name_to_cpu_constraint["x86_64"] = x86_64
         elif cpu_filter == "arm64":
-            cpu_name_to_cpu_constraint["arm64"] = arm64
+            # Always included as the primary platform
+            pass
         else:
             fail("Unexpected cpu_filter: {}".format(cpu_filter))
 

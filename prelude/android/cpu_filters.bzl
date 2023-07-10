@@ -15,3 +15,10 @@ CPU_FILTER_TO_ABI_DIRECTORY = {
 ALL_CPU_FILTERS = CPU_FILTER_TO_ABI_DIRECTORY.keys()
 
 CPU_FILTER_FOR_DEFAULT_PLATFORM = "x86"
+
+# The "primary platform" is the one that we use for all
+# the non-native targets. We keep this consistent regardless
+# of which cpus the native libraries are built for so that
+# we get cache hits for the non-native targets across all
+# possible cpu filters.
+CPU_FILTER_FOR_PRIMARY_PLATFORM = "arm64"

@@ -8,7 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "ExopackageNativeInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_TO_ABI_DIRECTORY")
+load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
@@ -58,6 +58,8 @@ def get_android_binary_native_library_info(
     all_shared_libraries = []
     platform_to_native_linkables = {}
     for platform, deps in deps_by_platform.items():
+        if platform == CPU_FILTER_FOR_PRIMARY_PLATFORM and platform not in ctx.attrs.cpu_filters:
+            continue
         shared_library_info = merge_shared_libraries(
             ctx.actions,
             deps = filter(None, [x.get(SharedLibraryInfo) for x in deps]),
@@ -337,7 +339,7 @@ def _get_native_linkables(
 
     cpu_filters = ctx.attrs.cpu_filters
     for platform, native_linkables in platform_to_native_linkables.items():
-        if cpu_filters and platform not in cpu_filters:
+        if cpu_filters and platform not in cpu_filters and platform != CPU_FILTER_FOR_PRIMARY_PLATFORM:
             fail("Platform `{}` is not in the CPU filters `{}`".format(platform, cpu_filters))
 
         abi_directory = CPU_FILTER_TO_ABI_DIRECTORY[platform]
