@@ -311,12 +311,27 @@ impl WhatRanOutputWriter for LogCommandOutputFormat {
                             .map(|entry| (entry.key.as_ref(), entry.value.as_ref()))
                             .collect(),
                     },
-                    CommandReproducer::WorkerExecute(worker_execute) => JsonReproducer::Local {
+                    CommandReproducer::WorkerExecute(worker_execute) => JsonReproducer::Worker {
                         command: worker_execute.command.as_ref().map_or_else(
                             || Cow::Owned(Vec::new()),
                             |command| Cow::Borrowed(command.argv.as_ref()),
                         ),
                         env: worker_execute
+                            .command
+                            .as_ref()
+                            .into_iter()
+                            .flat_map(|command| command.env.iter())
+                            .map(|entry| (entry.key.as_ref(), entry.value.as_ref()))
+                            .collect(),
+                    },
+                    // TODO(ctolliday): use the worker_id as the `identity`, and add it to worker execution events.
+                    // Currently the identity is the first target that used the worker, which might be misleading.
+                    CommandReproducer::WorkerInit(worker_init) => JsonReproducer::WorkerInit {
+                        command: worker_init.command.as_ref().map_or_else(
+                            || Cow::Owned(Vec::new()),
+                            |command| Cow::Borrowed(command.argv.as_ref()),
+                        ),
+                        env: worker_init
                             .command
                             .as_ref()
                             .into_iter()
@@ -402,6 +417,14 @@ mod json_reproducer {
             action_key: Option<&'a str>,
         },
         Local {
+            command: Cow<'a, [String]>,
+            env: IndexMap<&'a str, &'a str>,
+        },
+        Worker {
+            command: Cow<'a, [String]>,
+            env: IndexMap<&'a str, &'a str>,
+        },
+        WorkerInit {
             command: Cow<'a, [String]>,
             env: IndexMap<&'a str, &'a str>,
         },

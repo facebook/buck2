@@ -175,6 +175,7 @@ pub enum CommandReproducer<'a> {
     ReExecute(&'a buck2_data::ReExecute),
     LocalExecute(&'a buck2_data::LocalExecute),
     WorkerExecute(&'a buck2_data::WorkerExecute),
+    WorkerInit(&'a buck2_data::WorkerInit),
 }
 
 impl<'a> CommandReproducer<'a> {
@@ -185,6 +186,7 @@ impl<'a> CommandReproducer<'a> {
             Self::ReExecute(execute) => executor_with_platform(execute),
             Self::LocalExecute(..) => "local".to_owned(),
             Self::WorkerExecute(..) => "worker".to_owned(),
+            Self::WorkerInit(..) => "worker_init".to_owned(),
         }
     }
 
@@ -238,6 +240,9 @@ impl<'a> CommandReproducer<'a> {
                                             worker_execute,
                                         ));
                                     }
+                                    Some(buck2_data::local_stage::Stage::WorkerInit(
+                                        worker_init,
+                                    )) => return Some(CommandReproducer::WorkerInit(worker_init)),
                                     _ => {}
                                 }
                             }
@@ -285,6 +290,13 @@ impl<'a> fmt::Display for HumanReadableCommandReproducer<'a> {
                         "{}",
                         worker_command_as_fallback_to_string(command)
                     )
+                } else {
+                    Ok(())
+                }
+            }
+            CommandReproducer::WorkerInit(worker_init) => {
+                if let Some(command) = &worker_init.command {
+                    write!(formatter, "{}", command_to_string(command))
                 } else {
                     Ok(())
                 }
