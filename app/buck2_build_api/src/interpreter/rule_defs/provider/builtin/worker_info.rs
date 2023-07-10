@@ -19,8 +19,10 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;
+use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
@@ -37,6 +39,9 @@ pub struct WorkerInfoGen<V> {
     // Command to spawn a new worker
     #[provider(field_type = "StarlarkCommandLine")]
     pub exe: V,
+    // Maximum number of concurrent commands to execute on a worker instance without queuing
+    #[provider(field_type = "NoneOr<usize>")]
+    pub concurrency: V,
 
     pub id: u64,
 }
@@ -51,13 +56,18 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenWorkerInfo)]
     fn WorkerInfo<'v>(
         #[starlark(default = AllocList::EMPTY)] exe: Value<'v>,
+        #[starlark(require = named, default = NoneOr::None)] concurrency: NoneOr<usize>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<WorkerInfo<'v>> {
         let heap = eval.heap();
         let valid_exe = StarlarkCommandLine::try_from_value(exe)?;
         let exe = heap.alloc(valid_exe);
         let id = next_id();
-        Ok(WorkerInfo { exe, id })
+        Ok(WorkerInfo {
+            exe,
+            id,
+            concurrency: heap.alloc(concurrency),
+        })
     }
 }
 
@@ -67,6 +77,12 @@ impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
             .to_value()
             .as_command_line()
             .expect("validated at construction")
+    }
+
+    pub fn concurrency(&self) -> Option<usize> {
+        NoneOr::<usize>::unpack_value(self.concurrency.to_value())
+            .expect("validated at construction")
+            .into_option()
     }
 }
 

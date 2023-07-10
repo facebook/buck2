@@ -236,6 +236,7 @@ pub struct WorkerId(pub u64);
 pub struct WorkerSpec {
     pub id: WorkerId,
     pub exe: Vec<String>,
+    pub concurrency: Option<usize>,
 }
 
 /// The data contains the information about the command to be executed.
