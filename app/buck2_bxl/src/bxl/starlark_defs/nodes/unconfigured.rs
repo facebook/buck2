@@ -76,12 +76,17 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn attrs<'v>(this: StarlarkTargetNode, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
-        let attrs = attrs_iter.map(|a| {
-            (
-                a.name,
-                StarlarkCoercedAttr(a.value.clone(), this.0.label().pkg().dupe()),
-            )
-        });
+        let special_attrs_iter = this.0.special_attrs();
+        let attrs = attrs_iter
+            .map(|a| {
+                (
+                    a.name,
+                    StarlarkCoercedAttr(a.value.clone(), this.0.label().pkg().dupe()),
+                )
+            })
+            .chain(special_attrs_iter.map(|(name, attr)| {
+                (name, StarlarkCoercedAttr(attr, this.0.label().pkg().dupe()))
+            }));
 
         Ok(heap.alloc(AllocStruct(attrs)))
     }

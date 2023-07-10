@@ -176,7 +176,7 @@ impl TargetNode {
         &self.0.label
     }
 
-    pub(crate) fn special_attrs(&self) -> impl Iterator<Item = (&str, CoercedAttr)> {
+    pub fn special_attrs(&self) -> impl Iterator<Item = (&str, CoercedAttr)> {
         let typ_attr = CoercedAttr::String(StringLiteral(self.rule_type().name().into()));
         let deps_attr = CoercedAttr::List(
             self.deps()
