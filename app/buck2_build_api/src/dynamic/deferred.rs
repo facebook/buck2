@@ -39,7 +39,6 @@ use thiserror::Error;
 use crate::actions::key::ActionKeyExt;
 use crate::actions::RegisteredAction;
 use crate::analysis::registry::AnalysisRegistry;
-use crate::bxl;
 use crate::deferred::types::BaseKey;
 use crate::deferred::types::Deferred;
 use crate::deferred::types::DeferredCtx;
@@ -98,8 +97,7 @@ impl DynamicLambda {
                 depends.insert(DeferredInput::ConfiguredTarget(target.dupe()));
             }
             BaseDeferredKey::BxlLabel(_) => {
-                // do nothing. This is for grabbing the execution platform, which for bxl, we
-                // hard code to a local execution.
+                // Execution platform resolution is handled when we execute the DynamicLambda
             }
             BaseDeferredKey::AnonTarget(_) => {
                 // This will return an error later, so doesn't need to have the dependency
@@ -207,9 +205,7 @@ impl Deferred for DynamicLambda {
 
                         configured_target.execution_platform_resolution().dupe()
                     }
-                    BaseDeferredKey::BxlLabel(_) => {
-                        (*bxl::execution_platform::EXECUTION_PLATFORM).dupe()
-                    }
+                    BaseDeferredKey::BxlLabel(k) => k.execution_platform_resolution().clone(),
                     BaseDeferredKey::AnonTarget(_) => {
                         return Err(DynamicLambdaError::AnonTargetIncompatible.into());
                     }
