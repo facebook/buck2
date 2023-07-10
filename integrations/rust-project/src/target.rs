@@ -141,18 +141,21 @@ impl TargetInfo {
     }
 
     pub fn root_module(&self) -> PathBuf {
+        if let Some(crate_root) = &self.crate_root {
+            // If provided with a crate_root directly, and it's valid, use it.
+            if let Ok(path) = self.source_folder.join(crate_root).canonicalize() {
+                return path;
+            }
+        }
+
         // Matches buck crate_root fetching logic
-        let root_candidates = if let Some(crate_root) = &self.crate_root {
-            // If provided with one, use it
-            vec![crate_root.to_owned()]
-        } else {
+        let root_candidates =
             // Use buck rust build.bxl fallback logic
             vec![
                 PathBuf::from("lib.rs"),
                 PathBuf::from("main.rs"),
                 PathBuf::from(&self.name.replace('-', "_")),
-            ]
-        };
+            ];
 
         tracing::trace!(
             ?self,
