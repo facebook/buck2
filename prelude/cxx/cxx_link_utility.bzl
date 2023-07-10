@@ -20,21 +20,6 @@ load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//utils:utils.bzl", "expect")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
-def generates_split_debug(ctx: "context"):
-    """
-    Whether linking generates split debug outputs.
-    """
-
-    toolchain = get_cxx_toolchain_info(ctx)
-
-    if toolchain.split_debug_mode == SplitDebugMode("none"):
-        return False
-
-    if toolchain.linker_info.lto_mode == LtoMode("none"):
-        return False
-
-    return True
-
 def linker_map_args(ctx, linker_map) -> LinkArgs.type:
     linker_type = get_cxx_toolchain_info(ctx).linker_info.type
     if linker_type == "darwin":
@@ -55,7 +40,7 @@ def linker_map_args(ctx, linker_map) -> LinkArgs.type:
         fail("Linker type {} not supported".format(linker_type))
     return LinkArgs(flags = flags)
 
-def _map_link_args_for_dwo(dwo_dir: "output_artifact", links: ["LinkArgs"]) -> ["LinkArgs"]:
+def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], output_short_path: [str, None]) -> (["LinkArgs"], ["artifact", None]):
     """
     Takes LinkArgs, and if they enable the DWO output dir hack, returns updated
     args and a DWO dir as output. If they don't, just returns the args as-is.
@@ -67,10 +52,17 @@ def _map_link_args_for_dwo(dwo_dir: "output_artifact", links: ["LinkArgs"]) -> [
     # the macros setup ThinLTO+split-dwarf, use a macro hack to intercept when
     # we're setting an explicitly tracked dwo dir and pull into the explicit
     # tracking we do at the `LinkedObject` level.
+    #
+    # Can't mutate a variable, so put it in a list and mutate the innards
+    dwo_dir = [None]
 
     def adjust_flag(flag: "_arglike") -> "_arglike":
         if "HACK-OUTPUT-DWO-DIR" in repr(flag):
-            return cmd_args(dwo_dir, format = "dwo_dir={}")
+            expect(output_short_path != None)
+            if dwo_dir[0] == None:
+                dwo_dir_name = output_short_path + ".dwo.d"
+                dwo_dir[0] = ctx.actions.declare_output(dwo_dir_name)
+            return cmd_args(dwo_dir[0].as_output(), format = "dwo_dir={}")
         else:
             return flag
 
@@ -83,7 +75,7 @@ def _map_link_args_for_dwo(dwo_dir: "output_artifact", links: ["LinkArgs"]) -> [
             external_debug_info = link_info.external_debug_info,
         )
 
-    return [
+    links = [
         LinkArgs(
             tset = link.tset,
             flags = [adjust_flag(flag) for flag in link.flags] if link.flags != None else None,
@@ -91,6 +83,7 @@ def _map_link_args_for_dwo(dwo_dir: "output_artifact", links: ["LinkArgs"]) -> [
         )
         for link in links
     ]
+    return (links, dwo_dir[0])
 
 def make_link_args(
         ctx: "context",
@@ -143,11 +136,8 @@ def make_link_args(
     #
     # Context: D36669131
     dwo_dir = None
-    if generates_split_debug(ctx):
-        expect(output_short_path != None)
-        dwo_dir_name = output_short_path + ".dwo.d"
-        dwo_dir = ctx.actions.declare_output(dwo_dir_name)
-        links = _map_link_args_for_dwo(dwo_dir.as_output(), links)
+    if linker_info.lto_mode != LtoMode("none") and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none"):
+        links, dwo_dir = map_link_args_for_dwo(ctx, links, output_short_path)
 
     pdb_artifact = None
     if linker_info.is_pdb_generated and output_short_path != None:
