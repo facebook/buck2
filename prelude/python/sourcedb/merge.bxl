@@ -26,8 +26,6 @@ def do_merge(
 
     command = cmd_args(merger)
     command.add(merger_input)
-    command.add("--root")
-    command.add(ctx.root())
     command.add("--output")
     command.add(merger_output.as_output())
 

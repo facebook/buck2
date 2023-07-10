@@ -16,20 +16,19 @@ import inputs
 import legacy_outputs
 
 
-def run_merge(root: pathlib.Path, input_file: str, output_file: str) -> None:
-    target_entries = inputs.load_targets_and_build_maps_from_path(root, input_file)
+def run_merge(input_file: str, output_file: str) -> None:
+    target_entries = inputs.load_targets_and_build_maps_from_path(input_file)
     merge_result = legacy_outputs.merge_partial_build_maps(target_entries)
-    merge_result.write_json_file(root / output_file)
+    merge_result.write_json_file(pathlib.Path(output_file))
 
 
 def main(argv: Sequence[str]) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=str)
-    parser.add_argument("-r", "--root", required=True, type=pathlib.Path)
     parser.add_argument("-o", "--output", required=True, type=str)
     arguments = parser.parse_args(argv[1:])
 
-    run_merge(arguments.root, arguments.input, arguments.output)
+    run_merge(arguments.input, arguments.output)
 
 
 if __name__ == "__main__":

@@ -5,11 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+import contextlib
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Mapping
+from typing import Generator, Mapping
 
 # pyre-fixme[21]: Could not find module `sourcedb_merger.inputs`.
 from sourcedb_merger.inputs import (
@@ -21,9 +23,19 @@ from sourcedb_merger.inputs import (
 )
 
 
-def write_files(root: Path, contents: Mapping[str, str]) -> None:
+@contextlib.contextmanager
+def switch_working_directory(directory: Path) -> Generator[None, None, None]:
+    original_directory = Path(".").resolve()
+    try:
+        os.chdir(str(directory))
+        yield None
+    finally:
+        os.chdir(str(original_directory))
+
+
+def write_files(contents: Mapping[str, str]) -> None:
     for name, text in contents.items():
-        Path(root / name).write_text(text)
+        Path(name).write_text(text)
 
 
 class InputsTest(unittest.TestCase):
@@ -63,10 +75,10 @@ class InputsTest(unittest.TestCase):
         )
 
     def test_load_targets_and_build_map(self) -> None:
-        with tempfile.TemporaryDirectory() as root:
-            root_path = Path(root)
+        with tempfile.TemporaryDirectory() as root, switch_working_directory(
+            Path(root)
+        ):
             write_files(
-                root_path,
                 {
                     "a.json": json.dumps(
                         [
@@ -83,7 +95,7 @@ class InputsTest(unittest.TestCase):
 
             self.assertCountEqual(
                 load_targets_and_build_maps_from_json(
-                    root_path, [("//target0", "a.json"), None, ("//target1", "b.json")]
+                    [("//target0", "a.json"), None, ("//target1", "b.json")]
                 ),
                 [
                     TargetEntry(
@@ -103,18 +115,10 @@ class InputsTest(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 list(
                     load_targets_and_build_maps_from_json(
-                        root_path, [("//target0", "nonexistent.json")]
+                        [("//target0", "nonexistent.json")]
                     )
                 )
             with self.assertRaises(json.JSONDecodeError):
-                list(
-                    load_targets_and_build_maps_from_json(
-                        root_path, [("//target0", "c.txt")]
-                    )
-                )
+                list(load_targets_and_build_maps_from_json([("//target0", "c.txt")]))
             with self.assertRaises(BuildMapLoadError):
-                list(
-                    load_targets_and_build_maps_from_json(
-                        root_path, [("//target0", "d.json")]
-                    )
-                )
+                list(load_targets_and_build_maps_from_json([("//target0", "d.json")]))

@@ -67,9 +67,7 @@ class TargetEntry:
     build_map: PartialBuildMap
 
 
-def load_targets_and_build_maps_from_json(
-    buck_root: pathlib.Path, input_json: object
-) -> Iterable[TargetEntry]:
+def load_targets_and_build_maps_from_json(input_json: object) -> Iterable[TargetEntry]:
     if not isinstance(input_json, list):
         raise BuildMapLoadError(
             f"Input JSON should be a list. Got {type(input_json)} instead"
@@ -88,12 +86,10 @@ def load_targets_and_build_maps_from_json(
             )
         yield TargetEntry(
             target=Target(key),
-            build_map=PartialBuildMap.load_from_path(buck_root / value),
+            build_map=PartialBuildMap.load_from_path(pathlib.Path(value)),
         )
 
 
-def load_targets_and_build_maps_from_path(
-    buck_root: pathlib.Path, input_path: str
-) -> Iterable[TargetEntry]:
-    with open(buck_root / input_path, "r") as input_file:
-        return load_targets_and_build_maps_from_json(buck_root, json.load(input_file))
+def load_targets_and_build_maps_from_path(input_path: str) -> Iterable[TargetEntry]:
+    with open(input_path, "r") as input_file:
+        return load_targets_and_build_maps_from_json(json.load(input_file))
