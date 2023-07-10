@@ -356,10 +356,6 @@ impl dyn FileOps + '_ {
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
     }
 
-    pub async fn try_exists(&self, path: CellPathRef<'_>) -> anyhow::Result<bool> {
-        Ok(self.read_path_metadata_if_exists(path).await?.is_some())
-    }
-
     pub async fn read_path_metadata(
         &self,
         path: CellPathRef<'_>,

@@ -6,6 +6,7 @@ description = "Buck V2 extension language"
 
 [dependencies]
 anyhow = { workspace = true }
+async-recursion = { workspace = true }
 async-trait = { workspace = true }
 async-scoped = { workspace = true }
 clap = { workspace = true }
