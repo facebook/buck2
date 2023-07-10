@@ -90,8 +90,8 @@ impl AttributeSpecExt for AttributeSpec {
                 None => Some(param_parser.next(attr_name)?),
             };
 
-            let is_visibility = attr_name == VISIBILITY_ATTRIBUTE_FIELD;
-            let is_with_view = attr_name == WITHIN_VIEW_ATTRIBUTE_FIELD;
+            let attr_is_visibility = attr_name == VISIBILITY_ATTRIBUTE_FIELD;
+            let attr_is_within_view = attr_name == WITHIN_VIEW_ATTRIBUTE_FIELD;
             if let Some(v) = user_value {
                 let mut coerced = attribute
                     .coerce(
@@ -109,13 +109,13 @@ impl AttributeSpecExt for AttributeSpec {
                         )
                     })?;
 
-                if is_visibility {
+                if attr_is_visibility {
                     if coerced == CoercedValue::Default {
                         coerced = CoercedValue::Custom(CoercedAttr::Visibility(
                             internals.super_package.visibility().dupe(),
                         ));
                     }
-                } else if is_with_view {
+                } else if attr_is_within_view {
                     if coerced == CoercedValue::Default {
                         coerced = CoercedValue::Custom(CoercedAttr::WithinView(
                             internals.super_package.within_view().dupe(),
@@ -129,12 +129,12 @@ impl AttributeSpecExt for AttributeSpec {
                     }
                     CoercedValue::Default => {}
                 }
-            } else if is_visibility {
+            } else if attr_is_visibility {
                 attr_values.push_sorted(
                     attr_idx,
                     CoercedAttr::Visibility(internals.super_package.visibility().dupe()),
                 );
-            } else if is_with_view {
+            } else if attr_is_within_view {
                 attr_values.push_sorted(
                     attr_idx,
                     CoercedAttr::WithinView(internals.super_package.within_view().dupe()),
