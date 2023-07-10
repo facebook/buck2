@@ -775,7 +775,7 @@ def _clippy_wrapper(
         wrapper_file, _ = ctx.actions.write(
             ctx.actions.declare_output("__clippy_driver_wrapper.sh"),
             [
-                "#!/bin/bash",
+                "#!/usr/bin/env bash",
                 # Force clippy to be clippy: https://github.com/rust-lang/rust-clippy/blob/e405c68b3c1265daa9a091ed9b4b5c5a38c0c0ba/src/driver.rs#L334
                 "export __CLIPPY_INTERNAL_TESTS=true",
                 cmd_args(rustc_print_sysroot, format = "export SYSROOT=$({})"),
