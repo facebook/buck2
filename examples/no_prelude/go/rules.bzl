@@ -9,7 +9,8 @@ load("@toolchains//:go_toolchain.bzl", "GoCompilerInfo")
 
 def _go_binary_impl(ctx: "context") -> ["provider"]:
     sources = ctx.attrs.srcs
-    out = ctx.actions.declare_output("main")
+    extension = ".exe" if host_info().os.is_windows else ""
+    out = ctx.actions.declare_output("main" + extension)
 
     cmd = cmd_args([ctx.attrs.toolchain[GoCompilerInfo].compiler_path, "build", "-o", out.as_output()] + sources)
 

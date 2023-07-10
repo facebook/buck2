@@ -9,7 +9,8 @@ load("@toolchains//:rust_toolchain.bzl", "RustCompilerInfo")
 
 def _rust_binary_impl(ctx):
     file = ctx.attrs.file
-    out = ctx.actions.declare_output("main")
+    extension = ".exe" if host_info().os.is_windows else ""
+    out = ctx.actions.declare_output("main" + extension)
 
     cmd = cmd_args([ctx.attrs.toolchain[RustCompilerInfo].compiler_path, "--crate-type=bin", file, "-o", out.as_output()])
 
