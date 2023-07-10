@@ -64,6 +64,10 @@ ArchiveLinkable = record(
     bitcode_bundle = field(["artifact", None], None),
     linker_type = field(str),
     link_whole = field(bool, False),
+    # Indicates if this archive may contain LTO bit code.  Can be set to `False`
+    # to e.g. tell dist LTO handling that a potentially expensive archive doesn't
+    # need to be processed.
+    supports_lto = field(bool, True),
     _type = field(LinkableType.type, LinkableType("archive")),
 )
 
@@ -151,6 +155,7 @@ def set_linkable_link_whole(
             archive = linkable.archive,
             linker_type = linkable.linker_type,
             link_whole = True,
+            supports_lto = linkable.supports_lto,
             _type = linkable._type,
         )
     elif linkable._type == LinkableType("objects"):

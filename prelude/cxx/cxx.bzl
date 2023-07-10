@@ -353,6 +353,10 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                     archive = Archive(artifact = lib),
                     linker_type = linker_type,
                     link_whole = ctx.attrs.link_whole,
+                    # We assume prebuilt C/C++ libs don't contain LTO code and
+                    # avoid potentially expensive processing of the to support
+                    # dist LTO.
+                    supports_lto = False,
                 )
 
             if link_style == LinkStyle("static"):
@@ -500,6 +504,10 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                     ),
                     linker_type = linker_type,
                     link_whole = True,
+                    # We assume prebuilt C/C++ libs don't contain LTO code and
+                    # avoid potentially expensive processing of the to support
+                    # dist LTO.
+                    supports_lto = False,
                 )],
                 post_flags = cxx_attr_exported_post_linker_flags(ctx),
             )),
