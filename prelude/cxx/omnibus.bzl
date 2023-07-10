@@ -559,7 +559,8 @@ def _extract_global_symbols_from_link_args(
     )
     ctx.actions.run(
         [
-            "/bin/bash",
+            "/usr/bin/env",
+            "bash",
             "-c",
             cmd_args(output.as_output(), format = script),
             "",
