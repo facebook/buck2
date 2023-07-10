@@ -71,7 +71,7 @@ mod fbcode {
         // Send this event now, bypassing internal message queue.
         pub async fn send_now(&self, event: BuckEvent) {
             let message_key = event.trace_id().unwrap().hash();
-            if let Some(bytes) = self.encode_message(event, false) {
+            if let Some(bytes) = Self::encode_message(event, false) {
                 self.client
                     .send_now(scribe_client::Message {
                         category: self.category.clone(),
@@ -85,7 +85,7 @@ mod fbcode {
         // Send this event by placing it on the internal message queue.
         pub fn offer(&self, event: BuckEvent) {
             let message_key = event.trace_id().unwrap().hash();
-            if let Some(bytes) = self.encode_message(event, false) {
+            if let Some(bytes) = Self::encode_message(event, false) {
                 self.client.offer(scribe_client::Message {
                     category: self.category.clone(),
                     message: bytes,
@@ -95,7 +95,7 @@ mod fbcode {
         }
 
         // Encodes message into something scribe understands.
-        fn encode_message(&self, mut event: BuckEvent, is_truncated: bool) -> Option<Vec<u8>> {
+        fn encode_message(mut event: BuckEvent, is_truncated: bool) -> Option<Vec<u8>> {
             Self::smart_truncate_event(event.data_mut());
             let proto: Box<buck2_data::BuckEvent> = event.into();
 
@@ -113,7 +113,7 @@ mod fbcode {
                 }
                 let json = serde_json::to_string(&proto).unwrap();
 
-                self.encode_message(
+                Self::encode_message(
                     BuckEvent::new(
                         SystemTime::now(),
                         TraceId::new(),

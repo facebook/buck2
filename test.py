@@ -190,10 +190,6 @@ def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
 
 
 CLIPPY_ALLOW = [
-    # Lints that are temporarily broken in our version of the Rust toolchain
-    "clippy::needless-match",
-    "clippy::only-used-in-recursion",
-    # Other
     "clippy::disallowed_names",  # Not using foo, bar, baz in test data is silly
     "clippy::bool-to-int-with-if",  # Using if branches to return 1 or 0 is valid, but this complains that we should use `int::from`, which is arguably less clear
     "clippy::cognitive_complexity",  # This is an arbitrary linter

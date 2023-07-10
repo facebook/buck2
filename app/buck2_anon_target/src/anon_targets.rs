@@ -178,7 +178,7 @@ impl AnonTargetKey {
                 if let Some(x) = a.default() {
                     attrs.insert(
                         k.to_owned(),
-                        Self::coerced_to_anon_target_attr(x, a.coercer(), &anon_attr_ctx)?,
+                        Self::coerced_to_anon_target_attr(x, a.coercer())?,
                     );
                 } else {
                     return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into());
@@ -256,9 +256,8 @@ impl AnonTargetKey {
     fn coerced_to_anon_target_attr(
         x: &CoercedAttr,
         ty: &AttrType,
-        ctx: &AnonAttrCtx,
     ) -> anyhow::Result<AnonTargetAttr> {
-        AnonTargetAttr::from_coerced_attr(x, ty, ctx)
+        AnonTargetAttr::from_coerced_attr(x, ty)
     }
 
     pub(crate) async fn resolve(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {

@@ -25,7 +25,6 @@ use buck2_node::attrs::attr_type::tuple::TupleLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr_with_type::CoercedAttrWithType;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
@@ -185,25 +184,21 @@ impl AnonTargetAttr {
     // Note that non-primitives, such as dep/source, will result in an error.
 
     // TODO(@wendyy) - find a way to coerce attr defaults used in anon targets directly to AnonTargetAttr
-    pub fn from_coerced_attr(
-        attr: &CoercedAttr,
-        ty: &AttrType,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<AnonTargetAttr> {
+    pub fn from_coerced_attr(attr: &CoercedAttr, ty: &AttrType) -> anyhow::Result<AnonTargetAttr> {
         Ok(match CoercedAttrWithType::pack(attr, ty)? {
             CoercedAttrWithType::AnyList(list) => AnonTargetAttr::List(ListLiteral(
-                list.try_map(|v| AnonTargetAttr::from_coerced_attr(v, ty, ctx))?
+                list.try_map(|v| AnonTargetAttr::from_coerced_attr(v, ty))?
                     .into(),
             )),
             CoercedAttrWithType::AnyTuple(tuple) => AnonTargetAttr::Tuple(TupleLiteral(
                 tuple
-                    .try_map(|v| AnonTargetAttr::from_coerced_attr(v, ty, ctx))?
+                    .try_map(|v| AnonTargetAttr::from_coerced_attr(v, ty))?
                     .into(),
             )),
             CoercedAttrWithType::AnyDict(dict) => AnonTargetAttr::Dict(DictLiteral(
                 dict.try_map(|(k, v)| {
-                    let k2 = AnonTargetAttr::from_coerced_attr(k, ty, ctx)?;
-                    let v2 = AnonTargetAttr::from_coerced_attr(v, ty, ctx)?;
+                    let k2 = AnonTargetAttr::from_coerced_attr(k, ty)?;
+                    let v2 = AnonTargetAttr::from_coerced_attr(v, ty)?;
                     anyhow::Ok((k2, v2))
                 })?
                 .into(),
@@ -214,7 +209,7 @@ impl AnonTargetAttr {
             CoercedAttrWithType::String(v, _t) => AnonTargetAttr::String(v.dupe()),
             CoercedAttrWithType::EnumVariant(v, _t) => AnonTargetAttr::EnumVariant(v.dupe()),
             CoercedAttrWithType::List(list, t) => AnonTargetAttr::List(ListLiteral(
-                list.try_map(|v| AnonTargetAttr::from_coerced_attr(v, &t.inner, ctx))?
+                list.try_map(|v| AnonTargetAttr::from_coerced_attr(v, &t.inner))?
                     .into(),
             )),
             CoercedAttrWithType::Tuple(list, t) => {
@@ -224,25 +219,25 @@ impl AnonTargetAttr {
                 AnonTargetAttr::Tuple(TupleLiteral(
                     list.iter()
                         .zip(&t.xs)
-                        .map(|(v, vt)| AnonTargetAttr::from_coerced_attr(v, vt, ctx))
+                        .map(|(v, vt)| AnonTargetAttr::from_coerced_attr(v, vt))
                         .collect::<anyhow::Result<_>>()?,
                 ))
             }
             CoercedAttrWithType::Dict(dict, t) => AnonTargetAttr::Dict(DictLiteral(
                 dict.try_map(|(k, v)| {
-                    let k2 = AnonTargetAttr::from_coerced_attr(k, &t.key, ctx)?;
-                    let v2 = AnonTargetAttr::from_coerced_attr(v, &t.value, ctx)?;
+                    let k2 = AnonTargetAttr::from_coerced_attr(k, &t.key)?;
+                    let v2 = AnonTargetAttr::from_coerced_attr(v, &t.value)?;
                     anyhow::Ok((k2, v2))
                 })?
                 .into(),
             )),
             CoercedAttrWithType::None => AnonTargetAttr::None,
             CoercedAttrWithType::Some(attr, t) => {
-                AnonTargetAttr::from_coerced_attr(attr, &t.inner, ctx)?
+                AnonTargetAttr::from_coerced_attr(attr, &t.inner)?
             }
             CoercedAttrWithType::OneOf(l, i, t) => {
                 let item_ty = &t.xs[i as usize];
-                let configured = AnonTargetAttr::from_coerced_attr(l, item_ty, ctx)?;
+                let configured = AnonTargetAttr::from_coerced_attr(l, item_ty)?;
                 AnonTargetAttr::OneOf(Box::new(configured), i)
             }
             _ => {
