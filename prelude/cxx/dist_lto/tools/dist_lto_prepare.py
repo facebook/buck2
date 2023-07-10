@@ -88,13 +88,25 @@ def main(argv: List[str]) -> int:
         ).decode()
         member_list = [member for member in output.split("\n") if member]
 
-        if len(set(member_list)) != len(member_list):
-            # duplication detected
-            counter = {}
+        # no duplicated filename
+        output = subprocess.check_output(
+            [ar_path, "xv", archive_path], cwd=objects_path
+        ).decode()
+        for line in output.splitlines():
+            assert line.startswith("x - ")
+            obj = line[4:]
+            known_objects.append(_gen_path(objects_path, obj))
 
-            for member in member_list:
-                current = counter.get(member, 0) + 1
-                counter[member] = current
+        # Count all members of the same name.
+        counter = {}
+        for member in member_list:
+            counter.setdefault(member, 0)
+            counter[member] += 1
+
+        for member, count in counter.items():
+            if count <= 1:
+                continue
+            for current in range(1, count + 1):
                 if current == 1:
                     # just extract the file
                     output = subprocess.check_output(
@@ -102,7 +114,7 @@ def main(argv: List[str]) -> int:
                         cwd=objects_path,
                     ).decode()
                     assert not output
-                    known_objects.append(_gen_path(objects_path, member))
+                    # We've already added this above.
                 else:
                     # llvm doesn't allow --output so we need this clumsiness
                     tmp_filename = "tmp"
@@ -129,15 +141,6 @@ def main(argv: List[str]) -> int:
                     ).decode()
                     assert not output
                     known_objects.append(_gen_path(objects_path, current_file))
-        else:
-            # no duplicated filename
-            output = subprocess.check_output(
-                [ar_path, "xv", archive_path], cwd=objects_path
-            ).decode()
-            for line in output.splitlines():
-                assert line.startswith("x - ")
-                obj = line[4:]
-                known_objects.append(_gen_path(objects_path, obj))
 
     elif file_type == ArchiveKind.THIN_ARCHIVE:
         output = subprocess.check_output([args.ar, "t", args.archive]).decode()
