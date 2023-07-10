@@ -325,8 +325,16 @@ def clippy(package_args: List[str], fix: bool) -> None:
     rustc_default_warnings = _get_default_rustc_warnings()
 
     clippy_fix_args = ["--fix"] if fix else []
-    clippy_deny_args = [f"--deny={c}" for c in [*CLIPPY_DENY, *rustc_default_warnings]]
-    clippy_allow_args = [f"--allow={c}" for c in [*CLIPPY_ALLOW, *CLIPPY_AUTOFIX]]
+
+    clippy_deny_lints = [*CLIPPY_DENY, *rustc_default_warnings]
+    clippy_allow_lints = CLIPPY_ALLOW
+    if fix:
+        clippy_deny_lints.extend(CLIPPY_AUTOFIX)
+    else:
+        clippy_allow_lints.extend(CLIPPY_AUTOFIX)
+
+    clippy_deny_args = [f"--deny={c}" for c in clippy_deny_lints]
+    clippy_allow_args = [f"--allow={c}" for c in clippy_allow_lints]
 
     run(
         [
