@@ -364,8 +364,13 @@ impl DaemonState {
         )
         .await?;
 
-        let allow_vpnless = root_config
-            .parse("buck2", "allow_vpnless")?
+        let allow_vpnless = init_ctx
+            .daemon_startup_config
+            .allow_vpnless
+            .as_deref()
+            .map(|v| v.parse())
+            .transpose()
+            .context("Invalid allow_vpnless value")?
             .unwrap_or(false);
         let http_client = http_client(allow_vpnless)?;
 
