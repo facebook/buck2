@@ -216,10 +216,8 @@ CLIPPY_ALLOW = [
     "clippy::unnecessary-wraps",  # Sometimes unnecessary wraps provide the right API
     "clippy::wrong_self_convention",  # These rules are useless pedantry
     "clippy::bool-assert-comparison",  # from rust version 1.53.0
-    "clippy::non-send-fields-in-send-ty",  # This got unlanded in 1.58.1 (https://github.com/rust-lang/rust-clippy/issues/8045)
     "clippy::unwrap-or-else-default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::enum-variant-names",  # Sometimes you do want the same prefixes
-    "clippy::uninlined_format_args",  # From Rust 1.67.0 (made pedantic in 1.67.1 https://github.com/rust-lang/rust-clippy/pull/10265)
     "clippy::needless_update",  # Our RE structs have slightly different definitions in internal and OSS.
     "clippy::almost-swapped",  # Triggered by Clap v3, perhaps remove when we move to v4
 ]
