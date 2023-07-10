@@ -16,7 +16,6 @@ use std::ops::FromResidual;
 use std::process::Command;
 
 use anyhow::Context;
-use buck2_cli_proto::command_result;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -120,20 +119,6 @@ impl ExitResult {
             variant: ExitResultVariant::Err(err),
             stdout: Vec::new(),
         }
-    }
-
-    pub fn infer(result: &command_result::Result) -> Self {
-        let exit_code = match result {
-            command_result::Result::BuildResponse(response) => {
-                if response.error_messages.is_empty() {
-                    0
-                } else {
-                    1
-                }
-            }
-            _ => 0,
-        };
-        Self::status(exit_code)
     }
 
     /// Return this ExitStatus or call a function to produce a new one.
