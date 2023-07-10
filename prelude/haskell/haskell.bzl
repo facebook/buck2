@@ -101,6 +101,7 @@ HaskellToolchainInfo = provider(fields = [
     "ghci_cpp_path",
     "ghci_packager",
     "cache_links",
+    "script_template_processor",
 ])
 
 # A list of `HaskellLibraryInfo`s.
@@ -151,6 +152,7 @@ HaskellLibraryInfo = record(
     # e.g. filepath-1.4.2.1, deepseq-1.4.4.0.
     # Internal packages default to 1.0.0, e.g. `fbcode-dsi-logger-hs-types-1.0.0`.
     version = str,
+    is_prebuilt = bool,
 )
 
 # --
@@ -252,6 +254,7 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
             id = ctx.attrs.id,
             libs = libs,
             version = ctx.attrs.version,
+            is_prebuilt = True,
         )
 
         def archive_linkable(lib):
@@ -359,6 +362,7 @@ def get_packages_info(
 
     # base is special and gets exposed by default
     exposed_package_args = cmd_args(["-expose-package", "base"])
+
     packagedb_args = cmd_args()
 
     for lib in libs.values():
@@ -718,6 +722,7 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
             stub_dirs = [compiled.stubs],
             libs = libs,
             version = "1.0.0",
+            is_prebuilt = False,
         )
         hlib_infos[link_style] = hlib
         hlink_infos[link_style] = [hlib]

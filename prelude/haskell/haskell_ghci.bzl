@@ -6,7 +6,16 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//haskell:haskell.bzl", "HaskellLibraryProvider", "HaskellToolchainInfo")
+load(
+    "@prelude//haskell:haskell.bzl",
+    "HaskellLibraryProvider",
+    "HaskellToolchainInfo",
+    "get_packages_info",
+)
+load(
+    "@prelude//linking:link_info.bzl",
+    "LinkStyle",
+)
 load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableRootInfo",
@@ -22,6 +31,65 @@ GHCiPreloadDepsInfo = record(
     preload_symlinks = {str: "artifact"},
     preload_deps_root = "artifact",
 )
+
+USER_GHCI_PATH = "user_ghci_path"
+BINUTILS_PATH = "binutils_path"
+GHCI_LIB_PATH = "ghci_lib_path"
+CC_PATH = "cc_path"
+CPP_PATH = "cpp_path"
+CXX_PATH = "cxx_path"
+
+def _replace_macros_in_script_template(
+        ctx: "context",
+        script_template: "artifact",
+        ghci_bin: "artifact",
+        exposed_package_args: "cmd_args",
+        packagedb_args: "cmd_args",
+        prebuilt_packagedb_args: "cmd_args",
+        haskell_toolchain: HaskellToolchainInfo.type) -> "artifact":
+    toolchain_paths = {
+        BINUTILS_PATH: haskell_toolchain.ghci_binutils_path,
+        GHCI_LIB_PATH: haskell_toolchain.ghci_lib_path,
+        CC_PATH: haskell_toolchain.ghci_cc_path,
+        CPP_PATH: haskell_toolchain.ghci_cpp_path,
+        CXX_PATH: haskell_toolchain.ghci_cxx_path,
+    }
+
+    toolchain_paths[USER_GHCI_PATH] = ghci_bin.short_path
+
+    final_script = ctx.actions.declare_output(script_template.basename)
+    script_template_processor = haskell_toolchain.script_template_processor[RunInfo]
+
+    replace_cmd = cmd_args(script_template_processor)
+    replace_cmd.add(cmd_args(script_template, format = "--script-template={}"))
+    for name, path in toolchain_paths.items():
+        replace_cmd.add(cmd_args("--{}={}".format(name, path)))
+
+    replace_cmd.add(cmd_args(
+        cmd_args(exposed_package_args, delimiter = " "),
+        format = "--exposed_packages={}",
+    ))
+    replace_cmd.add(cmd_args(
+        packagedb_args,
+        format = "--package_dbs={}",
+    ))
+    replace_cmd.add(cmd_args(
+        prebuilt_packagedb_args,
+        format = "--prebuilt_package_dbs={}",
+    ))
+    replace_cmd.add(cmd_args(
+        final_script.as_output(),
+        format = "--output={}",
+    ))
+
+    ctx.actions.run(
+        replace_cmd,
+        category = "replace_template_{}".format(
+            script_template.basename.replace("-", "_"),
+        ),
+    )
+
+    return final_script
 
 def _write_iserv_script(
         ctx: "context",
@@ -200,12 +268,73 @@ def haskell_ghci_impl(ctx: "context") -> ["provider"]:
 
     iserv_script = _write_iserv_script(ctx, preload_deps_info, haskell_toolchain)
 
+    link_style = LinkStyle("static_pic")
+
+    packages_info = get_packages_info(
+        ctx,
+        link_style,
+        specify_pkg_version = True,
+    )
+
+    # Create package db symlinks
+    package_symlinks = []
+
+    package_symlinks_root = ctx.label.name + ".packages"
+
+    packagedb_args = cmd_args(delimiter = " ")
+    prebuilt_packagedb_args = cmd_args(delimiter = " ")
+
+    for lib in packages_info.transitive_deps:
+        if lib.is_prebuilt:
+            prebuilt_packagedb_args.add(lib.db)
+        else:
+            lib_symlinks_root = paths.join(
+                package_symlinks_root,
+                lib.name,
+            )
+            lib_symlinks = {
+                ("hi-" + link_style.value): lib.import_dirs[0],
+                "packagedb": lib.db,
+            }
+            for o in lib.libs:
+                lib_symlinks[o.short_path] = o
+
+            symlinked_things = ctx.actions.symlinked_dir(
+                lib_symlinks_root,
+                lib_symlinks,
+            )
+
+            package_symlinks.append(symlinked_things)
+
+            packagedb_args.add(
+                paths.join(
+                    "${DIR}",
+                    lib_symlinks_root,
+                    "packagedb",
+                ),
+            )
+
+    script_templates = []
+    for script_template in ctx.attrs.extra_script_templates:
+        final_script = _replace_macros_in_script_template(
+            ctx,
+            script_template,
+            ghci_bin,
+            packages_info.exposed_package_args,
+            packagedb_args,
+            prebuilt_packagedb_args,
+            haskell_toolchain,
+        )
+        script_templates.append(final_script)
+
     outputs = [
         start_ghci_file,
         ghci_bin,
         preload_deps_info.preload_deps_root,
         iserv_script,
     ]
+    outputs.extend(package_symlinks)
+    outputs.extend(script_templates)
 
     return [
         DefaultInfo(default_outputs = outputs),
