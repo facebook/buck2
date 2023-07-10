@@ -307,6 +307,7 @@ impl InterpreterForCell {
         super_package: SuperPackage,
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
+        check_within_view: bool,
     ) -> anyhow::Result<(Module, ModuleInternals)> {
         let internals = self.global_state.configuror.new_extra_context(
             self.get_cell_config(build_file.build_file_cell()),
@@ -316,6 +317,7 @@ impl InterpreterForCell {
             package_boundary_exception,
             loaded_modules,
             self.package_import(build_file),
+            check_within_view,
         )?;
         let env = self.create_env(StarlarkPath::BuildFile(build_file), loaded_modules)?;
 
@@ -609,12 +611,17 @@ impl InterpreterForCell {
         loaded_modules: LoadedModules,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
     ) -> anyhow::Result<EvaluationResult> {
+        // TODO(nga): fix and inline as true.
+        let check_within_view = root_buckconfig
+            .parse("buck2", "check_within_view")?
+            .unwrap_or(true);
         let (env, internals) = self.create_build_env(
             build_file,
             &listing,
             super_package,
             package_boundary_exception,
             &loaded_modules,
+            check_within_view,
         )?;
         let internals = self
             .eval(

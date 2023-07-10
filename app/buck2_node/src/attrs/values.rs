@@ -30,7 +30,7 @@ impl AttrValues {
         self.sorted.get(index).map(|(id, v)| (*id, v))
     }
 
-    pub(crate) fn get(&self, id: AttributeId) -> Option<&CoercedAttr> {
+    pub fn get(&self, id: AttributeId) -> Option<&CoercedAttr> {
         // Could use binary search here, but for small attr map like 20
         // linear search is faster.
         for (next_id, next_value) in self {

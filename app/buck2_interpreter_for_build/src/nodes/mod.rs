@@ -8,4 +8,5 @@
  */
 
 pub mod attr_spec;
+pub(crate) mod check_within_view;
 pub mod unconfigured;

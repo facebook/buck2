@@ -14,6 +14,7 @@ use buck2_core::target::name::TargetName;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::attr_is_configurable;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
@@ -30,6 +31,13 @@ use starlark::values::Value;
 
 use crate::attrs::AttributeCoerceExt;
 use crate::interpreter::module_internals::ModuleInternals;
+use crate::nodes::check_within_view::check_within_view;
+
+#[derive(Debug, thiserror::Error)]
+enum AttributeSpecError {
+    #[error("`within_view` coerced incorrectly (internal error)")]
+    WithinViewCoercedIncorrectly,
+}
 
 pub trait AttributeSpecExt {
     fn parse_params<'v>(
@@ -135,6 +143,33 @@ impl AttributeSpecExt for AttributeSpec {
         }
 
         attr_values.shrink_to_fit();
+
+        if internals.check_within_view {
+            // For now `within_view` is always set, but let's make code more robust.
+            if let Some(within_view) = attr_values.get(AttributeSpec::within_view_attr_id()) {
+                let within_view = match within_view {
+                    CoercedAttr::WithinView(within_view) => within_view,
+                    _ => return Err(AttributeSpecError::WithinViewCoercedIncorrectly.into()),
+                };
+                for a in self.attrs(&attr_values, AttrInspectOptions::DefinedOnly) {
+                    check_within_view(
+                        a.value,
+                        internals.buildfile_path().package(),
+                        a.attr.coercer(),
+                        within_view,
+                    )
+                    .with_context(|| {
+                        format!(
+                            "checking `within_view` for attribute `{}` of `{}:{}`",
+                            a.name,
+                            internals.buildfile_path().package(),
+                            name
+                        )
+                    })?;
+                }
+            }
+        }
+
         Ok((name, attr_values))
     }
 
