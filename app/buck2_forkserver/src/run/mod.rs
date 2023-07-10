@@ -528,7 +528,7 @@ mod tests {
             .open(&bin)
             .await?;
 
-        file.write_all(b"#!/bin/bash\ntrue\n").await?;
+        file.write_all(b"#!/usr/bin/env bash\ntrue\n").await?;
 
         let cmd = async_background_command(&bin);
         let mut child = spawn_retry_txt_busy(cmd, {
