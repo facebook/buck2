@@ -164,7 +164,6 @@ impl EscapeCurlyBrace {
     }
 
     /// Get back the escaped form for this.
-    #[allow(unused)]
     pub(crate) fn back_to_escape(&self) -> &'static str {
         match self {
             Self::Open => "{{",

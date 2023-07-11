@@ -143,6 +143,10 @@ impl ArgsCompiledValue {
         self.map_exprs(|e| Ok(e.optimize(ctx)))
             .unwrap_or_else(|e: Never| match e {})
     }
+
+    pub(crate) fn push_pos(&mut self, expr: IrSpanned<ExprCompiled>) {
+        self.pos_named.push(expr)
+    }
 }
 
 impl Compiler<'_, '_, '_> {

@@ -50,6 +50,10 @@ string: AstString = <l:@L> <e:"STRING"> <r:@R>
     => e.ast(l, r);
 
 #[inline]
+fstring: AstFString = <l:@L> <e:"FSTRING"> <r:@R>
+    => grammar_util::fstring(e, l, r, state);
+
+#[inline]
 identifier: AstString = <l:@L> <e:"IDENTIFIER"> <r:@R>
     => e.ast(l, r);
 
@@ -268,7 +272,9 @@ Operand: AstExpr = {
         => match e {
             Some(t) => t,
             None => Expr::Tuple(vec![]).ast(l, r)
-        }
+        },
+    <l:@L> <f:fstring> <r:@R>
+        => Expr::FString(f).ast(l, r),
 };
 
 DictEntry: (AstExpr, AstExpr) = <Test> ":" <Test> => (<>);
@@ -478,6 +484,7 @@ extern {
       "IDENTIFIER" => lexer::Token::Identifier(<String>),
       "INTEGER" => lexer::Token::Int(<lexer::TokenInt>),
       "FLOAT" => lexer::Token::Float(<f64>),
-      "STRING" => lexer::Token::String(<String>)
+      "STRING" => lexer::Token::String(<String>),
+      "FSTRING" => lexer::Token::FString(<String>),
     }
 }

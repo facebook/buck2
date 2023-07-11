@@ -368,6 +368,11 @@ impl<P: AstPayload> ExprP<P> {
                 f(&x.0);
                 f(&x.1);
             }
+            ExprP::FString(fstring) => {
+                for expr in &fstring.expressions {
+                    f(expr);
+                }
+            }
         }
     }
 
@@ -461,6 +466,11 @@ impl<P: AstPayload> ExprP<P> {
                 y.iter_mut().for_each(|x| x.visit_expr_mut(|x| f(x)));
                 f(&mut x.0);
                 f(&mut x.1);
+            }
+            ExprP::FString(fstring) => {
+                for expr in &mut fstring.expressions {
+                    f(expr);
+                }
             }
         }
     }

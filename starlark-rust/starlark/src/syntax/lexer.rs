@@ -867,7 +867,6 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
-#[allow(unused)]
 pub(crate) fn lex_exactly_one_identifier(s: &str) -> Option<String> {
     let mut lexer = Token::lexer(s);
     match (lexer.next(), lexer.next()) {

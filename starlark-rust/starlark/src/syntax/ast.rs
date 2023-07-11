@@ -74,6 +74,7 @@ pub(crate) type AstIdentP<P> = Spanned<IdentP<P>>;
 pub(crate) type AstArgumentP<P> = Spanned<ArgumentP<P>>;
 pub(crate) type AstParameterP<P> = Spanned<ParameterP<P>>;
 pub(crate) type AstStmtP<P> = Spanned<StmtP<P>>;
+pub(crate) type AstFStringP<P> = Spanned<FStringP<P>>;
 
 pub(crate) type AstExpr = AstExprP<AstNoPayload>;
 pub(crate) type AstTypeExpr = AstTypeExprP<AstNoPayload>;
@@ -85,6 +86,7 @@ pub(crate) type AstString = Spanned<String>;
 pub(crate) type AstParameter = AstParameterP<AstNoPayload>;
 pub(crate) type AstInt = Spanned<TokenInt>;
 pub(crate) type AstFloat = Spanned<f64>;
+pub(crate) type AstFString = AstFStringP<AstNoPayload>;
 pub(crate) type AstStmt = AstStmtP<AstNoPayload>;
 
 // A trait rather than a function to allow .ast() chaining in the parser.
@@ -189,6 +191,7 @@ pub(crate) enum ExprP<P: AstPayload> {
         Box<ForClauseP<P>>,
         Vec<ClauseP<P>>,
     ),
+    FString(AstFStringP<P>),
 }
 
 /// Restricted expression at type position.
@@ -307,6 +310,14 @@ impl<P: AstPayload> DefP<P> {
         }
         span
     }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct FStringP<P: AstPayload> {
+    /// A format string containing a `{}` marker for each expression to interpolate.
+    pub(crate) format: AstString,
+    /// The expressions to interpolate.
+    pub(crate) expressions: Vec<AstExprP<P>>,
 }
 
 #[derive(Debug)]
@@ -529,6 +540,12 @@ impl Display for Expr {
                 f.write_str("}}")
             }
             Expr::Literal(x) => write!(f, "{}", x),
+            Expr::FString(x) => {
+                // Write out the desugared form.
+                write!(f, "{}.format(", x.format.node)?;
+                comma_separated_fmt(f, &x.expressions, |x, f| write!(f, "{}", x.node), false)?;
+                f.write_str(")")
+            }
         }
     }
 }

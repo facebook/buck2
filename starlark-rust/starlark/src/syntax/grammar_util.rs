@@ -20,6 +20,8 @@
 use std::collections::HashSet;
 
 use crate::codemap::CodeMap;
+use crate::codemap::Pos;
+use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::EvalException;
 use crate::slice_vec_ext::VecExt;
@@ -30,18 +32,25 @@ use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AstAssign;
 use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstExpr;
+use crate::syntax::ast::AstFString;
 use crate::syntax::ast::AstParameter;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstString;
 use crate::syntax::ast::AstTypeExpr;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
+use crate::syntax::ast::ExprP;
+use crate::syntax::ast::FStringP;
+use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::Parameter;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
 use crate::syntax::ast::ToAst;
+use crate::syntax::lexer::lex_exactly_one_identifier;
 use crate::syntax::state::ParserState;
+use crate::values::types::string::dot_format::FormatParser;
+use crate::values::types::string::dot_format::FormatToken;
 
 #[derive(Debug, thiserror::Error)]
 enum GrammarUtilError {
@@ -229,4 +238,79 @@ pub(crate) fn check_def(
         body: Box::new(stmts),
         payload: (),
     })
+}
+
+#[derive(thiserror::Error, Debug)]
+enum FStringError {
+    #[error("Not a valid identifier: `{}`", .capture)]
+    InvalidIdentifier { capture: String },
+
+    #[error("Invalid format")]
+    InvalidFormat {
+        #[source]
+        source: anyhow::Error,
+    },
+}
+
+pub(crate) fn fstring(
+    string: String,
+    begin: usize,
+    end: usize,
+    parser_state: &mut ParserState,
+) -> AstFString {
+    // TODO: Handle f-strings being disabled by the dialect.
+
+    let mut format = String::with_capacity(string.len());
+    let mut expressions = Vec::new();
+
+    let mut parser = FormatParser::new(&string);
+    while let Some(res) = parser.next().transpose() {
+        match res {
+            Ok(FormatToken::Text(text)) => format.push_str(text),
+            Ok(FormatToken::Escape(e)) => {
+                // We are producing a format string here so we need to escape this back!
+                format.push_str(e.back_to_escape())
+            }
+            Ok(FormatToken::Capture { capture, pos }) => {
+                let capture_begin = begin + pos;
+                let capture_end = capture_begin + capture.len();
+
+                let ident = match lex_exactly_one_identifier(capture) {
+                    Some(ident) => ident,
+                    None => {
+                        parser_state.error(
+                            Span::new(Pos::new(capture_begin as _), Pos::new(capture_end as _)),
+                            FStringError::InvalidIdentifier {
+                                capture: capture.to_owned(),
+                            },
+                        );
+                        // Might as well keep going here. This doesn't compromise the parsing of
+                        // the rest of the format string.
+                        continue;
+                    }
+                };
+
+                let expr = ExprP::Identifier(IdentP(ident, ()).ast(capture_begin, capture_end))
+                    .ast(capture_begin, capture_end);
+                expressions.push(expr);
+                format.push_str("{}"); // Positional format.
+            }
+            Err(source) => {
+                // TODO: Reporting the exact position of the error would be better.
+                parser_state.error(
+                    Span::new(Pos::new(begin as _), Pos::new(end as _)),
+                    FStringError::InvalidFormat { source },
+                );
+                break;
+            }
+        }
+    }
+
+    format.shrink_to_fit();
+
+    FStringP {
+        format: format.ast(begin, end),
+        expressions,
+    }
+    .ast(begin, end)
 }

@@ -55,6 +55,7 @@ use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::BinOp;
 use crate::syntax::ast::ExprP;
+use crate::syntax::ast::FStringP;
 use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::StmtP;
 use crate::values::function::BoundMethodGen;
@@ -1375,6 +1376,37 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
             ExprP::Literal(x) => {
                 let val = x.compile(self.eval.module_env.frozen_heap());
                 ExprCompiled::Value(val)
+            }
+            ExprP::FString(fstring) => {
+                let Spanned {
+                    node:
+                        FStringP {
+                            format,
+                            expressions,
+                        },
+                    span: fstring_span,
+                } = fstring;
+
+                let fstring_span = FrameSpan::new(FrozenFileSpan::new(self.codemap, *fstring_span));
+
+                // Desugar f"foo{x}bar{y}" to "foo{}bar{}.format(x, y)"
+                let heap = self.eval.module_env.frozen_heap();
+
+                let format = IrSpanned {
+                    node: ExprCompiled::Value(heap.alloc(format.node.as_str())),
+                    span: fstring_span,
+                };
+                let method = IrSpanned {
+                    node: ExprCompiled::dot(format, &Symbol::new("format"), &mut self.opt_ctx()),
+                    span: fstring_span,
+                };
+
+                let mut args = ArgsCompiledValue::default();
+                for expr in expressions {
+                    args.push_pos(self.expr(expr));
+                }
+
+                CallCompiled::call(span, method, args, &mut self.opt_ctx())
             }
         };
         IrSpanned { node: expr, span }

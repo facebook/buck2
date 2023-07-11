@@ -59,3 +59,8 @@ fn test_spec_exec_list() {
 fn test_call_maybe_known_method() {
     bc_golden_test("expr_call_maybe_known_method", "def test(x): x.append(1)");
 }
+
+#[test]
+fn test_fstring() {
+    bc_golden_test("expr_fstring", "def test(x): return f'test: {x}'");
+}

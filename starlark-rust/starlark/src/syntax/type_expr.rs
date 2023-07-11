@@ -199,6 +199,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             }
             ExprP::ListComprehension(..) => err("list comprehension"),
             ExprP::DictComprehension(..) => err("dict comprehension"),
+            ExprP::FString(..) => err("f-string"),
         }
     }
 }

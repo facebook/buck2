@@ -26,6 +26,7 @@ use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
+use crate::syntax::ast::FStringP;
 use crate::syntax::ast::ForClauseP;
 use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LambdaP;
@@ -205,6 +206,7 @@ impl<A: AstPayload> ExprP<A> {
                     cs.into_map(|c| c.into_map_payload(f)),
                 )
             }
+            ExprP::FString(fstring) => ExprP::FString(fstring.into_map_payload(f)),
         }
     }
 }
@@ -330,6 +332,23 @@ impl<A: AstPayload> ForClauseP<A> {
     }
 }
 
+impl<A: AstPayload> FStringP<A> {
+    pub(crate) fn into_map_payload<B: AstPayload>(
+        self,
+        f: &mut impl AstPayloadFunction<A, B>,
+    ) -> FStringP<B> {
+        let Self {
+            format,
+            expressions,
+        } = self;
+
+        FStringP {
+            format,
+            expressions: expressions.into_map(|id| id.into_map_payload(f)),
+        }
+    }
+}
+
 macro_rules! ast_payload_map_stub {
     ($ast_type:ident) => {
         impl<A: AstPayload> Spanned<$ast_type<A>> {
@@ -355,3 +374,4 @@ ast_payload_map_stub!(IdentP);
 ast_payload_map_stub!(ParameterP);
 ast_payload_map_stub!(ArgumentP);
 ast_payload_map_stub!(StmtP);
+ast_payload_map_stub!(FStringP);

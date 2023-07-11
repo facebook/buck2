@@ -521,6 +521,7 @@ impl TypingContext<'_> {
                 self.check_comprehension(b, c);
                 Ty::dict(self.expression_type(&k_v.0), self.expression_type(&k_v.1))
             }
+            ExprP::FString(_) => Ty::string(),
         }
     }
 }
