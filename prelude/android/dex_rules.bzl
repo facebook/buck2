@@ -90,7 +90,7 @@ def get_single_primary_dex(
         ctx: "context",
         android_toolchain: "AndroidToolchainInfo",
         java_library_jars: ["artifact"],
-        is_optimized: bool) -> "DexFilesInfo":
+        is_optimized: bool = False) -> "DexFilesInfo":
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
         "It doesn't make sense to enable secondary dex exopackage for single dex builds!",
@@ -124,9 +124,9 @@ def get_multi_dex(
         android_toolchain: "AndroidToolchainInfo",
         java_library_jars_to_owners: {"artifact": "target_label"},
         primary_dex_patterns: [str],
-        proguard_configuration_output_file: ["artifact", None],
-        proguard_mapping_output_file: ["artifact", None],
-        is_optimized: bool,
+        proguard_configuration_output_file: ["artifact", None] = None,
+        proguard_mapping_output_file: ["artifact", None] = None,
+        is_optimized: bool = False,
         apk_module_graph_file: ["artifact", None] = None) -> "DexFilesInfo":
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
@@ -160,7 +160,7 @@ def get_multi_dex(
             secondary_dex_compression_cmd.add("--raw-secondary-dexes-dir", uncompressed_secondary_dex_output_dir)
             if is_root_module(module):
                 primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns", primary_dex_patterns)
-                if ctx.attrs.minimize_primary_dex_size:
+                if getattr(ctx.attrs, "minimize_primary_dex_size", False):
                     primary_dex_jars, jars_to_dex = _get_primary_dex_and_secondary_dex_jars(
                         ctx,
                         jars,
@@ -210,7 +210,7 @@ def get_multi_dex(
             ctx.actions.run(multi_dex_cmd, category = "multi_dex", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
 
             secondary_dex_compression_cmd.add("--compression", _get_dex_compression(ctx))
-            secondary_dex_compression_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
+            secondary_dex_compression_cmd.add("--xz-compression-level", str(getattr(ctx.attrs, "xz_compression_level", 4)))
 
             ctx.actions.run(secondary_dex_compression_cmd, category = "secondary_dex_compression", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
 
