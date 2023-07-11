@@ -36,8 +36,8 @@ pub(crate) fn parse_format_one(s: &str) -> Option<(String, String)> {
     loop {
         match parser.next().ok()?? {
             FormatToken::Text(text) => before.push_str(text),
-            FormatToken::Capture("") => break,
-            FormatToken::Capture(_) => return None,
+            FormatToken::Capture { capture: "", .. } => break,
+            FormatToken::Capture { .. } => return None,
         }
     }
 
@@ -45,7 +45,7 @@ pub(crate) fn parse_format_one(s: &str) -> Option<(String, String)> {
     loop {
         match parser.next().ok()? {
             Some(FormatToken::Text(text)) => after.push_str(text),
-            Some(FormatToken::Capture(_)) => return None,
+            Some(FormatToken::Capture { .. }) => return None,
             None => break,
         }
     }
@@ -136,8 +136,12 @@ pub(crate) struct FormatParser<'a> {
 pub(crate) enum FormatToken<'a> {
     /// Text to copy verbatim to the output.
     Text(&'a str),
-    /// Format part inside curly braces.
-    Capture(&'a str),
+    Capture {
+        /// Format part inside curly braces.
+        capture: &'a str,
+        /// The position of this capture. This does not include the curly braces.
+        pos: usize,
+    },
 }
 
 impl<'a> FormatParser<'a> {
@@ -167,8 +171,12 @@ impl<'a> FormatParser<'a> {
                     while i < self.view.len() {
                         match self.view.as_bytes()[i] {
                             b'}' => {
-                                let capture = self.view.eat(i + 1);
-                                return Ok(Some(FormatToken::Capture(&capture[1..i])));
+                                let pos = self.view.pos();
+                                let capture = self.view.eat(i + 1); // Grab the closing brace.
+                                return Ok(Some(FormatToken::Capture {
+                                    capture: &capture[1..i],
+                                    pos: pos + 1,
+                                }));
                             }
                             b'{' => {
                                 break;
@@ -225,7 +233,11 @@ impl<'a> StringView<'a> {
         ret
     }
 
-    /// Get the remaining string.
+    fn pos(&self) -> usize {
+        self.i
+    }
+
+    /// Get the current string.
     fn rem(&self) -> &'a str {
         &self.s[self.i..]
     }
@@ -257,7 +269,7 @@ pub(crate) fn format<'v>(
     while let Some(token) = parser.next()? {
         match token {
             FormatToken::Text(text) => result.push_str(text),
-            FormatToken::Capture(capture) => {
+            FormatToken::Capture { capture, .. } => {
                 format_capture(capture, &mut args, &kwargs, &mut result)?
             }
         }
@@ -332,6 +344,8 @@ mod tests {
     use crate::values::dict::Dict;
     use crate::values::string::dot_format::parse_format_one;
     use crate::values::string::dot_format::FormatArgs;
+    use crate::values::string::dot_format::FormatParser;
+    use crate::values::string::dot_format::FormatToken;
     use crate::values::Heap;
     use crate::values::Value;
 
@@ -403,5 +417,29 @@ mod tests {
         assert_eq!(None, parse_format_one("a{"));
         assert_eq!(None, parse_format_one("a{}{}"));
         assert_eq!(None, parse_format_one("{x}"));
+    }
+
+    #[test]
+    fn test_parser_position() {
+        let s = "foo{x}bar{yz}baz";
+        let mut parser = FormatParser::new(s);
+        assert_eq!(parser.next().unwrap(), Some(FormatToken::Text("foo")));
+        assert_eq!(
+            parser.next().unwrap(),
+            Some(FormatToken::Capture {
+                capture: "x",
+                pos: 4,
+            })
+        );
+        assert_eq!(parser.next().unwrap(), Some(FormatToken::Text("bar")));
+        assert_eq!(
+            parser.next().unwrap(),
+            Some(FormatToken::Capture {
+                capture: "yz",
+                pos: 10,
+            })
+        );
+        assert_eq!(parser.next().unwrap(), Some(FormatToken::Text("baz")));
+        assert_eq!(parser.next().unwrap(), None);
     }
 }
