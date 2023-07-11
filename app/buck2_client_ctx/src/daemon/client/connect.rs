@@ -465,6 +465,18 @@ impl BootstrapBuckdClient {
         buck2_core::fs::fs_util::create_dir_all(&daemon_dir.path)
             .with_context(|| format!("Error creating daemon dir: {}", daemon_dir))?;
 
+        let delete_commad = if cfg!(windows) {
+            "rmdir /s /q %USERPROFILE%\\.buck\\buckd"
+        } else {
+            "rm -rf ~/.buck/buckd"
+        };
+        let error_message = format!(
+            "Failed to connect to buck daemon.
+        Try running `buck2 clean` and your command afterwards.
+        Alternatively, try running `{}` and your command afterwards",
+            delete_commad
+        );
+
         match constraints {
             BuckdConnectConstraints::ExistingOnly => {
                 establish_connection_existing(&daemon_dir).await
@@ -474,11 +486,7 @@ impl BootstrapBuckdClient {
             }
         }
         .with_context(|| daemon_connect_error(paths))
-        .context(
-            "Failed to connect to buck daemon. \
-                Try running `buck2 clean` and your command afterwards. \
-                Alternatively, try running `rm -rf ~/.buck/buckd` and your command afterwards",
-        )
+        .context(error_message)
     }
 
     pub fn with_subscribers<'a>(
