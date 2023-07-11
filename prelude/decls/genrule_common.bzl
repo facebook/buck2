@@ -160,7 +160,7 @@ def _bash_arg():
         "bash": attrs.option(attrs.arg(), default = None, doc = """
     A platform-specific version of the shell command parameter `cmd`.
      It runs on Linux and UNIX systems—including OSX—on which `bash` is installed.
-     It has a higher priority than `cmd`. The `bash` argument is run with `/bin/bash -c`.
+     It has a higher priority than `cmd`. The `bash` argument is run with `/usr/bin/env bash -c`.
      It has access to the same set of macros and variables as the `cmd` argument.
 """),
     }

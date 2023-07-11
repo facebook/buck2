@@ -343,7 +343,7 @@ def haskell_ghci_impl(ctx: "context") -> ["provider"]:
 # TODO(gustavoavena): parameterize header to print correct error msg
 # @lint-ignore-every LICENSELINT
 SCRIPT_HEADER = """\
-#!/bin/bash
+#!/usr/bin/env bash
 
 DIR="$(dirname "$(readlink -f "${{BASH_SOURCE[0]}}")")"
 if ! test -d "$DIR"; then

@@ -34,7 +34,7 @@ def cmd_script(
         wrapper, _ = ctx.actions.write(
             ctx.actions.declare_output("{}.sh".format(name)),
             [
-                "#!/bin/bash",
+                "#!/usr/bin/env bash",
                 cmd_args(cmd_args(shell_quoted, delimiter = " \\\n"), format = "{} \"$@\"\n"),
             ],
             is_executable = True,
