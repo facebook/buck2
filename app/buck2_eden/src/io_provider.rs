@@ -175,8 +175,6 @@ impl IoProvider for EdenIoProvider {
                 };
 
                 if source_control_type == SourceControlType::SYMLINK {
-                    // TODO: Ideally we would read *the link we just got*, instead of letting
-                    // read_path_metadata_if_exists do the traversal of the whole path
                     let meta = self
                         .fs
                         .read_unchecked_symlink(path.clone())
