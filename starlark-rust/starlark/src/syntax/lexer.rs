@@ -866,3 +866,26 @@ impl<'a> Iterator for Lexer<'a> {
         self.next()
     }
 }
+
+#[allow(unused)]
+pub(crate) fn lex_exactly_one_identifier(s: &str) -> Option<String> {
+    let mut lexer = Token::lexer(s);
+    match (lexer.next(), lexer.next()) {
+        (Some(Token::Identifier(ident)), None) => Some(ident),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::syntax::lexer::lex_exactly_one_identifier;
+
+    #[test]
+    fn test_is_valid_identifier() {
+        assert_eq!(lex_exactly_one_identifier("foo").as_deref(), Some("foo"));
+        assert_eq!(lex_exactly_one_identifier(" foo ").as_deref(), Some("foo"));
+        assert_eq!(lex_exactly_one_identifier("foo bar"), None);
+        assert_eq!(lex_exactly_one_identifier("not"), None);
+        assert_eq!(lex_exactly_one_identifier("123"), None);
+    }
+}
