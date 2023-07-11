@@ -40,7 +40,7 @@ def erlang_application(
         extra_includes = [],
         labels = [],
         **kwargs):
-    if read_config("erlang", "application_only_dependencies"):
+    if read_root_config("erlang", "application_only_dependencies"):
         kwargs["shell_libs"] = []
         kwargs["resources"] = []
 

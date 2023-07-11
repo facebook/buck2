@@ -73,10 +73,10 @@ def erlang_tests_macro(
 
     # add default apps
 
-    default_deps = read_config("erlang", "erlang_tests_default_apps", None) if use_default_deps else None
-    default_config_files = read_config("erlang", "erlang_tests_default_config", None) if use_default_configs else None
-    trampoline = read_config("erlang", "erlang_tests_trampoline", None) if use_default_configs else None
-    providers = read_config("erlang", "erlang_test_providers", "") if use_default_configs else ""
+    default_deps = read_root_config("erlang", "erlang_tests_default_apps", None) if use_default_deps else None
+    default_config_files = read_root_config("erlang", "erlang_tests_default_config", None) if use_default_configs else None
+    trampoline = read_root_config("erlang", "erlang_tests_trampoline", None) if use_default_configs else None
+    providers = read_root_config("erlang", "erlang_test_providers", "") if use_default_configs else ""
 
     if default_config_files:
         config_files += default_config_files.split()

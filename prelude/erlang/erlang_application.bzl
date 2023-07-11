@@ -344,7 +344,7 @@ def link_output(
 
 def _link_srcs_folder(ctx: "context") -> {"string": "artifact"}:
     """Build mapping for the src folder if erlang.include_src is set"""
-    if not str_to_bool(read_config("erlang", "include_src", "False")):
+    if not str_to_bool(read_root_config("erlang", "include_src", "False")):
         return {}
     srcs = {
         paths.join("src", src_file.basename): src_file

@@ -19,7 +19,7 @@ common_attributes = {
 
 common_shell_attributes = (
     {
-        "shell_configs": attrs.set(attrs.dep(), default = read_config("erlang", "shell_configs", "").split(), doc = """
+        "shell_configs": attrs.set(attrs.dep(), default = read_root_config("erlang", "shell_configs", "").split(), doc = """
             This attribute allows to set config files for the shell. The dependencies that are typically used
             here are `export_file` targets.
         """),
@@ -237,7 +237,7 @@ rules_attributes = {
             "extra_ct_hooks": attrs.list(attrs.string(), default = [], doc = """
                 List of additional Common Test hooks. The strings are interpreted as Erlang terms.
             """),
-            "preamble": attrs.string(default = read_config("erlang", "erlang_test_preamble", "test:info(),test:ensure_initialized(),user_drv:start()."), doc = """
+            "preamble": attrs.string(default = read_root_config("erlang", "erlang_test_preamble", "test:info(),test:ensure_initialized(),user_drv:start()."), doc = """
             """),
             "property_tests": attrs.list(attrs.dep(), default = [], doc = """
             """),
@@ -256,7 +256,7 @@ rules_attributes = {
                 implicit 'erlang_test' target suite_SUITE will be generated.
             """),
             "_cli_lib": attrs.dep(default = "prelude//erlang/common_test/test_cli_lib:test_cli_lib"),
-            "_ct_opts": attrs.string(default = read_config("erlang", "erlang_test_ct_opts", "")),
+            "_ct_opts": attrs.string(default = read_root_config("erlang", "erlang_test_ct_opts", "")),
             "_providers": attrs.string(),
             "_test_binary": attrs.dep(default = "prelude//erlang/common_test/test_binary:escript"),
             "_test_binary_lib": attrs.dep(default = "prelude//erlang/common_test/test_binary:test_binary"),

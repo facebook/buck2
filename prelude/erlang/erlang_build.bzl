@@ -327,7 +327,7 @@ def _generate_chunk_artifacts(
         input_mapping = build_environment.input_mapping,
     )
 
-    preprocess_modules = read_config("erlang", "edoc_preprocess", "").split()
+    preprocess_modules = read_root_config("erlang", "edoc_preprocess", "").split()
     preprocess_all = "__all__" in preprocess_modules
 
     for erl in src_artifacts:
