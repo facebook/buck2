@@ -22,7 +22,6 @@ pub async fn create_io_provider(
     root_config: Option<&LegacyBuckConfig>,
     cas_digest_config: CasDigestConfig,
     trace_io: bool,
-    eden_io_v2: bool,
 ) -> anyhow::Result<Arc<dyn IoProvider>> {
     #[cfg(any(fbcode_build, cargo_internal_build))]
     {
@@ -38,13 +37,9 @@ pub async fn create_io_provider(
             .roll();
 
         if allow_eden_io {
-            if let Some(eden) = buck2_eden::io_provider::EdenIoProvider::new(
-                fb,
-                &project_fs,
-                cas_digest_config,
-                eden_io_v2,
-            )
-            .await?
+            if let Some(eden) =
+                buck2_eden::io_provider::EdenIoProvider::new(fb, &project_fs, cas_digest_config)
+                    .await?
             {
                 return if trace_io {
                     Ok(Arc::new(TracingIoProvider::new(Box::new(eden))))
@@ -55,7 +50,7 @@ pub async fn create_io_provider(
         }
     }
 
-    let _allow_unused = (fb, root_config, eden_io_v2);
+    let _allow_unused = (fb, root_config);
 
     if trace_io {
         Ok(Arc::new(TracingIoProvider::new(Box::new(

@@ -153,9 +153,6 @@ pub struct DaemonStateData {
 
     /// Http client used for materializer and RunAction implementations.
     pub http_client: CountingHttpClient,
-
-    /// Did we enable eden I/O v2?
-    pub eden_io_v2: bool,
 }
 
 impl DaemonStateData {
@@ -326,16 +323,6 @@ impl DaemonState {
             }
         };
 
-        let eden_io_v2 = init_ctx
-            .daemon_startup_config
-            .eden_io_v2
-            .as_deref()
-            .map(RolloutPercentage::from_str)
-            .transpose()
-            .context("Invalid eden_io_v2")?
-            .unwrap_or_else(RolloutPercentage::never)
-            .roll();
-
         let (io, _, (materializer_db, materializer_state)) = futures::future::try_join3(
             create_io_provider(
                 fb,
@@ -343,7 +330,6 @@ impl DaemonState {
                 legacy_configs.get(cells.root_cell()).ok(),
                 digest_config.cas_digest_config(),
                 init_ctx.enable_trace_io,
-                eden_io_v2,
             ),
             (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
                 // Using `execute_io_inline` is just out of convenience.
@@ -483,7 +469,6 @@ impl DaemonState {
             materializer_state_identity,
             enable_restarter,
             http_client,
-            eden_io_v2,
         }))
     }
 
@@ -646,7 +631,6 @@ impl DaemonState {
                 "sqlite-materializer-state:{}",
                 data.disk_state_options.sqlite_materializer_state
             ),
-            format!("eden-io-v2:{}", data.eden_io_v2),
         ];
 
         dispatcher.instant_event(buck2_data::TagEvent { tags });

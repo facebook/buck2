@@ -434,7 +434,6 @@ pub struct DaemonStartupConfig {
     pub daemon_buster: Option<String>,
     pub digest_algorithms: Option<String>,
     pub source_digest_algorithm: Option<String>,
-    pub eden_io_v2: Option<String>,
     pub allow_vpnless: Option<String>,
 }
 
@@ -448,7 +447,6 @@ impl DaemonStartupConfig {
             source_digest_algorithm: config
                 .get("buck2", "source_digest_algorithm")
                 .map(ToOwned::to_owned),
-            eden_io_v2: config.get("buck2", "eden_io_v2").map(ToOwned::to_owned),
             allow_vpnless: config.get("buck2", "allow_vpnless").map(ToOwned::to_owned),
         }
     }
@@ -467,7 +465,6 @@ impl DaemonStartupConfig {
             daemon_buster: None,
             digest_algorithms: None,
             source_digest_algorithm: None,
-            eden_io_v2: None,
             allow_vpnless: None,
         }
     }
