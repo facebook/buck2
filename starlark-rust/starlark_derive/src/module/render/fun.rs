@@ -232,25 +232,36 @@ impl StarFun {
     ) -> syn::Result<TokenStream> {
         let name_str = self.name_str();
         let speculative_exec_safe = self.speculative_exec_safe;
-        let typ = self.type_expr();
-        let ty_custom = self.ty_custom_expr();
         let struct_name = self.struct_name();
         let special_builtin_function = self.special_builtin_function_expr();
 
         if self.is_method() {
+            if self.as_type.is_some() {
+                return Err(syn::Error::new(
+                    self.span(),
+                    "methods cannot have an `as_type` attribute",
+                ));
+            }
+            if self.starlark_ty_custom_function.is_some() {
+                return Err(syn::Error::new(
+                    self.span(),
+                    "methods cannot have a `ty_custom_function` attribute",
+                ));
+            }
             Ok(quote_spanned! {self.span()=>
                 #[allow(clippy::redundant_closure)]
                 globals_builder.set_method(
                     #name_str,
                     #speculative_exec_safe,
                     #documentation_var,
-                    #typ,
                     #struct_name {
                         #struct_fields_init
                     },
                 );
             })
         } else {
+            let typ = self.type_expr();
+            let ty_custom = self.ty_custom_expr();
             Ok(quote_spanned! {self.span()=>
                 #[allow(clippy::redundant_closure)]
                 globals_builder.set_function(

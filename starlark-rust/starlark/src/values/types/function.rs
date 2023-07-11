@@ -339,7 +339,6 @@ pub(crate) struct NativeMethod {
     #[allocative(skip)]
     pub(crate) function: Box<dyn NativeMeth>,
     pub(crate) name: String,
-    pub(crate) typ: Option<FrozenValue>,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]

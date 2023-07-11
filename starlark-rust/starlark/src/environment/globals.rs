@@ -429,7 +429,6 @@ impl MethodsBuilder {
         name: &str,
         speculative_exec_safe: bool,
         raw_docs: NativeCallableRawDocs,
-        typ: Option<FrozenValue>,
         f: F,
     ) where
         F: NativeMeth,
@@ -439,7 +438,6 @@ impl MethodsBuilder {
             FrozenValueNotSpecial::new(self.heap.alloc(NativeMethod {
                 function: Box::new(f),
                 name: name.to_owned(),
-                typ,
                 speculative_exec_safe,
                 raw_docs,
             }))
