@@ -22,10 +22,12 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::collections::StarlarkHasher;
 use starlark::docs::StarlarkDocs;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -267,6 +269,11 @@ fn label_methods(builder: &mut MethodsBuilder) {
     fn raw_target(this: &StarlarkProvidersLabel) -> anyhow::Result<StarlarkTargetLabel> {
         Ok(StarlarkTargetLabel::new((*this.label.target()).dupe()))
     }
+}
+
+#[starlark_module]
+pub fn register_label(globals: &mut GlobalsBuilder) {
+    const Label: StarlarkValueAsType<Label> = StarlarkValueAsType::new();
 }
 
 #[cfg(test)]

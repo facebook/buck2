@@ -10,6 +10,7 @@
 use buck2_interpreter::bxl::BXL_FUNCTIONS;
 use buck2_interpreter::functions::more::MORE_FUNCTIONS;
 use buck2_interpreter::functions::transition::REGISTER_TRANSITION;
+use buck2_interpreter::types::label::register_label;
 use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::attrs_global::register_attrs;
@@ -88,4 +89,5 @@ pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
         .unwrap()
         .register_command_executor_config)(globals_builder);
     register_package_natives(globals_builder);
+    register_label(globals_builder);
 }
