@@ -20,12 +20,17 @@ use std::mem;
 
 use crate::assert::Assert;
 use crate::eval::compiler::def::FrozenDef;
+use crate::syntax::Dialect;
 use crate::tests::golden_test_template::golden_test_template;
 
 fn test_function_bytecode(program: &str) -> String {
     let program = program.trim();
 
     let mut a = Assert::new();
+    a.dialect(&Dialect {
+        enable_f_strings: true,
+        ..Dialect::Extended
+    });
     let def = a
         .module("instrs.star", program)
         .get("test")

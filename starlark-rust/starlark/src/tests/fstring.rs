@@ -16,25 +16,35 @@
  */
 
 mod pass {
-    use crate::assert;
+    use crate::assert::Assert;
+    use crate::syntax::Dialect;
+
+    fn assert() -> Assert<'static> {
+        let mut a = Assert::new();
+        a.dialect(&Dialect {
+            enable_f_strings: true,
+            ..Dialect::Extended
+        });
+        a
+    }
 
     #[test]
     fn basic() {
-        assert::is_true(
+        assert().is_true(
             r#"
 x = "a"
 f"{x}b" == "ab"
 "#,
         );
 
-        assert::is_true(
+        assert().is_true(
             r#"
 x = "a"
 f"{ x }b" == "ab"
 "#,
         );
 
-        assert::is_true(
+        assert().is_true(
             r#"
 x = "a"
 f"{x}b{x}" == "aba"
@@ -44,7 +54,7 @@ f"{x}b{x}" == "aba"
 
     #[test]
     fn escape() {
-        assert::is_true(
+        assert().is_true(
             r#"
 x = "a"
 f"{{}}{x}b{{x}}" == "{}ab{x}"
@@ -54,7 +64,7 @@ f"{{}}{x}b{{x}}" == "{}ab{x}"
 
     #[test]
     fn function_parameter() {
-        assert::is_true(
+        assert().is_true(
             r#"
 def f(x):
   return f"q{x}"
@@ -66,7 +76,7 @@ f("1") == "q1"
 
     #[test]
     fn multiple() {
-        assert::is_true(
+        assert().is_true(
             r#"
 x = "x"
 y = "y"
@@ -74,7 +84,7 @@ f"{x}{y}" == "xy"
 "#,
         );
 
-        assert::is_true(
+        assert().is_true(
             r#"
 x = "x"
 y = "y"
@@ -85,7 +95,7 @@ f"{x}{y}{x}" == "xyx"
 
     #[test]
     fn tuple() {
-        assert::is_true(
+        assert().is_true(
             r#"
 x = ("x",)
 f"{x}" == '("x",)'
@@ -96,10 +106,18 @@ f"{x}" == '("x",)'
 
 mod fail {
     use crate::assert;
+    use crate::assert::Assert;
+    use crate::syntax::Dialect;
     use crate::tests::golden_test_template::golden_test_template;
 
     fn fstring_golden_test(test_name: &str, text: &str) {
-        let err = assert::fails(text, &[]);
+        let mut a = Assert::new();
+        a.dialect(&Dialect {
+            enable_f_strings: true,
+            ..Dialect::Extended
+        });
+
+        let err = a.fails(text, &[]);
 
         golden_test_template(
             &format!("src/tests/fstring/golden/{test_name}.err.golden.md"),
@@ -146,5 +164,16 @@ mod fail {
     fn escape() {
         // NOTE: this is wrong, we put the squiggly lines in the wrong place.
         fstring_golden_test("escape", "f'foo \\n {bar baz}'");
+    }
+
+    #[test]
+    fn not_enabled() {
+        // Default dialect does not enable fstrings.
+        let err = assert::fails("f'{foo}'", &[]);
+
+        golden_test_template(
+            "src/tests/fstring/golden/not_enabled.err.golden.md",
+            &format!("{}", err),
+        );
     }
 }

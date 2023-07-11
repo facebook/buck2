@@ -249,6 +249,9 @@ enum FStringError {
     // Always render the causes for this, but don't expose the error when traversing sources.
     #[error("Invalid format: {:#}", .inner)]
     InvalidFormat { inner: anyhow::Error },
+
+    #[error("Your Starlark dialect must enable f-strings to use them")]
+    NotEnabled,
 }
 
 pub(crate) fn fstring(
@@ -257,7 +260,12 @@ pub(crate) fn fstring(
     end: usize,
     parser_state: &mut ParserState,
 ) -> AstFString {
-    // TODO: Handle f-strings being disabled by the dialect.
+    if !parser_state.dialect.enable_f_strings {
+        parser_state.error(
+            Span::new(Pos::new(begin as _), Pos::new(end as _)),
+            FStringError::NotEnabled,
+        );
+    }
 
     let TokenFString {
         content,
