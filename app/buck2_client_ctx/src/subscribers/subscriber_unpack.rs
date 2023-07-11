@@ -130,6 +130,7 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::DebugAdapterSnapshot(snapshot) => {
                 self.handle_debug_adapter_snapshot(snapshot).await
             }
+            buck2_data::instant_event::Data::TagEvent(tags) => self.handle_tags(tags).await,
             _ => Ok(()),
         }
     }
@@ -199,6 +200,10 @@ pub trait UnpackingEventSubscriber: Send {
         &mut self,
         _msg: &buck2_data::DebugAdapterSnapshot,
     ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn handle_tags(&mut self, _tags: &buck2_data::TagEvent) -> anyhow::Result<()> {
         Ok(())
     }
 
