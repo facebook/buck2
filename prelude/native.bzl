@@ -164,10 +164,10 @@ def _at_most_one(*items):
     return res
 
 def _get_valid_cpu_filters(cpu_filters: [[str], None]) -> [str]:
-    if read_config("buck2", "android_force_single_default_cpu") in ("True", "true"):
+    if read_root_config("buck2", "android_force_single_default_cpu") in ("True", "true"):
         return [CPU_FILTER_FOR_DEFAULT_PLATFORM]
 
-    cpu_abis_config_string = read_config("ndk", "cpu_abis")
+    cpu_abis_config_string = read_root_config("ndk", "cpu_abis")
     if cpu_abis_config_string:
         cpu_abis = [v.strip() for v in cpu_abis_config_string.split(",")]
         for cpu_abi in cpu_abis:

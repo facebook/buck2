@@ -104,8 +104,8 @@ implemented_rules = {
 }
 
 # Can't load `read_bool` here because it will cause circular load.
-FORCE_SINGLE_CPU = read_config("buck2", "android_force_single_cpu") in ("True", "true")
-FORCE_SINGLE_DEFAULT_CPU = read_config("buck2", "android_force_single_default_cpu") in ("True", "true")
+FORCE_SINGLE_CPU = read_root_config("buck2", "android_force_single_cpu") in ("True", "true")
+FORCE_SINGLE_DEFAULT_CPU = read_root_config("buck2", "android_force_single_default_cpu") in ("True", "true")
 
 extra_attributes = {
     "android_aar": {
