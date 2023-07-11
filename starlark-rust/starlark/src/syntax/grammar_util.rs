@@ -246,11 +246,9 @@ enum FStringError {
     #[error("Not a valid identifier: `{}`", .capture)]
     InvalidIdentifier { capture: String },
 
-    #[error("Invalid format")]
-    InvalidFormat {
-        #[source]
-        source: anyhow::Error,
-    },
+    // Always render the causes for this, but don't expose the error when traversing sources.
+    #[error("Invalid format: {:#}", .inner)]
+    InvalidFormat { inner: anyhow::Error },
 }
 
 pub(crate) fn fstring(
@@ -301,11 +299,11 @@ pub(crate) fn fstring(
                 expressions.push(expr);
                 format.push_str("{}"); // Positional format.
             }
-            Err(source) => {
+            Err(inner) => {
                 // TODO: Reporting the exact position of the error would be better.
                 parser_state.error(
                     Span::new(Pos::new(begin as _), Pos::new(end as _)),
-                    FStringError::InvalidFormat { source },
+                    FStringError::InvalidFormat { inner },
                 );
                 break;
             }

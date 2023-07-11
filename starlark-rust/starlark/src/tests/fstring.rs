@@ -138,6 +138,11 @@ mod fail {
     }
 
     #[test]
+    fn invalid_format() {
+        fstring_golden_test("invalid_format", "f'foo {bar'");
+    }
+
+    #[test]
     fn escape() {
         // NOTE: this is wrong, we put the squiggly lines in the wrong place.
         fstring_golden_test("escape", "f'foo \\n {bar baz}'");
