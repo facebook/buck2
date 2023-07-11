@@ -66,4 +66,4 @@ def _get_attribute_with_output(ctx: "context", attr_name: str) -> ["dependency",
     return None
 
 def apple_get_xcode_absolute_path_prefix() -> [str, None]:
-    return read_config("xcode", "absolute_path_prefix", None)
+    return read_root_config("xcode", "absolute_path_prefix", None)

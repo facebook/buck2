@@ -14,5 +14,5 @@ IpaCompressionLevel = enum(
 
 def apple_package_config() -> {str: ""}:
     return {
-        "_ipa_compression_level": read_config("apple", "ipa_compression_level", IpaCompressionLevel("default").value),
+        "_ipa_compression_level": read_root_config("apple", "ipa_compression_level", IpaCompressionLevel("default").value),
     }

@@ -6,7 +6,7 @@
 # of this source tree.
 
 def swift_toolchain_macro_impl(swift_toolchain_rule = None, **kwargs):
-    bitcode = read_config("swift", "bitcode")
+    bitcode = read_root_config("swift", "bitcode")
     if bitcode != None:
         kwargs["object_format"] = "object"
         if bitcode.lower() == "true":

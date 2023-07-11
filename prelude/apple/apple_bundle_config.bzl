@@ -6,16 +6,16 @@
 # of this source tree.
 
 def _maybe_get_bool(config: str, default: [None, bool]) -> [None, bool]:
-    result = read_config("apple", config, None)
+    result = read_root_config("apple", config, None)
     if result == None:
         return default
     return result.lower() == "true"
 
 def apple_bundle_config() -> {str: ""}:
     return {
-        "_bundling_cache_buster": read_config("apple", "bundling_cache_buster", None),
+        "_bundling_cache_buster": read_root_config("apple", "bundling_cache_buster", None),
         "_bundling_log_file_enabled": _maybe_get_bool("bundling_log_file_enabled", False),
-        "_codesign_type": read_config("apple", "codesign_type_override", None),
+        "_codesign_type": read_root_config("apple", "codesign_type_override", None),
         "_compile_resources_locally_override": _maybe_get_bool("compile_resources_locally_override", None),
         "_dry_run_code_signing": _maybe_get_bool("dry_run_code_signing", False),
         # This is a kill switch for the feature, it can also be disabled by setting

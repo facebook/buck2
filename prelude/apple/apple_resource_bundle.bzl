@@ -58,7 +58,7 @@ def make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs) -> [None, st
     # from there. `resources_toolchain_enabled` exists only as a killswitch (or for testing/debugging purposes).
     # By default, we consistently get all resources from `apple_resource_bundle()` target across all OSes and
     # toolchains.
-    resources_toolchain_enabled = (read_config("apple", "resources_toolchain_enabled", "true").lower() == "true")
+    resources_toolchain_enabled = (read_root_config("apple", "resources_toolchain_enabled", "true").lower() == "true")
     if not resources_toolchain_enabled:
         return None
 

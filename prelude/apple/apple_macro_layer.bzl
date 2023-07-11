@@ -51,7 +51,7 @@ _APPLE_BINARY_LOCAL_EXECUTION_OVERRIDES = [
 def apple_macro_layer_set_bool_override_attrs_from_config(overrides: [AppleBuckConfigAttributeOverride.type]) -> {str: "selector"}:
     attribs = {}
     for override in overrides:
-        config_value = read_config(override.section, override.key, None)
+        config_value = read_root_config(override.section, override.key, None)
         if config_value != None:
             config_is_true = config_value in override.positive_values
             if not config_is_true and override.skip_if_false:
