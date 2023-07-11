@@ -51,6 +51,7 @@ LinkerInfo = provider(fields = [
     "requires_archives",
     "requires_objects",
     "supports_distributed_thinlto",
+    # Deprecated, use cxx_toolchain.pic_behavior instead.
     "supports_pic",
     "independent_shlib_interface_linker_flags",
     "type",  # of "LinkerType" type
@@ -126,6 +127,17 @@ CxxObjectFormat = enum(
     "swift",
 )
 
+PicBehavior = enum(
+    # Regardless of whether -fPIC is specified explicitly
+    # every compiled artifact will have a position-independent representation.
+    # This should be the the default when targeting x86_64 + arm64.
+    "always_enabled",
+    # The -fPIC flag is known and changes the compiled artifact.
+    "supported",
+    # The -fPIC flag is unknown to this platform.
+    "not_supported",
+)
+
 # TODO(T110378094): We should consider if we can change this from a hardcoded
 # list of compiler_info to something more general. We could maybe do a list of
 # compiler_info where each one also declares what extensions it supports.
@@ -157,6 +169,7 @@ CxxToolchainInfo = provider(fields = [
     "strip_flags_info",
     "split_debug_mode",
     "bolt_enabled",
+    "pic_behavior",
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments
@@ -202,7 +215,8 @@ def cxx_toolchain_infos(
         split_debug_mode = SplitDebugMode("none"),
         bolt_enabled = False,
         llvm_link = None,
-        platform_deps_aliases = []):
+        platform_deps_aliases = [],
+        pic_behavior = PicBehavior("supported")):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -239,6 +253,7 @@ def cxx_toolchain_infos(
         strip_flags_info = strip_flags_info,
         split_debug_mode = split_debug_mode,
         bolt_enabled = bolt_enabled,
+        pic_behavior = pic_behavior,
     )
 
     # Provide placeholder mappings, used primarily by cxx_genrule.

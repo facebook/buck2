@@ -13,6 +13,7 @@ load(
     "CxxPlatformInfo",
     "CxxToolchainInfo",
     "LinkerInfo",
+    "PicBehavior",
 )
 load(
     "@prelude//cxx:headers.bzl",
@@ -42,6 +43,7 @@ def _system_cxx_toolchain_impl(ctx):
     linker = ctx.attrs.linker
     linker_type = "gnu"
     supports_pic = True
+    pic_behavior = PicBehavior("supported")
     binary_extension = ""
     object_file_extension = "o"
     static_library_extension = "a"
@@ -50,6 +52,7 @@ def _system_cxx_toolchain_impl(ctx):
     additional_linker_flags = []
     if host_info().os.is_macos:
         linker_type = "darwin"
+        pic_behavior = PicBehavior("always_enabled")
     elif host_info().os.is_windows:
         archiver = "llvm-ar"
         asm_compiler = "ml64.exe"
@@ -65,6 +68,7 @@ def _system_cxx_toolchain_impl(ctx):
         additional_linker_flags = [
             "msvcrt.lib",
         ]
+        pic_behavior = PicBehavior("not_supported")
     elif ctx.attrs.linker == "g++" or ctx.attrs.cxx_compiler == "g++":
         pass
     else:
@@ -132,6 +136,7 @@ def _system_cxx_toolchain_impl(ctx):
             ),
             header_mode = HeaderMode("symlink_tree_only"),
             cpp_dep_tracking_mode = ctx.attrs.cpp_dep_tracking_mode,
+            pic_behavior = pic_behavior,
         ),
         CxxPlatformInfo(name = "x86_64"),
     ]
