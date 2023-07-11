@@ -20,6 +20,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_data::CommandExecutionDetails;
+use buck2_data::TagEvent;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -577,6 +578,15 @@ where
             }
             //Printing the test output in multiple lines. It makes easier for the user to read.
             echo!("{}", buffer)?;
+        }
+
+        Ok(())
+    }
+
+    async fn handle_tags(&mut self, tags: &TagEvent) -> anyhow::Result<()> {
+        if tags.tags.contains(&"which-dice:Modern".to_owned()) {
+            self.handle_stderr("Note: using experimental modern dice.")
+                .await?;
         }
 
         Ok(())
