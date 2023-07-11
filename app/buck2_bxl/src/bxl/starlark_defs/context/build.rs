@@ -10,6 +10,7 @@
 //!
 //! Implements the ability for bxl to build targets
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
@@ -17,6 +18,7 @@ use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_common::result::SharedError;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::label::Label;
 use derive_more::Display;
@@ -58,14 +60,12 @@ pub(crate) struct StarlarkProvidersArtifactIterableGen<V>(pub(crate) V);
 
 starlark_complex_value!(pub(crate) StarlarkProvidersArtifactIterable);
 
-#[starlark_value(type = "bxl_built_artifacts_iterable")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkProvidersArtifactIterableGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkProvidersArtifactIterableGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
-        Ok(self
-            .0
+    fn iter(&self) -> impl Iterator<Item = &'v Artifact> {
+        self.0
             .downcast_ref::<StarlarkBxlBuildResult>()
             .unwrap()
             .0
@@ -73,16 +73,25 @@ where
             .unwrap()
             .outputs
             .iter()
-            .flat_map(|built| match built {
-                Ok(built) => itertools::Either::Left(Box::new(
-                    built
-                        .values
-                        .iter()
-                        .map(|(artifact, _)| heap.alloc(StarlarkArtifact::new(artifact.dupe()))),
-                )),
-                Err(_) => itertools::Either::Right(std::iter::empty()),
-            })
+            .filter_map(|built| built.as_ref().ok())
+            .flat_map(|built| built.values.iter().map(|(artifact, _)| artifact))
+    }
+}
+
+#[starlark_value(type = "bxl_built_artifacts_iterable")]
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkProvidersArtifactIterableGen<V>
+where
+    Self: ProvidesStaticType<'v>,
+{
+    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+        Ok(self
+            .iter()
+            .map(|artifact| heap.alloc(StarlarkArtifact::new(artifact.dupe())))
             .collect())
+    }
+
+    fn length(&self) -> anyhow::Result<i32> {
+        i32::try_from(self.iter().count()).map_err(|e| e.into())
     }
 }
 
@@ -102,14 +111,12 @@ pub(crate) struct StarlarkFailedArtifactIterableGen<V>(pub(crate) V);
 
 starlark_complex_value!(pub(crate) StarlarkFailedArtifactIterable);
 
-#[starlark_value(type = "bxl_failed_artifacts_iterable")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkFailedArtifactIterableGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkFailedArtifactIterableGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
-        Ok(self
-            .0
+    fn iter(&self) -> impl Iterator<Item = &'v SharedError> {
+        self.0
             .downcast_ref::<StarlarkBxlBuildResult>()
             .unwrap()
             .0
@@ -117,11 +124,21 @@ where
             .unwrap()
             .outputs
             .iter()
-            .filter_map(|built| match built {
-                Ok(_) => None,
-                Err(e) => Some(heap.alloc(format!("{}", e))),
-            })
-            .collect())
+            .filter_map(|built| built.as_ref().err())
+    }
+}
+
+#[starlark_value(type = "bxl_failed_artifacts_iterable")]
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkFailedArtifactIterableGen<V>
+where
+    Self: ProvidesStaticType<'v>,
+{
+    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+        Ok(self.iter().map(|e| heap.alloc(format!("{}", e))).collect())
+    }
+
+    fn length(&self) -> anyhow::Result<i32> {
+        i32::try_from(self.iter().count()).map_err(|e| e.into())
     }
 }
 
