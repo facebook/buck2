@@ -229,7 +229,7 @@ rust_library = prelude_rule(
             # them and it simplifies the implementation of Rust rules since they
             # don't have to know whether we're building a rust_binary or a
             # rust_library.
-            "linker_flags": attrs.list(attrs.arg(), default = []),
+            "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "proc_macro": attrs.bool(default = False),
             "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
@@ -321,7 +321,7 @@ rust_test = prelude_rule(
             "incremental_enabled": attrs.bool(default = False),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "linker_flags": attrs.list(attrs.arg(), default = []),
+            "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "remote_execution": buck.re_opts_for_tests_arg(),
             "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
             "rpath": attrs.bool(default = False),

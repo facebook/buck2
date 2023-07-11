@@ -245,7 +245,7 @@ def _linker_extra_outputs_arg():
 
 def _linker_flags_arg():
     return {
-        "linker_flags": attrs.list(attrs.arg(), default = [], doc = """
+        "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
     Flags to add to the linker command line whenever the output from this
      rule is used in a link operation, such as linked into an executable
      or a shared library.
@@ -254,7 +254,7 @@ def _linker_flags_arg():
 
 def _platform_linker_flags_arg():
     return {
-        "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = [], doc = """
+        "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = [], doc = """
     Platform-specific linker flags. This argument is specified as a list of pairs where the first
      element in each pair is an un-anchored regex against which the platform name is matched.
      The regex should use `java.util.regex.Pattern` syntax.
@@ -266,7 +266,7 @@ def _platform_linker_flags_arg():
 
 def _exported_linker_flags_arg():
     return {
-        "exported_linker_flags": attrs.list(attrs.arg(), default = [], doc = """
+        "exported_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
     Flags to add to the linker command line when the output from this
      rule, or the output from any rule that transitively depends on this
      rule, is used in a link operation.
@@ -275,7 +275,7 @@ def _exported_linker_flags_arg():
 
 def _exported_post_linker_flags_arg():
     return {
-        "exported_post_linker_flags": attrs.list(attrs.arg(), default = [], doc = """
+        "exported_post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
     Flags to add to the linker command line when the output from this
      rule, or the output from any rule that transitively depends on this
      rule, is used in a link operation—with the additional feature
@@ -286,7 +286,7 @@ def _exported_post_linker_flags_arg():
 
 def _exported_platform_linker_flags_arg():
     return {
-        "exported_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = [], doc = """
+        "exported_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = [], doc = """
     Platform-specific linker flags for this rule and for all rules that
      transitively depend on this rule. This argument is specified
      as a list of pairs where the first element in each pair is an un-anchored regex
@@ -301,7 +301,7 @@ def _exported_platform_linker_flags_arg():
 
 def _exported_post_platform_linker_flags_arg():
     return {
-        "exported_post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = [], doc = """
+        "exported_post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = [], doc = """
     Platform-specific linker flags for this rule and for all
      rules that transitively depend on this rule—and that
      are guaranteed to be placed *after* the compiled object

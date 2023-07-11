@@ -72,7 +72,7 @@ def _platform_arg():
 
 def _linker_flags_arg():
     return {
-        "linker_flags": attrs.list(attrs.arg(), default = [], doc = """
+        "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
     Additional linker flags that should be applied to any linking which is specific to this rule.
      Note that whether these flags are used is dependent on the native link strategy selected in
      `.buckconfig` and currently applies only to the `merged` ``.buckconfig``;

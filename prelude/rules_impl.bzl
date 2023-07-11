@@ -289,7 +289,7 @@ def _python_executable_attrs():
 
     # allow non-default value for the args below
     updated_attrs.update({
-        "binary_linker_flags": attrs.list(attrs.arg(), default = []),
+        "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "compiler_flags": attrs.list(attrs.arg(), default = []),
         "constraint_overrides": attrs.list(attrs.string(), default = []),
         "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
@@ -336,7 +336,7 @@ def _cxx_binary_and_test_attrs():
         # Linker flags that only apply to the executable link, used for link
         # strategies (e.g. link groups) which may link shared libraries from
         # top-level binary context.
-        "binary_linker_flags": attrs.list(attrs.arg(), default = []),
+        "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "bolt_flags": attrs.list(attrs.arg(), default = []),
         "bolt_gdb_index": attrs.option(attrs.source(), default = None),
         "bolt_profile": attrs.option(attrs.source(), default = None),
@@ -470,7 +470,7 @@ inlined_extra_attributes = {
     "prebuilt_cxx_library": {
         "exported_header_style": attrs.enum(IncludeType, default = "system"),
         "header_dirs": attrs.option(attrs.list(attrs.source(allow_directory = True)), default = None),
-        "linker_flags": attrs.list(attrs.arg(), default = []),
+        "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "platform_header_dirs": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.source(allow_directory = True)))), default = None),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
