@@ -26,23 +26,6 @@ for min_sdk in get_min_sdk_version_range():
     constraint_value_name = get_min_sdk_version_constraint_value_name(min_sdk)
     _REFS[constraint_value_name] = "fbsource//xplat/buck2/platform/android:{}".format(constraint_value_name)
 
-def _cpu_split_transition_instrumentation_test_apk_impl(
-        platform: PlatformInfo.type,
-        refs: struct.type,
-        attrs: struct.type) -> {str: PlatformInfo.type}:
-    cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
-    if attrs._is_force_single_cpu:
-        cpu_filters = [CPU_FILTER_FOR_PRIMARY_PLATFORM]
-    elif attrs._is_force_single_default_cpu:
-        cpu_filters = ["default"]
-
-    return _cpu_split_transition(
-        platform,
-        refs,
-        cpu_filters,
-        attrs.min_sdk_version,
-    )
-
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
@@ -126,18 +109,6 @@ def _cpu_transition_impl(
 
 cpu_split_transition = transition(
     impl = _cpu_split_transition_impl,
-    refs = _REFS,
-    attrs = [
-        "cpu_filters",
-        "min_sdk_version",
-        "_is_force_single_cpu",
-        "_is_force_single_default_cpu",
-    ],
-    split = True,
-)
-
-cpu_split_transition_instrumentation_test_apk = transition(
-    impl = _cpu_split_transition_instrumentation_test_apk_impl,
     refs = _REFS,
     attrs = [
         "cpu_filters",

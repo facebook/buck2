@@ -23,7 +23,7 @@ load(":android_prebuilt_aar.bzl", "android_prebuilt_aar_impl")
 load(":android_resource.bzl", "android_resource_impl")
 load(":android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
 load(":apk_genrule.bzl", "apk_genrule_impl")
-load(":configuration.bzl", "cpu_split_transition", "cpu_split_transition_instrumentation_test_apk", "cpu_transition", "is_building_android_binary_attr")
+load(":configuration.bzl", "cpu_split_transition", "cpu_transition", "is_building_android_binary_attr")
 load(":gen_aidl.bzl", "gen_aidl_impl")
 load(":prebuilt_native_library.bzl", "prebuilt_native_library_impl")
 load(":robolectric_test.bzl", "robolectric_test_impl")
@@ -163,7 +163,7 @@ extra_attributes = {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
         "apk": attrs.dep(),
         "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = []),
-        "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition_instrumentation_test_apk), default = []),
+        "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
         "dex_tool": attrs.string(default = "d8"),  # Match default in V1
         "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
