@@ -377,8 +377,8 @@ pub struct DocFunction {
     pub params: Vec<DocParam>,
     /// Details about what this function returns.
     pub ret: DocReturn,
-    /// Does this function provide a `.type` value.
-    pub dot_type: Option<String>,
+    /// Does this function act as type?
+    pub as_type: Option<Ty>,
 }
 
 impl DocFunction {
@@ -481,7 +481,7 @@ impl DocFunction {
         mut params: Vec<DocParam>,
         return_type: Ty,
         raw_docstring: Option<&str>,
-        dot_type: Option<String>,
+        as_type: Option<Ty>,
     ) -> Self {
         match raw_docstring.and_then(|raw| DocString::from_docstring(kind, raw)) {
             Some(ds) => {
@@ -518,7 +518,7 @@ impl DocFunction {
                         docs: return_docs,
                         typ: return_type,
                     },
-                    dot_type,
+                    as_type,
                 }
             }
             None => DocFunction {
@@ -528,7 +528,7 @@ impl DocFunction {
                     docs: None,
                     typ: return_type,
                 },
-                dot_type,
+                as_type,
             },
         }
     }
@@ -1264,7 +1264,7 @@ mod tests {
                 docs: DocString::from_docstring(kind, "A value"),
                 typ: return_type.clone(),
             },
-            dot_type: None,
+            as_type: None,
         };
 
         let function_docs = DocFunction::from_docstring(
@@ -1328,7 +1328,7 @@ mod tests {
                 docs: DocString::from_docstring(kind, "A value"),
                 typ: return_type.clone(),
             },
-            dot_type: None,
+            as_type: None,
         };
 
         let function_docs = DocFunction::from_docstring(

@@ -366,7 +366,7 @@ fn returns_documentation() -> anyhow::Result<()> {
             docs: None,
             typ: Ty::none(),
         },
-        dot_type: None,
+        as_type: None,
     });
 
     let tester = rule_tester();

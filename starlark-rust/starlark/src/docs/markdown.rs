@@ -179,12 +179,12 @@ fn render_function(name: &str, function: &DocFunction) -> String {
         body.push_str("\n\n#### Returns\n\n");
         body.push_str(returns);
     }
-    if let Some(dot_type) = &function.dot_type {
+    if let Some(dot_type) = function.as_type.as_ref().and_then(|t| t.as_name()) {
         body.push_str("\n\n#### `.type` attribute\n\n");
         body.push_str(&format!("Produces `{dot_type:?}`"));
     }
     if let Some(details) = &details {
-        if parameter_docs.is_some() || return_docs.is_some() || function.dot_type.is_some() {
+        if parameter_docs.is_some() || return_docs.is_some() || function.as_type.is_some() {
             body.push_str("\n\n#### Details\n\n");
         } else {
             // No need to aggressively separate the defaults from the summary if there

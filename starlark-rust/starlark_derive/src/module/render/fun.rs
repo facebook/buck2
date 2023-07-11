@@ -84,12 +84,12 @@ impl StarFun {
         }
     }
 
-    fn type_str(&self) -> syn::Expr {
+    fn as_type_expr(&self) -> syn::Expr {
         match &self.as_type {
             Some(x) => syn::parse_quote_spanned! {
                 self.span()=>
                     std::option::Option::Some(
-                        <#x as starlark::values::StarlarkValue>::get_type_value_static().as_str(),
+                        <#x as starlark::values::StarlarkValue>::get_type_starlark_repr(),
                     )
             },
             None => syn::parse_quote_spanned! {
@@ -613,7 +613,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
 
     let return_type_str = render_starlark_return_type(x);
     let var_name = format_ident!("__documentation");
-    let dot_type = x.type_str();
+    let as_type = x.as_type_expr();
     let documentation = quote_spanned!(span=>
         let #var_name = {
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
@@ -622,7 +622,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
                 signature: #documentation_signature,
                 parameter_types,
                 return_type: #return_type_str,
-                dot_type: #dot_type,
+                as_type: #as_type,
             }
         };
     );

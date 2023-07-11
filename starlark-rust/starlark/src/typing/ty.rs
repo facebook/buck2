@@ -461,16 +461,16 @@ impl Ty {
     /// Create a function type.
     pub fn function(params: Vec<Param>, result: Ty) -> Self {
         Self::custom(TyCustomFunction(TyFunction {
-            type_attr: String::new(),
+            type_attr: None,
             params,
             result: Box::new(result),
         }))
     }
 
     /// Create a function, where the first argument is the result of `.type`.
-    pub fn ctor_function(type_attr: &str, params: Vec<Param>, result: Ty) -> Self {
+    pub fn ctor_function(type_attr: &Ty, params: Vec<Param>, result: Ty) -> Self {
         Self::custom(TyCustomFunction(TyFunction {
-            type_attr: type_attr.to_owned(),
+            type_attr: Some(type_attr.clone()),
             params,
             result: Box::new(result),
         }))
@@ -881,7 +881,7 @@ impl Ty {
             }
         }
         let result = function.ret.typ.clone();
-        match &function.dot_type {
+        match &function.as_type {
             None => Ty::function(params, result),
             Some(type_attr) => Ty::ctor_function(type_attr, params, result),
         }

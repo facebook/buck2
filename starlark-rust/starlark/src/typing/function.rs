@@ -211,7 +211,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
 pub struct TyFunction {
     /// The `.type` property of the function, often `""`.
-    pub type_attr: String,
+    pub type_attr: Option<Ty>,
     /// The parameters to the function.
     pub params: Vec<Param>,
     /// The result type of the function.
@@ -222,7 +222,7 @@ impl TyFunction {
     /// Function type that accepts any arguments and returns any result.
     pub(crate) fn any() -> TyFunction {
         TyFunction {
-            type_attr: "".to_owned(),
+            type_attr: None,
             params: vec![Param::args(Ty::Any), Param::kwargs(Ty::Any)],
             result: Box::new(Ty::Any),
         }
@@ -254,7 +254,7 @@ impl Display for TyFunction {
 
 impl TyCustomFunctionImpl for TyFunction {
     fn has_type_attr(&self) -> bool {
-        !self.type_attr.is_empty()
+        self.type_attr.is_some()
     }
 
     fn validate_call(

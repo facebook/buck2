@@ -87,7 +87,7 @@ pub trait ProviderCallableLike {
                     docs,
                     params,
                     ret,
-                    dot_type,
+                    as_type,
                 },
             )) => {
                 let summary = if let Some(x) = &docs {
@@ -123,7 +123,7 @@ pub trait ProviderCallableLike {
                     docs,
                     params,
                     ret,
-                    dot_type,
+                    as_type,
                 }))
             }
         }
