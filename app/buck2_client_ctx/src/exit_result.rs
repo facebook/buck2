@@ -9,6 +9,7 @@
 
 use std::convert::Infallible;
 use std::ffi::CString;
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::io;
 use std::io::Write;
@@ -18,6 +19,7 @@ use std::process::Command;
 use anyhow::Context;
 use dupe::Dupe;
 use gazebo::prelude::*;
+use tokio::time::error::Elapsed;
 
 use crate::subscribers::observer::ErrorCause;
 
@@ -214,10 +216,7 @@ impl ExitResultVariant {
             }
             Self::Err(e) => {
                 match e.downcast_ref::<FailureExitCode>() {
-                    None => {
-                        let _ignored = writeln!(io::stderr().lock(), "Command failed: {:?}", e);
-                        1
-                    }
+                    None => categorize_client_error(&e),
                     Some(FailureExitCode::SignalInterrupt) => {
                         tracing::debug!("Interrupted");
                         130
@@ -289,6 +288,17 @@ pub enum FailureExitCode {
     OutputFileBrokenPipe,
 }
 
+fn categorize_client_error(e: &anyhow::Error) -> u8 {
+    let _ignored = writeln!(io::stderr().lock(), "Command failed: {:?}", e);
+    if root_cause_downcast_ref::<Elapsed>(e).is_some() {
+        // Deadline has elapsed
+        11
+    } else {
+        // Uncategorized error
+        1
+    }
+}
+
 /// Invokes the given program with the given argv and replaces the program image with the new program. Does not return
 /// in the case of successful execution.
 fn execv(args: ExecArgs) -> anyhow::Result<ExitResult> {
@@ -329,4 +339,11 @@ fn execv(args: ExecArgs) -> anyhow::Result<ExitResult> {
 
     // `execv` never returns on success; on failure, it sets errno.
     Err(std::io::Error::last_os_error().into())
+}
+
+fn root_cause_downcast_ref<E>(error: &anyhow::Error) -> Option<&E>
+where
+    E: Display + Debug + Send + Sync + std::error::Error + 'static,
+{
+    error.root_cause().downcast_ref::<E>()
 }
