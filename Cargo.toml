@@ -368,6 +368,7 @@ buck2_eden = { path = "app/buck2_eden" }
 [profile.release]
 incremental = true
 panic = "abort"
+codegen-units = 1
 # The line below increases build times from 50s to 84s, with no observed impact on runtime speed.
 # But maybe for some benchmarks it will show more noticeable variation.
 # lto = "thin"
