@@ -65,7 +65,7 @@ pub(crate) enum StarlarkFunction {}
 
 impl StarlarkTypeRepr for StarlarkFunction {
     fn starlark_type_repr() -> Ty {
-        Ty::name(FUNCTION_TYPE)
+        Ty::any_function()
     }
 }
 

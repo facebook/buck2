@@ -366,7 +366,7 @@ impl TypingContext<'_> {
             }
             ExprP::Lambda(_) => {
                 self.approximation("We don't type check lambdas", ());
-                Ty::name("function")
+                Ty::any_function()
             }
             ExprP::Literal(x) => match x {
                 AstLiteral::Int(_) => Ty::int(),
