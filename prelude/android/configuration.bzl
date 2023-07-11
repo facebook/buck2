@@ -9,6 +9,20 @@ load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEF
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
 load("@prelude//utils:utils.bzl", "expect")
 
+# Android binaries (APKs or AABs) can be built for one or more different platforms. buck2 supports
+# building Android binaries for arm32, arm64, x86, and x86_64. The platform(s) that we are building
+# for are specified by the `cpu_filters` attribute on the binary rule.
+
+# In order to build our native libraries for the correct platform(s), we do a (split) transition
+# (https://www.internalfb.com/intern/staticdocs/buck2/docs/rule_authors/configuration_transitions)
+# on the `deps` of the binary, and have each of the resulting configured sub-graphs be responsible
+# for building the native libraries for one of the specified platforms.
+
+# We always create an "arm64" configured sub-graph and use it to build the non-native libraries (so
+# that we get cache hits for the non-native libraries even if we're building for different
+# platforms). We only use the "arm64" native libraries if it is one of the specified platforms. We
+# "throw away" the non-native libraries for all other configured sub-graphs.
+
 _REFS = {
     "arm64": "config//cpu/constraints:arm64",
     "armv7": "config//cpu/constraints:arm32",
