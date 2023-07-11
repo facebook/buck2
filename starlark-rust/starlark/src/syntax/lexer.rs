@@ -453,37 +453,11 @@ impl<'a> Lexer<'a> {
                         Token::Int(..) => unreachable!("Lexer does not produce Int tokens"),
                         Token::RawDoubleQuote => {
                             let raw = self.lexer.span().len() == 2;
-                            if self.lexer.remainder().starts_with("\"\"") {
-                                let mut qs = 0;
-                                Some(self.string(true, raw, |c| {
-                                    if c == '\"' {
-                                        qs += 1;
-                                        qs == 3
-                                    } else {
-                                        qs = 0;
-                                        false
-                                    }
-                                }))
-                            } else {
-                                Some(self.string(false, raw, |c| c == '\"'))
-                            }
+                            self.parse_double_quoted_string(raw)
                         }
                         Token::RawSingleQuote => {
                             let raw = self.lexer.span().len() == 2;
-                            if self.lexer.remainder().starts_with("''") {
-                                let mut qs = 0;
-                                Some(self.string(true, raw, |c| {
-                                    if c == '\'' {
-                                        qs += 1;
-                                        qs == 3
-                                    } else {
-                                        qs = 0;
-                                        false
-                                    }
-                                }))
-                            } else {
-                                Some(self.string(false, raw, |c| c == '\''))
-                            }
+                            self.parse_single_quoted_string(raw)
                         }
                         Token::OpeningCurly | Token::OpeningRound | Token::OpeningSquare => {
                             self.parens += 1;
@@ -497,6 +471,40 @@ impl<'a> Lexer<'a> {
                     },
                 }
             };
+        }
+    }
+
+    fn parse_double_quoted_string(&mut self, raw: bool) -> Option<Lexeme> {
+        if self.lexer.remainder().starts_with("\"\"") {
+            let mut qs = 0;
+            Some(self.string(true, raw, |c| {
+                if c == '\"' {
+                    qs += 1;
+                    qs == 3
+                } else {
+                    qs = 0;
+                    false
+                }
+            }))
+        } else {
+            Some(self.string(false, raw, |c| c == '\"'))
+        }
+    }
+
+    fn parse_single_quoted_string(&mut self, raw: bool) -> Option<Lexeme> {
+        if self.lexer.remainder().starts_with("''") {
+            let mut qs = 0;
+            Some(self.string(true, raw, |c| {
+                if c == '\'' {
+                    qs += 1;
+                    qs == 3
+                } else {
+                    qs = 0;
+                    false
+                }
+            }))
+        } else {
+            Some(self.string(false, raw, |c| c == '\''))
         }
     }
 }
