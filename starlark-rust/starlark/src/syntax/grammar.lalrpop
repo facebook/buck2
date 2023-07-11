@@ -485,6 +485,6 @@ extern {
       "INTEGER" => lexer::Token::Int(<lexer::TokenInt>),
       "FLOAT" => lexer::Token::Float(<f64>),
       "STRING" => lexer::Token::String(<String>),
-      "FSTRING" => lexer::Token::FString(<String>),
+      "FSTRING" => lexer::Token::FString(<lexer::TokenFString>),
     }
 }

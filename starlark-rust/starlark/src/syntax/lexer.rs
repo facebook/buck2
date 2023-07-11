@@ -275,6 +275,7 @@ impl<'a> Lexer<'a> {
         Ok(())
     }
 
+    /// Parse a String. Return the String, and the offset where it starts.
     // String parsing is a hot-spot, so parameterise by a `stop` function which gets
     // specialised for each variant
     fn string(
@@ -282,7 +283,7 @@ impl<'a> Lexer<'a> {
         triple: bool,
         raw: bool,
         mut stop: impl FnMut(char) -> bool,
-    ) -> LexemeT<String> {
+    ) -> LexemeT<(String, usize)> {
         // We have seen an opening quote, which is either ' or "
         // If triple is true, it was a triple quote
         // stop lets us know when a string ends.
@@ -317,7 +318,11 @@ impl<'a> Lexer<'a> {
                         let contents_end = it.pos() - if triple { 3 } else { 1 };
                         let contents = &self.lexer.remainder()[contents_start..contents_end];
                         self.lexer.bump(it.pos());
-                        return Ok((string_start, contents.to_owned(), string_end + it.pos()));
+                        return Ok((
+                            string_start,
+                            (contents.to_owned(), contents_start),
+                            string_end + it.pos(),
+                        ));
                     } else if c == '\\' || c == '\r' || (c == '\n' && !triple) {
                         res = String::with_capacity(it.pos() + 10);
                         res.push_str(&self.lexer.remainder()[contents_start..it.pos() - 1]);
@@ -337,7 +342,7 @@ impl<'a> Lexer<'a> {
                 if triple {
                     res.truncate(res.len() - 2);
                 }
-                return Ok((string_start, res, string_end + it.pos()));
+                return Ok((string_start, (res, contents_start), string_end + it.pos()));
             }
             match c {
                 '\n' if !triple => {
@@ -461,25 +466,39 @@ impl<'a> Lexer<'a> {
                         Token::RawDoubleQuote => {
                             let raw = self.lexer.span().len() == 2;
                             self.parse_double_quoted_string(raw)
-                                .map(|lex| map_lexeme_t(lex, Token::String))
+                                .map(|lex| map_lexeme_t(lex, |(s, _offset)| Token::String(s)))
                         }
                         Token::RawSingleQuote => {
                             let raw = self.lexer.span().len() == 2;
                             self.parse_single_quoted_string(raw)
-                                .map(|lex| map_lexeme_t(lex, Token::String))
+                                .map(|lex| map_lexeme_t(lex, |(s, _offset)| Token::String(s)))
                         }
                         Token::String(_) => {
                             unreachable!("The lexer does not produce String")
                         }
                         Token::RawFStringDoubleQuote => {
-                            let raw = self.lexer.span().len() == 3;
-                            self.parse_double_quoted_string(raw)
-                                .map(|lex| map_lexeme_t(lex, Token::FString))
+                            let span_len = self.lexer.span().len();
+                            let raw = span_len == 3;
+                            self.parse_double_quoted_string(raw).map(|lex| {
+                                map_lexeme_t(lex, |(content, content_start_offset)| {
+                                    Token::FString(TokenFString {
+                                        content,
+                                        content_start_offset: content_start_offset + span_len,
+                                    })
+                                })
+                            })
                         }
                         Token::RawFStringSingleQuote => {
-                            let raw = self.lexer.span().len() == 3;
-                            self.parse_single_quoted_string(raw)
-                                .map(|lex| map_lexeme_t(lex, Token::FString))
+                            let span_len = self.lexer.span().len();
+                            let raw = span_len == 3;
+                            self.parse_single_quoted_string(raw).map(|lex| {
+                                map_lexeme_t(lex, |(content, content_start_offset)| {
+                                    Token::FString(TokenFString {
+                                        content,
+                                        content_start_offset: content_start_offset + span_len,
+                                    })
+                                })
+                            })
                         }
                         Token::FString(_) => {
                             unreachable!("The lexer does not produce FString")
@@ -499,7 +518,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn parse_double_quoted_string(&mut self, raw: bool) -> Option<LexemeT<String>> {
+    fn parse_double_quoted_string(&mut self, raw: bool) -> Option<LexemeT<(String, usize)>> {
         if self.lexer.remainder().starts_with("\"\"") {
             let mut qs = 0;
             Some(self.string(true, raw, |c| {
@@ -516,7 +535,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn parse_single_quoted_string(&mut self, raw: bool) -> Option<LexemeT<String>> {
+    fn parse_single_quoted_string(&mut self, raw: bool) -> Option<LexemeT<(String, usize)>> {
         if self.lexer.remainder().starts_with("''") {
             let mut qs = 0;
             Some(self.string(true, raw, |c| {
@@ -536,6 +555,14 @@ impl<'a> Lexer<'a> {
 
 #[derive(Debug, Clone, Eq, PartialEq, derive_more::Display)]
 pub struct TokenInt(pub(crate) StarlarkInt);
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TokenFString {
+    /// The content of this TokenFString
+    pub(crate) content: String,
+    /// Relative to the token, where does the actual string content start?
+    pub(crate) content_start_offset: usize,
+}
 
 /// All token that can be generated by the lexer
 #[derive(Logos, Debug, Clone, PartialEq)]
@@ -619,7 +646,7 @@ pub enum Token {
 
     String(String), // A string literal
     /// The raw text of a f-string
-    FString(String),
+    FString(TokenFString),
 
     // Keywords
     #[token("and")]
@@ -757,7 +784,7 @@ impl Token {
             Token::FString(x) => {
                 let mut buff = Vec::new();
                 write!(&mut buff, "f").unwrap();
-                serde_json::to_writer(&mut buff, x).unwrap();
+                serde_json::to_writer(&mut buff, &x.content).unwrap();
                 String::from_utf8(buff).unwrap()
             }
             _ => {
@@ -853,7 +880,7 @@ impl Display for Token {
             Token::RawDoubleQuote => write!(f, "starting \""),
             Token::RawFStringDoubleQuote => write!(f, "starting f'"),
             Token::RawFStringSingleQuote => write!(f, "starting f\""),
-            Token::FString(s) => write!(f, "f-string '{}'", s),
+            Token::FString(s) => write!(f, "f-string '{}'", &s.content),
             Token::Tabs => Ok(()),
         }
     }

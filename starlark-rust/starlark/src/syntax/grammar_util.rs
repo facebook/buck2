@@ -48,6 +48,7 @@ use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
 use crate::syntax::ast::ToAst;
 use crate::syntax::lexer::lex_exactly_one_identifier;
+use crate::syntax::lexer::TokenFString;
 use crate::syntax::state::ParserState;
 use crate::values::types::string::dot_format::FormatParser;
 use crate::values::types::string::dot_format::FormatToken;
@@ -253,17 +254,22 @@ enum FStringError {
 }
 
 pub(crate) fn fstring(
-    string: String,
+    fstring: TokenFString,
     begin: usize,
     end: usize,
     parser_state: &mut ParserState,
 ) -> AstFString {
     // TODO: Handle f-strings being disabled by the dialect.
 
-    let mut format = String::with_capacity(string.len());
+    let TokenFString {
+        content,
+        content_start_offset,
+    } = fstring;
+
+    let mut format = String::with_capacity(content.len());
     let mut expressions = Vec::new();
 
-    let mut parser = FormatParser::new(&string);
+    let mut parser = FormatParser::new(&content);
     while let Some(res) = parser.next().transpose() {
         match res {
             Ok(FormatToken::Text(text)) => format.push_str(text),
@@ -272,7 +278,7 @@ pub(crate) fn fstring(
                 format.push_str(e.back_to_escape())
             }
             Ok(FormatToken::Capture { capture, pos }) => {
-                let capture_begin = begin + pos;
+                let capture_begin = begin + content_start_offset + pos;
                 let capture_end = capture_begin + capture.len();
 
                 let ident = match lex_exactly_one_identifier(capture) {

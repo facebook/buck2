@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-use crate::assert;
-
 mod pass {
-    use super::*;
+    use crate::assert;
 
     #[test]
     fn basic() {
@@ -97,22 +95,51 @@ f"{x}" == '("x",)'
 }
 
 mod fail {
-    use super::*;
+    use crate::assert;
+    use crate::tests::golden_test_template::golden_test_template;
 
-    #[test]
-    fn undef() {
-        assert::fail("f'{x}b'", "Variable `x` not found");
+    fn fstring_golden_test(test_name: &str, text: &str) {
+        let err = assert::fails(text, &[]);
+
+        golden_test_template(
+            &format!("src/tests/fstring/golden/{test_name}.err.golden.md"),
+            &format!("{}", err),
+        );
     }
 
     #[test]
-    fn invalid_format() {
-        assert::fail("f'{x'", "Invalid format");
-        assert::fail("f'{x}}'", "Invalid format");
+    fn undeclared_variable() {
+        fstring_golden_test("undeclared_variable", "f'foo {bar}'");
     }
 
     #[test]
-    fn expression() {
-        assert::fail("f'{123}'", "Not a valid identifier: `123`");
-        assert::fail("f'{x[123]}'", "Not a valid identifier: `x[123]`");
+    fn invalid_identifier() {
+        fstring_golden_test("invalid_identifier", "f'foo {bar baz}'");
+    }
+
+    #[test]
+    fn invalid_identifier_expression() {
+        fstring_golden_test("invalid_identifier_expression", "f'foo {bar[123]}'");
+    }
+
+    #[test]
+    fn invalid_identifier_triple_quotes() {
+        fstring_golden_test("invalid_identifier_triple_quotes", "f'''foo {bar baz}'''");
+    }
+
+    #[test]
+    fn invalid_identifier_raw() {
+        fstring_golden_test("invalid_identifier_raw", "fr'foo {bar baz}'");
+    }
+
+    #[test]
+    fn invalid_identifier_multiline() {
+        fstring_golden_test("invalid_identifier_multiline", "f''''foo \n {bar baz}'''");
+    }
+
+    #[test]
+    fn escape() {
+        // NOTE: this is wrong, we put the squiggly lines in the wrong place.
+        fstring_golden_test("escape", "f'foo \\n {bar baz}'");
     }
 }
