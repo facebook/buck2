@@ -126,24 +126,67 @@ jobs:
       - get_prelude_hash
     runs-on: ubuntu-latest
     steps:
-      - run: mkdir ${{github.workspace}}/artifacts
-      - uses: actions/download-artifact@v3
+      - uses: actions/checkout@v3
         with:
-          path: ${{github.workspace}}/artifacts
-      - name: Display structure of downloaded files
-        run: |
-          ls -R
-        working-directory: ${{github.workspace}}/artifacts
-      - uses: pyTooling/Actions/releaser@main
+          fetch-depth: 0
+      # Publish a new tag and upload all aritfacts from `build` and `get_prelude_hash`
+      - uses: ./.github/actions/publish_tag
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: 'latest'
-          files: ${{github.workspace}}/artifacts/**
-          rm: true
-      - name: Summary
+          tag: "latest"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  check_for_bi_monthly_release:
+    name: Check if there's a release for this half of the month already
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    outputs:
+      tag: ${{ steps.check_if_we_need_to_tag.outputs.new_tag }}
+    steps:
+      - id: get_date
+        name: Store date information so we stay consistent between the steps
         run: |
-          cat <<EOF >> $GITHUB_STEP_SUMMARY
-          # "latest" Build Complete! :rocket:
-          For the public download links of these build artifacts, please see:
-           <https://github.com/facebook/buck2/releases/tag/latest>
-          EOF
+          month=$(date +%Y-%m)
+          day=$(date +%d)
+          tag=$(date +%Y-%m-%d)
+          echo "month=$month" >> "$GITHUB_OUTPUT"
+          echo "day=$day" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+      - id: get_tags_count
+        name: Count the number of tags already published for this month
+        run: |
+          url="https://api.github.com/repos/facebook/buck2/tags"
+          tags_count=$(curl -fsSL "$url" |  jq -r ".[].name" | grep -c "${{ steps.get_date.outputs.month }}" )
+          echo "tags_count=$tags_count" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+      - id: check_if_we_need_to_tag
+        name: Check if we should tag
+        run: |
+          tags_count=${{ steps.get_tags_count.outputs.tags_count }}
+          day=${{ steps.get_date.outputs.day }}
+          tag=${{ steps.get_date.outputs.tag }}
+
+          # If we're in the first half of the month, check if there are no tags for this month yet
+          if (( day < 15 && tags_count < 1 )); then echo "new_tag=${tag}" >> "$GITHUB_OUTPUT"; fi;
+          # Otherwise, tag if the count is less than 2.
+          if (( day >= 15 && tags_count < 2 )); then echo "new_tag=${tag}" >> "$GITHUB_OUTPUT"; fi;
+          cat $GITHUB_OUTPUT
+
+  release_bi_monthly:
+    name: Release bi-monthly tag
+    needs:
+      - build
+      - check_for_bi_monthly_release
+    runs-on: ubuntu-latest
+    # Only perform this action if check_for_bi_monthly_release set a tag output
+    if: ${{ needs.check_for_bi_monthly_release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      # Publish a new tag and upload all aritfacts from `build` and `get_prelude_hash`
+      - uses: ./.github/actions/publish_tag
+        with:
+          tag: ${{ needs.check_for_bi_monthly_release.outputs.tag }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}

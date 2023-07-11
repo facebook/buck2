@@ -1,0 +1,41 @@
+name: "Publish a tag"
+description: "A reusable workflow that's used to publish a tag"
+inputs:
+  tag:
+    description: "tag to publish"
+    required: true
+  github_token:
+    # Composite workflows do not have access to secrets so they have to be passed in
+    description: "GitHub Token"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Log tag
+      shell: bash
+      run: |
+        echo "Going to tag '${{ inputs.tag }}'!"
+    - shell: bash
+      run: |
+        mkdir -p ${{github.workspace}}/artifacts
+    - uses: actions/download-artifact@v3
+      with:
+        path: ${{github.workspace}}/artifacts
+    - name: Display structure of downloaded files
+      shell: bash
+      run: |
+        ls -R artifacts
+    - uses: pyTooling/Actions/releaser@adef08d3bdef092282614f3b683897cefae82ee3 # v0.4.6
+      with:
+        token: ${{ inputs.github_token }}
+        tag: '${{ inputs.tag }}'
+        files: ${{github.workspace}}/artifacts/**
+    - name: Post a summary
+      shell: bash
+      run: |
+        cat <<EOF >> $GITHUB_STEP_SUMMARY
+        # `${{ inputs.tag }}` Release Complete! :rocket:
+        For the public download links of these build artifacts, please see:
+          <https://github.com/facebook/buck2/releases/tag/${{ inputs.tag }}>
+        EOF
