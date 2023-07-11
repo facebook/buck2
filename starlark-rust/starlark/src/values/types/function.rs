@@ -48,7 +48,6 @@ use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
@@ -186,8 +185,8 @@ pub struct NativeFunction {
     #[allocative(skip)]
     pub(crate) function: Box<dyn NativeFunc>,
     pub(crate) name: String,
-    /// `.type` attribute.
-    pub(crate) typ: Option<FrozenStringValue>,
+    /// `.type` attribute and a type when this function is used in type expression.
+    pub(crate) typ: Option<Ty>,
     pub(crate) ty: Option<Ty>,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
@@ -262,10 +261,10 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         self.function.invoke(eval, args)
     }
 
-    fn get_attr(&self, attribute: &str, _heap: &'v Heap) -> Option<Value<'v>> {
-        if let Some(s) = &self.typ {
+    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
+        if let Some(s) = self.typ.as_ref().map(|t| t.as_name()) {
             if attribute == "type" {
-                return Some(s.to_value());
+                return Some(heap.alloc(s));
             }
         }
         None
@@ -273,11 +272,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
 
     #[allow(clippy::manual_map)]
     fn eval_type(&self, _private: Private) -> Option<Ty> {
-        if let Some(s) = &self.typ {
-            Some(Ty::name(s.as_str()))
-        } else {
-            None
-        }
+        self.typ.clone()
     }
 
     fn has_attr(&self, _attribute: &str, _heap: &'v Heap) -> bool {

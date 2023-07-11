@@ -39,21 +39,6 @@ use crate::module::util::ident_string;
 use crate::module::util::mut_token;
 
 impl StarFun {
-    fn type_expr(&self) -> syn::Expr {
-        match &self.as_type {
-            Some(x) => syn::parse_quote_spanned! {
-                self.span()=>
-                    std::option::Option::Some(
-                        <#x as starlark::values::StarlarkValue>::get_type_value_static(),
-                    )
-            },
-            None => syn::parse_quote_spanned! {
-                self.span()=>
-                std::option::Option::None
-            },
-        }
-    }
-
     fn ty_custom_expr(&self) -> syn::Expr {
         match &self.starlark_ty_custom_function {
             Some(x) => syn::parse_quote_spanned! {
@@ -260,7 +245,7 @@ impl StarFun {
                 );
             })
         } else {
-            let typ = self.type_expr();
+            let typ = self.as_type_expr();
             let ty_custom = self.ty_custom_expr();
             Ok(quote_spanned! {self.span()=>
                 #[allow(clippy::redundant_closure)]
