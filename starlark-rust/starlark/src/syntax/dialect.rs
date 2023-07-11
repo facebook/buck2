@@ -79,6 +79,9 @@ pub struct Dialect {
     /// Are `for`, `if` and other statements allowed at the top level.
     /// Only enabled in [`Extended`](Dialect::Extended).
     pub enable_top_level_stmt: bool,
+    /// Are `f"{expression}"` strings supported?
+    /// Disabled in all dialects by default.
+    pub enable_f_strings: bool,
     /// Like `#[non_exhaustive]`, but allows struct expression.
     ///
     /// [Explanation](https://github.com/rust-lang/rust-clippy/issues/6559).
@@ -106,6 +109,7 @@ impl Dialect {
         enable_types: DialectTypes::Disable,
         enable_load_reexport: true, // But they plan to change it
         enable_top_level_stmt: false,
+        enable_f_strings: false,
         _non_exhaustive: (),
     };
 
@@ -118,6 +122,7 @@ impl Dialect {
         enable_types: DialectTypes::Enable,
         enable_load_reexport: true,
         enable_top_level_stmt: true,
+        enable_f_strings: false,
         _non_exhaustive: (),
     };
 }
