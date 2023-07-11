@@ -36,6 +36,7 @@ pub(crate) fn parse_format_one(s: &str) -> Option<(String, String)> {
     loop {
         match parser.next().ok()?? {
             FormatToken::Text(text) => before.push_str(text),
+            FormatToken::Escape(e) => before.push_str(e.as_str()),
             FormatToken::Capture { capture: "", .. } => break,
             FormatToken::Capture { .. } => return None,
         }
@@ -45,6 +46,7 @@ pub(crate) fn parse_format_one(s: &str) -> Option<(String, String)> {
     loop {
         match parser.next().ok()? {
             Some(FormatToken::Text(text)) => after.push_str(text),
+            Some(FormatToken::Escape(e)) => after.push_str(e.as_str()),
             Some(FormatToken::Capture { .. }) => return None,
             None => break,
         }
@@ -142,6 +144,33 @@ pub(crate) enum FormatToken<'a> {
         /// The position of this capture. This does not include the curly braces.
         pos: usize,
     },
+    Escape(EscapeCurlyBrace),
+}
+
+/// Emitted when processing an escape (`{{` or `}}`).
+#[derive(Debug, PartialEq)]
+pub(crate) enum EscapeCurlyBrace {
+    Open,
+    Close,
+}
+
+impl EscapeCurlyBrace {
+    /// Get what this represents.
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Open => "{",
+            Self::Close => "}",
+        }
+    }
+
+    /// Get back the escaped form for this.
+    #[allow(unused)]
+    pub(crate) fn back_to_escape(&self) -> &'static str {
+        match self {
+            Self::Open => "{{",
+            Self::Close => "}}",
+        }
+    }
 }
 
 impl<'a> FormatParser<'a> {
@@ -165,7 +194,7 @@ impl<'a> FormatParser<'a> {
                     assert!(i == 0);
                     if self.view.starts_with("{{") {
                         self.view.eat(2);
-                        return Ok(Some(FormatToken::Text("{")));
+                        return Ok(Some(FormatToken::Escape(EscapeCurlyBrace::Open)));
                     }
                     i = 1;
                     while i < self.view.len() {
@@ -193,7 +222,7 @@ impl<'a> FormatParser<'a> {
                     assert!(i == 0);
                     if self.view.starts_with("}}") {
                         self.view.eat(2);
-                        return Ok(Some(FormatToken::Text("}")));
+                        return Ok(Some(FormatToken::Escape(EscapeCurlyBrace::Close)));
                     }
                     return Err(anyhow::anyhow!(
                         "Standalone '}}' in format string `{}`",
@@ -269,6 +298,7 @@ pub(crate) fn format<'v>(
     while let Some(token) = parser.next()? {
         match token {
             FormatToken::Text(text) => result.push_str(text),
+            FormatToken::Escape(e) => result.push_str(e.as_str()),
             FormatToken::Capture { capture, .. } => {
                 format_capture(capture, &mut args, &kwargs, &mut result)?
             }
@@ -401,7 +431,8 @@ mod tests {
 
     #[test]
     fn test_format() {
-        assert::eq("'a{x}b{y}c{}'.format(1, x=2, y=3)", "'a2b3c1'")
+        assert::eq("'a{x}b{y}c{}'.format(1, x=2, y=3)", "'a2b3c1'");
+        assert::eq("'a{x}b{{y}}c{}'.format(1, x=2)", "'a2b{y}c1'");
     }
 
     #[test]
