@@ -101,7 +101,7 @@ def _versioned_param_to_select(items, default = None):
         return None
 
     # TODO(agallagher): Remove once we move to a `uquery` based TD.
-    if read_config("fbcode", "cquery_td") == "true":
+    if read_root_config("fbcode", "cquery_td") == "true":
         return None
 
     # Special case a form of "empty" constraints that `buckify_tp2` may
