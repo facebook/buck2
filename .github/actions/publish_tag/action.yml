@@ -27,10 +27,24 @@ runs:
       run: |
         ls -R artifacts
     - uses: pyTooling/Actions/releaser@adef08d3bdef092282614f3b683897cefae82ee3 # v0.4.6
+      id: upload_attempt_1
       with:
         token: ${{ inputs.github_token }}
         tag: '${{ inputs.tag }}'
         files: ${{github.workspace}}/artifacts/**
+        rm: false # do not clean past assets
+      # This needs to be true to proceed to the next step of failure
+      continue-on-error: true
+    # If the upload fails, retry. This usually solves the problem.
+    - name: Some action that can fail
+      # Only run this step if upload_attempt_1 fails.
+      if: steps.upload_attempt_1.outcome == 'failure'
+      uses: pyTooling/Actions/releaser@adef08d3bdef092282614f3b683897cefae82ee3 # v0.4.6
+      with:
+        token: ${{ inputs.github_token }}
+        tag: '${{ inputs.tag }}'
+        files: ${{github.workspace}}/artifacts/**
+        rm: false # do not clean past assets
     - name: Post a summary
       shell: bash
       run: |
