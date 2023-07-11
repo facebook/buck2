@@ -16,6 +16,7 @@
  */
 
 use std::mem;
+use std::ops::Deref;
 use std::str::FromStr;
 
 use anyhow::Context as _;
@@ -30,10 +31,7 @@ use crate::values::ValueLike;
 
 /// Try parse `"aaa{}bbb"` and return `("aaa", "bbb")`.
 pub(crate) fn parse_format_one(s: &str) -> Option<(String, String)> {
-    let mut parser = FormatParser {
-        format_str: s,
-        rem_input: s,
-    };
+    let mut parser = FormatParser::new(s);
     let mut before = String::with_capacity(s.len());
     loop {
         match parser.next().ok()?? {
@@ -129,16 +127,13 @@ impl<'v, T: Iterator<Item = Value<'v>>> FormatArgs<'v, T> {
 }
 
 /// Parser for `.format()` arguments.
-struct FormatParser<'a> {
-    /// The original format string.
-    format_str: &'a str,
-    /// Remaining part.
-    rem_input: &'a str,
+pub(crate) struct FormatParser<'a> {
+    view: StringView<'a>,
 }
 
 /// Token in the format string.
-#[derive(Debug)]
-enum FormatToken<'a> {
+#[derive(Debug, PartialEq)]
+pub(crate) enum FormatToken<'a> {
     /// Text to copy verbatim to the output.
     Text(&'a str),
     /// Format part inside curly braces.
@@ -146,30 +141,34 @@ enum FormatToken<'a> {
 }
 
 impl<'a> FormatParser<'a> {
+    pub(crate) fn new(s: &'a str) -> Self {
+        Self {
+            view: StringView::new(s),
+        }
+    }
+
     /// Parse the next token from the format string.
-    fn next(&mut self) -> anyhow::Result<Option<FormatToken<'a>>> {
+    pub(crate) fn next(&mut self) -> anyhow::Result<Option<FormatToken<'a>>> {
         let mut i = 0;
 
-        while i < self.rem_input.len() {
-            match self.rem_input.as_bytes()[i] {
+        while i < self.view.len() {
+            match self.view.as_bytes()[i] {
                 b'{' | b'}' if i != 0 => {
-                    let (text, rem) = self.rem_input.split_at(i);
-                    self.rem_input = rem;
+                    let text = self.view.eat(i);
                     return Ok(Some(FormatToken::Text(text)));
                 }
                 b'{' => {
                     assert!(i == 0);
-                    if self.rem_input.starts_with("{{") {
-                        self.rem_input = &self.rem_input[2..];
+                    if self.view.starts_with("{{") {
+                        self.view.eat(2);
                         return Ok(Some(FormatToken::Text("{")));
                     }
                     i = 1;
-                    while i < self.rem_input.len() {
-                        match self.rem_input.as_bytes()[i] {
+                    while i < self.view.len() {
+                        match self.view.as_bytes()[i] {
                             b'}' => {
-                                let capture = &self.rem_input[1..i];
-                                self.rem_input = &self.rem_input[i + 1..];
-                                return Ok(Some(FormatToken::Capture(capture)));
+                                let capture = self.view.eat(i + 1);
+                                return Ok(Some(FormatToken::Capture(&capture[1..i])));
                             }
                             b'{' => {
                                 break;
@@ -179,18 +178,18 @@ impl<'a> FormatParser<'a> {
                     }
                     return Err(anyhow::anyhow!(
                         "Unmatched '{{' in format string `{}`",
-                        self.format_str
+                        self.view.original()
                     ));
                 }
                 b'}' => {
                     assert!(i == 0);
-                    if self.rem_input.starts_with("}}") {
-                        self.rem_input = &self.rem_input[2..];
+                    if self.view.starts_with("}}") {
+                        self.view.eat(2);
                         return Ok(Some(FormatToken::Text("}")));
                     }
                     return Err(anyhow::anyhow!(
                         "Standalone '}}' in format string `{}`",
-                        self.format_str
+                        self.view.original()
                     ));
                 }
                 _ => i += 1,
@@ -200,9 +199,48 @@ impl<'a> FormatParser<'a> {
         if i == 0 {
             Ok(None)
         } else {
-            let text = mem::take(&mut self.rem_input);
-            Ok(Some(FormatToken::Text(text)))
+            Ok(Some(FormatToken::Text(mem::take(&mut self.view).rem())))
         }
+    }
+}
+
+/// A String and an index pointing into this string. This behaves as if you had just the part
+/// starting at this index, and you can use `eat(n)` to advance.
+#[derive(Default)]
+struct StringView<'a> {
+    /// The string we're viewing.
+    s: &'a str,
+    /// The current offset in bytes.
+    i: usize,
+}
+
+impl<'a> StringView<'a> {
+    fn new(s: &'a str) -> Self {
+        Self { s, i: 0 }
+    }
+
+    fn eat(&mut self, n: usize) -> &'a str {
+        let ret = &self.s[self.i..self.i + n];
+        self.i += n;
+        ret
+    }
+
+    /// Get the remaining string.
+    fn rem(&self) -> &'a str {
+        &self.s[self.i..]
+    }
+
+    /// Get the original string.
+    fn original(&self) -> &'a str {
+        self.s
+    }
+}
+
+impl<'a> Deref for StringView<'a> {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.rem()
     }
 }
 
@@ -213,10 +251,7 @@ pub(crate) fn format<'v>(
     string_pool: &mut StringPool,
     heap: &'v Heap,
 ) -> anyhow::Result<StringValue<'v>> {
-    let mut parser = FormatParser {
-        format_str: this,
-        rem_input: this,
-    };
+    let mut parser = FormatParser::new(this);
     let mut result = string_pool.alloc();
     let mut args = FormatArgs::new(args);
     while let Some(token) = parser.next()? {
