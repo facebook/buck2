@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//cxx:debug.bzl", "ExternalDebugInfoTSet")
 load(
     "@prelude//cxx:linker.bzl",
@@ -33,6 +34,8 @@ LinkStyle = enum(
     # Link using a native shared library.
     "shared",
 )
+
+STATIC_LINK_STYLES = [LinkStyle("static"), LinkStyle("static_pic")]
 
 # Ways a library can request to be linked (e.g. usually specific via a rule
 # param like `preferred_linkage`.  The actual link style used for a library is
@@ -608,19 +611,25 @@ def get_link_args(
 
 def get_actual_link_style(
         requested_link_style: LinkStyle.type,
-        preferred_linkage: Linkage.type) -> LinkStyle.type:
+        preferred_linkage: Linkage.type,
+        # In the next diff, I'll make this a required argument.
+        pic_behavior: PicBehavior.type = PicBehavior("supported")) -> LinkStyle.type:
     """
     Return how we link a library for a requested link style and preferred linkage.
-    --------------------------------------------------------
-    | preferred_linkage |              link_style          |
-    |                   |----------------------------------|
-    |                   | static | static_pic |  shared    |
-    -------------------------------------------------------|
-    |      static       | static | static_pic | static_pic |
-    |      shared       | shared |   shared   |   shared   |
-    |       any         | static | static_pic |   shared   |
-    --------------------------------------------------------
+    -----------------------------------------------------------------------------------|
+    |                   |                    requested_link_style                      |
+    | preferred_linkage |--------------------------------------------------------------|
+    |                   |       static       |     static_pic     |       shared       |
+    -----------------------------------------------------------------------------------|
+    |      static       | check pic_behavior | check pic_behavior | check pic_behavior |
+    |      shared       |       shared       |       shared       |       shared       |
+    |       any         | check pic_behavior | check pic_behavior |       shared       |
+    ------------------------------------------------------------------------------------
     """
+    no_pic_style = _get_link_style_without_pic_behavior(requested_link_style, preferred_linkage)
+    return process_link_style_for_pic_behavior(no_pic_style, pic_behavior)
+
+def _get_link_style_without_pic_behavior(requested_link_style: LinkStyle.type, preferred_linkage: Linkage.type) -> LinkStyle.type:
     if preferred_linkage == Linkage("any"):
         return requested_link_style
     elif preferred_linkage == Linkage("shared"):
@@ -630,6 +639,24 @@ def get_actual_link_style(
             return requested_link_style
         else:
             return LinkStyle("static_pic")
+
+def process_link_style_for_pic_behavior(link_style: LinkStyle.type, behavior: PicBehavior.type) -> LinkStyle.type:
+    """
+    - For targets being built for x86_64, arm64, the fPIC flag isn't respected. Everything is fPIC.
+    - For targets being built for Windows, nothing is fPIC. The flag is ignored.
+    - There are many platforms (linux, etc.) where the fPIC flag is supported.
+
+    As a result, we can end-up in a place where you pic + non-pic artifacts are requested
+    but the platform will produce the exact same output (despite the different files).
+    """
+    if behavior == PicBehavior("supported") or link_style not in STATIC_LINK_STYLES:
+        return link_style
+    elif behavior == PicBehavior("not_supported"):
+        return LinkStyle("static")
+    elif behavior == PicBehavior("always_enabled"):
+        return LinkStyle("static_pic")
+    else:
+        fail("Unknown pic_behavior: {}".format(behavior))
 
 def get_link_styles_for_linkage(linkage: Linkage.type) -> [LinkStyle.type]:
     """
