@@ -9,14 +9,19 @@ load(":merge.bxl", "do_merge")
 load(":query.bxl", "get_python_library_manifests_tset_from_target_patterns")
 
 def _build_entry_point(ctx: "bxl_ctx") -> None:
-    query = ctx.cquery()
-    actions = ctx.actions_factory
+    bxl_actions = ctx.bxl_actions(
+        exec_deps = "prelude//python/tools/sourcedb_merger:legacy_merge",
+        target_platform = "prelude//platforms:default",
+    )
+    actions = bxl_actions.actions
 
+    query = ctx.cquery()
+    target_patterns = [query.eval(target) for target in ctx.cli_args.target]
     manifests = get_python_library_manifests_tset_from_target_patterns(
         ctx,
         query,
         actions,
-        [query.eval(target) for target in ctx.cli_args.target],
+        target_patterns,
     )
 
     # Ensure all source files are materialized
@@ -25,9 +30,8 @@ def _build_entry_point(ctx: "bxl_ctx") -> None:
     # Ensure merged sourcedb is materialized
     merged_sourcedb = do_merge(
         ctx,
-        actions,
+        bxl_actions,
         manifests,
-        merger_target = "prelude//python/tools/sourcedb_merger:legacy_merge",
         command_category = "pyre_legacy_merge_sourcedb",
     )
     ctx.output.print_json({"db": merged_sourcedb.abs_path()})

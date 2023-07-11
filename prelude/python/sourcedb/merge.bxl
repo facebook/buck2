@@ -9,22 +9,21 @@ load("@prelude//python:python.bzl", "PythonLibraryManifestsTSet")
 
 def do_merge(
         ctx: "bxl_ctx",
-        actions: "actions",
+        bxl_actions: "bxl_actions",
         manifests: PythonLibraryManifestsTSet.type,
-        merger_target: str.type,
         command_category: str.type) -> "ensured_artifact":
+    actions = bxl_actions.actions
+
     merger_input = actions.write_json(
         "merge_input.json",
         manifests.project_as_json("source_type_manifests_json"),
         with_inputs = True,
     )
     merger_output = actions.declare_output("merged_db.json")
-    merger = ctx.analysis(
-        merger_target,
-        target_platform = "prelude//platforms:default",
-    ).providers()[RunInfo]
 
-    command = cmd_args(merger)
+    dependency_key = bxl_actions.exec_deps.keys()[0]
+
+    command = cmd_args(bxl_actions.exec_deps[dependency_key][RunInfo])
     command.add(merger_input)
     command.add("--output")
     command.add(merger_output.as_output())
