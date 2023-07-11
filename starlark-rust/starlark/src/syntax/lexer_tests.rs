@@ -294,3 +294,15 @@ fn test_float_lit() {
         "0 0.123 3.14 200 10000 \n"
     );
 }
+
+#[test]
+fn test_f_string() {
+    assert_eq!(assert::lex("f\"basic {stuff}\""), "f\"basic {stuff}\" \n");
+    assert_eq!(assert::lex("f'basic {stuff}'"), "f\"basic {stuff}\" \n");
+
+    // Raw f-string
+    assert_eq!(
+        assert::lex("fr'' fr\"\" fr'\\'' fr\"\\\"\" fr'\"' fr\"'\" fr'\\n'"),
+        "f\"\" f\"\" f\"\'\" f\"\\\"\" f\"\\\"\" f\"\'\" f\"\\\\n\" \n"
+    );
+}
