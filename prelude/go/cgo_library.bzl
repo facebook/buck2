@@ -172,9 +172,7 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
         linkage,
     )
 
-    compiled_objects = c_compile_cmds.objects
-    if link_style != "static":
-        compiled_objects = c_compile_cmds.pic_objects
+    compiled_objects = c_compile_cmds.pic_objects
 
     # Merge all sources together to pass to the Go compile step.
     all_srcs = cmd_args(go_srcs + compiled_objects)
