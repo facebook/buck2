@@ -39,29 +39,29 @@ use crate::module::util::ident_string;
 use crate::module::util::mut_token;
 
 impl StarFun {
-    fn type_expr(&self) -> TokenStream {
+    fn type_expr(&self) -> syn::Expr {
         match &self.as_type {
-            Some(x) => quote_spanned! {
+            Some(x) => syn::parse_quote_spanned! {
                 self.span()=>
                     std::option::Option::Some(
                         <#x as starlark::values::StarlarkValue>::get_type_value_static(),
                     )
             },
-            None => quote_spanned! {
+            None => syn::parse_quote_spanned! {
                 self.span()=>
                 std::option::Option::None
             },
         }
     }
 
-    fn ty_custom_expr(&self) -> TokenStream {
+    fn ty_custom_expr(&self) -> syn::Expr {
         match &self.starlark_ty_custom_function {
-            Some(x) => quote_spanned! {
+            Some(x) => syn::parse_quote_spanned! {
                 self.span()=>
                 std::option::Option::Some(starlark::typing::Ty::custom_function(#x))
             },
             None => {
-                quote_spanned! {
+                syn::parse_quote_spanned! {
                     self.span()=>
                     std::option::Option::None
                 }
@@ -69,14 +69,14 @@ impl StarFun {
         }
     }
 
-    fn special_builtin_function_expr(&self) -> TokenStream {
+    fn special_builtin_function_expr(&self) -> syn::Expr {
         match &self.special_builtin_function {
-            Some(x) => quote_spanned! {
+            Some(x) => syn::parse_quote_spanned! {
                 self.span()=>
                 std::option::Option::Some(#x)
             },
             None => {
-                quote_spanned! {
+                syn::parse_quote_spanned! {
                     self.span()=>
                     std::option::Option::None
                 }
@@ -84,15 +84,15 @@ impl StarFun {
         }
     }
 
-    fn type_str(&self) -> TokenStream {
+    fn type_str(&self) -> syn::Expr {
         match &self.as_type {
-            Some(x) => quote_spanned! {
+            Some(x) => syn::parse_quote_spanned! {
                 self.span()=>
                     std::option::Option::Some(
                         <#x as starlark::values::StarlarkValue>::get_type_value_static().as_str(),
                     )
             },
-            None => quote_spanned! {
+            None => syn::parse_quote_spanned! {
                 self.span()=>
                 std::option::Option::None
             },
@@ -613,7 +613,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
 
     let return_type_str = render_starlark_return_type(x);
     let var_name = format_ident!("__documentation");
-    let dot_type: TokenStream = x.type_str();
+    let dot_type = x.type_str();
     let documentation = quote_spanned!(span=>
         let #var_name = {
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
