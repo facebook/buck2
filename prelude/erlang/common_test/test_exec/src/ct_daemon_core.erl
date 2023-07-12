@@ -353,7 +353,7 @@ do_part_safe(Id, Fun, Config, TimeTrap) ->
     Pid ! {self(), ReqRef},
     receive
         {'DOWN', ProcRef, process, _Pid, Info} ->
-            {error, {Id, {sentinel_crash, Info}}};
+            {error, {Id, {'ct_daemon_core$sentinel_crash', Info}}};
         {ReqRef, Skip = {skip, _Where, _Reason}} ->
             Skip;
         {ReqRef, Fail = {fail, _Where, _Reason}} ->

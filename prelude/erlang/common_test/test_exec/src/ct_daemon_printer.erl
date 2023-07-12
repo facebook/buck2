@@ -49,6 +49,10 @@ print_result(Name, {fail, {TestId, Reason}}) ->
     io:format("~ts failed:~n", [TestId]),
     io:format("~p~n", [Reason]),
     fail;
+print_result(Name, {error, {_TestId, {'ct_daemon_core$sentinel_crash', Info}}}) ->
+    io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
+    io:format("Test process received EXIT signal with reason: ~p~n", [Info]),
+    fail;
 print_result(Name, Unstructured) ->
     io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
     io:format("unable to format failure reason, please report.~n"),

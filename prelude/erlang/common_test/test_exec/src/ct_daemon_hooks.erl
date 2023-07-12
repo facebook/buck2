@@ -304,8 +304,8 @@ format_ct_error(throw, Reason, Stacktrace) ->
     {fail, {thrown, Reason, Stacktrace}};
 format_ct_error(error, Reason, Stacktrace) ->
     {fail, {Reason, Stacktrace}};
-format_ct_error(exit, Reason, _Stacktrace) ->
-    {fail, Reason}.
+format_ct_error(exit, Reason, Stacktrace) when is_list(Stacktrace) ->
+    {fail, {exit, Reason, Stacktrace}}.
 
 -spec build_test_name(part(), [atom()]) -> test_name().
 build_test_name(init_per_suite, _Path) ->
