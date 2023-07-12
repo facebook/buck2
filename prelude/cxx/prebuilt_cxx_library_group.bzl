@@ -19,11 +19,14 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "Archive",
+    "ArchiveLinkable",
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
     "Linkage",
     "LinkedObject",
+    "SharedLibLinkable",
     "create_merged_link_info",
     "get_actual_link_style",
     "get_link_styles_for_linkage",
@@ -41,6 +44,7 @@ load(
     "merge_shared_libraries",
 )
 load("@prelude//utils:utils.bzl", "expect", "flatten_dict")
+load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
     "cxx_inherited_link_info",
@@ -67,8 +71,7 @@ def _linkage(ctx: "context") -> Linkage.type:
     # Otherwise, header only libs use any linkage.
     return Linkage("any")
 
-def _parse_macro(
-        arg: str) -> [(str, str, str), None]:
+def _parse_macro(arg: str) -> [(str, str), None]:
     """
     Parse a lib reference macro (e.g. `$(lib 0)`, `$(rel-lib libfoo.so)`) into
     the format string used to format the arg, the name of the macro parsed, and
@@ -88,65 +91,109 @@ def _parse_macro(
     # actual arg.  This is pretty ugly, but we don't have too complex a case to
     # support (e.g. a single macro with a single arg).
     start, rest = arg.split("$(")
+    expect(start == "")
     pos = rest.find(" ")
     macro = rest[:pos]
     rest = rest[pos + 1:]
     pos = rest.find(")")
     param = rest[:pos]
     end = rest[pos + 1:]
-    return start + "{}" + end, macro, param
+    expect(end == "")
 
-def _get_static_link_args(
+    return macro, param
+
+def _get_static_link_info(
+        linker_type: str.type,
         libs: ["artifact"],
-        args: [str]) -> [""]:
+        args: [str]) -> LinkInfo.type:
     """
     Format a pair of static link string args and static libs into args to be
     passed to the link, by resolving macro references to libraries.
     """
 
-    link = []
+    pre_flags = []
+    post_flags = []
+    linkables = []
 
     for arg in args:
         res = _parse_macro(arg)
         if res != None:
+            # We require that link lines are written such that link flags wrap
+            # linkables.  So verify that we haven't already seen post linker
+            # flags.
+            expect(not post_flags)
+
             # Macros in the static link line are indexes to the list of static
             # archives.
-            fmt, macro, param = res
+            macro, param = res
             expect(macro == "lib")
-            link.append(cmd_args(libs[int(param)], format = fmt))
+            linkables.append(
+                ArchiveLinkable(
+                    archive = Archive(artifact = libs[int(param)]),
+                    linker_type = linker_type,
+                    # We assume prebuilt C/C++ libs don't contain LTO code and
+                    # avoid potentially expensive processing of the to support
+                    # dist LTO.  In additional, some prebuilt library groups
+                    # use `--start-group`/`--end-group` which breaks with our
+                    # dist LTO impl wrapping w/ `--start-lib`.
+                    supports_lto = False,
+                ),
+            )
+        elif linkables:
+            # If we've already seen linkables, put remaining flags/args into
+            # post-linker flags.
+            post_flags.append(arg)
         else:
-            link.append(arg)
+            pre_flags.append(arg)
 
-    return link
+    return LinkInfo(
+        pre_flags = pre_flags,
+        post_flags = post_flags,
+        linkables = linkables,
+    )
 
-def _get_shared_link_args(
+def _get_shared_link_info(
         shared_libs: {str: "artifact"},
-        args: [str]) -> [""]:
+        args: [str]) -> LinkInfo.type:
     """
     Format a pair of shared link string args and shared libs into args to be
     passed to the link, by resolving macro references to libraries.
     """
 
-    link = []
+    pre_flags = []
+    post_flags = []
+    linkables = []
 
     for arg in args:
         res = _parse_macro(arg)
         if res != None:
+            # We require that link lines are written such that link flags wrap
+            # linkables.  So verify that we haven't already seen post linker
+            # flags.
+            expect(not post_flags)
+
             # Macros in the shared link line are named references to the map
             # of all shared libs.
-            fmt, macro, lib_name = res
+            macro, lib_name = res
             expect(macro in ("lib", "rel-lib"))
             shared_lib = shared_libs[lib_name]
             if macro == "lib":
-                link.append(cmd_args(shared_lib, format = fmt))
+                linkables.append(SharedLibLinkable(lib = shared_lib))
             elif macro == "rel-lib":
                 # rel-lib means link-without-soname.
-                link.append(cmd_args(shared_lib, format = "-L{}").parent())
-                link.append("-l" + shared_lib.basename.removeprefix("lib").removesuffix(shared_lib.extension))
+                linkables.append(SharedLibLinkable(lib = shared_lib, link_without_soname = True))
+        elif linkables:
+            # If we've already seen linkables, put remaining flags/args into
+            # post-linker flags.
+            post_flags.append(arg)
         else:
-            link.append(arg)
+            pre_flags.append(arg)
 
-    return link
+    return LinkInfo(
+        pre_flags = pre_flags,
+        post_flags = post_flags,
+        linkables = linkables,
+    )
 
 # The `prebuilt_cxx_library_group` rule is meant to provide fine user control for
 # how a group libraries of libraries are added to the link line and was added for
@@ -200,6 +247,8 @@ def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
     inherited_non_exported_link = cxx_inherited_link_info(ctx, deps)
     inherited_exported_link = cxx_inherited_link_info(ctx, exported_deps)
 
+    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
+
     # Gather link infos, outputs, and shared libs for effective link style.
     outputs = {}
     libraries = {}
@@ -208,13 +257,21 @@ def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
         outs = []
         if link_style == LinkStyle("static"):
             outs.extend(ctx.attrs.static_libs)
-            args = _get_static_link_args(ctx.attrs.static_libs, ctx.attrs.static_link)
+            info = _get_static_link_info(
+                linker_type,
+                ctx.attrs.static_libs,
+                ctx.attrs.static_link,
+            )
         elif link_style == LinkStyle("static_pic"):
             outs.extend(ctx.attrs.static_pic_libs)
-            args = _get_static_link_args(ctx.attrs.static_pic_libs, ctx.attrs.static_pic_link)
+            info = _get_static_link_info(
+                linker_type,
+                ctx.attrs.static_pic_libs,
+                ctx.attrs.static_pic_link,
+            )
         else:  # shared
             outs.extend(ctx.attrs.shared_libs.values())
-            args = _get_shared_link_args(
+            info = _get_shared_link_info(
                 flatten_dict([ctx.attrs.shared_libs, ctx.attrs.provided_shared_libs]),
                 ctx.attrs.shared_link,
             )
@@ -224,10 +281,7 @@ def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
         # TODO(cjhopman): This is hiding static and shared libs in opaque
         # linker args, it should instead be constructing structured LinkInfo
         # instances
-        libraries[link_style] = LinkInfos(default = LinkInfo(
-            name = repr(ctx.label),
-            pre_flags = args,
-        ))
+        libraries[link_style] = LinkInfos(default = info)
 
     # This code is already compiled, so, the argument (probably) has little/no value.
     pic_behavior = PicBehavior("supported")
