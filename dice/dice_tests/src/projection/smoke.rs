@@ -8,15 +8,21 @@
  */
 
 use std::collections::HashMap;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use derive_more::Display;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceProjectionComputations;
+use dice::InjectedKey;
 use dice::Key;
 use dice::ProjectionKey;
 use dice::UserComputationData;
@@ -280,6 +286,126 @@ async fn smoke() -> anyhow::Result<()> {
         [Computation::Config, Computation::ConfigProperty].as_slice(),
         tracker.lock().computations.as_slice()
     );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::Result<()> {
+    let dice = Dice::modern();
+    let dice = dice.build(DetectCycles::Enabled);
+
+    #[derive(Allocative, Clone, Debug, Display)]
+    struct ProjectionEqualKey;
+
+    #[async_trait]
+    impl ProjectionKey for ProjectionEqualKey {
+        type DeriveFromKey = BaseKey;
+        type Value = usize;
+
+        fn compute(
+            &self,
+            _derive_from: &<<Self as ProjectionKey>::DeriveFromKey as Key>::Value,
+            _ctx: &DiceProjectionComputations,
+        ) -> Self::Value {
+            1
+        }
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            x == y
+        }
+    }
+    impl PartialEq for ProjectionEqualKey {
+        fn eq(&self, _other: &Self) -> bool {
+            true
+        }
+    }
+    impl Eq for ProjectionEqualKey {}
+    impl Hash for ProjectionEqualKey {
+        fn hash<H: Hasher>(&self, _state: &mut H) {}
+    }
+
+    #[derive(Allocative, Clone, Debug, Display)]
+    struct BaseKey;
+
+    #[async_trait]
+    impl InjectedKey for BaseKey {
+        type Value = usize;
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            x == y
+        }
+    }
+    impl PartialEq for BaseKey {
+        fn eq(&self, _other: &Self) -> bool {
+            true
+        }
+    }
+    impl Eq for BaseKey {}
+    impl Hash for BaseKey {
+        fn hash<H: Hasher>(&self, _state: &mut H) {}
+    }
+
+    #[derive(Allocative, Clone, Debug, Display)]
+    #[display(fmt = "{:?}", self)]
+    struct DependsOnProjection(Arc<AtomicBool>);
+
+    #[async_trait]
+    impl Key for DependsOnProjection {
+        type Value = usize;
+
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            self.0.store(true, Ordering::SeqCst);
+            ctx.compute_opaque(&BaseKey)
+                .await
+                .unwrap()
+                .projection(&ProjectionEqualKey)
+                .unwrap()
+        }
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            x == y
+        }
+    }
+    impl PartialEq for DependsOnProjection {
+        fn eq(&self, _other: &Self) -> bool {
+            true
+        }
+    }
+    impl Eq for DependsOnProjection {}
+    impl Hash for DependsOnProjection {
+        fn hash<H: Hasher>(&self, _state: &mut H) {}
+    }
+
+    let is_ran = Arc::new(AtomicBool::new(false));
+
+    let mut updater = dice.updater();
+    updater.changed_to([(BaseKey, 1)])?;
+    let ctx = updater.commit().await;
+
+    assert_eq!(ctx.compute(&DependsOnProjection(is_ran.dupe())).await?, 1);
+    assert!(is_ran.load(Ordering::SeqCst));
+
+    is_ran.store(false, Ordering::SeqCst);
+    // introduce a change
+    let mut updater = dice.updater();
+    updater.changed_to([(BaseKey, 9999)])?;
+    let ctx = updater.commit().await;
+
+    // if we run the sync first
+    let projected = ctx
+        .compute_opaque(&BaseKey)
+        .await?
+        .projection(&ProjectionEqualKey)?;
+    assert_eq!(projected, 1);
+
+    // should not be ran
+    assert_eq!(ctx.compute(&DependsOnProjection(is_ran.dupe())).await?, 1);
+    assert!(!is_ran.load(Ordering::SeqCst));
 
     Ok(())
 }
