@@ -215,7 +215,7 @@ CLIPPY_ALLOW = [
     "clippy::type_complexity",  # This is an arbitrary limit set on number of type parameterizations and not always useful
     "clippy::unnecessary-wraps",  # Sometimes unnecessary wraps provide the right API
     "clippy::wrong_self_convention",  # These rules are useless pedantry
-    "clippy::bool-assert-comparison",  # from rust version 1.53.0
+    "clippy::bool-assert-comparison",  # Sometimes more clear to write it this way
     "clippy::unwrap-or-else-default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::enum-variant-names",  # Sometimes you do want the same prefixes
     "clippy::needless_update",  # Our RE structs have slightly different definitions in internal and OSS.
