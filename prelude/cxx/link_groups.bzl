@@ -92,9 +92,9 @@ LINK_GROUP_MAPPINGS_SUB_TARGET = "link-group-mappings"
 LINK_GROUP_MAPPINGS_FILENAME_SUFFIX = ".link_group_map.json"
 
 LinkGroupInfo = provider(fields = [
-    "groups",  # [Group.type]
-    "groups_hash",  # str
-    "mappings",  # {"label": str}
+    "groups",  # {str.type: Group.type}
+    "groups_hash",  # str.type
+    "mappings",  # {"label": str.type}
     # Additional graphs needed to cover labels referenced by the groups above.
     # This is useful in cases where the consumer of this provider won't already
     # have deps covering these.
@@ -145,15 +145,15 @@ def build_link_group_info(
     linkable_graph_node_map = get_linkable_graph_node_map_func(graph)()
 
     # Filter out groups which don't meet the node count requirement.
-    filtered_groups = []
+    filtered_groups = {}
     node_count = value_or(min_node_count, len(linkable_graph_node_map))
     for group in groups:
         if group.attrs.enable_if_node_count_exceeds != None and node_count < group.attrs.enable_if_node_count_exceeds:
             continue
-        filtered_groups.append(group)
+        filtered_groups[group.name] = group
 
     mappings = compute_mappings(
-        groups = filtered_groups,
+        groups = filtered_groups.values(),
         graph_map = linkable_graph_node_map,
     )
 
@@ -241,8 +241,9 @@ def _transitively_update_shared_linkage(
 
 def get_filtered_labels_to_links_map(
         linkable_graph_node_map: {"label": LinkableNode.type},
-        link_group: [str, None],
-        link_group_mappings: [{"label": str}, None],
+        link_group: [str.type, None],
+        link_groups: {str.type: Group.type},
+        link_group_mappings: [{"label": str.type}, None],
         link_group_preferred_linkage: {"label": Linkage.type},
         link_style: LinkStyle.type,
         roots: ["label"],
@@ -346,6 +347,11 @@ def get_filtered_labels_to_links_map(
 
         # Always link any shared dependencies
         if actual_link_style == LinkStyle("shared"):
+            # filter out any dependencies to be discarded
+            group = link_groups.get(link_group_mappings.get(target))
+            if group != None and group.attrs.discard_group:
+                continue
+
             # If this target is a link group root library, we
             # 1) don't propagate shared linkage down the tree, and
             # 2) use the provided link info in lieu of what's in the grph.
@@ -511,7 +517,8 @@ def _create_link_group(
         public_nodes: set_record.type = set(),
         linkable_graph_node_map: {"label": LinkableNode.type} = {},
         linker_flags: [""] = [],
-        link_group_mappings: {"label": str} = {},
+        link_groups: {str.type: Group.type} = {},
+        link_group_mappings: {"label": str.type} = {},
         link_group_preferred_linkage: {"label": Linkage.type} = {},
         link_style: LinkStyle.type = LinkStyle("static_pic"),
         link_group_libs: {str: (["label", None], LinkInfos.type)} = {},
@@ -575,6 +582,7 @@ def _create_link_group(
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
         linkable_graph_node_map,
         spec.group.name,
+        link_groups,
         link_group_mappings,
         link_group_preferred_linkage,
         pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
@@ -689,6 +697,7 @@ def _symbol_flags_for_link_groups(
 
 def create_link_groups(
         ctx: "context",
+        link_groups: {str.type: Group.type} = {},
         link_group_specs: [LinkGroupLibSpec.type] = [],
         executable_deps: ["label"] = [],
         other_roots: ["label"] = [],
@@ -742,6 +751,7 @@ def create_link_groups(
                 link_group_spec.group.attrs.exported_linker_flags +
                 link_group_spec.group.attrs.linker_flags
             ),
+            link_groups = link_groups,
             link_group_mappings = link_group_mappings,
             link_group_preferred_linkage = link_group_preferred_linkage,
             # TODO(agallagher): Should we support alternate link strategies

@@ -209,12 +209,13 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if link_group_info:
         link_groups = link_group_info.groups
         link_group_mappings = link_group_info.mappings
+
         link_group_deps = [link_group_info.graph]
     else:
-        link_groups = []
+        link_groups = {}
         link_group_mappings = {}
         link_group_deps = []
-    link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups)
+    link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups.values())
 
     # Create the linkable graph with the binary's deps and any link group deps.
     linkable_graph = create_linkable_graph(
@@ -278,6 +279,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         if impl_params.auto_link_group_specs != None:
             linked_link_groups = create_link_groups(
                 ctx = ctx,
+                link_groups = link_groups,
                 link_group_mappings = link_group_mappings,
                 link_group_preferred_linkage = link_group_preferred_linkage,
                 executable_deps = [d.linkable_graph.nodes.value.label for d in link_deps if d.linkable_graph != None],
@@ -310,6 +312,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         labels_to_links_map = get_filtered_labels_to_links_map(
             linkable_graph_node_map,
             link_group,
+            link_groups,
             link_group_mappings,
             link_group_preferred_linkage,
             pic_behavior = pic_behavior,
@@ -338,6 +341,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             labels_to_links_map = labels_to_links_map | get_filtered_labels_to_links_map(
                 linkable_graph_node_map,
                 None,
+                link_groups,
                 link_group_mappings,
                 link_group_preferred_linkage,
                 link_style,
