@@ -6,7 +6,11 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
-load("@prelude//cxx:debug.bzl", "ExternalDebugInfoTSet")
+load(
+    "@prelude//cxx:debug.bzl",
+    "ExternalDebugInfoTSet",
+    "maybe_external_debug_info",
+)
 load(
     "@prelude//cxx:linker.bzl",
     "get_link_whole_args",
@@ -353,6 +357,7 @@ LinkInfosTSet = transitive_set(
 # A map of native linkable infos from transitive dependencies.
 MergedLinkInfo = provider(fields = [
     "_infos",  # {LinkStyle.type: LinkInfosTSet.type}
+    "_external_debug_info",  # {LinkStyle.type: [ExternalDebugInfoTSet.type, None]}
     # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
     #
     # To save on repeated computation of transitive LinkInfos, we store a dedupped
@@ -407,6 +412,7 @@ def create_merged_link_info(
     """
 
     infos = {}
+    external_debug_info = {}
     frameworks = {}
     swift_runtime = {}
 
@@ -417,6 +423,7 @@ def create_merged_link_info(
         actual_link_style = get_actual_link_style(link_style, preferred_linkage, pic_behavior)
 
         children = []
+        external_debug_info_children = []
         framework_linkables = []
         swift_runtime_linkables = []
 
@@ -435,12 +442,14 @@ def create_merged_link_info(
 
             for dep_info in deps:
                 children.append(dep_info._infos[link_style])
+                external_debug_info_children.append(dep_info._external_debug_info[link_style])
                 framework_linkables.append(dep_info.frameworks[link_style])
                 swift_runtime_linkables.append(dep_info.swift_runtime[link_style])
 
         # We always export link info for exported deps.
         for dep_info in exported_deps:
             children.append(dep_info._infos[link_style])
+            external_debug_info_children.append(dep_info._external_debug_info[link_style])
 
         frameworks[link_style] = merge_framework_linkables(framework_linkables)
         swift_runtime[link_style] = merge_swift_runtime_linkables(swift_runtime_linkables)
@@ -450,13 +459,27 @@ def create_merged_link_info(
                 value = link_infos[actual_link_style],
                 children = children,
             )
+            external_debug_info[link_style] = maybe_external_debug_info(
+                actions = ctx.actions,
+                label = ctx.label,
+                children = (
+                    [link_infos[actual_link_style].default.external_debug_info] +
+                    external_debug_info_children
+                ),
+            )
 
-    return MergedLinkInfo(_infos = infos, frameworks = frameworks, swift_runtime = swift_runtime)
+    return MergedLinkInfo(
+        _infos = infos,
+        _external_debug_info = external_debug_info,
+        frameworks = frameworks,
+        swift_runtime = swift_runtime,
+    )
 
 def merge_link_infos(
         ctx: "context",
         xs: ["MergedLinkInfo"]) -> "MergedLinkInfo":
     merged = {}
+    merged_external_debug_info = {}
     frameworks = {}
     swift_runtime = {}
     for link_style in LinkStyle:
@@ -464,9 +487,19 @@ def merge_link_infos(
             LinkInfosTSet,
             children = filter(None, [x._infos.get(link_style) for x in xs]),
         )
+        merged_external_debug_info[link_style] = maybe_external_debug_info(
+            actions = ctx.actions,
+            label = ctx.label,
+            children = [x._external_debug_info.get(link_style) for x in xs],
+        )
         frameworks[link_style] = merge_framework_linkables([x.frameworks[link_style] for x in xs])
         swift_runtime[link_style] = merge_swift_runtime_linkables([x.swift_runtime[link_style] for x in xs])
-    return MergedLinkInfo(_infos = merged, frameworks = frameworks, swift_runtime = swift_runtime)
+    return MergedLinkInfo(
+        _infos = merged,
+        _external_debug_info = merged_external_debug_info,
+        frameworks = frameworks,
+        swift_runtime = swift_runtime,
+    )
 
 def get_link_info(
         infos: LinkInfos.type,
@@ -483,6 +516,7 @@ def get_link_info(
 
 LinkArgsTSet = record(
     infos = field(LinkInfosTSet.type),
+    external_debug_info = field([ExternalDebugInfoTSet.type, None], None),
     prefer_stripped = field(bool.type, False),
 )
 
@@ -549,22 +583,7 @@ def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> [Exte
     if args.tset != None:
         if args.tset.prefer_stripped:
             return None
-
-        # We're basically traversing the link tset to build a new tset of
-        # all the included debug info tsets, which the caller will traverse
-        # of project.  Is it worth it to buildup a `external_debug_info_tset`
-        # in `LinkArgs` (for each link style) as we go to optimize for this
-        # case instead?
-        children = [
-            li.default.external_debug_info
-            for li in args.tset.infos.traverse()
-            if li.default.external_debug_info != None
-        ]
-
-        if not children:
-            return None
-
-        return actions.tset(ExternalDebugInfoTSet, children = children)
+        return args.tset.external_debug_info
 
     if args.infos != None:
         children = [info.external_debug_info for info in args.infos if info.external_debug_info != None]
@@ -613,6 +632,7 @@ def get_link_args(
     return LinkArgs(
         tset = LinkArgsTSet(
             infos = merged._infos[link_style],
+            external_debug_info = merged._external_debug_info[link_style],
             prefer_stripped = prefer_stripped,
         ),
     )
