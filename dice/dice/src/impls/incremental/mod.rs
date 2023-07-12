@@ -207,7 +207,7 @@ impl IncrementalEngine {
                         ParentKey::Some(k), // the computing of deps is triggered by this key as the parent
                         eval.dupe(),
                         &mismatch.verified_versions,
-                        mismatch.deps_to_validate,
+                        &mismatch.deps_to_validate,
                         &task_state,
                     )
                     .await?
@@ -218,12 +218,12 @@ impl IncrementalEngine {
                         self.compute(k, eval, &events_dispatcher, task_state.deps_not_match())
                             .await
                     }
-                    DidDepsChange::NoChange(deps) => {
+                    DidDepsChange::NoChange => {
                         report_key_activation(
                             &eval.dice.key_index,
                             eval.user_data.activation_tracker.as_deref(),
                             k,
-                            deps.iter().copied(),
+                            mismatch.deps_to_validate.iter().copied(),
                             ActivationData::Reused,
                         );
 
@@ -236,7 +236,7 @@ impl IncrementalEngine {
                             epoch: self.version_epoch,
                             storage: eval.storage_type(k),
                             value: mismatch.entry,
-                            deps,
+                            deps: mismatch.deps_to_validate,
                             resp: tx,
                         });
 
@@ -312,7 +312,7 @@ impl IncrementalEngine {
         parent_key: ParentKey,
         eval: AsyncEvaluator,
         verified_versions: &VersionRanges,
-        deps: Arc<Vec<DiceKey>>,
+        deps: &[DiceKey],
         check_deps_state: &DiceWorkerStateCheckingDeps<'_, '_>,
     ) -> CancellableResult<DidDepsChange> {
         trace!(deps = ?deps);
@@ -352,14 +352,13 @@ impl IncrementalEngine {
             }
         }
 
-        Ok(DidDepsChange::NoChange(deps))
+        Ok(DidDepsChange::NoChange)
     }
 }
 
 enum DidDepsChange {
     Changed,
-    /// These deps did not change
-    NoChange(Arc<Vec<DiceKey>>),
+    NoChange,
     NoDeps,
 }
 
@@ -390,7 +389,7 @@ pub(crate) mod testing {
         fn is_changed(&self) -> bool {
             match self {
                 DidDepsChange::Changed => true,
-                DidDepsChange::NoChange(..) => false,
+                DidDepsChange::NoChange => false,
                 DidDepsChange::NoDeps => false,
             }
         }
