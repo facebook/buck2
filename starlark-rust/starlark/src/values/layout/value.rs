@@ -725,6 +725,11 @@ impl<'v> Value<'v> {
         serde_json::to_string(&self).map_err(|e| anyhow::anyhow!(e))
     }
 
+    /// Convert the value to JSON value.
+    pub fn to_json_value(self) -> anyhow::Result<serde_json::Value> {
+        serde_json::to_value(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
     /// Forwards to [`StarlarkValue::set_attr`].
     pub fn set_attr(self, attribute: &str, alloc_value: Value<'v>) -> anyhow::Result<()> {
         self.get_ref().set_attr(attribute, alloc_value)
@@ -1249,6 +1254,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::assert;
     use crate::values::none::NoneType;
     use crate::values::string::StarlarkStr;
     use crate::values::types::int::PointerI32;
@@ -1284,5 +1290,14 @@ mod tests {
         let heap = Heap::new();
         let value = heap.alloc(i32::MAX);
         assert_eq!(Some(i32::MAX), value.unpack_i32());
+    }
+
+    #[test]
+    fn test_to_json_value() {
+        let value = assert::pass("{'a': 10}");
+        assert_eq!(
+            serde_json::json!({"a": 10}),
+            value.value().to_json_value().unwrap()
+        );
     }
 }
