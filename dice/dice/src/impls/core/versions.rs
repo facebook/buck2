@@ -173,9 +173,7 @@ impl<'a> VersionForWrites<'a> {
 }
 
 pub(crate) mod introspection {
-    use dupe::Dupe;
 
-    use crate::impls::cache::SharedCache;
     use crate::impls::core::versions::VersionTracker;
     use crate::impls::key::DiceKey;
     use crate::introspection::graph::AnyKey;
@@ -183,7 +181,9 @@ pub(crate) mod introspection {
     use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
     use crate::HashMap;
 
-    pub(crate) struct VersionIntrospectable(Vec<(usize, SharedCache)>);
+    pub(crate) struct VersionIntrospectable(
+        Vec<(usize, HashMap<DiceKey, DiceTaskStateForDebugging>)>,
+    );
 
     impl VersionIntrospectable {
         pub(crate) fn versions_currently_running(&self) -> Vec<VersionNumber> {
@@ -197,11 +197,11 @@ pub(crate) mod introspection {
             self.0
                 .iter()
                 .flat_map(|(v, cache)| {
-                    cache.iter_tasks().map(|(k, state)| {
+                    cache.iter().map(|(k, state)| {
                         (
                             key_map.get(&k).expect("key should exist").clone(),
                             VersionNumber(*v),
-                            state,
+                            *state,
                         )
                     })
                 })
@@ -212,7 +212,7 @@ pub(crate) mod introspection {
             self.0
                 .iter()
                 .flat_map(|(_, cache)| {
-                    cache.iter_tasks().filter(|(_, state)| match state {
+                    cache.iter().filter(|(_, state)| match state {
                         DiceTaskStateForDebugging::AsyncInProgress => true,
                         DiceTaskStateForDebugging::SyncInProgress => true,
                         _ => false,
@@ -224,9 +224,12 @@ pub(crate) mod introspection {
 
     impl VersionTracker {
         pub(crate) fn introspect(&self) -> VersionIntrospectable {
+            // take a snapshot of the currently running graph so that we ensure all the graphs we
+            // capture is at one instance in time. This way, we don't end up reading extra keys
+            // and having missing key information when we read the graphs later
             VersionIntrospectable(
                 self.currently_active()
-                    .map(|(v, cache)| (v, cache.dupe()))
+                    .map(|(v, cache)| (v, cache.iter_tasks().collect()))
                     .collect(),
             )
         }
