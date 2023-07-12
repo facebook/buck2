@@ -434,23 +434,31 @@ def convert_python_library_to_executable(
         }
         native_libs = omnibus_libs.libraries
 
-        if python_toolchain.emit_omnibus_metadata:
-            omnibus_linked_obj = omnibus_libs.omnibus
+        omnibus_providers = []
+
+        if omnibus_libs.omnibus != None:
+            omnibus_link_result = omnibus_libs.omnibus
+            omnibus_linked_obj = omnibus_link_result.linked_object
+
+            sub_targets = {}
+            sub_targets["dwp"] = [DefaultInfo(default_output = omnibus_linked_obj.dwp if omnibus_linked_obj.dwp else None)]
+            if omnibus_link_result.linker_map_data != None:
+                sub_targets["linker-map"] = [DefaultInfo(default_output = omnibus_link_result.linker_map_data.map, other_outputs = [omnibus_link_result.linker_map_data.binary])]
+            omnibus_info = DefaultInfo(
+                default_output = omnibus_linked_obj.output,
+                sub_targets = sub_targets,
+            )
+        else:
             omnibus_info = DefaultInfo()
-            if omnibus_linked_obj:
-                omnibus_info = DefaultInfo(
-                    default_output = omnibus_linked_obj.output,
-                    sub_targets = {
-                        "dwp": [DefaultInfo(default_output = omnibus_linked_obj.dwp if omnibus_linked_obj.dwp else None)],
-                    },
-                )
-            extra["omnibus"] = [
-                omnibus_info,
+        omnibus_providers.append(omnibus_info)
+
+        if python_toolchain.emit_omnibus_metadata:
+            omnibus_providers.append(
                 OmnibusMetadataInfo(
                     omnibus_libs = omnibus_libs,
                     omnibus_graph = omnibus_graph,
                 ),
-            ]
+            )
 
             exclusion_roots = ctx.actions.write_json("omnibus/exclusion_roots.json", omnibus_libs.exclusion_roots)
             extra["omnibus-exclusion-roots"] = [DefaultInfo(default_output = exclusion_roots)]
@@ -463,6 +471,9 @@ def convert_python_library_to_executable(
 
             omnibus_graph_json = ctx.actions.write_json("omnibus_graph.json", omnibus_graph)
             extra["linkable-graph"] = [DefaultInfo(default_output = omnibus_graph_json)]
+
+        extra["omnibus"] = omnibus_providers
+
     elif _link_strategy(ctx) == NativeLinkStrategy("native"):
         executable_deps = ctx.attrs.executable_deps
         extension_info = merge_cxx_extension_info(

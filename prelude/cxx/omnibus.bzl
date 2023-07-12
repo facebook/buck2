@@ -9,6 +9,7 @@ load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_prefer
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:link.bzl",
+    "CxxLinkResult",  # @unused Used as a type
     "cxx_link_shared_library",
 )
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
@@ -125,7 +126,7 @@ SharedOmnibusRoot = record(
 
 # The result of the omnibus link.
 OmnibusSharedLibraries = record(
-    omnibus = field([LinkedObject.type, None], None),
+    omnibus = field([CxxLinkResult.type, None], None),
     libraries = field({str: LinkedObject.type}, {}),
     roots = field({"label": AnnotatedOmnibusRootProduct.type}, {}),
     exclusion_roots = field(["label"]),
@@ -635,7 +636,7 @@ def _create_omnibus(
         annotated_root_products,
         pic_behavior: PicBehavior.type,
         extra_ldflags: [""] = [],
-        prefer_stripped_objects: bool = False) -> LinkedObject.type:
+        prefer_stripped_objects: bool = False) -> CxxLinkResult.type:
     inputs = []
 
     # Undefined symbols roots...
@@ -734,7 +735,7 @@ def _create_omnibus(
 
     soname = _omnibus_soname(ctx)
 
-    link_result = cxx_link_shared_library(
+    return cxx_link_shared_library(
         ctx = ctx,
         output = soname,
         name = soname,
@@ -752,7 +753,6 @@ def _create_omnibus(
         enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         identifier = soname,
     )
-    return link_result.linked_object
 
 def _build_omnibus_spec(
         ctx: "context",
@@ -920,7 +920,7 @@ def create_omnibus_libraries(
             extra_ldflags,
             prefer_stripped_objects,
         )
-        libraries[_omnibus_soname(ctx)] = omnibus
+        libraries[_omnibus_soname(ctx)] = omnibus.linked_object
 
     # For all excluded nodes, just add their regular shared libs.
     for label in spec.excluded:
