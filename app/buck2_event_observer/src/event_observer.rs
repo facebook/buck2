@@ -50,6 +50,7 @@ where
             session_info: SessionInfo {
                 trace_id,
                 test_session: None,
+                modern_dice: false,
             },
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
@@ -111,6 +112,11 @@ where
                         DebugAdapterSnapshot(snapshot) => {
                             self.starlark_debugger_state
                                 .update(event.timestamp(), snapshot)?;
+                        }
+                        TagEvent(tags) => {
+                            if tags.tags.contains(&"which-dice:Modern".to_owned()) {
+                                self.session_info.modern_dice = true;
+                            }
                         }
                         _ => {}
                     }

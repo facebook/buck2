@@ -13,4 +13,5 @@ use buck2_wrapper_common::invocation_id::TraceId;
 pub struct SessionInfo {
     pub trace_id: TraceId,
     pub test_session: Option<buck2_data::TestSessionInfo>,
+    pub modern_dice: bool,
 }

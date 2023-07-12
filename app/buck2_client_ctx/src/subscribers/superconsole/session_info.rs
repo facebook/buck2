@@ -40,6 +40,12 @@ impl<'s> Component for SessionInfoComponent<'s> {
             headers.push(Line::unstyled("Test UI:")?);
             ids.push(Span::new_unstyled(info)?);
         }
+        if self.session_info.modern_dice {
+            headers.push(Line::unstyled("Note:")?);
+            ids.push(Span::new_unstyled(
+                "Using experimental modern dice".to_owned(),
+            )?);
+        }
         // pad all headers to the max width.
         headers.justify();
         headers.pad_lines_right(1);
