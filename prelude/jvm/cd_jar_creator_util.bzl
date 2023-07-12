@@ -388,13 +388,13 @@ def prepare_cd_exe(
     debug_args = []
 
     if extra_jvm_args_target:
-        if qualified_name.startswith(base_qualified_name(extra_jvm_args_target)):
+        if qualified_name == base_qualified_name(extra_jvm_args_target):
             jvm_args = jvm_args + extra_jvm_args
             local_only = True
     else:
         jvm_args = jvm_args + extra_jvm_args
 
-    if debug_port and qualified_name.startswith(base_qualified_name(debug_target)):
+    if debug_port and qualified_name == base_qualified_name(debug_target):
         # Do not use a worker when debugging is enabled
         local_only = True
         debug_args = ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port)]
