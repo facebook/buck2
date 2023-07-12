@@ -23,6 +23,7 @@ use crate::impls::core::state::StateRequest;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::transaction::TransactionUpdater;
 use crate::introspection::graph::GraphIntrospectable;
+use crate::introspection::graph::ModernIntrospectable;
 use crate::metrics::Metrics;
 
 #[derive(Allocative)]
@@ -92,12 +93,22 @@ impl DiceModern {
     pub fn to_introspectable(&self) -> GraphIntrospectable {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
-        self.state_handle.request(StateRequest::Introspection {
-            resp: tx,
-            key_map: self.key_index.introspect(),
-        });
+        self.state_handle
+            .request(StateRequest::Introspection { resp: tx });
 
-        rx.blocking_recv().unwrap()
+        let (graph_introspectable, version_introspectable) = rx.blocking_recv().unwrap();
+        // a bit subtle, but make sure we introspect the key_index after we get the graphs as
+        // there may still be new keys added and running. A snapshot of `key_index` prior to
+        // snapshotting the graphs will result in missing keys
+        let key_index = self.key_index.introspect();
+
+        GraphIntrospectable::Modern {
+            introspection: ModernIntrospectable {
+                graph: graph_introspectable,
+                version_data: version_introspectable,
+                key_map: key_index,
+            },
+        }
     }
 
     /// Note: modern dice does not support cycle detection yet

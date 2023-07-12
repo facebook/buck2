@@ -12,11 +12,13 @@ use gazebo::prelude::SliceExt;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::cache::SharedCache;
+use crate::impls::core::graph::introspection::VersionedGraphIntrospectable;
 use crate::impls::core::graph::storage::InvalidateKind;
 use crate::impls::core::graph::storage::ValueReusable;
 use crate::impls::core::graph::storage::VersionedGraph;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
+use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::core::versions::VersionTracker;
 use crate::impls::key::DiceKey;
@@ -25,14 +27,10 @@ use crate::impls::task::dice::TerminationObserver;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
-use crate::introspection::graph::AnyKey;
-use crate::introspection::graph::GraphIntrospectable;
-use crate::introspection::graph::ModernIntrospectable;
 use crate::metrics::Metrics;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
 use crate::versions::VersionNumber;
-use crate::HashMap;
 
 /// Core state of DICE, holding the actual graph and version information
 pub(super) struct CoreState {
@@ -147,17 +145,11 @@ impl CoreState {
         }
     }
 
-    pub(super) fn introspection(&self, key_map: HashMap<DiceKey, AnyKey>) -> GraphIntrospectable {
-        let graph = self.graph.introspect(key_map.clone());
+    pub(super) fn introspection(&self) -> (VersionedGraphIntrospectable, VersionIntrospectable) {
+        let graph = self.graph.introspect();
         let version_data = self.version_tracker.introspect();
 
-        GraphIntrospectable::Modern {
-            introspection: ModernIntrospectable {
-                graph,
-                version_data,
-                key_map,
-            },
-        }
+        (graph, version_data)
     }
 }
 

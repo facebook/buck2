@@ -9,6 +9,7 @@
 
 use std::collections::BTreeMap;
 
+use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 
 use crate::arc::Arc;
@@ -28,19 +29,26 @@ use crate::HashMap;
 use crate::HashSet;
 
 pub struct VersionedGraphIntrospectable {
-    nodes: HashMap<AnyKey, SerializedGraphNodesForKey>,
-    edges: HashMap<AnyKey, Vec<AnyKey>>,
+    nodes: HashMap<DiceKey, GraphNodesForKey>,
+    edges: HashMap<DiceKey, Arc<Vec<DiceKey>>>,
+}
+
+pub(crate) struct GraphNodesForKey {
+    pub k: DiceKey,
+    pub nodes: BTreeMap<VersionNumber, Option<SerializedGraphNode>>,
 }
 
 impl VersionedGraphIntrospectable {
-    pub(crate) fn keys<'a>(&'a self) -> impl Iterator<Item = AnyKey> + 'a {
-        self.nodes.keys().cloned()
+    pub(crate) fn keys<'a>(&'a self) -> impl Iterator<Item = &'a DiceKey> + 'a {
+        self.nodes.keys()
     }
-    pub(crate) fn edges<'a>(&'a self) -> impl Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a {
-        self.edges.iter().map(|(k, v)| (k.clone(), v.clone()))
+    pub(crate) fn edges<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&'a DiceKey, &'a Arc<Vec<DiceKey>>)> + 'a {
+        self.edges.iter()
     }
-    pub(crate) fn nodes<'a>(&'a self) -> impl Iterator<Item = SerializedGraphNodesForKey> + 'a {
-        self.nodes.values().cloned()
+    pub(crate) fn nodes<'a>(&'a self) -> impl Iterator<Item = &'a GraphNodesForKey> + 'a {
+        self.nodes.values()
     }
     pub(crate) fn len_for_introspection(&self) -> usize {
         self.nodes.len()
@@ -48,10 +56,7 @@ impl VersionedGraphIntrospectable {
 }
 
 impl VersionedGraph {
-    pub(crate) fn introspect(
-        &self,
-        key_map: HashMap<DiceKey, AnyKey>,
-    ) -> VersionedGraphIntrospectable {
+    pub(crate) fn introspect(&self) -> VersionedGraphIntrospectable {
         let mut edges = HashMap::default();
         let mut nodes = HashMap::default();
 
@@ -72,14 +77,10 @@ impl VersionedGraph {
         }
 
         for (k, versioned_nodes) in self.last_n.iter() {
-            let dyn_k = key_map.get(k).expect("should be present");
-
             nodes.insert(
-                key_map.get(k).expect("key should exist").clone(),
-                SerializedGraphNodesForKey {
-                    id: KeyID(k.index as usize),
-                    key: dyn_k.to_string(),
-                    type_name: dyn_k.short_type_name().to_owned(),
+                *k,
+                GraphNodesForKey {
+                    k: *k,
                     nodes: versioned_nodes
                         .iter()
                         .map(|(v, node)| (v.to_introspectable(), visit_node(*k, node)))
@@ -89,16 +90,10 @@ impl VersionedGraph {
 
             if let Some(last) = versioned_nodes.iter().last() {
                 edges.insert(
-                    dyn_k.clone(),
+                    *k,
                     last.1
                         .unpack_occupied()
-                        .map(|node| {
-                            node.metadata()
-                                .deps
-                                .deps()
-                                .map(|k| key_map.get(k).expect("key should exist").clone())
-                        })
-                        .unwrap_or_default(),
+                        .map_or_else(|| Arc::new(Vec::new()), |node| node.metadata().deps.deps()),
                 );
             }
         }

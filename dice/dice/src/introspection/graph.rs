@@ -74,11 +74,22 @@ pub struct ModernIntrospectable {
 
 impl EngineForIntrospection for ModernIntrospectable {
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a> {
-        Box::new(self.graph.keys())
+        Box::new(
+            self.graph
+                .keys()
+                .map(|k| self.key_map.get(k).expect("key should be present").clone()),
+        )
     }
 
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a> {
-        Box::new(self.graph.edges())
+        Box::new(self.graph.edges().map(|(k, deps)| {
+            (
+                self.key_map.get(k).expect("key should be present").clone(),
+                deps.iter()
+                    .map(|k| self.key_map.get(k).expect("key should be present").clone())
+                    .collect(),
+            )
+        }))
     }
 
     fn keys_currently_running<'a>(
@@ -95,7 +106,15 @@ impl EngineForIntrospection for ModernIntrospectable {
         &'a self,
         _keys: &'a mut HashMap<AnyKey, KeyID>,
     ) -> Box<dyn Iterator<Item = SerializedGraphNodesForKey> + 'a> {
-        Box::new(self.graph.nodes())
+        Box::new(self.graph.nodes().map(|node| {
+            let any_k = self.key_map.get(&node.k).expect("key should be present");
+            SerializedGraphNodesForKey {
+                id: KeyID(node.k.index as usize),
+                key: any_k.to_string(),
+                type_name: any_k.type_name().to_owned(),
+                nodes: node.nodes.clone(),
+            }
+        }))
     }
 
     fn len_for_introspection(&self) -> usize {

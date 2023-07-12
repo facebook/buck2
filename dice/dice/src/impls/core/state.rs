@@ -15,10 +15,12 @@ use tokio::sync::oneshot::Sender;
 
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
+use crate::impls::core::graph::introspection::VersionedGraphIntrospectable;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::graph::types::VersionedGraphResultMismatch;
 use crate::impls::core::processor::StateProcessor;
+use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
@@ -27,12 +29,9 @@ use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
-use crate::introspection::graph::AnyKey;
-use crate::introspection::graph::GraphIntrospectable;
 use crate::metrics::Metrics;
 use crate::result::CancellableResult;
 use crate::versions::VersionNumber;
-use crate::HashMap;
 
 /// Core state is accessed via message passing to a single threaded processor
 #[derive(Derivative, VariantName)]
@@ -96,9 +95,8 @@ pub(crate) enum StateRequest {
     Metrics { resp: Sender<Metrics> },
     /// Collects the introspectable dice state
     Introspection {
-        resp: Sender<GraphIntrospectable>,
         #[derivative(Debug = "ignore")]
-        key_map: HashMap<DiceKey, AnyKey>,
+        resp: Sender<(VersionedGraphIntrospectable, VersionIntrospectable)>,
     },
 }
 
