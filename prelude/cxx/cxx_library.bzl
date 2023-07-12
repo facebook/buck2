@@ -1060,7 +1060,6 @@ def _get_shared_library_links(
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
         linkable_graph_node_map_func(),
         link_group,
-        {},
         link_group_mappings,
         link_group_preferred_linkage,
         link_group_libs = {
