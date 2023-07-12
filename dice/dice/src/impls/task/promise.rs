@@ -22,6 +22,7 @@ use futures::task::AtomicWaker;
 use crate::arc::Arc;
 use crate::impls::task::dice::Cancellations;
 use crate::impls::task::dice::DiceTaskInternal;
+use crate::impls::task::dice::SlabId;
 use crate::impls::task::handle::TaskState;
 use crate::impls::value::DiceComputedValue;
 use crate::result::CancellableResult;
@@ -41,7 +42,7 @@ pub(super) enum DicePromiseInternal {
         result: DiceComputedValue,
     },
     Pending {
-        slab: usize,
+        slab: SlabId,
         task_internal: Arc<DiceTaskInternal>,
         waker: Arc<AtomicWaker>,
         cancellations: Cancellations,
@@ -75,7 +76,7 @@ impl DicePromise {
     }
 
     pub(super) fn pending(
-        slab: usize,
+        slab: SlabId,
         internal: Arc<DiceTaskInternal>,
         waker: Arc<AtomicWaker>,
         cancellations: Cancellations,
@@ -86,6 +87,14 @@ impl DicePromise {
             waker,
             cancellations,
         })
+    }
+
+    pub(crate) fn is_pending(&self) -> bool {
+        match &self.0 {
+            DicePromiseInternal::Ready { .. } => false,
+            DicePromiseInternal::Pending { task_internal, .. } => task_internal.is_pending(),
+            DicePromiseInternal::Done => false,
+        }
     }
 
     /// Get the value if already complete, or complete it. Note that `f` may run even if the result
@@ -177,7 +186,7 @@ impl Drop for DicePromise {
                 task_internal,
                 cancellations,
                 ..
-            } => task_internal.drop_waiter(*slab, cancellations),
+            } => task_internal.drop_waiter(slab, cancellations),
         }
     }
 }

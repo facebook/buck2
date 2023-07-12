@@ -19,7 +19,6 @@ use allocative::Allocative;
 use allocative::Visitor;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use futures::future::Shared;
 use futures::task::AtomicWaker;
 use futures::FutureExt;
 use more_futures::cancellation::future::CancellationHandle;
@@ -27,7 +26,6 @@ use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 use parking_lot::RwLock;
 use slab::Slab;
-use tokio::sync::oneshot;
 
 use crate::arc::Arc;
 use crate::impls::key::DiceKey;
@@ -92,8 +90,7 @@ pub(super) struct DiceTaskInternalCritical {
     /// AtomicWaker, which is an extra AtomicUsize, so this is marginally larger than the standard
     /// Shared future.
     pub(super) dependants: Option<Slab<(ParentKey, Arc<AtomicWaker>)>>,
-    termination_waiter: Shared<oneshot::Receiver<()>>,
-    termination_sender: Option<oneshot::Sender<()>>,
+    pub(super) termination_observers: Option<Slab<Arc<AtomicWaker>>>,
 }
 
 impl Allocative for DiceTaskInternal {
@@ -132,21 +129,16 @@ impl MaybeCancelled {
 }
 
 /// Future when resolves when task is finished or cancelled and terminated.
-pub(crate) struct TerminationObserver(TerminationObserverInternal);
-
-enum TerminationObserverInternal {
-    Waiting {
-        internals: Arc<DiceTaskInternal>,
-        waiter: Shared<oneshot::Receiver<()>>,
-    },
+pub(crate) enum TerminationObserver {
     Done,
+    Pending { waiter: DicePromise },
 }
 
 impl TerminationObserver {
     pub(crate) fn is_terminated(&self) -> bool {
-        match &self.0 {
-            TerminationObserverInternal::Waiting { internals, .. } => !internals.is_pending(),
-            TerminationObserverInternal::Done => true,
+        match self {
+            TerminationObserver::Done => true,
+            TerminationObserver::Pending { waiter } => !waiter.is_pending(),
         }
     }
 }
@@ -154,18 +146,10 @@ impl TerminationObserver {
 impl Future for TerminationObserver {
     type Output = ();
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match &mut self.0 {
-            TerminationObserverInternal::Waiting { internals, waiter } => {
-                if !internals.is_pending() {
-                    Poll::Ready(())
-                } else {
-                    waiter
-                        .poll_unpin(cx)
-                        .map(|res| res.expect("task dropped without notifying"))
-                }
-            }
-            TerminationObserverInternal::Done => Poll::Ready(()),
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match self.get_mut() {
+            TerminationObserver::Done => Poll::Ready(()),
+            TerminationObserver::Pending { waiter } => waiter.poll_unpin(cx).map(|_| ()),
         }
     }
 }
@@ -200,7 +184,7 @@ impl DiceTask {
                     let id = wakers.insert((k, waker.dupe()));
 
                     MaybeCancelled::Ok(DicePromise::pending(
-                        id,
+                        SlabId::Dependants(id),
                         self.internal.dupe(),
                         waker,
                         self.cancellations.dupe(),
@@ -235,52 +219,71 @@ impl DiceTask {
     }
 
     pub(crate) fn await_termination(&self) -> TerminationObserver {
-        if let Some(_result) = self.internal.read_value() {
-            TerminationObserver(TerminationObserverInternal::Done)
-        } else {
-            let mut critical = self.internal.critical.lock();
-            match &mut critical.dependants {
-                None => {
-                    let _result = self
-                        .internal
-                        .read_value()
-                        .expect("invalid state where deps are taken before state is ready");
-                    TerminationObserver(TerminationObserverInternal::Done)
-                }
-                Some(_wakers) => TerminationObserver(TerminationObserverInternal::Waiting {
-                    internals: self.internal.dupe(),
-                    waiter: critical.termination_waiter.clone(),
-                }),
+        let mut critical = self.internal.critical.lock();
+        match &mut critical.termination_observers {
+            None => {
+                let _finished_or_fully_cancelled = self
+                    .internal
+                    .read_value()
+                    .expect("invalid state where deps are taken before state is ready");
+
+                TerminationObserver::Done
+            }
+            Some(ref mut wakers) => {
+                let waker = Arc::new(AtomicWaker::new());
+                let id = wakers.insert(waker.dupe());
+
+                let promise = DicePromise::pending(
+                    SlabId::TerminationObserver(id),
+                    self.internal.dupe(),
+                    waker,
+                    self.cancellations.dupe(),
+                );
+
+                TerminationObserver::Pending { waiter: promise }
             }
         }
     }
 }
 
-impl DiceTaskInternal {
-    pub(super) fn drop_waiter(&self, slab: usize, cancellations: &Cancellations) {
-        let mut critical = self.critical.lock();
-        match critical.dependants {
-            None => {}
-            Some(ref mut deps) => {
-                deps.remove(slab);
+pub(crate) enum SlabId {
+    Dependants(usize),
+    TerminationObserver(usize),
+}
 
-                if deps.is_empty() {
-                    cancellations.cancel(&critical);
+impl DiceTaskInternal {
+    pub(super) fn drop_waiter(&self, slab: &SlabId, cancellations: &Cancellations) {
+        let mut critical = self.critical.lock();
+        match slab {
+            SlabId::Dependants(id) => match critical.dependants {
+                None => {}
+                Some(ref mut deps) => {
+                    deps.remove(*id);
+                    if deps.is_empty() {
+                        cancellations.cancel(&critical);
+                    }
                 }
-            }
+            },
+            SlabId::TerminationObserver(id) => match critical.termination_observers {
+                None => {}
+                Some(ref mut deps) => {
+                    deps.remove(*id);
+                    if deps.is_empty() {
+                        cancellations.cancel(&critical);
+                    }
+                }
+            },
         }
     }
 
     pub(super) fn new(key: DiceKey) -> Arc<Self> {
-        let (tx, rx) = oneshot::channel();
         Arc::new(Self {
             key,
             state: AtomicDiceTaskState::default(),
             maybe_value: UnsafeCell::new(None),
             critical: Mutex::new(DiceTaskInternalCritical {
                 dependants: Some(Slab::new()),
-                termination_waiter: rx.shared(),
-                termination_sender: Some(tx),
+                termination_observers: Some(Slab::new()),
             }),
             sync_value: Default::default(),
         })
@@ -338,15 +341,14 @@ impl DiceTaskInternal {
             .dependants
             .take()
             .expect("Invalid state where deps where taken already");
+        let mut termination_observers = critical
+            .termination_observers
+            .take()
+            .expect("Invalid state where deps where taken already");
 
         deps.drain().for_each(|(_k, waker)| waker.wake());
-
-        critical
-            .termination_sender
-            .take()
-            .expect("terminated twice")
-            .send(())
-            .expect("receiver held by self");
+        // wake up all the `TerminationObserver::poll`
+        termination_observers.drain().for_each(|waker| waker.wake());
     }
 
     /// report the task as terminated. This should only be called once. No effect if called affect
