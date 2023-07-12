@@ -1350,9 +1350,10 @@ def use_archives(ctx: "context") -> bool:
     Whether this rule should use archives to package objects when producing
     link input for dependents.
     """
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    requires_archives = linker_info.requires_archives
+    requires_objects = linker_info.requires_objects
 
-    requires_archives = get_cxx_toolchain_info(ctx).linker_info.requires_archives
-    requires_objects = get_cxx_toolchain_info(ctx).linker_info.requires_objects
     if requires_archives and requires_objects:
         fail("In cxx linker_info, only one of `requires_archives` and `requires_objects` can be enabled")
 
