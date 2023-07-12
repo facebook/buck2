@@ -354,11 +354,6 @@ def cxx_dist_link(
 
                 add_post_flags(idx)
 
-            # add any link_infos cmd_args that come after the last bitcode or archive
-            #add_pre_flags(len(index_link_data))
-            #add_linkables_args(len(index_link_data))
-            #add_post_flags(len(index_link_data))
-
             index_argfile, _ = ctx.actions.write(
                 outputs[index_argsfile_out].as_output(),
                 prepend_index_args.add(index_args),
