@@ -165,6 +165,7 @@ impl VersionedGraph {
     /// is only updated if the version of the new value is of a newer
     /// version than what is stored.
     /// Returns the new entry, and an optional old entry that was invalidated due to this update
+    #[instrument(level = "debug", skip(self, value, storage_type, deps), fields(key = ?key))]
     pub(crate) fn update(
         &mut self,
         key: VersionedGraphKey,
@@ -273,6 +274,7 @@ impl VersionedGraph {
         }
     }
 
+    #[instrument(level = "debug", skip(self, value, deps), fields(key = ?key, v = %v, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified))]
     fn update_empty(
         &mut self,
         key: DiceKey,
@@ -280,9 +282,10 @@ impl VersionedGraph {
         value: DiceValidValue,
         first_dep_dirtied: Option<VersionNumber>,
         latest_dep_verified: Option<VersionNumber>,
-
         deps: Arc<Vec<DiceKey>>,
     ) -> DiceComputedValue {
+        debug!("making new graph entry because previously empty");
+
         let since = latest_dep_verified.unwrap_or(v);
         let mut hist = CellHistory::verified(since);
         hist.propagate_from_deps_version(since, first_dep_dirtied);
@@ -300,6 +303,7 @@ impl VersionedGraph {
     }
 
     /// Returns the newly updated value for the key, and whether or not any state changed.
+    #[instrument(level = "debug", skip(self, value, deps, num_to_keep), fields(key = ?key, key_of_e = %key_of_e, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified))]
     fn update_entry(
         &mut self,
         key_of_e: VersionNumber,
@@ -313,6 +317,7 @@ impl VersionedGraph {
         let versioned_map = self.last_n.get_mut(&key.k).unwrap();
         let (ret, map_fixup) = match versioned_map.get_mut(&key_of_e).unwrap() {
             VersionedGraphNode::Occupied(entry) if value.equality(entry.val()) => {
+                debug!("marking graph entry as unchanged");
                 let since =
                     entry.mark_unchanged(key.v, latest_dep_verified, first_dep_dirtied, deps);
 
@@ -321,6 +326,8 @@ impl VersionedGraph {
                 (ret, MapFixup::Reused { since, key_of_e })
             }
             entry => {
+                debug!("making new graph entry because value not equal");
+
                 let (since, end, mut hist) = entry
                     .history()
                     .make_new_verified_history(key.v, latest_dep_verified);
