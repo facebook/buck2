@@ -308,7 +308,6 @@ def haskell_ghci_impl(ctx: "context") -> ["provider"]:
 
             packagedb_args.add(
                 paths.join(
-                    "${DIR}",
                     lib_symlinks_root,
                     "packagedb",
                 ),

@@ -89,7 +89,7 @@ def _replace_template_values(
     )
 
     package_dbs_args = " ".join(
-        ["-package-db {}".format(pkg) for pkg in package_dbs.split(" ")]
+        ["-package-db ${{DIR}}/{}".format(pkg) for pkg in package_dbs.split(" ")]
     )
     script_template = re.sub(
         pattern="<package_dbs>",
