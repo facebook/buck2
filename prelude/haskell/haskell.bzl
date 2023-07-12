@@ -162,15 +162,21 @@ def _by_platform(ctx: "context", xs: [(str, ["_a"])]) -> ["_a"]:
     platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
     return flatten(by_platform([platform], xs))
 
-def _attr_deps(ctx: "context") -> ["dependency"]:
+def attr_deps(ctx: "context") -> ["dependency"]:
     return ctx.attrs.deps + _by_platform(ctx, ctx.attrs.platform_deps)
 
 # Disable until we have a need to call this.
 # def _attr_deps_merged_link_infos(ctx: "context") -> ["MergedLinkInfo"]:
-#     return filter(None, [d[MergedLinkInfo] for d in _attr_deps(ctx)])
+#     return filter(None, [d[MergedLinkInfo] for d in attr_deps(ctx)])
 
 def _attr_deps_haskell_link_infos(ctx: "context") -> ["HaskellLinkInfo"]:
-    return filter(None, [d.get(HaskellLinkInfo) for d in _attr_deps(ctx) + ctx.attrs.template_deps])
+    return filter(
+        None,
+        [
+            d.get(HaskellLinkInfo)
+            for d in attr_deps(ctx) + ctx.attrs.template_deps
+        ],
+    )
 
 def _attr_deps_haskell_lib_infos(
         ctx: "context",
@@ -179,7 +185,7 @@ def _attr_deps_haskell_lib_infos(
         x.lib[link_style]
         for x in filter(None, [
             d.get(HaskellLibraryProvider)
-            for d in _attr_deps(ctx) + ctx.attrs.template_deps
+            for d in attr_deps(ctx) + ctx.attrs.template_deps
         ])
     ]
 
@@ -632,7 +638,7 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
     hlis = []
     nlis = []
     shared_library_infos = []
-    for lib in _attr_deps(ctx):
+    for lib in attr_deps(ctx):
         li = lib.get(HaskellLinkInfo)
         if li != None:
             hlis.append(li)
@@ -732,7 +738,7 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
         hlink_infos[link_style] = [hlib]
 
         if compiled.producing_indices:
-            tset = derive_indexing_tset(ctx.actions, link_style, compiled.hi, _attr_deps(ctx))
+            tset = derive_indexing_tset(ctx.actions, link_style, compiled.hi, attr_deps(ctx))
             indexing_tsets[link_style] = tset
 
         sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(
@@ -767,7 +773,7 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
     actual_link_style = get_actual_link_style(link_style, preferred_linkage, pic_behavior)
     default_output = hlib_infos[actual_link_style].libs
 
-    inherited_pp_info = cxx_inherited_preprocessor_infos(_attr_deps(ctx))
+    inherited_pp_info = cxx_inherited_preprocessor_infos(attr_deps(ctx))
 
     # We would like to expose the generated _stub.h headers to C++
     # compilations, but it's hard to do that without overbuilding. Which
@@ -791,7 +797,11 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
         merged_link_info,
         linkable_graph,
         cxx_merge_cpreprocessors(ctx, pp, inherited_pp_info),
-        merge_shared_libraries(ctx.actions, create_shared_libraries(ctx, solibs), shared_library_infos),
+        merge_shared_libraries(
+            ctx.actions,
+            create_shared_libraries(ctx, solibs),
+            shared_library_infos,
+        ),
     ]
 
     if indexing_tsets:
@@ -823,7 +833,7 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
 
     providers.append(TemplatePlaceholderInfo(keyed_variables = templ_vars))
 
-    providers.append(merge_link_group_lib_info(deps = _attr_deps(ctx)))
+    providers.append(merge_link_group_lib_info(deps = attr_deps(ctx)))
 
     return providers
 
@@ -873,7 +883,7 @@ def haskell_binary_impl(ctx: "context") -> ["provider"]:
     nlis = []
     sos = {}
     indexing_tsets = {}
-    for lib in _attr_deps(ctx):
+    for lib in attr_deps(ctx):
         li = lib.get(HaskellLinkInfo)
         if li != None:
             hlis.extend(li.info[link_style])
@@ -888,7 +898,7 @@ def haskell_binary_impl(ctx: "context") -> ["provider"]:
                 sos[name] = shared_lib.lib.output
 
         if compiled.producing_indices:
-            tset = derive_indexing_tset(ctx.actions, link_style, compiled.hi, _attr_deps(ctx))
+            tset = derive_indexing_tset(ctx.actions, link_style, compiled.hi, attr_deps(ctx))
             indexing_tsets[link_style] = tset
 
     nlis = merge_link_infos(ctx, nlis)
