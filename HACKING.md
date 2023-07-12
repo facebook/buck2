@@ -39,7 +39,7 @@ Buck2 itself via `cargo`:
 git clone https://github.com/facebook/buck2.git
 cd buck2/
 nix develop . # add 'rustc' and 'cargo' to $PATH
-cargo build --release
+cargo build --release --bin=buck2
 ```
 
 A Nix package (e.g. `nix build .#buck2`) does not yet exist.
