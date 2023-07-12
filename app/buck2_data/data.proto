@@ -161,6 +161,11 @@ message CommandOptions {
   uint64 concurrency = 1;
 }
 
+message HttpRequestRetried {
+  uint64 backoff_duration_secs = 1;
+  string url = 2;
+}
+
 // An event that represents a single point in time.
 message InstantEvent {
   reserved 8, 9, 13, 22;
@@ -236,6 +241,9 @@ message InstantEvent {
 
     // Log options that are command-level and processed by the daemon.
     CommandOptions comand_options = 31;
+
+    // Warnings of HTTP retries and exponential backoff
+    HttpRequestRetried http_request_retried = 32;
   }
 
   reserved 12; // Log
