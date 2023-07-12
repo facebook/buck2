@@ -40,6 +40,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
 use crate::versions::VersionNumber;
+use crate::versions::VersionRanges;
 use crate::HashMap;
 
 /// The actual incremental cache that checks versions and dependency's versions
@@ -165,11 +166,12 @@ impl VersionedGraph {
     /// is only updated if the version of the new value is of a newer
     /// version than what is stored.
     /// Returns the new entry, and an optional old entry that was invalidated due to this update
-    #[instrument(level = "debug", skip(self, value, storage_type, deps), fields(key = ?key))]
+    #[instrument(level = "debug", skip(self, value, storage_type, deps, reusable), fields(key = ?key))]
     pub(crate) fn update(
         &mut self,
         key: VersionedGraphKey,
         value: DiceValidValue,
+        reusable: ValueReusable,
         deps: Arc<Vec<DiceKey>>,
         storage_type: StorageType,
     ) -> (DiceComputedValue, bool) {
@@ -225,6 +227,7 @@ impl VersionedGraph {
                 value,
                 first_dep_dirtied,
                 latest_dep_verified,
+                reusable,
                 deps,
                 num_to_keep,
             )
@@ -303,7 +306,7 @@ impl VersionedGraph {
     }
 
     /// Returns the newly updated value for the key, and whether or not any state changed.
-    #[instrument(level = "debug", skip(self, value, deps, num_to_keep), fields(key = ?key, key_of_e = %key_of_e, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified))]
+    #[instrument(level = "debug", skip(self, value, deps, num_to_keep, reusable), fields(key = ?key, key_of_e = %key_of_e, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified))]
     fn update_entry(
         &mut self,
         key_of_e: VersionNumber,
@@ -311,12 +314,13 @@ impl VersionedGraph {
         value: DiceValidValue,
         first_dep_dirtied: Option<VersionNumber>,
         latest_dep_verified: Option<VersionNumber>,
+        reusable: ValueReusable,
         deps: Arc<Vec<DiceKey>>,
         num_to_keep: usize,
     ) -> (DiceComputedValue, bool) {
         let versioned_map = self.last_n.get_mut(&key.k).unwrap();
         let (ret, map_fixup) = match versioned_map.get_mut(&key_of_e).unwrap() {
-            VersionedGraphNode::Occupied(entry) if value.equality(entry.val()) => {
+            VersionedGraphNode::Occupied(entry) if reusable.is_reusable(&value, entry) => {
                 debug!("marking graph entry as unchanged");
                 let since =
                     entry.mark_unchanged(key.v, latest_dep_verified, first_dep_dirtied, deps);
@@ -326,7 +330,7 @@ impl VersionedGraph {
                 (ret, MapFixup::Reused { since, key_of_e })
             }
             entry => {
-                debug!("making new graph entry because value not equal");
+                debug!("making new graph entry because value not reusable");
 
                 let (since, end, mut hist) = entry
                     .history()
@@ -523,6 +527,24 @@ impl VersionedGraph {
     }
 }
 
+pub(crate) enum ValueReusable {
+    /// Directly compare the values for equality to determine if the node can be reused
+    EqualityBased,
+    /// Compare the value's version history to determine if the node can be reused
+    VersionBased(VersionRanges),
+}
+
+impl ValueReusable {
+    fn is_reusable(&self, new_value: &DiceValidValue, value: &OccupiedGraphNode) -> bool {
+        match self {
+            ValueReusable::EqualityBased => new_value.equality(value.val()),
+            ValueReusable::VersionBased(hist) => !hist
+                .intersect(&value.metadata().hist.get_verified_ranges())
+                .is_empty(),
+        }
+    }
+}
+
 pub(crate) enum InvalidateKind {
     ForceDirty,
     #[allow(unused)] // constructed for tests
@@ -665,6 +687,7 @@ mod tests {
     use crate::impls::core::graph::storage::testing::VersionedCacheResultAssertsExt;
     use crate::impls::core::graph::storage::InvalidateKind;
     use crate::impls::core::graph::storage::StorageType;
+    use crate::impls::core::graph::storage::ValueReusable;
     use crate::impls::core::graph::storage::VersionedGraph;
     use crate::impls::core::graph::types::VersionedGraphKey;
     use crate::impls::key::DiceKey;
@@ -709,6 +732,7 @@ mod tests {
                 .update(
                     key.dupe(),
                     res.dupe(),
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(1)
                 )
@@ -726,6 +750,7 @@ mod tests {
                 .update(
                     key2.dupe(),
                     res2.dupe(),
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(1)
                 )
@@ -760,7 +785,8 @@ mod tests {
             !cache
                 .update(
                     key3.dupe(),
-                    res3.dupe(),
+                    res3,
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(1)
                 )
@@ -799,7 +825,8 @@ mod tests {
             cache
                 .update(
                     key4.dupe(),
-                    res4.dupe(),
+                    res4,
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(1),
                 )
@@ -865,6 +892,7 @@ mod tests {
                 .update(
                     key,
                     res.dupe(),
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(usize::MAX)
                 )
@@ -881,6 +909,7 @@ mod tests {
                 .update(
                     key2.dupe(),
                     res2.dupe(),
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(usize::MAX)
                 )
@@ -906,6 +935,7 @@ mod tests {
                 .update(
                     key3,
                     res3.dupe(),
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(usize::MAX)
                 )
@@ -967,6 +997,7 @@ mod tests {
                 .update(
                     key.dupe(),
                     res.dupe(),
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(2)
                 )
@@ -983,6 +1014,7 @@ mod tests {
                 .update(
                     key2.dupe(),
                     res2.dupe(),
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(2)
                 )
@@ -1008,6 +1040,7 @@ mod tests {
                 .update(
                     key3.dupe(),
                     res3.dupe(),
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(2)
                 )
@@ -1066,6 +1099,7 @@ mod tests {
         cache.update(
             key(0),
             res.dupe(),
+            ValueReusable::EqualityBased,
             Arc::new(vec![]),
             StorageType::LastN(usize::MAX),
         );
@@ -1108,7 +1142,13 @@ mod tests {
         cache.get(key(1).dupe()).assert_compute();
         cache.get(key(2).dupe()).assert_compute();
 
-        cache.update(key(0), res.dupe(), Arc::new(vec![]), StorageType::LastN(1));
+        cache.update(
+            key(0),
+            res.dupe(),
+            ValueReusable::EqualityBased,
+            Arc::new(vec![]),
+            StorageType::LastN(1),
+        );
         assert!(
             cache
                 .get(key(0).dupe())
@@ -1141,18 +1181,31 @@ mod tests {
         let key1 = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(1));
 
-        let value = cache.update(key1, res.dupe(), Arc::new(vec![]), StorageType::LastN(1));
+        let value = cache.update(
+            key1,
+            res.dupe(),
+            ValueReusable::EqualityBased,
+            Arc::new(vec![]),
+            StorageType::LastN(1),
+        );
 
         let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
         let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(2));
 
-        cache.update(key2, res2.dupe(), Arc::new(vec![]), StorageType::LastN(1));
+        cache.update(
+            key2,
+            res2.dupe(),
+            ValueReusable::EqualityBased,
+            Arc::new(vec![]),
+            StorageType::LastN(1),
+        );
 
         let key3 = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
         let res3 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(1));
         let value3 = cache.update(
             key3.dupe(),
             res3.dupe(),
+            ValueReusable::EqualityBased,
             Arc::new(vec![]),
             StorageType::LastN(1),
         );
@@ -1183,13 +1236,20 @@ mod tests {
                 .update(
                     key.dupe(),
                     res.dupe(),
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(1)
                 )
                 .1
         );
 
-        assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
+        assert!(
+            cache
+                .get(key.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
 
         // now insert a new value of a older version, this shouldn't evict anything.
         let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
@@ -1199,6 +1259,7 @@ mod tests {
                 .update(
                     key2.dupe(),
                     res2.dupe(),
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(1)
                 )
@@ -1206,7 +1267,13 @@ mod tests {
         );
         cache.get(key2.dupe()).assert_check_deps();
         // the newer version should still be there
-        assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
+        assert!(
+            cache
+                .get(key.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
         // there should be size 1
         assert_eq!(cache.last_n.get(&DiceKey { index: 0 }).unwrap().len(), 1);
 
@@ -1218,14 +1285,182 @@ mod tests {
                 .update(
                     key3.dupe(),
                     res.dupe(),
+                    ValueReusable::EqualityBased,
                     Arc::new(vec![]),
                     StorageType::LastN(1)
                 )
                 .1
         );
 
-        assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
-        assert!(cache.get(key3.dupe()).assert_match().value().equality(&res));
+        assert!(
+            cache
+                .get(key.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+        assert!(
+            cache
+                .get(key3.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+
+        // now insert the same value of a newer version, this shouldn't evict anything but reuses
+        // the existing node.
+        let key4 = VersionedGraphKey::new(VersionNumber::new(6), DiceKey { index: 0 });
+        assert!(
+            !cache
+                .update(
+                    key4.dupe(),
+                    res.dupe(),
+                    ValueReusable::EqualityBased,
+                    Arc::new(vec![]),
+                    StorageType::LastN(1)
+                )
+                .1
+        );
+
+        assert!(
+            cache
+                .get(key.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+        assert!(
+            cache
+                .get(key4.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+    }
+
+    #[test]
+    fn update_prior_version_reuses_nodes_when_history_based() {
+        let mut cache = VersionedGraph::new();
+        let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
+        let res_fake = DiceValidValue::testing_new(DiceKeyValue::<K>::new(99999));
+
+        let key = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
+
+        // first, empty cache gives none
+        cache.get(key.dupe()).assert_compute();
+
+        assert!(
+            cache
+                .update(
+                    key.dupe(),
+                    res.dupe(),
+                    ValueReusable::VersionBased(VersionRanges::testing_new(sorted_vector_set![
+                        VersionRange::bounded(VersionNumber::new(5), VersionNumber::new(6))
+                    ])),
+                    Arc::new(vec![]),
+                    StorageType::LastN(1)
+                )
+                .1
+        );
+
+        assert!(
+            cache
+                .get(key.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+
+        // now insert a new value of a older version, this shouldn't evict anything.
+        let key2 = VersionedGraphKey::new(VersionNumber::new(4), DiceKey { index: 0 });
+        assert!(
+            cache
+                .update(
+                    key2.dupe(),
+                    res_fake.dupe(),
+                    ValueReusable::VersionBased(VersionRanges::testing_new(sorted_vector_set![
+                        VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(5))
+                    ])),
+                    Arc::new(vec![]),
+                    StorageType::LastN(1)
+                )
+                .1
+        );
+        cache.get(key2.dupe()).assert_check_deps();
+        // the newer version should still be there
+        assert!(
+            cache
+                .get(key.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+        // there should be size 1
+        assert_eq!(cache.last_n.get(&DiceKey { index: 0 }).unwrap().len(), 1);
+
+        // now insert the same value of a older version, this shouldn't evict anything but reuses
+        // the existing node.
+        let key3 = VersionedGraphKey::new(VersionNumber::new(3), DiceKey { index: 0 });
+        assert!(
+            !cache
+                .update(
+                    key3.dupe(),
+                    res_fake.dupe(),
+                    ValueReusable::VersionBased(VersionRanges::testing_new(sorted_vector_set![
+                        VersionRange::bounded(VersionNumber::new(5), VersionNumber::new(6))
+                    ])),
+                    Arc::new(vec![]),
+                    StorageType::LastN(1)
+                )
+                .1
+        );
+
+        assert!(
+            cache
+                .get(key.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+        assert!(
+            cache
+                .get(key3.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+
+        // now insert the different value of a newer version, this shouldn't evict anything but reuses
+        // the existing node.
+        let key4 = VersionedGraphKey::new(VersionNumber::new(6), DiceKey { index: 0 });
+        assert!(
+            !cache
+                .update(
+                    key4.dupe(),
+                    res_fake.dupe(),
+                    ValueReusable::VersionBased(VersionRanges::testing_new(sorted_vector_set![
+                        VersionRange::bounded(VersionNumber::new(5), VersionNumber::new(6))
+                    ])),
+                    Arc::new(vec![]),
+                    StorageType::LastN(1)
+                )
+                .1
+        );
+
+        assert!(
+            cache
+                .get(key.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+        assert!(
+            cache
+                .get(key4.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
     }
 
     #[test]
@@ -1234,12 +1469,19 @@ mod tests {
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
 
         let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
-        cache.update(key, res.dupe(), Arc::new(vec![]), StorageType::LastN(1));
+        cache.update(
+            key,
+            res.dupe(),
+            ValueReusable::EqualityBased,
+            Arc::new(vec![]),
+            StorageType::LastN(1),
+        );
 
         let key1 = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 1 });
         cache.update(
             key1,
             res.dupe(),
+            ValueReusable::EqualityBased,
             Arc::new(vec![DiceKey { index: 0 }]),
             StorageType::LastN(1),
         );
@@ -1248,6 +1490,7 @@ mod tests {
         cache.update(
             key2,
             res.dupe(),
+            ValueReusable::EqualityBased,
             Arc::new(vec![DiceKey { index: 0 }]),
             StorageType::LastN(1),
         );
@@ -1287,7 +1530,13 @@ mod tests {
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
 
         let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
-        cache.update(key, res.dupe(), Arc::new(vec![]), StorageType::LastN(1));
+        cache.update(
+            key,
+            res.dupe(),
+            ValueReusable::EqualityBased,
+            Arc::new(vec![]),
+            StorageType::LastN(1),
+        );
 
         assert!(!cache.invalidate(
             VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 }),
@@ -1295,7 +1544,13 @@ mod tests {
         ));
 
         let key = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
-        cache.update(key, res.dupe(), Arc::new(vec![]), StorageType::LastN(1));
+        cache.update(
+            key,
+            res.dupe(),
+            ValueReusable::EqualityBased,
+            Arc::new(vec![]),
+            StorageType::LastN(1),
+        );
 
         assert!(cache.invalidate(
             VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 }),

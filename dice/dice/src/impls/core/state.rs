@@ -17,6 +17,7 @@ use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
+use crate::impls::core::graph::types::VersionedGraphResultMismatch;
 use crate::impls::core::processor::StateProcessor;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
@@ -68,6 +69,18 @@ pub(crate) enum StateRequest {
         value: DiceValidValue,
         /// The deps accessed during the computation of newly computed value
         deps: Arc<Vec<DiceKey>>,
+        /// Response of the new value to use. This could be a different instance that is `Eq` to the
+        /// given computed value if the state already stores an instance of value that is equal.
+        resp: Sender<CancellableResult<DiceComputedValue>>,
+    },
+    /// Report that a value has been verified to be unchanged due to its deps
+    UpdateMismatchAsUnchanged {
+        key: VersionedGraphKey,
+        epoch: VersionEpoch,
+        /// The storage selection for the key,
+        storage: StorageType,
+        /// The previous value sent for verification
+        previous: VersionedGraphResultMismatch,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<CancellableResult<DiceComputedValue>>,

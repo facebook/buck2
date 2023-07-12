@@ -318,7 +318,9 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         .await?;
     assert_eq!(
         res.history().get_verified_ranges(),
-        VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(v)])
+        VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(
+            VersionNumber::new(0)
+        )])
     );
     assert!(!is_ran.load(Ordering::SeqCst));
 

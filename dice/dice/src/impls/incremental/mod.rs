@@ -231,12 +231,11 @@ impl IncrementalEngine {
 
                         // report reuse
                         let (tx, rx) = oneshot::channel();
-                        self.state.request(StateRequest::UpdateComputed {
+                        self.state.request(StateRequest::UpdateMismatchAsUnchanged {
                             key: VersionedGraphKey::new(v, k),
                             epoch: self.version_epoch,
                             storage: eval.storage_type(k),
-                            value: mismatch.entry,
-                            deps: mismatch.deps_to_validate,
+                            previous: mismatch,
                             resp: tx,
                         });
 

@@ -92,6 +92,13 @@ impl MaybeValidDiceValue {
         self.value.equality(&*other.0)
     }
 
+    #[cfg(test)]
+    pub(crate) fn instance_equal(&self, other: &DiceValidValue) -> bool {
+        #[allow(clippy::vtable_address_comparisons)]
+        // we literally just want to compare the exact pointer
+        std::sync::Arc::ptr_eq(&self.value, &other.0)
+    }
+
     pub(crate) fn into_valid_value(self) -> Result<DiceValidValue, MaybeValidDiceValue> {
         match self.validity {
             DiceValidity::Valid => Ok(DiceValidValue(self.value)),

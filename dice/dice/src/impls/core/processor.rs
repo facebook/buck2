@@ -9,6 +9,7 @@
 
 use gazebo::variants::VariantName;
 
+use crate::impls::core::graph::storage::ValueReusable;
 use crate::impls::core::internals::CoreState;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
@@ -76,7 +77,32 @@ impl StateProcessor {
                 ..
             } => {
                 // ignore error if the requester dropped it.
-                drop(resp.send(self.state.update_computed(key, epoch, storage, value, deps)));
+                drop(resp.send(self.state.update_computed(
+                    key,
+                    epoch,
+                    storage,
+                    value,
+                    ValueReusable::EqualityBased,
+                    deps,
+                )));
+            }
+            StateRequest::UpdateMismatchAsUnchanged {
+                key,
+                epoch,
+                storage,
+                previous,
+                resp,
+                ..
+            } => {
+                // ignore error if the requester dropped it.
+                drop(resp.send(self.state.update_computed(
+                    key,
+                    epoch,
+                    storage,
+                    previous.entry,
+                    ValueReusable::VersionBased(previous.verified_versions),
+                    previous.deps_to_validate,
+                )));
             }
             StateRequest::GetTasksPendingCancellation { resp } => {
                 let _ignored = resp.send(self.state.get_tasks_pending_cancellation());

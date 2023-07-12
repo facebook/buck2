@@ -13,6 +13,7 @@ use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::cache::SharedCache;
 use crate::impls::core::graph::storage::InvalidateKind;
+use crate::impls::core::graph::storage::ValueReusable;
 use crate::impls::core::graph::storage::VersionedGraph;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
@@ -102,12 +103,13 @@ impl CoreState {
         epoch: VersionEpoch,
         storage: StorageType,
         value: DiceValidValue,
+        reusability: ValueReusable,
         deps: Arc<Vec<DiceKey>>,
     ) -> CancellableResult<DiceComputedValue> {
         if self.version_tracker.is_relevant(key.v, epoch) {
             debug!(msg = "update graph entry", k = ?key.k, v = %key.v, v_epoch = %epoch);
 
-            Ok(self.graph.update(key, value, deps, storage).0)
+            Ok(self.graph.update(key, value, reusability, deps, storage).0)
         } else {
             debug!(msg = "update is rejected due to outdated epoch", k = ?key.k, v = %key.v, v_epoch = %epoch);
 
