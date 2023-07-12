@@ -481,6 +481,11 @@ def get_link_info(
 
     return infos.default
 
+LinkArgsTSet = record(
+    infos = field(LinkInfosTSet.type),
+    prefer_stripped = field(bool.type, False),
+)
+
 # An enum. Only one field should be set. The variants here represent different
 # ways in which we might obtain linker commands: through a t-set of propagated
 # dependencies (used for deps propagated unconditionally up a tree), through a
@@ -488,7 +493,7 @@ def get_link_info(
 # raw arguments we want to include (used for e.g. per-target link flags).
 LinkArgs = record(
     # A LinkInfosTSet + a flag indicating if stripped is preferred.
-    tset = field([(LinkInfosTSet.type, bool), None], None),
+    tset = field([LinkArgsTSet.type, None], None),
     # A list of LinkInfos
     infos = field([[LinkInfo.type], None], None),
     # A bunch of flags.
@@ -497,15 +502,15 @@ LinkArgs = record(
 
 def unpack_link_args(args: LinkArgs.type, is_shared: [bool, None] = None, link_ordering: [LinkOrdering.type, None] = None) -> "_arglike":
     if args.tset != None:
-        (tset, stripped) = args.tset
         ordering = link_ordering.value if link_ordering else "preorder"
 
+        tset = args.tset.infos
         if is_shared:
-            if stripped:
+            if args.tset.prefer_stripped:
                 return tset.project_as_args("stripped_shared", ordering = ordering)
             return tset.project_as_args("default_shared", ordering = ordering)
         else:
-            if stripped:
+            if args.tset.prefer_stripped:
                 return tset.project_as_args("stripped", ordering = ordering)
             return tset.project_as_args("default", ordering = ordering)
 
@@ -519,7 +524,8 @@ def unpack_link_args(args: LinkArgs.type, is_shared: [bool, None] = None, link_o
 
 def unpack_link_args_filelist(args: LinkArgs.type) -> ["_arglike", None]:
     if args.tset != None:
-        (tset, stripped) = args.tset
+        tset = args.tset.infos
+        stripped = args.tset.prefer_stripped
         if not tset.reduce("has_stripped_filelist" if stripped else "has_default_filelist"):
             return None
         return tset.project_as_args("stripped_filelist" if stripped else "default_filelist")
@@ -541,8 +547,7 @@ def unpack_link_args_filelist(args: LinkArgs.type) -> ["_arglike", None]:
 
 def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> [ExternalDebugInfoTSet.type, None]:
     if args.tset != None:
-        (tset, stripped) = args.tset
-        if stripped:
+        if args.tset.prefer_stripped:
             return None
 
         # We're basically traversing the link tset to build a new tset of
@@ -552,7 +557,7 @@ def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> [Exte
         # case instead?
         children = [
             li.default.external_debug_info
-            for li in tset.traverse()
+            for li in args.tset.infos.traverse()
             if li.default.external_debug_info != None
         ]
 
@@ -581,9 +586,8 @@ def map_to_link_infos(links: [LinkArgs.type]) -> ["LinkInfo"]:
 
     for link in links:
         if link.tset != None:
-            tset, stripped = link.tset
-            for info in tset.traverse():
-                if stripped:
+            for info in link.tset.infos.traverse():
+                if link.tset.prefer_stripped:
                     append(info.stripped or info.default)
                 else:
                     append(info.default)
@@ -607,7 +611,10 @@ def get_link_args(
     """
 
     return LinkArgs(
-        tset = (merged._infos[link_style], prefer_stripped),
+        tset = LinkArgsTSet(
+            infos = merged._infos[link_style],
+            prefer_stripped = prefer_stripped,
+        ),
     )
 
 def get_actual_link_style(

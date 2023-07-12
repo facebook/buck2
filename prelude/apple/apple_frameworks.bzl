@@ -12,6 +12,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "FrameworksLinkable",
     "LinkArgs",
+    "LinkArgsTSet",
     "LinkInfo",
     "LinkInfos",
     "LinkInfosTSet",
@@ -135,11 +136,14 @@ def apple_build_link_args_with_deduped_flags(
         return get_link_args(info, link_style, prefer_stripped)
 
     return LinkArgs(
-        tset = (ctx.actions.tset(
-            LinkInfosTSet,
-            value = LinkInfos(default = link_info, stripped = link_info),
-            children = [info._infos[link_style]],
-        ), prefer_stripped),
+        tset = LinkArgsTSet(
+            infos = ctx.actions.tset(
+                LinkInfosTSet,
+                value = LinkInfos(default = link_info, stripped = link_info),
+                children = [info._infos[link_style]],
+            ),
+            prefer_stripped = prefer_stripped,
+        ),
     )
 
 def apple_get_link_info_by_deduping_link_infos(
