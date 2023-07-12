@@ -35,6 +35,7 @@ use pin_project::pin_project;
 use tokio::sync::oneshot;
 
 use crate::cancellable_future::CancellationObserver;
+use crate::cancellable_future::CancellationObserverInner;
 use crate::cancellation::ExplicitCancellationContext;
 use crate::maybe_future::MaybeFuture;
 use crate::owning_future::OwningFuture;
@@ -386,9 +387,9 @@ impl ExecutionContextData {
     fn enter_structured_cancellation(&mut self) -> CancellationObserver {
         self.prevent_cancellation += 1;
 
-        CancellationObserver {
-            rx: Some(self.cancellation_notification.rx.clone()),
-        }
+        CancellationObserver(CancellationObserverInner::Explicit(Some(
+            self.cancellation_notification.rx.clone(),
+        )))
     }
 
     fn notify_cancelled(&mut self) {

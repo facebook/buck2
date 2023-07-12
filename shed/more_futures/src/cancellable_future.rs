@@ -123,9 +123,9 @@ impl ExecutionContext {
         });
 
         cancellation.observers += 1;
-        CancellationObserver {
-            rx: Some(cancellation.rx.clone()),
-        }
+        CancellationObserver(CancellationObserverInner::Legacy(Some(
+            cancellation.rx.clone(),
+        )))
     }
 }
 
@@ -448,10 +448,18 @@ where
 }
 
 #[derive(Clone, Default)]
-#[pin_project]
-pub struct CancellationObserver {
-    #[pin]
-    pub(crate) rx: Option<Shared<oneshot::Receiver<()>>>,
+pub struct CancellationObserver(pub(crate) CancellationObserverInner);
+
+#[derive(Clone)]
+pub(crate) enum CancellationObserverInner {
+    Legacy(Option<Shared<oneshot::Receiver<()>>>),
+    Explicit(Option<Shared<oneshot::Receiver<()>>>),
+}
+
+impl Default for CancellationObserverInner {
+    fn default() -> Self {
+        CancellationObserverInner::Legacy(Default::default())
+    }
 }
 
 impl Dupe for CancellationObserver {}
@@ -459,11 +467,16 @@ impl Dupe for CancellationObserver {}
 impl Future for CancellationObserver {
     type Output = ();
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        match this.rx.as_pin_mut() {
-            Some(rx) => rx.poll(cx).map(|_| ()),
-            None => Poll::Pending,
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match &mut self.0 {
+            CancellationObserverInner::Legacy(fut) => match fut {
+                Some(ref mut rx) => rx.poll_unpin(cx).map(|_| ()),
+                None => Poll::Pending,
+            },
+            CancellationObserverInner::Explicit(fut) => match fut {
+                Some(ref mut rx) => rx.poll_unpin(cx).map(|_| ()),
+                None => Poll::Pending,
+            },
         }
     }
 }
