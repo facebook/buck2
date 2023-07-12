@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//utils:utils.bzl", "expect")
 load(
@@ -203,7 +204,8 @@ def get_link_info(
 
 def get_deps_for_link(
         node: LinkableNode.type,
-        link_style: LinkStyle.type) -> ["label"]:
+        link_style: LinkStyle.type,
+        pic_behavior: PicBehavior.type) -> ["label"]:
     """
     Return deps to follow when linking against this node with the given link
     style.
@@ -213,7 +215,7 @@ def get_deps_for_link(
     deps = node.exported_deps
 
     # If we're linking statically, include non-exported deps.
-    actual = get_actual_link_style(link_style, node.preferred_linkage)
+    actual = get_actual_link_style(link_style, node.preferred_linkage, pic_behavior)
     if actual != LinkStyle("shared") and node.deps:
         # Important that we don't mutate deps, but create a new list
         deps = deps + node.deps

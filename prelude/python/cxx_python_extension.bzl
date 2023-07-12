@@ -202,6 +202,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         ),
         merged_link_info = create_merged_link_info(
             ctx = ctx,
+            pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
             link_infos = link_infos,
             preferred_linkage = Linkage("static"),
             deps = [d.merged_link_info for d in link_deps],

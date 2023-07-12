@@ -59,6 +59,7 @@ load(
     "Linkage",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
+    "STATIC_LINK_STYLES",
     "SharedLibLinkable",
     "SwiftRuntimeLinkable",  # @unused Used as a type
     "SwiftmoduleLinkable",  # @unused Used as a type
@@ -66,6 +67,7 @@ load(
     "get_actual_link_style",
     "get_link_args",
     "get_link_styles_for_linkage",
+    "process_link_style_for_pic_behavior",
     "unpack_link_args",
     "wrap_link_info",
 )
@@ -439,7 +441,8 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     providers.extend(library_outputs.providers)
 
-    actual_link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage)
+    pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
+    actual_link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage, pic_behavior)
 
     # Output sub-targets for all link-styles.
     if impl_params.generate_sub_targets.link_style_outputs or impl_params.generate_providers.link_style_outputs:
@@ -510,6 +513,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
         merged_native_link_info = create_merged_link_info(
             ctx,
+            pic_behavior,
             # Add link info for each link style,
             library_outputs.libraries,
             preferred_linkage = preferred_linkage,
@@ -551,6 +555,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if impl_params.generate_sub_targets.headers:
         sub_targets["headers"] = [propagated_preprocessor, create_merged_link_info(
             ctx,
+            pic_behavior = pic_behavior,
             preferred_linkage = Linkage("static"),
             frameworks_linkable = frameworks_linkable,
         ), LinkGroupLibInfo(libs = {}), SharedLibraryInfo(set = None)] + additional_providers
@@ -755,8 +760,8 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
 def get_default_cxx_library_product_name(ctx, impl_params) -> str:
     preferred_linkage = cxx_attr_preferred_linkage(ctx)
-    link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage)
-    if link_style in (LinkStyle("static"), LinkStyle("static_pic")):
+    link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage, get_cxx_toolchain_info(ctx).pic_behavior)
+    if link_style in STATIC_LINK_STYLES:
         return _base_static_library_name(ctx, False)
     else:
         return _soname(ctx, impl_params)
@@ -1008,6 +1013,8 @@ def _get_shared_library_links(
     logic here, simply diverge behavior on whether link groups are defined.
     """
 
+    pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
+
     # If we're not filtering for link groups, link against the shared dependencies
     if not link_group_mappings and not force_link_group_linking:
         link = cxx_inherited_link_info(ctx, dedupe(flatten([non_exported_deps, exported_deps])))
@@ -1036,14 +1043,20 @@ def _get_shared_library_links(
             ctx,
             link,
             frameworks_linkable,
-            LinkStyle(link_style_value),
+            # fPIC behaves differently on various combinations of toolchains + platforms.
+            # To get the link_style, we have to check the link_style against the toolchain's pic_behavior.
+            #
+            # For more info, check the PicBehavior.type docs.
+            process_link_style_for_pic_behavior(LinkStyle(link_style_value), pic_behavior),
             swiftmodule_linkable = swiftmodule_linkable,
             swift_runtime_linkable = swift_runtime_linkable,
         ), None, link_execution_preference
 
     # Else get filtered link group links
     prefer_stripped = cxx_is_gnu(ctx) and ctx.attrs.prefer_stripped_objects
+
     link_style = cxx_attr_link_style(ctx) if cxx_attr_link_style(ctx) != LinkStyle("static") else LinkStyle("static_pic")
+    link_style = process_link_style_for_pic_behavior(link_style, pic_behavior)
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
         linkable_graph_node_map_func(),
         link_group,
@@ -1055,6 +1068,7 @@ def _get_shared_library_links(
         },
         link_style = link_style,
         roots = linkable_deps(non_exported_deps + exported_deps),
+        pic_behavior = pic_behavior,
         prefer_stripped = prefer_stripped,
         force_static_follows_dependents = force_static_follows_dependents,
     )

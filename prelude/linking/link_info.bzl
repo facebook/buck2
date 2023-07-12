@@ -389,6 +389,7 @@ def wrap_link_infos(
 def create_merged_link_info(
         # Target context for which to create the link info.
         ctx: "context",
+        pic_behavior: PicBehavior.type,
         # The link infos provided by this rule, as a map from link style (as
         # used by dependents) to `LinkInfo`.
         link_infos: {LinkStyle.type: LinkInfos.type} = {},
@@ -413,7 +414,7 @@ def create_merged_link_info(
     # link info given the target's preferred linkage, to be consumed by the
     # ultimate linking target.
     for link_style in LinkStyle:
-        actual_link_style = get_actual_link_style(link_style, preferred_linkage)
+        actual_link_style = get_actual_link_style(link_style, preferred_linkage, pic_behavior)
 
         children = []
         framework_linkables = []
@@ -612,8 +613,7 @@ def get_link_args(
 def get_actual_link_style(
         requested_link_style: LinkStyle.type,
         preferred_linkage: Linkage.type,
-        # In the next diff, I'll make this a required argument.
-        pic_behavior: PicBehavior.type = PicBehavior("supported")) -> LinkStyle.type:
+        pic_behavior: PicBehavior.type) -> LinkStyle.type:
     """
     Return how we link a library for a requested link style and preferred linkage.
     -----------------------------------------------------------------------------------|

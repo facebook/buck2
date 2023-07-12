@@ -821,6 +821,7 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
         ))
     obj_link_info = create_merged_link_info(
         ctx,
+        pic_behavior = cxx_toolchain.pic_behavior,
         link_infos = link_infos,
         exported_deps = [deps_link_info],
     )

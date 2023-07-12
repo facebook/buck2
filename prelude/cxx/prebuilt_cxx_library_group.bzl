@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
@@ -228,16 +229,20 @@ def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
             pre_flags = args,
         ))
 
+    # This code is already compiled, so, the argument (probably) has little/no value.
+    pic_behavior = PicBehavior("supported")
+
     # Collect per-link-style default outputs.
     default_outputs = {}
     for link_style in LinkStyle:
-        actual_link_style = get_actual_link_style(link_style, preferred_linkage)
+        actual_link_style = get_actual_link_style(link_style, preferred_linkage, pic_behavior)
         default_outputs[link_style] = outputs[actual_link_style]
     providers.append(DefaultInfo(default_outputs = default_outputs[LinkStyle("static")]))
 
     # Provider for native link.
     providers.append(create_merged_link_info(
         ctx,
+        pic_behavior,
         libraries,
         preferred_linkage = preferred_linkage,
         # Export link info from our (non-exported) deps (e.g. when we're linking

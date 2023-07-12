@@ -451,8 +451,10 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
         )]
 
     # Create the default output for the library rule given it's link style and preferred linkage
-    link_style = get_cxx_toolchain_info(ctx).linker_info.link_style
-    actual_link_style = get_actual_link_style(link_style, preferred_linkage)
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    pic_behavior = cxx_toolchain.pic_behavior
+    link_style = cxx_toolchain.linker_info.link_style
+    actual_link_style = get_actual_link_style(link_style, preferred_linkage, pic_behavior)
     output = outputs[actual_link_style]
     providers.append(DefaultInfo(
         default_output = output,
@@ -462,6 +464,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     # Propagate link info provider.
     providers.append(create_merged_link_info(
         ctx,
+        pic_behavior,
         # Add link info for each link style,
         libraries,
         preferred_linkage = preferred_linkage,

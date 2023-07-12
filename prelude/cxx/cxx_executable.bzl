@@ -302,6 +302,8 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 children = [d.link_group_lib_info for d in link_deps],
             )
 
+        pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
+
         # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
         # scenarios for which we need to propagate up link info and simplify this logic. For now
         # base which links to use based on whether link groups are defined.
@@ -310,6 +312,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             link_group,
             link_group_mappings,
             link_group_preferred_linkage,
+            pic_behavior = pic_behavior,
             link_group_libs = {
                 name: (lib.label, lib.shared_link_infos)
                 for name, lib in link_group_libs.items()
@@ -338,6 +341,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 link_group_mappings,
                 link_group_preferred_linkage,
                 link_style,
+                pic_behavior = pic_behavior,
                 roots = [d.linkable_graph.nodes.value.label for d in link_deps],
                 is_executable_link = True,
                 prefer_stripped = impl_params.prefer_stripped_objects,

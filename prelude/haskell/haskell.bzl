@@ -13,6 +13,7 @@ load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "CxxPlatformInfo",
     "CxxToolchainInfo",
+    "PicBehavior",
 )
 load(
     "@prelude//cxx:preprocessor.bzl",
@@ -287,6 +288,9 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
 
     merged_link_info = create_merged_link_info(
         ctx,
+        # We don't have access to a CxxToolchain here (yet).
+        # Give that it's already built, this doesn't mean much, use a sane default.
+        pic_behavior = PicBehavior("supported"),
         link_infos = link_infos,
         exported_deps = native_infos,
     )
@@ -735,8 +739,10 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
             default_outputs = libs,
         )]
 
+    pic_behavior = ctx.attrs._cxx_toolchain[CxxToolchainInfo].pic_behavior
     merged_link_info = create_merged_link_info(
         ctx,
+        pic_behavior = pic_behavior,
         link_infos = link_infos,
         preferred_linkage = preferred_linkage,
         exported_deps = nlis,
@@ -758,7 +764,7 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
     )
 
     link_style = _cxx_toolchain_link_style(ctx)
-    actual_link_style = get_actual_link_style(link_style, preferred_linkage)
+    actual_link_style = get_actual_link_style(link_style, preferred_linkage, pic_behavior)
     default_output = hlib_infos[actual_link_style].libs
 
     inherited_pp_info = cxx_inherited_preprocessor_infos(_attr_deps(ctx))

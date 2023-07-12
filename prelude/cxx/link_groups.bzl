@@ -55,6 +55,7 @@ load(
     "cxx_is_gnu",
     "cxx_mk_shlib_intf",
 )
+load(":cxx_toolchain_types.bzl", "PicBehavior")
 load(
     ":groups.bzl",
     "Group",  # @unused Used as a type
@@ -204,12 +205,13 @@ def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {"label": Lin
         if mapping.root != None and mapping.preferred_linkage != None
     }
 
-def transitively_update_shared_linkage(
+def _transitively_update_shared_linkage(
         linkable_graph_node_map: {"label": LinkableNode.type},
         link_group: [str, None],
         link_style: LinkStyle.type,
         link_group_preferred_linkage: {"label": Linkage.type},
-        link_group_roots: {"label": str}):
+        link_group_roots: {"label": str},
+        pic_behavior: PicBehavior.type):
     # Identify targets whose shared linkage style may be propagated to
     # dependencies. Implicitly created root libraries are skipped.
     shared_lib_roots = []
@@ -218,7 +220,7 @@ def transitively_update_shared_linkage(
         node = linkable_graph_node_map.get(target)
         if node == None:
             continue
-        actual_link_style = get_actual_link_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage))
+        actual_link_style = get_actual_link_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
         if actual_link_style == LinkStyle("shared"):
             target_link_group = link_group_roots.get(target)
             if target_link_group == None or target_link_group == link_group:
@@ -229,7 +231,7 @@ def transitively_update_shared_linkage(
         linkable_node = linkable_graph_node_map[node]
         if linkable_node.preferred_linkage == Linkage("any"):
             link_group_preferred_linkage[node] = Linkage("shared")
-        return get_deps_for_link(linkable_node, link_style)
+        return get_deps_for_link(linkable_node, link_style, pic_behavior)
 
     breadth_first_traversal_by(
         linkable_graph_node_map,
@@ -244,6 +246,7 @@ def get_filtered_labels_to_links_map(
         link_group_preferred_linkage: {"label": Linkage.type},
         link_style: LinkStyle.type,
         roots: ["label"],
+        pic_behavior: PicBehavior.type,
         link_group_libs: {str: (["label", None], LinkInfos.type)} = {},
         prefer_stripped: bool = False,
         is_executable_link: bool = False,
@@ -291,12 +294,13 @@ def get_filtered_labels_to_links_map(
 
     # Transitively update preferred linkage to avoid runtime issues from
     # missing dependencies (e.g. for prebuilt shared libs).
-    transitively_update_shared_linkage(
+    _transitively_update_shared_linkage(
         linkable_graph_node_map,
         link_group,
         link_style,
         link_group_preferred_linkage,
         link_group_roots,
+        pic_behavior,
     )
 
     linkable_map = {}
@@ -338,7 +342,7 @@ def get_filtered_labels_to_links_map(
 
     for target in linkables:
         node = linkable_graph_node_map[target]
-        actual_link_style = get_actual_link_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage))
+        actual_link_style = get_actual_link_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
 
         # Always link any shared dependencies
         if actual_link_style == LinkStyle("shared"):
@@ -573,6 +577,7 @@ def _create_link_group(
         spec.group.name,
         link_group_mappings,
         link_group_preferred_linkage,
+        pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
         link_group_libs = link_group_libs,
         link_style = link_style,
         roots = roots,

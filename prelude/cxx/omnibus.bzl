@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_preference")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:link.bzl",
     "cxx_link_shared_library",
@@ -195,7 +196,8 @@ def create_linkable_root(
         omnibus_graph = get_omnibus_graph(graph, {}, {})
 
         inputs = []
-        linker_info = get_cxx_toolchain_info(ctx).linker_info
+        toolchain_info = get_cxx_toolchain_info(ctx)
+        linker_info = toolchain_info.linker_info
         linker_type = linker_info.type
         inputs.append(LinkInfo(
             pre_flags =
@@ -215,12 +217,13 @@ def create_linkable_root(
         required_body = []
         required_exclusions = []
 
-        for dep in _link_deps(omnibus_graph.nodes, deps):
+        for dep in _link_deps(omnibus_graph.nodes, deps, toolchain_info.pic_behavior):
             node = omnibus_graph.nodes[dep]
 
             actual_link_style = get_actual_link_style(
                 LinkStyle("shared"),
                 node.preferred_linkage,
+                toolchain_info.pic_behavior,
             )
 
             if actual_link_style != LinkStyle("shared"):
@@ -334,7 +337,8 @@ def create_dummy_omnibus(ctx: "context", extra_ldflags: [""] = []) -> "artifact"
 
 def _link_deps(
         link_infos: {"label": LinkableNode.type},
-        deps: ["label"]) -> ["label"]:
+        deps: ["label"],
+        pic_behavior: PicBehavior.type) -> ["label"]:
     """
     Return transitive deps required to link dynamically against the given deps.
     This will following through deps of statically linked inputs and exported
@@ -342,7 +346,7 @@ def _link_deps(
     """
 
     def find_deps(node: "label"):
-        return get_deps_for_link(link_infos[node], LinkStyle("shared"))
+        return get_deps_for_link(link_infos[node], LinkStyle("shared"), pic_behavior)
 
     return breadth_first_traversal_by(link_infos, deps, find_deps)
 
@@ -368,6 +372,7 @@ def _create_root(
         label: "label",
         link_deps: ["label"],
         omnibus: "artifact",
+        pic_behavior: PicBehavior.type,
         extra_ldflags: [""] = [],
         prefer_stripped_objects: bool = False) -> OmnibusRootProduct.type:
     """
@@ -422,6 +427,7 @@ def _create_root(
         actual_link_style = get_actual_link_style(
             LinkStyle("shared"),
             node.preferred_linkage,
+            pic_behavior,
         )
 
         # If this dep needs to be linked statically, then link it directly.
@@ -627,6 +633,7 @@ def _create_omnibus(
         ctx: "context",
         spec: OmnibusSpec.type,
         annotated_root_products,
+        pic_behavior: PicBehavior.type,
         extra_ldflags: [""] = [],
         prefer_stripped_objects: bool = False) -> LinkedObject.type:
     inputs = []
@@ -665,6 +672,7 @@ def _create_omnibus(
         actual_link_style = get_actual_link_style(
             LinkStyle("static_pic"),
             node.preferred_linkage,
+            pic_behavior,
         )
         expect(actual_link_style == LinkStyle("static_pic"))
         body_input = get_link_info(
@@ -681,12 +689,15 @@ def _create_omnibus(
                 expect(dep in spec.excluded)
                 deps[dep] = None
 
+    toolchain_info = get_cxx_toolchain_info(ctx)
+
     # Now add deps of omnibus to the link
-    for label in _link_deps(spec.link_infos, deps.keys()):
+    for label in _link_deps(spec.link_infos, deps.keys(), toolchain_info.pic_behavior):
         node = spec.link_infos[label]
         actual_link_style = get_actual_link_style(
             LinkStyle("shared"),
             node.preferred_linkage,
+            toolchain_info.pic_behavior,
         )
         inputs.append(get_link_info(
             node,
@@ -694,7 +705,6 @@ def _create_omnibus(
             prefer_stripped = prefer_stripped_objects,
         ))
 
-    toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info
 
     # Add global symbols version script.
@@ -774,7 +784,7 @@ def _build_omnibus_spec(
     # Find the deps of the root nodes.  These form the roots of the nodes
     # included in the omnibus link.
     first_order_root_deps = []
-    for label in _link_deps(graph.nodes, flatten([r.root.deps for r in roots.values()])):
+    for label in _link_deps(graph.nodes, flatten([r.root.deps for r in roots.values()]), get_cxx_toolchain_info(ctx).pic_behavior):
         # We only consider deps which aren't *only* statically linked.
         if _is_static_only(graph.nodes[label]):
             continue
@@ -836,7 +846,8 @@ def _implicit_exclusion_roots(ctx: "context", graph: OmnibusGraph.type) -> ["lab
     ]
 
 def _ordered_roots(
-        spec: OmnibusSpec.type) -> [("label", AnnotatedLinkableRoot.type, ["label"])]:
+        spec: OmnibusSpec.type,
+        pic_behavior: PicBehavior.type) -> [("label", AnnotatedLinkableRoot.type, ["label"])]:
     """
     Return information needed to link the roots nodes.
     """
@@ -844,7 +855,7 @@ def _ordered_roots(
     # Calculate all deps each root node needs to link against.
     link_deps = {}
     for label, root in spec.roots.items():
-        link_deps[label] = _link_deps(spec.link_infos, root.root.deps)
+        link_deps[label] = _link_deps(spec.link_infos, root.root.deps, pic_behavior)
 
     # Used the link deps to create the graph of root nodes.
     root_graph = {
@@ -869,6 +880,7 @@ def create_omnibus_libraries(
         extra_ldflags: [""] = [],
         prefer_stripped_objects: bool = False) -> OmnibusSharedLibraries.type:
     spec = _build_omnibus_spec(ctx, graph)
+    pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
 
     # Create dummy omnibus
     dummy_omnibus = create_dummy_omnibus(ctx, extra_ldflags)
@@ -877,7 +889,7 @@ def create_omnibus_libraries(
     root_products = {}
 
     # Link all root nodes against the dummy libomnibus lib.
-    for label, annotated_root, link_deps in _ordered_roots(spec):
+    for label, annotated_root, link_deps in _ordered_roots(spec, pic_behavior):
         product = _create_root(
             ctx,
             spec,
@@ -886,6 +898,7 @@ def create_omnibus_libraries(
             label,
             link_deps,
             dummy_omnibus,
+            pic_behavior,
             extra_ldflags,
             prefer_stripped_objects,
         )
@@ -903,6 +916,7 @@ def create_omnibus_libraries(
             ctx,
             spec,
             root_products,
+            pic_behavior,
             extra_ldflags,
             prefer_stripped_objects,
         )

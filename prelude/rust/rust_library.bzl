@@ -10,6 +10,7 @@ load(
     "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
 )
+load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:linker.bzl",
     "PDB_SUB_TARGET",
@@ -34,6 +35,7 @@ load(
     "Linkage",
     "LinkedObject",
     "MergedLinkInfo",
+    "STATIC_LINK_STYLES",
     "SharedLibLinkable",
     "create_merged_link_info",
     "get_actual_link_style",
@@ -136,6 +138,7 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
     providers.append(
         create_merged_link_info(
             ctx,
+            PicBehavior("supported"),
             {link_style: LinkInfos(default = link) for link_style in LinkStyle},
             exported_deps = [d[MergedLinkInfo] for d in ctx.attrs.deps],
             # TODO(agallagher): This matches v1 behavior, but some of these libs
@@ -548,7 +551,7 @@ def _native_providers(
 
     link_infos = {}
     for link_style, arg in libraries.items():
-        if link_style in [LinkStyle("static"), LinkStyle("static_pic")]:
+        if link_style in STATIC_LINK_STYLES:
             link_infos[link_style] = LinkInfos(default = LinkInfo(linkables = [ArchiveLinkable(archive = Archive(artifact = arg), linker_type = linker_type)]))
         else:
             link_infos[link_style] = LinkInfos(default = LinkInfo(linkables = [SharedLibLinkable(lib = arg)]))
@@ -558,6 +561,7 @@ def _native_providers(
     # Native link provider.
     providers.append(create_merged_link_info(
         ctx,
+        compile_ctx.cxx_toolchain_info.pic_behavior,
         link_infos,
         exported_deps = [inherited_non_rust_link],
         preferred_linkage = preferred_linkage,
@@ -570,7 +574,7 @@ def _native_providers(
     shlib_name = get_default_shared_library_name(linker_info, ctx.label)
 
     # Only add a shared library if we generated one.
-    if get_actual_link_style(LinkStyle("shared"), preferred_linkage) == LinkStyle("shared"):
+    if get_actual_link_style(LinkStyle("shared"), preferred_linkage, compile_ctx.cxx_toolchain_info.pic_behavior) == LinkStyle("shared"):
         solibs[shlib_name] = LinkedObject(output = libraries[LinkStyle("shared")])
 
     # Native shared library provider.
