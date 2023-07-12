@@ -19,6 +19,7 @@ buck2_wrapper_common = { workspace = true }
 allocative = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
+slab = "0.4.7"
 take_mut = { workspace = true }
 thiserror = { workspace = true }
 

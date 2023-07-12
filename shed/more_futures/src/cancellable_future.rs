@@ -27,6 +27,8 @@ use parking_lot::Mutex;
 use pin_project::pin_project;
 use tokio::sync::oneshot;
 
+use crate::cancellation::future::CancellationNotificationFuture;
+
 thread_local! {
     /// The ExecutionContext for the currently executing CancellableFuture.
     static CURRENT: RefCell<Option<Box<ExecutionContext>>> = RefCell::new(None);
@@ -453,7 +455,7 @@ pub struct CancellationObserver(pub(crate) CancellationObserverInner);
 #[derive(Clone)]
 pub(crate) enum CancellationObserverInner {
     Legacy(Option<Shared<oneshot::Receiver<()>>>),
-    Explicit(Option<Shared<oneshot::Receiver<()>>>),
+    Explicit(CancellationNotificationFuture),
 }
 
 impl Default for CancellationObserverInner {
@@ -473,10 +475,7 @@ impl Future for CancellationObserver {
                 Some(ref mut rx) => rx.poll_unpin(cx).map(|_| ()),
                 None => Poll::Pending,
             },
-            CancellationObserverInner::Explicit(fut) => match fut {
-                Some(ref mut rx) => rx.poll_unpin(cx).map(|_| ()),
-                None => Poll::Pending,
-            },
+            CancellationObserverInner::Explicit(fut) => fut.poll_unpin(cx),
         }
     }
 }

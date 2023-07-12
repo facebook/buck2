@@ -18,6 +18,7 @@ use std::future::Future;
 use std::mem;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::task::Context;
@@ -28,14 +29,11 @@ use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
 use futures::future::BoxFuture;
-use futures::future::Shared;
-use futures::FutureExt;
+use futures::task::AtomicWaker;
 use parking_lot::Mutex;
 use pin_project::pin_project;
-use tokio::sync::oneshot;
+use slab::Slab;
 
-use crate::cancellable_future::CancellationObserver;
-use crate::cancellable_future::CancellationObserverInner;
 use crate::cancellation::ExplicitCancellationContext;
 use crate::maybe_future::MaybeFuture;
 use crate::owning_future::OwningFuture;
@@ -296,10 +294,11 @@ impl ExecutionContext {
         Self {
             shared: Arc::new(Mutex::new(ExecutionContextData {
                 cancellation_notification: {
-                    let (tx, rx) = oneshot::channel();
                     CancellationNotificationData {
-                        tx: CancellationNotification::Pending(tx),
-                        rx: rx.shared(),
+                        inner: Arc::new(CancellationNotificationDataInner {
+                            notified: Default::default(),
+                            wakers: Mutex::new(Some(Default::default())),
+                        }),
                     }
                 },
                 prevent_cancellation: 0,
@@ -314,12 +313,12 @@ impl ExecutionContext {
 
     pub(crate) fn enter_structured_cancellation(
         &self,
-    ) -> (CancellationObserver, CriticalSectionGuard) {
+    ) -> (CancellationNotificationData, CriticalSectionGuard) {
         let mut shared = self.shared.lock();
 
-        let observer = shared.enter_structured_cancellation();
+        let notification = shared.enter_structured_cancellation();
 
-        (observer, CriticalSectionGuard::new(&self.shared))
+        (notification, CriticalSectionGuard::new(&self.shared))
     }
 }
 
@@ -384,30 +383,28 @@ impl ExecutionContextData {
         self.should_exit
     }
 
-    fn enter_structured_cancellation(&mut self) -> CancellationObserver {
+    fn enter_structured_cancellation(&mut self) -> CancellationNotificationData {
         self.prevent_cancellation += 1;
 
-        CancellationObserver(CancellationObserverInner::Explicit(Some(
-            self.cancellation_notification.rx.clone(),
-        )))
+        self.cancellation_notification.dupe()
     }
 
     fn notify_cancelled(&mut self) {
-        match &self.cancellation_notification.tx {
-            CancellationNotification::Pending(_) => {
-                let old = mem::replace(
-                    &mut self.cancellation_notification.tx,
-                    CancellationNotification::Notified,
-                );
-                match old {
-                    CancellationNotification::Pending(tx) => {
-                        let _ignored = tx.send(());
-                    }
-                    _ => unreachable!(),
+        let updated = self.cancellation_notification.inner.notified.fetch_update(
+            Ordering::SeqCst,
+            Ordering::SeqCst,
+            |old| match CancellationNotificationStatus::from(old) {
+                CancellationNotificationStatus::Pending => {
+                    Some(CancellationNotificationStatus::Notified.into())
                 }
+                CancellationNotificationStatus::Notified => None,
+                CancellationNotificationStatus::Disabled => None,
+            },
+        );
+        if updated.is_ok() {
+            if let Some(mut wakers) = self.cancellation_notification.inner.wakers.lock().take() {
+                wakers.drain().for_each(|waker| waker.wake());
             }
-            CancellationNotification::Notified => {}
-            CancellationNotification::Disabled(..) => {}
         }
     }
 
@@ -418,43 +415,134 @@ impl ExecutionContextData {
     }
 
     fn try_to_disable_cancellation(&mut self) -> bool {
-        match &self.cancellation_notification.tx {
-            CancellationNotification::Pending(_) => {
-                // since we know we'll never be canceled, delete any cancellation data we hold since
-                // we should never notify cancelled.
-                take_mut::take(
-                    &mut self.cancellation_notification.tx,
-                    |state| match state {
-                        CancellationNotification::Pending(tx) => {
-                            CancellationNotification::Disabled(tx)
-                        }
-                        x => x,
-                    },
-                );
-                true
-            }
-            CancellationNotification::Notified => {
-                // we've already sent our cancelled notification, so we can't record this future
-                // as never cancelled
-                false
-            }
-            CancellationNotification::Disabled(..) => {
-                // already never cancelled
-                true
+        let maybe_updated = self.cancellation_notification.inner.notified.fetch_update(
+            Ordering::SeqCst,
+            Ordering::SeqCst,
+            |old| match CancellationNotificationStatus::from(old) {
+                CancellationNotificationStatus::Pending => {
+                    Some(CancellationNotificationStatus::Disabled.into())
+                }
+                CancellationNotificationStatus::Notified => None,
+                CancellationNotificationStatus::Disabled => None,
+            },
+        );
+
+        match maybe_updated {
+            Ok(_) => true,
+            Err(old) => {
+                let old = CancellationNotificationStatus::from(old);
+                matches!(old, CancellationNotificationStatus::Disabled)
             }
         }
     }
 }
 
-enum CancellationNotification {
-    Pending(oneshot::Sender<()>),
+enum CancellationNotificationStatus {
+    /// no notifications yet. maps to '0'
+    Pending,
+    /// notified, maps to '1'
     Notified,
-    Disabled(oneshot::Sender<()>), // this just holds the sender alive so receives don't receive the "drop"
+    /// disabled notifications, maps to '2'
+    Disabled,
 }
 
-struct CancellationNotificationData {
-    tx: CancellationNotification,
-    rx: Shared<oneshot::Receiver<()>>,
+impl From<u8> for CancellationNotificationStatus {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => CancellationNotificationStatus::Pending,
+            1 => CancellationNotificationStatus::Notified,
+            2 => CancellationNotificationStatus::Disabled,
+            _ => panic!("invalid status"),
+        }
+    }
+}
+
+impl From<CancellationNotificationStatus> for u8 {
+    fn from(value: CancellationNotificationStatus) -> Self {
+        match value {
+            CancellationNotificationStatus::Pending => 0,
+            CancellationNotificationStatus::Notified => 1,
+            CancellationNotificationStatus::Disabled => 2,
+        }
+    }
+}
+
+#[derive(Clone, Dupe)]
+pub(crate) struct CancellationNotificationData {
+    inner: Arc<CancellationNotificationDataInner>,
+}
+
+struct CancellationNotificationDataInner {
+    /// notification status per enum 'CancellationNotificationStatus'
+    notified: AtomicU8,
+    wakers: Mutex<Option<Slab<Arc<AtomicWaker>>>>,
+}
+
+pub(crate) struct CancellationNotificationFuture {
+    data: CancellationNotificationData,
+    // index into the waker for this future held by the Slab in 'CancellationNotificationData'
+    id: Option<usize>,
+    // duplicate of the waker held for us to update the waker on poll without acquiring lock
+    waker: Arc<AtomicWaker>,
+}
+
+impl CancellationNotificationFuture {
+    pub(crate) fn new(data: CancellationNotificationData) -> Self {
+        let waker = Arc::new(AtomicWaker::new());
+        let id = data
+            .inner
+            .wakers
+            .lock()
+            .as_mut()
+            .map(|wakers| wakers.insert(waker.dupe()));
+        CancellationNotificationFuture { data, id, waker }
+    }
+}
+
+impl Clone for CancellationNotificationFuture {
+    fn clone(&self) -> Self {
+        CancellationNotificationFuture::new(self.data.dupe())
+    }
+}
+
+impl Dupe for CancellationNotificationFuture {}
+
+impl Drop for CancellationNotificationFuture {
+    fn drop(&mut self) {
+        if let Some(id) = self.id {
+            self.data
+                .inner
+                .wakers
+                .lock()
+                .as_mut()
+                .map(|wakers| wakers.remove(id));
+        }
+    }
+}
+
+impl Future for CancellationNotificationFuture {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match CancellationNotificationStatus::from(self.data.inner.notified.load(Ordering::SeqCst))
+        {
+            CancellationNotificationStatus::Notified => {
+                if let Some(id) = self.id {
+                    self.data
+                        .inner
+                        .wakers
+                        .lock()
+                        .as_mut()
+                        .map(|wakers| wakers.remove(id));
+                }
+                Poll::Ready(())
+            }
+            _ => {
+                self.waker.register(cx.waker());
+                Poll::Pending
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1148,5 +1236,27 @@ mod tests {
         // Drop our guard. At this point we'll cancel, and notify the observer.
         handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
+    }
+
+    #[tokio::test]
+    async fn test_cancellation_observer_wakes_up_other_tasks() {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
+            async {
+                let prevent_cancellation = cancellations.begin_ignore_cancellation();
+                let observer = prevent_cancellation.cancellation_observer();
+
+                let _ignore = tokio::spawn(observer).await;
+            }
+            .boxed()
+        });
+        futures::pin_mut!(fut);
+
+        // Proceed all the way to awaiting the observer
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
+        // Drop our guard. At this point we'll cancel, and notify the observer.
+        handle.cancel();
+
+        fut.await;
     }
 }

@@ -24,7 +24,10 @@ use crate::cancellable_future::critical_section;
 use crate::cancellable_future::try_to_disable_cancellation;
 use crate::cancellable_future::with_structured_cancellation;
 use crate::cancellable_future::CancellationObserver;
+use crate::cancellable_future::CancellationObserverInner;
 use crate::cancellable_future::DisableCancellationGuard;
+use crate::cancellation::future::CancellationNotificationData;
+use crate::cancellation::future::CancellationNotificationFuture;
 use crate::cancellation::future::CriticalSectionGuard;
 use crate::cancellation::future::ExecutionContext;
 
@@ -105,12 +108,14 @@ pub struct ExplicitCancellationContext {
 /// of whether or not the task is already cancelled.
 pub struct IgnoreCancellationGuard<'a> {
     guard: CriticalSectionGuard<'a>,
-    observer: CancellationObserver,
+    notification: CancellationNotificationData,
 }
 
 impl<'a> IgnoreCancellationGuard<'a> {
     pub fn cancellation_observer(&self) -> CancellationObserver {
-        self.observer.dupe()
+        CancellationObserver(CancellationObserverInner::Explicit(
+            CancellationNotificationFuture::new(self.notification.dupe()),
+        ))
     }
 
     /// Allow cancellations again, but unlike dropping it, also checks if we should be cancelled
@@ -161,9 +166,12 @@ impl<'a> IgnoreCancellationGuard<'a> {
 impl ExplicitCancellationContext {
     /// Ignore cancellations while 'PreventCancellation' is held
     pub fn begin_ignore_cancellation(&self) -> IgnoreCancellationGuard {
-        let (observer, guard) = self.inner.enter_structured_cancellation();
+        let (notification, guard) = self.inner.enter_structured_cancellation();
 
-        IgnoreCancellationGuard { guard, observer }
+        IgnoreCancellationGuard {
+            guard,
+            notification,
+        }
     }
 
     /// Enter a critical section during which the current future (if supports explicit cancellation)
