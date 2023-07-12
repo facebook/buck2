@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+// https://github.com/rust-lang/rust-clippy/issues/11142
+#![allow(clippy::needless_borrow)]
+
 use std::str::FromStr;
 
 use either::Either;
@@ -41,8 +44,36 @@ impl StarlarkTypeRepr for serde_json::Number {
     }
 }
 
+impl<'a> StarlarkTypeRepr for &'a serde_json::Number {
+    fn starlark_type_repr() -> Ty {
+        serde_json::Number::starlark_type_repr()
+    }
+}
+
+impl<'v, 'a> AllocValue<'v> for &'a serde_json::Number {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        if let Some(x) = self.as_u64() {
+            heap.alloc(x)
+        } else if let Some(x) = self.as_i64() {
+            heap.alloc(x)
+        } else if let Some(x) = self.as_f64() {
+            heap.alloc(x)
+        } else if let Ok(x) = BigInt::from_str(&self.to_string()) {
+            heap.alloc(StarlarkInt::from(x))
+        } else {
+            panic!("Unrepresentable number: {:?}", self)
+        }
+    }
+}
+
 impl<'v> AllocValue<'v> for serde_json::Number {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc(&self)
+    }
+}
+
+impl<'a> AllocFrozenValue for &'a serde_json::Number {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         if let Some(x) = self.as_u64() {
             heap.alloc(x)
         } else if let Some(x) = self.as_i64() {
@@ -59,17 +90,13 @@ impl<'v> AllocValue<'v> for serde_json::Number {
 
 impl AllocFrozenValue for serde_json::Number {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        if let Some(x) = self.as_u64() {
-            heap.alloc(x)
-        } else if let Some(x) = self.as_i64() {
-            heap.alloc(x)
-        } else if let Some(x) = self.as_f64() {
-            heap.alloc(x)
-        } else if let Ok(x) = BigInt::from_str(&self.to_string()) {
-            heap.alloc(StarlarkInt::from(x))
-        } else {
-            panic!("Unrepresentable number: {:?}", self)
-        }
+        heap.alloc(&self)
+    }
+}
+
+impl<'a, K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for &'a serde_json::Map<K, V> {
+    fn starlark_type_repr() -> Ty {
+        AllocDict::<SmallMap<K, V>>::starlark_type_repr()
     }
 }
 
@@ -79,7 +106,7 @@ impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for serde_json::
     }
 }
 
-impl<'v> AllocValue<'v> for serde_json::Map<String, serde_json::Value> {
+impl<'a, 'v> AllocValue<'v> for &'a serde_json::Map<String, serde_json::Value> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         // For some reason `IntoIter` is implemented only for `String, Value` parameters,
         // so this implementation is limited.
@@ -87,9 +114,28 @@ impl<'v> AllocValue<'v> for serde_json::Map<String, serde_json::Value> {
     }
 }
 
+impl<'v> AllocValue<'v> for serde_json::Map<String, serde_json::Value> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc(&self)
+    }
+}
+
+impl<'a> AllocFrozenValue for &'a serde_json::Map<String, serde_json::Value> {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        heap.alloc(AllocDict(self.iter().map(|(k, v)| (k.as_str(), v))))
+    }
+}
+
 impl AllocFrozenValue for serde_json::Map<String, serde_json::Value> {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        heap.alloc(AllocDict(self))
+        heap.alloc(&self)
+    }
+}
+
+impl<'a> StarlarkTypeRepr for &'a serde_json::Value {
+    fn starlark_type_repr() -> Ty {
+        // Any.
+        Value::starlark_type_repr()
     }
 }
 
@@ -100,14 +146,33 @@ impl StarlarkTypeRepr for serde_json::Value {
     }
 }
 
-impl<'v> AllocValue<'v> for serde_json::Value {
+impl<'v, 'a> AllocValue<'v> for &'a serde_json::Value {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         match self {
             serde_json::Value::Null => Value::new_none(),
-            serde_json::Value::Bool(x) => Value::new_bool(x),
+            serde_json::Value::Bool(x) => Value::new_bool(*x),
             serde_json::Value::Number(x) => heap.alloc(x),
-            serde_json::Value::String(x) => heap.alloc(x),
-            serde_json::Value::Array(x) => heap.alloc(x),
+            serde_json::Value::String(x) => heap.alloc(x.as_str()),
+            serde_json::Value::Array(x) => heap.alloc(x.as_slice()),
+            serde_json::Value::Object(x) => heap.alloc(x),
+        }
+    }
+}
+
+impl<'v> AllocValue<'v> for serde_json::Value {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc(&self)
+    }
+}
+
+impl<'a> AllocFrozenValue for &'a serde_json::Value {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        match self {
+            serde_json::Value::Null => FrozenValue::new_none(),
+            serde_json::Value::Bool(x) => FrozenValue::new_bool(*x),
+            serde_json::Value::Number(x) => heap.alloc(x),
+            serde_json::Value::String(x) => heap.alloc(x.as_str()),
+            serde_json::Value::Array(x) => heap.alloc(x.as_slice()),
             serde_json::Value::Object(x) => heap.alloc(x),
         }
     }
@@ -115,14 +180,7 @@ impl<'v> AllocValue<'v> for serde_json::Value {
 
 impl AllocFrozenValue for serde_json::Value {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match self {
-            serde_json::Value::Null => FrozenValue::new_none(),
-            serde_json::Value::Bool(x) => FrozenValue::new_bool(x),
-            serde_json::Value::Number(x) => heap.alloc(x),
-            serde_json::Value::String(x) => heap.alloc(x),
-            serde_json::Value::Array(x) => heap.alloc(x),
-            serde_json::Value::Object(x) => heap.alloc(x),
-        }
+        heap.alloc(&self)
     }
 }
 
