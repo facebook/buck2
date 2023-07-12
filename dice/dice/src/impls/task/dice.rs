@@ -25,6 +25,7 @@ use futures::FutureExt;
 use more_futures::cancellation::future::CancellationHandle;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
+use parking_lot::RwLock;
 use slab::Slab;
 use tokio::sync::oneshot;
 
@@ -79,6 +80,8 @@ pub(super) struct DiceTaskInternal {
     pub(super) critical: Mutex<DiceTaskInternalCritical>,
     /// The value if finished computing
     maybe_value: UnsafeCell<Option<CancellableResult<DiceComputedValue>>>,
+    /// the synchronous value from a sync computation that isn't yet in the core state
+    pub(super) sync_value: RwLock<Option<DiceComputedValue>>,
 }
 
 pub(super) struct DiceTaskInternalCritical {
@@ -279,6 +282,7 @@ impl DiceTaskInternal {
                 termination_waiter: rx.shared(),
                 termination_sender: Some(tx),
             }),
+            sync_value: Default::default(),
         })
     }
 

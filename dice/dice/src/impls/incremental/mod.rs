@@ -16,6 +16,7 @@
 
 use std::borrow::Cow;
 use std::fmt::Debug;
+use std::future;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -40,6 +41,7 @@ use crate::impls::key::ParentKey;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::promise::DicePromise;
+use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
@@ -126,11 +128,11 @@ impl IncrementalEngine {
 
             debug!(msg = "projection finished. updating caches");
 
-            let res = {
+            let (res, future) = {
                 // send the update but don't wait for it
-                match eval_result.value.dupe().into_valid_value() {
+                let state_future = match eval_result.value.dupe().into_valid_value() {
                     Ok(value) => {
-                        let (tx, _rx) = oneshot::channel();
+                        let (tx, rx) = oneshot::channel();
                         state.request(StateRequest::UpdateComputed {
                             key: VersionedGraphKey::new(v, k),
                             epoch: version_epoch,
@@ -139,18 +141,33 @@ impl IncrementalEngine {
                             deps: Arc::new(eval_result.deps.into_iter().collect()),
                             resp: tx,
                         });
-                        // TODO(bobyf) consider if we want to block and wait for the cache
-                    }
-                    Err(_) => {}
-                }
 
-                eval_result.value
+                        Some(
+                            rx.map(|res| res.map_err(|_channel_drop| Cancelled).flatten())
+                                .boxed(),
+                        )
+                    }
+                    Err(_transient_result) => {
+                        // transients are never stored in the state, but the result should be shared
+                        // with async computations as if it were.
+                        None
+                    }
+                };
+
+                (eval_result.value, state_future)
             };
 
             debug!(msg = "update future completed");
             event_dispatcher.finished(k);
 
-            DiceComputedValue::new(res, Arc::new(CellHistory::verified(v)))
+            let computed_value = DiceComputedValue::new(res, Arc::new(CellHistory::verified(v)));
+            let state_future =
+                future.unwrap_or_else(|| future::ready(Ok(computed_value.dupe())).boxed());
+
+            DiceSyncResult {
+                sync_result: computed_value,
+                state_future,
+            }
         })
     }
 

@@ -21,6 +21,7 @@ use futures::poll;
 use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
 use more_futures::spawner::TokioSpawner;
+use tokio::sync::oneshot;
 use tokio::sync::Barrier;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
@@ -33,12 +34,14 @@ use crate::impls::core::graph::history::CellHistory;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::dice::MaybeCancelled;
+use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::task::sync_dice_task;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::result::Cancelled;
 
 #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
 struct K;
@@ -308,10 +311,10 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .sync_get_or_complete(|| DiceComputedValue::new(
+            .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
                 Arc::new(CellHistory::empty())
-            ))?
+            )))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
@@ -321,29 +324,83 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
         .not_cancelled()
         .unwrap();
 
-    let polled = futures::poll!(promise_before);
+    assert!(
+        promise_before
+            .await?
+            .value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
+    );
 
-    match polled {
-        Poll::Ready(v) => {
-            assert!(
-                v?.value()
-                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
-            )
-        }
-        Poll::Pending => panic!("Promise should be ready immediately"),
-    }
+    assert!(
+        promise_after
+            .await?
+            .value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
+    );
 
-    let polled = futures::poll!(promise_after);
+    Ok(())
+}
 
-    match polled {
-        Poll::Ready(v) => {
-            assert!(
-                v?.value()
-                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
-            )
-        }
-        Poll::Pending => panic!("Promise should be ready immediately"),
-    }
+#[tokio::test]
+async fn sync_complete_task_with_future() -> anyhow::Result<()> {
+    let task = unsafe {
+        // SAFETY: completed below later
+        sync_dice_task(DiceKey { index: 100 })
+    };
+
+    let mut promise = task
+        .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
+        .not_cancelled()
+        .unwrap();
+
+    assert!(poll!(&mut promise).is_pending());
+
+    let v_sync = DiceComputedValue::new(
+        MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
+        Arc::new(CellHistory::empty()),
+    );
+    let v_async = DiceComputedValue::new(
+        MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(99))),
+        Arc::new(CellHistory::empty()),
+    );
+    let (tx, rx) = oneshot::channel();
+
+    assert!(
+        task.depended_on_by(ParentKey::None)
+            .not_cancelled()
+            .unwrap()
+            .sync_get_or_complete(|| DiceSyncResult {
+                sync_result: v_sync,
+                state_future: rx
+                    .map(|res| { res.map_err(|_| Cancelled).flatten() })
+                    .boxed(),
+            })?
+            .value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
+    );
+
+    // other sync tasks no longer runs
+    assert!(
+        task.depended_on_by(ParentKey::None)
+            .not_cancelled()
+            .unwrap()
+            .sync_get_or_complete(|| panic!("should not run"))?
+            .value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
+    );
+
+    // async tasks still pending
+    assert!(poll!(&mut promise).is_pending());
+    assert!(poll!(&mut promise).is_pending());
+
+    tx.send(Ok(v_async)).unwrap();
+
+    assert!(
+        promise
+            .await?
+            .value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(99)))
+    );
 
     Ok(())
 }
@@ -414,10 +471,10 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .sync_get_or_complete(|| DiceComputedValue::new(
+            .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
                 Arc::new(CellHistory::empty())
-            ))?
+            )))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
@@ -473,44 +530,34 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .sync_get_or_complete(|| DiceComputedValue::new(
+            .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
                 Arc::new(CellHistory::empty())
-            ))?
+            )))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
-
-    drop(g);
 
     let promise_after = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
         .not_cancelled()
         .unwrap();
 
-    let polled = futures::poll!(promise_before);
+    assert!(
+        promise_before
+            .await?
+            .value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
+    );
 
-    match polled {
-        Poll::Ready(v) => {
-            assert!(
-                v?.value()
-                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
-            )
-        }
-        Poll::Pending => panic!("Promise should be ready immediately"),
-    }
+    drop(g);
 
-    let polled = futures::poll!(promise_after);
-
-    match polled {
-        Poll::Ready(v) => {
-            assert!(
-                v?.value()
-                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
-            )
-        }
-        Poll::Pending => panic!("Promise should be ready immediately"),
-    }
+    assert!(
+        promise_after
+            .await?
+            .value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
+    );
 
     Ok(())
 }
@@ -551,10 +598,10 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .sync_get_or_complete(|| DiceComputedValue::new(
+            .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
                 Arc::new(CellHistory::empty())
-            ))?
+            )))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );

@@ -60,7 +60,9 @@ impl AtomicDiceTaskState {
                     if unpacked == DiceTaskState::Sync {
                         std::hint::spin_loop();
                         continue;
-                    } else if unpacked == DiceTaskState::Ready {
+                    } else if unpacked == DiceTaskState::Ready
+                        || unpacked == DiceTaskState::Terminated
+                    {
                         return TaskState::Finished;
                     } else {
                         unreachable!("handled above")
@@ -223,13 +225,7 @@ impl DiceTaskState {
                 _ => None,
             },
             DiceTaskState::Ready => None,
-            DiceTaskState::Terminated => {
-                panic!(
-                    "invalid state transition `{:?}` -> `{:?}`",
-                    DiceTaskState::Terminated,
-                    target
-                )
-            }
+            DiceTaskState::Terminated => None,
         }
     }
 

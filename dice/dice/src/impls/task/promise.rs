@@ -16,6 +16,7 @@ use std::task::Context;
 use std::task::Poll;
 
 use dupe::Dupe;
+use futures::future::BoxFuture;
 use futures::task::AtomicWaker;
 
 use crate::arc::Arc;
@@ -24,6 +25,7 @@ use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::handle::TaskState;
 use crate::impls::value::DiceComputedValue;
 use crate::result::CancellableResult;
+use crate::result::Cancelled;
 
 /// A string reference to a 'DiceTask' that is pollable as a future.
 /// This is only awoken when the result is ready, as none of the pollers are responsible for
@@ -45,6 +47,26 @@ pub(super) enum DicePromiseInternal {
         cancellations: Cancellations,
     },
     Done,
+}
+
+/// result of a synchronous projection
+pub(crate) struct DiceSyncResult {
+    /// the value that's ready now without checking core state
+    pub(crate) sync_result: DiceComputedValue,
+    /// the future value after checking core state
+    pub(crate) state_future: BoxFuture<'static, CancellableResult<DiceComputedValue>>,
+}
+
+impl DiceSyncResult {
+    #[cfg(test)]
+    pub(crate) fn testing(v: DiceComputedValue) -> Self {
+        use futures::FutureExt;
+
+        Self {
+            sync_result: v.dupe(),
+            state_future: futures::future::ready(Ok(v)).boxed(),
+        }
+    }
 }
 
 impl DicePromise {
@@ -70,13 +92,20 @@ impl DicePromise {
     /// is not used.
     pub(crate) fn sync_get_or_complete(
         self,
-        f: impl FnOnce() -> DiceComputedValue,
+        f: impl FnOnce() -> DiceSyncResult,
     ) -> CancellableResult<DiceComputedValue> {
         match &self.0 {
             DicePromiseInternal::Ready { result } => Ok(result.dupe()),
             DicePromiseInternal::Pending { task_internal, .. } => {
                 if let Some(res) = task_internal.read_value() {
                     res
+                } else if let Some(sync_res) = {
+                    let lock = task_internal.sync_value.read();
+                    let value = lock.dupe();
+                    drop(lock);
+                    value
+                } {
+                    Ok(sync_res)
                 } else {
                     match task_internal.state.report_project() {
                         TaskState::Continue => {}
@@ -87,9 +116,50 @@ impl DicePromise {
                         }
                     }
 
-                    let value = f();
+                    let result = {
+                        let mut locked = task_internal.sync_value.write();
 
-                    task_internal.set_value(value)
+                        if let Some(res) = locked.as_ref() {
+                            return Ok(res.dupe());
+                        }
+
+                        let result = f();
+
+                        assert!(
+                            locked.replace(result.sync_result.dupe()).is_none(),
+                            "should only complete sync result once"
+                        );
+
+                        result
+                    };
+
+                    tokio::spawn({
+                        let future = result.state_future;
+                        let internals = task_internal.dupe();
+
+                        async move {
+                            let res = future.await;
+
+                            let mut sync_value = internals.sync_value.write();
+
+                            match res {
+                                Ok(result) => {
+                                    // only errors if cancelled, so we can ignore any errors when
+                                    // setting the result
+                                    let _ignore = internals.set_value(result);
+                                }
+                                Err(Cancelled) => {
+                                    // if its cancelled, report cancelled
+                                    internals.report_terminated();
+                                }
+                            }
+
+                            // stop storing the sync value since the async one is done
+                            sync_value.take()
+                        }
+                    });
+
+                    Ok(result.sync_result)
                 }
             }
             DicePromiseInternal::Done => panic!("poll after ready"),

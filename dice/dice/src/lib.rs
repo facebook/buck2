@@ -191,6 +191,7 @@
 #![feature(test)]
 #![feature(map_try_insert)]
 #![feature(map_entry_replace)]
+#![feature(result_flattening)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(

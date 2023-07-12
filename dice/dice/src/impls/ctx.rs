@@ -539,6 +539,7 @@ pub(crate) mod testing {
     use crate::impls::ctx::SharedLiveTransactionCtx;
     use crate::impls::key::DiceKey;
     use crate::impls::key::ParentKey;
+    use crate::impls::task::promise::DiceSyncResult;
     use crate::impls::task::sync_dice_task;
     use crate::impls::value::DiceComputedValue;
 
@@ -552,7 +553,7 @@ pub(crate) mod testing {
                 .depended_on_by(ParentKey::None)
                 .not_cancelled()
                 .expect("just created")
-                .sync_get_or_complete(|| v);
+                .sync_get_or_complete(|| DiceSyncResult::testing(v));
 
             match self.cache.get(k) {
                 DiceTaskRef::Computed(_) => panic!("cannot inject already computed task"),
