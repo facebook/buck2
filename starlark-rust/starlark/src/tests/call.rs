@@ -257,7 +257,7 @@ fn test_frame_size() {
         fn stack_ptr(args: Vec<Value>) -> anyhow::Result<usize> {
             drop(args);
 
-            let x = 1;
+            let x = std::hint::black_box(1);
             let ptr = &x;
             Ok(ptr as *const i32 as usize)
         }

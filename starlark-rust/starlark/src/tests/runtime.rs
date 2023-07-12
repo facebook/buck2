@@ -96,7 +96,7 @@ fn test_stack_depth() {
             // Put a variable on the stack, and get a reference to it
             // Not entirely documented as to what this does, but hopefully
             // a mut pointer is harder to elide or optimise away
-            let mut s = 1i32;
+            let mut s = std::hint::black_box(1i32);
             Ok((&mut s as *mut i32 as usize).to_string())
         }
     }
