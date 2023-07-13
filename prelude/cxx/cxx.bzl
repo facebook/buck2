@@ -178,7 +178,7 @@ def _only_shared_mappings(group: Group.type) -> bool:
 def create_shared_lib_link_group_specs(ctx: "context", link_group_info: LinkGroupInfo.type) -> [LinkGroupLibSpec.type]:
     specs = []
     linker_info = get_cxx_toolchain_info(ctx).linker_info
-    for group in link_group_info.groups:
+    for group in link_group_info.groups.values():
         if group.name in (MATCH_ALL_LABEL, NO_MATCH_LABEL):
             continue
 

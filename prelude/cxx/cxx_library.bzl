@@ -380,11 +380,11 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         )
         providers.append(link_group_info)
     else:
-        link_groups = []
+        link_groups = {}
         link_group_mappings = {}
         link_group_deps = []
         link_group_libs = {}
-    link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups)
+    link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups.values())
 
     # Create the linkable graph from the library's deps, exported deps and any link group deps.
     linkable_graph_deps = non_exported_deps + exported_deps
@@ -1060,6 +1060,7 @@ def _get_shared_library_links(
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
         linkable_graph_node_map_func(),
         link_group,
+        {},
         link_group_mappings,
         link_group_preferred_linkage,
         link_group_libs = {
