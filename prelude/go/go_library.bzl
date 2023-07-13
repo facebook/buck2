@@ -41,6 +41,7 @@ def go_library_impl(ctx: "context") -> ["provider"]:
             srcs = srcs,
             deps = ctx.attrs.deps + ctx.attrs.exported_deps,
             compile_flags = ctx.attrs.compiler_flags,
+            assemble_flags = ctx.attrs.assembler_flags,
             shared = False,
         )
 
@@ -50,6 +51,7 @@ def go_library_impl(ctx: "context") -> ["provider"]:
             srcs = srcs,
             deps = ctx.attrs.deps + ctx.attrs.exported_deps,
             compile_flags = ctx.attrs.compiler_flags,
+            assemble_flags = ctx.attrs.assembler_flags,
             shared = True,
         )
 
