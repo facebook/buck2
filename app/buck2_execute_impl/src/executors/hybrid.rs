@@ -38,7 +38,6 @@ use host_sharing::HostSharingRequirements;
 use more_futures::cancellation::CancellationContext;
 
 use crate::executors::local::LocalExecutor;
-use crate::executors::re::ReExecutor;
 use crate::low_pass_filter::LowPassFilter;
 
 /// The [HybridExecutor] will accept requests and dispatch them to both a local and remote delegate
@@ -47,16 +46,19 @@ use crate::low_pass_filter::LowPassFilter;
 ///
 /// If the remote executor claims the request but does not produce a successful response, we will
 /// enqueue the request again to the local executor.
-pub struct HybridExecutor {
+pub struct HybridExecutor<R> {
     pub local: LocalExecutor,
-    pub remote: ReExecutor,
+    pub remote: R,
     pub level: HybridExecutionLevel,
     pub executor_preference: ExecutorPreference,
     pub low_pass_filter: Arc<LowPassFilter>,
     pub re_max_input_files_bytes: u64,
 }
 
-impl HybridExecutor {
+impl<R> HybridExecutor<R>
+where
+    R: PreparedCommandExecutor,
+{
     async fn local_exec_cmd(
         &self,
         command: &PreparedCommand<'_, '_>,
@@ -102,7 +104,10 @@ impl HybridExecutor {
 }
 
 #[async_trait]
-impl PreparedCommandExecutor for HybridExecutor {
+impl<R> PreparedCommandExecutor for HybridExecutor<R>
+where
+    R: PreparedCommandExecutor,
+{
     async fn exec_cmd(
         &self,
         command: &PreparedCommand<'_, '_>,
