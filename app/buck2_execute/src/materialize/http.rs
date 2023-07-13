@@ -20,12 +20,13 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::retries::http_retry;
 use buck2_common::http::retries::AsHttpError;
+use buck2_common::http::retries::DispatchableHttpRetryWarning;
 use buck2_common::http::retries::HttpError;
-use buck2_common::http::retries::NoopDispatchableHttpRetryWarning;
 use buck2_common::http::HttpClient;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_data::HttpRequestRetried;
 use bytes::Bytes;
 use digest::DynDigest;
 use dupe::Dupe;
@@ -100,10 +101,36 @@ impl AsHttpError for HttpDownloadError {
     }
 }
 
+struct MaterializerDispatchableHttpRetryWarning {}
+
+impl MaterializerDispatchableHttpRetryWarning {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+impl DispatchableHttpRetryWarning for MaterializerDispatchableHttpRetryWarning {
+    fn dispatch(&self, dur: &Duration, _retries: usize, url: &str) {
+        let event: HttpRequestRetried = HttpRequestRetried {
+            backoff_duration_secs: dur.as_secs(),
+            url: url.to_owned(),
+        };
+
+        match buck2_events::dispatch::get_dispatcher_opt() {
+            Some(dispatcher) => {
+                dispatcher.instant_event(event);
+            }
+            None => {
+                tracing::warn!("Failed to dispatch HttpRequestRetried event: {:?}", event)
+            }
+        }
+    }
+}
+
 pub async fn http_head(client: &dyn HttpClient, url: &str) -> anyhow::Result<Response<()>> {
     let response = http_retry(
         url,
-        NoopDispatchableHttpRetryWarning::new(),
+        MaterializerDispatchableHttpRetryWarning::new(),
         || async {
             client
                 .head(url)
@@ -132,7 +159,7 @@ pub async fn http_download(
 
     Ok(http_retry(
         url,
-        NoopDispatchableHttpRetryWarning::new(),
+        MaterializerDispatchableHttpRetryWarning::new(),
         || async {
             let file = fs_util::create_file(&abs_path).map_err(HttpDownloadError::IoError)?;
 
