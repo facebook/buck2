@@ -66,7 +66,6 @@ pub struct ReExecutor {
     pub re_client: ManagedRemoteExecutionClient,
     pub re_use_case: RemoteExecutorUseCase,
     pub re_action_key: Option<String>,
-    pub re_max_input_files_bytes: u64,
     pub knobs: ExecutorGlobalKnobs,
     pub skip_cache_read: bool,
     pub skip_cache_write: bool,
@@ -75,11 +74,6 @@ pub struct ReExecutor {
 }
 
 impl ReExecutor {
-    /// Indicate whether an action is too big to run on RE.
-    pub fn is_action_too_large(&self, paths: &CommandExecutionPaths) -> bool {
-        paths.input_files_bytes() > self.re_max_input_files_bytes
-    }
-
     async fn upload(
         &self,
         manager: CommandExecutionManager,

@@ -24,6 +24,7 @@ use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
+use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
@@ -52,6 +53,7 @@ pub struct HybridExecutor {
     pub level: HybridExecutionLevel,
     pub executor_preference: ExecutorPreference,
     pub low_pass_filter: Arc<LowPassFilter>,
+    pub re_max_input_files_bytes: u64,
 }
 
 impl HybridExecutor {
@@ -91,6 +93,11 @@ impl HybridExecutor {
     ) -> anyhow::Result<ExecutorPreference> {
         self.executor_preference
             .and(command.request.executor_preference())
+    }
+
+    /// Indicate whether an action is too big to run on RE.
+    fn is_action_too_large_for_remote(&self, paths: &CommandExecutionPaths) -> bool {
+        paths.input_files_bytes() > self.re_max_input_files_bytes
     }
 }
 
@@ -155,7 +162,7 @@ impl PreparedCommandExecutor for HybridExecutor {
         );
 
         if executor_preference.requires_local()
-            || self.remote.is_action_too_large(command.request.paths())
+            || self.is_action_too_large_for_remote(command.request.paths())
         {
             return local_result.await;
         };

@@ -125,6 +125,9 @@ impl HasCommandExecutor for CommandExecutorFactory {
         artifact_fs: &ArtifactFs,
         executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<CommandExecutorResponse> {
+        // 30GB is the max RE can currently support.
+        const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
+
         let local_executor_new = |options: &LocalExecutorOptions| {
             let worker_pool = if options.use_persistent_workers {
                 Some(self.worker_pool.dupe())
@@ -168,9 +171,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                    re_use_case: &RemoteExecutorUseCase,
                                    re_action_key: &Option<String>,
                                    remote_cache_enabled: bool| {
-            // 30GB is the max RE can currently support.
-            const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
-
             ReExecutor {
                 artifact_fs: artifact_fs.clone(),
                 project_fs: self.project_root.clone(),
@@ -178,9 +178,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 re_client: self.re_connection.get_client(),
                 re_use_case: *re_use_case,
                 re_action_key: re_action_key.clone(),
-                re_max_input_files_bytes: options
-                    .re_max_input_files_bytes
-                    .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
                 re_max_queue_time_ms: options.re_max_queue_time_ms,
                 knobs: self.executor_global_knobs.dupe(),
                 skip_cache_read: self.skip_cache_read || !remote_cache_enabled,
@@ -237,6 +234,9 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         level: *level,
                         executor_preference: self.strategy.hybrid_preference(),
                         low_pass_filter: self.low_pass_filter.dupe(),
+                        re_max_input_files_bytes: remote
+                            .re_max_input_files_bytes
+                            .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
                     })),
                     _ => None,
                 };
