@@ -56,21 +56,15 @@ class InputsTest(unittest.TestCase):
         assert_not_loaded({"foo": {"bar": "baz"}})
 
         assert_loaded(
-            [
-                ["foo.py", "source/foo.py", "derp"],
-                ["bar.pyi", "source/bar.pyi", "derp"],
-            ],
+            {"foo.py": "source/foo.py", "bar.pyi": "source/bar.pyi"},
             expected={"foo.py": "source/foo.py", "bar.pyi": "source/bar.pyi"},
         )
+        assert_loaded({"Kratos": "Axe", "Atreus": "Bow"}, expected={})
         assert_loaded(
-            [["Kratos", "Axe", "Big"], ["Atreus", "Bow", "Small"]], expected={}
+            {"Kratos.py": "Axe", "Atreus": "Bow"}, expected={"Kratos.py": "Axe"}
         )
         assert_loaded(
-            [["Kratos.py", "Axe", "Big"], ["Atreus", "Bow", "Small"]],
-            expected={"Kratos.py": "Axe"},
-        )
-        assert_loaded(
-            [["Kratos", "Axe", "Big"], ["Atreus.pyi", "Bow", "Small"]],
+            {"Kratos": "Axe", "Atreus.pyi": "Bow"},
             expected={"Atreus.pyi": "Bow"},
         )
 
@@ -80,14 +74,8 @@ class InputsTest(unittest.TestCase):
         ):
             write_files(
                 {
-                    "a.json": json.dumps(
-                        [
-                            ("crucible.py", "red", "yeah"),
-                        ]
-                    ),
-                    "b.json": json.dumps(
-                        [("bfg.py", "green", "yeah"), ("unmakyr.py", "red", "yeah")]
-                    ),
+                    "a.json": json.dumps({"crucible.py": "red"}),
+                    "b.json": json.dumps({"bfg.py": "green", "unmakyr.py": "red"}),
                     "c.txt": "not a json",
                     "d.json": "42",
                 },
@@ -95,7 +83,7 @@ class InputsTest(unittest.TestCase):
 
             self.assertCountEqual(
                 load_targets_and_build_maps_from_json(
-                    [("//target0", "a.json"), None, ("//target1", "b.json")]
+                    {"//target0": "a.json", "//target1": "b.json"}
                 ),
                 [
                     TargetEntry(
@@ -115,10 +103,10 @@ class InputsTest(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 list(
                     load_targets_and_build_maps_from_json(
-                        [("//target0", "nonexistent.json")]
+                        {"//target0": "nonexistent.json"}
                     )
                 )
             with self.assertRaises(json.JSONDecodeError):
-                list(load_targets_and_build_maps_from_json([("//target0", "c.txt")]))
+                list(load_targets_and_build_maps_from_json({"//target0": "c.txt"}))
             with self.assertRaises(BuildMapLoadError):
-                list(load_targets_and_build_maps_from_json([("//target0", "d.json")]))
+                list(load_targets_and_build_maps_from_json({"//target0": "d.json"}))

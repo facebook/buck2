@@ -5,8 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(":build.bxl", "do_build")
 load(":merge.bxl", "do_merge")
-load(":query.bxl", "get_python_library_manifests_tset_from_target_patterns")
+load(":query.bxl", "do_query")
 
 def _build_entry_point(ctx: "bxl_ctx") -> None:
     bxl_actions = ctx.bxl_actions(
@@ -19,22 +20,17 @@ def _build_entry_point(ctx: "bxl_ctx") -> None:
     root = ctx.root()
 
     sources = ["{}/{}".format(root, source) for source in ctx.cli_args.source]
-    target_patterns = query.owner(sources)
-    manifests = get_python_library_manifests_tset_from_target_patterns(
-        ctx,
-        query,
-        actions,
-        target_patterns,
-    )
+    targets = do_query(ctx, query, actions, query.owner(sources))
+    built_sourcedbs = do_build(ctx, targets)
 
     # Ensure all source files are materialized
-    ctx.output.ensure_multiple(manifests.project_as_args("source_type_artifacts"))
+    ctx.output.ensure_multiple(built_sourcedbs.values())
 
     # Ensure merged sourcedb is materialized
     merged_sourcedb = do_merge(
         ctx,
         bxl_actions,
-        manifests,
+        built_sourcedbs,
         command_category = "pyre_merge_sourcedb",
     )
     ctx.output.print_json({"db": merged_sourcedb.abs_path()})

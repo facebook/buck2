@@ -79,7 +79,7 @@ class LegacyOutputsTest(unittest.TestCase):
             merge_result = merge_partial_build_maps(
                 TargetEntry(
                     target=Target(target),
-                    build_map=PartialBuildMap(content),
+                    build_map=PartialBuildMap.load_from_json(content),
                 )
                 for target, content in build_maps.items()
             )

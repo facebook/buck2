@@ -5,20 +5,14 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//python:python.bzl", "PythonLibraryManifestsTSet")
-
 def do_merge(
         ctx: "bxl_ctx",
         bxl_actions: "bxl_actions",
-        manifests: PythonLibraryManifestsTSet.type,
+        built_sourcedbs: {"target_label": "artifact"},
         command_category: str.type) -> "ensured_artifact":
     actions = bxl_actions.actions
 
-    merger_input = actions.write_json(
-        "merge_input.json",
-        manifests.project_as_json("source_type_manifests_json"),
-        with_inputs = True,
-    )
+    merger_input = actions.write_json("merge_input.json", built_sourcedbs)
     merger_output = actions.declare_output("merged_db.json")
 
     dependency_key = bxl_actions.exec_deps.keys()[0]
@@ -27,6 +21,9 @@ def do_merge(
     command.add(merger_input)
     command.add("--output")
     command.add(merger_output.as_output())
+
+    # Declare that the merger result depends on all sourcedbs
+    command.hidden(built_sourcedbs.values())
 
     actions.run(command, category = command_category)
     return ctx.output.ensure(merger_output)

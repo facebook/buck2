@@ -26,22 +26,13 @@ class PartialBuildMap:
 
     @staticmethod
     def load_from_json(input_json: object) -> "PartialBuildMap":
-        if not isinstance(input_json, list):
+        if not isinstance(input_json, dict):
             raise BuildMapLoadError(
-                "Input JSON for manifest file should be a list."
+                "Input JSON for build map should be a dict."
                 f"Got {type(input_json)} instead"
             )
         result: Dict[str, str] = {}
-        for element in input_json:
-            if not isinstance(element, list):
-                raise BuildMapLoadError(
-                    f"Build map items are expected to be lists. Got `{element}`."
-                )
-            if len(element) < 3:
-                raise BuildMapLoadError(
-                    f"Build map items are expected to be length 3. Got `{len(element)}`."
-                )
-            key, value, _ = element
+        for key, value in input_json.items():
             if not isinstance(key, str):
                 raise BuildMapLoadError(
                     f"Build map keys are expected to be strings. Got `{key}`."
@@ -68,14 +59,11 @@ class TargetEntry:
 
 
 def load_targets_and_build_maps_from_json(input_json: object) -> Iterable[TargetEntry]:
-    if not isinstance(input_json, list):
+    if not isinstance(input_json, dict):
         raise BuildMapLoadError(
-            f"Input JSON should be a list. Got {type(input_json)} instead"
+            f"Input JSON should be a dict. Got {type(input_json)} instead"
         )
-    for element in input_json:
-        if element is None:
-            continue
-        key, value = element
+    for key, value in input_json.items():
         if not isinstance(key, str):
             raise BuildMapLoadError(
                 f"Target keys are expected to be strings. Got `{key}`."
@@ -86,7 +74,7 @@ def load_targets_and_build_maps_from_json(input_json: object) -> Iterable[Target
             )
         yield TargetEntry(
             target=Target(key),
-            build_map=PartialBuildMap.load_from_path(pathlib.Path(value)),
+            build_map=PartialBuildMap.load_from_path(value),
         )
 
 
