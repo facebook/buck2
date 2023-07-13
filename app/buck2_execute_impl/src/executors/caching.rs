@@ -85,12 +85,13 @@ impl CacheUploader {
                 return Ok(None);
             }
         }
-
+        let reason = buck2_data::CacheUploadReason::LocalExecution;
         let outcome = span_async(
             buck2_data::CacheUploadStart {
                 key: Some(target.as_proto_action_key()),
                 name: Some(target.as_proto_action_name()),
                 action_digest: digest.to_string(),
+                reason: reason.into(),
             },
             async move {
                 let mut file_digests = Vec::new();
@@ -144,6 +145,7 @@ impl CacheUploader {
                         file_digests,
                         tree_digests,
                         output_bytes: Some(output_bytes),
+                        reason: reason.into(),
                     }),
                 )
             },

@@ -256,7 +256,14 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
             )),
             Data::MatchDepFiles(buck2_data::MatchDepFilesStart {}) => Ok("dep_files".to_owned()),
             Data::SharedTask(..) => Ok("Waiting on task from another command".to_owned()),
-            Data::CacheUpload(..) => Ok("upload".to_owned()),
+            Data::CacheUpload(upload) => {
+                let reason = match buck2_data::CacheUploadReason::from_i32(upload.reason) {
+                    Some(buck2_data::CacheUploadReason::DepFile) => "dep_file",
+                    Some(buck2_data::CacheUploadReason::LocalExecution) => "action",
+                    None => "unknown",
+                };
+                Ok(format!("upload ({})", reason))
+            }
             Data::CreateOutputSymlinks(..) => Ok("Creating output symlinks".to_owned()),
             Data::InstallEventInfo(info) => Ok(format!(
                 "Sending {} at path {}",

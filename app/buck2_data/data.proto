@@ -1626,6 +1626,13 @@ message InvocationRecord {
   optional uint64 re_download_bytes = 72;
 }
 
+enum CacheUploadReason {
+  // The action was executed locally
+  LOCAL_EXECUTION = 0;
+  // The action has dep files that can be cached
+  DEP_FILE = 1;
+}
+
 message CacheUploadStart {
   // A unique key identifying this action within the build.
   ActionKey key = 1;
@@ -1633,6 +1640,8 @@ message CacheUploadStart {
   ActionName name = 2;
   // The digest of the action being uploaded.
   string action_digest = 3;
+  // Reason for why this upload took place
+  CacheUploadReason reason = 4;
 }
 
 message CacheUploadEnd {
@@ -1654,6 +1663,8 @@ message CacheUploadEnd {
   optional uint64 output_bytes = 8;
   // If a RE error occurred, the error code.
   optional string re_error_code = 9;
+  // Reason for why this upload took place
+  CacheUploadReason reason = 10;
 }
 
 message CreateOutputSymlinksStart {};
