@@ -21,6 +21,7 @@ use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::retries::http_retry;
 use buck2_common::http::retries::AsHttpError;
 use buck2_common::http::retries::HttpError;
+use buck2_common::http::retries::NoopDispatchableHttpRetryWarning;
 use buck2_common::http::HttpClient;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
@@ -101,6 +102,8 @@ impl AsHttpError for HttpDownloadError {
 
 pub async fn http_head(client: &dyn HttpClient, url: &str) -> anyhow::Result<Response<()>> {
     let response = http_retry(
+        url,
+        NoopDispatchableHttpRetryWarning::new(),
         || async {
             client
                 .head(url)
@@ -128,6 +131,8 @@ pub async fn http_download(
     }
 
     Ok(http_retry(
+        url,
+        NoopDispatchableHttpRetryWarning::new(),
         || async {
             let file = fs_util::create_file(&abs_path).map_err(HttpDownloadError::IoError)?;
 

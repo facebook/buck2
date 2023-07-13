@@ -22,6 +22,7 @@ use buck2_common::http::find_certs::find_tls_cert;
 use buck2_common::http::retries::http_retry;
 use buck2_common::http::retries::AsHttpError;
 use buck2_common::http::retries::HttpError;
+use buck2_common::http::retries::NoopDispatchableHttpRetryWarning;
 use buck2_common::http::HttpClient;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use bytes::Bytes;
@@ -467,6 +468,8 @@ impl ManifoldClient {
         }
 
         let res = http_retry(
+            &url,
+            NoopDispatchableHttpRetryWarning::new(),
             || async {
                 self.client
                     .put(&url, buf.clone(), headers.clone())
@@ -499,6 +502,8 @@ impl ManifoldClient {
         );
 
         let res = http_retry(
+            &url,
+            NoopDispatchableHttpRetryWarning::new(),
             || async {
                 self.client
                     .post(&url, buf.clone(), vec![])
