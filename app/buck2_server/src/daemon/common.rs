@@ -266,17 +266,21 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             *remote_cache_enabled,
                         );
                         let executor_preference = self.strategy.hybrid_preference();
-                        let level = *level;
                         let low_pass_filter = self.low_pass_filter.dupe();
 
                         if self.paranoid.is_some() {
+                            // If executor_preference is Default, switch it to "ErasePreferences"?
+
                             Some(Arc::new(HybridExecutor {
                                 local,
                                 remote: StackedExecutor {
                                     optional: cache_checker_new(),
                                     fallback: remote,
                                 },
-                                level,
+                                level: HybridExecutionLevel::Full {
+                                    fallback_on_failure: true,
+                                    low_pass_filter: false,
+                                },
                                 executor_preference,
                                 re_max_input_files_bytes,
                                 low_pass_filter,
@@ -285,7 +289,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             Some(Arc::new(HybridExecutor {
                                 local,
                                 remote,
-                                level,
+                                level: *level,
                                 executor_preference,
                                 re_max_input_files_bytes,
                                 low_pass_filter,
