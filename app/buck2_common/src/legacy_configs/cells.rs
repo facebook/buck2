@@ -97,7 +97,8 @@ impl BuckConfigBasedCells {
 
         Ok(ImmediateConfig {
             cell_resolver: cells.cell_resolver,
-            daemon_startup_config: DaemonStartupConfig::new(root_config),
+            daemon_startup_config: DaemonStartupConfig::new(root_config)
+                .context("Error loading daemon startup config")?,
         })
     }
 
@@ -438,8 +439,8 @@ pub struct DaemonStartupConfig {
 }
 
 impl DaemonStartupConfig {
-    fn new(config: &LegacyBuckConfig) -> Self {
-        Self {
+    fn new(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+        Ok(Self {
             daemon_buster: config.get("buck2", "daemon_buster").map(ToOwned::to_owned),
             digest_algorithms: config
                 .get("buck2", "digest_algorithms")
@@ -448,7 +449,7 @@ impl DaemonStartupConfig {
                 .get("buck2", "source_digest_algorithm")
                 .map(ToOwned::to_owned),
             allow_vpnless: config.get("buck2", "allow_vpnless").map(ToOwned::to_owned),
-        }
+        })
     }
 
     pub fn serialize(&self) -> String {
