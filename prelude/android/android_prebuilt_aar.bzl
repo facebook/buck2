@@ -29,7 +29,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unpack_aar_tool = android_toolchain.unpack_aar[RunInfo]
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
-    jar_tool = java_toolchain.jar
+    jar_builder_tool = cmd_args(java_toolchain.jar_builder, delimiter = " ")
 
     unpack_aar_cmd = [
         unpack_aar_tool,
@@ -51,8 +51,8 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         annotation_jars_dir.as_output(),
         "--proguard-config-path",
         proguard_config.as_output(),
-        "--jar-tool",
-        jar_tool,
+        "--jar-builder-tool",
+        jar_builder_tool,
     ]
 
     ctx.actions.run(unpack_aar_cmd, category = "android_unpack_aar")
