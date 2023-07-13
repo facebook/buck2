@@ -53,6 +53,7 @@ use buck2_execute_impl::materializers::immediate::ImmediateMaterializer;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
+use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
@@ -153,6 +154,9 @@ pub struct DaemonStateData {
 
     /// Http client used for materializer and RunAction implementations.
     pub http_client: CountingHttpClient,
+
+    /// If enabled, paranoid RE downloads.
+    pub paranoid: Option<ParanoidDownloader>,
 }
 
 impl DaemonStateData {
@@ -343,7 +347,7 @@ impl DaemonState {
                 blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
                 root_config,
                 &deferred_materializer_configs,
-                fs,
+                fs.clone(),
                 digest_config,
                 &init_ctx,
             ),
@@ -447,6 +451,20 @@ impl DaemonState {
             .unwrap_or_else(RolloutPercentage::never)
             .roll();
 
+        static PARANOID: EnvHelper<bool> = EnvHelper::new("BUCK_PARANOID");
+
+        // TODO: Hook up paranoid to daemon config.
+        let paranoid = if PARANOID.get_copied()?.unwrap_or_default() {
+            Some(ParanoidDownloader::new(
+                fs.clone(),
+                blocking_executor.dupe(),
+                re_client_manager.dupe(),
+                paths.paranoid_cache_dir(),
+            ))
+        } else {
+            None
+        };
+
         // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
         // about (potentially kicking off an initial crawl).
 
@@ -469,6 +487,7 @@ impl DaemonState {
             materializer_state_identity,
             enable_restarter,
             http_client,
+            paranoid,
         }))
     }
 

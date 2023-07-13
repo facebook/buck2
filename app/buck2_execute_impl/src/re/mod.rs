@@ -8,3 +8,4 @@
  */
 
 pub mod download;
+pub mod paranoid_download;

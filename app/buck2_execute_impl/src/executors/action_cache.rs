@@ -30,6 +30,7 @@ use tracing::info;
 
 use crate::re::download::download_action_results;
 use crate::re::download::DownloadResult;
+use crate::re::paranoid_download::ParanoidDownloader;
 
 pub struct ActionCacheChecker {
     pub artifact_fs: ArtifactFs,
@@ -39,6 +40,7 @@ pub struct ActionCacheChecker {
     pub re_action_key: Option<String>,
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
+    pub paranoid: Option<ParanoidDownloader>,
 }
 
 #[async_trait]
@@ -127,6 +129,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             request.outputs(),
             action_digest,
             &response,
+            self.paranoid.as_ref(),
             cancellations,
         )
         .await;

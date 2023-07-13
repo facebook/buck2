@@ -10,6 +10,7 @@
 #![feature(try_blocks)]
 #![feature(box_patterns)]
 #![feature(try_trait_v2)]
+#![feature(control_flow_enum)]
 
 pub mod executors;
 pub mod low_pass_filter;

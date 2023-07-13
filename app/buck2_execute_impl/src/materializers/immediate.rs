@@ -145,55 +145,15 @@ impl Materializer for ImmediateMaterializer {
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
         cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
-        self.io_executor
-            .execute_io(
-                Box::new(CleanOutputPaths {
-                    paths: artifacts.map(|(p, _)| p.to_owned()),
-                }),
-                cancellations,
-            )
-            .await?;
-
-        for (path, value) in artifacts.iter() {
-            self.io_executor
-                .execute_io(
-                    Box::new(MaterializeTreeStructure {
-                        path: path.to_owned(),
-                        entry: value.entry().dupe(),
-                    }),
-                    cancellations,
-                )
-                .await?;
-        }
-
-        let mut files = Vec::new();
-        for (path, value) in artifacts.iter() {
-            let mut walk = unordered_entry_walk(value.entry().as_ref());
-            while let Some((entry_path, entry)) = walk.next() {
-                if let DirectoryEntry::Leaf(ActionDirectoryMember::File(m)) = entry {
-                    files.push(NamedDigestWithPermissions {
-                        named_digest: NamedDigest {
-                            digest: m.digest.to_re(),
-                            name: self
-                                .fs
-                                .resolve(&path.join_normalized(entry_path.get())?)
-                                .as_maybe_relativized_str()?
-                                .to_owned(),
-                            ..Default::default()
-                        },
-                        is_executable: m.is_executable,
-                        ..Default::default()
-                    });
-                }
-            }
-        }
-
-        let re_conn = self.re_client_manager.get_re_connection();
-        let re_client = re_conn.get_client();
-        cancellations
-            .critical_section(|| re_client.materialize_files(files, info.re_use_case))
-            .await?;
-        Ok(())
+        cas_download(
+            &self.fs,
+            self.io_executor.as_ref(),
+            self.re_client_manager.as_ref(),
+            &info,
+            artifacts,
+            cancellations,
+        )
+        .await
     }
 
     async fn declare_http(
@@ -307,4 +267,60 @@ pub async fn write_to_disk<'a>(
             }
         })
         .await
+}
+
+pub async fn cas_download<'a, 'b>(
+    fs: &ProjectRoot,
+    io: &dyn BlockingExecutor,
+    re: &ReConnectionManager,
+    info: &CasDownloadInfo,
+    artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+    cancellations: &CancellationContext<'_>,
+) -> anyhow::Result<()> {
+    io.execute_io(
+        Box::new(CleanOutputPaths {
+            paths: artifacts.map(|(p, _)| p.to_owned()),
+        }),
+        cancellations,
+    )
+    .await?;
+
+    for (path, value) in artifacts.iter() {
+        io.execute_io(
+            Box::new(MaterializeTreeStructure {
+                path: path.to_owned(),
+                entry: value.entry().dupe(),
+            }),
+            cancellations,
+        )
+        .await?;
+    }
+
+    let mut files = Vec::new();
+    for (path, value) in artifacts.iter() {
+        let mut walk = unordered_entry_walk(value.entry().as_ref());
+        while let Some((entry_path, entry)) = walk.next() {
+            if let DirectoryEntry::Leaf(ActionDirectoryMember::File(m)) = entry {
+                files.push(NamedDigestWithPermissions {
+                    named_digest: NamedDigest {
+                        digest: m.digest.to_re(),
+                        name: fs
+                            .resolve(&path.join_normalized(entry_path.get())?)
+                            .as_maybe_relativized_str()?
+                            .to_owned(),
+                        ..Default::default()
+                    },
+                    is_executable: m.is_executable,
+                    ..Default::default()
+                });
+            }
+        }
+    }
+
+    let re_conn = re.get_re_connection();
+    let re_client = re_conn.get_client();
+    cancellations
+        .critical_section(|| re_client.materialize_files(files, info.re_use_case))
+        .await?;
+    Ok(())
 }

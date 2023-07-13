@@ -42,6 +42,7 @@ use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
+use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_util::collections::sorted_map::SortedMap;
 use dupe::Dupe;
@@ -79,6 +80,7 @@ pub struct CommandExecutorFactory {
     pub skip_cache_write: bool,
     project_root: ProjectRoot,
     worker_pool: Arc<WorkerPool>,
+    paranoid: Option<ParanoidDownloader>,
 }
 
 impl CommandExecutorFactory {
@@ -96,6 +98,7 @@ impl CommandExecutorFactory {
         skip_cache_write: bool,
         project_root: ProjectRoot,
         worker_pool: Arc<WorkerPool>,
+        paranoid: Option<ParanoidDownloader>,
     ) -> Self {
         Self {
             re_connection,
@@ -111,6 +114,7 @@ impl CommandExecutorFactory {
             skip_cache_write,
             project_root,
             worker_pool,
+            paranoid,
         }
     }
 }
@@ -181,6 +185,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 knobs: self.executor_global_knobs.dupe(),
                 skip_cache_read: self.skip_cache_read || !remote_cache_enabled,
                 skip_cache_write: self.skip_cache_write || !remote_cache_enabled,
+                paranoid: self.paranoid.dupe(),
             }
         };
 
@@ -260,6 +265,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         re_action_key: re_action_key.clone(),
                         upload_all_actions: self.upload_all_actions,
                         knobs: self.executor_global_knobs.dupe(),
+                        paranoid: self.paranoid.dupe(),
                     }) as _;
                     let cache_uploader =
                         if let CacheUploadBehavior::Enabled { max_bytes } = cache_upload_behavior {

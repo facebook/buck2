@@ -55,6 +55,8 @@ use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 use thiserror::Error;
 
+use crate::re::paranoid_download::ParanoidDownloader;
+
 pub async fn download_action_results<'a>(
     request: &CommandExecutionRequest,
     materializer: &dyn Materializer,
@@ -67,6 +69,7 @@ pub async fn download_action_results<'a>(
     requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
     action_digest: &ActionDigest,
     response: &dyn RemoteActionResult,
+    paranoid: Option<&ParanoidDownloader>,
     cancellations: &CancellationContext<'_>,
 ) -> DownloadResult {
     let downloader = CasDownloader {
@@ -74,6 +77,7 @@ pub async fn download_action_results<'a>(
         re_client,
         re_use_case,
         digest_config,
+        paranoid,
     };
 
     let download = downloader.download(
@@ -111,6 +115,7 @@ pub struct CasDownloader<'a> {
     pub re_client: &'a ManagedRemoteExecutionClient,
     pub re_use_case: RemoteExecutorUseCase,
     pub digest_config: DigestConfig,
+    pub paranoid: Option<&'a ParanoidDownloader>,
 }
 
 impl CasDownloader<'_> {
@@ -145,20 +150,50 @@ impl CasDownloader<'_> {
                 }
             };
 
-            // Claim the request before starting the download.
-            let manager = manager.claim().await;
+            let info = CasDownloadInfo::new_execution(
+                TrackedActionDigest::new_expires(
+                    action_digest.dupe(),
+                    artifacts.expires,
+                    self.digest_config.cas_digest_config(),
+                ),
+                self.re_use_case,
+                artifacts.now,
+                artifacts.ttl,
+            );
 
-            let outputs = self
-                .materialize_outputs(artifacts, action_digest, cancellations)
-                .await;
+            let (manager, outputs) = match self.paranoid {
+                Some(paranoid) => {
+                    let manager = paranoid
+                        .declare_cas_many(
+                            self.materializer,
+                            manager,
+                            info,
+                            artifacts.to_declare,
+                            cancellations,
+                        )
+                        .await
+                        .map_break(DownloadResult::Result)?;
+                    (manager, artifacts.mapped_outputs)
+                }
+                None => {
+                    // Claim the request before starting the download.
+                    let manager = manager.claim().await;
 
-            let outputs = match outputs {
-                Ok(outputs) => outputs,
-                Err(e) => {
-                    return ControlFlow::Break(DownloadResult::Result(manager.error(
-                        "materialize_outputs",
-                        e.context(format!("action_digest={}", action_digest)),
-                    )));
+                    let outputs = self
+                        .materialize_outputs(artifacts, info, cancellations)
+                        .await;
+
+                    let outputs = match outputs {
+                        Ok(outputs) => outputs,
+                        Err(e) => {
+                            return ControlFlow::Break(DownloadResult::Result(manager.error(
+                                "materialize_outputs",
+                                e.context(format!("action_digest={}", action_digest)),
+                            )));
+                        }
+                    };
+
+                    (manager, outputs)
                 }
             };
 
@@ -251,25 +286,12 @@ impl CasDownloader<'_> {
     async fn materialize_outputs<'a>(
         &self,
         artifacts: ExtractedArtifacts,
-        action_digest: &ActionDigest,
+        info: CasDownloadInfo,
         cancellations: &CancellationContext<'_>,
     ) -> anyhow::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
         // Declare the outputs to the materializer
         self.materializer
-            .declare_cas_many(
-                Arc::new(CasDownloadInfo::new_execution(
-                    TrackedActionDigest::new_expires(
-                        action_digest.dupe(),
-                        artifacts.expires,
-                        self.digest_config.cas_digest_config(),
-                    ),
-                    self.re_use_case,
-                    artifacts.now,
-                    artifacts.ttl,
-                )),
-                artifacts.to_declare,
-                cancellations,
-            )
+            .declare_cas_many(Arc::new(info), artifacts.to_declare, cancellations)
             .boxed()
             .await
             .context(DownloadError::Materialization)?;

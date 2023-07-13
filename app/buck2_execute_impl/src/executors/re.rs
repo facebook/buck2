@@ -51,6 +51,7 @@ use tracing::info;
 
 use crate::re::download::download_action_results;
 use crate::re::download::DownloadResult;
+use crate::re::paranoid_download::ParanoidDownloader;
 
 #[derive(Debug, Error)]
 pub enum RemoteExecutorError {
@@ -70,6 +71,7 @@ pub struct ReExecutor {
     pub skip_cache_read: bool,
     pub skip_cache_write: bool,
     pub re_max_queue_time_ms: Option<u64>,
+    pub paranoid: Option<ParanoidDownloader>,
 }
 
 impl ReExecutor {
@@ -309,6 +311,7 @@ impl PreparedCommandExecutor for ReExecutor {
             request.outputs(),
             action_digest,
             &response,
+            self.paranoid.as_ref(),
             cancellations,
         )
         .boxed()

@@ -77,6 +77,7 @@ use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
+use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_forkserver::client::ForkserverClient;
@@ -398,6 +399,7 @@ impl<'a> ServerCommandContext<'a> {
                 .as_ref()
                 .map_or(false, |opts| opts.keep_going),
             http_client: self.base_context.daemon.http_client.dupe(),
+            paranoid: self.base_context.daemon.paranoid.dupe(),
         }
     }
 
@@ -500,6 +502,7 @@ struct DiceCommandDataProvider {
     starlark_debugger: Option<BuckStarlarkDebuggerHandle>,
     keep_going: bool,
     http_client: CountingHttpClient,
+    paranoid: Option<ParanoidDownloader>,
 }
 
 #[async_trait]
@@ -607,6 +610,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
                 .project_root()
                 .to_owned(),
             worker_pool,
+            self.paranoid.dupe(),
         )));
         data.set_blocking_executor(self.blocking_executor.dupe());
         data.set_http_client(self.http_client.dupe());

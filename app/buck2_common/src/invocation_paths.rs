@@ -182,6 +182,12 @@ impl InvocationPaths {
             .join(ForwardRelativePath::unchecked_new("cache"))
     }
 
+    /// Temporary directory for paranoid downloads.
+    pub fn paranoid_cache_dir(&self) -> ProjectRelativePathBuf {
+        self.buck_out_dir()
+            .join(ForwardRelativePath::unchecked_new("paranoid"))
+    }
+
     pub fn cache_dir_path(&self) -> AbsNormPathBuf {
         self.roots.project_root.root().join(self.cache_dir())
     }
