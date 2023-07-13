@@ -31,6 +31,7 @@ use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::prepared::NoOpCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
+use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
@@ -40,6 +41,7 @@ use buck2_execute_impl::executors::caching::CacheUploader;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::re::ReExecutor;
+use buck2_execute_impl::executors::stacked::StackedExecutor;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
@@ -186,20 +188,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
             }
         };
 
-        let cache_checker_new = |re_use_case: &RemoteExecutorUseCase,
-                                 re_action_key: &Option<String>| {
-            ActionCacheChecker {
-                artifact_fs: artifact_fs.clone(),
-                materializer: self.materializer.dupe(),
-                re_client: self.re_connection.get_client(),
-                re_use_case: *re_use_case,
-                re_action_key: re_action_key.clone(),
-                upload_all_actions: self.upload_all_actions,
-                knobs: self.executor_global_knobs.dupe(),
-                paranoid: self.paranoid.dupe(),
-            }
-        };
-
         let response = match &executor_config.executor {
             Executor::Local(local) => {
                 if self.strategy.ban_local() {
@@ -221,6 +209,35 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 cache_upload_behavior,
                 remote_cache_enabled,
             } => {
+                // NOTE: While we now have a legit flag for this, we keep the env var. This has been used
+                // in remediating prod incidents in the past, and this is the kind of thing that can easily
+                // become tribal knowledge. Keeping this does not hurt us.
+                static DISABLE_CACHING: EnvHelper<bool> =
+                    EnvHelper::new("BUCK2_TEST_DISABLE_CACHING");
+
+                let disable_caching = DISABLE_CACHING
+                    .get_copied()?
+                    .unwrap_or(self.skip_cache_read);
+
+                let disable_caching = disable_caching || !remote_cache_enabled;
+
+                let cache_checker_new = || -> Arc<dyn PreparedCommandOptionalExecutor> {
+                    if disable_caching {
+                        return Arc::new(NoOpCommandExecutor {}) as _;
+                    }
+
+                    Arc::new(ActionCacheChecker {
+                        artifact_fs: artifact_fs.clone(),
+                        materializer: self.materializer.dupe(),
+                        re_client: self.re_connection.get_client(),
+                        re_use_case: *re_use_case,
+                        re_action_key: re_action_key.clone(),
+                        upload_all_actions: self.upload_all_actions,
+                        knobs: self.executor_global_knobs.dupe(),
+                        paranoid: self.paranoid.dupe(),
+                    }) as _
+                };
+
                 let executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor {
                     RemoteEnabledExecutor::Local(local) if !self.strategy.ban_local() => {
                         Some(Arc::new(local_executor_new(local)))
@@ -237,56 +254,66 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         local,
                         remote,
                         level,
-                    } if !self.strategy.ban_hybrid() => Some(Arc::new(HybridExecutor {
-                        local: local_executor_new(local),
-                        remote: remote_executor_new(
+                    } if !self.strategy.ban_hybrid() => {
+                        let re_max_input_files_bytes = remote
+                            .re_max_input_files_bytes
+                            .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES);
+                        let local = local_executor_new(local);
+                        let remote = remote_executor_new(
                             remote,
                             re_use_case,
                             re_action_key,
                             *remote_cache_enabled,
-                        ),
-                        level: *level,
-                        executor_preference: self.strategy.hybrid_preference(),
-                        low_pass_filter: self.low_pass_filter.dupe(),
-                        re_max_input_files_bytes: remote
-                            .re_max_input_files_bytes
-                            .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
-                    })),
+                        );
+                        let executor_preference = self.strategy.hybrid_preference();
+                        let level = *level;
+                        let low_pass_filter = self.low_pass_filter.dupe();
+
+                        if self.paranoid.is_some() {
+                            Some(Arc::new(HybridExecutor {
+                                local,
+                                remote: StackedExecutor {
+                                    optional: cache_checker_new(),
+                                    fallback: remote,
+                                },
+                                level,
+                                executor_preference,
+                                re_max_input_files_bytes,
+                                low_pass_filter,
+                            }))
+                        } else {
+                            Some(Arc::new(HybridExecutor {
+                                local,
+                                remote,
+                                level,
+                                executor_preference,
+                                re_max_input_files_bytes,
+                                low_pass_filter,
+                            }))
+                        }
+                    }
                     _ => None,
                 };
 
-                // NOTE: While we now have a legit flag for this, we keep the env var. This has been used
-                // in remediating prod incidents in the past, and this is the kind of thing that can easily
-                // become tribal knowledge. Keeping this does not hurt us.
-                static DISABLE_CACHING: EnvHelper<bool> =
-                    EnvHelper::new("BUCK2_TEST_DISABLE_CACHING");
-
-                let disable_caching = DISABLE_CACHING
-                    .get_copied()?
-                    .unwrap_or(self.skip_cache_read);
-
-                let (cache_checker, cache_uploader) = if disable_caching || !remote_cache_enabled {
-                    (
-                        Arc::new(NoOpCommandExecutor {}) as _,
-                        Arc::new(NoOpCacheUploader {}) as _,
-                    )
+                let cache_checker = if self.paranoid.is_some() {
+                    Arc::new(NoOpCommandExecutor {}) as _
                 } else {
-                    let cache_checker =
-                        Arc::new(cache_checker_new(re_use_case, re_action_key)) as _;
-                    let cache_uploader =
-                        if let CacheUploadBehavior::Enabled { max_bytes } = cache_upload_behavior {
-                            Arc::new(CacheUploader {
-                                artifact_fs: artifact_fs.clone(),
-                                materializer: self.materializer.dupe(),
-                                re_client: self.re_connection.get_client(),
-                                re_use_case: *re_use_case,
-                                knobs: self.executor_global_knobs.dupe(),
-                                max_bytes: *max_bytes,
-                            }) as _
-                        } else {
-                            Arc::new(NoOpCacheUploader {}) as _
-                        };
-                    (cache_checker, cache_uploader)
+                    cache_checker_new()
+                };
+
+                let cache_uploader = if disable_caching {
+                    Arc::new(NoOpCacheUploader {}) as _
+                } else if let CacheUploadBehavior::Enabled { max_bytes } = cache_upload_behavior {
+                    Arc::new(CacheUploader {
+                        artifact_fs: artifact_fs.clone(),
+                        materializer: self.materializer.dupe(),
+                        re_client: self.re_connection.get_client(),
+                        re_use_case: *re_use_case,
+                        knobs: self.executor_global_knobs.dupe(),
+                        max_bytes: *max_bytes,
+                    }) as _
+                } else {
+                    Arc::new(NoOpCacheUploader {}) as _
                 };
 
                 let platform = RE::Platform {

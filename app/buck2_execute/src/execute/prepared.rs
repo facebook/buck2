@@ -8,6 +8,7 @@
  */
 
 use std::ops::ControlFlow;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use more_futures::cancellation::CancellationContext;
@@ -70,6 +71,20 @@ pub trait PreparedCommandOptionalExecutor: Send + Sync {
         manager: CommandExecutionManager,
         cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager>;
+}
+
+#[async_trait]
+impl PreparedCommandOptionalExecutor for Arc<dyn PreparedCommandOptionalExecutor> {
+    async fn maybe_execute(
+        &self,
+        command: &PreparedCommand<'_, '_>,
+        manager: CommandExecutionManager,
+        cancellations: &CancellationContext,
+    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
+        (**self)
+            .maybe_execute(command, manager, cancellations)
+            .await
+    }
 }
 
 // When we don't want to check a command can be skipped, just use the NoOpCommandExecutor that always returns the continue case.
