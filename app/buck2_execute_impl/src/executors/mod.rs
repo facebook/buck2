@@ -12,4 +12,5 @@ pub mod caching;
 pub mod hybrid;
 pub mod local;
 pub mod re;
+pub mod stacked;
 pub mod worker;
