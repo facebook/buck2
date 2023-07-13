@@ -66,6 +66,7 @@ The following list shows what is available in `ExternalRunnerTestInfo`, with whi
   </FbInternalOnly>
 * `contacts` - a list of contacts for the tests; usually oncalls.
 * `executor_overrides` - a key-value mapping of executor configurations that the test runner can use when requesting execution from Buck2.
+* `local_resources` - a key-value mapping from resource type to optional `LocalResourceInfo` provider. Provider is used for initialization of that resource type. If the value is `None` resource type is ignored even though test runner required it. For context see [Local Resources For Tests Execution](local_resources.md).
 
 ### Fields pertinent for Remote Execution
 
