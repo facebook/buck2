@@ -78,6 +78,9 @@ pub enum ExecutorPreference {
     RemoteRequired,
     /// Does not fail when executed by a local-only executor
     RemotePreferred,
+    /// When and-ed with an ExecutorPreference that doesn't *require* local or remote, this erases
+    /// any preferences.
+    DefaultErasePreferences,
 }
 
 impl ExecutorPreference {
@@ -95,6 +98,10 @@ impl ExecutorPreference {
 
         if requires_remote {
             return Ok(Self::RemoteRequired);
+        }
+
+        if self.erases_preferences() || other.erases_preferences() {
+            return Ok(Self::DefaultErasePreferences);
         }
 
         for pref in [self, other] {
@@ -117,6 +124,7 @@ impl ExecutorPreference {
             Self::RemoteRequired => true,
             Self::RemotePreferred => false,
             Self::Default => false,
+            Self::DefaultErasePreferences => false,
         }
     }
 
@@ -127,6 +135,7 @@ impl ExecutorPreference {
             Self::RemoteRequired => false,
             Self::RemotePreferred => false,
             Self::Default => false,
+            Self::DefaultErasePreferences => false,
         }
     }
 
@@ -137,6 +146,7 @@ impl ExecutorPreference {
             Self::RemoteRequired => false,
             Self::RemotePreferred => false,
             Self::Default => false,
+            Self::DefaultErasePreferences => false,
         }
     }
 
@@ -147,6 +157,14 @@ impl ExecutorPreference {
             Self::RemoteRequired => true,
             Self::RemotePreferred => true,
             Self::Default => false,
+            Self::DefaultErasePreferences => false,
+        }
+    }
+
+    fn erases_preferences(self) -> bool {
+        match self {
+            Self::DefaultErasePreferences => true,
+            _ => false,
         }
     }
 }

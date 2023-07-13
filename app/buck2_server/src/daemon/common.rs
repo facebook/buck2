@@ -269,7 +269,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         let low_pass_filter = self.low_pass_filter.dupe();
 
                         if self.paranoid.is_some() {
-                            // If executor_preference is Default, switch it to "ErasePreferences"?
+                            let executor_preference = executor_preference
+                                .and(ExecutorPreference::DefaultErasePreferences)?;
 
                             Some(Arc::new(HybridExecutor {
                                 local,
