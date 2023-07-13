@@ -51,6 +51,8 @@ _RESOURCE_BUNDLE_FIELDS = [
     "product_name",
     "resource_group",
     "resource_group_map",
+    "within_view",
+    "visibility",
 ]
 
 def make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs) -> [None, str]:
