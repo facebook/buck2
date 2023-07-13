@@ -110,18 +110,36 @@ pub struct HostSharingBroker {
     named_semaphores: NamedSemaphores,
 }
 
+pub struct RequestedPermits {
+    count: usize,
+    cap: usize,
+}
+
+impl RequestedPermits {
+    pub fn into_count(self) -> usize {
+        self.count.min(self.cap)
+    }
+
+    pub fn into_count_uncapped(self) -> usize {
+        self.count
+    }
+}
+
 impl HostSharingBroker {
     // If a test requires Permits(4) permits but the machine only has 3 permits then we cap the
     // test's required permits to 3. Otherwise the test would never be allowed to run.
-    pub fn requested_permits(&self, weight_class: &WeightClass) -> usize {
-        match weight_class {
-            WeightClass::Permits(required_permits) => {
-                self.num_machine_permits.min(*required_permits)
-            }
+    pub fn requested_permits(&self, weight_class: &WeightClass) -> RequestedPermits {
+        let count = match weight_class {
+            WeightClass::Permits(required_permits) => *required_permits,
             WeightClass::Percentage(percentage) => {
                 let percentage: usize = percentage.into_value().into();
                 (self.num_machine_permits * percentage).div_ceil(100)
             }
+        };
+
+        RequestedPermits {
+            count,
+            cap: self.num_machine_permits,
         }
     }
 
@@ -150,7 +168,7 @@ impl HostSharingBroker {
     ) -> HostSharingGuard {
         match host_sharing_requirements {
             HostSharingRequirements::Shared(weight_class) => {
-                let permits = self.requested_permits(weight_class);
+                let permits = self.requested_permits(weight_class).into_count();
                 let _run_guard = self.permits.acquire(permits).await;
                 HostSharingGuard {
                     _run_guard,
@@ -171,7 +189,7 @@ impl HostSharingBroker {
                 // for the previous run on this identifier to finish.
                 let run_semaphore = self.named_semaphores.get(identifier);
                 let _name_guard = Some(run_semaphore.acquire(SINGLE_RUN).await);
-                let permits = self.requested_permits(weight_class);
+                let permits = self.requested_permits(weight_class).into_count();
                 let _run_guard = self.permits.acquire(permits).await;
                 HostSharingGuard {
                     _run_guard,
@@ -198,8 +216,15 @@ mod tests {
     fn test_heavyweight_capped_to_machine_permits() {
         let broker = HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, 2);
 
-        let permits = broker.requested_permits(&WeightClass::Permits(4));
+        let permits = broker
+            .requested_permits(&WeightClass::Permits(4))
+            .into_count();
         assert_eq!(2, permits);
+
+        let permits = broker
+            .requested_permits(&WeightClass::Permits(4))
+            .into_count_uncapped();
+        assert_eq!(4, permits);
     }
 
     #[test]
@@ -207,28 +232,38 @@ mod tests {
         let broker = HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, 10);
 
         assert_eq!(
-            broker.requested_permits(&WeightClass::Percentage(WeightPercentage { value: 0 })),
+            broker
+                .requested_permits(&WeightClass::Percentage(WeightPercentage { value: 0 }))
+                .into_count(),
             0,
         );
 
         assert_eq!(
-            broker.requested_permits(&WeightClass::Percentage(WeightPercentage { value: 40 })),
+            broker
+                .requested_permits(&WeightClass::Percentage(WeightPercentage { value: 40 }))
+                .into_count(),
             4,
         );
 
         // This rounds up.
         assert_eq!(
-            broker.requested_permits(&WeightClass::Percentage(WeightPercentage { value: 15 })),
+            broker
+                .requested_permits(&WeightClass::Percentage(WeightPercentage { value: 15 }))
+                .into_count(),
             2,
         );
 
         assert_eq!(
-            broker.requested_permits(&WeightClass::Percentage(WeightPercentage { value: 99 })),
+            broker
+                .requested_permits(&WeightClass::Percentage(WeightPercentage { value: 99 }))
+                .into_count(),
             10,
         );
 
         assert_eq!(
-            broker.requested_permits(&WeightClass::Percentage(WeightPercentage { value: 100 })),
+            broker
+                .requested_permits(&WeightClass::Percentage(WeightPercentage { value: 100 }))
+                .into_count(),
             10,
         );
     }
