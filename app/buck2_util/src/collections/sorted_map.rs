@@ -85,6 +85,14 @@ where
     }
 
     #[inline]
+    pub fn get_mut<Q: ?Sized>(&mut self, key: &Q) -> Option<&mut V>
+    where
+        Q: Hash + Equivalent<K>,
+    {
+        self.map.get_mut(key)
+    }
+
+    #[inline]
     pub fn contains_key<Q>(&self, k: &Q) -> bool
     where
         Q: Hash + Equivalent<K> + ?Sized,
@@ -141,14 +149,41 @@ impl<'a, K: Ord + Hash, V> IntoIterator for &'a mut SortedMap<K, V> {
 
 #[cfg(test)]
 mod tests {
-    use crate::collections::sorted_map::SortedMap;
+    use itertools::Itertools;
 
+    use crate::collections::sorted_map::SortedMap;
     #[test]
     fn test_from_iter() {
         let map = SortedMap::from_iter([(1, 2), (5, 6), (3, 4)]);
         assert_eq!(
             vec![(&1, &2), (&3, &4), (&5, &6)],
             map.iter().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_value_modification() {
+        let mut map = SortedMap::from_iter([(1, vec![1, 2, 3]), (2, vec![4]), (3, vec![5])]);
+        assert_eq!(
+            map.keys().collect::<Vec<_>>(),
+            map.keys().sorted().collect::<Vec<_>>()
+        );
+        // Support insertion for existing keys
+        map.get_mut(&1).unwrap().push(11);
+        map.get_mut(&2).unwrap().push(22);
+        map.get_mut(&3).unwrap().push(33);
+
+        assert_eq!(
+            vec![
+                (&1, &vec![1, 2, 3, 11]),
+                (&2, &vec![4, 22]),
+                (&3, &vec![5, 33])
+            ],
+            map.iter().collect::<Vec<_>>()
+        );
+        assert_eq!(
+            map.keys().collect::<Vec<_>>(),
+            map.keys().sorted().collect::<Vec<_>>()
         );
     }
 }

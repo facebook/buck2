@@ -49,6 +49,8 @@ use buck2_execute::directory::INTERNER;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_file_watcher::dep_files::FLUSH_DEP_FILES;
+use buck2_util::collections::ordered_map::OrderedMap;
+use buck2_util::collections::sorted_map::SortedMap;
 use dashmap::DashMap;
 use derive_more::Display;
 use dupe::Dupe;
@@ -575,7 +577,7 @@ pub(crate) async fn populate_dep_files(
 #[derive(Clone, PartialEq, Eq, Allocative)]
 pub struct PartitionedInputs<D> {
     pub untagged: D,
-    pub tagged: HashMap<Arc<str>, D>,
+    pub tagged: SortedMap<Arc<str>, D>,
 }
 
 impl<D> PartitionedInputs<D> {
@@ -607,8 +609,9 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
                 // NOTE: If an input has a tag that doesn't match a dep file, we don't care about
                 // it.
                 match dep_files.labels.get(tag) {
-                    Some(label) => self.tagged.entry(label.dupe()).or_default(),
                     None => &mut self.untagged,
+                    // The tagged inputs have prepopulated keys on creation to ensure sorted keys, so the label must exist.
+                    Some(label) => self.tagged.get_mut(label).unwrap(),
                 }
             }
         };
@@ -926,8 +929,15 @@ pub(crate) struct DepFilesCommandLineVisitor<'a> {
 
 impl<'a> DepFilesCommandLineVisitor<'a> {
     pub(crate) fn new(dep_files: &'a RunActionDepFiles) -> Self {
+        let mut tagged_inputs = OrderedMap::<Arc<str>, Vec<ArtifactGroup>>::default();
+        for tag in dep_files.labels.values() {
+            tagged_inputs.insert(tag.dupe(), Default::default());
+        }
         Self {
-            inputs: Default::default(),
+            inputs: PartitionedInputs {
+                untagged: Default::default(),
+                tagged: SortedMap::from(tagged_inputs),
+            },
             outputs: Default::default(),
             dep_files,
         }
