@@ -423,8 +423,8 @@ pub struct ImmediateConfig {
 /// Configurations that are used at startup by the daemon. Those are actually read by the client,
 /// and passed on to the daemon.
 ///
-/// The fields here are the raw String we get from the buckconfig, the daemon will do
-/// deserialization once it receives them.
+/// The fields here are often raw String we get from the buckconfig, the daemon will do
+/// deserialization once it receives them. That said, this is not a requirement.
 ///
 /// Backwards compatibility on Serialize / Deserialize is not required: if the client cannot read
 /// the DaemonStartupConfig provided by the daemon when it tries to connect, it will reject that
@@ -436,10 +436,19 @@ pub struct DaemonStartupConfig {
     pub digest_algorithms: Option<String>,
     pub source_digest_algorithm: Option<String>,
     pub allow_vpnless: Option<String>,
+    pub paranoid: bool,
 }
 
 impl DaemonStartupConfig {
     fn new(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+        // NOTE: We purposefully still evaluate the config here when the env var is set, to check
+        // it's right.
+        static PARANOID: EnvHelper<bool> = EnvHelper::new("BUCK_PARANOID");
+        let paranoid = PARANOID
+            .get_copied()?
+            .or(config.parse("buck2", "paranoid")?)
+            .unwrap_or_default();
+
         Ok(Self {
             daemon_buster: config.get("buck2", "daemon_buster").map(ToOwned::to_owned),
             digest_algorithms: config
@@ -449,6 +458,7 @@ impl DaemonStartupConfig {
                 .get("buck2", "source_digest_algorithm")
                 .map(ToOwned::to_owned),
             allow_vpnless: config.get("buck2", "allow_vpnless").map(ToOwned::to_owned),
+            paranoid,
         })
     }
 
@@ -467,6 +477,7 @@ impl DaemonStartupConfig {
             digest_algorithms: None,
             source_digest_algorithm: None,
             allow_vpnless: None,
+            paranoid: false,
         }
     }
 }
