@@ -1001,6 +1001,11 @@ impl RemoteExecutionClientImpl {
         files: Vec<NamedDigestWithPermissions>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
+        static FAIL_RE_DOWNLOADS: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_FAIL_RE_DOWNLOADS");
+        if FAIL_RE_DOWNLOADS.get()?.copied().unwrap_or_default() {
+            return Err(anyhow::anyhow!("Injected error"));
+        }
+
         let use_case = &use_case;
 
         let futs = chunks(files, self.download_chunk_size).map(|chunk| async move {

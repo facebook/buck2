@@ -17,7 +17,6 @@ use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::env_helper::EnvHelper;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -208,11 +207,6 @@ impl CasDownloader<'_> {
         requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
         output_spec: &dyn RemoteActionResult,
     ) -> anyhow::Result<ExtractedArtifacts> {
-        static FAIL_RE_DOWNLOADS: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_FAIL_RE_DOWNLOADS");
-        if FAIL_RE_DOWNLOADS.get()?.copied().unwrap_or_default() {
-            return Err(anyhow::anyhow!("Injected error"));
-        }
-
         let now = Utc::now();
         let ttl = Duration::seconds(output_spec.ttl());
         let expires = now + ttl;
