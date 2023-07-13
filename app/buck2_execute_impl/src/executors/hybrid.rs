@@ -295,7 +295,7 @@ where
             // For the purposes of giving users a good UX, if both things failed, give them the
             // local executor's error, which is likely to not have failed because of e.g.
             // sandboxing.
-            let (mut primary_res, secondary_res) = if is_retryable_status(&second_res) {
+            let (mut primary_res, mut secondary_res) = if is_retryable_status(&second_res) {
                 if first_priority > second_priority {
                     (first_res, second_res)
                 } else {
@@ -304,6 +304,14 @@ where
             } else {
                 (second_res, first_res)
             };
+
+            // But if the first result was a cancelled result then we definitely don't want that.
+            if matches!(
+                &primary_res.report.status,
+                CommandExecutionStatus::Cancelled
+            ) {
+                std::mem::swap(&mut primary_res, &mut secondary_res);
+            }
 
             primary_res.rejected_execution = Some(secondary_res.report);
             primary_res
