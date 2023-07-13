@@ -375,6 +375,11 @@ impl DaemonCommand {
             (listener, process_info)
         };
 
+        tracing::info!("Starting Buck2 daemon");
+        tracing::info!("Version: {}", BuckVersion::get_version());
+        tracing::info!("PID: {}", process::id());
+        tracing::info!("ID: {}", *buck2_events::daemon_id::DAEMON_UUID);
+
         listener_created();
 
         terminate_on_panic();
