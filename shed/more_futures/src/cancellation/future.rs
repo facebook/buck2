@@ -497,6 +497,17 @@ impl CancellationNotificationFuture {
             .map(|wakers| wakers.insert(waker.dupe()));
         CancellationNotificationFuture { data, id, waker }
     }
+
+    fn remove_waker(&mut self, id: Option<usize>) {
+        if let Some(id) = id {
+            self.data
+                .inner
+                .wakers
+                .lock()
+                .as_mut()
+                .map(|wakers| wakers.remove(id));
+        }
+    }
 }
 
 impl Clone for CancellationNotificationFuture {
@@ -509,14 +520,7 @@ impl Dupe for CancellationNotificationFuture {}
 
 impl Drop for CancellationNotificationFuture {
     fn drop(&mut self) {
-        if let Some(id) = self.id {
-            self.data
-                .inner
-                .wakers
-                .lock()
-                .as_mut()
-                .map(|wakers| wakers.remove(id));
-        }
+        self.remove_waker(self.id);
     }
 }
 
@@ -529,14 +533,8 @@ impl Future for CancellationNotificationFuture {
             CancellationNotificationStatus::Notified => {
                 // take the id so that we don't need to lock the wakers when this future is dropped
                 // after completion
-                if let Some(id) = self.id.take() {
-                    self.data
-                        .inner
-                        .wakers
-                        .lock()
-                        .as_mut()
-                        .map(|wakers| wakers.remove(id));
-                }
+                let id = self.id.take();
+                self.remove_waker(id);
                 Poll::Ready(())
             }
             _ => {
