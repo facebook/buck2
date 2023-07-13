@@ -204,6 +204,9 @@ impl DaemonState {
         paths: &InvocationPaths,
         init_ctx: BuckdServerInitPreferences,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
+        static PARANOID: EnvHelper<bool> = EnvHelper::new("BUCK_PARANOID");
+        let paranoid = PARANOID.get_copied()?.unwrap_or_default();
+
         let fs = paths.project_root().clone();
 
         tracing::info!("Reading config...");
@@ -373,6 +376,7 @@ impl DaemonState {
             static_metadata,
             Some(paths.re_logs_dir()),
             paths.buck_out_path(),
+            paranoid,
         ));
         let materializer = Self::create_materializer(
             fb,
@@ -451,10 +455,8 @@ impl DaemonState {
             .unwrap_or_else(RolloutPercentage::never)
             .roll();
 
-        static PARANOID: EnvHelper<bool> = EnvHelper::new("BUCK_PARANOID");
-
         // TODO: Hook up paranoid to daemon config.
-        let paranoid = if PARANOID.get_copied()?.unwrap_or_default() {
+        let paranoid = if paranoid {
             Some(ParanoidDownloader::new(
                 fs.clone(),
                 blocking_executor.dupe(),

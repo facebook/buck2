@@ -89,6 +89,8 @@ struct RemoteExecutionConfig {
     static_metadata: Arc<RemoteExecutionStaticMetadata>,
     logs_dir_path: Option<AbsNormPathBuf>,
     buck_out_path: AbsNormPathBuf,
+    /// Whether Buck is running in paranoid mode.
+    is_paranoid_mode: bool,
 }
 
 impl RemoteExecutionConfig {
@@ -100,6 +102,7 @@ impl RemoteExecutionConfig {
             self.static_metadata.dupe(),
             self.logs_dir_path.as_deref(),
             &self.buck_out_path,
+            self.is_paranoid_mode,
         )
         .await
     }
@@ -201,6 +204,7 @@ impl ReConnectionManager {
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
         logs_dir_path: Option<AbsNormPathBuf>,
         buck_out_path: AbsNormPathBuf,
+        is_paranoid_mode: bool,
     ) -> Self {
         Self {
             data: RwLock::new(Weak::new()),
@@ -211,6 +215,7 @@ impl ReConnectionManager {
                 static_metadata,
                 logs_dir_path,
                 buck_out_path,
+                is_paranoid_mode,
             },
         }
     }

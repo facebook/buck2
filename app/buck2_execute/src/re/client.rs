@@ -106,6 +106,7 @@ impl RemoteExecutionClient {
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
         logs_dir_path: Option<&AbsNormPath>,
         buck_out_path: &AbsNormPath,
+        is_paranoid_mode: bool,
     ) -> anyhow::Result<Self> {
         let client = RemoteExecutionClientImpl::new(
             fb,
@@ -113,6 +114,7 @@ impl RemoteExecutionClient {
             static_metadata,
             logs_dir_path,
             buck_out_path,
+            is_paranoid_mode,
         )
         .await?;
 
@@ -137,6 +139,7 @@ impl RemoteExecutionClient {
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
         logs_dir_path: Option<&AbsNormPath>,
         buck_out_path: &AbsNormPath,
+        is_paranoid_mode: bool,
     ) -> anyhow::Result<Self> {
         // Loop happens times-1 times at most
         for i in 1..times {
@@ -146,6 +149,7 @@ impl RemoteExecutionClient {
                 static_metadata.dupe(),
                 logs_dir_path,
                 buck_out_path,
+                is_paranoid_mode,
             )
             .await
             {
@@ -166,6 +170,7 @@ impl RemoteExecutionClient {
             static_metadata,
             logs_dir_path,
             buck_out_path,
+            is_paranoid_mode,
         )
         .await
     }
@@ -412,6 +417,7 @@ impl RemoteExecutionClientImpl {
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
         maybe_logs_dir_path: Option<&AbsNormPath>,
         buck_out_path: &AbsNormPath,
+        is_paranoid_mode: bool,
     ) -> anyhow::Result<Self> {
         tracing::info!("Creating a new RE client");
 
@@ -450,6 +456,11 @@ impl RemoteExecutionClientImpl {
                     name: "buck2".to_owned(),
                     ..Default::default()
                 };
+
+                if is_paranoid_mode {
+                    // Dedupe is not compatible with us downloading blobs and moving them.
+                    embedded_cas_daemon_config.disable_download_dedup = true;
+                }
 
                 // buck2 makes find_missing calls for the same blobs
                 // so having a 50Mb cache to amortize that
@@ -578,7 +589,7 @@ impl RemoteExecutionClientImpl {
 
             #[cfg(not(fbcode_build))]
             let client = {
-                let _unused = (fb, maybe_logs_dir_path, buck_out_path);
+                let _unused = (fb, maybe_logs_dir_path, buck_out_path, is_paranoid_mode);
 
                 REClientBuilder::build_and_connect(&static_metadata.0).await?
             };
