@@ -70,8 +70,8 @@ impl DispatchableHttpRetryWarning for NoopDispatchableHttpRetryWarning {
 }
 
 pub async fn http_retry<Exec, F, T, E, R>(
-    _url: &str,
-    _dispatch_retry_warning: R,
+    url: &str,
+    dispatch_retry_warning: R,
     exec: Exec,
     mut intervals: Vec<Duration>,
 ) -> Result<T, E>
@@ -84,6 +84,7 @@ where
     intervals.insert(0, Duration::from_secs(0));
     let mut backoff = intervals.into_iter().peekable();
 
+    let mut retries = 0;
     while let Some(duration) = backoff.next() {
         tokio::time::sleep(duration).await;
 
@@ -93,12 +94,9 @@ where
 
         if let Some(http_error) = http_error {
             if http_error.is_retryable() {
+                retries += 1;
                 if let Some(b) = backoff.peek() {
-                    tracing::warn!(
-                        "Retrying a HTTP error after {} seconds: {:#}",
-                        b.as_secs(),
-                        http_error
-                    );
+                    dispatch_retry_warning.dispatch(&b, retries, url);
                     continue;
                 }
             }
