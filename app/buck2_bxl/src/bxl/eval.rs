@@ -14,6 +14,7 @@ use anyhow::Context;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::bxl::result::BxlResult;
+use buck2_build_api::bxl::starlark_async::BxlSafeDiceComputations;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_common::dice::cells::HasCellResolver;
@@ -61,7 +62,6 @@ use thiserror::Error;
 
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
-use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::FrozenBxlFunction;
 
