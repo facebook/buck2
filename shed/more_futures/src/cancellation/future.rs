@@ -523,11 +523,13 @@ impl Drop for CancellationNotificationFuture {
 impl Future for CancellationNotificationFuture {
     type Output = ();
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match CancellationNotificationStatus::from(self.data.inner.notified.load(Ordering::SeqCst))
         {
             CancellationNotificationStatus::Notified => {
-                if let Some(id) = self.id {
+                // take the id so that we don't need to lock the wakers when this future is dropped
+                // after completion
+                if let Some(id) = self.id.take() {
                     self.data
                         .inner
                         .wakers

@@ -195,7 +195,7 @@ impl Future for DicePromise {
     type Output = CancellableResult<DiceComputedValue>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match &mut self.0 {
+        let res = match &mut self.0 {
             x @ DicePromiseInternal::Ready { .. } => {
                 match mem::replace(x, DicePromiseInternal::Done) {
                     DicePromiseInternal::Ready { result } => Poll::Ready(Ok(result)),
@@ -215,6 +215,16 @@ impl Future for DicePromise {
                 }
             }
             DicePromiseInternal::Done => panic!("poll after ready"),
+        };
+
+        if matches!(res, Poll::Ready(..)) {
+            // make sure to set the state to done if we are ready, so that when this task gets
+            // dropped later, we do not check the `wakers` mutex
+            // The wakers list will have been cleared anyways by the original future that completed
+            // the task.
+            self.0 = DicePromiseInternal::Done;
         }
+
+        res
     }
 }
