@@ -648,6 +648,7 @@ impl DaemonState {
                 "sqlite-materializer-state:{}",
                 data.disk_state_options.sqlite_materializer_state
             ),
+            format!("paranoid:{}", data.paranoid.is_some()),
         ];
 
         dispatcher.instant_event(buck2_data::TagEvent { tags });
