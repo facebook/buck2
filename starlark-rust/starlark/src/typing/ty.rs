@@ -65,6 +65,7 @@ use crate::values::bool::StarlarkBool;
 use crate::values::float::StarlarkFloat;
 use crate::values::none::NoneType;
 use crate::values::string::StarlarkStr;
+use crate::values::tuple::value::FrozenTuple;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::typing::TypeCompiled;
 use crate::values::FrozenValue;
@@ -391,6 +392,7 @@ impl Ty {
             "int" => Self::int(),
             "float" => Self::float(),
             "string" => Self::string(),
+            "tuple" => Self::any_tuple(),
             // Note that "tuple" cannot be converted to Ty::Tuple
             // since we don't know the length of the tuple.
             _ => Self::Name(TyName(name.to_owned())),
@@ -458,6 +460,11 @@ impl Ty {
         Ty::Tuple(vec![a, b])
     }
 
+    /// Tuple where elements are unknown.
+    pub(crate) fn any_tuple() -> Self {
+        Ty::starlark_value::<FrozenTuple>()
+    }
+
     /// Create a function type.
     pub fn function(params: Vec<Param>, result: Ty) -> Self {
         Self::custom(TyCustomFunction(TyFunction {
@@ -495,13 +502,6 @@ impl Ty {
 
     pub(crate) fn is_list(&self) -> bool {
         matches!(self, Ty::List(_))
-    }
-
-    pub(crate) fn is_name(&self, name: &str) -> bool {
-        match self {
-            Ty::Name(x) => x == name,
-            _ => false,
-        }
     }
 
     /// Create a unions type, which will be normalised before being created.
@@ -636,7 +636,7 @@ impl Ty {
                     (Ty::Dict(x), Ty::Dict(y)) => {
                         x.0.intersects(&y.0, oracle) && x.1.intersects(&y.1, oracle)
                     }
-                    (Ty::Tuple(_), t) | (t, Ty::Tuple(_)) if t.is_name("tuple") => true,
+                    (Ty::Tuple(_), t) | (t, Ty::Tuple(_)) if t.as_name() == Some("tuple") => true,
                     (Ty::Tuple(xs), Ty::Tuple(ys)) if xs.len() == ys.len() => {
                         std::iter::zip(xs, ys).all(|(x, y)| x.intersects(y, oracle))
                     }

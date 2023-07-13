@@ -98,13 +98,13 @@ impl FrozenTupleRef {
 
 impl<'v> StarlarkTypeRepr for &'v TupleRef<'v> {
     fn starlark_type_repr() -> Ty {
-        Ty::name(TupleRef::TYPE)
+        Ty::any_tuple()
     }
 }
 
 impl<'a> StarlarkTypeRepr for &'a FrozenTupleRef {
     fn starlark_type_repr() -> Ty {
-        Ty::name(FrozenTupleRef::TYPE)
+        Ty::any_tuple()
     }
 }
 

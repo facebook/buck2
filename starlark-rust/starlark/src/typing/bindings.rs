@@ -254,7 +254,7 @@ impl<'a> BindingsCollect<'a> {
                                         &mut bindings.approximations,
                                         codemap,
                                     )?));
-                                    Some((name, Ty::name("tuple")))
+                                    Some((name, Ty::any_tuple()))
                                 }
                                 ParameterP::KwArgs(name, ty) => {
                                     let ty = Ty::from_type_expr_opt(

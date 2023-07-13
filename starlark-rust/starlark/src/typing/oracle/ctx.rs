@@ -72,7 +72,7 @@ impl<'a> TypingOracle for TypingOracleCtx<'a> {
                 }
                 _ => return Some(Err(())),
             },
-            Ty::Name(x) if x == "tuple" => match attr {
+            Ty::StarlarkValue(x) if x.as_name() == "tuple" => match attr {
                 TypingAttr::Iter => Ty::Any,
                 TypingAttr::BinOp(TypingBinOp::In) => {
                     Ty::function(vec![Param::pos_only(Ty::Any)], Ty::bool())
