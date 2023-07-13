@@ -96,6 +96,15 @@ pub struct TActionResult2 {
     pub stderr_raw: Option<Vec<u8>>,
     pub stderr_digest: Option<TDigest>,
     pub execution_metadata: TExecutedActionMetadata,
+    pub auxiliary_metadata: Vec<TAny>,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
+}
+
+#[derive(Clone, Default)]
+pub struct TAny {
+    pub type_url: String,
+    pub value: Vec<u8>,
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
 }
