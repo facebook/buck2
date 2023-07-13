@@ -42,8 +42,9 @@ jobs:
             cross: true
           - os: 'ubuntu-22.04'
             triple: 'x86_64-unknown-linux-gnu'
-          # - os: 'ubuntu-22.04'
-          #   triple: 'x86_64-unknown-linux-musl' # Doesn't build
+          - os: 'ubuntu-22.04'
+            triple: 'x86_64-unknown-linux-musl'
+            cross: true
           - os: 'macos-12'
             triple: 'aarch64-apple-darwin'
             cross: true
