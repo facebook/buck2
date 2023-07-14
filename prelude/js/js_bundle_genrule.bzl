@@ -88,6 +88,7 @@ def _get_extra_providers(
             manifest_file = None,
             r_dot_java_package = None if skip_resources else android_resource_info.r_dot_java_package,
             res = None if skip_resources else android_resource_info.res,
+            res_priority = android_resource_info.res_priority,
             text_symbols = None if skip_resources else android_resource_info.text_symbols,
         )
         providers.append(new_android_resource_info)

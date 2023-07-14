@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info")
+load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "RESOURCE_PRIORITY_NORMAL", "merge_android_packageable_info")
 load("@prelude//android:android_resource.bzl", "JAVA_PACKAGE_FILENAME", "aapt2_compile", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//js:js_providers.bzl", "JsBundleInfo", "JsLibraryInfo", "get_transitive_outputs")
@@ -156,6 +156,7 @@ def _get_android_resource_info(ctx: "context", js_bundle_info: JsBundleInfo.type
         manifest_file = None,
         r_dot_java_package = r_dot_java_package,
         res = js_bundle_info.res,
+        res_priority = RESOURCE_PRIORITY_NORMAL,
         text_symbols = get_text_symbols(ctx, js_bundle_info.res, [], identifier),
     )
 

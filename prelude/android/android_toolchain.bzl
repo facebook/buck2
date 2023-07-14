@@ -43,6 +43,7 @@ AndroidToolchainInfo = provider(fields = [
     "native_libs_as_assets_metadata",
     "optimized_proguard_config",
     "package_strings_as_assets",
+    "prebuilt_aar_resources_have_low_priority",
     "proguard_config",
     "proguard_jar",
     "proguard_max_heap_size",

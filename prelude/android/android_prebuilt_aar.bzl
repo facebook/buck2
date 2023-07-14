@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "PrebuiltNativeLibraryDir", "merge_android_packageable_info")
+load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "PrebuiltNativeLibraryDir", "RESOURCE_PRIORITY_LOW", "RESOURCE_PRIORITY_NORMAL", "merge_android_packageable_info")
 load("@prelude//android:android_resource.bzl", "aapt2_compile", "extract_package_from_manifest")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load(
@@ -65,6 +65,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         manifest_file = manifest,
         r_dot_java_package = extract_package_from_manifest(ctx, manifest),
         res = res,
+        res_priority = RESOURCE_PRIORITY_LOW if android_toolchain.prebuilt_aar_resources_have_low_priority else RESOURCE_PRIORITY_NORMAL,
         text_symbols = r_dot_txt,
     )
 

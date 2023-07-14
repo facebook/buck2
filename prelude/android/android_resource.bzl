@@ -7,7 +7,7 @@
 
 load("@prelude//java:java_providers.bzl", "get_java_packaging_info")
 load("@prelude//utils:utils.bzl", "expect")
-load(":android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "merge_android_packageable_info")
+load(":android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "RESOURCE_PRIORITY_NORMAL", "merge_android_packageable_info")
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
 
 JAVA_PACKAGE_FILENAME = "java_package.txt"
@@ -50,6 +50,7 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
             manifest_file = ctx.attrs.manifest,
             r_dot_java_package = r_dot_java_package,
             res = res,
+            res_priority = RESOURCE_PRIORITY_NORMAL,
             text_symbols = r_dot_txt_output,
         )
     else:
@@ -61,6 +62,7 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
             manifest_file = ctx.attrs.manifest,
             r_dot_java_package = None,
             res = None,
+            res_priority = RESOURCE_PRIORITY_NORMAL,
             text_symbols = None,
         )
     providers.append(resource_info)

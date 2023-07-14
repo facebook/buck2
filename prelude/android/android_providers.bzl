@@ -134,6 +134,9 @@ AndroidPackageableInfo = provider(
     ],
 )
 
+RESOURCE_PRIORITY_NORMAL = "normal"
+RESOURCE_PRIORITY_LOW = "low"
+
 # Information about an `android_resource`
 AndroidResourceInfo = provider(
     fields = [
@@ -151,6 +154,8 @@ AndroidResourceInfo = provider(
         "r_dot_java_package",  # ["artifact", None]
         # resources defined by this rule. May be empty
         "res",  # ["artifact", None]
+        # priority of the resources, may be 'low' or 'normal'
+        "res_priority",  # str.type
         # symbols defined by the resources, if resources are present
         "text_symbols",  # ["artifact", None]
     ],
