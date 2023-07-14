@@ -31,7 +31,7 @@ This state of affairs sucks, and we're working on it in [T67259280](https://www.
 
 ## How do I get the commands Buck2 executed so I can reproduce them in isolation?
 
-For information, see [Finding Commands that Buck2 Ran](../developers/what-ran.md).
+For information, see [Finding Commands that Buck2 Ran](../../developers/what-ran.md).
 
 ## Are multiple concurrent commands supported?
 

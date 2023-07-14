@@ -22,8 +22,8 @@ The following sub-sections contain a list of links to key points in the Buck2 Do
 
 <FbInternalOnly>
 
-* [Migration Guide](migration_guide.fb.md) - how to port projects from Buck to Buck2, including the issues you might face and notable differences.
-* [Buck2 and Build Observability](build_observability/observability.fb.md) - how to use Buck2's datasets to analyze specific invocations or classes of invocations.
+* [Migration Guide](users/migration_guide.fb.md) - how to port projects from Buck to Buck2, including the issues you might face and notable differences.
+* [Buck2 and Build Observability](users/build_observability/observability.fb.md) - how to use Buck2's datasets to analyze specific invocations or classes of invocations.
 
 </FbInternalOnly>
 

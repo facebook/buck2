@@ -35,7 +35,7 @@ function HomepageHeader() {
             </Link>
             <Link
               className="button button--secondary button--lg"
-              to="/docs/migration_guide">
+              to="/docs/users/migration_guide">
               How to switch
             </Link>
           </div>
