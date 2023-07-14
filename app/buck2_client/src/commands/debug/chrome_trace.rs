@@ -31,6 +31,7 @@ use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_events::BuckEvent;
 use dupe::Dupe;
+use futures::stream::BoxStream;
 use futures::TryStreamExt;
 use serde::Serialize;
 use serde_json::json;
@@ -839,28 +840,16 @@ impl ChromeTraceWriter {
 }
 
 impl ChromeTraceCommand {
-    async fn load_events(path: AbsPathBuf) -> anyhow::Result<(Invocation, Vec<BuckEvent>)> {
-        let log_path = EventLogPathBuf::infer(path)?;
-        let (invocation, mut stream_values) = log_path.unpack_stream().await?;
+    async fn load_events(
+        log_path: EventLogPathBuf,
+    ) -> anyhow::Result<(Invocation, BoxStream<'static, anyhow::Result<BuckEvent>>)> {
+        let (invocation, stream_values) = log_path.unpack_stream().await?;
+        let stream = stream_values.try_filter_map(async move |stream_value| match stream_value {
+            StreamValue::Event(e) => Ok(Some(BuckEvent::try_from(e)?)),
+            _ => Ok(None),
+        });
 
-        let mut buck_events = Vec::new();
-
-        while let Some(stream_value) = stream_values.try_next().await? {
-            match stream_value {
-                StreamValue::Event(e) => {
-                    let buck_event_result = BuckEvent::try_from(e);
-                    match buck_event_result {
-                        Ok(buck_event) => buck_events.push(buck_event),
-                        Err(e) => {
-                            buck2_client_ctx::eprintln!("Error converting event-log: {:#}", e)?
-                        }
-                    }
-                }
-                _ => (),
-            }
-        }
-
-        Ok((invocation, buck_events))
+        Ok((invocation, Box::pin(stream)))
     }
 
     fn trace_path_from_dir(dir: AbsPathBuf, log: &std::path::Path) -> anyhow::Result<AbsPathBuf> {
@@ -900,30 +889,39 @@ impl ChromeTraceCommand {
                 return ExitResult::failure();
             }
         };
+        let log = EventLogPathBuf::infer(log)?;
 
-        let (invocation, events) = ctx
-            .runtime
-            .block_on(async move { Self::load_events(log).await })?;
+        let writer = ctx.runtime.block_on(Self::trace_writer(log))?;
 
-        let mut first_pass = ChromeTraceFirstPass::new();
-        for event in events.iter() {
-            first_pass
-                .handle_event(event)
-                .with_context(|| display::InvalidBuckEvent(Arc::new(event.clone())))?;
-        }
-        let mut writer = ChromeTraceWriter::new(invocation, first_pass);
-        for event in events {
-            let event = Arc::new(event);
-            writer
-                .handle_event(&event)
-                .with_context(|| display::InvalidBuckEvent(event))?;
-        }
         let tracefile = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
             .open(dest_path)?;
         writer.to_writer(BufWriter::new(tracefile))?;
+
         ExitResult::success()
+    }
+
+    async fn trace_writer(log: EventLogPathBuf) -> anyhow::Result<ChromeTraceWriter> {
+        let (invocation, mut stream) = Self::load_events(log.clone()).await?;
+        let mut first_pass = ChromeTraceFirstPass::new();
+        while let Some(event) = tokio_stream::StreamExt::try_next(&mut stream).await? {
+            first_pass
+                .handle_event(&event)
+                .with_context(|| display::InvalidBuckEvent(Arc::new(event.clone())))?;
+        }
+
+        let mut writer = ChromeTraceWriter::new(invocation, first_pass);
+
+        // We just read events again from log file, in order to avoid holding all logs in memory
+        let (_invocation, mut stream) = Self::load_events(log).await?;
+        while let Some(event) = tokio_stream::StreamExt::try_next(&mut stream).await? {
+            let event = Arc::new(event);
+            writer
+                .handle_event(&event)
+                .with_context(|| display::InvalidBuckEvent(event))?;
+        }
+        Ok(writer)
     }
 }
