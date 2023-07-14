@@ -101,7 +101,8 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
     external_debug_info = debuggable_info.external_debug_info
     dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, external_debug_info)
 
-    all_debug_info = external_debug_info.traverse()
+    # TODO: We should add specialized traversal that does this filtering lazily.
+    all_debug_info = external_debug_info._tset.traverse()
     filtered_debug_info = selective_debugging_info.filter(all_debug_info)
     filtered_external_debug_info = make_artifact_tset(
         actions = ctx.actions,
