@@ -9,7 +9,12 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs") 
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
-load("@prelude//cxx:debug.bzl", "maybe_external_debug_info", "project_external_debug_info")
+load(
+    "@prelude//cxx:debug.bzl",
+    "ExternalDebugInfo",  # @unused Used as a type
+    "make_external_debug_info",
+    "project_external_debug_info",
+)
 load(
     "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
@@ -103,7 +108,7 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
 
     all_debug_info = external_debug_info.traverse()
     filtered_debug_info = selective_debugging_info.filter(all_debug_info)
-    filtered_external_debug_info = maybe_external_debug_info(
+    filtered_external_debug_info = make_external_debug_info(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = filtered_debug_info,
@@ -112,7 +117,7 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
 
     return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
 
-def _get_scrubbed_binary_dsym(ctx, binary: "artifact", external_debug_info: "ExternalDebugInfoTSet") -> "artifact":
+def _get_scrubbed_binary_dsym(ctx, binary: "artifact", external_debug_info: ExternalDebugInfo.type) -> "artifact":
     external_debug_info_args = project_external_debug_info(
         actions = ctx.actions,
         infos = [external_debug_info],
@@ -224,7 +229,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     if dsym_artifacts:
         sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = dsym_artifacts)]
 
-    external_debug_info = maybe_external_debug_info(
+    external_debug_info = make_external_debug_info(
         actions = ctx.actions,
         label = ctx.label,
         children = [info.external_debug_info for info in bundle_debuggable_info.all_infos],

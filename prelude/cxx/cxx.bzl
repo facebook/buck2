@@ -74,6 +74,7 @@ load(
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
 )
+load(":debug.bzl", "ExternalDebugInfo")  # @unused Used as a type
 load(
     ":groups.bzl",
     "Group",  # @unused Used as a type
@@ -126,7 +127,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         _ctx: "context",
         _executable: "artifact",
-        _external_debug_info: ["transitive_set", None],
+        _external_debug_info: ExternalDebugInfo.type,
         dwp: ["artifact", None],
         pdb: ["artifact", None],
         linker_map: [CxxLinkerMapData.type, None]) -> ({str: ["provider"]}, ["provider"]):

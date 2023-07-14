@@ -28,59 +28,68 @@ SplitDebugMode = enum(
     #"split",
 )
 
-ExternalDebugInfo = record(
+DebugArtifactInfo = record(
     label = field("label"),
     artifacts = field(["artifact"]),
 )
 
-def _get_debug_artifacts(entries: [ExternalDebugInfo.type]) -> ["artifact"]:
+def _get_artifacts(entries: [DebugArtifactInfo.type]) -> ["artifact"]:
     return flatten([entry.artifacts for entry in entries])
 
-ExternalDebugInfoTSet = transitive_set(args_projections = {
-    "external_debug_info": _get_debug_artifacts,
-})
+_ArtifactInfoTSet = transitive_set(
+    args_projections = {
+        "artifacts": _get_artifacts,
+    },
+)
 
-def maybe_external_debug_info(
+# Native objects w/ debugging symbols referenced from a linked object.
+ExternalDebugInfo = record(
+    _tset = field([_ArtifactInfoTSet.type, None], None),
+)
+
+def make_external_debug_info(
         actions: "actions",
         label: ["label", None] = None,
         artifacts: ["artifact"] = [],
-        infos: [ExternalDebugInfo.type] = [],
-        children: [[ExternalDebugInfoTSet.type, None]] = []) -> [ExternalDebugInfoTSet.type, None]:
+        infos: [DebugArtifactInfo.type] = [],
+        children: [ExternalDebugInfo.type] = []) -> ExternalDebugInfo.type:
     # As a convenience for our callers, filter our `None` children.
-    children = [c for c in children if c != None]
+    children = [c._tset for c in children if c._tset != None]
 
     # Build list of all non-child values.
     values = []
     if artifacts:
         expect(label != None)
-        values.append(ExternalDebugInfo(label = label, artifacts = artifacts))
+        values.append(DebugArtifactInfo(label = label, artifacts = artifacts))
     values.extend(infos)
 
     # If there's no children or artifacts, return `None`.
     if not values and not children:
-        return None
+        return ExternalDebugInfo()
 
-    # We only build a `ExternalDebugInfoTSet` if there's something to package.
+    # We only build a `_ArtifactInfoTSet` if there's something to package.
     kwargs = {}
     if values:
         kwargs["value"] = values
     if children:
         kwargs["children"] = children
-    return actions.tset(ExternalDebugInfoTSet, **kwargs)
+    return ExternalDebugInfo(
+        _tset = actions.tset(_ArtifactInfoTSet, **kwargs),
+    )
 
 def project_external_debug_info(
         actions: "actions",
-        infos: [[ExternalDebugInfoTSet.type, None]] = []) -> ["transitive_set_args_projection"]:
+        infos: [ExternalDebugInfo.type] = []) -> ["transitive_set_args_projection"]:
     """
     Helper to project a list of optional tsets.
     """
 
-    info = maybe_external_debug_info(
+    info = make_external_debug_info(
         actions = actions,
         children = infos,
     )
 
-    if info == None:
+    if info._tset == None:
         return []
 
-    return [info.project_as_args("external_debug_info")]
+    return [info._tset.project_as_args("artifacts")]

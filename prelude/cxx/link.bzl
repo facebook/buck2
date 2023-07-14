@@ -12,7 +12,7 @@ load(
 )
 load(
     "@prelude//cxx:debug.bzl",
-    "maybe_external_debug_info",
+    "make_external_debug_info",
     "project_external_debug_info",
 )
 load(
@@ -177,7 +177,7 @@ def cxx_link(
         for link in links:
             external_debug_infos.append(unpack_external_debug_info(ctx.actions, link))
 
-    external_debug_info = maybe_external_debug_info(
+    external_debug_info = make_external_debug_info(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = external_debug_artifacts,
@@ -243,8 +243,7 @@ def cxx_link(
         dwp_inputs = cmd_args()
         for link in links:
             dwp_inputs.add(unpack_link_args(link))
-        if external_debug_info != None:
-            dwp_inputs.add(project_external_debug_info(ctx.actions, [external_debug_info]))
+        dwp_inputs.add(project_external_debug_info(ctx.actions, [external_debug_info]))
 
         dwp_artifact = dwp(
             ctx,

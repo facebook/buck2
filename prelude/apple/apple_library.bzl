@@ -40,8 +40,8 @@ load(
 )
 load(
     "@prelude//cxx:debug.bzl",
-    "ExternalDebugInfoTSet",  # @unused Used as a type
-    "maybe_external_debug_info",
+    "ExternalDebugInfo",  # @unused Used as a type
+    "make_external_debug_info",
     "project_external_debug_info",
 )
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers")
@@ -274,7 +274,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         ctx: "context",
         executable: "artifact",
-        external_debug_info: ["transitive_set", None],
+        external_debug_info: ExternalDebugInfo.type,
         _dwp: ["artifact", None],
         _pdb: ["artifact", None],
         linker_map: [CxxLinkerMapData.type, None]) -> ({str: ["provider"]}, ["provider"]):
@@ -306,14 +306,14 @@ def _get_shared_link_style_sub_targets_and_providers(
         providers += [AppleBundleLinkerMapInfo(linker_maps = [linker_map.map])]
     return (subtargets, providers)
 
-def _get_swift_static_external_debug_info(ctx: "context", swiftmodule: "artifact") -> [ExternalDebugInfoTSet.type]:
-    return [maybe_external_debug_info(
+def _get_swift_static_external_debug_info(ctx: "context", swiftmodule: "artifact") -> [ExternalDebugInfo.type]:
+    return [make_external_debug_info(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = [swiftmodule],
     )]
 
-def _get_swift_shared_external_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> [ExternalDebugInfoTSet.type]:
+def _get_swift_shared_external_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> [ExternalDebugInfo.type]:
     return [swift_dependency_info.external_debug_info] if swift_dependency_info.external_debug_info else []
 
 def _get_linker_flags(ctx: "context") -> "cmd_args":

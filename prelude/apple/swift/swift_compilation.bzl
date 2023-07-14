@@ -17,8 +17,8 @@ load(
 )
 load(
     "@prelude//cxx:debug.bzl",
-    "ExternalDebugInfoTSet",  # @unused Used as a type
-    "maybe_external_debug_info",
+    "ExternalDebugInfo",  # @unused Used as a type
+    "make_external_debug_info",
 )
 load("@prelude//cxx:headers.bzl", "CHeader")
 load(
@@ -561,11 +561,11 @@ def _get_transitive_swift_paths_tsets(deps: ["dependency"]) -> [SwiftmodulePaths
         if SwiftDependencyInfo in d
     ]
 
-def _get_external_debug_info_tsets(deps: ["dependency"]) -> [ExternalDebugInfoTSet.type]:
+def _get_external_debug_info_tsets(deps: ["dependency"]) -> [ExternalDebugInfo.type]:
     return [
         d[SwiftDependencyInfo].external_debug_info
         for d in deps
-        if SwiftDependencyInfo in d and d[SwiftDependencyInfo].external_debug_info != None
+        if SwiftDependencyInfo in d
     ]
 
 def _get_exported_headers_tset(ctx: "context", exported_headers: [["string"], None] = None) -> ExportedHeadersTSet.type:
@@ -617,7 +617,7 @@ def get_swift_dependency_info(
         exported_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(exported_deps))
         transitive_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_transitive_swift_paths_tsets(all_deps))
 
-    external_debug_info = maybe_external_debug_info(
+    external_debug_info = make_external_debug_info(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = [output_module] if output_module != None else [],

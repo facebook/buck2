@@ -8,8 +8,8 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:debug.bzl",
-    "ExternalDebugInfoTSet",
-    "maybe_external_debug_info",
+    "ExternalDebugInfo",
+    "make_external_debug_info",
 )
 load(
     "@prelude//cxx:linker.bzl",
@@ -143,7 +143,7 @@ LinkInfo = record(
     # Debug info which is referenced -- but not included -- by linkables in the
     # link info.  For example, this may include `.dwo` files, or the original
     # `.o` files if they contain debug info that doesn't follow the link.
-    external_debug_info = field([ExternalDebugInfoTSet.type, None], None),
+    external_debug_info = field(ExternalDebugInfo.type, ExternalDebugInfo()),
 )
 
 # The ordering to use when traversing linker libs transitive sets.
@@ -285,7 +285,7 @@ LinkedObject = record(
     dwp = field(["artifact", None], None),
     # Additional dirs or paths that contain debug info referenced by the linked
     # object (e.g. split dwarf files or PDB file).
-    external_debug_info = field([ExternalDebugInfoTSet.type, None], None),
+    external_debug_info = field(ExternalDebugInfo.type, ExternalDebugInfo()),
     # This argsfile is generated in the `cxx_link` step and contains a list of arguments
     # passed to the linker. It is being exposed as a sub-target for debugging purposes.
     linker_argsfile = field(["artifact", None], None),
@@ -357,7 +357,7 @@ LinkInfosTSet = transitive_set(
 # A map of native linkable infos from transitive dependencies.
 MergedLinkInfo = provider(fields = [
     "_infos",  # {LinkStyle.type: LinkInfosTSet.type}
-    "_external_debug_info",  # {LinkStyle.type: [ExternalDebugInfoTSet.type, None]}
+    "_external_debug_info",  # {LinkStyle.type: ExternalDebugInfo.type}
     # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
     #
     # To save on repeated computation of transitive LinkInfos, we store a dedupped
@@ -459,7 +459,7 @@ def create_merged_link_info(
                 value = link_infos[actual_link_style],
                 children = children,
             )
-            external_debug_info[link_style] = maybe_external_debug_info(
+            external_debug_info[link_style] = make_external_debug_info(
                 actions = ctx.actions,
                 label = ctx.label,
                 children = (
@@ -487,10 +487,10 @@ def merge_link_infos(
             LinkInfosTSet,
             children = filter(None, [x._infos.get(link_style) for x in xs]),
         )
-        merged_external_debug_info[link_style] = maybe_external_debug_info(
+        merged_external_debug_info[link_style] = make_external_debug_info(
             actions = ctx.actions,
             label = ctx.label,
-            children = [x._external_debug_info.get(link_style) for x in xs],
+            children = filter(None, [x._external_debug_info.get(link_style) for x in xs]),
         )
         frameworks[link_style] = merge_framework_linkables([x.frameworks[link_style] for x in xs])
         swift_runtime[link_style] = merge_swift_runtime_linkables([x.swift_runtime[link_style] for x in xs])
@@ -516,7 +516,7 @@ def get_link_info(
 
 LinkArgsTSet = record(
     infos = field(LinkInfosTSet.type),
-    external_debug_info = field([ExternalDebugInfoTSet.type, None], None),
+    external_debug_info = field(ExternalDebugInfo.type, ExternalDebugInfo()),
     prefer_stripped = field(bool.type, False),
 )
 
@@ -579,20 +579,20 @@ def unpack_link_args_filelist(args: LinkArgs.type) -> ["_arglike", None]:
 
     fail("Unpacked invalid empty link args")
 
-def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> [ExternalDebugInfoTSet.type, None]:
+def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> ExternalDebugInfo.type:
     if args.tset != None:
         if args.tset.prefer_stripped:
-            return None
+            return ExternalDebugInfo()
         return args.tset.external_debug_info
 
     if args.infos != None:
-        children = [info.external_debug_info for info in args.infos if info.external_debug_info != None]
-        if not children:
-            return None
-        return actions.tset(ExternalDebugInfoTSet, children = children)
+        return make_external_debug_info(
+            actions = actions,
+            children = [info.external_debug_info for info in args.infos],
+        )
 
     if args.flags != None:
-        return None
+        return ExternalDebugInfo()
 
     fail("Unpacked invalid empty link args")
 

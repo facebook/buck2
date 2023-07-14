@@ -138,8 +138,8 @@ load(
 )
 load(
     ":debug.bzl",
-    "ExternalDebugInfoTSet",  # @unused Used as a type
-    "maybe_external_debug_info",
+    "ExternalDebugInfo",  # @unused Used as a type
+    "make_external_debug_info",
 )
 load(
     ":link.bzl",
@@ -195,7 +195,7 @@ _CxxLibraryOutput = record(
     other = field(["artifact"], []),
     bitcode_bundle = field([BitcodeBundle.type, None], None),
     # Additional debug info which is not included in the library output.
-    external_debug_info = field(["transitive_set", None], None),
+    external_debug_info = field(ExternalDebugInfo.type, ExternalDebugInfo()),
     # A shared shared library may have an associated dwp file with
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled, for static/static-pic libraries,
@@ -597,7 +597,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                         linker_type = linker_type,
                         link_whole = True,
                     )],
-                    external_debug_info = maybe_external_debug_info(
+                    external_debug_info = make_external_debug_info(
                         actions = ctx.actions,
                         label = ctx.label,
                         artifacts = (
@@ -796,7 +796,7 @@ def cxx_compile_srcs(
     pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True)
     pic_objects = [out.object for out in pic_cxx_outs]
     pic_objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, pic_cxx_outs)
-    pic_external_debug_info = [out.external_debug_info for out in pic_cxx_outs if out.external_debug_info != None]
+    pic_external_debug_info = [out.external_debug_info for out in pic_cxx_outs if out.external_debug_info]
     pic_clang_traces = [out.clang_trace for out in pic_cxx_outs if out.clang_trace != None]
     stripped_pic_objects = _strip_objects(ctx, pic_objects)
 
@@ -816,7 +816,7 @@ def cxx_compile_srcs(
         all_outs.extend(cxx_outs)
         objects = [out.object for out in cxx_outs]
         objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, cxx_outs)
-        external_debug_info = [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
+        external_debug_info = [out.external_debug_info for out in cxx_outs if out.external_debug_info]
         stripped_objects = _strip_objects(ctx, objects)
         clang_traces = [out.clang_trace for out in cxx_outs if out.clang_trace != None]
 
@@ -886,7 +886,7 @@ def _form_library_outputs(
                     impl_params,
                     compiled_srcs.pic_objects if pic else compiled_srcs.objects,
                     objects_have_external_debug_info = compiled_srcs.pic_objects_have_external_debug_info if pic else compiled_srcs.objects_have_external_debug_info,
-                    external_debug_info = maybe_external_debug_info(
+                    external_debug_info = make_external_debug_info(
                         ctx.actions,
                         label = ctx.label,
                         artifacts = (compiled_srcs.pic_external_debug_info if pic else compiled_srcs.external_debug_info),
@@ -921,7 +921,7 @@ def _form_library_outputs(
                     external_debug_artifacts.extend(compiled_srcs.pic_objects)
                 if impl_params.extra_link_input_has_external_debug_info:
                     external_debug_artifacts.extend(impl_params.extra_link_input)
-                external_debug_info = maybe_external_debug_info(
+                external_debug_info = make_external_debug_info(
                     actions = ctx.actions,
                     label = ctx.label,
                     artifacts = external_debug_artifacts,
@@ -1103,7 +1103,7 @@ def _static_library(
         stripped: bool,
         extra_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         objects_have_external_debug_info: bool = False,
-        external_debug_info: [ExternalDebugInfoTSet.type, None] = None,
+        external_debug_info: ExternalDebugInfo.type = ExternalDebugInfo(),
         bitcode_objects: [["artifact"], None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
@@ -1158,7 +1158,7 @@ def _static_library(
     elif objects_have_external_debug_info:
         object_external_debug_info.extend(objects)
 
-    all_external_debug_info = maybe_external_debug_info(
+    all_external_debug_info = make_external_debug_info(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = object_external_debug_info,
@@ -1215,7 +1215,7 @@ def _shared_library(
         ctx: "context",
         impl_params: "CxxRuleConstructorParams",
         objects: ["artifact"],
-        external_debug_info: [ExternalDebugInfoTSet.type, None],
+        external_debug_info: ExternalDebugInfo.type,
         dep_infos: "LinkArgs",
         gnu_use_link_groups: bool,
         extra_linker_flags: ["_arglike"],

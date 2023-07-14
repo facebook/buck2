@@ -104,8 +104,8 @@ load(
 )
 load(
     ":debug.bzl",
-    "ExternalDebugInfoTSet",
-    "maybe_external_debug_info",
+    "ExternalDebugInfo",
+    "make_external_debug_info",
     "project_external_debug_info",
 )
 load(
@@ -149,7 +149,7 @@ CxxExecutableOutput = record(
     # The LinkArgs used to create the final executable in 'binary'.
     link_args = [LinkArgs.type],
     # External components needed to debug the executable.
-    external_debug_info = [ExternalDebugInfoTSet.type, None],
+    external_debug_info = field(ExternalDebugInfo.type, ExternalDebugInfo()),
     shared_libs = {str: LinkedObject.type},
     # All link group links that were generated in the executable.
     auto_link_groups = field({str: LinkedObject.type}, {}),
@@ -424,11 +424,13 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                     linker_type = linker_info.type,
                     link_whole = True,
                 )],
-                external_debug_info = maybe_external_debug_info(
+                external_debug_info = make_external_debug_info(
                     actions = ctx.actions,
                     label = ctx.label,
-                    artifacts = [out.object for out in cxx_outs if out.object_has_external_debug_info],
-                    children = [out.external_debug_info for out in cxx_outs],
+                    artifacts = (
+                        [out.object for out in cxx_outs if out.object_has_external_debug_info] +
+                        [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
+                    ),
                 ),
             ),
         ]),
@@ -564,7 +566,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         )]
 
     # Provide a debug info target to make sure debug info is materialized.
-    external_debug_info = maybe_external_debug_info(
+    external_debug_info = make_external_debug_info(
         actions = ctx.actions,
         label = ctx.label,
         children = (
