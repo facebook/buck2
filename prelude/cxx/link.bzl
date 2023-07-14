@@ -12,7 +12,6 @@ load(
 )
 load(
     "@prelude//cxx:debug.bzl",
-    "ExternalDebugInfoTSet",  # @unused Used as a type
     "maybe_external_debug_info",
     "project_external_debug_info",
 )
@@ -32,13 +31,12 @@ load(
 )
 load("@prelude//linking:lto.bzl", "darwin_lto_linker_flags")
 load("@prelude//linking:strip.bzl", "strip_shared_library")
-load("@prelude//utils:utils.bzl", "expect", "map_val", "value_or")
+load("@prelude//utils:utils.bzl", "map_val", "value_or")
 load(":bitcode.bzl", "make_bitcode_bundle")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_link_utility.bzl",
     "cxx_link_cmd_parts",
-    "generates_split_debug",
     "linker_map_args",
     "make_link_args",
 )
@@ -68,35 +66,6 @@ CxxLinkResult = record(
     linker_map_data = [CxxLinkerMapData.type, None],
     link_execution_preference_info = LinkExecutionPreferenceInfo.type,
 )
-
-def link_external_debug_info(
-        ctx: "context",
-        links: [LinkArgs.type],
-        split_debug_output: ["artifact", None] = None,
-        pdb: ["artifact", None] = None) -> [ExternalDebugInfoTSet.type, None]:
-    external_debug_artifacts = []
-
-    # When using LTO+split-dwarf, the link step will generate externally
-    # referenced debug info.
-    if split_debug_output != None:
-        external_debug_artifacts.append(split_debug_output)
-
-    if pdb != None:
-        external_debug_artifacts.append(pdb)
-
-    external_debug_infos = []
-
-    # Add-in an externally referenced debug info that the linked object may
-    # reference (and which may need to be available for debugging).
-    for link in links:
-        external_debug_infos.append(unpack_external_debug_info(ctx.actions, link))
-
-    return maybe_external_debug_info(
-        actions = ctx.actions,
-        label = ctx.label,
-        artifacts = external_debug_artifacts,
-        children = external_debug_infos,
-    )
 
 # Actually perform a link into the supplied output.
 def cxx_link(
@@ -172,8 +141,19 @@ def cxx_link(
     )
 
     # Darwin LTO requires extra link outputs to preserve debug info
-    darwin_lto_flags, darwin_lto_split_debug_dir = darwin_lto_linker_flags(ctx)
+    darwin_lto_flags, darwin_lto_artifacts = darwin_lto_linker_flags(ctx)
     link_args.add(darwin_lto_flags)
+
+    external_debug_artifacts = darwin_lto_artifacts
+    external_debug_infos = []
+
+    # When using LTO+split-dwarf, the link step will generate externally
+    # referenced debug info.
+    if dwo_dir != None:
+        external_debug_artifacts.append(dwo_dir)
+
+    if pdb_artifact != None:
+        external_debug_artifacts.append(pdb_artifact)
 
     bitcode_linkables = []
     for link_item in links:
@@ -190,22 +170,19 @@ def cxx_link(
     else:
         bitcode_artifact = None
 
-    # Dedup the bookkeeping for darwin and GNU split debug infos.
-    expect(
-        dwo_dir == None or darwin_lto_split_debug_dir == None,
-        "both `dwo_dir` and `darwin_lto_split_debug_dir` are set",
-    )
-    split_debug_output = value_or(dwo_dir, darwin_lto_split_debug_dir)
-    expect(not generates_split_debug(ctx) or split_debug_output != None)
-
-    external_debug_info = None
+    # If we're not stripping the output linked object, than add-in an externally
+    # referenced debug info that the linked object may reference (and which may
+    # need to be available for debugging).
     if not (strip or getattr(ctx.attrs, "prefer_stripped_objects", False)):
-        external_debug_info = link_external_debug_info(
-            ctx = ctx,
-            links = links,
-            split_debug_output = split_debug_output,
-            pdb = pdb_artifact,
-        )
+        for link in links:
+            external_debug_infos.append(unpack_external_debug_info(ctx.actions, link))
+
+    external_debug_info = maybe_external_debug_info(
+        actions = ctx.actions,
+        label = ctx.label,
+        artifacts = external_debug_artifacts,
+        children = external_debug_infos,
+    )
 
     linker, toolchain_linker_flags = cxx_link_cmd_parts(ctx)
     all_link_args = cmd_args(toolchain_linker_flags)
@@ -290,9 +267,7 @@ def cxx_link(
         linker_argsfile = argfile,
         import_library = import_library,
         pdb = pdb_artifact,
-        split_debug_output = split_debug_output,
     )
-
     return CxxLinkResult(
         linked_object = linked_object,
         linker_map_data = linker_map_data,

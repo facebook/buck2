@@ -30,10 +30,10 @@ def lto_compiler_flags(lto_mode: "LtoMode") -> [str]:
     else:
         fail("Unhandled LTO mode: " + repr(lto_mode))
 
-def darwin_lto_linker_flags(ctx: "context") -> (["_arglike"], ["artifact", None]):
+def darwin_lto_linker_flags(ctx: "context") -> (["_arglike"], ["artifact"]):
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     if linker_info.type != "darwin" or linker_info.lto_mode == LtoMode("none"):
-        return [], None
+        return [], []
 
     # https://releases.llvm.org/14.0.0/tools/clang/docs/CommandGuide/clang.html#cmdoption-flto
     # We need to pass -object_path_lto to keep the temporary LTO object files around to use
@@ -53,4 +53,4 @@ def darwin_lto_linker_flags(ctx: "context") -> (["_arglike"], ["artifact", None]
         lto_object_path_artifact.as_output(),
     ])
 
-    return [linker_args], lto_object_path_artifact
+    return [linker_args], [lto_object_path_artifact]
