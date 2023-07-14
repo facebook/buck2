@@ -12,6 +12,7 @@ pub enum LastCommandExecutionKind {
     LocalWorker,
     Remote,
     Cached,
+    RemoteDepFileCached,
     NoCommand,
 }
 

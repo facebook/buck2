@@ -29,6 +29,7 @@ pub struct ActionStats {
     pub remote_actions: u64,
     pub cached_actions: u64,
     pub fallback_actions: u64,
+    pub remote_dep_file_cached_actions: u64,
 }
 
 impl ActionStats {
@@ -57,7 +58,10 @@ impl ActionStats {
     }
 
     pub fn total_executed_and_cached_actions(&self) -> u64 {
-        self.local_actions + self.remote_actions + self.cached_actions
+        self.local_actions
+            + self.remote_actions
+            + self.cached_actions
+            + self.remote_dep_file_cached_actions
     }
 
     pub fn update(&mut self, action: &buck2_data::ActionExecutionEnd) {
@@ -73,6 +77,9 @@ impl ActionStats {
             }
             LastCommandExecutionKind::Remote => {
                 self.remote_actions += 1;
+            }
+            LastCommandExecutionKind::RemoteDepFileCached => {
+                self.remote_dep_file_cached_actions += 1;
             }
             LastCommandExecutionKind::NoCommand => {}
         }

@@ -75,6 +75,7 @@ mod imp {
         run_local_count: u64,
         run_remote_count: u64,
         run_action_cache_count: u64,
+        run_remote_dep_file_cache_count: u64,
         run_skipped_count: u64,
         run_fallback_count: u64,
         local_actions_executed_via_worker: u64,
@@ -172,6 +173,7 @@ mod imp {
                 run_local_count: 0,
                 run_remote_count: 0,
                 run_action_cache_count: 0,
+                run_remote_dep_file_cache_count: 0,
                 run_skipped_count: 0,
                 run_fallback_count: 0,
                 local_actions_executed_via_worker: 0,
@@ -303,6 +305,7 @@ mod imp {
                 run_local_count: self.run_local_count,
                 run_remote_count: self.run_remote_count,
                 run_action_cache_count: self.run_action_cache_count,
+                run_remote_dep_file_cache_count: self.run_remote_dep_file_cache_count,
                 run_skipped_count: self.run_skipped_count,
                 run_fallback_count: Some(self.run_fallback_count),
                 local_actions_executed_via_worker: Some(self.local_actions_executed_via_worker),
@@ -549,6 +552,9 @@ mod imp {
                     }
                     LastCommandExecutionKind::Cached => {
                         self.run_action_cache_count += 1;
+                    }
+                    LastCommandExecutionKind::RemoteDepFileCached => {
+                        self.run_remote_dep_file_cache_count += 1;
                     }
                     LastCommandExecutionKind::Remote => {
                         self.run_remote_count += 1;
