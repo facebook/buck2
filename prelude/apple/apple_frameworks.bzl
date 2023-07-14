@@ -5,10 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifact_tset.bzl", "make_artifact_tset")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple/swift:swift_compilation.bzl", "extract_swiftmodule_linkables", "get_swiftmodule_linker_flags", "merge_swiftmodule_linkables")
 load("@prelude//apple/swift:swift_runtime.bzl", "extract_swift_runtime_linkables", "get_swift_runtime_linker_flags")
-load("@prelude//cxx:debug.bzl", "make_external_debug_info")
 load(
     "@prelude//linking:link_info.bzl",
     "FrameworksLinkable",
@@ -143,7 +143,7 @@ def apple_build_link_args_with_deduped_flags(
                 value = LinkInfos(default = link_info, stripped = link_info),
                 children = [info._infos[link_style]],
             ),
-            external_debug_info = make_external_debug_info(
+            external_debug_info = make_artifact_tset(
                 actions = ctx.actions,
                 label = ctx.label,
                 children = [link_info.external_debug_info, info._external_debug_info[link_style]],

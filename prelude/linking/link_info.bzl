@@ -5,12 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
-    "@prelude//cxx:debug.bzl",
-    "ExternalDebugInfo",
-    "make_external_debug_info",
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",
+    "make_artifact_tset",
 )
+load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:linker.bzl",
     "get_link_whole_args",
@@ -143,7 +143,7 @@ LinkInfo = record(
     # Debug info which is referenced -- but not included -- by linkables in the
     # link info.  For example, this may include `.dwo` files, or the original
     # `.o` files if they contain debug info that doesn't follow the link.
-    external_debug_info = field(ExternalDebugInfo.type, ExternalDebugInfo()),
+    external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
 )
 
 # The ordering to use when traversing linker libs transitive sets.
@@ -285,7 +285,7 @@ LinkedObject = record(
     dwp = field(["artifact", None], None),
     # Additional dirs or paths that contain debug info referenced by the linked
     # object (e.g. split dwarf files or PDB file).
-    external_debug_info = field(ExternalDebugInfo.type, ExternalDebugInfo()),
+    external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
     # This argsfile is generated in the `cxx_link` step and contains a list of arguments
     # passed to the linker. It is being exposed as a sub-target for debugging purposes.
     linker_argsfile = field(["artifact", None], None),
@@ -357,7 +357,7 @@ LinkInfosTSet = transitive_set(
 # A map of native linkable infos from transitive dependencies.
 MergedLinkInfo = provider(fields = [
     "_infos",  # {LinkStyle.type: LinkInfosTSet.type}
-    "_external_debug_info",  # {LinkStyle.type: ExternalDebugInfo.type}
+    "_external_debug_info",  # {LinkStyle.type: ArtifactTSet.type}
     # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
     #
     # To save on repeated computation of transitive LinkInfos, we store a dedupped
@@ -459,7 +459,7 @@ def create_merged_link_info(
                 value = link_infos[actual_link_style],
                 children = children,
             )
-            external_debug_info[link_style] = make_external_debug_info(
+            external_debug_info[link_style] = make_artifact_tset(
                 actions = ctx.actions,
                 label = ctx.label,
                 children = (
@@ -487,7 +487,7 @@ def merge_link_infos(
             LinkInfosTSet,
             children = filter(None, [x._infos.get(link_style) for x in xs]),
         )
-        merged_external_debug_info[link_style] = make_external_debug_info(
+        merged_external_debug_info[link_style] = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
             children = filter(None, [x._external_debug_info.get(link_style) for x in xs]),
@@ -516,7 +516,7 @@ def get_link_info(
 
 LinkArgsTSet = record(
     infos = field(LinkInfosTSet.type),
-    external_debug_info = field(ExternalDebugInfo.type, ExternalDebugInfo()),
+    external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
     prefer_stripped = field(bool.type, False),
 )
 
@@ -579,20 +579,20 @@ def unpack_link_args_filelist(args: LinkArgs.type) -> ["_arglike", None]:
 
     fail("Unpacked invalid empty link args")
 
-def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> ExternalDebugInfo.type:
+def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> ArtifactTSet.type:
     if args.tset != None:
         if args.tset.prefer_stripped:
-            return ExternalDebugInfo()
+            return ArtifactTSet()
         return args.tset.external_debug_info
 
     if args.infos != None:
-        return make_external_debug_info(
+        return make_artifact_tset(
             actions = actions,
             children = [info.external_debug_info for info in args.infos],
         )
 
     if args.flags != None:
-        return ExternalDebugInfo()
+        return ArtifactTSet()
 
     fail("Unpacked invalid empty link args")
 

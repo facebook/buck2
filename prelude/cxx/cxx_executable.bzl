@@ -5,6 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",
+    "make_artifact_tset",
+    "project_artifact_tset",
+)
 load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_preference")
 load(
     "@prelude//:resources.bzl",
@@ -103,12 +109,6 @@ load(
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
 load(
-    ":debug.bzl",
-    "ExternalDebugInfo",
-    "make_external_debug_info",
-    "project_external_debug_info",
-)
-load(
     ":link.bzl",
     "CxxLinkResultType",
     "CxxLinkerMapData",
@@ -149,7 +149,7 @@ CxxExecutableOutput = record(
     # The LinkArgs used to create the final executable in 'binary'.
     link_args = [LinkArgs.type],
     # External components needed to debug the executable.
-    external_debug_info = field(ExternalDebugInfo.type, ExternalDebugInfo()),
+    external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
     shared_libs = {str: LinkedObject.type},
     # All link group links that were generated in the executable.
     auto_link_groups = field({str: LinkedObject.type}, {}),
@@ -424,7 +424,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                     linker_type = linker_info.type,
                     link_whole = True,
                 )],
-                external_debug_info = make_external_debug_info(
+                external_debug_info = make_artifact_tset(
                     actions = ctx.actions,
                     label = ctx.label,
                     artifacts = (
@@ -566,7 +566,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         )]
 
     # Provide a debug info target to make sure debug info is materialized.
-    external_debug_info = make_external_debug_info(
+    external_debug_info = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
         children = (
@@ -575,7 +575,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         ),
     )
     sub_targets["debuginfo"] = [DefaultInfo(
-        other_outputs = project_external_debug_info(
+        other_outputs = project_artifact_tset(
             actions = ctx.actions,
             infos = [external_debug_info],
         ),

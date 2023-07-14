@@ -6,14 +6,14 @@
 # of this source tree.
 
 load(
+    "@prelude//:artifact_tset.bzl",
+    "make_artifact_tset",
+    "project_artifact_tset",
+)
+load(
     "@prelude//cxx:cxx_bolt.bzl",
     "bolt",
     "cxx_use_bolt",
-)
-load(
-    "@prelude//cxx:debug.bzl",
-    "make_external_debug_info",
-    "project_external_debug_info",
 )
 load(
     "@prelude//cxx/dist_lto:dist_lto.bzl",
@@ -177,7 +177,7 @@ def cxx_link(
         for link in links:
             external_debug_infos.append(unpack_external_debug_info(ctx.actions, link))
 
-    external_debug_info = make_external_debug_info(
+    external_debug_info = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = external_debug_artifacts,
@@ -243,7 +243,7 @@ def cxx_link(
         dwp_inputs = cmd_args()
         for link in links:
             dwp_inputs.add(unpack_link_args(link))
-        dwp_inputs.add(project_external_debug_info(ctx.actions, [external_debug_info]))
+        dwp_inputs.add(project_artifact_tset(ctx.actions, [external_debug_info]))
 
         dwp_artifact = dwp(
             ctx,

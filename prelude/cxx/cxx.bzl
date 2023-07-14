@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifact_tset.bzl", "ArtifactTSet")  # @unused Used as a type
 load(
     "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
@@ -74,7 +75,6 @@ load(
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
 )
-load(":debug.bzl", "ExternalDebugInfo")  # @unused Used as a type
 load(
     ":groups.bzl",
     "Group",  # @unused Used as a type
@@ -127,7 +127,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         _ctx: "context",
         _executable: "artifact",
-        _external_debug_info: ExternalDebugInfo.type,
+        _external_debug_info: ArtifactTSet.type,
         dwp: ["artifact", None],
         pdb: ["artifact", None],
         linker_map: [CxxLinkerMapData.type, None]) -> ({str: ["provider"]}, ["provider"]):

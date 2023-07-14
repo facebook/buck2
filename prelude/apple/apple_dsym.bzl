@@ -14,7 +14,7 @@ DEBUGINFO_SUBTARGET = "debuginfo"
 
 AppleDebuggableInfo = provider(fields = [
     "dsyms",  # ["artifact"]
-    "external_debug_info",  # ExternalDebugInfo.type
+    "external_debug_info",  # ArtifactTSet.type
 ])
 
 AppleBundleDebuggableInfo = record(

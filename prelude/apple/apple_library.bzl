@@ -5,6 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",  # @unused Used as a type
+    "make_artifact_tset",
+    "project_artifact_tset",
+)
 load("@prelude//apple:apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
@@ -37,12 +43,6 @@ load(
     "CxxRuleConstructorParams",
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
-)
-load(
-    "@prelude//cxx:debug.bzl",
-    "ExternalDebugInfo",  # @unused Used as a type
-    "make_external_debug_info",
-    "project_external_debug_info",
 )
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers")
 load(
@@ -274,7 +274,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         ctx: "context",
         executable: "artifact",
-        external_debug_info: ExternalDebugInfo.type,
+        external_debug_info: ArtifactTSet.type,
         _dwp: ["artifact", None],
         _pdb: ["artifact", None],
         linker_map: [CxxLinkerMapData.type, None]) -> ({str: ["provider"]}, ["provider"]):
@@ -284,7 +284,7 @@ def _get_shared_link_style_sub_targets_and_providers(
     min_version = get_min_deployment_version_for_node(ctx)
     min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
 
-    external_debug_info_args = project_external_debug_info(
+    external_debug_info_args = project_artifact_tset(
         actions = ctx.actions,
         infos = [external_debug_info],
     )
@@ -306,14 +306,14 @@ def _get_shared_link_style_sub_targets_and_providers(
         providers += [AppleBundleLinkerMapInfo(linker_maps = [linker_map.map])]
     return (subtargets, providers)
 
-def _get_swift_static_external_debug_info(ctx: "context", swiftmodule: "artifact") -> [ExternalDebugInfo.type]:
-    return [make_external_debug_info(
+def _get_swift_static_external_debug_info(ctx: "context", swiftmodule: "artifact") -> [ArtifactTSet.type]:
+    return [make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = [swiftmodule],
     )]
 
-def _get_swift_shared_external_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> [ExternalDebugInfo.type]:
+def _get_swift_shared_external_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> [ArtifactTSet.type]:
     return [swift_dependency_info.external_debug_info] if swift_dependency_info.external_debug_info else []
 
 def _get_linker_flags(ctx: "context") -> "cmd_args":

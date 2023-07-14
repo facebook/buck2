@@ -5,6 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",  # @unused Used as a type
+    "make_artifact_tset",
+)
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//:resources.bzl",
@@ -137,11 +142,6 @@ load(
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
 load(
-    ":debug.bzl",
-    "ExternalDebugInfo",  # @unused Used as a type
-    "make_external_debug_info",
-)
-load(
     ":link.bzl",
     "CxxLinkResult",  # @unused Used as a type
     "CxxLinkerMapData",
@@ -195,7 +195,7 @@ _CxxLibraryOutput = record(
     other = field(["artifact"], []),
     bitcode_bundle = field([BitcodeBundle.type, None], None),
     # Additional debug info which is not included in the library output.
-    external_debug_info = field(ExternalDebugInfo.type, ExternalDebugInfo()),
+    external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
     # A shared shared library may have an associated dwp file with
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled, for static/static-pic libraries,
@@ -597,7 +597,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                         linker_type = linker_type,
                         link_whole = True,
                     )],
-                    external_debug_info = make_external_debug_info(
+                    external_debug_info = make_artifact_tset(
                         actions = ctx.actions,
                         label = ctx.label,
                         artifacts = (
@@ -886,7 +886,7 @@ def _form_library_outputs(
                     impl_params,
                     compiled_srcs.pic_objects if pic else compiled_srcs.objects,
                     objects_have_external_debug_info = compiled_srcs.pic_objects_have_external_debug_info if pic else compiled_srcs.objects_have_external_debug_info,
-                    external_debug_info = make_external_debug_info(
+                    external_debug_info = make_artifact_tset(
                         ctx.actions,
                         label = ctx.label,
                         artifacts = (compiled_srcs.pic_external_debug_info if pic else compiled_srcs.external_debug_info),
@@ -921,7 +921,7 @@ def _form_library_outputs(
                     external_debug_artifacts.extend(compiled_srcs.pic_objects)
                 if impl_params.extra_link_input_has_external_debug_info:
                     external_debug_artifacts.extend(impl_params.extra_link_input)
-                external_debug_info = make_external_debug_info(
+                external_debug_info = make_artifact_tset(
                     actions = ctx.actions,
                     label = ctx.label,
                     artifacts = external_debug_artifacts,
@@ -1103,7 +1103,7 @@ def _static_library(
         stripped: bool,
         extra_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         objects_have_external_debug_info: bool = False,
-        external_debug_info: ExternalDebugInfo.type = ExternalDebugInfo(),
+        external_debug_info: ArtifactTSet.type = ArtifactTSet(),
         bitcode_objects: [["artifact"], None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
@@ -1158,7 +1158,7 @@ def _static_library(
     elif objects_have_external_debug_info:
         object_external_debug_info.extend(objects)
 
-    all_external_debug_info = make_external_debug_info(
+    all_external_debug_info = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = object_external_debug_info,
@@ -1215,7 +1215,7 @@ def _shared_library(
         ctx: "context",
         impl_params: "CxxRuleConstructorParams",
         objects: ["artifact"],
-        external_debug_info: ExternalDebugInfo.type,
+        external_debug_info: ArtifactTSet.type,
         dep_infos: "LinkArgs",
         gnu_use_link_groups: bool,
         extra_linker_flags: ["_arglike"],

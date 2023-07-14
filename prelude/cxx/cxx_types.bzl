@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifact_tset.bzl", "ArtifactTSet")  # @unused Used as a type
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
@@ -23,7 +24,6 @@ load(
     ":compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load(":debug.bzl", "ExternalDebugInfo")  # @unused Used as a type
 load(
     ":headers.bzl",
     "CxxHeadersLayout",
@@ -85,9 +85,9 @@ CxxRuleAdditionalParams = record(
     # Additional argsfiles to include for this rule.
     argsfiles = field(CompileArgsfiles.type, CompileArgsfiles()),
     # External debug info to be used when generated static output
-    static_external_debug_info = field([ExternalDebugInfo.type], []),
+    static_external_debug_info = field([ArtifactTSet.type], []),
     # External debug info to be used when generating shared objects
-    shared_external_debug_info = field([ExternalDebugInfo.type], []),
+    shared_external_debug_info = field([ArtifactTSet.type], []),
     subtargets = field(dict, {}),  # [str: ["provider"]]
     # Might be used to expose additional providers to cxx layer (e.g to support #headers subtarget for Swift)
     additional_providers_factory = field(["function", None], None),  # (["CPreprocessorInfo", None]) -> ["provider"]:
