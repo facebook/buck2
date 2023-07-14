@@ -65,8 +65,12 @@ enum TargetHashFunction {
     Strong,
 }
 
+/// Show details about the specified targets.
+///
+/// This command is meant to only handle unconfigured targets,
+/// but for historical reasons, with certain flags it can also work with configured targets.
 #[derive(Debug, clap::Parser)]
-#[clap(name = "targets", about = "Show details about the specified targets")]
+#[clap(name = "utargets")]
 pub struct TargetsCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,

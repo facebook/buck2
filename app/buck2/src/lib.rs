@@ -265,7 +265,9 @@ pub(crate) enum CommandKind {
     Status(StatusCommand),
     #[clap(subcommand)]
     Starlark(StarlarkCommand),
+    /// Alias for `utargets`.
     Targets(TargetsCommand),
+    Utargets(TargetsCommand),
     Ctargets(ConfiguredTargetsCommand),
     Uquery(UqueryCommand),
     #[clap(subcommand, setting(AppSettings::Hidden))]
@@ -411,6 +413,7 @@ impl CommandKind {
             CommandKind::Server(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Status(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Targets(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Utargets(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Ctargets(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Audit(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Starlark(cmd) => cmd.exec(matches, command_ctx),
@@ -446,6 +449,7 @@ impl CommandKind {
             CommandKind::Server(cmd) => cmd.sanitize_argv(argv),
             CommandKind::Status(cmd) => cmd.sanitize_argv(argv),
             CommandKind::Targets(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Utargets(cmd) => cmd.sanitize_argv(argv),
             CommandKind::Ctargets(cmd) => cmd.sanitize_argv(argv),
             CommandKind::Audit(cmd) => cmd.sanitize_argv(argv),
             CommandKind::Starlark(cmd) => cmd.sanitize_argv(argv),
