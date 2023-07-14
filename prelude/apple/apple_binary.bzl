@@ -126,6 +126,7 @@ def apple_binary_impl(ctx: "context") -> [["provider"], "promise"]:
             AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
             AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = cxx_output.external_debug_info),
             cxx_output.xcode_data,
+            cxx_output.compilation_db,
             merge_bundle_linker_maps_info(bundle_infos),
         ] + [resource_graph] + min_version_providers
 
