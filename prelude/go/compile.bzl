@@ -82,14 +82,17 @@ def _get_import_map(pkgs: [str]) -> {str: str}:
 
 def _assemble_cmd(
         ctx: "context",
+        pkg_name: str,
         flags: [str] = [],
         shared: bool = False) -> "cmd_args":
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     cmd = cmd_args()
     cmd.add(go_toolchain.assembler)
     cmd.add(flags)
+    cmd.add("-p", pkg_name)
     if shared:
         cmd.add("-shared")
+
     return cmd
 
 def _compile_cmd(
@@ -150,7 +153,7 @@ def compile(
     cmd.add(go_toolchain.compile_wrapper[RunInfo])
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(cmd_args(_compile_cmd(ctx, pkg_name, pkgs, deps, compile_flags, shared = shared), format = "--compiler={}"))
-    cmd.add(cmd_args(_assemble_cmd(ctx, assemble_flags, shared = shared), format = "--assembler={}"))
+    cmd.add(cmd_args(_assemble_cmd(ctx, pkg_name, assemble_flags, shared = shared), format = "--assembler={}"))
     cmd.add(cmd_args(go_toolchain.packer, format = "--packer={}"))
     if ctx.attrs.embedcfg:
         cmd.add(cmd_args(ctx.attrs.embedcfg, format = "--embedcfg={}"))

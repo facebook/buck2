@@ -94,6 +94,10 @@ def main(argv):
                 asmhdr.touch()
                 compile_prefix.extend(["-asmhdr", asmhdr])
                 assemble_prefix.extend(["-I", asmhdr_dir.name])
+                assemble_prefix.extend(["-D", f"GOOS_{os.environ['GOOS']}"])
+                assemble_prefix.extend(["-D", f"GOARCH_{os.environ['GOARCH']}"])
+                if "GOAMD64" in os.environ and os.environ["GOARCH"] == "amd64":
+                    assemble_prefix.extend(["-D", f"GOAMD64_{os.environ['GOAMD64']}"])
 
                 # Note: at this point go_asm.h is empty, but that's OK. As per the Go compiler:
                 # https://github.com/golang/go/blob/3f8f929d60a90c4e4e2b07c8d1972166c1a783b1/src/cmd/go/internal/work/gc.go#L441-L443
