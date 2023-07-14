@@ -14,6 +14,7 @@ regex = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 plist = { workspace = true }
+serde_json = { workspace = true }
 tokio = { workspace = true }
 
 allocative = { workspace = true }

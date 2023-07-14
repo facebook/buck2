@@ -17,6 +17,7 @@ thiserror = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+starlark_map = { workspace = true }
 
 dice = { workspace = true }
 gazebo = { workspace = true }

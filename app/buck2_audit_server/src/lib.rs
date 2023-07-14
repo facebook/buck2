@@ -29,6 +29,7 @@ mod dep_files;
 mod execution_platform_resolution;
 mod includes;
 pub mod output;
+mod package_values;
 mod prelude;
 mod providers;
 pub mod server;
@@ -93,6 +94,7 @@ impl AuditCommandExt for AuditCommand {
             AuditCommand::Visibility(cmd) => cmd,
             AuditCommand::Output(cmd) => cmd,
             AuditCommand::Parse(cmd) => cmd,
+            AuditCommand::PackageValues(cmd) => cmd,
         }
     }
 }

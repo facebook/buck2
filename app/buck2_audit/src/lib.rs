@@ -34,6 +34,7 @@ use crate::execution_platform_resolution::AuditExecutionPlatformResolutionComman
 use crate::includes::AuditIncludesCommand;
 use crate::output::command::AuditOutputCommand;
 use crate::output::parse::AuditParseCommand;
+use crate::package_values::PackageValuesCommand;
 use crate::prelude::AuditPreludeCommand;
 use crate::providers::AuditProvidersCommand;
 use crate::starlark::StarlarkCommand;
@@ -49,6 +50,7 @@ pub mod dep_files;
 pub mod execution_platform_resolution;
 pub mod includes;
 pub mod output;
+pub mod package_values;
 pub mod prelude;
 pub mod providers;
 pub mod starlark;
@@ -73,6 +75,7 @@ pub enum AuditCommand {
     DeferredMaterializer(DeferredMaterializerCommand),
     Output(AuditOutputCommand),
     Parse(AuditParseCommand),
+    PackageValues(PackageValuesCommand),
 }
 
 /// `buck2 audit` subcommands have a somewhat unique approach to make it really easy to
@@ -106,6 +109,7 @@ impl AuditCommand {
             AuditCommand::Visibility(cmd) => cmd,
             AuditCommand::Output(cmd) => cmd,
             AuditCommand::Parse(cmd) => cmd,
+            AuditCommand::PackageValues(cmd) => cmd,
         }
     }
 }

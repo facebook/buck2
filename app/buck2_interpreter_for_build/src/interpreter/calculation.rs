@@ -48,6 +48,7 @@ use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
 use smallvec::SmallVec;
 use starlark::environment::Globals;
+use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
@@ -212,6 +213,23 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .configuror
             .prelude_import()
             .cloned())
+    }
+
+    async fn package_values(
+        &self,
+        ctx: &DiceComputations,
+        package: PackageLabel,
+    ) -> anyhow::Result<SmallMap<String, serde_json::Value>> {
+        let listing = ctx.resolve_package_listing(package.dupe()).await?;
+        let super_package = ctx
+            .get_interpreter_calculator(
+                package.cell_name(),
+                BuildFileCell::new(package.cell_name()),
+            )
+            .await?
+            .eval_package_file_for_build_file(package, &listing)
+            .await?;
+        Ok(super_package.package_values().clone())
     }
 }
 

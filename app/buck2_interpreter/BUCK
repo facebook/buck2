@@ -19,6 +19,7 @@ rust_library(
         "fbsource//third-party/rust:plist",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "//buck2/allocative/allocative:allocative",

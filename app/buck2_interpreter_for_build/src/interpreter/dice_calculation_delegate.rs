@@ -408,7 +408,7 @@ impl<'c> DiceCalculationDelegate<'c> {
 
     /// Most directories do not contain a `PACKAGE` file, this function
     /// optimizes `eval_package_file` for this case by avoiding creation of DICE key.
-    async fn eval_package_file_for_build_file(
+    pub(crate) async fn eval_package_file_for_build_file(
         &self,
         package: PackageLabel,
         package_listing: &PackageListing,
