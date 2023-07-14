@@ -50,6 +50,8 @@ use fnv::FnvHasher;
 use internment_tweaks::Equiv;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
+use serde::Serialize;
+use serde::Serializer;
 
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;
@@ -68,6 +70,12 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
     Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
 )]
 pub struct PackageLabel(Intern<PackageLabelData>);
+
+impl Serialize for PackageLabel {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_str(&self.to_string())
+    }
+}
 
 #[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 struct PackageLabelData(CellPath);
@@ -165,5 +173,18 @@ impl PackageLabel {
     pub fn testing_parse(label: &str) -> PackageLabel {
         let (cell, path) = label.split_once("//").unwrap();
         PackageLabel::testing_new(cell, path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::package::PackageLabel;
+
+    #[test]
+    fn test_serialize() {
+        assert_eq!(
+            r#""foo//bar/baz""#,
+            serde_json::to_string(&PackageLabel::testing_parse("foo//bar/baz")).unwrap()
+        );
     }
 }
