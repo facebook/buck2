@@ -8,9 +8,11 @@
  */
 
 use async_trait::async_trait;
+use buck2_action_metadata_proto::RemoteDepFile;
 
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest::ActionDigest;
+use crate::execute::dep_file_digest::DepFileDigest;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
 
@@ -18,6 +20,11 @@ pub struct CacheUploadInfo<'a> {
     pub target: &'a dyn CommandExecutionTarget,
     pub action_digest: ActionDigest,
     pub digest_config: DigestConfig,
+}
+
+pub struct DepFileEntry {
+    pub key: DepFileDigest,
+    pub entry: RemoteDepFile,
 }
 
 /// A single purpose trait to handle cache uploads
@@ -30,6 +37,7 @@ pub trait UploadCache: Send + Sync {
         &self,
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
+        dep_file_entry: Option<DepFileEntry>,
     ) -> anyhow::Result<bool>;
 }
 
@@ -42,6 +50,7 @@ impl UploadCache for NoOpCacheUploader {
         &self,
         _info: &CacheUploadInfo<'_>,
         _execution_result: &CommandExecutionResult,
+        _dep_file_entry: Option<DepFileEntry>,
     ) -> anyhow::Result<bool> {
         Ok(false)
     }

@@ -14,6 +14,7 @@ pub mod cache_uploader;
 pub mod claim;
 pub mod clean_output_paths;
 pub mod command_executor;
+pub mod dep_file_digest;
 pub mod dice_data;
 pub mod environment_inheritance;
 pub mod inputs_directory;

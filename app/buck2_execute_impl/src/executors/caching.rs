@@ -24,6 +24,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
+use buck2_execute::execute::cache_uploader::DepFileEntry;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::result::CommandExecutionResult;
@@ -344,6 +345,7 @@ impl UploadCache for CacheUploader {
         &self,
         info: &CacheUploadInfo<'_>,
         res: &CommandExecutionResult,
+        _dep_file_entry: Option<DepFileEntry>,
     ) -> anyhow::Result<bool> {
         let error_on_cache_upload = match ERROR_ON_CACHE_UPLOAD.get_copied() {
             Ok(r) => r.unwrap_or_default(),

@@ -590,7 +590,7 @@ impl IncrementalActionExecutable for RunAction {
 
         if self.inner.allow_cache_upload {
             result.did_cache_upload = ctx
-                .cache_upload(prepared_action.action.dupe(), &result)
+                .cache_upload(prepared_action.action.dupe(), &result, None)
                 .await?;
         }
 

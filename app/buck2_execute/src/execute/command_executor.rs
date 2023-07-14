@@ -28,6 +28,7 @@ use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::cache_uploader::CacheUploadInfo;
+use crate::execute::cache_uploader::DepFileEntry;
 use crate::execute::cache_uploader::UploadCache;
 use crate::execute::executor_stage;
 use crate::execute::manager::CommandExecutionManager;
@@ -122,8 +123,12 @@ impl CommandExecutor {
         &self,
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
+        dep_file_entry: Option<DepFileEntry>,
     ) -> anyhow::Result<bool> {
-        self.0.cache_uploader.upload(info, execution_result).await
+        self.0
+            .cache_uploader
+            .upload(info, execution_result, dep_file_entry)
+            .await
     }
 
     /// Execute a command.
