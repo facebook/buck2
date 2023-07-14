@@ -7,15 +7,21 @@
  * of this source tree.
  */
 
+use anyhow::Context;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::LocalResourceInfoCallable;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_test_api::data::RequiredLocalResources;
+use dice::DiceTransaction;
+use either::Either;
 use indexmap::IndexMap;
 
 /// Container for everything needed to set up a local resource.
@@ -32,12 +38,13 @@ pub(crate) struct LocalResourceSetupContext {
     pub env_var_mapping: IndexMap<String, String>,
 }
 
-pub(crate) fn required_local_resources_setup_contexts(
+pub(crate) async fn required_local_resources_setup_contexts(
+    dice: &DiceTransaction,
     executor_fs: &ExecutorFs<'_>,
     test_info: &FrozenExternalRunnerTestInfo,
     required_local_resources: &RequiredLocalResources,
 ) -> anyhow::Result<Vec<LocalResourceSetupContext>> {
-    let providers = required_providers(test_info, required_local_resources)?;
+    let providers = required_providers(dice, test_info, required_local_resources).await?;
     let mut cmd_line_context = DefaultCommandLineContext::new(executor_fs);
     let mut result = vec![];
     for provider in providers {
@@ -58,12 +65,14 @@ pub(crate) fn required_local_resources_setup_contexts(
     Ok(result)
 }
 
-fn required_providers<'v>(
+async fn required_providers<'v>(
+    dice: &DiceTransaction,
     test_info: &'v FrozenExternalRunnerTestInfo,
     required_local_resources: &'v RequiredLocalResources,
 ) -> anyhow::Result<Vec<&'v FrozenLocalResourceInfo>> {
     let available_resources = test_info.local_resources();
-    required_local_resources
+
+    let targets = required_local_resources
         .resources
         .iter()
         .map(|resource_type| &resource_type.name as &'v str)
@@ -83,5 +92,32 @@ fn required_providers<'v>(
                 None
             }
         })
-        .collect()
+        .collect::<Result<Vec<_>, anyhow::Error>>()?;
+
+    let futs = targets.iter().map(|t| get_local_resource_info(dice, t));
+
+    futures::future::join_all(futs)
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+}
+
+async fn get_local_resource_info<'a, 'v>(
+    dice: &'a DiceTransaction,
+    provider_or_target: &'a Either<&'v FrozenLocalResourceInfo, &'v ConfiguredProvidersLabel>,
+) -> anyhow::Result<&'v FrozenLocalResourceInfo> {
+    match provider_or_target {
+        Either::Left(provider) => Ok(*provider),
+        Either::Right(target) => {
+            let providers = dice.get_providers(target).await?.require_compatible()?;
+            let providers = providers.provider_collection();
+            Ok(providers
+                .get_provider(LocalResourceInfoCallable::provider_id_t())
+                .context(format!(
+                    "Target `{}` expected to contain `LocalResourceInfo` provider",
+                    target
+                ))?
+                .as_ref())
+        }
+    }
 }

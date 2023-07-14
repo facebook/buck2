@@ -13,6 +13,8 @@ use std::iter::once;
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_build_api_derive::internal_provider;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_interpreter::types::label::Label;
 use either::Either;
 use indexmap::IndexMap;
 use starlark::any::ProvidesStaticType;
@@ -96,11 +98,11 @@ pub struct ExternalRunnerTestInfoGen<V> {
     #[provider(field_type = "DictType<String, StarlarkCommandExecutorConfig>")]
     executor_overrides: V,
 
-    /// Mapping from a local resource type to a corresponding provider.
+    /// Mapping from a local resource type to a target with a corresponding provider.
     /// Required types are passed from test runner.
     /// If the value for a corresponding type is omitted it means local resource
     /// should be ignored when executing tests even if those are passed as required from test runner.
-    #[provider(field_type = "DictType<String, Option<FrozenLocalResourceInfo>>")]
+    #[provider(field_type = "DictType<String, Option<Either<FrozenLocalResourceInfo, Label>>>")]
     local_resources: V,
 }
 
@@ -152,7 +154,9 @@ impl FrozenExternalRunnerTestInfo {
             .map(|v| StarlarkCommandExecutorConfig::from_value(v.to_value()).unwrap())
     }
 
-    pub fn local_resources(&self) -> IndexMap<&str, Option<&FrozenLocalResourceInfo>> {
+    pub fn local_resources(
+        &self,
+    ) -> IndexMap<&str, Option<Either<&FrozenLocalResourceInfo, &ConfiguredProvidersLabel>>> {
         unwrap_all(iter_local_resources(self.local_resources.to_value())).collect()
     }
 
@@ -341,7 +345,12 @@ fn iter_executor_overrides<'v>(
 
 fn iter_local_resources<'v>(
     local_resources: Value<'v>,
-) -> impl Iterator<Item = anyhow::Result<(&'v str, Option<&'v FrozenLocalResourceInfo>)>> {
+) -> impl Iterator<
+    Item = anyhow::Result<(
+        &'v str,
+        Option<Either<&'v FrozenLocalResourceInfo, &'v ConfiguredProvidersLabel>>,
+    )>,
+> {
     if local_resources.is_none() {
         return Either::Left(Either::Left(empty()));
     }
@@ -371,14 +380,19 @@ fn iter_local_resources<'v>(
 
         let resource = if value.is_none() {
             None
+        } else if let Some(provider) = value.downcast_ref::<FrozenLocalResourceInfo>() {
+            Some(Either::Left(provider))
         } else {
-            Some(
-                value
-                    .downcast_ref::<FrozenLocalResourceInfo>()
-                    .with_context(|| {
-                        format!("Invalid value in `local_resources` for key `{}`", key)
-                    })?,
-            )
+            Some(Either::Right(
+                Label::from_value(value)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(format!(
+                            "Invalid value in `local_resources` for key `{}`",
+                            key
+                        ))
+                    })?
+                    .label(),
+            ))
         };
 
         Ok((key, resource))

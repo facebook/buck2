@@ -254,10 +254,12 @@ impl<'a> BuckTestOrchestrator<'a> {
             let setup_contexts = {
                 let executor_fs = setup_local_resources_executor.executor_fs();
                 required_local_resources_setup_contexts(
+                    &self.dice,
                     &executor_fs,
                     &test_info,
                     &required_local_resources,
-                )?
+                )
+                .await?
             };
             // Some timeout is neeeded, use the same value as for the test itself which is better than nothing.
             let resources = self
