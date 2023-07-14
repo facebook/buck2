@@ -5,14 +5,14 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//android:android_providers.bzl", "Aapt2LinkInfo")
+load("@prelude//android:android_providers.bzl", "Aapt2LinkInfo", "RESOURCE_PRIORITY_LOW")
 
 BASE_PACKAGE_ID = 0x7f
 
 def get_aapt2_link(
         ctx: "context",
         android_toolchain: "AndroidToolchainInfo",
-        aapt2_compile_rules: ["artifact"],
+        resource_infos: ["AndroidResourceInfo"],
         android_manifest: "artifact",
         includes_vector_drawables: bool,
         no_auto_version: bool,
@@ -85,6 +85,14 @@ def get_aapt2_link(
 
         for compiled_resource_apk in compiled_resource_apks:
             aapt2_command.add(["-I", compiled_resource_apk])
+
+        # put low priority resources first so that they get overwritten by higher priority resources
+        low_priority_aapt2_compile_rules = []
+        normal_priority_aapt2_compile_rules = []
+        for resource_info in resource_infos:
+            if resource_info.aapt2_compile_output:
+                (low_priority_aapt2_compile_rules if resource_info.res_priority == RESOURCE_PRIORITY_LOW else normal_priority_aapt2_compile_rules).append(resource_info.aapt2_compile_output)
+        aapt2_compile_rules = low_priority_aapt2_compile_rules + normal_priority_aapt2_compile_rules
 
         aapt2_compile_rules_args_file = ctx.actions.write("{}/aapt2_compile_rules_args_file".format(identifier), cmd_args(aapt2_compile_rules, delimiter = " "))
         aapt2_command.add("-R")

@@ -47,7 +47,7 @@ def get_android_binary_resources_info(
     non_proto_format_aapt2_link_info, proto_format_aapt2_link_info = get_aapt2_link(
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
-        [resource_info.aapt2_compile_output for resource_info in resource_infos if resource_info.aapt2_compile_output != None],
+        resource_infos,
         android_manifest,
         includes_vector_drawables = getattr(ctx.attrs, "includes_vector_drawables", False),
         no_auto_version = getattr(ctx.attrs, "no_auto_version_resources", False),
