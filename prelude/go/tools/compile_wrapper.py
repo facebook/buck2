@@ -70,9 +70,12 @@ def main(argv):
         args.output.touch()
         return
 
-    go_files = [s for s in args.srcs if s.suffix == ".go"]
-    s_files = [s for s in args.srcs if s.suffix == ".s"]
-    o_files = [s for s in args.srcs if s.suffix == ".o"]
+    # go:embed does not parse symlinks, so following the links to the real paths
+    real_srcs = [s.resolve() for s in args.srcs]
+
+    go_files = [s for s in real_srcs if s.suffix == ".go"]
+    s_files = [s for s in real_srcs if s.suffix == ".s"]
+    o_files = [s for s in real_srcs if s.suffix == ".o"]
 
     with contextlib.ExitStack() as stack:
 

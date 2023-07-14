@@ -58,7 +58,7 @@ def get_filtered_srcs(ctx: "context", srcs: ["artifact"], tests: bool = False) -
     ctx.actions.run(filter_cmd, category = "go_filter_srcs")
 
     # Add filtered srcs to compile command.
-    return cmd_args(filtered_srcs, format = "@{}").hidden(srcs)
+    return cmd_args(filtered_srcs, format = "@{}").hidden(srcs).hidden(srcs_dir)
 
 def _get_import_map(pkgs: [str]) -> {str: str}:
     """

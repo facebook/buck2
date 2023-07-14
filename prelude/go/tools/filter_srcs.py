@@ -36,7 +36,6 @@ def main(argv):
     args = parser.parse_args(argv[1:])
 
     # Find all source sub-dirs, which we'll need to run `go list` from.
-    # go:embed does not parse symlinks, so following the links to the real paths
     roots = set()
     for root, _dirs, _files in os.walk(args.srcdir):
         roots.add(root)
@@ -82,7 +81,7 @@ def main(argv):
             for typ in types:
                 for src in obj.get(typ, []):
                     src = Path(obj["Dir"]) / src
-                    src = src.resolve().relative_to(os.getcwd())
+                    src = src.relative_to(os.getcwd())
                     print(src, file=args.output)
 
     args.output.close()
