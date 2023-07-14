@@ -25,6 +25,7 @@
 
 pub(crate) mod bindings;
 pub(crate) mod ctx;
+pub(crate) mod custom;
 pub(crate) mod error;
 pub(crate) mod function;
 pub(crate) mod mode;

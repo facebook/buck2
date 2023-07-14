@@ -24,8 +24,8 @@ use allocative::Allocative;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingError;
-use crate::typing::ty::TyCustomImpl;
 use crate::typing::Arg;
 use crate::typing::Param;
 use crate::typing::Ty;
