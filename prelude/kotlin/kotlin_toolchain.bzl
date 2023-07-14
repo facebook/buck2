@@ -29,6 +29,7 @@ KotlinToolchainInfo = provider(
         "kosabi_stubs_gen_plugin",
         "kosabi_applicability_plugin",
         "kosabi_jvm_abi_gen_plugin",
+        "kosabi_supported_ksp_providers",
         "jvm_abi_gen_plugin",
         "should_use_compilation_tracer",
         "track_class_usage_plugin",

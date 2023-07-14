@@ -106,6 +106,7 @@ def create_jar_artifact_kotlincd(
             kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
             jvmTarget = get_kotlinc_compatible_target(str(target_level)),
             kosabiJvmAbiGenEarlyTerminationMessagePrefix = "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI.",
+            kosabiSupportedKspProviders = kotlin_toolchain.kosabi_supported_ksp_providers,
             shouldUseCompilationTracer = kotlin_toolchain.should_use_compilation_tracer,
             shouldUseJvmAbiGen = should_use_jvm_abi_gen,
             shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
