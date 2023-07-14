@@ -385,7 +385,6 @@ def prepare_cd_exe(
         extra_jvm_args_target: ["label", None]) -> tuple.type:
     local_only = False
     jvm_args = ["-XX:-MaxFDLimit"]
-    debug_args = []
 
     if extra_jvm_args_target:
         if qualified_name == base_qualified_name(extra_jvm_args_target):
@@ -397,14 +396,16 @@ def prepare_cd_exe(
     if debug_port and qualified_name == base_qualified_name(debug_target):
         # Do not use a worker when debugging is enabled
         local_only = True
-        debug_args = ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port)]
+        jvm_args.extend(["-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port)])
+
+    non_worker_args = cmd_args([java, jvm_args, "-jar", compiler])
 
     if local_only:
-        return RunInfo(args = cmd_args([java, debug_args, jvm_args, "-jar", compiler])), True
+        return RunInfo(args = non_worker_args), True
     else:
         worker_run_info = WorkerRunInfo(
             # Specifies the command to compile using a non-worker process, on RE or if workers are disabled
-            exe = cmd_args([java, jvm_args, "-jar", compiler]),
+            exe = non_worker_args,
             # Specifies the command to initialize a new worker process.
             # This is used for local execution if `build.use_persistent_workers=True`
             worker = worker,
