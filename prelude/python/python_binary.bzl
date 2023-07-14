@@ -5,6 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "project_artifact_tset",
+)
 load("@prelude//cxx:compile.bzl", "CxxSrcWithFlags")
 load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
@@ -444,6 +448,14 @@ def convert_python_library_to_executable(
             sub_targets["dwp"] = [DefaultInfo(default_output = omnibus_linked_obj.dwp if omnibus_linked_obj.dwp else None)]
             if omnibus_link_result.linker_map_data != None:
                 sub_targets["linker-map"] = [DefaultInfo(default_output = omnibus_link_result.linker_map_data.map, other_outputs = [omnibus_link_result.linker_map_data.binary])]
+            sub_targets["sources"] = [
+                DefaultInfo(
+                    other_outputs = project_artifact_tset(
+                        actions = ctx.actions,
+                        infos = [lib.debug_sources for lib in omnibus_libs.libraries.values()],
+                    ),
+                ),
+            ]
             omnibus_info = DefaultInfo(
                 default_output = omnibus_linked_obj.output,
                 sub_targets = sub_targets,
