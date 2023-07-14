@@ -96,6 +96,7 @@ const manualSidebar = [
           'build_observability/logging',
           isInternal() ? 'build_observability/observability' : [],
           isInternal() ? 'build_observability/scuba' : [],
+          isInternal() ? 'build_observability/ods' : [],
         ],
       },
       'remote_execution',
