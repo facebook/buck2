@@ -253,9 +253,8 @@ impl<'a> BuckTestOrchestrator<'a> {
 
             let setup_contexts = {
                 let executor_fs = setup_local_resources_executor.executor_fs();
-                let mut cmd_line_context = DefaultCommandLineContext::new(&executor_fs);
                 required_local_resources_setup_contexts(
-                    &mut cmd_line_context,
+                    &executor_fs,
                     &test_info,
                     &required_local_resources,
                 )?

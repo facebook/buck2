@@ -8,12 +8,13 @@
  */
 
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
 use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_test_api::data::RequiredLocalResources;
 use indexmap::IndexMap;
 
@@ -32,16 +33,17 @@ pub(crate) struct LocalResourceSetupContext {
 }
 
 pub(crate) fn required_local_resources_setup_contexts(
-    cmd_line_context: &mut dyn CommandLineContext,
+    executor_fs: &ExecutorFs<'_>,
     test_info: &FrozenExternalRunnerTestInfo,
     required_local_resources: &RequiredLocalResources,
 ) -> anyhow::Result<Vec<LocalResourceSetupContext>> {
     let providers = required_providers(test_info, required_local_resources)?;
+    let mut cmd_line_context = DefaultCommandLineContext::new(executor_fs);
     let mut result = vec![];
     for provider in providers {
         let setup_command_line = provider.setup_command_line();
         let mut cmd: Vec<String> = vec![];
-        setup_command_line.add_to_command_line(&mut cmd, cmd_line_context)?;
+        setup_command_line.add_to_command_line(&mut cmd, &mut cmd_line_context)?;
 
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         setup_command_line.visit_artifacts(&mut artifact_visitor)?;
