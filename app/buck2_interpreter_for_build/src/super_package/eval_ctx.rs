@@ -11,7 +11,6 @@ use std::cell::RefCell;
 
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
-use starlark::values::OwnedFrozenValue;
 use starlark_map::small_map::SmallMap;
 
 use crate::super_package::data::SuperPackage;
@@ -28,16 +27,15 @@ pub(crate) struct PackageFileEvalCtx {
     /// Parent file context.
     /// When evaluating root `PACKAGE` file, parent is still defined.
     pub(crate) parent: SuperPackage,
+    /// Package values set in this file. Does not include values from parent files.
+    pub(crate) package_values: RefCell<SmallMap<String, serde_json::Value>>,
     pub(crate) visibility: RefCell<Option<PackageFileVisibilityFields>>,
 }
 
 impl PackageFileEvalCtx {
-    pub(crate) fn build_super_package(
-        self,
-        package_values: SmallMap<String, OwnedFrozenValue>,
-    ) -> SuperPackage {
+    pub(crate) fn build_super_package(self) -> SuperPackage {
         let mut merged_package_values = self.parent.package_values().clone();
-        merged_package_values.extend(package_values);
+        merged_package_values.extend(self.package_values.into_inner());
 
         let PackageFileVisibilityFields {
             visibility,

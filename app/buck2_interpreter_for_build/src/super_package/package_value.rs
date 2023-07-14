@@ -7,22 +7,12 @@
  * of this source tree.
  */
 
-use std::cell::RefCell;
-
-use allocative::Allocative;
 use anyhow::Context;
-use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::none::NoneType;
-use starlark::values::starlark_value;
-use starlark::values::NoSerialize;
-use starlark::values::StarlarkValue;
-use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLike;
-use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::module_internals::ModuleInternals;
@@ -44,23 +34,6 @@ fn validate_key(key: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[derive(
-    Default,
-    Debug,
-    derive_more::Display,
-    Allocative,
-    ProvidesStaticType,
-    Trace,
-    NoSerialize
-)]
-#[display(fmt = "{:?}", self)]
-pub(crate) struct PackageValues<'v> {
-    pub(crate) values: RefCell<SmallMap<String, Value<'v>>>,
-}
-
-#[starlark_value(type = "PackageValues")]
-impl<'v> StarlarkValue<'v> for PackageValues<'v> {}
-
 #[starlark_module]
 pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
     /// Set the value to be accessible in the nested `PACKAGE` files.
@@ -76,17 +49,7 @@ pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
             .additional
             .require_package_file("write_package_value")?;
 
-        let extra_value = eval
-            .module()
-            .extra_value()
-            .context("Module extra value was not set (internal error)")?;
-        let package_values = extra_value
-            .downcast_ref::<PackageValues>()
-            .context("Module extra value was not a `PackageValues` (internal error)")?;
-
-        let mut package_values = package_values.values.borrow_mut();
-
-        if package_values.contains_key(key) {
+        if package_ctx.package_values.borrow().contains_key(key) {
             return Err(PackageValueError::KeyAlreadySetInThisFile(key.to_owned()).into());
         }
 
@@ -96,7 +59,14 @@ pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
             }
         }
 
-        package_values.insert(key.to_owned(), value);
+        let value = value
+            .to_json_value()
+            .context("Package values must be convertible to JSON")?;
+
+        package_ctx
+            .package_values
+            .borrow_mut()
+            .insert(key.to_owned(), value);
 
         Ok(NoneType)
     }
@@ -115,7 +85,7 @@ pub fn register_read_package_value(globals: &mut GlobalsBuilder) {
 
         let build_ctx = ModuleInternals::from_context(eval, "read_package_value")?;
         match build_ctx.super_package.package_values().get(key) {
-            Some(value) => Ok(value.owned_value(eval.frozen_heap())),
+            Some(value) => Ok(eval.heap().alloc(value)),
             None => Ok(Value::new_none()),
         }
     }

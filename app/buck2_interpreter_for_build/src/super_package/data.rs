@@ -13,12 +13,11 @@ use allocative::Allocative;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
 use dupe::Dupe;
-use starlark::values::OwnedFrozenValue;
 use starlark_map::small_map::SmallMap;
 
 #[derive(Default, Debug, Allocative)]
 pub(crate) struct SuperPackageData {
-    package_values: SmallMap<String, OwnedFrozenValue>,
+    package_values: SmallMap<String, serde_json::Value>,
     visibility: VisibilitySpecification,
     within_view: WithinViewSpecification,
 }
@@ -30,7 +29,7 @@ pub(crate) struct SuperPackage(Arc<SuperPackageData>);
 
 impl SuperPackage {
     pub(crate) fn new(
-        package_values: SmallMap<String, OwnedFrozenValue>,
+        package_values: SmallMap<String, serde_json::Value>,
         visibility: VisibilitySpecification,
         within_view: WithinViewSpecification,
     ) -> SuperPackage {
@@ -41,7 +40,7 @@ impl SuperPackage {
         }))
     }
 
-    pub(crate) fn package_values(&self) -> &SmallMap<String, OwnedFrozenValue> {
+    pub(crate) fn package_values(&self) -> &SmallMap<String, serde_json::Value> {
         &self.0.package_values
     }
 

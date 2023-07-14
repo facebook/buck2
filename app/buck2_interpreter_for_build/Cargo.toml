@@ -22,6 +22,7 @@ once_cell = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 twox-hash = { workspace = true }
+serde_json = { workspace = true }
 sha2 = { workspace = true }
 smallvec = { workspace = true }
 
