@@ -10,6 +10,7 @@ members = [
     "app/buck2",
     "app/buck2_action_impl",
     "app/buck2_action_impl_tests",
+    "app/buck2_action_metadata_proto",
     "app/buck2_analysis",
     "app/buck2_anon_target",
     "app/buck2_audit",
@@ -301,6 +302,7 @@ starlark = { version = "0.9.0", path = "starlark-rust/starlark" }
 starlark_map = { version = "0.9.0", path = "starlark-rust/starlark_map" }
 
 buck2_action_impl = { path = "app/buck2_action_impl" }
+buck2_action_metadata_proto = { path = "app/buck2_action_metadata_proto" }
 buck2_analysis = { path = "app/buck2_analysis" }
 buck2_anon_target = { path = "app/buck2_anon_target" }
 buck2_bxl = { path = "app/buck2_bxl" }
