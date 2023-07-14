@@ -39,7 +39,7 @@ pub struct StructOf<'v, V: UnpackValue<'v>> {
 
 impl<'v, V: UnpackValue<'v>> StarlarkTypeRepr for StructOf<'v, V> {
     fn starlark_type_repr() -> Ty {
-        Ty::name(Struct::TYPE)
+        Struct::starlark_type_repr()
     }
 }
 
