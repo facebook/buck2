@@ -391,6 +391,20 @@ x.append(x)
 }
 
 #[test]
+fn test_dict_bug() {
+    // TODO(nga): figure out how to fix it.
+    //   Type of `y` should be inferred to `str`.
+    TypeCheck::new().ty("y").check(
+        "dict_bug",
+        r#"
+x = {}
+x.setdefault(33, "x")
+y = x[44]
+"#,
+    );
+}
+
+#[test]
 fn test_new_list_dict_syntax() {
     TypeCheck::new().ty("x").check(
         "new_list_dict_syntax",
