@@ -144,7 +144,6 @@ LinkInfo = record(
     # link info.  For example, this may include `.dwo` files, or the original
     # `.o` files if they contain debug info that doesn't follow the link.
     external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
-    debug_sources = field(ArtifactTSet.type, ArtifactTSet()),
 )
 
 # The ordering to use when traversing linker libs transitive sets.
@@ -188,7 +187,6 @@ def wrap_link_info(
         post_flags = post_flags,
         linkables = inner.linkables,
         external_debug_info = inner.external_debug_info,
-        debug_sources = inner.debug_sources,
     )
 
 # Adds appropriate args representing `linkable` to `args`
@@ -288,7 +286,6 @@ LinkedObject = record(
     # Additional dirs or paths that contain debug info referenced by the linked
     # object (e.g. split dwarf files or PDB file).
     external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
-    debug_sources = field(ArtifactTSet.type, ArtifactTSet()),
     # This argsfile is generated in the `cxx_link` step and contains a list of arguments
     # passed to the linker. It is being exposed as a sub-target for debugging purposes.
     linker_argsfile = field(["artifact", None], None),
@@ -361,7 +358,6 @@ LinkInfosTSet = transitive_set(
 MergedLinkInfo = provider(fields = [
     "_infos",  # {LinkStyle.type: LinkInfosTSet.type}
     "_external_debug_info",  # {LinkStyle.type: ArtifactTSet.type}
-    "_debug_sources",  # {LinkStyle.type: ArtifactTSet.type}
     # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
     #
     # To save on repeated computation of transitive LinkInfos, we store a dedupped
@@ -417,7 +413,6 @@ def create_merged_link_info(
 
     infos = {}
     external_debug_info = {}
-    debug_sources = {}
     frameworks = {}
     swift_runtime = {}
 
@@ -429,7 +424,6 @@ def create_merged_link_info(
 
         children = []
         external_debug_info_children = []
-        debug_sources_children = []
         framework_linkables = []
         swift_runtime_linkables = []
 
@@ -449,7 +443,6 @@ def create_merged_link_info(
             for dep_info in deps:
                 children.append(dep_info._infos[link_style])
                 external_debug_info_children.append(dep_info._external_debug_info[link_style])
-                debug_sources_children.append(dep_info._debug_sources[link_style])
                 framework_linkables.append(dep_info.frameworks[link_style])
                 swift_runtime_linkables.append(dep_info.swift_runtime[link_style])
 
@@ -457,7 +450,6 @@ def create_merged_link_info(
         for dep_info in exported_deps:
             children.append(dep_info._infos[link_style])
             external_debug_info_children.append(dep_info._external_debug_info[link_style])
-            debug_sources_children.append(dep_info._debug_sources[link_style])
 
         frameworks[link_style] = merge_framework_linkables(framework_linkables)
         swift_runtime[link_style] = merge_swift_runtime_linkables(swift_runtime_linkables)
@@ -475,19 +467,10 @@ def create_merged_link_info(
                     external_debug_info_children
                 ),
             )
-            debug_sources[link_style] = make_artifact_tset(
-                actions = ctx.actions,
-                label = ctx.label,
-                children = (
-                    [link_infos[actual_link_style].default.debug_sources] +
-                    debug_sources_children
-                ),
-            )
 
     return MergedLinkInfo(
         _infos = infos,
         _external_debug_info = external_debug_info,
-        _debug_sources = debug_sources,
         frameworks = frameworks,
         swift_runtime = swift_runtime,
     )
@@ -497,7 +480,6 @@ def merge_link_infos(
         xs: ["MergedLinkInfo"]) -> "MergedLinkInfo":
     merged = {}
     merged_external_debug_info = {}
-    merged_debug_sources = {}
     frameworks = {}
     swift_runtime = {}
     for link_style in LinkStyle:
@@ -510,17 +492,11 @@ def merge_link_infos(
             label = ctx.label,
             children = filter(None, [x._external_debug_info.get(link_style) for x in xs]),
         )
-        merged_debug_sources[link_style] = make_artifact_tset(
-            actions = ctx.actions,
-            label = ctx.label,
-            children = filter(None, [x._debug_sources.get(link_style) for x in xs]),
-        )
         frameworks[link_style] = merge_framework_linkables([x.frameworks[link_style] for x in xs])
         swift_runtime[link_style] = merge_swift_runtime_linkables([x.swift_runtime[link_style] for x in xs])
     return MergedLinkInfo(
         _infos = merged,
         _external_debug_info = merged_external_debug_info,
-        _debug_sources = merged_debug_sources,
         frameworks = frameworks,
         swift_runtime = swift_runtime,
     )
@@ -541,7 +517,6 @@ def get_link_info(
 LinkArgsTSet = record(
     infos = field(LinkInfosTSet.type),
     external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
-    debug_sources = field(ArtifactTSet.type, ArtifactTSet()),
     prefer_stripped = field(bool.type, False),
 )
 
@@ -621,23 +596,6 @@ def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> Artif
 
     fail("Unpacked invalid empty link args")
 
-def unpack_debug_sources(actions: "actions", args: LinkArgs.type) -> ArtifactTSet.type:
-    if args.tset != None:
-        if args.tset.prefer_stripped:
-            return ArtifactTSet()
-        return args.tset.debug_sources
-
-    if args.infos != None:
-        return make_artifact_tset(
-            actions = actions,
-            children = [info.debug_sources for info in args.infos],
-        )
-
-    if args.flags != None:
-        return ArtifactTSet()
-
-    fail("Unpacked invalid empty link args")
-
 def map_to_link_infos(links: [LinkArgs.type]) -> ["LinkInfo"]:
     res = []
 
@@ -675,7 +633,6 @@ def get_link_args(
         tset = LinkArgsTSet(
             infos = merged._infos[link_style],
             external_debug_info = merged._external_debug_info[link_style],
-            debug_sources = merged._debug_sources[link_style],
             prefer_stripped = prefer_stripped,
         ),
     )

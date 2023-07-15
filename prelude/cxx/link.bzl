@@ -26,7 +26,6 @@ load(
     "LinkOrdering",
     "LinkableType",
     "LinkedObject",
-    "unpack_debug_sources",
     "unpack_external_debug_info",
     "unpack_link_args",
 )
@@ -264,10 +263,6 @@ def cxx_link(
         prebolt_output = output,
         dwp = dwp_artifact,
         external_debug_info = external_debug_info,
-        debug_sources = make_artifact_tset(
-            actions = ctx.actions,
-            children = [unpack_debug_sources(ctx.actions, link) for link in links],
-        ),
         linker_argsfile = argfile,
         import_library = import_library,
         pdb = pdb_artifact,

@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "make_artifact_tset")
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//utils:utils.bzl",
@@ -133,7 +132,6 @@ CPreprocessorTSet = transitive_set(
 
 CPreprocessorInfo = provider(fields = [
     "set",  # "CPreprocessorTSet"
-    "headers",  # ArtifactTSet.type
 ])
 
 # Defines the provider exposed by libraries to test targets,
@@ -177,15 +175,6 @@ def cxx_merge_cpreprocessors(ctx: "context", own: [CPreprocessor.type], xs: [CPr
         kwargs["value"] = own
     return CPreprocessorInfo(
         set = ctx.actions.tset(CPreprocessorTSet, **kwargs),
-        headers = make_artifact_tset(
-            actions = ctx.actions,
-            label = ctx.label,
-            artifacts = (
-                [header.artifact for pp in own for header in pp.headers] +
-                flatten([pp.raw_headers for pp in own])
-            ),
-            children = [pp.headers for pp in xs],
-        ),
     )
 
 def _format_include_arg(flag: str, path: "cmd_args", compiler_type: str) -> ["cmd_args"]:

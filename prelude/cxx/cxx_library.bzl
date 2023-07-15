@@ -236,13 +236,11 @@ _CxxCompiledSourcesOutput = record(
     # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
     # the `.dwo` when using `-gsplit-dwarf=split`).
     external_debug_info = field([["artifact"], None]),
-    debug_sources = field(ArtifactTSet.type, ArtifactTSet()),
     objects_have_external_debug_info = field(bool, False),
     # PIC Object files
     pic_objects = field([["artifact"], None]),
     pic_objects_have_external_debug_info = field(bool, False),
     pic_external_debug_info = field([["artifact"], None]),
-    pic_debug_sources = field(ArtifactTSet.type, ArtifactTSet()),
     # json file with trace information about clang compilation
     pic_clang_traces = field([["artifact"], None]),
     # Non-PIC object files stripped of debug information
@@ -608,7 +606,6 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                         ),
                         children = impl_params.additional.static_external_debug_info,
                     ),
-                    debug_sources = compiled_srcs.pic_debug_sources,
                 ),
                 stripped = LinkInfo(
                     pre_flags = cxx_attr_linker_flags(ctx) + cxx_attr_exported_linker_flags(ctx),
@@ -794,17 +791,12 @@ def cxx_compile_srcs(
     objects = None
     objects_have_external_debug_info = False
     external_debug_info = None
-    debug_sources = ArtifactTSet()
     stripped_objects = []
     clang_traces = []
     pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True)
     pic_objects = [out.object for out in pic_cxx_outs]
     pic_objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, pic_cxx_outs)
     pic_external_debug_info = [out.external_debug_info for out in pic_cxx_outs if out.external_debug_info]
-    pic_debug_sources = make_artifact_tset(
-        actions = ctx.actions,
-        children = [out.debug_sources for out in pic_cxx_outs],
-    )
     pic_clang_traces = [out.clang_trace for out in pic_cxx_outs if out.clang_trace != None]
     stripped_pic_objects = _strip_objects(ctx, pic_objects)
 
@@ -825,10 +817,6 @@ def cxx_compile_srcs(
         objects = [out.object for out in cxx_outs]
         objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, cxx_outs)
         external_debug_info = [out.external_debug_info for out in cxx_outs if out.external_debug_info]
-        debug_sources = make_artifact_tset(
-            actions = ctx.actions,
-            children = [out.debug_sources for out in cxx_outs],
-        )
         stripped_objects = _strip_objects(ctx, objects)
         clang_traces = [out.clang_trace for out in cxx_outs if out.clang_trace != None]
 
@@ -847,12 +835,10 @@ def cxx_compile_srcs(
         bitcode_objects = bitcode_outs,
         objects_have_external_debug_info = objects_have_external_debug_info,
         external_debug_info = external_debug_info,
-        debug_sources = debug_sources,
         clang_traces = clang_traces,
         pic_objects = pic_objects,
         pic_objects_have_external_debug_info = pic_objects_have_external_debug_info,
         pic_external_debug_info = pic_external_debug_info,
-        pic_debug_sources = pic_debug_sources,
         pic_clang_traces = pic_clang_traces,
         stripped_objects = stripped_objects,
         stripped_pic_objects = stripped_pic_objects,
@@ -906,7 +892,6 @@ def _form_library_outputs(
                         artifacts = (compiled_srcs.pic_external_debug_info if pic else compiled_srcs.external_debug_info),
                         children = impl_params.additional.static_external_debug_info,
                     ),
-                    debug_sources = compiled_srcs.pic_debug_sources if pic else compiled_srcs.debug_sources,
                     pic = pic,
                     stripped = False,
                     extra_linkables = extra_static_linkables,
@@ -949,7 +934,6 @@ def _form_library_outputs(
                     impl_params,
                     compiled_srcs.pic_objects,
                     external_debug_info,
-                    compiled_srcs.pic_debug_sources,
                     shared_links,
                     gnu_use_link_groups,
                     extra_linker_flags = extra_linker_flags,
@@ -1120,7 +1104,6 @@ def _static_library(
         extra_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         objects_have_external_debug_info: bool = False,
         external_debug_info: ArtifactTSet.type = ArtifactTSet(),
-        debug_sources: ArtifactTSet.type = ArtifactTSet(),
         bitcode_objects: [["artifact"], None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
@@ -1200,7 +1183,6 @@ def _static_library(
             # when they are deducing linker args.
             linkables = [linkable] + extra_linkables,
             external_debug_info = all_external_debug_info,
-            debug_sources = debug_sources,
         ),
     )
 
@@ -1234,7 +1216,6 @@ def _shared_library(
         impl_params: "CxxRuleConstructorParams",
         objects: ["artifact"],
         external_debug_info: ArtifactTSet.type,
-        debug_sources: ArtifactTSet.type,
         dep_infos: "LinkArgs",
         gnu_use_link_groups: bool,
         extra_linker_flags: ["_arglike"],
@@ -1274,7 +1255,6 @@ def _shared_library(
             (linker_info.shared_dep_runtime_ld_flags or [])
         ),
         external_debug_info = external_debug_info,
-        debug_sources = debug_sources,
     )
     link_result = cxx_link_shared_library(
         ctx = ctx,

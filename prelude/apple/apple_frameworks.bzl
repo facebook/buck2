@@ -148,11 +148,6 @@ def apple_build_link_args_with_deduped_flags(
                 label = ctx.label,
                 children = [link_info.external_debug_info, info._external_debug_info[link_style]],
             ),
-            debug_sources = make_artifact_tset(
-                actions = ctx.actions,
-                label = ctx.label,
-                children = [link_info.debug_sources, info._debug_sources[link_style]],
-            ),
             prefer_stripped = prefer_stripped,
         ),
     )

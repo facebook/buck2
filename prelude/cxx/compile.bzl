@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "ArtifactTSet", "make_artifact_tset")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//linking:lto.bzl", "LtoMode")
 load(
@@ -101,8 +100,6 @@ CxxSrcCompileCommand = record(
     cxx_compile_cmd = field(_CxxCompileCommand.type),
     # Arguments specific to the source file.
     args = field(["_arg"]),
-    # Sources that may be referenced in debug info.
-    debug_sources = field(ArtifactTSet.type, ArtifactTSet()),
 )
 
 # Output of creating compile commands for Cxx source files.
@@ -134,8 +131,6 @@ CxxCompileOutput = record(
     # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
     # the `.dwo` when using `-gsplit-dwarf=split`).
     external_debug_info = field(["artifact", None], None),
-    # Sources that may be referenced in debug info.
-    debug_sources = field(ArtifactTSet.type, ArtifactTSet()),
     clang_trace = field(["artifact", None], None),
 )
 
@@ -235,27 +230,14 @@ def create_compile_cmds(
         src_args.extend(src.flags)
         src_args.extend(["-c", src.file])
 
-        src_compile_command = CxxSrcCompileCommand(
-            src = src.file,
-            cxx_compile_cmd = cxx_compile_cmd,
-            args = src_args,
-            index = src.index,
-            debug_sources = make_artifact_tset(
-                actions = ctx.actions,
-                label = ctx.label,
-                artifacts = [src.file],
-                children = [pre.headers],
-            ),
-        )
+        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index)
         src_compile_cmds.append(src_compile_command)
 
     argsfile_by_ext.update(impl_params.additional.argsfiles.relative)
     abs_argsfile_by_ext.update(impl_params.additional.argsfiles.absolute)
 
     if header_only:
-        return CxxCompileCommandOutput(
-            comp_db_compile_cmds = src_compile_cmds,
-        )
+        return CxxCompileCommandOutput(comp_db_compile_cmds = src_compile_cmds)
     else:
         return CxxCompileCommandOutput(
             src_compile_cmds = src_compile_cmds,
@@ -367,7 +349,6 @@ def compile_cxx(
             object = object,
             object_format = object_format,
             object_has_external_debug_info = object_has_external_debug_info,
-            debug_sources = src_compile_cmd.debug_sources,
             clang_trace = clang_trace,
         ))
 

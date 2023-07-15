@@ -150,7 +150,6 @@ CxxExecutableOutput = record(
     link_args = [LinkArgs.type],
     # External components needed to debug the executable.
     external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
-    debug_sources = field(ArtifactTSet.type, ArtifactTSet()),
     shared_libs = {str: LinkedObject.type},
     # All link group links that were generated in the executable.
     auto_link_groups = field({str: LinkedObject.type}, {}),
@@ -433,11 +432,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                         [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
                     ),
                 ),
-                debug_sources = make_artifact_tset(
-                    actions = ctx.actions,
-                    label = ctx.label,
-                    children = [out.debug_sources for out in cxx_outs],
-                ),
             ),
         ]),
         dep_links,
@@ -587,21 +581,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         ),
     )]
 
-    debug_sources = make_artifact_tset(
-        actions = ctx.actions,
-        label = ctx.label,
-        children = (
-            [binary.debug_sources] +
-            [s.debug_sources for s in shared_libs.values()]
-        ),
-    )
-    sub_targets["sources"] = [DefaultInfo(
-        other_outputs = project_artifact_tset(
-            actions = ctx.actions,
-            infos = [debug_sources],
-        ),
-    )]
-
     return CxxExecutableOutput(
         binary = binary.output,
         dwp = binary.dwp,
@@ -609,7 +588,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         sub_targets = sub_targets,
         link_args = links,
         external_debug_info = external_debug_info,
-        debug_sources = debug_sources,
         shared_libs = shared_libs,
         auto_link_groups = auto_link_groups,
         compilation_db = comp_db_info,
