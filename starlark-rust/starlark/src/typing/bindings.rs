@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use starlark_map::small_map::SmallMap;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
@@ -74,7 +75,7 @@ impl<'a> BindExpr<'a> {
 
 #[derive(Default)]
 pub(crate) struct Bindings<'a> {
-    pub(crate) expressions: HashMap<BindingId, Vec<BindExpr<'a>>>,
+    pub(crate) expressions: SmallMap<BindingId, Vec<BindExpr<'a>>>,
     pub(crate) types: HashMap<BindingId, Ty>,
     pub(crate) check: Vec<&'a CstExpr>,
     pub(crate) check_type: Vec<(Span, Option<&'a CstExpr>, Ty)>,
