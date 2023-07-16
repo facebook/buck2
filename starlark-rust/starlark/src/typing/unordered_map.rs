@@ -35,6 +35,12 @@ impl<K, V> Default for UnorderedMap<K, V> {
 }
 
 impl<K: Eq + Hash, V> UnorderedMap<K, V> {
+    pub(crate) fn with_capacity(capacity: usize) -> Self {
+        UnorderedMap {
+            map: HashMap::with_capacity(capacity),
+        }
+    }
+
     pub(crate) fn into_hash_map(self) -> HashMap<K, V> {
         self.map
     }
@@ -53,6 +59,14 @@ impl<K: Eq + Hash, V> UnorderedMap<K, V> {
         Q: Hash + Eq + ?Sized,
     {
         self.map.get_mut(key)
+    }
+
+    pub(crate) fn contains_key<Q>(&self, key: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.map.contains_key(key)
     }
 
     pub(crate) fn insert(&mut self, key: K, value: V) -> Option<V> {

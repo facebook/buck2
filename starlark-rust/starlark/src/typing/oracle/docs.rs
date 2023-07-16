@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
-
 use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
 use crate::typing::oracle::traits::TypingAttr;
+use crate::typing::unordered_map::UnorderedMap;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
 
@@ -28,8 +27,8 @@ use crate::typing::TypingOracle;
 #[derive(Default)]
 pub struct OracleDocs {
     /// Indexed by type name, then the attribute
-    objects: HashMap<String, HashMap<String, Ty>>,
-    functions: HashMap<String, Ty>,
+    objects: UnorderedMap<String, UnorderedMap<String, Ty>>,
+    functions: UnorderedMap<String, Ty>,
 }
 
 impl OracleDocs {
@@ -52,7 +51,7 @@ impl OracleDocs {
         match &doc.item {
             DocItem::Module(modu) => self.add_module(modu),
             DocItem::Object(obj) => {
-                let mut items = HashMap::with_capacity(obj.members.len());
+                let mut items = UnorderedMap::with_capacity(obj.members.len());
                 for (name, member) in &obj.members {
                     items.insert(name.clone(), Ty::from_docs_member(member));
                 }
