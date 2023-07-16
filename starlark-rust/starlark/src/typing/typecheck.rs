@@ -48,6 +48,7 @@ use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
+use crate::typing::unordered_map::UnorderedMap;
 use crate::typing::OracleDocs;
 use crate::values::FrozenHeap;
 
@@ -62,7 +63,7 @@ pub(crate) fn solve_bindings(
         .expressions
         .keys()
         .map(|x| (*x, Ty::Never))
-        .collect::<HashMap<_, _>>();
+        .collect::<UnorderedMap<_, _>>();
     for (k, ty) in bindings.types {
         types.insert(k, ty);
     }
@@ -115,7 +116,7 @@ pub(crate) fn solve_bindings(
     }
     (
         ctx.errors.into_inner(),
-        ctx.types,
+        ctx.types.into_hash_map(),
         ctx.approximoations.into_inner(),
     )
 }

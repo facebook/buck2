@@ -16,7 +16,6 @@
  */
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fmt::Debug;
 
 use thiserror::Error;
@@ -47,6 +46,7 @@ use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingUnOp;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
+use crate::typing::unordered_map::UnorderedMap;
 use crate::typing::OracleDocs;
 
 #[derive(Error, Debug)]
@@ -66,7 +66,7 @@ pub(crate) struct TypingContext<'a> {
     // but that makes writing the code more fiddly, so just RefCell the errors
     pub(crate) errors: RefCell<Vec<TypingError>>,
     pub(crate) approximoations: RefCell<Vec<Approximation>>,
-    pub(crate) types: HashMap<BindingId, Ty>,
+    pub(crate) types: UnorderedMap<BindingId, Ty>,
 }
 
 impl TypingContext<'_> {
