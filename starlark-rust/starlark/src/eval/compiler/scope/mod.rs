@@ -1160,7 +1160,7 @@ impl<'f> Binding<'f> {
 }
 
 /// If of a binding within current module.
-#[derive(Copy, Clone, Dupe, Debug, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Dupe, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub(crate) struct BindingId(usize);
 
 /// Id of a scope within current module.

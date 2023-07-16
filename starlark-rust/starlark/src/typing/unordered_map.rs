@@ -41,6 +41,12 @@ impl<K: Eq + Hash, V> UnorderedMap<K, V> {
         }
     }
 
+    pub(crate) fn new() -> Self {
+        UnorderedMap {
+            map: HashMap::new(),
+        }
+    }
+
     pub(crate) fn into_hash_map(self) -> HashMap<K, V> {
         self.map
     }
@@ -71,6 +77,15 @@ impl<K: Eq + Hash, V> UnorderedMap<K, V> {
 
     pub(crate) fn insert(&mut self, key: K, value: V) -> Option<V> {
         self.map.insert(key, value)
+    }
+
+    pub(crate) fn entries_sorted(&self) -> Vec<(&K, &V)>
+    where
+        K: Ord,
+    {
+        let mut entries: Vec<_> = self.map.iter().collect();
+        entries.sort_by_key(|(k, _)| *k);
+        entries
     }
 }
 

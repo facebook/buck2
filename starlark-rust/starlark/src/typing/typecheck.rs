@@ -125,13 +125,13 @@ pub(crate) fn solve_bindings(
 #[derive(Debug)]
 pub struct TypeMap {
     codemap: CodeMap,
-    bindings: HashMap<BindingId, (String, Span, Ty)>,
+    bindings: UnorderedMap<BindingId, (String, Span, Ty)>,
 }
 
 impl Display for TypeMap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Iteration in unstable order - but that's fine because this is just for diagnostics
-        for (name, span, ty) in self.bindings.values() {
+        for (_binding_id, (name, span, ty)) in self.bindings.entries_sorted() {
             writeln!(
                 f,
                 "{} ({}) = {}",
@@ -188,7 +188,7 @@ impl AstModule {
                     vec![InternalError::into_anyhow(e)],
                     TypeMap {
                         codemap,
-                        bindings: HashMap::new(),
+                        bindings: UnorderedMap::new(),
                     },
                     Interface::default(),
                     Vec::new(),
@@ -201,7 +201,7 @@ impl AstModule {
 
         approximations.extend(solve_approximations);
 
-        let mut typemap = HashMap::with_capacity(types.len());
+        let mut typemap = UnorderedMap::with_capacity(types.len());
         for (id, ty) in &types {
             let binding = scope_data.get_binding(*id);
             let name = binding.name.as_str().to_owned();
