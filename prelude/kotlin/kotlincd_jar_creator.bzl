@@ -224,10 +224,13 @@ def create_jar_artifact_kotlincd(
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
 
+        compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0]
         exe, local_only = prepare_cd_exe(
             qualified_name,
             java = java_toolchain.java[RunInfo],
-            compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0],
+            class_loader_bootstrapper = kotlin_toolchain.class_loader_bootstrapper,
+            compiler = compiler,
+            main_class = kotlin_toolchain.kotlincd_main_class,
             worker = kotlin_toolchain.kotlincd_worker[WorkerInfo],
             debug_port = kotlin_toolchain.kotlincd_debug_port,
             debug_target = kotlin_toolchain.kotlincd_debug_target,
@@ -287,6 +290,7 @@ def create_jar_artifact_kotlincd(
         actions.run(
             args,
             env = {
+                "BUCK_CLASSPATH": compiler,
                 "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
             },

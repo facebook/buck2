@@ -377,7 +377,9 @@ def setup_dep_files(
 def prepare_cd_exe(
         qualified_name: str,
         java: RunInfo.type,
+        class_loader_bootstrapper: "artifact",
         compiler: "artifact",
+        main_class: str,
         worker: WorkerInfo.type,
         debug_port: [int, None],
         debug_target: ["label", None],
@@ -398,7 +400,7 @@ def prepare_cd_exe(
         local_only = True
         jvm_args.extend(["-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port)])
 
-    non_worker_args = cmd_args([java, jvm_args, "-jar", compiler])
+    non_worker_args = cmd_args([java, jvm_args, "-cp", compiler, "-jar", class_loader_bootstrapper, main_class])
 
     if local_only:
         return RunInfo(args = non_worker_args), True
