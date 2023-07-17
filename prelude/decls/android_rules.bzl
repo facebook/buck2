@@ -1443,6 +1443,7 @@ robolectric_test = prelude_rule(
             "test_case_timeout_ms": attrs.option(attrs.int(), default = None),
             "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
             "test_type": attrs.option(attrs.enum(TestType), default = None),
+            "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
             "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),

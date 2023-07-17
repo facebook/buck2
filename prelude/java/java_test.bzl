@@ -61,6 +61,9 @@ def build_junit_test(
         extra_classpath_entries,
     )
 
+    if ctx.attrs.unbundled_resources_root:
+        classpath.append(ctx.attrs.unbundled_resources_root)
+
     labels = ctx.attrs.labels or []
     run_from_cell_root = "buck2_run_from_cell_root" in labels
     uses_java8 = "run_with_java8" in labels

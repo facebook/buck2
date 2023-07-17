@@ -139,6 +139,7 @@ extra_attributes = {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
+        "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
         "_java_test_toolchain": attrs.exec_dep(

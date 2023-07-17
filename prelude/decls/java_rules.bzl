@@ -419,6 +419,7 @@ java_test = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "specs": attrs.option(attrs.arg(json = True), default = None),
             "test_case_timeout_ms": attrs.option(attrs.int(), default = None),
+            "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         }
     ),
