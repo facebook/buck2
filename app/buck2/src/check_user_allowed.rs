@@ -62,7 +62,7 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
 
     let elevation_struct: TOKEN_ELEVATION = unsafe { elevation.assume_init() };
     if elevation_struct.TokenIsElevated == 1 {
-        // This environment variable is consistently set by CI providers.
+        // The CI environment variable is consistently set by CI providers.
         //
         // - GitHub Actions: https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
         // - GitLab CI/CD: https://docs.gitlab.com/ee/ci/variables/predefined_variables.html
@@ -72,7 +72,10 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
         // In CI, if buck2 got run from an admin shell, we need not worry that a
         // subsequent invocation might come from a non-admin shell. It almost
         // certainly will not.
-        let is_ci = env::var_os("CI").as_deref() == Some(OsStr::new("true"));
+        //
+        // Internally, CI should be setting SANDCASTLE env var.
+        let is_ci = env::var_os("CI").as_deref() == Some(OsStr::new("true"))
+            || env::var_os("SANDCASTLE").is_some();
 
         if !is_ci {
             tracing::warn!(
