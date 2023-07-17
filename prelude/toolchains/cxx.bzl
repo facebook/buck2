@@ -37,9 +37,12 @@ def _system_cxx_toolchain_impl(ctx):
     """
     A very simple toolchain that is hardcoded to the current environment.
     """
-    archiver = "ar"
+    archiver_args = ["ar", "rcs"]
+    archiver_type = "gnu"
     asm_compiler = ctx.attrs.compiler
     asm_compiler_type = ctx.attrs.compiler_type
+    compiler = ctx.attrs.compiler
+    cxx_compiler = ctx.attrs.cxx_compiler
     linker = ctx.attrs.linker
     linker_type = "gnu"
     supports_pic = True
@@ -54,9 +57,12 @@ def _system_cxx_toolchain_impl(ctx):
         linker_type = "darwin"
         pic_behavior = PicBehavior("always_enabled")
     elif host_info().os.is_windows:
-        archiver = "llvm-ar"
+        archiver_args = ["lib.exe"]
+        archiver_type = "windows"
         asm_compiler = "ml64.exe"
         asm_compiler_type = "windows_ml64"
+        compiler = _windows_compiler_wrapper(ctx)
+        cxx_compiler = compiler
         linker = _windows_linker_wrapper(ctx)
         linker_type = "windows"
         supports_pic = False
@@ -81,8 +87,8 @@ def _system_cxx_toolchain_impl(ctx):
             linker_info = LinkerInfo(
                 linker = RunInfo(args = linker),
                 linker_flags = additional_linker_flags + ctx.attrs.link_flags,
-                archiver = RunInfo(args = [archiver, "rcs"]),
-                archiver_type = "gnu",
+                archiver = RunInfo(args = archiver_args),
+                archiver_type = archiver_type,
                 generate_linker_maps = False,
                 lto_mode = LtoMode("none"),
                 type = linker_type,
@@ -115,19 +121,19 @@ def _system_cxx_toolchain_impl(ctx):
                 bolt_msdk = None,
             ),
             cxx_compiler_info = CxxCompilerInfo(
-                compiler = RunInfo(args = [ctx.attrs.cxx_compiler]),
+                compiler = RunInfo(args = [cxx_compiler]),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cxx_flags,
                 compiler_type = ctx.attrs.compiler_type,
             ),
             c_compiler_info = CCompilerInfo(
-                compiler = RunInfo(args = [ctx.attrs.compiler]),
+                compiler = RunInfo(args = [compiler]),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.c_flags,
                 compiler_type = ctx.attrs.compiler_type,
             ),
             as_compiler_info = CCompilerInfo(
-                compiler = RunInfo(args = [ctx.attrs.compiler]),
+                compiler = RunInfo(args = [compiler]),
                 compiler_type = ctx.attrs.compiler_type,
             ),
             asm_compiler_info = CCompilerInfo(
@@ -164,21 +170,35 @@ def _windows_linker_wrapper(ctx: "context") -> "cmd_args":
         os = ScriptOs("windows"),
     )
 
+def _windows_compiler_wrapper(ctx: "context") -> "cmd_args":
+    # The wrapper is needed to dynamically find compiler location and
+    # Windows SDK to add necessary includes.
+    return cmd_script(
+        ctx = ctx,
+        name = "windows_compiler",
+        cmd = cmd_args(
+            ctx.attrs.windows_compiler_wrapper[RunInfo],
+            ctx.attrs.compiler,
+        ),
+        os = ScriptOs("windows"),
+    )
+
 # Use clang, since thats available everywhere and what we have tested with.
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
         "c_flags": attrs.list(attrs.string(), default = []),
-        "compiler": attrs.string(default = "clang"),
-        "compiler_type": attrs.string(default = "clang"),  # one of CxxToolProviderType
+        "compiler": attrs.string(default = "cl.exe" if host_info().os.is_windows else "clang"),
+        "compiler_type": attrs.string(default = "windows" if host_info().os.is_windows else "clang"),  # one of CxxToolProviderType
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
-        "cxx_compiler": attrs.string(default = "clang++"),
+        "cxx_compiler": attrs.string(default = "cl.exe" if host_info().os.is_windows else "clang++"),
         "cxx_flags": attrs.list(attrs.string(), default = []),
         "link_flags": attrs.list(attrs.string(), default = []),
         "link_style": attrs.string(default = "shared"),
         "linker": attrs.string(default = "link.exe" if host_info().os.is_windows else "clang++"),
         "linker_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:linker_wrapper")),
         "make_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
+        "windows_compiler_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:windows_compiler_wrapper")),
     },
     is_toolchain_rule = True,
 )
