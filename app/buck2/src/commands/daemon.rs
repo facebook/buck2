@@ -465,7 +465,7 @@ impl DaemonCommand {
                 server_init_ctx,
                 process_info,
                 daemon_constraints,
-                listener,
+                Box::pin(listener),
                 &BuckdServerDependenciesImpl,
             )
             .fuse();
@@ -702,7 +702,7 @@ mod tests {
             },
             process_info.clone(),
             gen_daemon_constraints(&DaemonStartupConfig::testing_empty()).unwrap(),
-            listener,
+            Box::pin(listener),
             &BuckdServerDependenciesImpl,
         ));
 

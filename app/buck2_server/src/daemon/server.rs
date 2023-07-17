@@ -309,7 +309,7 @@ pub(crate) struct BuckdServerData {
 pub struct BuckdServer(Arc<BuckdServerData>);
 
 impl BuckdServer {
-    pub async fn run<I>(
+    pub async fn run(
         fb: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
@@ -317,12 +317,9 @@ impl BuckdServer {
         init_ctx: BuckdServerInitPreferences,
         process_info: DaemonProcessInfo,
         base_daemon_constraints: buck2_cli_proto::DaemonConstraints,
-        listener: I,
+        listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
         callbacks: &'static dyn BuckdServerDependencies,
-    ) -> anyhow::Result<()>
-    where
-        I: Stream<Item = Result<tokio::net::TcpStream, io::Error>>,
-    {
+    ) -> anyhow::Result<()> {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;
 
