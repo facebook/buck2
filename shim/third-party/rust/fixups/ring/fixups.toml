@@ -42,8 +42,8 @@ exclude = [ "crypto/cpu-intel.c" ]
 include_paths = ["include"]
 compiler_flags = ["-Wno-error"]
 
-[[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows"))'.buildscript]]
-[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows"))'.buildscript.cxx_library]
+[[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu"))'.buildscript]]
+[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu"))'.buildscript.cxx_library]
 name = "ring-c-win-x86_84"
 srcs = [ "crypto/**/*.c" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
@@ -51,6 +51,15 @@ headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/
 exclude = [ "crypto/fipsmodule/aes/aes.c" ]
 include_paths = ["include"]
 compiler_flags = ["-Wno-error"]
+
+[[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"))'.buildscript]]
+[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"))'.buildscript.cxx_library]
+name = "ring-c-win-msvc-x86_84"
+srcs = [ "crypto/**/*.c" ]
+headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
+# Exclude C AES because we've got the x86_64 one
+exclude = [ "crypto/fipsmodule/aes/aes.c" ]
+include_paths = ["include"]
 
 [[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows"))'.buildscript]]
 [platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows"))'.buildscript.prebuilt_cxx_library]
