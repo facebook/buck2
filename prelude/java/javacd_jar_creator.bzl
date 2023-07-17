@@ -261,7 +261,6 @@ def create_jar_artifact_javacd(
         actions.run(
             args,
             env = {
-                # TODO(ctolliday) this should be the worker .jar when we are using workers
                 "BUCK_CLASSPATH": compiler,
                 "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
