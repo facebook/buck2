@@ -408,7 +408,7 @@ impl Buck {
     ) -> Result<HashMap<PathBuf, Vec<Target>>, anyhow::Error> {
         let mut command = self.command();
 
-        command.args(["uquery", "--json", "owner(%s)", "--"]);
+        command.args(["uquery", "--json", "owner(\"%s\")", "--"]);
         command.args(&files);
 
         info!(?files, "Querying buck to determine owner");
