@@ -8,7 +8,6 @@
 load("@prelude//:artifact_tset.bzl", "project_artifact_tset")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
-load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:linker.bzl", "get_rpath_origin")
 load(
     "@prelude//linking:link_info.bzl",
@@ -17,8 +16,6 @@ load(
     "unpack_link_args",
     "unpack_link_args_filelist",
 )
-load("@prelude//linking:lto.bzl", "LtoMode")
-load("@prelude//utils:utils.bzl", "expect")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def linker_map_args(ctx, linker_map) -> LinkArgs.type:
@@ -41,7 +38,7 @@ def linker_map_args(ctx, linker_map) -> LinkArgs.type:
         fail("Linker type {} not supported".format(linker_type))
     return LinkArgs(flags = flags)
 
-def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], output_short_path: [str, None]) -> (["LinkArgs"], ["artifact", None]):
+def map_link_args_for_dwo(dwo_dir: "output_artifact", links: ["LinkArgs"]) -> ["LinkArgs"]:
     """
     Takes LinkArgs, and if they enable the DWO output dir hack, returns updated
     args and a DWO dir as output. If they don't, just returns the args as-is.
@@ -53,17 +50,10 @@ def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], output_short_path
     # the macros setup ThinLTO+split-dwarf, use a macro hack to intercept when
     # we're setting an explicitly tracked dwo dir and pull into the explicit
     # tracking we do at the `LinkedObject` level.
-    #
-    # Can't mutate a variable, so put it in a list and mutate the innards
-    dwo_dir = [None]
 
     def adjust_flag(flag: "_arglike") -> "_arglike":
         if "HACK-OUTPUT-DWO-DIR" in repr(flag):
-            expect(output_short_path != None)
-            if dwo_dir[0] == None:
-                dwo_dir_name = output_short_path + ".dwo.d"
-                dwo_dir[0] = ctx.actions.declare_output(dwo_dir_name)
-            return cmd_args(dwo_dir[0].as_output(), format = "dwo_dir={}")
+            return cmd_args(dwo_dir, format = "dwo_dir={}")
         else:
             return flag
 
@@ -76,7 +66,7 @@ def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], output_short_path
             external_debug_info = link_info.external_debug_info,
         )
 
-    links = [
+    return [
         LinkArgs(
             tset = link.tset,
             flags = [adjust_flag(flag) for flag in link.flags] if link.flags != None else None,
@@ -84,7 +74,6 @@ def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], output_short_path
         )
         for link in links
     ]
-    return (links, dwo_dir[0])
 
 def make_link_args(
         ctx: "context",
@@ -92,7 +81,8 @@ def make_link_args(
         suffix = None,
         output_short_path: [str, None] = None,
         is_shared: [bool, None] = None,
-        link_ordering: ["LinkOrdering", None] = None) -> ("_arglike", ["_hidden"], ["artifact", None], ["artifact", None]):
+        split_debug_output: ["artifact", None] = None,
+        link_ordering: ["LinkOrdering", None] = None) -> ("_arglike", ["_hidden"], ["artifact", None]):
     """
     Merges LinkArgs. Returns the args, files that must be present for those
     args to work when passed to a linker, and optionally an artifact where DWO
@@ -136,9 +126,8 @@ def make_link_args(
     # the memory usage of FBiOS by 12% (which amounts to Gigabytes.)
     #
     # Context: D36669131
-    dwo_dir = None
-    if linker_info.lto_mode != LtoMode("none") and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none"):
-        links, dwo_dir = map_link_args_for_dwo(ctx, links, output_short_path)
+    if split_debug_output != None and linker_info.type != "darwin":
+        links = map_link_args_for_dwo(split_debug_output.as_output(), links)
 
     pdb_artifact = None
     if linker_info.is_pdb_generated and output_short_path != None:
@@ -162,7 +151,7 @@ def make_link_args(
         else:
             fail("Linker type {} not supported".format(linker_type))
 
-    return (args, [args] + hidden, dwo_dir, pdb_artifact)
+    return (args, [args] + hidden, pdb_artifact)
 
 def shared_libs_symlink_tree_name(output: "artifact") -> str:
     return "__{}__shared_libs_symlink_tree".format(output.short_path)

@@ -243,7 +243,7 @@ def generate_rustdoc_test(
         extra_transitive_deps = library.transitive_deps,
     )
 
-    link_args, hidden, _dwo_dir_unused_in_rust, _pdb_artifact = make_link_args(
+    link_args, hidden, _pdb_artifact = make_link_args(
         ctx,
         [
             LinkArgs(flags = extra_link_args),
@@ -398,7 +398,7 @@ def rust_compile(
 
         # If this crate type has an associated native dep link style, include deps
         # of that style.
-        (link_args, hidden, _dwo_dir_unused_in_rust, pdb_artifact) = make_link_args(
+        (link_args, hidden, pdb_artifact) = make_link_args(
             ctx,
             [
                 LinkArgs(flags = extra_link_args),

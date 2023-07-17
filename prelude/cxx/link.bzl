@@ -29,7 +29,10 @@ load(
     "unpack_external_debug_info",
     "unpack_link_args",
 )
-load("@prelude//linking:lto.bzl", "darwin_lto_linker_flags")
+load(
+    "@prelude//linking:lto.bzl",
+    "get_split_debug_lto_info",
+)
 load("@prelude//linking:strip.bzl", "strip_shared_library")
 load("@prelude//utils:utils.bzl", "map_val", "value_or")
 load(":bitcode.bzl", "make_bitcode_bundle")
@@ -127,11 +130,23 @@ def cxx_link(
     else:
         links_with_linker_map = links
 
-    (link_args, hidden, dwo_dir, pdb_artifact) = make_link_args(
+    linker, toolchain_linker_flags = cxx_link_cmd_parts(ctx)
+    all_link_args = cmd_args(toolchain_linker_flags)
+    all_link_args.add(get_output_flags(linker_info.type, output))
+
+    # Darwin LTO requires extra link outputs to preserve debug info
+    split_debug_output = None
+    split_debug_lto_info = get_split_debug_lto_info(ctx, output.short_path)
+    if split_debug_lto_info != None:
+        all_link_args.add(split_debug_lto_info.linker_flags)
+        split_debug_output = split_debug_lto_info.output
+
+    (link_args, hidden, pdb_artifact) = make_link_args(
         ctx,
         links_with_linker_map,
         suffix = identifier,
         output_short_path = output.short_path,
+        split_debug_output = split_debug_output,
         is_shared = result_type.value == "shared_library",
         link_ordering = value_or(
             link_ordering,
@@ -139,18 +154,13 @@ def cxx_link(
             map_val(LinkOrdering, linker_info.link_ordering),
         ),
     )
+    all_link_args.add(link_args)
 
-    # Darwin LTO requires extra link outputs to preserve debug info
-    darwin_lto_flags, darwin_lto_artifacts = darwin_lto_linker_flags(ctx)
-    link_args.add(darwin_lto_flags)
-
-    external_debug_artifacts = darwin_lto_artifacts
+    external_debug_artifacts = []
     external_debug_infos = []
 
-    # When using LTO+split-dwarf, the link step will generate externally
-    # referenced debug info.
-    if dwo_dir != None:
-        external_debug_artifacts.append(dwo_dir)
+    if split_debug_output != None:
+        external_debug_artifacts.append(split_debug_output)
 
     if pdb_artifact != None:
         external_debug_artifacts.append(pdb_artifact)
@@ -184,15 +194,11 @@ def cxx_link(
         children = external_debug_infos,
     )
 
-    linker, toolchain_linker_flags = cxx_link_cmd_parts(ctx)
-    all_link_args = cmd_args(toolchain_linker_flags)
-    all_link_args.add(get_output_flags(linker_info.type, output))
-    all_link_args.add(link_args)
-
     if linker_info.type == "windows":
         shell_quoted_args = cmd_args(all_link_args)
     else:
         shell_quoted_args = cmd_args(all_link_args, quote = "shell")
+
     argfile, _ = ctx.actions.write(
         output.short_path + ".linker.argsfile",
         shell_quoted_args,
@@ -210,9 +216,9 @@ def cxx_link(
     # If the linked object files don't contain debug info, clang may not
     # generate a DWO directory, so make sure we at least `mkdir` and empty
     # one to make v2/RE happy.
-    if dwo_dir != None:
+    if split_debug_output != None:
         cmd = cmd_args(["/bin/sh", "-c"])
-        cmd.add(cmd_args(dwo_dir.as_output(), format = 'mkdir -p {}; "$@"'))
+        cmd.add(cmd_args(split_debug_output.as_output(), format = 'mkdir -p {}; "$@"'))
         cmd.add('""').add(command)
         cmd.hidden(command)
         command = cmd
