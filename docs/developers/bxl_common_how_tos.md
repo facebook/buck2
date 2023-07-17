@@ -68,7 +68,7 @@ def _impl_example(ctx):
     ctx.output.print(default_info)
 ```
 
-## Build a subtarget
+## Get a specific subtarget from an analysis
 
 Once you have a provider, you can get its subtargets by using the `sub_targets` attribute on the struct to get a dict of provider labels to provider collections:
 
@@ -76,6 +76,16 @@ Once you have a provider, you can get its subtargets by using the `sub_targets` 
 def _impl_example(ctx):
     subtarget = ctx.analysis(my_target).providers()[DefaultInfo].sub_targets[“my_subtarget”]
     ctx.output.print(subtarget)
+```
+
+## Building a subtarget
+
+You can use `analysis()` to get a specific subtarget from an analysis, or you can pass in the subtarget literal directly into `ctx.build()`:
+
+```python
+def _impl_example(ctx):
+    outputs = ctx.build("cell//path/to/my:target[my_subtarget]")
+    ctx.output.ensure_multiple(outputs)
 ```
 
 ## Getting attributes or resolved attributes efficiently

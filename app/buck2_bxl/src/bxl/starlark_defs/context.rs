@@ -616,14 +616,14 @@ fn register_context(builder: &mut MethodsBuilder) {
     ///
     fn build<'v>(
         this: &'v BxlContext<'v>,
-        spec: Value<'v>,
+        labels: Value<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
         #[starlark(require = named, default = "default")] materializations: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         Ok(eval.heap().alloc(Dict::new(build::build(
             this,
-            spec,
+            labels,
             target_platform,
             Materializations::from_str_name(&materializations.to_uppercase()).ok_or_else(|| {
                 anyhow::anyhow!("Unknown materialization setting `{}`", materializations)
