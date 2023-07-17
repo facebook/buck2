@@ -140,6 +140,10 @@ fn read_and_forward(
                     break;
                 }
             }
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => {
+                tracing::debug!("interrupted");
+                continue;
+            }
             Err(e) => {
                 tracing::debug!("err: {:#}", e);
                 tx.blocking_send(Err(e))?;
