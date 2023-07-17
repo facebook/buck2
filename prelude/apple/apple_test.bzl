@@ -181,8 +181,8 @@ def _get_test_info(ctx: "context", xctest_bundle: "artifact", test_host_app_bund
             "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
         },
         local_resources = {
-            "ios_booted_simulator": ctx.attrs._ios_booted_simulator[LocalResourceInfo],
-            "macos_idb_companion": ctx.attrs._macos_idb_companion[LocalResourceInfo],
+            "ios_booted_simulator": ctx.attrs._ios_booted_simulator.label,
+            "macos_idb_companion": ctx.attrs._macos_idb_companion.label,
         },
     )
 
