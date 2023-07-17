@@ -91,7 +91,7 @@ pub struct TargetsCommand {
     #[clap(long, alias = "resolvealias")]
     resolve_alias: bool,
 
-    /// Print a stable hash of each target after the target name. Incompatible with '--show-rulekey'.
+    /// Print a stable hash of each target after the target name.
     #[clap(long, conflicts_with = "streaming")]
     show_target_hash: bool,
 
