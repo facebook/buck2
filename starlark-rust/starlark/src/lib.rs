@@ -351,6 +351,7 @@
 
 // Features we use
 #![allow(stable_features)]
+#![allow(unknown_lints)] // for clippy::tuple_array_conversions
 #![cfg_attr(rust_nightly, feature(const_type_id))]
 #![cfg_attr(rust_nightly, feature(core_intrinsics))]
 // Plugins
@@ -375,6 +376,7 @@
 #![allow(clippy::should_implement_trait)]
 #![allow(clippy::single_match)]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::tuple_array_conversions)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::wrong_self_convention)]
 // FIXME: Temporary
