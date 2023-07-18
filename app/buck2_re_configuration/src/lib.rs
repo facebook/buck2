@@ -54,6 +54,9 @@ mod fbcode {
         pub curl_reactor_max_number_of_retries: Option<i32>,
         pub curl_reactor_connection_timeout_ms: Option<i32>,
         pub curl_reactor_request_timeout_ms: Option<i32>,
+
+        // ttl management
+        pub minimal_blob_ttl_seconds: Option<i64>,
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
@@ -114,6 +117,8 @@ mod fbcode {
                     BUCK2_RE_CLIENT_CFG_SECTION,
                     "curl_reactor_request_timeout_ms",
                 )?,
+                minimal_blob_ttl_seconds: legacy_config
+                    .parse(BUCK2_RE_CLIENT_CFG_SECTION, "minimal_blob_ttl_seconds")?,
             })
         }
 

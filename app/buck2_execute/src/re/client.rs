@@ -439,6 +439,7 @@ impl RemoteExecutionClientImpl {
                 use remote_execution::CurlReactorConfig;
                 use remote_execution::EmbeddedCASDaemonClientCfg;
                 use remote_execution::RichClientMode;
+                use remote_execution::TTLExtendingConfig;
 
                 let mut re_client_config = create_default_config();
                 re_client_config.action_cache_client_config.connection_count =
@@ -525,6 +526,18 @@ impl RemoteExecutionClientImpl {
                 // make sure that outputs are writable
                 // otherwise actions that are modifying outputs will fail due to a permission error
                 embedded_cas_daemon_config.writable_outputs = true;
+
+                let minimal_blob_ttl_threshold =
+                    static_metadata.minimal_blob_ttl_seconds.unwrap_or(3600);
+                embedded_cas_daemon_config.ttl_extending_config = Some(TTLExtendingConfig {
+                    blocking_ttl_extending_seconds_threshold: minimal_blob_ttl_threshold,
+                    ..Default::default()
+                });
+                embedded_cas_daemon_config.action_cache_ttl_extending_config =
+                    Some(TTLExtendingConfig {
+                        blocking_ttl_extending_seconds_threshold: minimal_blob_ttl_threshold,
+                        ..Default::default()
+                    });
 
                 re_client_config.cas_client_config =
                     CASDaemonClientCfg::embedded_config(embedded_cas_daemon_config);
