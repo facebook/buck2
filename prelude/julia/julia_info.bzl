@@ -27,7 +27,7 @@ JuliaLibrary = record(
     src_labels = "",
     srcs = "",
     project_toml = "",
-    label = field("label"),
+    label = field(Label),
     jll = field([JllInfo.type, None]),
 )
 

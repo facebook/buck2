@@ -57,14 +57,14 @@ LinkableNode = record(
     # Preferred linkage for this target.
     preferred_linkage = field(Linkage.type, Linkage("any")),
     # Linkable deps of this target.
-    deps = field(["label"], []),
+    deps = field([Label], []),
     # Exported linkable deps of this target.
     #
     # We distinguish between deps and exported deps so that when creating shared
     # libraries in a large graph we only need to link each library against its
     # deps and their (transitive) exported deps. This helps keep link lines smaller
     # and produces more efficient libs (for example, DT_NEEDED stays a manageable size).
-    exported_deps = field(["label"], []),
+    exported_deps = field([Label], []),
     # Link infos for all supported link styles.
     link_infos = field({LinkStyle.type: LinkInfos.type}, {}),
     # Shared libraries provided by this target.  Used if this target is
@@ -74,7 +74,7 @@ LinkableNode = record(
 
 LinkableGraphNode = record(
     # Target/label of this node
-    label = field("label"),
+    label = field(Label),
 
     # If this node has linkable output, it's linkable data
     linkable = field([LinkableNode.type, None], None),
@@ -96,7 +96,7 @@ LinkableGraphTSet = transitive_set()
 # graph structure.
 LinkableGraph = provider(fields = [
     # Target identifier of the graph.
-    "label",  # "label"
+    "label",  # Label
     "nodes",  # "LinkableGraphTSet"
 ])
 
@@ -128,8 +128,8 @@ def create_linkable_node(
 def create_linkable_graph_node(
         ctx: "context",
         linkable_node: [LinkableNode.type, None] = None,
-        roots: {"label": AnnotatedLinkableRoot.type} = {},
-        excluded: {"label": None} = {}) -> LinkableGraphNode.type:
+        roots: {Label: AnnotatedLinkableRoot.type} = {},
+        excluded: {Label: None} = {}) -> LinkableGraphNode.type:
     return LinkableGraphNode(
         label = ctx.label,
         linkable = linkable_node,
@@ -154,7 +154,7 @@ def create_linkable_graph(
     )
 
 def get_linkable_graph_node_map_func(graph: LinkableGraph.type):
-    def get_linkable_graph_node_map() -> {"label": LinkableNode.type}:
+    def get_linkable_graph_node_map() -> {Label: LinkableNode.type}:
         nodes = graph.nodes.traverse()
         linkable_nodes = {}
         for node in filter(None, nodes):
@@ -164,7 +164,7 @@ def get_linkable_graph_node_map_func(graph: LinkableGraph.type):
 
     return get_linkable_graph_node_map
 
-def linkable_deps(deps: ["dependency"]) -> ["label"]:
+def linkable_deps(deps: ["dependency"]) -> [Label]:
     labels = []
 
     for dep in deps:

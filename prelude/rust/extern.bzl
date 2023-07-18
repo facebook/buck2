@@ -72,7 +72,7 @@ def crate_map_arg(
         ctx: "context",
         compile_ctx: CompileContext.type,
         crate: CrateName.type,
-        label: "label") -> "cmd_args":
+        label: Label) -> "cmd_args":
     if crate.dynamic:
         args = CrateMapArg(label = label)
         flagfile = compile_ctx.flagfiles_for_crate_map.get(args, None)

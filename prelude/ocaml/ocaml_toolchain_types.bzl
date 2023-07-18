@@ -58,7 +58,7 @@ OCamlLibraryInfo = record(
     # The library target name: e.g. "`foo`"
     name = str,
     # The full library target: e.g. "`fbcode//...:foo`"
-    target = "label",
+    target = Label,
     # .a (C archives e.g. `libfoo_stubs.a`)
     c_libs = ["artifact"],
     # .o (Native compiler produced stubs)

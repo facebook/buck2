@@ -7,7 +7,7 @@
 
 StringWithSourceTarget = record(
     # Target providing the string value
-    source = field("label"),
+    source = field(Label),
     value = field("string"),
 )
 

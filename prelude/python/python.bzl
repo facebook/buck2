@@ -14,7 +14,7 @@ load(":manifest.bzl", "ManifestInfo")
 load(":toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 
 PythonLibraryManifests = record(
-    label = field("label"),
+    label = field(Label),
     srcs = field([ManifestInfo.type, None]),
     src_types = field([ManifestInfo.type, None], None),
     resources = field([(ManifestInfo.type, ["_arglike"]), None]),

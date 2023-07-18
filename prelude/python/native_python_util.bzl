@@ -38,7 +38,7 @@ CxxExtensionLinkInfo = provider(
         # Native python extensions that can't be linked into the main executable.
         "unembeddable_extensions",  # {str: LinkableProviders.type}
         # Native libraries that are only available as shared libs.
-        "shared_only_libs",  # {"label": LinkableProviders.type}
+        "shared_only_libs",  # {Label: LinkableProviders.type}
     ],
 )
 

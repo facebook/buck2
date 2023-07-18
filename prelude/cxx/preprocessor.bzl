@@ -380,7 +380,7 @@ def _get_private_preprocessor_args(ctx: "context", headers: {str: "artifact"}, c
 
     return CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args)
 
-def _by_language_cxx(x: {"": ""}, label: "label") -> [""]:
+def _by_language_cxx(x: {"": ""}, label: Label) -> [""]:
     return cxx_by_language_ext(x, ".cpp", label)
 
 def _header_style_args(style: HeaderStyle.type, path: "cmd_args", compiler_type: str) -> ["cmd_args"]:

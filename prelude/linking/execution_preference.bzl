@@ -47,7 +47,7 @@ def link_execution_preference_attr():
     The default is None, expressing that no preference has been set on the target itself.
     """)
 
-def get_link_execution_preference(ctx, links: ["label"]) -> LinkExecutionPreference.type:
+def get_link_execution_preference(ctx, links: [Label]) -> LinkExecutionPreference.type:
     if not hasattr(ctx.attrs, "link_execution_preference"):
         fail("`get_link_execution_preference` called on a rule that does not support link_execution_preference!")
 

@@ -347,7 +347,7 @@ def _create_jar_artifact(
         actions_identifier: [str, None],
         abi_generation_mode: ["AbiGenerationMode", None],
         java_toolchain: JavaToolchainInfo.type,
-        label: "label",
+        label: Label,
         output: ["artifact", None],
         javac_tool: ["", None],
         srcs: ["artifact"],

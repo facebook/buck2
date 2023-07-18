@@ -117,7 +117,7 @@ def _impl(ctx: "context") -> ["provider"]:
                     selected_debug_info.extend(info.artifacts)
         return selected_debug_info
 
-    def preference_for_links(links: ["label"], deps_preferences: [LinkExecutionPreferenceInfo.type]) -> LinkExecutionPreference.type:
+    def preference_for_links(links: [Label], deps_preferences: [LinkExecutionPreferenceInfo.type]) -> LinkExecutionPreference.type:
         # If any dependent links were run locally, prefer that the current link is also performed locally,
         # to avoid needing to upload the previous link.
         dep_prefered_local = is_any(lambda info: info.preference == LinkExecutionPreference("local"), deps_preferences)

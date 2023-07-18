@@ -197,7 +197,7 @@ def get_link_group_info(
         min_node_count = getattr(ctx.attrs, "link_group_min_binary_node_count", 0),
     )
 
-def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {"label": Linkage.type}:
+def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {Label: Linkage.type}:
     return {
         mapping.root: mapping.preferred_linkage
         for group in link_groups
@@ -227,7 +227,7 @@ def _transitively_update_shared_linkage(
                 shared_lib_roots.append(target)
 
     # buildifier: disable=uninitialized
-    def process_dependency(node: "label") -> ["label"]:
+    def process_dependency(node: Label) -> ["label"]:
         linkable_node = linkable_graph_node_map[node]
         if linkable_node.preferred_linkage == Linkage("any"):
             link_group_preferred_linkage[node] = Linkage("shared")
@@ -259,7 +259,7 @@ def get_filtered_labels_to_links_map(
     If no link group is provided, all unmatched link infos are returned.
     """
 
-    def get_traversed_deps(node: "label") -> ["label"]:
+    def get_traversed_deps(node: Label) -> [Label]:
         linkable_node = linkable_graph_node_map[node]  # buildifier: disable=uninitialized
 
         # Always link against exported deps
@@ -311,7 +311,7 @@ def get_filtered_labels_to_links_map(
     # for each of the possible multiple nodes that maps to it.
     link_group_added = {}
 
-    def add_link(target: "label", link_style: LinkStyle.type):
+    def add_link(target: Label, link_style: LinkStyle.type):
         linkable_map[target] = LinkGroupLinkInfo(
             link_info = get_link_info(linkable_graph_node_map[target], link_style, prefer_stripped),
             link_style = link_style,
@@ -428,7 +428,7 @@ def get_public_link_group_nodes(
     SPECIAL_LINK_GROUPS = [MATCH_ALL_LABEL, NO_MATCH_LABEL]
 
     # buildifier: disable=uninitialized
-    def get_traversed_deps(node: "label") -> ["label"]:
+    def get_traversed_deps(node: Label) -> [Label]:
         exported_deps = []
         for exported_dep in linkable_graph_node_map[node].exported_deps:
             group = link_group_mappings.get(exported_dep)
@@ -448,7 +448,7 @@ def get_public_link_group_nodes(
     return external_link_group_nodes
 
 def get_filtered_links(
-        labels_to_links_map: {"label": LinkGroupLinkInfo.type},
+        labels_to_links_map: {Label: LinkGroupLinkInfo.type},
         public_link_group_nodes: [set_record.type, None] = None):
     if public_link_group_nodes == None:
         return [link_group_info.link_info for link_group_info in labels_to_links_map.values()]
@@ -470,7 +470,7 @@ def get_filtered_links(
             infos.append(info)
     return infos
 
-def get_filtered_targets(labels_to_links_map: {"label": LinkGroupLinkInfo.type}):
+def get_filtered_targets(labels_to_links_map: {Label: LinkGroupLinkInfo.type}):
     return [label.raw_target() for label in labels_to_links_map.keys()]
 
 def get_link_group_map_json(ctx: "context", targets: ["target_label"]) -> DefaultInfo.type:
@@ -511,11 +511,11 @@ def _create_link_group(
         ctx: "context",
         spec: LinkGroupLibSpec.type,
         # The deps of the top-level executable.
-        executable_deps: ["label"] = [],
+        executable_deps: [Label] = [],
         # Additional roots involved in the link.
-        other_roots: ["label"] = [],
+        other_roots: [Label] = [],
         public_nodes: set_record.type = set(),
-        linkable_graph_node_map: {"label": LinkableNode.type} = {},
+        linkable_graph_node_map: {Label: LinkableNode.type} = {},
         linker_flags: [""] = [],
         link_groups: {str.type: Group.type} = {},
         link_group_mappings: {"label": str.type} = {},

@@ -112,7 +112,7 @@ def get_shared_library_name_for_param(linker_info: LinkerInfo.type, name: str):
     return name
 
 # NOTE(agallagher): Does this belong in the native/shared_libraries.bzl?
-def get_default_shared_library_name(linker_info: LinkerInfo.type, label: "label"):
+def get_default_shared_library_name(linker_info: LinkerInfo.type, label: Label):
     """
     Generate a platform-specific shared library name based for the given rule.
     """

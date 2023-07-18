@@ -18,7 +18,7 @@ load(
 # Information about a linkable node which explicitly sets `link_group`.
 LinkGroupLib = record(
     # The label of the owning target (if any).
-    label = field(["label", None], None),
+    label = field([Label, None], None),
     # The shared libs to package for this link group.
     shared_libs = field({str: LinkedObject.type}),
     # The link info to link against this link group.

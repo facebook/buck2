@@ -32,13 +32,13 @@ ResourceGroupInfo = provider(fields = [
 ])
 
 ResourceGraphNode = record(
-    label = field("label"),
+    label = field(Label),
     # Attribute labels on the target.
     labels = field([str], []),
     # Deps of this target which might have resources transitively.
-    deps = field(["label"], []),
+    deps = field([Label], []),
     # Exported deps of this target which might have resources transitively.
-    exported_deps = field(["label"], []),
+    exported_deps = field([Label], []),
     # Actual resource data, present when node corresponds to `apple_resource` target.
     resource_spec = field([AppleResourceSpec.type, None], None),
     # Actual asset catalog data, present when node corresponds to `apple_asset_catalog` target.
@@ -83,13 +83,13 @@ def create_resource_graph(
     )
 
 def get_resource_graph_node_map_func(graph: ResourceGraph.type):
-    def get_resource_graph_node_map() -> {"label": ResourceGraphNode.type}:
+    def get_resource_graph_node_map() -> {Label: ResourceGraphNode.type}:
         nodes = graph.nodes.traverse()
         return {node.label: node for node in filter(None, nodes)}
 
     return get_resource_graph_node_map
 
-def _with_resources_deps(deps: ["dependency"]) -> ["label"]:
+def _with_resources_deps(deps: ["dependency"]) -> [Label]:
     """
     Filters dependencies and returns only those which are relevant
     to working with resources i.e. those which contains resource graph provider.
@@ -113,7 +113,7 @@ def get_resource_group_info(ctx: "context") -> [ResourceGroupInfo.type, None]:
     fail("Resource group maps must be provided as a resource_group_map rule dependency.")
 
 def get_filtered_resources(
-        root: "label",
+        root: Label,
         resource_graph_node_map_func,
         resource_group: [str, None],
         resource_group_mappings: [{"label": str}, None]) -> ([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type], [SceneKitAssetsSpec.type]):
@@ -123,7 +123,7 @@ def get_filtered_resources(
 
     resource_graph_node_map = resource_graph_node_map_func()
 
-    def get_traversed_deps(target: "label") -> ["label"]:
+    def get_traversed_deps(target: Label) -> [Label]:
         node = resource_graph_node_map[target]  # buildifier: disable=uninitialized
         return node.exported_deps + node.deps
 

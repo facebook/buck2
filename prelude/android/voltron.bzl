@@ -122,7 +122,7 @@ def get_target_to_module_mapping(ctx: "context", deps_by_platform: {str: ["depen
 
 def _get_base_cmd_and_output(
         actions: "actions",
-        label: "label",
+        label: Label,
         android_packageable_infos: ["AndroidPackageableInfo"],
         shared_libraries: ["SharedLibrary"],
         android_toolchain: "AndroidToolchainInfo",

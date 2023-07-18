@@ -131,7 +131,7 @@ def add_output_paths_to_cmd_args(cmd: "cmd_args", output_paths: OutputPaths.type
     cmd.hidden(output_paths.scratch.as_output())
     return cmd
 
-def encode_output_paths(label: "label", paths: OutputPaths.type, target_type: TargetType.type) -> struct.type:
+def encode_output_paths(label: Label, paths: OutputPaths.type, target_type: TargetType.type) -> struct.type:
     paths = struct(
         classesDir = paths.classes.as_output(),
         outputJarDirPath = paths.jar_parent.as_output(),

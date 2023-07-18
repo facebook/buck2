@@ -209,7 +209,7 @@ AndroidLibraryIntellijInfo = provider(
 )
 
 def merge_android_packageable_info(
-        label: "label",
+        label: Label,
         actions: "actions",
         deps: ["dependency"],
         build_config_info: ["AndroidBuildConfigInfo", None] = None,

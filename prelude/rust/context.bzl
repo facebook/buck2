@@ -28,7 +28,7 @@ ExternArg = record(
 )
 
 CrateMapArg = record(
-    label = field("label"),
+    label = field(Label),
 )
 
 # Compile info which is reusable between multiple compilation command performed

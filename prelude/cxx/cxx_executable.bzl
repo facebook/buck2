@@ -384,7 +384,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             ),
         )
 
-        def is_link_group_shlib(label: "label"):
+        def is_link_group_shlib(label: Label):
             # If this maps to a link group which we have a `LinkGroupLibInfo` for,
             # then we'll handlet his below.
             # buildifier: disable=uninitialized

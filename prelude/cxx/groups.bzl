@@ -64,7 +64,7 @@ NO_MATCH_LABEL = "NO_MATCH"
 # Representation of a parsed group mapping
 GroupMapping = record(
     # The root to apply this mapping to.
-    root = field(["label", None], None),
+    root = field([Label, None], None),
     # The type of traversal to use.
     traversal = field(Traversal.type, Traversal("tree")),
     # Optional filter type to apply to the traversal.
@@ -212,8 +212,8 @@ def compute_mappings(groups: [Group.type], graph_map: {"label": "_b"}) -> {"labe
     return target_to_group_map
 
 def _find_targets_in_mapping(
-        graph_map: {"label": "_b"},
-        mapping: GroupMapping.type) -> ["label"]:
+        graph_map: {Label: "_b"},
+        mapping: GroupMapping.type) -> [Label]:
     # If we have no filtering, we don't need to do any traversal to find targets to include.
     if not mapping.filters:
         if mapping.root == None:
@@ -242,7 +242,7 @@ def _find_targets_in_mapping(
                 return False
         return True
 
-    def find_matching_targets(node):  # "label" -> ["label"]:
+    def find_matching_targets(node):  # Label -> [Label]:
         graph_node = graph_map[node]
         if matches_target(node, graph_node.labels):
             matching_targets[node] = None
@@ -268,7 +268,7 @@ def _update_target_to_group_mapping(
         node_traversed_targets,  #: {"label": None}
         group,  #  str,
         mapping,  # GroupMapping.type,
-        target):  # "label"
+        target):  # Label
     def assign_target_to_group(
             target: "label",
             node_traversal: bool) -> bool:
@@ -282,7 +282,7 @@ def _update_target_to_group_mapping(
         else:
             return True
 
-    def transitively_add_targets_to_group_mapping(node: "label") -> ["label"]:
+    def transitively_add_targets_to_group_mapping(node: Label) -> [Label]:
         previously_processed = assign_target_to_group(target = node, node_traversal = False)
 
         # If the node has been previously processed, and it was via tree (not node), all child nodes have been assigned

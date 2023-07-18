@@ -61,7 +61,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     ]
 
 def build_apk(
-        label: "label",
+        label: Label,
         actions: "actions",
         keystore: KeystoreInfo.type,
         android_toolchain: AndroidToolchainInfo.type,

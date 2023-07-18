@@ -103,7 +103,7 @@ def _package_style(ctx: "context") -> PackageStyle.type:
 def _merge_extensions(
         # {str: ("_a", "label")}
         extensions,
-        # "label"
+        # Label
         incoming_label,
         # {str: "_a"}
         incoming_extensions) -> None:

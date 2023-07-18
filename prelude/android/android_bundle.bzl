@@ -33,7 +33,7 @@ def android_bundle_impl(ctx: "context") -> ["provider"]:
     ]
 
 def build_bundle(
-        label: "label",
+        label: Label,
         actions: "actions",
         android_toolchain: AndroidToolchainInfo.type,
         dex_files_info: "DexFilesInfo",
