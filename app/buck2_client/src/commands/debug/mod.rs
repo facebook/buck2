@@ -31,7 +31,6 @@ use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::debug::set_log_filter::SetLogFilterCommand;
 use crate::commands::debug::trace_io::TraceIoCommand;
 use crate::commands::debug::upload_re_logs::UploadReLogsCommand;
-use crate::commands::log::debug_last_log::DebugLastLogCommand;
 use crate::commands::log::debug_replay::DebugReplayCommand;
 use crate::commands::log::debug_what_ran::DebugWhatRanCommand;
 
@@ -86,9 +85,6 @@ pub enum DebugCommand {
     /// Shows the commands that buck ran
     #[clap(alias = "whatran", setting(clap::AppSettings::Hidden))]
     WhatRan(DebugWhatRanCommand),
-    /// Shows the path to the most recent event log
-    #[clap(alias = "lastlog", setting(clap::AppSettings::Hidden))]
-    LastLog(DebugLastLogCommand),
     /// Prints buck2 daemon directory (`~/.buckd/xxx`).
     DaemonDir(DaemonDirCommand),
     /// Prints buck2 executable (this executable) path.
@@ -117,7 +113,6 @@ impl DebugCommand {
             DebugCommand::SegFault(cmd) => cmd.exec(matches, ctx),
             DebugCommand::FlushDepFiles(cmd) => cmd.exec(matches, ctx),
             DebugCommand::WhatRan(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::LastLog(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Materialize(cmd) => cmd.exec(matches, ctx),
             DebugCommand::UploadReLogs(cmd) => cmd.exec(matches, ctx),
             DebugCommand::DaemonDir(cmd) => cmd.exec(matches, ctx),
