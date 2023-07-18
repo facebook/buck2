@@ -10,6 +10,9 @@ load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//utils:utils.bzl", "expect")
 
 def get_preprocessed_java_classes(ctx: "context", input_jars = {"artifact": "target_label"}) -> {"artifact": "target_label"}:
+    if not input_jars:
+        return {}
+
     sh_script, _ = ctx.actions.write(
         "preprocessed_java_classes/script.sh",
         cmd_args(ctx.attrs.preprocess_java_classes_bash),
@@ -34,9 +37,6 @@ def get_preprocessed_java_classes(ctx: "context", input_jars = {"artifact": "tar
         )
         output_jars[output_jar] = target_label
         preprocess_cmd.hidden(output_jar.as_output())
-
-    if not output_jars:
-        return {}
 
     input_dir = ctx.actions.symlinked_dir("preprocessed_java_classes/input_dir", input_srcs)
     output_dir = cmd_args(output_jars.keys()[0].as_output()).parent()
