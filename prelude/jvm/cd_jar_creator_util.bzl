@@ -230,7 +230,7 @@ def encode_ap_params(ap_params: ["AnnotationProcessorParams"], target_type: Targ
             if ap.deps or ap.processors:
                 encoded_ap_params.pluginProperties.append(
                     struct(
-                        canReuseClassLoader = False,
+                        canReuseClassLoader = not ap.isolate_class_loader,
                         doesNotAffectAbi = not ap.affects_abi,
                         supportsAbiGenerationFromSource = ap.supports_source_only_abi,
                         processorNames = ap.processors,
