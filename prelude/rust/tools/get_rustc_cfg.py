@@ -6,14 +6,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# If https://github.com/rust-lang/rust/pull/110785 is accepted, this wrapper can
+# If https://github.com/rust-lang/rust/pull/113780 is accepted, this wrapper can
 # go away. The `rule` in the bzl code should directly run rustc.
 #
 #     cmd_args(
 #         toolchain_info.compiler,
-#         "--print=cfg",
+#         cmd_args("--print=cfg=", out.as_output(), delimiter = ""),
 #         cmd_args("--target=", toolchain_info.rustc_target_triple, delimiter = ""),
-#         cmd_args("-o", out.as_output(), delimiter = ""),
 #     )
 #
 # Alternatively if `ctx.actions.run` learns to redirect stdout. Something like:
