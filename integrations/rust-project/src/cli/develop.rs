@@ -160,6 +160,7 @@ impl Develop {
         } else {
             serde_json::to_writer(&mut writer, &rust_project)?;
         }
+        writeln!(writer)?;
 
         match out {
             Output::Path(p) => info!(file = ?p, "wrote rust-project.json"),
