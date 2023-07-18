@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 
 use anyhow::Context;
+use buck2_core::soft_error;
 use buck2_core::target::name::TargetName;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::string::StringLiteral;
@@ -144,28 +145,32 @@ impl AttributeSpecExt for AttributeSpec {
 
         attr_values.shrink_to_fit();
 
-        if internals.check_within_view {
-            // For now `within_view` is always set, but let's make code more robust.
-            if let Some(within_view) = attr_values.get(AttributeSpec::within_view_attr_id()) {
-                let within_view = match within_view {
-                    CoercedAttr::WithinView(within_view) => within_view,
-                    _ => return Err(AttributeSpecError::WithinViewCoercedIncorrectly.into()),
-                };
-                for a in self.attrs(&attr_values, AttrInspectOptions::DefinedOnly) {
-                    check_within_view(
-                        a.value,
+        // For now `within_view` is always set, but let's make code more robust.
+        if let Some(within_view) = attr_values.get(AttributeSpec::within_view_attr_id()) {
+            let within_view = match within_view {
+                CoercedAttr::WithinView(within_view) => within_view,
+                _ => return Err(AttributeSpecError::WithinViewCoercedIncorrectly.into()),
+            };
+            for a in self.attrs(&attr_values, AttrInspectOptions::DefinedOnly) {
+                if let Err(e) = check_within_view(
+                    a.value,
+                    internals.buildfile_path().package(),
+                    a.attr.coercer(),
+                    within_view,
+                )
+                .with_context(|| {
+                    format!(
+                        "checking `within_view` for attribute `{}` of `{}:{}`",
+                        a.name,
                         internals.buildfile_path().package(),
-                        a.attr.coercer(),
-                        within_view,
+                        name
                     )
-                    .with_context(|| {
-                        format!(
-                            "checking `within_view` for attribute `{}` of `{}:{}`",
-                            a.name,
-                            internals.buildfile_path().package(),
-                            name
-                        )
-                    })?;
+                }) {
+                    if internals.check_within_view {
+                        return Err(e);
+                    } else {
+                        soft_error!("check_within_view", e)?;
+                    }
                 }
             }
         }
