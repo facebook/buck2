@@ -270,9 +270,3 @@ impl ToProtoMessage for ConfiguredTargetLabel {
         }
     }
 }
-
-/// [`TargetLabel`] or [`ConfiguredTargetLabel`]
-pub trait TargetLabelMaybeConfigured: Display {}
-
-impl TargetLabelMaybeConfigured for TargetLabel {}
-impl TargetLabelMaybeConfigured for ConfiguredTargetLabel {}
