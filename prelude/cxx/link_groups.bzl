@@ -641,7 +641,8 @@ def _stub_library(
 def _symbol_files_for_link_group(
         ctx: "context",
         lib: LinkedObject.type,
-        prefer_local: bool = False) -> ("artifact", "artifact"):
+        prefer_local: bool = False,
+        anonymous: bool = False) -> ("artifact", "artifact"):
     """
     Find and return all undefined and global symbols form the given library.
     """
@@ -652,6 +653,7 @@ def _symbol_files_for_link_group(
         output = lib.output,
         category_prefix = "link_groups",
         prefer_local = prefer_local,
+        anonymous = anonymous,
     )
 
     # Extract global symbols.
@@ -660,6 +662,7 @@ def _symbol_files_for_link_group(
         output = lib.output,
         category_prefix = "link_groups",
         prefer_local = prefer_local,
+        anonymous = anonymous,
     )
 
     return undefined_symfile, global_symfile
@@ -805,6 +808,7 @@ def create_link_groups(
         undefined_symfile, global_symfile = _symbol_files_for_link_group(
             ctx = ctx,
             lib = link_group_lib,
+            anonymous = anonymous,
         )
         undefined_symfiles.append(undefined_symfile)
         global_symfiles.append(global_symfile)

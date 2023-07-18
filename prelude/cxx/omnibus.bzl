@@ -596,9 +596,9 @@ def _create_global_symbols_version_script(
     # We should probably split this up and operate on individual libs.
     if excluded:
         global_symbols_files.append(extract_symbol_names(
-            ctx,
-            "__excluded_libs__.global_syms.txt",
-            excluded,
+            ctx = ctx,
+            name = "__excluded_libs__.global_syms.txt",
+            objects = excluded,
             dynamic = True,
             global_only = True,
             category = "omnibus_global_syms_excluded_libs",

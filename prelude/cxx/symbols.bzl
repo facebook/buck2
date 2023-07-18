@@ -6,9 +6,10 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
-def extract_symbol_names(
+def _extract_symbol_names(
         ctx: "context",
         name: str,
         objects: ["artifact"],
@@ -75,29 +76,107 @@ def extract_symbol_names(
     )
     return output
 
-def extract_undefined_syms(ctx: "context", output: "artifact", category_prefix: str, prefer_local: bool) -> "artifact":
+_SymbolsInfo = provider(fields = [
+    "artifact",  # "artifact"
+])
+
+def _anon_extract_symbol_names_impl(ctx):
+    output = _extract_symbol_names(
+        ctx = ctx,
+        category = ctx.attrs.category,
+        dynamic = ctx.attrs.dynamic,
+        global_only = ctx.attrs.global_only,
+        identifier = ctx.attrs.identifier,
+        local_only = ctx.attrs.local_only,
+        name = ctx.attrs.output,
+        objects = ctx.attrs.objects,
+        prefer_local = ctx.attrs.prefer_local,
+        undefined_only = ctx.attrs.undefined_only,
+    )
+    return [DefaultInfo(), _SymbolsInfo(artifact = output)]
+
+# Anonymous wrapper for `extract_symbol_names`.
+_anon_extract_symbol_names_impl_rule = rule(
+    impl = _anon_extract_symbol_names_impl,
+    attrs = {
+        "category": attrs.string(),
+        "dynamic": attrs.bool(default = False),
+        "global_only": attrs.bool(default = False),
+        "identifier": attrs.option(attrs.string(), default = None),
+        "local_only": attrs.bool(default = False),
+        "objects": attrs.list(attrs.source()),
+        "output": attrs.string(),
+        "prefer_local": attrs.bool(default = False),
+        "undefined_only": attrs.bool(default = False),
+        "_cxx_toolchain": attrs.dep(providers = [CxxToolchainInfo]),
+    },
+)
+
+def extract_symbol_names(
+        ctx: "context",
+        name: str,
+        anonymous: bool = False,
+        **kwargs) -> ["artifact", "promise_artifact"]:
+    """
+    Generate a file with a sorted list of symbol names extracted from the given
+    native objects.
+    """
+
+    if anonymous:
+        anon_providers = ctx.actions.anon_target(
+            _anon_extract_symbol_names_impl_rule,
+            dict(
+                _cxx_toolchain = ctx.attrs._cxx_toolchain,
+                output = name,
+                **kwargs
+            ),
+        )
+        return ctx.actions.artifact_promise(
+            anon_providers.map(lambda p: p[_SymbolsInfo].artifact),
+            short_path = paths.join("__symbols__", name),
+        )
+    else:
+        return _extract_symbol_names(
+            ctx = ctx,
+            name = name,
+            **kwargs
+        )
+
+def extract_undefined_syms(
+        ctx: "context",
+        output: "artifact",
+        category_prefix: str,
+        prefer_local: bool = False,
+        anonymous: bool = False) -> "artifact":
     return extract_symbol_names(
-        ctx,
-        output.short_path + ".undefined_syms.txt",
-        [output],
+        ctx = ctx,
+        name = output.short_path + ".undefined_syms.txt",
+        objects = [output],
         dynamic = True,
         global_only = True,
         undefined_only = True,
         category = "{}_undefined_syms".format(category_prefix),
         identifier = output.short_path,
         prefer_local = prefer_local,
+        anonymous = anonymous,
     )
 
-def extract_global_syms(ctx: "context", output: "artifact", category_prefix: str, prefer_local: bool) -> "artifact":
+def extract_global_syms(
+        ctx: "context",
+        output: "artifact",
+        category_prefix: str,
+        prefer_local: bool = False,
+        anonymous: bool = False) -> "artifact":
     return extract_symbol_names(
-        ctx,
-        output.short_path + ".global_syms.txt",
-        [output],
+        ctx = ctx,
+        name = output.short_path + ".global_syms.txt",
+        objects = [output],
         dynamic = True,
         global_only = True,
         category = "{}_global_syms".format(category_prefix),
         identifier = output.short_path,
         prefer_local = prefer_local,
+        anonymous = anonymous,
     )
 
 def _create_symbols_file_from_script(
