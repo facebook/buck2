@@ -202,6 +202,9 @@ fn resolve_renamed_dependencies(
     }
 }
 
+/// For every test target, drop it from `target_map` and include test
+/// target's dependencies in the target that references the test
+/// target.
 fn merge_unit_test_targets(
     target_map: BTreeMap<Target, TargetInfo>,
 ) -> BTreeMap<Target, TargetInfoEntry> {
@@ -230,7 +233,7 @@ fn merge_unit_test_targets(
         for test_dep in &info.tests {
             if let Some(test_info) = generated_unit_tests.get(test_dep) {
                 for test_dep in &test_info.deps {
-                    if !info.deps.contains(test_dep) {
+                    if !info.deps.contains(test_dep) && *test_dep != target {
                         info.deps.push(test_dep.clone())
                     }
                 }
@@ -479,5 +482,61 @@ fn cmd_err(command: &Command, status: ExitStatus, stderr: &[u8]) -> anyhow::Erro
 pub fn truncate_line_ending(s: &mut String) {
     if let Some(x) = s.strip_suffix("\r\n").or_else(|| s.strip_suffix('\n')) {
         s.truncate(x.len());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// When we merge targets with their tests, we shouldn't end up
+    /// with a target that depends on itself.
+    #[test]
+    fn merge_tests_no_cycles() {
+        let mut targets = BTreeMap::new();
+
+        targets.insert(
+            Target::new("//foo"),
+            TargetInfo {
+                name: "foo".to_owned(),
+                label: "foo".to_owned(),
+                kind: Kind::Library,
+                edition: None,
+                srcs: vec![],
+                mapped_srcs: BTreeMap::new(),
+                crate_name: None,
+                crate_root: None,
+                deps: vec![],
+                tests: vec![Target::new("//foo-test")],
+                named_deps: BTreeMap::new(),
+                proc_macro: None,
+                features: vec![],
+                source_folder: PathBuf::from("/tmp"),
+            },
+        );
+
+        targets.insert(
+            Target::new("//foo-test"),
+            TargetInfo {
+                name: "foo-test".to_owned(),
+                label: "foo-test".to_owned(),
+                kind: Kind::Test,
+                edition: None,
+                srcs: vec![],
+                mapped_srcs: BTreeMap::new(),
+                crate_name: None,
+                crate_root: None,
+                deps: vec![Target::new("//foo")],
+                tests: vec![],
+                named_deps: BTreeMap::new(),
+                proc_macro: None,
+                features: vec![],
+                source_folder: PathBuf::from("/tmp"),
+            },
+        );
+
+        let res = merge_unit_test_targets(targets.clone());
+        let merged_target = res.get(&Target::new("//foo")).unwrap();
+        assert_eq!(*merged_target.info.deps, vec![]);
     }
 }
