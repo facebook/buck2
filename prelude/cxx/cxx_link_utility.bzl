@@ -8,6 +8,7 @@
 load("@prelude//:artifact_tset.bzl", "project_artifact_tset")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:linker.bzl", "get_rpath_origin")
 load(
     "@prelude//linking:link_info.bzl",
@@ -15,7 +16,23 @@ load(
     "unpack_link_args",
     "unpack_link_args_filelist",
 )
+load("@prelude//linking:lto.bzl", "LtoMode")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
+
+def generates_split_debug(ctx: "context"):
+    """
+    Whether linking generates split debug outputs.
+    """
+
+    toolchain = get_cxx_toolchain_info(ctx)
+
+    if toolchain.split_debug_mode == SplitDebugMode("none"):
+        return False
+
+    if toolchain.linker_info.lto_mode == LtoMode("none"):
+        return False
+
+    return True
 
 def linker_map_args(ctx, linker_map) -> LinkArgs.type:
     linker_type = get_cxx_toolchain_info(ctx).linker_info.type

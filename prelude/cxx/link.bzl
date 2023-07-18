@@ -7,6 +7,7 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",
     "make_artifact_tset",
     "project_artifact_tset",
 )
@@ -34,12 +35,13 @@ load(
     "get_split_debug_lto_info",
 )
 load("@prelude//linking:strip.bzl", "strip_shared_library")
-load("@prelude//utils:utils.bzl", "map_val", "value_or")
+load("@prelude//utils:utils.bzl", "expect", "map_val", "value_or")
 load(":bitcode.bzl", "make_bitcode_bundle")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_link_utility.bzl",
     "cxx_link_cmd_parts",
+    "generates_split_debug",
     "linker_map_args",
     "make_link_args",
 )
@@ -69,6 +71,35 @@ CxxLinkResult = record(
     linker_map_data = [CxxLinkerMapData.type, None],
     link_execution_preference_info = LinkExecutionPreferenceInfo.type,
 )
+
+def link_external_debug_info(
+        ctx: "context",
+        links: [LinkArgs.type],
+        split_debug_output: ["artifact", None] = None,
+        pdb: ["artifact", None] = None) -> ArtifactTSet.type:
+    external_debug_artifacts = []
+
+    # When using LTO+split-dwarf, the link step will generate externally
+    # referenced debug info.
+    if split_debug_output != None:
+        external_debug_artifacts.append(split_debug_output)
+
+    if pdb != None:
+        external_debug_artifacts.append(pdb)
+
+    external_debug_infos = []
+
+    # Add-in an externally referenced debug info that the linked object may
+    # reference (and which may need to be available for debugging).
+    for link in links:
+        external_debug_infos.append(unpack_external_debug_info(ctx.actions, link))
+
+    return make_artifact_tset(
+        actions = ctx.actions,
+        label = ctx.label,
+        artifacts = external_debug_artifacts,
+        children = external_debug_infos,
+    )
 
 # Actually perform a link into the supplied output.
 def cxx_link(
@@ -140,6 +171,7 @@ def cxx_link(
     if split_debug_lto_info != None:
         all_link_args.add(split_debug_lto_info.linker_flags)
         split_debug_output = split_debug_lto_info.output
+    expect(not generates_split_debug(ctx) or split_debug_output != None)
 
     (link_args, hidden, pdb_artifact) = make_link_args(
         ctx,
@@ -154,15 +186,6 @@ def cxx_link(
         ),
     )
     all_link_args.add(link_args)
-
-    external_debug_artifacts = []
-    external_debug_infos = []
-
-    if split_debug_output != None:
-        external_debug_artifacts.append(split_debug_output)
-
-    if pdb_artifact != None:
-        external_debug_artifacts.append(pdb_artifact)
 
     bitcode_linkables = []
     for link_item in links:
@@ -179,19 +202,14 @@ def cxx_link(
     else:
         bitcode_artifact = None
 
-    # If we're not stripping the output linked object, than add-in an externally
-    # referenced debug info that the linked object may reference (and which may
-    # need to be available for debugging).
+    external_debug_info = ArtifactTSet()
     if not (strip or getattr(ctx.attrs, "prefer_stripped_objects", False)):
-        for link in links:
-            external_debug_infos.append(unpack_external_debug_info(ctx.actions, link))
-
-    external_debug_info = make_artifact_tset(
-        actions = ctx.actions,
-        label = ctx.label,
-        artifacts = external_debug_artifacts,
-        children = external_debug_infos,
-    )
+        external_debug_info = link_external_debug_info(
+            ctx = ctx,
+            links = links,
+            split_debug_output = split_debug_output,
+            pdb = pdb_artifact,
+        )
 
     if linker_info.type == "windows":
         shell_quoted_args = cmd_args(all_link_args)
@@ -271,7 +289,9 @@ def cxx_link(
         linker_argsfile = argfile,
         import_library = import_library,
         pdb = pdb_artifact,
+        split_debug_output = split_debug_output,
     )
+
     return CxxLinkResult(
         linked_object = linked_object,
         linker_map_data = linker_map_data,
