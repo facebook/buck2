@@ -146,7 +146,6 @@ def cxx_link(
         links_with_linker_map,
         suffix = identifier,
         output_short_path = output.short_path,
-        split_debug_output = split_debug_output,
         is_shared = result_type.value == "shared_library",
         link_ordering = value_or(
             link_ordering,

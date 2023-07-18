@@ -12,7 +12,6 @@ load("@prelude//cxx:linker.bzl", "get_rpath_origin")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
-    "LinkInfo",
     "unpack_link_args",
     "unpack_link_args_filelist",
 )
@@ -38,50 +37,12 @@ def linker_map_args(ctx, linker_map) -> LinkArgs.type:
         fail("Linker type {} not supported".format(linker_type))
     return LinkArgs(flags = flags)
 
-def map_link_args_for_dwo(dwo_dir: "output_artifact", links: ["LinkArgs"]) -> ["LinkArgs"]:
-    """
-    Takes LinkArgs, and if they enable the DWO output dir hack, returns updated
-    args and a DWO dir as output. If they don't, just returns the args as-is.
-    """
-
-    # TODO(T110378131): Once we have first-class support for ThinLTO and
-    # split-dwarf, we can move way from this hack and have the rules add this
-    # parameter appropriately.  But, for now, to maintain compatibility for how
-    # the macros setup ThinLTO+split-dwarf, use a macro hack to intercept when
-    # we're setting an explicitly tracked dwo dir and pull into the explicit
-    # tracking we do at the `LinkedObject` level.
-
-    def adjust_flag(flag: "_arglike") -> "_arglike":
-        if "HACK-OUTPUT-DWO-DIR" in repr(flag):
-            return cmd_args(dwo_dir, format = "dwo_dir={}")
-        else:
-            return flag
-
-    def adjust_link_info(link_info: LinkInfo.type) -> LinkInfo.type:
-        return LinkInfo(
-            name = link_info.name,
-            linkables = link_info.linkables,
-            pre_flags = [adjust_flag(x) for x in link_info.pre_flags],
-            post_flags = [adjust_flag(x) for x in link_info.post_flags],
-            external_debug_info = link_info.external_debug_info,
-        )
-
-    return [
-        LinkArgs(
-            tset = link.tset,
-            flags = [adjust_flag(flag) for flag in link.flags] if link.flags != None else None,
-            infos = [adjust_link_info(info) for info in link.infos] if link.infos != None else None,
-        )
-        for link in links
-    ]
-
 def make_link_args(
         ctx: "context",
         links: ["LinkArgs"],
         suffix = None,
         output_short_path: [str, None] = None,
         is_shared: [bool, None] = None,
-        split_debug_output: ["artifact", None] = None,
         link_ordering: ["LinkOrdering", None] = None) -> ("_arglike", ["_hidden"], ["artifact", None]):
     """
     Merges LinkArgs. Returns the args, files that must be present for those
@@ -118,16 +79,6 @@ def make_link_args(
     # write a wrapper script to compute it dynamically.
     if linker_type == "darwin":
         args.add(["-Wl,-oso_prefix,."])
-
-    # Not all C/C++ codebases use split-DWARF. Apple uses dSYM files, instead.
-    #
-    # If we aren't going to use .dwo/.dwp files, avoid the codepath.
-    # Historically we've seen that going down this path bloats
-    # the memory usage of FBiOS by 12% (which amounts to Gigabytes.)
-    #
-    # Context: D36669131
-    if split_debug_output != None and linker_info.type != "darwin":
-        links = map_link_args_for_dwo(split_debug_output.as_output(), links)
 
     pdb_artifact = None
     if linker_info.is_pdb_generated and output_short_path != None:
