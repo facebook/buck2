@@ -229,9 +229,10 @@ fn merge_unit_test_targets(
     for (index, (target, mut info)) in targets.into_iter().enumerate() {
         trace!(?target, ?info, index, "adding dependency");
 
-        // merge the `-unittest` target with the parent target.
-        for test_dep in &info.tests {
-            if let Some(test_info) = generated_unit_tests.get(test_dep) {
+        // Merge the `-unittest` target with the parent target.
+        let unittest_target = Target::new(format!("{target}-unittest"));
+        if info.tests.contains(&unittest_target) {
+            if let Some(test_info) = generated_unit_tests.get(&unittest_target) {
                 for test_dep in &test_info.deps {
                     if !info.deps.contains(test_dep) && *test_dep != target {
                         info.deps.push(test_dep.clone())
@@ -239,6 +240,7 @@ fn merge_unit_test_targets(
                 }
             }
         }
+
         target_index.insert(target.to_owned(), TargetInfoEntry { index, info });
     }
     target_index
@@ -507,7 +509,7 @@ mod tests {
                 crate_name: None,
                 crate_root: None,
                 deps: vec![],
-                tests: vec![Target::new("//foo-test")],
+                tests: vec![Target::new("//foo-unittest")],
                 named_deps: BTreeMap::new(),
                 proc_macro: None,
                 features: vec![],
@@ -516,10 +518,10 @@ mod tests {
         );
 
         targets.insert(
-            Target::new("//foo-test"),
+            Target::new("//foo-unittest"),
             TargetInfo {
-                name: "foo-test".to_owned(),
-                label: "foo-test".to_owned(),
+                name: "foo-unittest".to_owned(),
+                label: "foo-unittest".to_owned(),
                 kind: Kind::Test,
                 edition: None,
                 srcs: vec![],
@@ -538,5 +540,114 @@ mod tests {
         let res = merge_unit_test_targets(targets.clone());
         let merged_target = res.get(&Target::new("//foo")).unwrap();
         assert_eq!(*merged_target.info.deps, vec![]);
+    }
+
+    #[test]
+    fn merge_target_multiple_tests_no_cycles() {
+        let mut targets = BTreeMap::new();
+
+        targets.insert(
+            Target::new("//foo"),
+            TargetInfo {
+                name: "foo".to_owned(),
+                label: "foo".to_owned(),
+                kind: Kind::Library,
+                edition: None,
+                srcs: vec![],
+                mapped_srcs: BTreeMap::new(),
+                crate_name: None,
+                crate_root: None,
+                deps: vec![Target::new("//foo@rust")],
+                tests: vec![
+                    Target::new("//foo_test"),
+                    Target::new("//foo@rust-unittest"),
+                ],
+                named_deps: BTreeMap::new(),
+                proc_macro: None,
+                features: vec![],
+                source_folder: PathBuf::from("/tmp"),
+            },
+        );
+
+        targets.insert(
+            Target::new("//foo@rust"),
+            TargetInfo {
+                name: "foo@rust".to_owned(),
+                label: "foo@rust".to_owned(),
+                kind: Kind::Library,
+                edition: None,
+                srcs: vec![],
+                mapped_srcs: BTreeMap::new(),
+                crate_name: None,
+                crate_root: None,
+                deps: vec![],
+                tests: vec![
+                    Target::new("//foo_test"),
+                    Target::new("//foo@rust-unittest"),
+                ],
+                named_deps: BTreeMap::new(),
+                proc_macro: None,
+                features: vec![],
+                source_folder: PathBuf::from("/tmp"),
+            },
+        );
+
+        targets.insert(
+            Target::new("//foo_test"),
+            TargetInfo {
+                name: "foo_test".to_owned(),
+                label: "foo_test".to_owned(),
+                kind: Kind::Test,
+                edition: None,
+                srcs: vec![],
+                mapped_srcs: BTreeMap::new(),
+                crate_name: None,
+                crate_root: None,
+                // foo_test depends on foo, which is reasonable, but
+                // we need to be careful when merging test
+                // dependencies of foo@rust to avoid creating cycles.
+                deps: vec![Target::new("//foo"), Target::new("//bar")],
+                tests: vec![],
+                named_deps: BTreeMap::new(),
+                proc_macro: None,
+                features: vec![],
+                source_folder: PathBuf::from("/tmp"),
+            },
+        );
+
+        targets.insert(
+            Target::new("//foo@rust-unittest"),
+            TargetInfo {
+                name: "foo@rust-unittest".to_owned(),
+                label: "foo@rust-unittest".to_owned(),
+                kind: Kind::Test,
+                edition: None,
+                srcs: vec![],
+                mapped_srcs: BTreeMap::new(),
+                crate_name: None,
+                crate_root: None,
+                deps: vec![Target::new("//test-framework")],
+                tests: vec![],
+                named_deps: BTreeMap::new(),
+                proc_macro: None,
+                features: vec![],
+                source_folder: PathBuf::from("/tmp"),
+            },
+        );
+
+        let res = merge_unit_test_targets(targets.clone());
+        let merged_foo_target = res.get(&Target::new("//foo")).unwrap();
+        assert_eq!(
+            *merged_foo_target.info.deps,
+            vec![Target::new("//foo@rust")],
+            "Additional dependencies should only come from the foo-unittest crate"
+        );
+
+        let merged_foo_rust_target = res.get(&Target::new("//foo@rust")).unwrap();
+        assert_eq!(
+            *merged_foo_rust_target.info.deps,
+            vec![Target::new("//test-framework")],
+            "Test dependencies should only come from the foo@rust-unittest crate"
+        );
     }
 }
