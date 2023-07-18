@@ -108,7 +108,7 @@ impl EventLogOptions {
         }
 
         let tmp_dir = ctx.paths()?.tmp_dir();
-        fs_util::create_dir_if_not_exists(&tmp_dir)?;
+        fs_util::create_dir_all(&tmp_dir)?;
         let temp_path = tmp_dir.join(FileName::new(&format!(
             "dl.{}.{}.tmp",
             manifold_file_name,
@@ -144,6 +144,7 @@ impl EventLogOptions {
             .into());
         }
 
+        fs_util::create_dir_all(log_path.parent().context("Error identifying log dir")?)?;
         fs_util::rename(temp_path.path(), &log_path)?;
         buck2_client_ctx::eprintln!("Downloaded event-log to `{}`", log_path.display())?;
 
