@@ -15,7 +15,6 @@ use anyhow::Context;
 use buck2_common::package_listing::file_listing::PackageFileListing;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
-use buck2_core::soft_error;
 use derivative::Derivative;
 
 #[derive(Debug, thiserror::Error)]
@@ -59,11 +58,7 @@ impl GlobPattern {
             return Err(GlobError::LeadingSlash(pattern.to_owned()).into());
         }
         if pattern.ends_with('/') {
-            // Please write a test when converting this error to hard error.
-            soft_error!(
-                "glob_trailing_slash",
-                GlobError::TrailingSlash(pattern.to_owned()).into()
-            )?;
+            return Err(GlobError::TrailingSlash(pattern.to_owned()).into());
         }
         // TODO(nga): also ban single dot.
         if pattern.split('/').any(|p| p == "..") {
@@ -358,6 +353,12 @@ mod tests {
         assert!(GlobSpec::new(&["//"], &[""; 0]).is_err());
         assert!(GlobSpec::new(&["a//**"], &[""; 0]).is_err());
         assert!(GlobSpec::new(&["a/*//b"], &[""; 0]).is_err());
+    }
+
+    #[test]
+    fn test_trailing_slash_in_pattern() {
+        assert!(GlobSpec::new(&["a/"], &[""; 0]).is_err());
+        assert!(GlobSpec::new(&["a/*/"], &[""; 0]).is_err());
     }
 
     #[test]
