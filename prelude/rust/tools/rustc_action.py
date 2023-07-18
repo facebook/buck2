@@ -26,16 +26,18 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Dict, IO, List, NamedTuple, Optional, Tuple
+from typing import Any, Dict, IO, List, NamedTuple, Optional, Tuple
 
 DEBUG = False
 
+
+def eprint(*args: Any, **kwargs: Any) -> None:
+    print(*args, end="\n", file=sys.stderr, flush=True, **kwargs)
+
+
 if sys.version_info[:2] < (3, 7):
-    print("Python 3.7 or newer is required!", file=sys.stderr)
-    print(
-        "Using {} from {}".format(platform.python_version(), sys.executable),
-        file=sys.stderr,
-    )
+    eprint("Python 3.7 or newer is required!")
+    eprint("Using {} from {}".format(platform.python_version(), sys.executable))
     sys.exit(1)
 
 
@@ -47,14 +49,14 @@ def key_value_arg(s: str) -> Tuple[str, str]:
 
 
 class Args(NamedTuple):
-    diag_json: Optional[IO[str]]
-    diag_txt: Optional[IO[str]]
+    diag_json: Optional[IO[bytes]]
+    diag_txt: Optional[IO[bytes]]
     env: Optional[List[Tuple[str, str]]]
     path_env: Optional[List[Tuple[str, str]]]
     remap_cwd_prefix: Optional[str]
     crate_map: Optional[List[Tuple[str, str]]]
     buck_target: Optional[str]
-    failure_filter: Optional[IO[str]]
+    failure_filter: Optional[IO[bytes]]
     required_output: Optional[List[Tuple[str, str]]]
     rustc: List[str]
 
@@ -64,13 +66,13 @@ def arg_parse() -> Args:
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument(
         "--diag-json",
-        type=argparse.FileType("w"),
+        type=argparse.FileType("wb"),
         help="Json-formatted diagnostic output "
         "(assumes compiler is invoked with --error-format=json)",
     )
     parser.add_argument(
         "--diag-txt",
-        type=argparse.FileType("w"),
+        type=argparse.FileType("wb"),
         help="Rendered text diagnostic output (also streamed to stderr)",
     )
     parser.add_argument(
@@ -104,7 +106,7 @@ def arg_parse() -> Args:
     )
     parser.add_argument(
         "--failure-filter",
-        type=argparse.FileType(mode="w"),
+        type=argparse.FileType("wb"),
         help="Consider a failure as success so long as we got some usable diagnostics",
         metavar="build-status.json",
     )
@@ -149,7 +151,7 @@ async def handle_output(  # noqa: C901
             continue
 
         if DEBUG:
-            print(f"diag={repr(diag)}")
+            print(f"diag={repr(diag)}", end="\n")
 
         if diag.get("level") == "error":
             got_error_diag = True
@@ -182,14 +184,16 @@ async def handle_output(  # noqa: C901
 
         # Emit json
         if args.diag_json:
-            args.diag_json.write(json.dumps(diag, separators=(",", ":")) + "\n")
+            args.diag_json.write(
+                json.dumps(diag, separators=(",", ":")).encode() + b"\n"
+            )
 
         # Emit rendered text version
         if "rendered" in diag:
-            rendered = diag["rendered"] + "\n"
+            rendered = diag["rendered"].encode() + b"\n"
             if args.diag_txt:
                 args.diag_txt.write(rendered)
-            sys.stderr.write(rendered)
+            sys.stderr.buffer.write(rendered)
 
     if args.diag_json:
         args.diag_json.close()
@@ -248,7 +252,7 @@ async def main() -> int:
     crate_map = dict(args.crate_map) if args.crate_map else {}
 
     if DEBUG:
-        print(f"args {repr(args)} env {env} crate_map {crate_map}")
+        print(f"args {repr(args)} env {env} crate_map {crate_map}", end="\n")
 
     rustc_cmd = args.rustc[:1]
     rustc_args = args.rustc[1:]
@@ -288,7 +292,8 @@ async def main() -> int:
         print(
             f"res={repr(res)} "
             f"got_error_diag={got_error_diag} "
-            f"args.failure_filter {args.failure_filter}"
+            f"args.failure_filter {args.failure_filter}",
+            end="\n",
         )
 
     # If rustc is reporting a silent error, make it loud
@@ -298,10 +303,7 @@ async def main() -> int:
     # Check for death by signal - this is always considered a failure
     if res < 0:
         cmdline = " ".join(shlex.quote(arg) for arg in args.rustc)
-        print(
-            f"Command exited with signal {-res}: command line: {cmdline}",
-            file=sys.stderr,
-        )
+        eprint(f"Command exited with signal {-res}: command line: {cmdline}")
     elif args.failure_filter:
         # If failure filtering is enabled, then getting an error diagnostic is also
         # considered a success. That is, if rustc exited with an error status, but
@@ -320,7 +322,9 @@ async def main() -> int:
             "status": res,
             "files": [short for short, path in required_output if Path(path).exists()],
         }
-        json.dump(build_status, args.failure_filter)
+        args.failure_filter.write(
+            json.dumps(build_status, separators=(",", ":")).encode() + b"\n"
+        )
 
         # OK to actually report success, but keep buck happy by making sure all
         # the required outputs are present
