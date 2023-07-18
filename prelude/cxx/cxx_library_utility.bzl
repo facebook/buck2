@@ -122,7 +122,7 @@ def cxx_attr_resources(ctx: "context") -> {str: ("artifact", ["_arglike"])}:
 def cxx_mk_shlib_intf(
         ctx: "context",
         name: str,
-        shared_lib: "artifact") -> "artifact":
+        shared_lib: ["artifact", "promise"]) -> "artifact":
     """
     Convert the given shared library into an interface used for linking.
     """

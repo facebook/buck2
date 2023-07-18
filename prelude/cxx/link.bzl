@@ -36,6 +36,12 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_shared_library")
 load("@prelude//utils:utils.bzl", "expect", "map_val", "value_or")
+load(
+    ":anon_link.bzl",
+    "ANON_ATTRS",
+    "deserialize_anon_attrs",
+    "serialize_anon_attrs",
+)
 load(":bitcode.bzl", "make_bitcode_bundle")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
@@ -102,11 +108,11 @@ def link_external_debug_info(
     )
 
 # Actually perform a link into the supplied output.
-def cxx_link(
+def cxx_link_into(
         ctx: "context",
-        links: [LinkArgs.type],
         # The destination for the link output.
         output: "artifact",
+        links: [LinkArgs.type],
         result_type: CxxLinkResultType.type,
         link_execution_preference: LinkExecutionPreference.type,
         link_weight: int = 1,
@@ -298,6 +304,96 @@ def cxx_link(
         link_execution_preference_info = link_execution_preference_info,
     )
 
+_AnonLinkInfo = provider(fields = [
+    "result",  # CxxLinkResult.type
+])
+
+def _anon_link_impl(ctx):
+    link_result = cxx_link(
+        ctx = ctx,
+        result_type = CxxLinkResultType(ctx.attrs.result_type),
+        **deserialize_anon_attrs(ctx.actions, ctx.attrs)
+    )
+    return [DefaultInfo(), _AnonLinkInfo(result = link_result)]
+
+_anon_link_rule = rule(
+    impl = _anon_link_impl,
+    attrs = dict(
+        result_type = attrs.enum(CxxLinkResultType.values()),
+        **ANON_ATTRS
+    ),
+)
+
+def _anon_cxx_link(
+        ctx: "context",
+        output: str.type,
+        result_type: CxxLinkResultType.type,
+        links: [LinkArgs.type] = [],
+        **kwargs) -> CxxLinkResult.type:
+    anon_providers = ctx.actions.anon_target(
+        _anon_link_rule,
+        dict(
+            _cxx_toolchain = ctx.attrs._cxx_toolchain,
+            result_type = result_type.value,
+            **serialize_anon_attrs(
+                output = output,
+                links = links,
+                **kwargs
+            )
+        ),
+    )
+
+    output = ctx.actions.artifact_promise(
+        anon_providers.map(lambda p: p[_AnonLinkInfo].result.linked_object.output),
+        short_path = output,
+    )
+
+    dwp = None
+    if dwp_available(ctx):
+        dwp = ctx.actions.artifact_promise(
+            anon_providers.map(lambda p: p[_AnonLinkInfo].result.linked_object.dwp),
+        )
+
+    split_debug_output = None
+    if generates_split_debug(ctx):
+        split_debug_output = ctx.actions.artifact_promise(
+            anon_providers.map(lambda p: p[_AnonLinkInfo].result.linked_object.split_debug_output),
+        )
+    external_debug_info = link_external_debug_info(
+        ctx = ctx,
+        links = links,
+        split_debug_output = split_debug_output,
+    )
+
+    return CxxLinkResult(
+        linked_object = LinkedObject(
+            output = output,
+            dwp = dwp,
+            external_debug_info = external_debug_info,
+        ),
+        linker_map_data = None,
+        link_execution_preference_info = LinkExecutionPreferenceInfo(
+            preference = LinkExecutionPreference("any"),
+        ),
+    )
+
+def cxx_link(
+        ctx: "context",
+        output: str.type,
+        anonymous: bool.type = False,
+        **kwargs):
+    if anonymous:
+        return _anon_cxx_link(
+            ctx = ctx,
+            output = output,
+            **kwargs
+        )
+    return cxx_link_into(
+        ctx = ctx,
+        output = ctx.actions.declare_output(output),
+        **kwargs
+    )
+
 def cxx_link_shared_library(
         ctx: "context",
         # The destination for the link output.
@@ -306,23 +402,12 @@ def cxx_link_shared_library(
         name: [str, None] = None,
         links: [LinkArgs.type] = [],
         link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
-        link_weight: int = 1,
-        link_ordering: [LinkOrdering.type, None] = None,
-        enable_distributed_thinlto: bool = False,
-        # A category suffix that will be added to the category of the link action that is generated.
-        category_suffix: [str, None] = None,
-        # An identifier that will uniquely name this link action in the context of a category. Useful for
-        # differentiating multiple link actions in the same rule.
-        identifier: [str, None] = None,
         # Overrides the default flags used to specify building shared libraries
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
-        strip: bool = False,
-        strip_args_factory = None) -> CxxLinkResult.type:
+        **kwargs) -> CxxLinkResult.type:
     """
     Link a shared library into the supplied output.
     """
-    output = ctx.actions.declare_output(output)
-
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     linker_type = linker_info.type
     extra_args = []
@@ -337,23 +422,17 @@ def cxx_link_shared_library(
     (import_library, import_library_args) = get_import_library(
         ctx,
         linker_type,
-        output.short_path,
+        output,
     )
 
     links_with_extra_args = [LinkArgs(flags = extra_args)] + links + [LinkArgs(flags = import_library_args)]
 
     return cxx_link(
-        ctx,
-        links_with_extra_args,
-        output,
-        CxxLinkResultType("shared_library"),
-        enable_distributed_thinlto = enable_distributed_thinlto,
-        category_suffix = category_suffix,
-        identifier = identifier,
-        strip = strip,
-        strip_args_factory = strip_args_factory,
+        ctx = ctx,
+        output = output,
+        links = links_with_extra_args,
+        result_type = CxxLinkResultType("shared_library"),
         import_library = import_library,
-        link_ordering = link_ordering,
-        link_weight = link_weight,
         link_execution_preference = link_execution_preference,
+        **kwargs
     )

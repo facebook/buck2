@@ -523,7 +523,8 @@ def _create_link_group(
         link_style: LinkStyle.type = LinkStyle("static_pic"),
         link_group_libs: {str: (["label", None], LinkInfos.type)} = {},
         prefer_stripped_objects: bool = False,
-        category_suffix: [str, None] = None) -> LinkedObject.type:
+        category_suffix: [str, None] = None,
+        anonymous: bool = False) -> LinkedObject.type:
     """
     Link a link group library, described by a `LinkGroupLibSpec`.  This is
     intended to handle regular shared libs and e.g. Python extensions.
@@ -603,10 +604,15 @@ def _create_link_group(
         category_suffix = category_suffix,
         identifier = spec.name,
         enable_distributed_thinlto = spec.group.attrs.enable_distributed_thinlto,
+        anonymous = anonymous,
     )
     return link_result.linked_object
 
-def _stub_library(ctx: "context", name: str, extra_ldflags: [""] = []) -> LinkInfos.type:
+def _stub_library(
+        ctx: "context",
+        name: str,
+        extra_ldflags: [""] = [],
+        anonymous: bool = False) -> LinkInfos.type:
     link_result = cxx_link_shared_library(
         ctx = ctx,
         output = name + ".stub",
@@ -614,6 +620,7 @@ def _stub_library(ctx: "context", name: str, extra_ldflags: [""] = []) -> LinkIn
         links = [LinkArgs(flags = extra_ldflags)],
         identifier = name,
         category_suffix = "stub_library",
+        anonymous = anonymous,
     )
     toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info
@@ -706,7 +713,8 @@ def create_link_groups(
         prefer_stripped_objects: bool = False,
         linkable_graph_node_map: {"label": LinkableNode.type} = {},
         link_group_preferred_linkage: {"label": Linkage.type} = {},
-        link_group_mappings: [{"label": str}, None] = None) -> _LinkedLinkGroups.type:
+        link_group_mappings: [{"label": str}, None] = None,
+        anonymous: bool = False) -> _LinkedLinkGroups.type:
     # Generate stubs first, so that subsequent links can link against them.
     link_group_shared_links = {}
     specs = []
@@ -722,6 +730,7 @@ def create_link_groups(
                 ctx = ctx,
                 name = link_group_spec.name,
                 extra_ldflags = linker_flags,
+                anonymous = anonymous,
             )
 
     linked_link_groups = {}
@@ -762,6 +771,7 @@ def create_link_groups(
             },
             prefer_stripped_objects = prefer_stripped_objects,
             category_suffix = "link_group",
+            anonymous = anonymous,
         )
 
         # On GNU, use shlib interfaces.

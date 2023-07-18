@@ -274,7 +274,7 @@ LinkInfos = record(
 
 # The output of a native link (e.g. a shared library or an executable).
 LinkedObject = record(
-    output = field("artifact"),
+    output = field(["artifact", "promise"]),
     # The combined bitcode from this linked object and any static libraries
     bitcode_bundle = field(["artifact", None], None),
     # the generated linked output before running bolt, may be None if bolt is not used.

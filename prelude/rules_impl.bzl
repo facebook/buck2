@@ -289,6 +289,7 @@ def _python_executable_attrs():
 
     # allow non-default value for the args below
     updated_attrs.update({
+        "anonymous_link_groups": attrs.bool(default = False),
         "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "compiler_flags": attrs.list(attrs.arg(), default = []),
         "constraint_overrides": attrs.list(attrs.string(), default = []),
@@ -332,6 +333,7 @@ def _python_test_attrs():
 
 def _cxx_binary_and_test_attrs():
     return {
+        "anonymous_link_groups": attrs.bool(default = False),
         "auto_link_groups": attrs.bool(default = False),
         # Linker flags that only apply to the executable link, used for link
         # strategies (e.g. link groups) which may link shared libraries from

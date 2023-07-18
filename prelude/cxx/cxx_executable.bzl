@@ -112,7 +112,7 @@ load(
     ":link.bzl",
     "CxxLinkResultType",
     "CxxLinkerMapData",
-    "cxx_link",
+    "cxx_link_into",
 )
 load(
     ":link_groups.bzl",
@@ -288,6 +288,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 linkable_graph_node_map = linkable_graph_node_map,
                 other_roots = link_group_other_roots,
                 prefer_stripped_objects = impl_params.prefer_stripped_objects,
+                anonymous = ctx.attrs.anonymous_link_groups,
             )
             for name, linked_link_group in linked_link_groups.libs.items():
                 auto_link_groups[name] = linked_link_group.artifact
@@ -626,11 +627,11 @@ def _link_into_executable(
     )
     links = [LinkArgs(flags = extra_args)] + links
 
-    link_result = cxx_link(
-        ctx,
-        links,
-        output,
-        CxxLinkResultType("executable"),
+    link_result = cxx_link_into(
+        ctx = ctx,
+        output = output,
+        links = links,
+        result_type = CxxLinkResultType("executable"),
         enable_distributed_thinlto = enable_distributed_thinlto,
         category_suffix = category_suffix,
         strip = strip,
