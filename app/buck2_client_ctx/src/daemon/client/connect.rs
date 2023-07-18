@@ -8,6 +8,7 @@
  */
 
 use std::env;
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io::BufReader;
 use std::net::Ipv4Addr;
@@ -241,7 +242,7 @@ impl<'a> BuckdLifecycle<'a> {
             env::var_os("RUST_BACKTRACE").is_some() || env::var_os("RUST_LIB_BACKTRACE").is_some();
 
         if !has_backtrace_vars {
-            daemon_env_vars.push(("RUST_BACKTRACE", "1"));
+            daemon_env_vars.push((OsStr::new("RUST_BACKTRACE"), OsStr::new("1")));
 
             // TODO(nga): somewhere we capture too many backtraces, probably
             //   we create too many `anyhow::Error` on non-error paths.
@@ -251,13 +252,13 @@ impl<'a> BuckdLifecycle<'a> {
             //   buck2 --isolation-dir=xx audit providers fbcode//buck2:buck2 --quiet
             //   ```
             //   Which regresses from 15s to 80s when `RUST_LIB_BACKTRACE` is set.
-            daemon_env_vars.push(("RUST_LIB_BACKTRACE", "0"));
+            daemon_env_vars.push((OsStr::new("RUST_LIB_BACKTRACE"), OsStr::new("0")));
         };
 
         if env::var_os("FORCE_WANT_RESTART").is_some() {
             // Disable restarter for the actual daemon command, even if it was forced, otherwise we
             // restart the daemon when it exits.
-            daemon_env_vars.push(("FORCE_WANT_RESTART", "false"));
+            daemon_env_vars.push((OsStr::new("FORCE_WANT_RESTART"), OsStr::new("false")));
         }
 
         if cfg!(unix) {
@@ -281,7 +282,7 @@ impl<'a> BuckdLifecycle<'a> {
     fn start_server_windows(
         &self,
         mut args: Vec<&str>,
-        daemon_env_vars: &[(&str, &str)],
+        daemon_env_vars: &[(&OsStr, &OsStr)],
         daemon_startup_config: &DaemonStartupConfig,
     ) -> anyhow::Result<()> {
         let daemon_startup_config = daemon_startup_config.serialize();
@@ -298,7 +299,7 @@ impl<'a> BuckdLifecycle<'a> {
     async fn start_server_unix(
         &self,
         args: Vec<&str>,
-        daemon_env_vars: &[(&str, &str)],
+        daemon_env_vars: &[(&OsStr, &OsStr)],
         daemon_startup_config: &DaemonStartupConfig,
     ) -> anyhow::Result<()> {
         let project_dir = self.paths.project_root();

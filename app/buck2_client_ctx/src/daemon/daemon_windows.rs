@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::ffi::OsStr;
 use std::path::Path;
 
 #[cfg(not(windows))]
@@ -14,7 +15,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     _working_dir: &Path,
     _exe: &Path,
     _args: impl IntoIterator<Item = &'a str>,
-    _daemon_env_vars: &[(&str, &str)],
+    _daemon_env_vars: &[(&OsStr, &OsStr)],
 ) -> anyhow::Result<()> {
     #[derive(Debug, thiserror::Error)]
     #[error("not Windows")]
@@ -28,11 +29,10 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     working_dir: &Path,
     exe: &Path,
     args: impl IntoIterator<Item = &'a str>,
-    daemon_env_vars: &[(&str, &str)],
+    daemon_env_vars: &[(&OsStr, &OsStr)],
 ) -> anyhow::Result<()> {
     use std::collections::HashMap;
     use std::ffi::c_void;
-    use std::ffi::OsStr;
     use std::ffi::OsString;
     use std::io;
     use std::iter;
@@ -131,7 +131,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
         }
     }
 
-    fn make_envp(extra_env_vars: &[(&str, &str)]) -> anyhow::Result<(*mut c_void, Box<[u16]>)> {
+    fn make_envp(extra_env_vars: &[(&OsStr, &OsStr)]) -> anyhow::Result<(*mut c_void, Box<[u16]>)> {
         if extra_env_vars.is_empty() {
             Ok((ptr::null_mut(), Box::new([])))
         } else {
