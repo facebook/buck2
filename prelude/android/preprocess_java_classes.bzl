@@ -26,20 +26,18 @@ def get_preprocessed_java_classes(ctx: "context", input_jars = {"artifact": "tar
         preprocess_cmd.hidden(dep[DefaultInfo].default_outputs + dep[DefaultInfo].other_outputs)
 
     input_srcs = {}
-    output_jars = {}
+    output_jars_to_owners = {}
+    output_dir = ctx.actions.declare_output("preprocessed_java_classes/output_dir")
 
     for i, (input_jar, target_label) in enumerate(input_jars.items()):
         expect(input_jar.extension == ".jar", "Expected {} to have extension .jar!".format(input_jar))
         jar_name = "{}_{}".format(i, input_jar.basename)
         input_srcs[jar_name] = input_jar
-        output_jar = ctx.actions.declare_output(
-            "preprocessed_java_classes/output_dir/{}".format(jar_name),
-        )
-        output_jars[output_jar] = target_label
+        output_jar = output_dir.project(jar_name)
+        output_jars_to_owners[output_jar] = target_label
         preprocess_cmd.hidden(output_jar.as_output())
 
     input_dir = ctx.actions.symlinked_dir("preprocessed_java_classes/input_dir", input_srcs)
-    output_dir = cmd_args(output_jars.keys()[0].as_output()).parent()
 
     env = {
         "ANDROID_BOOTCLASSPATH": cmd_args(
@@ -47,9 +45,9 @@ def get_preprocessed_java_classes(ctx: "context", input_jars = {"artifact": "tar
             delimiter = get_path_separator(),
         ),
         "IN_JARS_DIR": cmd_args(input_dir),
-        "OUT_JARS_DIR": output_dir,
+        "OUT_JARS_DIR": output_dir.as_output(),
     }
 
     ctx.actions.run(preprocess_cmd, env = env, category = "preprocess_java_classes")
 
-    return output_jars
+    return output_jars_to_owners
