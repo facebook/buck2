@@ -33,6 +33,7 @@ pub mod path_arg;
 pub mod query_args;
 pub mod replayer;
 pub mod restarter;
+pub mod signal_handler;
 pub mod startup_deadline;
 pub mod stdin;
 pub mod stdio;

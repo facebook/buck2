@@ -12,8 +12,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use dupe::Dupe;
-use futures::future;
-use futures::future::Either;
 
 use crate::argv::Argv;
 use crate::argv::SanitizedArgv;
@@ -30,6 +28,7 @@ use crate::exit_result::gen_error_exit_code;
 use crate::exit_result::ExitResult;
 use crate::exit_result::FailureExitCode;
 use crate::path_arg::PathArg;
+use crate::signal_handler::with_simple_sigint_handler;
 use crate::subscribers::get::get_console_with_root;
 use crate::subscribers::get::try_get_build_id_writer;
 use crate::subscribers::get::try_get_event_log_subscriber;
@@ -197,18 +196,9 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 command_result
             };
 
-            // Race our work with a ctrl+c future. If we hit ctrl+c, then we'll drop the work
-            // future. with_runtime sets up an AsyncCleanupContext that will allow drop
-            // implementations within this future to clean up before we return from with_runtime.
-            let exit = tokio::signal::ctrl_c();
-
-            futures::pin_mut!(work);
-            futures::pin_mut!(exit);
-
-            match future::select(work, exit).await {
-                Either::Left((res, _)) => res,
-                Either::Right((_signal, _)) => ExitResult::from(FailureExitCode::SignalInterrupt),
-            }
+            with_simple_sigint_handler(work)
+                .await
+                .unwrap_or_else(|| ExitResult::from(FailureExitCode::SignalInterrupt))
         })
     }
 }

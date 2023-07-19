@@ -15,9 +15,8 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::exit_result::FailureExitCode;
 use buck2_client_ctx::replayer::Replayer;
+use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
 use buck2_client_ctx::subscribers::get::get_console_with_root;
-use futures::future;
-use futures::future::Either;
 
 use crate::commands::log::options::EventLogOptions;
 
@@ -93,15 +92,9 @@ impl ReplayCommand {
                 ExitResult::success()
             };
 
-            let exit = tokio::signal::ctrl_c();
-
-            futures::pin_mut!(work);
-            futures::pin_mut!(exit);
-
-            match future::select(work, exit).await {
-                Either::Left((res, _)) => res,
-                Either::Right((_signal, _)) => ExitResult::from(FailureExitCode::SignalInterrupt),
-            }
+            with_simple_sigint_handler(work)
+                .await
+                .unwrap_or_else(|| ExitResult::from(FailureExitCode::SignalInterrupt))
         })
     }
 }
