@@ -10,10 +10,10 @@
 use buck2_interpreter::functions::more::MoreFunctions;
 use buck2_interpreter::functions::more::MORE_FUNCTIONS;
 
-use crate::interpreter::build_defs::register_provider;
 use crate::interpreter::rule_defs::cmd_args::register_cmd_args;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
 use crate::interpreter::rule_defs::context::register_analysis_context;
+use crate::interpreter::rule_defs::provider::callable::register_provider;
 use crate::interpreter::rule_defs::provider::dependency::register_dependency;
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use crate::interpreter::rule_defs::register_rule_defs;

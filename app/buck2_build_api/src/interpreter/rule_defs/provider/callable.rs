@@ -15,12 +15,17 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
+use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
+use either::Either;
+use itertools::Itertools;
 use once_cell::unsync;
 use starlark::any::ProvidesStaticType;
 use starlark::docs::DocItem;
 use starlark::docs::DocString;
+use starlark::docs::DocStringKind;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -40,6 +45,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
@@ -54,6 +60,8 @@ enum ProviderCallableError {
         "Provider type must be assigned to a variable, e.g. `ProviderInfo = provider(fields = {0:?})`"
     )]
     ProviderNotAssigned(SmallSet<String>),
+    #[error("non-unique field names: [{}]", .0.iter().map(|s| format!("`{}`", s)).join(", "))]
+    NonUniqueFields(Vec<String>),
 }
 
 fn create_callable_function_signature(
@@ -144,7 +152,7 @@ impl Display for UserProviderCallable {
 }
 
 impl UserProviderCallable {
-    pub fn new(
+    fn new(
         path: CellPath,
         docs: Option<DocString>,
         field_docs: Vec<Option<DocString>>,
@@ -363,5 +371,59 @@ fn provider_callable_methods(builder: &mut MethodsBuilder) {
                 this.get_type()
             )
         }
+    }
+}
+
+#[starlark_module]
+pub fn register_provider(builder: &mut GlobalsBuilder) {
+    /// Create a `"provider"` type that can be returned from `rule` implementations.
+    /// Used to pass information from a rule to the things that depend on it.
+    /// Typically named with an `Info` suffix.
+    ///
+    /// ```python
+    /// GroovyLibraryInfo(fields = [
+    ///     "objects",  # a list of artifacts
+    ///     "options",  # a string containing compiler options
+    /// ])
+    /// ```
+    ///
+    /// Given a dependency you can obtain the provider with `my_dep[GroovyLibraryInfo]`
+    /// which returns either `None` or a value of type `GroovyLibraryInfo`.
+    ///
+    /// For providers that accumulate upwards a transitive set is often a good choice.
+    fn provider(
+        #[starlark(require=named, default = "")] doc: &str,
+        #[starlark(require=named)] fields: Either<Vec<String>, SmallMap<&str, &str>>,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<UserProviderCallable> {
+        let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
+        let path = (STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?.path();
+
+        let (field_names, field_docs) = match fields {
+            Either::Left(f) => {
+                let docs = vec![None; f.len()];
+                let field_names: SmallSet<String> = f.iter().cloned().collect();
+                if field_names.len() != f.len() {
+                    return Err(ProviderCallableError::NonUniqueFields(f).into());
+                }
+                (field_names, docs)
+            }
+            Either::Right(fields_with_docs) => {
+                let mut field_names = SmallSet::with_capacity(fields_with_docs.len());
+                let mut field_docs = Vec::with_capacity(fields_with_docs.len());
+                for (name, docs) in fields_with_docs {
+                    let inserted = field_names.insert(name.to_owned());
+                    assert!(inserted);
+                    field_docs.push(DocString::from_docstring(DocStringKind::Starlark, docs));
+                }
+                (field_names, field_docs)
+            }
+        };
+        Ok(UserProviderCallable::new(
+            path.into_owned(),
+            docstring,
+            field_docs,
+            field_names,
+        ))
     }
 }

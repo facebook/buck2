@@ -12,8 +12,8 @@ use std::sync::Arc;
 
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::deferred::types::testing::DeferredAnalysisResultExt;
-use buck2_build_api::interpreter::build_defs::register_provider;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
+use buck2_build_api::interpreter::rule_defs::provider::callable::register_provider;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;

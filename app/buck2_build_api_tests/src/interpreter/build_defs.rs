@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_build_api::interpreter::build_defs::register_provider;
+use buck2_build_api::interpreter::rule_defs::provider::callable::register_provider;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
 

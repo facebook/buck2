@@ -7,6 +7,5 @@
  * of this source tree.
  */
 
-pub mod build_defs;
 pub mod more;
 pub mod rule_defs;

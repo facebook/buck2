@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_build_api::interpreter::build_defs::register_provider;
+use buck2_build_api::interpreter::rule_defs::provider::callable::register_provider;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_interpreter_for_build::attrs::coerce;
