@@ -542,6 +542,42 @@ fn check_compatible(
     )))
 }
 
+#[derive(Default)]
+struct GatheredDeps {
+    deps: SmallSet<ConfiguredProvidersLabel>,
+    exec_deps: SmallSet<ConfiguredProvidersLabel>,
+    toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
+}
+
+fn gather_deps(
+    target_node: &TargetNode,
+    attr_cfg_ctx: &dyn AttrConfigurationContext,
+) -> anyhow::Result<GatheredDeps> {
+    impl ConfiguredAttrTraversal for GatheredDeps {
+        fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            self.deps.insert(dep.clone());
+            Ok(())
+        }
+
+        fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            self.exec_deps.insert(dep.clone());
+            Ok(())
+        }
+
+        fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            self.toolchain_deps.insert(dep.clone());
+            Ok(())
+        }
+    }
+
+    let mut traversal = GatheredDeps::default();
+    for a in target_node.attrs(AttrInspectOptions::All) {
+        let configured_attr = a.configure(attr_cfg_ctx)?;
+        configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
+    }
+    Ok(traversal)
+}
+
 /// Compute configured target node ignoring transition for this node.
 async fn compute_configured_target_node_no_transition(
     target_label: &ConfiguredTargetLabel,
@@ -565,29 +601,6 @@ async fn compute_configured_target_node_no_transition(
         return Ok(MaybeCompatible::Incompatible(reason));
     }
 
-    struct Traversal<'a> {
-        deps: &'a mut SmallSet<ConfiguredProvidersLabel>,
-        exec_deps: &'a mut SmallSet<ConfiguredProvidersLabel>,
-        toolchain_deps: &'a mut SmallSet<ConfiguredProvidersLabel>,
-    }
-
-    impl ConfiguredAttrTraversal for Traversal<'_> {
-        fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            self.deps.insert(dep.clone());
-            Ok(())
-        }
-
-        fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            self.exec_deps.insert(dep.clone());
-            Ok(())
-        }
-
-        fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            self.toolchain_deps.insert(dep.clone());
-            Ok(())
-        }
-    }
-
     let mut resolved_transitions = OrderedMap::new();
     for (_dep, tr) in target_node.transition_deps() {
         let resolved_cfg = TRANSITION_CALCULATION
@@ -597,33 +610,24 @@ async fn compute_configured_target_node_no_transition(
         resolved_transitions.insert(tr.dupe(), resolved_cfg);
     }
 
-    let mut deps = SmallSet::new();
-    let mut exec_deps = SmallSet::new();
-    let mut toolchain_deps = SmallSet::new();
-
     let platform_cfgs = compute_platform_cfgs(ctx, &target_node).await?;
 
     // We need to collect deps and to ensure that all attrs can be successfully
     // configured so that we don't need to support propagate configuration errors on attr access.
-    for a in target_node.attrs(AttrInspectOptions::All) {
-        let mut traversal = Traversal {
-            deps: &mut deps,
-            exec_deps: &mut exec_deps,
-            toolchain_deps: &mut toolchain_deps,
-        };
-        let attr_cfg_ctx = AttrConfigurationContextImpl::new(
-            &resolved_configuration,
-            // We have not yet done exec platform resolution so for now we just use `unbound_exec`
-            // here. We only use this when collecting exec deps and toolchain deps. In both of those
-            // cases, we replace the exec cfg later on in this function with the "proper" exec cfg.
-            ConfigurationNoExec::unbound_exec(),
-            &resolved_transitions,
-            &platform_cfgs,
-        );
-
-        let configured_attr = a.configure(&attr_cfg_ctx)?;
-        configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
-    }
+    let attr_cfg_ctx = AttrConfigurationContextImpl::new(
+        &resolved_configuration,
+        // We have not yet done exec platform resolution so for now we just use `unbound_exec`
+        // here. We only use this when collecting exec deps and toolchain deps. In both of those
+        // cases, we replace the exec cfg later on in this function with the "proper" exec cfg.
+        ConfigurationNoExec::unbound_exec(),
+        &resolved_transitions,
+        &platform_cfgs,
+    );
+    let GatheredDeps {
+        deps,
+        exec_deps,
+        toolchain_deps,
+    } = gather_deps(&target_node, &attr_cfg_ctx)?;
 
     let execution_platform_resolution = if target_cfg.is_unbound() {
         // The unbound configuration is used when evaluation configuration nodes.
