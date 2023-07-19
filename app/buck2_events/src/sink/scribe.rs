@@ -735,11 +735,11 @@ mod fbcode {
                 "<<Truncated (reported 2 / 3)>>".to_owned(),
             ];
 
-            let mut record = buck2_data::InvocationRecord {
+            let record = buck2_data::InvocationRecord {
                 cli_args,
                 ..Default::default()
             };
-            let mut record_truncated = buck2_data::InvocationRecord {
+            let record_truncated = buck2_data::InvocationRecord {
                 cli_args: cli_args_truncated,
                 ..Default::default()
             };
@@ -756,7 +756,7 @@ mod fbcode {
         fn smart_truncate_invocation_record_short_cli_args_truncated() {
             let cli_args = vec!["this is".to_owned(), "a test".to_owned()];
 
-            let mut record = buck2_data::InvocationRecord {
+            let record = buck2_data::InvocationRecord {
                 cli_args,
                 ..Default::default()
             };
