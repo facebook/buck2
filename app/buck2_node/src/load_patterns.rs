@@ -35,6 +35,7 @@ use itertools::Itertools;
 use crate::nodes::eval_result::EvaluationResult;
 use crate::nodes::frontend::TargetGraphCalculation;
 use crate::nodes::unconfigured::TargetNode;
+use crate::super_package::SuperPackage;
 
 #[derive(Debug, thiserror::Error)]
 enum BuildErrors {
@@ -112,18 +113,49 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 }
 
 pub struct LoadedPatterns<T: PatternType> {
-    results: BTreeMap<PackageLabel, SharedResult<BTreeMap<(TargetName, T), TargetNode>>>,
+    results: BTreeMap<PackageLabel, SharedResult<PackageLoadedPatterns<T>>>,
+}
+
+pub struct PackageLoadedPatterns<T: PatternType> {
+    targets: BTreeMap<(TargetName, T), TargetNode>,
+    super_package: SuperPackage,
+}
+
+impl<T: PatternType> PackageLoadedPatterns<T> {
+    pub fn iter(&self) -> impl Iterator<Item = (&(TargetName, T), &TargetNode)> {
+        self.targets.iter()
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &(TargetName, T)> {
+        self.targets.keys()
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &TargetNode> {
+        self.targets.values()
+    }
+
+    pub fn into_values(self) -> impl Iterator<Item = TargetNode> {
+        self.targets.into_values()
+    }
+
+    pub fn super_package(&self) -> &SuperPackage {
+        &self.super_package
+    }
+}
+
+impl<T: PatternType> IntoIterator for PackageLoadedPatterns<T> {
+    type Item = ((TargetName, T), TargetNode);
+    type IntoIter = std::collections::btree_map::IntoIter<(TargetName, T), TargetNode>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.targets.into_iter()
+    }
 }
 
 impl<T: PatternType> LoadedPatterns<T> {
     pub fn iter(
         &self,
-    ) -> impl Iterator<
-        Item = (
-            PackageLabel,
-            &SharedResult<BTreeMap<(TargetName, T), TargetNode>>,
-        ),
-    > {
+    ) -> impl Iterator<Item = (PackageLabel, &SharedResult<PackageLoadedPatterns<T>>)> {
         self.results.iter().map(|(k, v)| (k.dupe(), v))
     }
 
@@ -131,12 +163,7 @@ impl<T: PatternType> LoadedPatterns<T> {
     #[allow(clippy::should_implement_trait)]
     pub fn into_iter(
         self,
-    ) -> impl Iterator<
-        Item = (
-            PackageLabel,
-            SharedResult<BTreeMap<(TargetName, T), TargetNode>>,
-        ),
-    > {
+    ) -> impl Iterator<Item = (PackageLabel, SharedResult<PackageLoadedPatterns<T>>)> {
         self.results.into_iter()
     }
 
@@ -144,7 +171,7 @@ impl<T: PatternType> LoadedPatterns<T> {
         self.results
             .values()
             .map(|result| match result {
-                Ok(label_to_node) => Ok(label_to_node.values()),
+                Ok(pkg) => Ok(pkg.targets.values()),
                 Err(e) => Err(e.dupe()),
             })
             .flatten_ok()
@@ -156,7 +183,7 @@ impl<T: PatternType> LoadedPatterns<T> {
         self.results.iter().map(|(package, result)| {
             let targets = result
                 .as_ref()
-                .map(|label_to_node| label_to_node.values().map(|t| t.dupe()).collect::<Vec<_>>())
+                .map(|pkg| pkg.targets.values().map(|t| t.dupe()).collect::<Vec<_>>())
                 .map_err(|e| anyhow::Error::new(e.dupe()));
             (package.dupe(), targets)
         })
@@ -189,7 +216,7 @@ fn apply_spec<T: PatternType>(
     load_results: BTreeMap<PackageLabel, SharedResult<Arc<EvaluationResult>>>,
     skip_missing_targets: MissingTargetBehavior,
 ) -> anyhow::Result<LoadedPatterns<T>> {
-    let mut all_targets: BTreeMap<_, SharedResult<BTreeMap<(TargetName, T), _>>> = BTreeMap::new();
+    let mut all_targets: BTreeMap<_, SharedResult<PackageLoadedPatterns<T>>> = BTreeMap::new();
     for (pkg, pkg_spec) in spec.specs.into_iter() {
         let result = match load_results.get(&pkg) {
             Some(r) => r,
@@ -206,7 +233,14 @@ fn apply_spec<T: PatternType>(
                         }
                     }
                 };
-                all_targets.insert(pkg, Ok(label_to_node));
+
+                all_targets.insert(
+                    pkg,
+                    Ok(PackageLoadedPatterns {
+                        targets: label_to_node,
+                        super_package: res.super_package().dupe(),
+                    }),
+                );
             }
             Err(e) => {
                 all_targets.insert(pkg, Err(e.dupe()));
