@@ -49,7 +49,7 @@ struct TargetLabelHeader {
 /// that contains this 'target', and a 'name' which is a 'TargetName'
 /// representing the target name given to the particular target.
 #[derive(Clone, derive_more::Display, Eq, PartialEq, Allocative)]
-#[display(fmt = "{}:{}", "self.pkg()", "self.name()")]
+#[display(fmt = "{}", "self.as_ref()")]
 pub struct TargetLabel(
     ThinArc<
         TargetLabelHeader,
@@ -81,7 +81,7 @@ impl Hash for TargetLabel {
 impl Ord for TargetLabel {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        (self.pkg(), self.name()).cmp(&(other.pkg(), other.name()))
+        self.as_ref().cmp(&other.as_ref())
     }
 }
 
@@ -142,6 +142,11 @@ impl TargetLabel {
         self.configure_pair(cfg.cfg_pair().dupe())
     }
 
+    #[inline]
+    pub fn as_ref(&self) -> TargetLabelRef {
+        TargetLabelRef::new(self.pkg(), self.name())
+    }
+
     pub fn parse(
         label: &str,
         cell_name: CellName,
@@ -192,5 +197,28 @@ impl ToProtoMessage for TargetLabel {
             package: self.pkg().to_string(),
             name: self.name().to_string(),
         }
+    }
+}
+
+#[derive(
+    Clone,
+    Dupe,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Debug,
+    derive_more::Display
+)]
+#[display(fmt = "{}:{}", pkg, name)]
+pub struct TargetLabelRef<'a> {
+    pkg: PackageLabel,
+    name: &'a TargetNameRef,
+}
+
+impl<'a> TargetLabelRef<'a> {
+    #[inline]
+    pub fn new(pkg: PackageLabel, name: &'a TargetNameRef) -> TargetLabelRef<'a> {
+        TargetLabelRef { pkg, name }
     }
 }
