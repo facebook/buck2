@@ -621,6 +621,14 @@ async fn compute_configured_target_node_no_transition(
     );
     let gathered_deps = gather_deps(&target_node, &attr_cfg_ctx)?;
 
+    let dep_futures = gathered_deps
+        .deps
+        .iter()
+        .map(|v| ctx.get_configured_target_node(v.target()));
+    let dep_results =
+        ConfiguredGraphCycleDescriptor::guard_this(ctx, futures::future::join_all(dep_futures))
+            .await??;
+
     let execution_platform_resolution = if target_cfg.is_unbound() {
         // The unbound configuration is used when evaluation configuration nodes.
         // That evaluation is
@@ -654,13 +662,11 @@ async fn compute_configured_target_node_no_transition(
     };
     let execution_platform = execution_platform_resolution.cfg();
 
-    // Check transitive target compatibility. We now need to replace the dummy exec config we used
-    // above with the real one
-    let dep_futures = gathered_deps
+    // We now need to replace the dummy exec config we used above with the real one
+    let toolchain_dep_futures = gathered_deps
         .toolchain_deps
         .iter()
         .map(|v| v.target().map_exec_cfg(execution_platform.cfg()))
-        .chain(gathered_deps.deps.iter().map(|v| v.target().dupe()))
         .map(|v| async move { ctx.get_configured_target_node(&v).await });
 
     let exec_dep_futures = gathered_deps
@@ -674,10 +680,10 @@ async fn compute_configured_target_node_no_transition(
         .map(|v| async move { ctx.get_configured_target_node(&v).await });
 
     let fut = futures::future::join(
-        futures::future::join_all(dep_futures),
+        futures::future::join_all(toolchain_dep_futures),
         futures::future::join_all(exec_dep_futures),
     );
-    let (dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
+    let (toolchain_dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
         ConfiguredGraphCycleDescriptor::guard_this(ctx, fut).await??;
 
     let mut deps = Vec::with_capacity(gathered_deps.deps.len());
@@ -685,51 +691,43 @@ async fn compute_configured_target_node_no_transition(
 
     let mut errs = Vec::new();
     let mut incompats = Vec::new();
-    let mut unpack_dep = |
-        result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>| -> Option<ConfiguredTargetNode>
-    {
-        match result {
-            Err(e) => {
-                errs.push(e);
-                None
-            },
-            Ok(MaybeCompatible::Incompatible(reason)) => {
-                incompats.push(Arc::new(IncompatiblePlatformReason {
-                    target: target_label.dupe(),
-                    cause: IncompatiblePlatformReasonCause::Dependency(reason.dupe()),
-                }));
-                None
-            }
-            Ok(MaybeCompatible::Compatible(dep)) => {
-                match dep.is_visible_to(target_label.unconfigured()) {
-                    Ok(true) => Some(dep),
-                    Ok(false) => {
-                        errs.push(anyhow::anyhow!(VisibilityError::NotVisibleTo(
-                            dep.label().unconfigured().dupe(),
-                            target_label.unconfigured().dupe(),
-                        )));
-                        None
-                    }
-                    Err(e) => {
-                        errs.push(e);
-                        None
-                    }
+    let mut unpack_dep = |result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>,
+                          list: &mut Vec<_>| match result {
+        Err(e) => {
+            errs.push(e);
+        }
+        Ok(MaybeCompatible::Incompatible(reason)) => {
+            incompats.push(Arc::new(IncompatiblePlatformReason {
+                target: target_label.dupe(),
+                cause: IncompatiblePlatformReasonCause::Dependency(reason.dupe()),
+            }));
+        }
+        Ok(MaybeCompatible::Compatible(dep)) => {
+            match dep.is_visible_to(target_label.unconfigured()) {
+                Ok(true) => {
+                    list.push(dep);
+                }
+                Ok(false) => {
+                    errs.push(anyhow::anyhow!(VisibilityError::NotVisibleTo(
+                        dep.label().unconfigured().dupe(),
+                        target_label.unconfigured().dupe(),
+                    )));
+                }
+                Err(e) => {
+                    errs.push(e);
                 }
             }
         }
     };
 
     for dep in dep_results {
-        match unpack_dep(dep) {
-            Some(dep) => deps.push(dep),
-            None => continue,
-        };
+        unpack_dep(dep, &mut deps);
+    }
+    for dep in toolchain_dep_results {
+        unpack_dep(dep, &mut deps);
     }
     for dep in exec_dep_results {
-        match unpack_dep(dep) {
-            Some(dep) => exec_deps.push(dep),
-            None => continue,
-        };
+        unpack_dep(dep, &mut exec_deps);
     }
     // FIXME(JakobDegen): Report all incompatibilities
     if let Some(incompat) = incompats.pop() {
