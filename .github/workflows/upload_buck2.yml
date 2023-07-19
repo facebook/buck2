@@ -158,7 +158,8 @@ jobs:
         name: Count the number of tags already published for this month
         run: |
           url="https://api.github.com/repos/facebook/buck2/tags"
-          tags=$(curl -fsSL "$url" |  jq -r ".[].name")
+          curl --retry 5 -fsSL "$url" -o tags.txt
+          tags=$(cat tags.txt |  jq -r ".[].name")
           tags_count=$(echo "$tags" | grep -c "${{ steps.get_date.outputs.month }}" || true)
           echo "tags_count=$tags_count" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
