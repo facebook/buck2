@@ -10,14 +10,12 @@
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api_derive::internal_provider;
-use buck2_core::target::label::ConfiguredTargetLabel;
-use buck2_interpreter::types::label::Label;
-use dupe::Dupe;
 use indexmap::IndexMap;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictRef;
+use starlark::values::none::NoneOr;
 use starlark::values::type_repr::DictType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
@@ -34,9 +32,6 @@ use crate::starlark::values::ValueLike;
 #[freeze(validator = validate_local_resource_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
 pub struct LocalResourceInfoGen<V> {
-    /// Configured target that is providing this local resource.
-    #[provider(field_type = "Label")]
-    source_target: V,
     /// Command to run to initialize a local resource.
     /// Running this command writes a JSON to stdout.
     /// This JSON represents a pool of local resources which are ready to be used.
@@ -66,12 +61,6 @@ fn validate_local_resource_info<'v, V>(info: &LocalResourceInfoGen<V>) -> anyhow
 where
     V: ValueLike<'v>,
 {
-    _ = Label::from_value(info.source_target.to_value()).with_context(|| {
-        format!(
-            "Value for `source_target` field is not a label: `{}`",
-            info.source_target
-        )
-    })?;
     let setup = StarlarkCommandLine::try_from_value(info.setup.to_value()).with_context(|| {
         format!(
             "Value for `setup` field is not a command line: `{}`",
@@ -126,15 +115,15 @@ where
 
 #[starlark_module]
 fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
+    #[allow(unused)]
     #[starlark(as_type = FrozenLocalResourceInfo)]
     fn LocalResourceInfo<'v>(
-        #[starlark(require = named)] source_target: Value<'v>,
+        #[starlark(require = named, default = NoneOr::None)] source_target: NoneOr<Value<'v>>,
         #[starlark(require = named)] setup: Value<'v>,
         #[starlark(require = named)] resource_env_vars: Value<'v>,
         _eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<LocalResourceInfo<'v>> {
         let result = LocalResourceInfo {
-            source_target,
             setup,
             resource_env_vars,
         };
@@ -144,16 +133,6 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
 }
 
 impl FrozenLocalResourceInfo {
-    /// Configured target that is providing this local resource.
-    pub fn source_target_label(&self) -> ConfiguredTargetLabel {
-        self.source_target
-            .downcast_ref::<Label>()
-            .unwrap()
-            .label()
-            .target()
-            .dupe()
-    }
-
     /// Mapping from keys in setup command JSON output to environment variables keys which
     /// should be appended to execution commands dependent on this local resource.
     pub fn env_var_mapping(&self) -> IndexMap<String, String> {

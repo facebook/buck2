@@ -27,9 +27,8 @@ fn test_construction() -> anyhow::Result<()> {
     let test = indoc!(
         r#"
         def test():
-            target = label("//:foobar")
-            LocalResourceInfo(source_target=target, setup=["/foo", "--resource"], resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
-            LocalResourceInfo(source_target=target, setup=cmd_args(["/foo", "--resource"]), resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
+            LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
+            LocalResourceInfo(setup=cmd_args(["/foo", "--resource"]), resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
         "#
     );
     tester.run_starlark_bzl_test(test)?;
@@ -43,17 +42,8 @@ fn test_missing_fields_validation() -> anyhow::Result<()> {
         let test = indoc!(
             r#"
             def test():
-                LocalResourceInfo(setup=cmd_args(), resource_env_vars={})
-            "#
-        );
-        expect_error(tester.run_starlark_bzl_test(test), test, "`source_target`");
-    }
-    {
-        let test = indoc!(
-            r#"
-            def test():
                 target = label("//:foobar")
-                LocalResourceInfo(source_target=target, resource_env_vars={})
+                LocalResourceInfo(resource_env_vars={})
             "#
         );
         expect_error(tester.run_starlark_bzl_test(test), test, "`setup`");
@@ -63,7 +53,7 @@ fn test_missing_fields_validation() -> anyhow::Result<()> {
             r#"
             def test():
                 target = label("//:foobar")
-                LocalResourceInfo(source_target=target, setup=cmd_args())
+                LocalResourceInfo(setup=cmd_args())
             "#
         );
         expect_error(
@@ -83,20 +73,6 @@ fn test_validation() -> anyhow::Result<()> {
         let test = indoc!(
             r#"
             def test():
-                wrong_target = 42
-                LocalResourceInfo(source_target=wrong_target, setup=["/foo", "--resource"], resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
-            "#
-        );
-        expect_error(
-            tester.run_starlark_bzl_test(test),
-            test,
-            "Value for `source_target` field is not a label",
-        );
-    }
-    {
-        let test = indoc!(
-            r#"
-            def test():
                 target = label("//:foobar")
                 wrong_setup = {5:6}
                 LocalResourceInfo(source_target=target, setup=wrong_setup, resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
@@ -112,9 +88,8 @@ fn test_validation() -> anyhow::Result<()> {
         let test = indoc!(
             r#"
             def test():
-                target = label("//:foobar")
                 wrong_setup = []
-                LocalResourceInfo(source_target=target, setup=wrong_setup, resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
+                LocalResourceInfo(setup=wrong_setup, resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
             "#
         );
         expect_error(
@@ -127,9 +102,8 @@ fn test_validation() -> anyhow::Result<()> {
         let test = indoc!(
             r#"
             def test():
-                target = label("//:foobar")
                 wrong_env_vars = "baz"
-                LocalResourceInfo(source_target=target, setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
+                LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
             "#
         );
         expect_error(
@@ -142,9 +116,8 @@ fn test_validation() -> anyhow::Result<()> {
         let test = indoc!(
             r#"
             def test():
-                target = label("//:foobar")
                 wrong_env_vars = {}
-                LocalResourceInfo(source_target=target, setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
+                LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
             "#
         );
         expect_error(
@@ -157,9 +130,8 @@ fn test_validation() -> anyhow::Result<()> {
         let test = indoc!(
             r#"
             def test():
-                target = label("//:foobar")
                 wrong_env_vars = {1:"one"}
-                LocalResourceInfo(source_target=target, setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
+                LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
             "#
         );
         expect_error(
@@ -172,9 +144,8 @@ fn test_validation() -> anyhow::Result<()> {
         let test = indoc!(
             r#"
             def test():
-                target = label("//:foobar")
                 wrong_env_vars = {"one":1}
-                LocalResourceInfo(source_target=target, setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
+                LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
             "#
         );
         expect_error(
@@ -193,7 +164,7 @@ fn test_validation_at_freeze() -> anyhow::Result<()> {
         r#"
         def make_info():
             resource_env_vars = {"RESOURCE_ENV_VAR": "json_key"}
-            info = LocalResourceInfo(source_target=target, setup=["/foo", "--resource"], resource_env_vars=resource_env_vars)
+            info = LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars=resource_env_vars)
             resource_env_vars["ONE"] = 1
             return info
 

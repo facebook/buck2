@@ -21,6 +21,7 @@ use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_test_api::data::RequiredLocalResources;
 use dice::DiceTransaction;
+use dupe::Dupe;
 use indexmap::IndexMap;
 
 /// Container for everything needed to set up a local resource.
@@ -46,7 +47,7 @@ pub(crate) async fn required_local_resources_setup_contexts(
     let providers = required_providers(dice, test_info, required_local_resources).await?;
     let mut cmd_line_context = DefaultCommandLineContext::new(executor_fs);
     let mut result = vec![];
-    for provider in providers {
+    for (source_target_label, provider) in providers {
         let setup_command_line = provider.setup_command_line();
         let mut cmd: Vec<String> = vec![];
         setup_command_line.add_to_command_line(&mut cmd, &mut cmd_line_context)?;
@@ -55,7 +56,7 @@ pub(crate) async fn required_local_resources_setup_contexts(
         setup_command_line.visit_artifacts(&mut artifact_visitor)?;
 
         result.push(LocalResourceSetupContext {
-            target: provider.source_target_label(),
+            target: source_target_label.dupe(),
             cmd,
             input_artifacts: artifact_visitor.inputs.into_iter().collect(),
             env_var_mapping: provider.env_var_mapping(),
@@ -68,7 +69,7 @@ async fn required_providers<'v>(
     dice: &DiceTransaction,
     test_info: &'v FrozenExternalRunnerTestInfo,
     required_local_resources: &'v RequiredLocalResources,
-) -> anyhow::Result<Vec<&'v FrozenLocalResourceInfo>> {
+) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, &'v FrozenLocalResourceInfo)>> {
     let available_resources = test_info.local_resources();
 
     let targets = required_local_resources
@@ -104,14 +105,17 @@ async fn required_providers<'v>(
 async fn get_local_resource_info<'v>(
     dice: &DiceTransaction,
     target: &'v ConfiguredProvidersLabel,
-) -> anyhow::Result<&'v FrozenLocalResourceInfo> {
+) -> anyhow::Result<(&'v ConfiguredTargetLabel, &'v FrozenLocalResourceInfo)> {
     let providers = dice.get_providers(target).await?.require_compatible()?;
     let providers = providers.provider_collection();
-    Ok(providers
-        .get_provider(LocalResourceInfoCallable::provider_id_t())
-        .context(format!(
-            "Target `{}` expected to contain `LocalResourceInfo` provider",
-            target
-        ))?
-        .as_ref())
+    Ok((
+        target.target(),
+        providers
+            .get_provider(LocalResourceInfoCallable::provider_id_t())
+            .context(format!(
+                "Target `{}` expected to contain `LocalResourceInfo` provider",
+                target
+            ))?
+            .as_ref(),
+    ))
 }
