@@ -55,7 +55,7 @@ where `broker` points to a runnable handling actual simulators.
 
 Implementation of `simulator` rule would be:
 ```
-def _impl(ctx: "context") -> ["provider"]:
+def _impl(ctx: AnalysisContext) -> ["provider"]:
   return [
     DefaultInfo(),
     LocalResourceInfo(
@@ -97,7 +97,7 @@ apple_test = rule(
 Actually map "ios_simulator" resource type to provider:
 
 ```
-def apple_test_impl(ctx: "context") -> ["provider"]:
+def apple_test_impl(ctx: AnalysisContext) -> ["provider"]:
     ...
     return [
         ...

@@ -20,12 +20,14 @@ use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
 use dice::DiceComputations;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::typing::Ty;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::structs::StructRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -224,7 +226,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisContext<'v> {
 /// Usually the sole argument to the `impl` argument of the `rule` function.
 ///
 /// ```python
-/// def _impl_my_rule(ctx: "context") -> ["provider"]:
+/// def _impl_my_rule(ctx: AnalysisContext) -> ["provider"]:
 ///     return [DefaultInfo()]
 /// my_rule = rule(impl = _impl_my_rule, attrs = {})
 /// ```
@@ -253,6 +255,11 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     fn label<'v>(this: RefAnalysisContext) -> anyhow::Result<Option<ValueTyped<'v, Label>>> {
         Ok(this.0.label)
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_analysis_context(builder: &mut GlobalsBuilder) {
+    const AnalysisContext: StarlarkValueAsType<AnalysisContext> = StarlarkValueAsType::new();
 }
 
 pub static ANALYSIS_ACTIONS_METHODS_ACTIONS: LateBinding<fn(&mut MethodsBuilder)> =

@@ -136,14 +136,14 @@ Example:
 ```
 HelloInfo = provider(fields = ["hello", "world"])
 
-def _anon_impl(ctx: "context") -> ["provider"]:
+def _anon_impl(ctx: AnalysisContext) -> ["provider"]:
     hello = ctx.actions.write("hello.out", "hello")
     world = ctx.actions.write("world.out", "world")
     return [DefaultInfo(), HelloInfo(hello = hello, world = world)]
 
 _anon = rule(impl = _anon_impl, attrs = {})
 
-def _use_impl(ctx: "context") -> ["provider"]:
+def _use_impl(ctx: AnalysisContext) -> ["provider"]:
     promise = ctx.actions.anon_target(_anon, {})
     hello_promise = promise.map(lambda x: x[HelloInfo].hello)
     world_promise = promise.map(lambda x: x[HelloInfo].world)
