@@ -167,6 +167,11 @@ pub struct TargetsCommand {
     #[clap(long, requires = "streaming")]
     imports: bool,
 
+    /// Show the package values. Produces an additional attribute representing the package values
+    /// for the package containing the target.
+    #[clap(long)]
+    package_values: bool,
+
     /// File to put the output in, rather than sending to stdout.
     ///
     /// File will be created if it does not exist, and overwritten if it does.
@@ -183,6 +188,7 @@ pub struct TargetsCommand {
 }
 
 impl TargetsCommand {
+    #[allow(clippy::if_same_then_else)]
     fn output_format(&self) -> anyhow::Result<OutputFormat> {
         if self.json {
             if self.json_lines || self.stats {
@@ -195,6 +201,8 @@ impl TargetsCommand {
             }
             Ok(OutputFormat::JsonLines)
         } else if !self.attributes.get()?.is_empty() {
+            Ok(OutputFormat::Json)
+        } else if self.package_values {
             Ok(OutputFormat::Json)
         } else if self.stats {
             if self.json || self.json_lines {
@@ -290,6 +298,7 @@ impl StreamingCommand for TargetsCommand {
                     streaming: self.streaming,
                     cached: !self.no_cache,
                     imports: self.imports,
+                    package_values: self.package_values,
                 })
             }),
             output: self

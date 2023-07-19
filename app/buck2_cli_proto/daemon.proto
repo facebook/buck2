@@ -164,6 +164,7 @@ message TargetsRequest {
     bool streaming = 14;
     bool cached = 15;
     bool imports = 16;
+    bool package_values = 17;
   }
 
   ClientContext context = 1;

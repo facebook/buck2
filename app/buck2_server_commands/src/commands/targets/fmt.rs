@@ -25,6 +25,7 @@ use buck2_node::nodes::attributes::DEPS;
 use buck2_node::nodes::attributes::INPUTS;
 use buck2_node::nodes::attributes::ONCALL;
 use buck2_node::nodes::attributes::PACKAGE;
+use buck2_node::nodes::attributes::PACKAGE_VALUES;
 use buck2_node::nodes::attributes::TARGET_CALL_STACK;
 use buck2_node::nodes::attributes::TARGET_HASH;
 use buck2_node::nodes::attributes::TYPE;
@@ -48,7 +49,6 @@ enum FormatterError {
 pub(crate) struct TargetInfo<'a> {
     pub(crate) node: &'a TargetNode,
     pub(crate) target_hash: Option<BuckTargetHash>,
-    #[allow(unused)]
     pub(crate) super_package: &'a SuperPackage,
 }
 
@@ -155,6 +155,7 @@ struct JsonFormat {
     attributes: Option<RegexSet>,
     attr_inspect_opts: AttrInspectOptions,
     target_call_stacks: bool,
+    package_values: bool,
     writer: JsonWriter,
 }
 
@@ -209,6 +210,21 @@ impl TargetFormatter for JsonFormat {
         print_attr(self, buffer, &mut first, PACKAGE, || {
             QuotedJson::quote_display(target_info.node.label().pkg())
         });
+
+        if self.package_values {
+            print_attr(self, buffer, &mut first, PACKAGE_VALUES, || {
+                let package_values = serde_json::Value::Object(
+                    target_info
+                        .super_package
+                        .package_values()
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect(),
+                );
+                QuotedJson::from_serde_json_value(package_values)
+            });
+        }
+
         if let Some(oncall) = target_info.node.oncall() {
             print_attr(self, buffer, &mut first, ONCALL, || {
                 QuotedJson::quote_display(oncall)
@@ -235,6 +251,7 @@ impl TargetFormatter for JsonFormat {
                 }
             }
         }
+
         self.writer.entry_end(buffer, first);
     }
 
@@ -389,6 +406,7 @@ pub(crate) fn create_formatter(
                 AttrInspectOptions::DefinedOnly
             },
             target_call_stacks,
+            package_values: other.package_values,
             writer: JsonWriter {
                 json_lines: output_format == OutputFormat::JsonLines,
             },

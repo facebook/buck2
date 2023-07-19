@@ -49,4 +49,7 @@ pub mod attributes {
 
     /// The input source files/directories that this node uses.
     pub static INPUTS: &str = "buck.inputs";
+
+    /// The package values for the package this target belongs to.
+    pub static PACKAGE_VALUES: &str = "buck.package_values";
 }
