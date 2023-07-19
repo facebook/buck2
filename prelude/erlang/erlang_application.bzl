@@ -292,8 +292,8 @@ def _app_info_content(
         data["mod"] = ctx.attrs.mod
     if ctx.attrs.env:
         data["env"] = {k: cmd_args(v) for k, v in ctx.attrs.env.items()}
-    if ctx.attrs.metadata:
-        data["metadata"] = {k: normalise_metadata(v) for k, v in ctx.attrs.metadata.items()}
+    if ctx.attrs.extra_properties:
+        data["metadata"] = {k: normalise_metadata(v) for k, v in ctx.attrs.extra_properties.items()}
 
     app_info_content = to_term_args(data)
     return ctx.actions.write(

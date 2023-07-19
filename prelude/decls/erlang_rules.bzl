@@ -111,13 +111,13 @@ rules_attributes = {
                 **NOTE**: _This mechanism is added to circumvent unclean dependency relationships and the goal for
                 developers should be to reduce usages of this field._ **DO NOT ADD ANY MORE USAGES!!**
             """),
-            "includes": attrs.list(attrs.source(), default = [], doc = """
-                The public header files accessible via `-include_lib("appname/include/header.hrl")` from other erlang files.
-            """),
-            "metadata": attrs.option(attrs.dict(key = attrs.string(), value = attrs.one_of(attrs.string(), attrs.list(attrs.string()))), default = None, doc = """
-                The metadata field can be used to specify extra key-value pairs which is are not defined in
+            "extra_properties": attrs.option(attrs.dict(key = attrs.string(), value = attrs.one_of(attrs.string(), attrs.list(attrs.string()))), default = None, doc = """
+                The extra_properties field can be used to specify extra key-value pairs which is are not defined in
                 [application_opt()](https://www.erlang.org/doc/man/application.html#load-2). The key-value pair will be stored in the
                 applications `.app` file and can be accessed by `file:consult/1`.
+            """),
+            "includes": attrs.list(attrs.source(), default = [], doc = """
+                The public header files accessible via `-include_lib("appname/include/header.hrl")` from other erlang files.
             """),
             "mod": attrs.option(attrs.tuple(attrs.string(), attrs.list(attrs.string())), default = None, doc = """
                 The `mod` field specifies the equivalent field in the generated `*.app` files. The format is similar, with the
