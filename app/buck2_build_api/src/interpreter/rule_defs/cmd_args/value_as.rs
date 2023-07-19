@@ -19,9 +19,13 @@ use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 #[derive(Debug, thiserror::Error)]
 enum CommandLineArgError {
     #[error(
-        "expected command line item to be a string, artifact, or label, or list thereof, not `{repr}`"
+        "expected command line item to be a string, artifact, or label, or list thereof, \
+        not `{repr}` (`{type_name}`)"
     )]
-    InvalidItemType { repr: String },
+    InvalidItemType {
+        repr: String,
+        type_name: &'static str,
+    },
 }
 
 pub trait ValueAsCommandLineLike<'v> {
@@ -61,6 +65,7 @@ impl<'v> ValueAsCommandLineLike<'v> for Value<'v> {
         self.as_command_line().ok_or_else(|| {
             CommandLineArgError::InvalidItemType {
                 repr: self.to_value().to_repr(),
+                type_name: self.to_value().get_type(),
             }
             .into()
         })
