@@ -30,7 +30,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
-use buck2_core::soft_error;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 use serde::Serialize;
@@ -145,10 +144,7 @@ impl StreamingCommand for RunCommand {
         }
 
         if response.build_targets.len() > 1 {
-            soft_error!(
-                "buck_run_multiple_targets",
-                RunCommandError::MultipleTargets.into()
-            )?;
+            return ExitResult::err(RunCommandError::MultipleTargets.into());
         }
 
         // TODO(rafaelc): use absolute paths for artifacts in the cli
