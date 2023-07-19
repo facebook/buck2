@@ -10,10 +10,11 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_node::visibility::VisibilitySpecification;
-use buck2_node::visibility::WithinViewSpecification;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
+
+use crate::visibility::VisibilitySpecification;
+use crate::visibility::WithinViewSpecification;
 
 #[derive(Default, Debug, Allocative)]
 pub(crate) struct SuperPackageData {
@@ -25,10 +26,10 @@ pub(crate) struct SuperPackageData {
 /// Contents of a `PACKAGE` file merged with contents of containing `PACKAGE` files.
 /// This object exists even for non-existent `PACKAGE` files.
 #[derive(Default, Debug, Allocative, Clone, Dupe)]
-pub(crate) struct SuperPackage(Arc<SuperPackageData>);
+pub struct SuperPackage(Arc<SuperPackageData>);
 
 impl SuperPackage {
-    pub(crate) fn new(
+    pub fn new(
         package_values: SmallMap<String, serde_json::Value>,
         visibility: VisibilitySpecification,
         within_view: WithinViewSpecification,
@@ -40,15 +41,15 @@ impl SuperPackage {
         }))
     }
 
-    pub(crate) fn package_values(&self) -> &SmallMap<String, serde_json::Value> {
+    pub fn package_values(&self) -> &SmallMap<String, serde_json::Value> {
         &self.0.package_values
     }
 
-    pub(crate) fn visibility(&self) -> &VisibilitySpecification {
+    pub fn visibility(&self) -> &VisibilitySpecification {
         &self.0.visibility
     }
 
-    pub(crate) fn within_view(&self) -> &WithinViewSpecification {
+    pub fn within_view(&self) -> &WithinViewSpecification {
         &self.0.within_view
     }
 }

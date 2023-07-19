@@ -26,13 +26,13 @@ use buck2_node::nodes::targets_map::TargetsMap;
 use buck2_node::nodes::targets_map::TargetsMapRecordError;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::package::Package;
+use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
 use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::globspec::GlobSpec;
-use crate::super_package::data::SuperPackage;
 
 impl From<ModuleInternals> for EvaluationResult {
     // TODO(cjhopman): Let's make this an `into_evaluation_result()` on ModuleInternals instead.

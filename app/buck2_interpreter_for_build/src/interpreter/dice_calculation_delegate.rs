@@ -42,6 +42,7 @@ use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::super_package::SuperPackage;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -56,7 +57,6 @@ use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
 use crate::interpreter::interpreter_for_cell::ParseResult;
-use crate::super_package::data::SuperPackage;
 
 #[derive(Debug, thiserror::Error)]
 enum DiceCalculationDelegateError {

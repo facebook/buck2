@@ -21,6 +21,7 @@ use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::prelude_path::PreludePath;
+use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
 use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
@@ -31,7 +32,6 @@ use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;
-use crate::super_package::data::SuperPackage;
 
 #[derive(Clone, Allocative)]
 struct ConfigureGlobalsFn(#[allocative(skip)] fn(&mut GlobalsBuilder));

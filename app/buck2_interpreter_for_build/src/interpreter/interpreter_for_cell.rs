@@ -41,6 +41,7 @@ use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::codemap::FileSpan;
@@ -55,7 +56,6 @@ use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::module_internals::ModuleInternals;
-use crate::super_package::data::SuperPackage;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
 #[derive(Debug, Error)]

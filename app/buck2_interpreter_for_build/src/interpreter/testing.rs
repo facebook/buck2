@@ -36,6 +36,7 @@ use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
+use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
 use indoc::indoc;
 use maplit::hashmap;
@@ -48,7 +49,6 @@ use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
 use crate::interpreter::interpreter_for_cell::ParseResult;
-use crate::super_package::data::SuperPackage;
 
 /// Simple container that allows us to instrument things like imports
 #[derive(Debug)]

@@ -9,11 +9,10 @@
 
 use std::cell::RefCell;
 
+use buck2_node::super_package::SuperPackage;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
 use starlark_map::small_map::SmallMap;
-
-use crate::super_package::data::SuperPackage;
 
 #[derive(Debug, Default)]
 pub(crate) struct PackageFileVisibilityFields {
