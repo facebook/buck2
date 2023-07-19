@@ -125,7 +125,7 @@ impl<'v> OutputStream<'v> {
 impl<'v> StarlarkValue<'v> for OutputStream<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(register_output_stream)
+        RES.methods(output_stream_methods)
     }
 }
 
@@ -137,7 +137,7 @@ impl<'v> AllocValue<'v> for OutputStream<'v> {
 
 /// The output stream for bxl to print values to the console as their result
 #[starlark_module]
-fn register_output_stream(builder: &mut MethodsBuilder) {
+fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// Outputs results to the console via stdout. These outputs are considered to be the results
     /// of a bxl script, which will be displayed to stdout by buck2 even when the script is cached.
     /// Accepts an optional separator that defaults to " ".

@@ -120,7 +120,7 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(dependency_functions)
+        RES.methods(dependency_methods)
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -133,7 +133,7 @@ where
 }
 
 #[starlark_module]
-fn dependency_functions(builder: &mut MethodsBuilder) {
+fn dependency_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label<'v>(this: &Dependency) -> anyhow::Result<Value<'v>> {
         Ok(this.label.to_value())

@@ -74,7 +74,7 @@ pub struct StarlarkCQueryCtx<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkCQueryCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(register_cquery)
+        RES.methods(cquery_methods)
     }
 }
 
@@ -123,7 +123,7 @@ impl<'v> StarlarkCQueryCtx<'v> {
 /// Query results are `[StarlarkTargetSet]`s of `[ConfiguredTargetNod]`s, which supports iteration,
 /// indexing, `len()`, set addition/subtraction, and `equals()`.
 #[starlark_module]
-fn register_cquery(builder: &mut MethodsBuilder) {
+fn cquery_methods(builder: &mut MethodsBuilder) {
     /// The `allpaths` query for computing all dependency paths.
     fn allpaths<'v>(
         this: &StarlarkCQueryCtx<'v>,

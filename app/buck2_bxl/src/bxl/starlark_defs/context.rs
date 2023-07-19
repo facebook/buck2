@@ -263,7 +263,7 @@ impl<'v> BxlContext<'v> {
 impl<'v> StarlarkValue<'v> for BxlContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(register_context)
+        RES.methods(context_methods)
     }
 }
 
@@ -276,7 +276,7 @@ impl<'v> AllocValue<'v> for BxlContext<'v> {
 /// The bxl context that the top level bxl implementation receives as parameter.
 /// This context contains all the core bxl functions to query, build, create actions, etc.
 #[starlark_module]
-fn register_context(builder: &mut MethodsBuilder) {
+fn context_methods(builder: &mut MethodsBuilder) {
     /// Gets the output stream to the console via stdout. Items written to the output stream
     /// are considered to be the results of a bxl script, which will be displayed to stdout by
     /// buck2 even when the script is cached.

@@ -111,9 +111,9 @@ impl ProviderCodegen {
         Ok(format_ident!("{}Callable", name))
     }
 
-    fn register_func_name(&self) -> syn::Result<syn::Ident> {
+    fn provider_methods_func_name(&self) -> syn::Result<syn::Ident> {
         let name_snake_str = self.name_snake_str()?;
-        Ok(format_ident!("register_{}", name_snake_str))
+        Ok(format_ident!("{}_methods", name_snake_str))
     }
 
     /// `id` field is object identity, which is ignored for equality or display purposes.
@@ -287,7 +287,7 @@ impl ProviderCodegen {
         let gen_name = &self.input.ident;
         let name = self.name()?;
         let name_str = self.name_str()?;
-        let register_func_name = self.register_func_name()?;
+        let provider_methods_func_name = self.provider_methods_func_name()?;
         let field_names = self.field_names()?;
         Ok(quote! {
             starlark::starlark_complex_value!(#vis #name);
@@ -308,7 +308,7 @@ impl ProviderCodegen {
 
                     RES.methods(|x| {
                         crate::interpreter::rule_defs::provider::provider_methods(x);
-                        _register::#register_func_name(x);
+                        _register::#provider_methods_func_name(x);
                     })
                 }
 
@@ -537,7 +537,7 @@ impl ProviderCodegen {
     }
 
     fn register(&self) -> syn::Result<proc_macro2::TokenStream> {
-        let register_func_name = self.register_func_name()?;
+        let provider_methods_func_name = self.provider_methods_func_name()?;
         let field_names = self.field_names()?;
         let name = self.name()?;
         let name_str = self.name_str()?;
@@ -550,7 +550,7 @@ impl ProviderCodegen {
                 use starlark::environment::MethodsBuilder;
 
                 #[starlark::starlark_module]
-                pub(crate) fn #register_func_name(builder: &mut MethodsBuilder) {
+                pub(crate) fn #provider_methods_func_name(builder: &mut MethodsBuilder) {
                     #(
                         #[starlark(attribute)]
                         fn #field_names<'v>(this: & #name) -> anyhow::Result<starlark::values::Value<'v>> {

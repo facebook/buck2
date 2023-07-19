@@ -65,7 +65,7 @@ pub struct StarlarkAuditCtx<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkAuditCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(register_audit)
+        RES.methods(audit_methods)
     }
 }
 
@@ -94,7 +94,7 @@ impl<'v> StarlarkAuditCtx<'v> {
 /// The context for performing `audit` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the audit functions available within audit command.
 #[starlark_module]
-fn register_audit(builder: &mut MethodsBuilder) {
+fn audit_methods(builder: &mut MethodsBuilder) {
     /// Returns either:
     ///  - The `StarlarkAction` which created the buck-out path, if exists.
     ///  - The `StarlarkTargetLabel` (unconfigured target label) constructed from the buck-out path, if the configuration hashes do not match.

@@ -68,7 +68,7 @@ pub struct StarlarkUQueryCtx<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(register_uquery)
+        RES.methods(uquery_methods)
     }
 }
 
@@ -94,7 +94,7 @@ impl<'v> StarlarkUQueryCtx<'v> {
 /// The context for performing `uquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within uquery command.
 #[starlark_module]
-fn register_uquery(builder: &mut MethodsBuilder) {
+fn uquery_methods(builder: &mut MethodsBuilder) {
     /// The `allpaths` query for computing all dependency paths.
     fn allpaths<'v>(
         this: &StarlarkUQueryCtx<'v>,
