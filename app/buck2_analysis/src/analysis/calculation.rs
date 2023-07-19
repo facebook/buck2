@@ -25,7 +25,7 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::span_async;

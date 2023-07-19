@@ -28,7 +28,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
 use indexmap::indexset;

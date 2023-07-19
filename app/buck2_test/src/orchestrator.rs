@@ -51,7 +51,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::SetupLocalResourcesEnd;
 use buck2_data::SetupLocalResourcesStart;
 use buck2_data::TestDiscovery;

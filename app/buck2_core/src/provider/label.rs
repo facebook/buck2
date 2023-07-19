@@ -24,7 +24,7 @@ use crate::ascii_char_set::AsciiCharSet;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
-use crate::target::label::ConfiguredTargetLabel;
+use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::TargetLabel;
 
 #[derive(

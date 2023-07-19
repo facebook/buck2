@@ -179,7 +179,7 @@ mod tests {
     use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProviderName;
     use buck2_core::provider::label::ProvidersName;
-    use buck2_core::target::label::ConfiguredTargetLabel;
+    use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_core::target::name::TargetName;
     use buck2_query::__derive_refs::indexmap::IndexMap;
     use buck2_query::query::syntax::simple::eval::set::TargetSet;

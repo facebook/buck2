@@ -10,7 +10,6 @@
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
-use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::str;
@@ -33,6 +32,7 @@ use crate::package::PackageLabel;
 use crate::pattern::lex_target_pattern;
 use crate::pattern::pattern_type::TargetPatternExtra;
 use crate::pattern::ParsedPattern;
+use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::name::TargetNameRef;
 
 #[derive(Eq, PartialEq, Allocative)]
@@ -191,94 +191,6 @@ impl ToProtoMessage for TargetLabel {
         buck2_data::TargetLabel {
             package: self.pkg().to_string(),
             name: self.name().to_string(),
-        }
-    }
-}
-
-/// 'ConfiguredTargetLabel' are 'TargetLabel's with an 'Configuration' attached.
-/// These uniquely map to nodes of the build graph with 'Configuration's
-/// applied.
-#[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-pub struct ConfiguredTargetLabel {
-    target: TargetLabel,
-    cfg_pair: Configuration,
-}
-
-impl Display for ConfiguredTargetLabel {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({})", self.target, self.cfg())?;
-        if let Some(exec_cfg) = self.exec_cfg() {
-            write!(f, " ({})", exec_cfg)?;
-        }
-        Ok(())
-    }
-}
-
-impl ConfiguredTargetLabel {
-    #[inline]
-    pub fn pkg(&self) -> PackageLabel {
-        self.target.pkg()
-    }
-
-    #[inline]
-    pub fn name(&self) -> &TargetNameRef {
-        self.target.name()
-    }
-
-    #[inline]
-    pub fn unconfigured(&self) -> &TargetLabel {
-        &self.target
-    }
-
-    #[inline]
-    pub fn cfg_pair(&self) -> &Configuration {
-        &self.cfg_pair
-    }
-
-    #[inline]
-    pub fn cfg(&self) -> &ConfigurationData {
-        self.cfg_pair.cfg()
-    }
-
-    #[inline]
-    pub fn exec_cfg(&self) -> Option<&ConfigurationData> {
-        self.cfg_pair.exec_cfg()
-    }
-
-    /// Updates the exec config, but only if it's present
-    pub fn map_exec_cfg(&self, new_exec_cfg: &ConfigurationData) -> Self {
-        if self.exec_cfg().is_some() {
-            Self {
-                target: self.target.dupe(),
-                cfg_pair: Configuration::new(self.cfg().dupe(), Some(new_exec_cfg.dupe())),
-            }
-        } else {
-            self.dupe()
-        }
-    }
-
-    pub fn testing_parse(label: &str, cfg: ConfigurationData) -> ConfiguredTargetLabel {
-        TargetLabel::testing_parse(label).configure(cfg)
-    }
-}
-
-impl Serialize for ConfiguredTargetLabel {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_str(self)
-    }
-}
-
-impl ToProtoMessage for ConfiguredTargetLabel {
-    type Message = buck2_data::ConfiguredTargetLabel;
-
-    fn as_proto(&self) -> Self::Message {
-        buck2_data::ConfiguredTargetLabel {
-            label: Some(self.unconfigured().as_proto()),
-            configuration: Some(self.cfg().as_proto()),
-            execution_configuration: self.exec_cfg().map(ToProtoMessage::as_proto),
         }
     }
 }

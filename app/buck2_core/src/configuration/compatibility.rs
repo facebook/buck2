@@ -18,7 +18,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use thiserror::Error;
 
-use crate::target::label::ConfiguredTargetLabel;
+use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::TargetLabel;
 
 #[derive(Debug, Error)]

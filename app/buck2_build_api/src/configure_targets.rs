@@ -12,7 +12,7 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_node::load_patterns::load_patterns;

@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use buck2_common::dice::cycles::CycleAdapterDescriptor;
 use buck2_common::result::SharedResult;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;

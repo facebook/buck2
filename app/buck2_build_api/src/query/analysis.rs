@@ -11,7 +11,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use indexmap::IndexMap;

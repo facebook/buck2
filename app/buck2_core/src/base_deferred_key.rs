@@ -26,7 +26,7 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
-use crate::target::label::ConfiguredTargetLabel;
+use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::name::EQ_SIGN_SUBST;
 
 pub trait BaseDeferredKeyDyn: Debug + Display + Any + Allocative + Send + Sync + 'static {

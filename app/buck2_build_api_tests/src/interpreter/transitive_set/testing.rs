@@ -20,7 +20,7 @@ use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;

@@ -38,7 +38,7 @@ use buck2_build_signals::FinishBuildSignals;
 use buck2_build_signals::NodeDuration;
 use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
 use buck2_core::package::PackageLabel;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;

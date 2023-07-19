@@ -9,7 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_core::configuration::compatibility::MaybeCompatible;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 

@@ -12,7 +12,7 @@ use std::sync::Arc;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::DeferredBuildSignals;
 use buck2_build_signals::NodeDuration;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_events::span::SpanId;
 use buck2_util::late_binding::LateBinding;
 use dice::ActivationTracker;

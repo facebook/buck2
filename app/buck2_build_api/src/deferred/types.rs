@@ -27,7 +27,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dupe::Dupe;
@@ -867,7 +867,7 @@ mod tests {
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     use buck2_core::fs::project::ProjectRoot;
-    use buck2_core::target::label::ConfiguredTargetLabel;
+    use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::digest_config::DigestConfig;
     use dupe::Dupe;
     use indexmap::indexset;

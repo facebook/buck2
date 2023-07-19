@@ -40,7 +40,7 @@ use buck2_core::pattern::query_file_literal::parse_query_file_literal;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::soft_error;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_node::load_patterns::load_patterns;

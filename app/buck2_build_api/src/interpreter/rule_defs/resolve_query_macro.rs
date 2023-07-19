@@ -11,7 +11,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_util::thin_box::ThinBoxSlice;
 use static_assertions::assert_eq_size;
 

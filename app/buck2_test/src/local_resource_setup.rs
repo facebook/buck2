@@ -17,7 +17,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_i
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::LocalResourceInfoCallable;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_test_api::data::RequiredLocalResources;
 use dice::DiceTransaction;

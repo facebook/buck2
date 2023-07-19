@@ -14,7 +14,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_common::result::SharedResult;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use starlark::environment::Module;
 use starlark::values::Heap;
 

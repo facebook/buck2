@@ -20,7 +20,7 @@ use crate::configuration::compatibility::IncompatiblePlatformReasonCause;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::ConfigurationNoExec;
 use crate::execution_types::executor_config::CommandExecutorConfig;
-use crate::target::label::ConfiguredTargetLabel;
+use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::TargetLabel;
 
 /// An execution platform is used for the execution deps of a target, those dependencies that

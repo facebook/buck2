@@ -8,7 +8,7 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use dice::DiceComputations;

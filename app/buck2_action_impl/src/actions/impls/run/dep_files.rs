@@ -961,7 +961,7 @@ mod test {
     use buck2_artifact::deferred::id::DeferredId;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-    use buck2_core::target::label::ConfiguredTargetLabel;
+    use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use maplit::hashmap;
 
     use super::*;

@@ -13,7 +13,7 @@ use anyhow::Context;
 use buck2_common::kill_util::try_terminate_process_gracefully;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_common::result::SharedResult;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ReleaseLocalResourcesEnd;
 use buck2_data::ReleaseLocalResourcesStart;
 use buck2_events::dispatch::span_async;

@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use derivative::Derivative;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -126,7 +126,7 @@ impl LocalResourceState {
 #[cfg(test)]
 mod tests {
     use buck2_core::configuration::data::ConfigurationData;
-    use buck2_core::target::label::ConfiguredTargetLabel;
+    use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 
     use super::EnvironmentVariable;
     use crate::local_resource_state::LocalResource;

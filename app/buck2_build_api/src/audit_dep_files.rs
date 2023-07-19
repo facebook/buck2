@@ -12,7 +12,7 @@ use std::io::Write;
 use std::pin::Pin;
 
 use buck2_core::category::Category;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceTransaction;
 

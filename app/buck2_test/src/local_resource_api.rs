@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use buck2_common::local_resource_state::EnvironmentVariable;
 use buck2_common::local_resource_state::LocalResource;
 use buck2_common::local_resource_state::LocalResourceState;
-use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use indexmap::IndexMap;
 use serde::Deserialize;
 
@@ -60,7 +60,7 @@ mod tests {
     use buck2_common::local_resource_state::EnvironmentVariable;
     use buck2_common::local_resource_state::LocalResource;
     use buck2_core::configuration::data::ConfigurationData;
-    use buck2_core::target::label::ConfiguredTargetLabel;
+    use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use indexmap::indexmap;
     use maplit::btreemap;
 
