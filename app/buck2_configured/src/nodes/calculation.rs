@@ -591,6 +591,32 @@ async fn compute_configured_target_node_no_transition(
         resolved_transitions.insert(tr.dupe(), resolved_cfg);
     }
 
+    let mut deps = SmallSet::new();
+    let mut exec_deps = SmallSet::new();
+
+    let platform_cfgs = compute_platform_cfgs(ctx, &target_node).await?;
+
+    // We need to collect deps and to ensure that all attrs can be successfully
+    // configured so that we don't need to support propagate configuration errors on attr access.
+    for a in target_node.attrs(AttrInspectOptions::All) {
+        let mut traversal = Traversal {
+            deps: &mut deps,
+            exec_deps: &mut exec_deps,
+        };
+        let attr_cfg_ctx = AttrConfigurationContextImpl::new(
+            &resolved_configuration,
+            // We have not yet done exec platform resolution so for now we just use `unbound_exec`
+            // here. We only use this when collecting exec deps and toolchain deps. In both of those
+            // cases, we replace the exec cfg later on in this function with the "proper" exec cfg.
+            ConfigurationNoExec::unbound_exec(),
+            &resolved_transitions,
+            &platform_cfgs,
+        );
+
+        let configured_attr = a.configure(&attr_cfg_ctx)?;
+        configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
+    }
+
     let execution_platform_resolution = if target_cfg.is_unbound() {
         // The unbound configuration is used when evaluation configuration nodes.
         // That evaluation is
@@ -621,38 +647,23 @@ async fn compute_configured_target_node_no_transition(
         )
         .await?
     };
+    let execution_platform = execution_platform_resolution.cfg();
 
-    let mut deps = SmallSet::new();
-    let mut exec_deps = SmallSet::new();
-
-    let platform_cfgs = compute_platform_cfgs(ctx, &target_node).await?;
-
-    // We need to collect deps and to ensure that all attrs can be successfully
-    // configured so that we don't need to support propagate configuration errors on attr access.
-    for a in target_node.attrs(AttrInspectOptions::All) {
-        let mut traversal = Traversal {
-            deps: &mut deps,
-            exec_deps: &mut exec_deps,
-        };
-        let attr_cfg_ctx = AttrConfigurationContextImpl::new(
-            &resolved_configuration,
-            execution_platform_resolution.cfg(),
-            &resolved_transitions,
-            &platform_cfgs,
-        );
-
-        let configured_attr = a.configure(&attr_cfg_ctx)?;
-        configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
-    }
-
-    // Check transitive target compatibility.
+    // Check transitive target compatibility. We now need to replace the dummy exec config we used
+    // above with the real one
     let dep_futures = deps
         .iter()
-        .map(|v| ctx.get_configured_target_node(v.target()));
+        .map(|v| v.target().map_exec_cfg(execution_platform.cfg()))
+        .map(|v| async move { ctx.get_configured_target_node(&v).await });
 
     let exec_dep_futures = exec_deps
         .iter()
-        .map(|v| ctx.get_configured_target_node(v.target()));
+        .map(|v| {
+            v.target()
+                .unconfigured()
+                .configure_pair(execution_platform.cfg_pair().dupe())
+        })
+        .map(|v| async move { ctx.get_configured_target_node(&v).await });
 
     let fut = futures::future::join(
         futures::future::join_all(dep_futures),

@@ -245,6 +245,18 @@ impl ConfiguredTargetLabel {
         self.cfg_pair.exec_cfg()
     }
 
+    /// Updates the exec config, but only if it's present
+    pub fn map_exec_cfg(&self, new_exec_cfg: &ConfigurationData) -> Self {
+        if self.exec_cfg().is_some() {
+            Self {
+                target: self.target.dupe(),
+                cfg_pair: Configuration::new(self.cfg().dupe(), Some(new_exec_cfg.dupe())),
+            }
+        } else {
+            self.dupe()
+        }
+    }
+
     pub fn testing_parse(label: &str, cfg: ConfigurationData) -> ConfiguredTargetLabel {
         TargetLabel::testing_parse(label).configure(cfg)
     }
