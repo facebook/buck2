@@ -151,7 +151,7 @@ def _attr_deps_other_outputs_infos(ctx: "context") -> ["OtherOutputsInfo"]:
 # We want to pass a series of arguments as a command, but the OCaml compiler
 # only lets us pass a single script. Therefore, produce a script that contains
 # many arguments.
-def _mk_script(ctx: "context", file: str, args: [""], env: {str: ""}) -> "cmd_args":
+def _mk_script(ctx: "context", file: str, args: [""], env: {str: ""}) -> cmd_args:
     lines = ["#!/usr/bin/env bash"]
     for name, val in env.items():
         lines.append(cmd_args(val, format = "export {}={{}}".format(name)))
@@ -165,7 +165,7 @@ def _mk_script(ctx: "context", file: str, args: [""], env: {str: ""}) -> "cmd_ar
     return cmd_args(script).hidden(args, env.values())
 
 # An environment in which a custom `bin` is at the head of `$PATH`.
-def _mk_env(ctx: "context") -> {str: "cmd_args"}:
+def _mk_env(ctx: "context") -> {str: cmd_args}:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
     # "Partial linking" (via `ocamlopt.opt -output-obj`) emits calls to `ld -r
@@ -190,13 +190,13 @@ def _mk_env(ctx: "context") -> {str: "cmd_args"}:
         return {}
 
 # Pass '-cc cc.sh' to ocamlopt to use 'cc.sh' as the C compiler.
-def _mk_cc(ctx: "context", cc_args: [""], cc_sh_filename: "") -> "cmd_args":
+def _mk_cc(ctx: "context", cc_args: [""], cc_sh_filename: "") -> cmd_args:
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     compiler = cxx_toolchain.c_compiler_info.compiler
     return _mk_script(ctx, cc_sh_filename, [compiler] + cc_args, {})
 
 # Pass '-cc ld.sh' to ocamlopt to use 'ld.sh' as the C linker.
-def _mk_ld(ctx: "context", link_args: [""], ld_sh_filename: "") -> "cmd_args":
+def _mk_ld(ctx: "context", link_args: [""], ld_sh_filename: "") -> cmd_args:
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     linker = cxx_toolchain.linker_info.linker
     linker_flags = cxx_toolchain.linker_info.linker_flags
@@ -207,7 +207,7 @@ def _mk_ld(ctx: "context", link_args: [""], ld_sh_filename: "") -> "cmd_args":
 # `build_mode`. It produces a script that forwards arguments to the ocaml
 # compiler (one of `ocamlopt.opt` vs `ocamlc.opt` consistent with the value of
 # `build_mode`) in the environment of a local 'bin' directory.
-def _mk_ocaml_compiler(ctx: "context", env: {str: ""}, build_mode: BuildMode.type) -> "cmd_args":
+def _mk_ocaml_compiler(ctx: "context", env: {str: ""}, build_mode: BuildMode.type) -> cmd_args:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     compiler = ocaml_toolchain.ocaml_compiler if _is_native(build_mode) else ocaml_toolchain.ocaml_bytecode_compiler
     script_name = "ocamlopt" + build_mode.value + ".sh"
@@ -215,7 +215,7 @@ def _mk_ocaml_compiler(ctx: "context", env: {str: ""}, build_mode: BuildMode.typ
     return script_args
 
 # A command initialized with flags common to all compiler commands.
-def _compiler_cmd(ctx: "context", compiler: "cmd_args", cc: "cmd_args") -> "cmd_args":
+def _compiler_cmd(ctx: "context", compiler: cmd_args, cc: cmd_args) -> cmd_args:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
     cmd = cmd_args(compiler)
@@ -259,7 +259,7 @@ def _compiler_flags(ctx: "context", build_mode: BuildMode.type):
 
 # Configure a new compile command. Each source file (.mli, .ml) gets one of its
 # own.
-def _compile_cmd(ctx: "context", compiler: "cmd_args", build_mode: BuildMode.type, cc: "cmd_args", includes: ["cmd_args"]) -> "cmd_args":
+def _compile_cmd(ctx: "context", compiler: cmd_args, build_mode: BuildMode.type, cc: cmd_args, includes: [cmd_args]) -> cmd_args:
     cmd = _compiler_cmd(ctx, compiler, cc)
     cmd.add("-bin-annot")  # TODO(sf, 2023-02-21): Move this to 'gen_modes.py'?
     cmd.add(_compiler_flags(ctx, build_mode))
@@ -336,7 +336,7 @@ def _depends(ctx: "context", srcs: ["artifact"], build_mode: BuildMode.type) -> 
 # be empty in the returned tuple while 'cmos' will be non-empty. If compiling
 # native code, 'cmos' in the returned info will be empty while 'objs' & 'cmxs'
 # will be non-empty.
-def _compile(ctx: "context", compiler: "cmd_args", build_mode: BuildMode.type) -> CompileResultInfo.type:
+def _compile(ctx: "context", compiler: cmd_args, build_mode: BuildMode.type) -> CompileResultInfo.type:
     opaque_enabled = "-opaque" in _compiler_flags(ctx, build_mode)
     is_native = _is_native(build_mode)
     is_bytecode = not is_native
@@ -948,7 +948,7 @@ def prebuilt_ocaml_library_impl(ctx: "context") -> ["provider"]:
     cmas = [ctx.attrs.bytecode_lib] if ctx.attrs.bytecode_lib != None else []
     cmxas = [ctx.attrs.native_lib] if ctx.attrs.native_lib != None else []
 
-    # `ctx.attrs.include_dirs` has type `"artifact"`, convert it to a `"cmd_args"`
+    # `ctx.attrs.include_dirs` has type `"artifact"`, convert it to a `cmd_args`
     include_dirs = [cmd_args(ctx.attrs.include_dir)] if ctx.attrs.include_dir != None else []
     native_c_libs = ctx.attrs.native_c_libs
     bytecode_c_libs = ctx.attrs.bytecode_c_libs

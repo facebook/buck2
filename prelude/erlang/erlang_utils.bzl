@@ -7,13 +7,13 @@
 
 load("@prelude//:paths.bzl", "paths")
 
-def normalise_metadata(data: ["string", ["string"]]) -> ["cmd_args", ["cmd_args"]]:
+def normalise_metadata(data: ["string", ["string"]]) -> [cmd_args, [cmd_args]]:
     if type(data) == type([]):
         return [cmd_args(item) for item in data]
     else:
         return cmd_args(data)
 
-def to_term_args(data: "") -> "cmd_args":
+def to_term_args(data: "") -> cmd_args:
     """ convert nested lists/tuple/map data structure to Erlang Term cmd_args
     """
     args = cmd_args([])
@@ -44,7 +44,7 @@ build_paths = struct(
     linktree = linktree,
 )
 
-def convert(data: "") -> "cmd_args":
+def convert(data: "") -> cmd_args:
     """ converts a lists/tuple/map data structure to a sub-term that can be embedded in another to_term_args or convert
     """
     if type(data) == "list":
@@ -65,7 +65,7 @@ def convert(data: "") -> "cmd_args":
     return args
 
 # internal
-def convert_list(ls: "list", ob: "string" = "[", cb: "string" = "]") -> "cmd_args":
+def convert_list(ls: "list", ob: "string" = "[", cb: "string" = "]") -> cmd_args:
     args = cmd_args([])
     args.add(ob)
     if len(ls) >= 1:
@@ -80,7 +80,7 @@ def convert_list(ls: "list", ob: "string" = "[", cb: "string" = "]") -> "cmd_arg
     args.add(cb)
     return args
 
-def convert_dict(dt: "dict") -> "cmd_args":
+def convert_dict(dt: "dict") -> cmd_args:
     args = cmd_args([])
     args.add("#{")
     items = list(dt.items())
@@ -101,18 +101,18 @@ def convert_dict(dt: "dict") -> "cmd_args":
     args.add("}")
     return args
 
-def convert_args(data: "cmd_args") -> "cmd_args":
+def convert_args(data: cmd_args) -> cmd_args:
     args = cmd_args()
     args.add("\"")
     args.add(cmd_args(data, delimiter = " "))
     args.add("\"")
     return args
 
-def convert_string(st: "string") -> "cmd_args":
+def convert_string(st: "string") -> cmd_args:
     args = cmd_args()
     return args.add(cmd_args(["\"", st.replace("\"", "\\\""), "\""], delimiter = ""))
 
-def convert_bool(bl: "bool") -> "cmd_args":
+def convert_bool(bl: "bool") -> cmd_args:
     if bl:
         return cmd_args(["true"])
     else:

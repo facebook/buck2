@@ -316,7 +316,7 @@ def _get_swift_static_external_debug_info(ctx: "context", swiftmodule: "artifact
 def _get_swift_shared_external_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> [ArtifactTSet.type]:
     return [swift_dependency_info.external_debug_info] if swift_dependency_info.external_debug_info else []
 
-def _get_linker_flags(ctx: "context") -> "cmd_args":
+def _get_linker_flags(ctx: "context") -> cmd_args:
     return cmd_args(get_min_deployment_version_target_linker_flags(ctx))
 
 def _xcode_populate_attributes(

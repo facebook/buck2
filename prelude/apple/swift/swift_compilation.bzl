@@ -265,7 +265,7 @@ def _perform_swift_postprocessing(
 def _compile_swiftmodule(
         ctx: "context",
         toolchain: "SwiftToolchainInfo",
-        shared_flags: "cmd_args",
+        shared_flags: cmd_args,
         srcs: [CxxSrcWithFlags.type],
         output_swiftmodule: "artifact",
         output_header: "artifact") -> CompileArgsfiles.type:
@@ -287,7 +287,7 @@ def _compile_swiftmodule(
 def _compile_object(
         ctx: "context",
         toolchain: "SwiftToolchainInfo",
-        shared_flags: "cmd_args",
+        shared_flags: cmd_args,
         srcs: [CxxSrcWithFlags.type],
         output_object: "artifact") -> CompileArgsfiles.type:
     object_format = toolchain.object_format.value
@@ -311,9 +311,9 @@ def _compile_with_argsfile(
         ctx: "context",
         category_prefix: str,
         extension: str,
-        shared_flags: "cmd_args",
+        shared_flags: cmd_args,
         srcs: [CxxSrcWithFlags.type],
-        additional_flags: "cmd_args",
+        additional_flags: cmd_args,
         toolchain: "SwiftToolchainInfo") -> CompileArgsfiles.type:
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
     argsfile, _ = ctx.actions.write(extension + ".argsfile", shell_quoted_args, allow_args = True)
@@ -363,7 +363,7 @@ def _get_shared_flags(
         module_name: str,
         objc_headers: [CHeader.type],
         objc_modulemap_pp_info: [CPreprocessor.type, None],
-        extra_search_paths_flags: ["_arglike"] = []) -> "cmd_args":
+        extra_search_paths_flags: ["_arglike"] = []) -> cmd_args:
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args()
     cmd.add([
@@ -457,7 +457,7 @@ def _get_shared_flags(
 def _add_swift_deps_flags(
         ctx: "context",
         sdk_deps_tset: "SDKDepTSet",
-        cmd: "cmd_args"):
+        cmd: cmd_args):
     # If Explicit Modules are enabled, a few things must be provided to a compilation job:
     # 1. Direct and transitive SDK deps from `sdk_modules` attribute.
     # 2. Direct and transitive user-defined deps.
@@ -500,7 +500,7 @@ def _add_clang_deps_flags(
         ctx: "context",
         pcm_deps_tset: "PcmDepTSet",
         sdk_deps_tset: "SDKDepTSet",
-        cmd: "cmd_args") -> None:
+        cmd: cmd_args) -> None:
     # If a module uses Explicit Modules, all direct and
     # transitive Clang deps have to be explicitly added.
     if uses_explicit_modules(ctx):
@@ -517,7 +517,7 @@ def _add_clang_deps_flags(
 
 def _add_mixed_library_flags_to_cmd(
         ctx: "context",
-        cmd: "cmd_args",
+        cmd: cmd_args,
         underlying_module: ["SwiftPCMCompiledInfo", None],
         objc_headers: [CHeader.type],
         objc_modulemap_pp_info: [CPreprocessor.type, None]) -> None:
@@ -658,5 +658,5 @@ def extract_swiftmodule_linkables(link_infos: [[LinkInfo.type], None]) -> [Swift
 def merge_swiftmodule_linkables(ctx: "context", swiftmodule_linkables: [[SwiftmoduleLinkable.type, None]]) -> SwiftmoduleLinkable.type:
     return SwiftmoduleLinkable(tset = ctx.actions.tset(SwiftmodulePathsTSet, children = [linkable.tset for linkable in swiftmodule_linkables if linkable]))
 
-def get_swiftmodule_linker_flags(swiftmodule_linkable: [SwiftmoduleLinkable.type, None]) -> "cmd_args":
+def get_swiftmodule_linker_flags(swiftmodule_linkable: [SwiftmoduleLinkable.type, None]) -> cmd_args:
     return cmd_args(swiftmodule_linkable.tset.project_as_args("linker_args")) if swiftmodule_linkable else cmd_args()

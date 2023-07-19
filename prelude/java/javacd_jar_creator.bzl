@@ -60,7 +60,7 @@ def create_jar_artifact_javacd(
         deps: ["dependency"],
         required_for_source_only_abi: bool,
         source_only_abi_deps: ["dependency"],
-        extra_arguments: "cmd_args",
+        extra_arguments: cmd_args,
         additional_classpath_entries: ["artifact"],
         additional_compiled_srcs: ["artifact", None],
         bootclasspath_entries: ["artifact"],

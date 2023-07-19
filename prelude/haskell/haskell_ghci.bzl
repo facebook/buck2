@@ -43,9 +43,9 @@ def _replace_macros_in_script_template(
         ctx: "context",
         script_template: "artifact",
         ghci_bin: "artifact",
-        exposed_package_args: "cmd_args",
-        packagedb_args: "cmd_args",
-        prebuilt_packagedb_args: "cmd_args",
+        exposed_package_args: cmd_args,
+        packagedb_args: cmd_args,
+        prebuilt_packagedb_args: cmd_args,
         haskell_toolchain: HaskellToolchainInfo.type) -> "artifact":
     toolchain_paths = {
         BINUTILS_PATH: haskell_toolchain.ghci_binutils_path,

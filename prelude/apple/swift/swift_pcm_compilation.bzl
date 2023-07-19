@@ -63,8 +63,8 @@ def _compile_with_argsfile(
         ctx: "context",
         category: str,
         module_name: str,
-        args: "cmd_args",
-        additional_cmd: "cmd_args"):
+        args: cmd_args,
+        additional_cmd: cmd_args):
     shell_quoted_cmd = cmd_args(args, quote = "shell")
     argfile, _ = ctx.actions.write(module_name + ".pcm.argsfile", shell_quoted_cmd, allow_args = True)
 
@@ -259,7 +259,7 @@ def _get_base_pcm_flags(
         uncompiled_pcm_info: SwiftPCMUncompiledInfo.type,
         sdk_deps_tset: SDKDepTSet.type,
         pcm_deps_tset: PcmDepTSet.type,
-        swift_cxx_args: [str]) -> ("cmd_args", "cmd_args", "artifact"):
+        swift_cxx_args: [str]) -> (cmd_args, cmd_args, "artifact"):
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     cmd = cmd_args()

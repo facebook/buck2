@@ -147,7 +147,7 @@ def _system_cxx_toolchain_impl(ctx):
         CxxPlatformInfo(name = "x86_64"),
     ]
 
-def _windows_linker_wrapper(ctx: "context") -> "cmd_args":
+def _windows_linker_wrapper(ctx: "context") -> cmd_args:
     # Linkers pretty much all support @file.txt argument syntax to insert
     # arguments from the given text file, usually formatted one argument per
     # line.
@@ -170,7 +170,7 @@ def _windows_linker_wrapper(ctx: "context") -> "cmd_args":
         os = ScriptOs("windows"),
     )
 
-def _windows_compiler_wrapper(ctx: "context") -> "cmd_args":
+def _windows_compiler_wrapper(ctx: "context") -> cmd_args:
     # The wrapper is needed to dynamically find compiler location and
     # Windows SDK to add necessary includes.
     return cmd_script(

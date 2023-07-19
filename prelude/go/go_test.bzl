@@ -24,8 +24,8 @@ def _gen_test_main(
         ctx: "context",
         pkg_name: str,
         coverage_mode: [GoCoverageMode.type, None],
-        coverage_vars: ["cmd_args", None],
-        srcs: "cmd_args") -> "artifact":
+        coverage_vars: [cmd_args, None],
+        srcs: cmd_args) -> "artifact":
     """
     Generate a `main.go` which calls tests from the given sources.
     """

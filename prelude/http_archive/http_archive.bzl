@@ -47,7 +47,7 @@ def _unarchive_cmd(
         ext_type: str,
         exec_is_windows: bool,
         archive: "artifact",
-        strip_prefix: [str, None]) -> "cmd_args":
+        strip_prefix: [str, None]) -> cmd_args:
     if exec_is_windows:
         # So many hacks.
         if ext_type == "tar.zst":

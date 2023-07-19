@@ -216,8 +216,8 @@ def _is_ksp_plugin(plugin: str) -> bool:
 
 def _add_plugins(
         ctx: "context",
-        kotlinc_cmd_args: "cmd_args",
-        compile_kotlin_cmd: "cmd_args",
+        kotlinc_cmd_args: cmd_args,
+        compile_kotlin_cmd: cmd_args,
         is_ksp: bool):
     for plugin, plugin_options in ctx.attrs.kotlin_compiler_plugins.items():
         if _is_ksp_plugin(str(plugin)) != is_ksp:

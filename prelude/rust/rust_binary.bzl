@@ -58,7 +58,7 @@ def _rust_binary_common(
         ctx: "context",
         compile_ctx: CompileContext.type,
         default_roots: [str],
-        extra_flags: [str]) -> ([[DefaultInfo.type, RunInfo.type]], "cmd_args"):
+        extra_flags: [str]) -> ([[DefaultInfo.type, RunInfo.type]], cmd_args):
     toolchain_info = compile_ctx.toolchain_info
 
     simple_crate = attr_simple_crate_for_filenames(ctx)

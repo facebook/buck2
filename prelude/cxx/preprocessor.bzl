@@ -177,13 +177,13 @@ def cxx_merge_cpreprocessors(ctx: "context", own: [CPreprocessor.type], xs: [CPr
         set = ctx.actions.tset(CPreprocessorTSet, **kwargs),
     )
 
-def _format_include_arg(flag: str, path: "cmd_args", compiler_type: str) -> ["cmd_args"]:
+def _format_include_arg(flag: str, path: cmd_args, compiler_type: str) -> [cmd_args]:
     if compiler_type == "windows":
         return [cmd_args(path, format = flag + "{}")]
     else:
         return [cmd_args(flag), cmd_args(path, format = "./{}")]
 
-def format_system_include_arg(path: "cmd_args", compiler_type: str) -> ["cmd_args"]:
+def format_system_include_arg(path: cmd_args, compiler_type: str) -> [cmd_args]:
     if compiler_type == "windows":
         return [cmd_args(path, format = "/external:I{}")]
     else:
@@ -383,7 +383,7 @@ def _get_private_preprocessor_args(ctx: "context", headers: {str: "artifact"}, c
 def _by_language_cxx(x: {"": ""}, label: Label) -> [""]:
     return cxx_by_language_ext(x, ".cpp", label)
 
-def _header_style_args(style: HeaderStyle.type, path: "cmd_args", compiler_type: str) -> ["cmd_args"]:
+def _header_style_args(style: HeaderStyle.type, path: cmd_args, compiler_type: str) -> [cmd_args]:
     if style == HeaderStyle("local"):
         return _format_include_arg("-I", path, compiler_type)
     if style == HeaderStyle("system"):
@@ -414,7 +414,7 @@ def _needs_cxx_header_tree_hack(arg: "") -> bool:
     # then here we substitute in the real header tree.
     return "HACK-CXX-HEADER-TREE" in repr(arg)
 
-def _cxx_header_tree_hack_replacement(header_tree: "artifact") -> "cmd_args":
+def _cxx_header_tree_hack_replacement(header_tree: "artifact") -> cmd_args:
     # Unfortunately, we can't manipulate flags very precisely (for good reasons), so we rely on
     # knowing the form it takes.
     # The source is: -fmodule-map-file=$(cxx-header-tree)/module.modulemap

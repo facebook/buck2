@@ -43,7 +43,7 @@ def apple_create_frameworks_linkable(ctx: "context") -> [FrameworksLinkable.type
         framework_names = [to_framework_name(x) for x in ctx.attrs.frameworks],
     )
 
-def _get_apple_frameworks_linker_flags(ctx: "context", linkable: [FrameworksLinkable.type, None]) -> "cmd_args":
+def _get_apple_frameworks_linker_flags(ctx: "context", linkable: [FrameworksLinkable.type, None]) -> cmd_args:
     if not linkable:
         return cmd_args()
 
@@ -56,12 +56,12 @@ def _get_apple_frameworks_linker_flags(ctx: "context", linkable: [FrameworksLink
 
     return flags
 
-def get_framework_search_path_flags(ctx: "context") -> "cmd_args":
+def get_framework_search_path_flags(ctx: "context") -> cmd_args:
     unresolved_framework_dirs = _get_non_sdk_unresolved_framework_directories(ctx.attrs.frameworks)
     expanded_framework_dirs = _expand_sdk_framework_paths(ctx, unresolved_framework_dirs)
     return _get_framework_search_path_flags(expanded_framework_dirs)
 
-def _get_framework_search_path_flags(frameworks: ["cmd_args"]) -> "cmd_args":
+def _get_framework_search_path_flags(frameworks: [cmd_args]) -> cmd_args:
     flags = cmd_args()
     for directory in frameworks:
         flags.add(["-F", directory])
@@ -88,10 +88,10 @@ def _library_name(library: str) -> str:
         fail("unexpected library: {}".format(library))
     return paths.split_extension(name[3:])[0]
 
-def _expand_sdk_framework_paths(ctx: "context", unresolved_framework_paths: [str]) -> ["cmd_args"]:
+def _expand_sdk_framework_paths(ctx: "context", unresolved_framework_paths: [str]) -> [cmd_args]:
     return [_expand_sdk_framework_path(ctx, unresolved_framework_path) for unresolved_framework_path in unresolved_framework_paths]
 
-def _expand_sdk_framework_path(ctx: "context", framework_path: str) -> "cmd_args":
+def _expand_sdk_framework_path(ctx: "context", framework_path: str) -> cmd_args:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     path_expansion_map = {
         "$PLATFORM_DIR/": apple_toolchain_info.platform_path,

@@ -202,7 +202,7 @@ def generate_rustdoc_test(
         link_style: LinkStyle.type,
         library: RustLinkStyleInfo.type,
         params: BuildParams.type,
-        default_roots: [str]) -> "cmd_args":
+        default_roots: [str]) -> cmd_args:
     toolchain_info = compile_ctx.toolchain_info
 
     resources = create_resource_db(
@@ -520,7 +520,7 @@ def _dependency_args(
         link_style: LinkStyle.type,
         is_check: bool,
         is_rustdoc_test: bool,
-        extra_transitive_deps: {"artifact": CrateName.type}) -> ("cmd_args", [(CrateName.type, "label")]):
+        extra_transitive_deps: {"artifact": CrateName.type}) -> (cmd_args, [(CrateName.type, "label")]):
     args = cmd_args()
     transitive_deps = {}
     deps = []
@@ -580,7 +580,7 @@ def _dependency_args(
 def simple_symlinked_dirs(
         ctx: "context",
         prefix: str,
-        artifacts: {"artifact": None}) -> "cmd_args":
+        artifacts: {"artifact": None}) -> cmd_args:
     # Add as many -Ldependency dirs as we need to avoid name conflicts
     deps_dirs = [{}]
     for dep in artifacts.keys():
@@ -600,7 +600,7 @@ def dynamic_symlinked_dirs(
         ctx: "context",
         compile_ctx: CompileContext.type,
         prefix: str,
-        artifacts: {"artifact": CrateName.type}) -> "cmd_args":
+        artifacts: {"artifact": CrateName.type}) -> cmd_args:
     name = "{}-dyn".format(prefix)
     transitive_dependency_dir = ctx.actions.declare_output(name, dir = True)
     do_symlinks = cmd_args(
@@ -618,13 +618,13 @@ def dynamic_symlinked_dirs(
     compile_ctx.transitive_dependency_dirs[transitive_dependency_dir] = None
     return cmd_args(transitive_dependency_dir, format = "@{}/dirs").hidden(artifacts.keys())
 
-def _lintify(flag: str, clippy: bool, lints: ["resolved_macro"]) -> "cmd_args":
+def _lintify(flag: str, clippy: bool, lints: ["resolved_macro"]) -> cmd_args:
     return cmd_args(
         [lint for lint in lints if str(lint).startswith("\"clippy::") == clippy],
         format = "-{}{{}}".format(flag),
     )
 
-def _lint_flags(compile_ctx: CompileContext.type) -> ("cmd_args", "cmd_args"):
+def _lint_flags(compile_ctx: CompileContext.type) -> (cmd_args, cmd_args):
     toolchain_info = compile_ctx.toolchain_info
 
     plain = cmd_args(
@@ -752,7 +752,7 @@ def _compute_common_args(
 # specifically requested clippy diagnostics.
 def _clippy_wrapper(
         ctx: "context",
-        toolchain_info: RustToolchainInfo.type) -> "cmd_args":
+        toolchain_info: RustToolchainInfo.type) -> cmd_args:
     clippy_driver = cmd_args(toolchain_info.clippy_driver)
     rustc_print_sysroot = cmd_args(toolchain_info.compiler, "--print=sysroot", delimiter = " ")
     if toolchain_info.rustc_target_triple:
@@ -793,7 +793,7 @@ def _clippy_wrapper(
 # and add -Clinker=
 def _linker_args(
         ctx: "context",
-        linker_info: LinkerInfo.type) -> "cmd_args":
+        linker_info: LinkerInfo.type) -> cmd_args:
     linker = cmd_args(
         linker_info.linker,
         linker_info.linker_flags or [],
@@ -847,7 +847,7 @@ def _rustc_emits(
         emit: Emit.type,
         predeclared_outputs: {Emit.type: "artifact"},
         subdir: str,
-        params: BuildParams.type) -> ({Emit.type: "artifact"}, "cmd_args"):
+        params: BuildParams.type) -> ({Emit.type: "artifact"}, cmd_args):
     toolchain_info = compile_ctx.toolchain_info
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
@@ -919,7 +919,7 @@ def _rustc_invoke(
         ctx: "context",
         compile_ctx: CompileContext.type,
         prefix: str,
-        rustc_cmd: "cmd_args",
+        rustc_cmd: cmd_args,
         diag: str,
         outputs: ["artifact"],
         short_cmd: str,
@@ -996,8 +996,8 @@ def _rustc_invoke(
 def _long_command(
         ctx: "context",
         exe: RunInfo.type,
-        args: "cmd_args",
-        argfile_name: str) -> "cmd_args":
+        args: cmd_args,
+        argfile_name: str) -> cmd_args:
     argfile, hidden = ctx.actions.write(argfile_name, args, allow_args = True)
     return cmd_args(exe, cmd_args(argfile, format = "@{}")).hidden(args, hidden)
 
@@ -1011,7 +1011,7 @@ def _long_command(
 # path and non-path content, but we'll burn that bridge when we get to it.)
 def _process_env(
         compile_ctx: CompileContext.type,
-        env: {str: ["resolved_macro", "artifact"]}) -> ({str: "cmd_args"}, {str: "cmd_args"}):
+        env: {str: ["resolved_macro", "artifact"]}) -> ({str: cmd_args}, {str: cmd_args}):
     # Values with inputs (ie artifact references).
     path_env = {}
 

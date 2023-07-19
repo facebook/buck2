@@ -351,8 +351,8 @@ def merge_haskell_link_infos(deps: [HaskellLinkInfo.type]) -> HaskellLinkInfo.ty
     return HaskellLinkInfo(info = merged)
 
 PackagesInfo = record(
-    exposed_package_args = "cmd_args",
-    packagedb_args = "cmd_args",
+    exposed_package_args = cmd_args,
+    packagedb_args = cmd_args,
     transitive_deps = field([HaskellLibraryInfo.type]),
 )
 
@@ -437,7 +437,7 @@ def _output_extensions(
 def _srcs_to_objfiles(
         ctx: "context",
         odir: "artifact",
-        osuf: str) -> "cmd_args":
+        osuf: str) -> cmd_args:
     objfiles = cmd_args()
     for src in ctx.attrs.srcs:
         # Don't link boot sources, as they're only meant to be used for compiling.

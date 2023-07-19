@@ -530,7 +530,7 @@ def _requires_private_root(
 def _extract_global_symbols_from_link_args(
         ctx: "context",
         name: str,
-        link_args: [["artifact", "resolved_macro", "cmd_args", str]],
+        link_args: [["artifact", "resolved_macro", cmd_args, str]],
         prefer_local: bool = False) -> "artifact":
     """
     Extract global symbols explicitly set in the given linker args (e.g.
@@ -578,7 +578,7 @@ def _create_global_symbols_version_script(
         ctx: "context",
         roots: [AnnotatedOmnibusRootProduct.type],
         excluded: ["artifact"],
-        link_args: [["artifact", "resolved_macro", "cmd_args", str]]) -> "artifact":
+        link_args: [["artifact", "resolved_macro", cmd_args, str]]) -> "artifact":
     """
     Generate a version script exporting symbols from from the given objects and
     link args.

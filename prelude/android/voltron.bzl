@@ -128,7 +128,7 @@ def _get_base_cmd_and_output(
         android_toolchain: "AndroidToolchainInfo",
         application_module_configs: {str: ["dependency"]},
         application_module_dependencies: [{str: [str]}, None],
-        application_module_blocklist: [[["dependency"]], None]) -> ("cmd_args", "artifact"):
+        application_module_blocklist: [[["dependency"]], None]) -> (cmd_args, "artifact"):
     deps_map = {}
     for android_packageable_info in android_packageable_infos:
         if android_packageable_info.deps:

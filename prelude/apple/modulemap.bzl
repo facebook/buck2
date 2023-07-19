@@ -78,7 +78,7 @@ def preprocessor_info_for_modulemap(ctx: "context", name: str, headers: [CHeader
 def _args_for_modulemap(
         modulemap: "artifact",
         symlink_tree: "artifact",
-        swift_header: ["artifact", None]) -> ["cmd_args"]:
+        swift_header: ["artifact", None]) -> [cmd_args]:
     cmd = cmd_args(modulemap, format = "-fmodule-map-file={}")
     cmd.hidden(symlink_tree)
     if swift_header:
@@ -86,5 +86,5 @@ def _args_for_modulemap(
 
     return [cmd]
 
-def _exported_preprocessor_args(symlink_tree: "artifact") -> ["cmd_args"]:
+def _exported_preprocessor_args(symlink_tree: "artifact") -> [cmd_args]:
     return [cmd_args(symlink_tree, format = "-I./{}")]

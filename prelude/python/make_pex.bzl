@@ -78,7 +78,7 @@ def make_default_info(pex: PexProviders.type) -> "provider":
 def make_run_info(pex: PexProviders.type) -> "provider":
     return RunInfo(pex.run_cmd)
 
-def _srcs(srcs: [""], format = "{}") -> "cmd_args":
+def _srcs(srcs: [""], format = "{}") -> cmd_args:
     args = cmd_args()
     for src in srcs:
         args.add(cmd_args(src, format = format))
@@ -200,8 +200,8 @@ def _make_pex_impl(
         package_style: PackageStyle.type,
         build_args: ["_arglike"],
         shared_libraries: {str: (LinkedObject.type, bool)},
-        preload_libraries: "cmd_args",
-        common_modules_args: "cmd_args",
+        preload_libraries: cmd_args,
+        common_modules_args: cmd_args,
         dep_artifacts: [("_arglike", str)],
         main_module: str,
         hidden_resources: [None, ["_arglike"]],
@@ -319,7 +319,7 @@ def _make_pex_impl(
         run_cmd = cmd_args(run_args).hidden([a for a, _ in runtime_files] + hidden_resources),
     )
 
-def _preload_libraries_args(ctx: "context", shared_libraries: {str: (LinkedObject.type, bool)}) -> "cmd_args":
+def _preload_libraries_args(ctx: "context", shared_libraries: {str: (LinkedObject.type, bool)}) -> cmd_args:
     preload_libraries_path = ctx.actions.write(
         "__preload_libraries.txt",
         cmd_args([
@@ -337,9 +337,9 @@ def _pex_bootstrap_args(
         main_module: str,
         output: "artifact",
         shared_libraries: {str: (LinkedObject.type, bool)},
-        preload_libraries: "cmd_args",
+        preload_libraries: cmd_args,
         symlink_tree_path: [None, "artifact"],
-        package_style: PackageStyle.type) -> "cmd_args":
+        package_style: PackageStyle.type) -> cmd_args:
     cmd = cmd_args()
     cmd.add(preload_libraries)
     cmd.add([
@@ -365,7 +365,7 @@ def _pex_bootstrap_args(
 def _pex_modules_common_args(
         ctx: "context",
         pex_modules: PexModules.type,
-        shared_libraries: {str: LinkedObject.type}) -> ("cmd_args", [("_arglike", str)]):
+        shared_libraries: {str: LinkedObject.type}) -> (cmd_args, [("_arglike", str)]):
     srcs = []
     src_artifacts = []
     deps = []
@@ -444,12 +444,12 @@ def _pex_modules_common_args(
 
 def _pex_modules_args(
         ctx: "context",
-        common_args: "cmd_args",
+        common_args: cmd_args,
         dep_artifacts: [("_arglike", str)],
         symlink_tree_path: [None, "artifact"],
         manifest_module: ["_arglike", None],
         pex_modules: PexModules.type,
-        output_suffix: str) -> "cmd_args":
+        output_suffix: str) -> cmd_args:
     """
     Produces args to deal with a PEX's modules. Returns args to pass to the
     modules builder, and artifacts the resulting modules would require at

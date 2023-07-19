@@ -24,7 +24,7 @@ def _generate_script(generate_wrapper: bool, native_libs: {str: "SharedLibrary"}
 def _create_fat_jar(
         ctx: "context",
         java_toolchain: JavaToolchainInfo.type,
-        jars: "cmd_args",
+        jars: cmd_args,
         native_libs: {str: "SharedLibrary"},
         do_not_create_inner_jar: bool,
         generate_wrapper: bool) -> ["artifact"]:
@@ -127,7 +127,7 @@ def _get_run_cmd(
         attrs: struct.type,
         script_mode: bool,
         main_artifact: "artifact",
-        java_toolchain: JavaToolchainInfo.type) -> "cmd_args":
+        java_toolchain: JavaToolchainInfo.type) -> cmd_args:
     if script_mode:
         return cmd_args(["/usr/bin/env", "bash", main_artifact])
     else:

@@ -9,7 +9,7 @@ load("@prelude//utils:utils.bzl", "expect")
 
 WorkerToolInfo = provider(
     fields = [
-        "command",  # "cmd_args"
+        "command",  # cmd_args
     ],
 )
 

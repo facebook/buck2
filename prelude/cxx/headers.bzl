@@ -62,11 +62,11 @@ HeaderStyle = enum(
 )
 
 Headers = record(
-    include_path = field("cmd_args"),
+    include_path = field(cmd_args),
     # NOTE(agallagher): Used for module hack replacement.
     symlink_tree = field(["artifact", None], None),
     # args that map symlinked private headers to source path
-    file_prefix_args = field(["cmd_args", None], None),
+    file_prefix_args = field([cmd_args, None], None),
 )
 
 CHeader = record(

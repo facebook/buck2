@@ -33,8 +33,8 @@ _SUPPORTED_ARCHIVE_SUFFIXES = [".src.zip", "-sources.jar"]
 
 def _process_classpath(
         actions: "actions",
-        classpath_args: "cmd_args",
-        cmd: "cmd_args",
+        classpath_args: cmd_args,
+        cmd: cmd_args,
         args_file_name: "string",
         option_name: "string"):
     # write joined classpath string into args file
@@ -58,8 +58,8 @@ def _process_plugins(
         actions_identifier: [str, None],
         ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
-        javac_args: "cmd_args",
-        cmd: "cmd_args"):
+        javac_args: cmd_args,
+        cmd: cmd_args):
     processors_classpath_tsets = []
 
     # Process Annotation processors
@@ -111,7 +111,7 @@ def _process_plugins(
             "--javac_processors_classpath_file",
         )
 
-def _build_classpath(actions: "actions", deps: ["dependency"], additional_classpath_entries: ["artifact"], classpath_args_projection: "string") -> ["cmd_args", None]:
+def _build_classpath(actions: "actions", deps: ["dependency"], additional_classpath_entries: ["artifact"], classpath_args_projection: "string") -> [cmd_args, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
 
     if additional_classpath_entries or compiling_deps_tset:
@@ -145,10 +145,10 @@ def _append_javac_params(
         source_level: int,
         target_level: int,
         deps: ["dependency"],
-        extra_arguments: "cmd_args",
+        extra_arguments: cmd_args,
         additional_classpath_entries: ["artifact"],
         bootclasspath_entries: ["artifact"],
-        cmd: "cmd_args",
+        cmd: cmd_args,
         generated_sources_dir: "artifact"):
     javac_args = cmd_args(
         "-encoding",
@@ -282,7 +282,7 @@ def compile_to_jar(
         deps: [["dependency"], None] = None,
         required_for_source_only_abi: bool = False,
         source_only_abi_deps: [["dependency"], None] = None,
-        extra_arguments: ["cmd_args", None] = None,
+        extra_arguments: [cmd_args, None] = None,
         additional_classpath_entries: [["artifact"], None] = None,
         additional_compiled_srcs: ["artifact", None] = None,
         bootclasspath_entries: [["artifact"], None] = None,
@@ -362,7 +362,7 @@ def _create_jar_artifact(
         deps: ["dependency"],
         required_for_source_only_abi: bool,
         _source_only_abi_deps: ["dependency"],
-        extra_arguments: "cmd_args",
+        extra_arguments: cmd_args,
         additional_classpath_entries: ["artifact"],
         additional_compiled_srcs: ["artifact", None],
         bootclasspath_entries: ["artifact"],

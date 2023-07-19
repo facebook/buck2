@@ -121,7 +121,7 @@ def define_output_paths(actions: "actions", prefix: [str, None], label: "label")
     )
 
 # buildifier: disable=uninitialized
-def add_output_paths_to_cmd_args(cmd: "cmd_args", output_paths: OutputPaths.type, path_to_class_hashes: ["artifact", None]) -> "cmd_args":
+def add_output_paths_to_cmd_args(cmd: cmd_args, output_paths: OutputPaths.type, path_to_class_hashes: ["artifact", None]) -> "cmd_args":
     if path_to_class_hashes != None:
         cmd.hidden(path_to_class_hashes.as_output())
     cmd.hidden(output_paths.jar_parent.as_output())
@@ -273,7 +273,7 @@ def encode_base_jar_command(
         resources_map: {str: "artifact"},
         ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
-        extra_arguments: "cmd_args",
+        extra_arguments: cmd_args,
         source_only_abi_compiling_deps: ["JavaClasspathEntry"],
         track_class_usage: bool) -> struct.type:
     library_jar_params = encode_jar_params(remove_classes, output_paths)
@@ -341,11 +341,11 @@ def encode_base_jar_command(
 def setup_dep_files(
         actions: "actions",
         actions_identifier: [str, None],
-        cmd: "cmd_args",
+        cmd: cmd_args,
         classpath_jars_tag: "artifact_tag",
         used_classes_json_outputs: ["artifact"],
-        abi_to_abi_dir_map: ["transitive_set_args_projection", ["cmd_args"], None],
-        hidden = ["artifact"]) -> "cmd_args":
+        abi_to_abi_dir_map: ["transitive_set_args_projection", [cmd_args], None],
+        hidden = ["artifact"]) -> cmd_args:
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
 
     new_cmd = cmd_args()

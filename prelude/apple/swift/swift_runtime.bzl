@@ -21,7 +21,7 @@ def create_swift_runtime_linkable(ctx: "context") -> [SwiftRuntimeLinkable.type,
             return SwiftRuntimeLinkable(runtime_required = True)
     return None
 
-def get_swift_runtime_linker_flags(ctx: "context", linkable: [SwiftRuntimeLinkable.type, None]) -> "cmd_args":
+def get_swift_runtime_linker_flags(ctx: "context", linkable: [SwiftRuntimeLinkable.type, None]) -> cmd_args:
     if not linkable or not linkable.runtime_required:
         return cmd_args()
 

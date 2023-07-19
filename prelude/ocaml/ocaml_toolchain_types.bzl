@@ -86,9 +86,9 @@ OCamlLibraryInfo = record(
     # .cmti (Bytecode compiler produced typed abstract syntax trees)
     cmtis_byt = ["artifact"],
     # Compile flags for native clients who use this library.
-    include_dirs_nat = ["cmd_args"],
+    include_dirs_nat = [cmd_args],
     # Compile flags for bytecode clients who use this library.
-    include_dirs_byt = ["cmd_args"],
+    include_dirs_byt = [cmd_args],
     # Native C libs (like `libthreadsnat.a` in the compiler's `threads` package)
     native_c_libs = ["artifact"],
     # Bytecode C libs (like `libthreads.a` in the compiler's `threads` package)

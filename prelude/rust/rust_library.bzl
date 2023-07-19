@@ -418,7 +418,7 @@ def _default_providers(
         lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
         param_artifact: {BuildParams.type: RustLinkStyleInfo.type},
         rustdoc: "artifact",
-        rustdoc_test: ["cmd_args", None],
+        rustdoc_test: [cmd_args, None],
         check_artifacts: {str: "artifact"},
         expand: "artifact",
         sources: "artifact") -> ["provider"]:

@@ -15,7 +15,7 @@ def _build_run_info(
         dependencies: ["dependency"],
         additional_app_paths: ["artifact"] = [],
         additional_paths: ["artifact"] = [],
-        additional_args: ["cmd_args"] = []) -> "provider":
+        additional_args: [cmd_args] = []) -> "provider":
     """Builds an Erlang shell with the dependencies and additional code paths available."""
 
     app_paths = [

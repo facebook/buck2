@@ -29,7 +29,7 @@ def _get_proguard_command_line_args(
         configuration: ["artifact", None],
         seeds: ["artifact", None],
         usage: ["artifact", None],
-        android_toolchain: "AndroidToolchainInfo") -> ("cmd_args", ["artifact"]):
+        android_toolchain: "AndroidToolchainInfo") -> (cmd_args, ["artifact"]):
     cmd = cmd_args()
     hidden = []
     cmd.add("-basedirectory", "<user.dir>")
@@ -73,7 +73,7 @@ def run_proguard(
         android_toolchain: "AndroidToolchainInfo",
         java_toolchain: "JavaToolchainInfo",
         command_line_args_file: "artifact",
-        command_line_args: "cmd_args",
+        command_line_args: cmd_args,
         mapping_file: "artifact"):
     run_proguard_cmd = cmd_args()
     run_proguard_cmd.add(

@@ -190,7 +190,7 @@ def wrap_link_info(
     )
 
 # Adds appropriate args representing `linkable` to `args`
-def append_linkable_args(args: "cmd_args", linkable: LinkableTypes):
+def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
     if linkable._type == LinkableType("archive"):
         if linkable.link_whole:
             args.add(get_link_whole_args(linkable.linker_type, [linkable.archive.artifact]))
@@ -229,7 +229,7 @@ def append_linkable_args(args: "cmd_args", linkable: LinkableTypes):
     else:
         fail("Encountered unhandled linkable of type {}".format(linkable._type))
 
-def link_info_to_args(value: LinkInfo.type) -> "cmd_args":
+def link_info_to_args(value: LinkInfo.type) -> cmd_args:
     args = cmd_args(value.pre_flags)
     for linkable in value.linkables:
         append_linkable_args(args, linkable)

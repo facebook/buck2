@@ -68,7 +68,7 @@ DepFileType = enum(
 _HeadersDepFiles = record(
     # An executable to wrap the actual command with for post-processing of dep
     # files into the format that Buck2 recognizes (i.e. one artifact per line).
-    processor = field("cmd_args"),
+    processor = field(cmd_args),
     # The tag that was added to headers.
     tag = field("artifact_tag"),
     # A function that produces new cmd_args to append to the compile command to
@@ -82,7 +82,7 @@ _HeadersDepFiles = record(
 # Information about how to compile a source file of particular extension.
 _CxxCompileCommand = record(
     # The compiler and any args which are independent of the rule.
-    base_compile_cmd = field("cmd_args"),
+    base_compile_cmd = field(cmd_args),
     # The argsfile of arguments from the rule and it's dependencies.
     argsfile = field(CompileArgsfile.type),
     headers_dep_files = field([_HeadersDepFiles.type, None]),
@@ -389,7 +389,7 @@ def _get_compiler_info(toolchain: "CxxToolchainInfo", ext: CxxExtension.type) ->
 
     return compiler_info
 
-def _get_compile_base(compiler_info: "_compiler_info") -> "cmd_args":
+def _get_compile_base(compiler_info: "_compiler_info") -> cmd_args:
     """
     Given a compiler info returned by _get_compiler_info, form the base compile args.
     """
@@ -420,7 +420,7 @@ def _dep_file_type(ext: CxxExtension.type) -> [DepFileType.type, None]:
         # This should be unreachable as long as we handle all enum values
         fail("Unknown C++ extension: " + ext.value)
 
-def _add_compiler_info_flags(compiler_info: "_compiler_info", ext: CxxExtension.type, cmd: "cmd_args"):
+def _add_compiler_info_flags(compiler_info: "_compiler_info", ext: CxxExtension.type, cmd: cmd_args):
     cmd.add(compiler_info.preprocessor_flags or [])
     cmd.add(compiler_info.compiler_flags or [])
     cmd.add(get_flags_for_reproducible_build(compiler_info.compiler_type))

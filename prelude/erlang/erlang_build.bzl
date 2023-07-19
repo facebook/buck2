@@ -513,8 +513,8 @@ def _add_dependencies_to_args(
         queue: ["string"],
         done: {"string": "bool"},
         input_mapping: {"string": ("bool", ["string", "artifact"])},
-        args: "cmd_args",
-        build_environment: "BuildEnvironment") -> ("cmd_args", {"string": ("bool", ["string", "artifact"])}):
+        args: cmd_args,
+        build_environment: "BuildEnvironment") -> (cmd_args, {"string": ("bool", ["string", "artifact"])}):
     """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden.
 
     This function traverses the deps specified in the deps files and adds all discovered dependencies.
@@ -585,12 +585,12 @@ def _add_dependencies_to_args(
     # STARLARK does not have unbound loops (while loops) and we use recursion instead.
     return _add_dependencies_to_args(ctx, artifacts, next_round, done, input_mapping, args, build_environment)
 
-def _add_full_dependencies(erlc_cmd: "cmd_args", build_environment: "BuildEnvironment") -> "cmd_args":
+def _add_full_dependencies(erlc_cmd: cmd_args, build_environment: "BuildEnvironment") -> cmd_args:
     for artifact in build_environment.full_dependencies:
         erlc_cmd.hidden(artifact)
     return erlc_cmd
 
-def _dependency_include_dirs(build_environment: "BuildEnvironment") -> ["cmd_args"]:
+def _dependency_include_dirs(build_environment: "BuildEnvironment") -> [cmd_args]:
     includes = [
         cmd_args(include_dir_anchor).parent()
         for include_dir_anchor in build_environment.private_include_dir
@@ -602,16 +602,16 @@ def _dependency_include_dirs(build_environment: "BuildEnvironment") -> ["cmd_arg
 
     return includes
 
-def _dependency_code_paths(build_environment: "BuildEnvironment") -> ["cmd_args"]:
+def _dependency_code_paths(build_environment: "BuildEnvironment") -> [cmd_args]:
     return [
         cmd_args(ebin_dir_anchor).parent()
         for ebin_dir_anchor in build_environment.ebin_dirs.values()
     ]
 
 def _erlc_dependency_args(
-        includes: ["cmd_args"],
-        code_paths: ["cmd_args"],
-        path_in_arg: "bool" = True) -> "cmd_args":
+        includes: [cmd_args],
+        code_paths: [cmd_args],
+        path_in_arg: "bool" = True) -> cmd_args:
     """Build include and path options."""
     # Q: why not just change format here - why do we add -I/-pa as a separate argument?
     # A: the whole string would get passed as a single argument, as if it was quoted in CLI e.g. '-I include_path'
@@ -644,7 +644,7 @@ def _erlc_dependency_args(
 def _get_erl_opts(
         ctx: "context",
         toolchain: "Toolchain",
-        src: "artifact") -> "cmd_args":
+        src: "artifact") -> cmd_args:
     always = ["+deterministic"]
 
     # use erl_opts defined in taret if present
@@ -757,7 +757,7 @@ def _add(a: "dict", key: "", value: "") -> "dict":
 def _build_dir(toolchain: "Toolchain") -> "string":
     return paths.join("__build", toolchain.name)
 
-def _generate_file_mapping_string(mapping: {"string": ("bool", ["string", "artifact"])}) -> "cmd_args":
+def _generate_file_mapping_string(mapping: {"string": ("bool", ["string", "artifact"])}) -> cmd_args:
     """produces an easily parsable string for the file mapping"""
     items = {}
     for file, (if_found, artifact) in mapping.items():

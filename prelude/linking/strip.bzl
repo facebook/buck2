@@ -17,7 +17,7 @@ def strip_debug_info(ctx: "context", name: str, obj: "artifact") -> "artifact":
     ctx.actions.run(cmd, category = "strip_debug", identifier = name)
     return output
 
-def strip_shared_library(ctx: "context", cxx_toolchain: "CxxToolchainInfo", shared_lib: "artifact", strip_flags: "cmd_args") -> "artifact":
+def strip_shared_library(ctx: "context", cxx_toolchain: "CxxToolchainInfo", shared_lib: "artifact", strip_flags: cmd_args) -> "artifact":
     """
     Strip unneeded information from a shared library.
     """

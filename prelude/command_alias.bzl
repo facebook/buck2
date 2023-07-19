@@ -135,7 +135,7 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
 
 def _relativize_path(
         ctx,
-        trampoline_args: "cmd_args",
+        trampoline_args: cmd_args,
         extension: str,
         var: str,
         exec_is_windows: bool) -> "artifact":
@@ -150,7 +150,7 @@ def _relativize_path_unix(
         ctx,
         extension: str,
         var: str,
-        trampoline_args: "cmd_args") -> "artifact":
+        trampoline_args: cmd_args) -> "artifact":
     # FIXME(ndmitchell): more straightforward relativization with better API
     non_materialized_reference = ctx.actions.write("dummy", "")
     trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix("__BUCK_COMMAND_ALIAS_ABSOLUTE__/")
@@ -180,7 +180,7 @@ def _relativize_path_windows(
         ctx,
         extension: str,
         var: str,
-        trampoline_args: "cmd_args") -> "artifact":
+        trampoline_args: cmd_args) -> "artifact":
     # FIXME(ndmitchell): more straightforward relativization with better API
     non_materialized_reference = ctx.actions.write("dummy", "")
     trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix(var + "/")
@@ -189,12 +189,12 @@ def _relativize_path_windows(
 
     return trampoline
 
-def _add_platform_case_to_trampoline_args(trampoline_args: "cmd_args", platform_name: str, base: RunInfo.type, args: ["_arglike"]):
+def _add_platform_case_to_trampoline_args(trampoline_args: cmd_args, platform_name: str, base: RunInfo.type, args: ["_arglike"]):
     trampoline_args.add("    {})".format(platform_name))
     _add_args_declaration_to_trampoline_args(trampoline_args, base, args)
     trampoline_args.add("        ;;")
 
-def _add_args_declaration_to_trampoline_args(trampoline_args: "cmd_args", base: RunInfo.type, args: ["_arglike"]):
+def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo.type, args: ["_arglike"]):
     trampoline_args.add("ARGS=(")
 
     # FIXME (T111687922): We cannot preserve BUCK_COMMAND_ALIAS_ABSOLUTE *and*

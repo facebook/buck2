@@ -279,7 +279,7 @@ def _write_test_info_file(
         dependencies: ErlAppDependencies,
         test_dir: "artifact",
         config_files: ["artifact"],
-        erl_cmd: ["cmd_args", "artifact"]) -> "artifact":
+        erl_cmd: [cmd_args, "artifact"]) -> "artifact":
     tests_info = {
         "config_files": config_files,
         "ct_opts": ctx.attrs._ct_opts,
@@ -297,7 +297,7 @@ def _write_test_info_file(
     )
     return test_info_file
 
-def _list_code_paths(dependencies: ErlAppDependencies) -> ["cmd_args"]:
+def _list_code_paths(dependencies: ErlAppDependencies) -> [cmd_args]:
     """lists all ebin/ dirs from the test targets dependencies"""
     folders = []
     for dependency in dependencies.values():

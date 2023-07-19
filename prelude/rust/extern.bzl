@@ -25,7 +25,7 @@ def extern_arg(
         compile_ctx: CompileContext.type,
         flags: [str],
         crate: CrateName.type,
-        lib: "artifact") -> "cmd_args":
+        lib: "artifact") -> cmd_args:
     if flags == []:
         flags = ""
     else:
@@ -72,7 +72,7 @@ def crate_map_arg(
         ctx: "context",
         compile_ctx: CompileContext.type,
         crate: CrateName.type,
-        label: Label) -> "cmd_args":
+        label: Label) -> cmd_args:
     if crate.dynamic:
         args = CrateMapArg(label = label)
         flagfile = compile_ctx.flagfiles_for_crate_map.get(args, None)

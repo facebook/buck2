@@ -56,7 +56,7 @@ def compile_apple_core_data(ctx: "context", specs: [AppleCoreDataSpec.type], pro
     ctx.actions.run(combined_command, prefer_local = processing_options.prefer_local, allow_cache_upload = processing_options.allow_cache_upload, category = "apple_core_data")
     return output
 
-def _get_momc_command(ctx: "context", core_data_spec: AppleCoreDataSpec.type, product_name: str, output_directory: "cmd_args") -> "cmd_args":
+def _get_momc_command(ctx: "context", core_data_spec: AppleCoreDataSpec.type, product_name: str, output_directory: cmd_args) -> cmd_args:
     return cmd_args([
         ctx.attrs._apple_toolchain[AppleToolchainInfo].momc,
         "--sdkroot",

@@ -36,7 +36,7 @@ SplitDebugLtoInfo = record(
     # be a single object file (e.g. for darwin+monoLTO) or a directory.
     output = field("artifact"),
     # The flags to add to the link to use the above output.
-    linker_flags = field("cmd_args"),
+    linker_flags = field(cmd_args),
 )
 
 def get_split_debug_lto_info(ctx: "context", name: str.type) -> [SplitDebugLtoInfo.type, None]:
