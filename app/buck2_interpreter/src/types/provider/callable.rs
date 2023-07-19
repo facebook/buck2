@@ -52,7 +52,7 @@ pub trait ProviderCallableLike {
             .map(|(name, docs, return_type)| {
                 let prop = DocProperty {
                     docs: docs.clone(),
-                    typ: return_type.clone().unwrap_or(Ty::Any),
+                    typ: return_type.clone().unwrap_or_else(Ty::any),
                 };
                 (*name, prop)
             })

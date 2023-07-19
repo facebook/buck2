@@ -550,7 +550,7 @@ impl<'v, T1: ValueLike<'v>> DefGen<T1> {
             .map(|(idx, _, ty)| (idx.0 as usize, ty.as_ty()))
             .collect();
 
-        let return_type = self.return_type.map_or(Ty::Any, |r| r.as_ty());
+        let return_type = self.return_type.map_or(Ty::any(), |r| r.as_ty());
 
         let function_docs = DocFunction::from_docstring(
             DocStringKind::Starlark,

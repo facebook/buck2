@@ -44,7 +44,7 @@ pub(crate) fn get_doc_item_for_def<P: AstPayload>(def: &DefP<P>) -> Option<DocFu
                 | ParameterP::KwArgs(p, _) => Some(DocParam::Arg {
                     name: p.0.to_owned(),
                     docs: None,
-                    typ: Ty::Any,
+                    typ: Ty::any(),
                     default_value: None,
                 }),
                 _ => None,
@@ -55,7 +55,7 @@ pub(crate) fn get_doc_item_for_def<P: AstPayload>(def: &DefP<P>) -> Option<DocFu
             DocStringKind::Starlark,
             args,
             // TODO: Figure out how to get a `Ty` from the `def.return_type`.
-            Ty::Any,
+            Ty::any(),
             Some(doc_string),
             None,
         );
@@ -73,7 +73,7 @@ pub(crate) fn get_doc_item_for_assign<P: AstPayload>(
         DocProperty {
             docs: DocString::from_docstring(DocStringKind::Starlark, doc_string),
             // TODO: Can constants have a type?
-            typ: Ty::Any,
+            typ: Ty::any(),
         }
     })
 }

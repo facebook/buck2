@@ -135,6 +135,7 @@ mod tests {
         }
 
         let mut a = assert::Assert::new();
+        a.disable_static_typechecking();
         a.globals_add(debugger);
         let check = r#"
 assert_eq(debug_evaluate("1+2"), 3)

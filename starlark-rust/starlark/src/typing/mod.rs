@@ -23,6 +23,7 @@
 
 //! Types required to support the [`typecheck`](crate::syntax::AstModule::typecheck) function.
 
+pub(crate) mod basic;
 pub(crate) mod bindings;
 pub(crate) mod ctx;
 pub(crate) mod custom;
@@ -39,6 +40,7 @@ pub(crate) mod unordered_map;
 #[cfg(test)]
 mod tests;
 
+pub use basic::TyBasic;
 pub use bindings::Interface;
 pub use function::Arg;
 pub use function::Param;

@@ -65,6 +65,6 @@ impl AttrTypeCoerce for TupleAttrType {
     }
 
     fn starlark_type(&self) -> Ty {
-        Ty::Tuple(self.xs.map(|x| x.starlark_type()))
+        Ty::tuple(self.xs.map(|x| x.starlark_type()))
     }
 }

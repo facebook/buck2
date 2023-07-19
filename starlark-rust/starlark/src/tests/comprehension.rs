@@ -22,9 +22,10 @@ use crate::assert;
 // comprehensions should work whether they are at the root, or under a def
 // but these are actually quite different locations semantically, so test both
 fn check_comp(lines: &[&str]) {
-    assert::is_true(&lines.join("\n"));
+    // TODO(nga): typechecker is wrong here.
+    assert::is_true_skip_typecheck(&lines.join("\n"));
     let (last, init) = lines.split_last().unwrap();
-    assert::is_true(&format!(
+    assert::is_true_skip_typecheck(&format!(
         "def f():\n  {}\n  return {}\nf()",
         init.join("\n  "),
         last
@@ -52,11 +53,11 @@ fn test_scopes() {
     // to variables defined by the third (z), even though such references would fail
     // if actually executed.
     check_comp(&["[1//0 for x in [] for y in z for z in ()] == []"]);
-    assert::fail(
+    assert::fail_skip_typecheck(
         "[1//0 for x in [1] for y in z for z in ()]",
         "Local variable `z` referenced before assignment",
     );
-    assert::fail("[() for x in w for w in [1]]", "Variable `w` not found");
+    assert::fail_skip_typecheck("[() for x in w for w in [1]]", "Variable `w` not found");
 }
 
 #[test]
@@ -104,7 +105,7 @@ fn test_same_var_in_two_fors() {
 
 #[test]
 fn test_comprehension_blocks() {
-    assert::fail(
+    assert::fail_skip_typecheck(
         r#"
 x = [1, 2]
 res = [x for _ in [3] for x in x]

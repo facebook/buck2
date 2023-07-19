@@ -62,7 +62,7 @@ pub(crate) fn solve_bindings(
     let mut types = bindings
         .expressions
         .keys()
-        .map(|x| (*x, Ty::Never))
+        .map(|x| (*x, Ty::never()))
         .collect::<UnorderedMap<_, _>>();
     for (k, ty) in bindings.types {
         types.insert(k, ty);

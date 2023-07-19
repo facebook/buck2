@@ -265,7 +265,7 @@ impl<'a> BindingsCollect<'a> {
                                         codemap,
                                     )?;
                                     let ty = if ty.is_any() {
-                                        Ty::dict(Ty::string(), Ty::Any)
+                                        Ty::dict(Ty::string(), Ty::any())
                                     } else {
                                         ty
                                     };
@@ -299,7 +299,7 @@ impl<'a> BindingsCollect<'a> {
                     StmtP::Load(x) => {
                         let mp = &x.payload;
                         for (ident, _load) in &x.args {
-                            let ty = mp.get(ident.0.as_str()).cloned().unwrap_or(Ty::Any);
+                            let ty = mp.get(ident.0.as_str()).cloned().unwrap_or_else(Ty::any);
                             bindings
                                 .bindings
                                 .types
@@ -382,7 +382,13 @@ impl<'a> BindingsCollect<'a> {
 
         let mut res = BindingsCollect::default();
         for x in xs {
-            visit(Visit::Stmt(x), &Ty::Any, &mut res, typecheck_mode, codemap)?;
+            visit(
+                Visit::Stmt(x),
+                &Ty::any(),
+                &mut res,
+                typecheck_mode,
+                codemap,
+            )?;
         }
         Ok(res)
     }

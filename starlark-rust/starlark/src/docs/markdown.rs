@@ -304,9 +304,10 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
         }
 
         fn raw_type_prefix(prefix: &str, t: &Ty) -> String {
-            match t {
-                Ty::Any => String::new(),
-                t => format!("{prefix}{}", raw_type(t)),
+            if t.is_any() {
+                String::new()
+            } else {
+                format!("{prefix}{}", raw_type(t))
             }
         }
 

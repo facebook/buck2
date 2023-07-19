@@ -706,9 +706,23 @@ pub fn fails(program: &str, msgs: &[&str]) -> anyhow::Error {
     Assert::new().fails(program, msgs)
 }
 
+#[cfg(test)]
+pub(crate) fn fails_skip_typecheck(program: &str, msgs: &[&str]) -> anyhow::Error {
+    let mut a = Assert::new();
+    a.disable_static_typechecking();
+    a.fails(program, msgs)
+}
+
 /// See [`Assert::is_true`].
 pub fn is_true(program: &str) {
     Assert::new().is_true(program)
+}
+
+#[cfg(test)]
+pub(crate) fn is_true_skip_typecheck(program: &str) {
+    let mut a = Assert::new();
+    a.disable_static_typechecking();
+    a.is_true(program)
 }
 
 /// See [`Assert::all_true`].

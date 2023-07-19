@@ -39,6 +39,7 @@ use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
 use crate::slice_vec_ext::SliceExt;
+use crate::typing::basic::TyBasic;
 use crate::typing::Ty;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
@@ -311,7 +312,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 
         impl<'v> TypeCompiledImpl<'v> for Anything {
             fn as_ty(&self) -> Ty {
-                Ty::Any
+                Ty::any()
             }
 
             fn matches(&self, _value: Value<'v>) -> bool {
@@ -435,7 +436,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 
         impl<'v> TypeCompiledImpl<'v> for IsList {
             fn as_ty(&self) -> Ty {
-                Ty::list(Ty::Any)
+                Ty::list(Ty::any())
             }
 
             fn matches(&self, value: Value<'v>) -> bool {
@@ -459,7 +460,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 
         impl<'v> TypeCompiledImpl<'v> for IsDict {
             fn as_ty(&self) -> Ty {
-                Ty::dict(Ty::Any, Ty::Any)
+                Ty::dict(Ty::any(), Ty::any())
             }
 
             fn matches(&self, value: Value<'v>) -> bool {
@@ -523,10 +524,10 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     /// Hold `Ty`, but only check name if it is provided.
-    fn ty_other(ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+    fn ty_other(ty: TyBasic, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         #[derive(Eq, PartialEq, Allocative, Debug, ProvidesStaticType)]
         struct Erased {
-            ty: Ty,
+            ty: TyBasic,
             name: Option<String>,
         }
 
@@ -539,7 +540,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
         impl<'v> TypeCompiledImpl<'v> for Erased {
             fn as_ty(&self) -> Ty {
-                self.ty.clone()
+                Ty::basic(self.ty.clone())
             }
 
             fn matches(&self, value: Value<'v>) -> bool {
@@ -810,7 +811,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             Self: ProvidesStaticType<'v>,
         {
             fn as_ty(&self) -> Ty {
-                Ty::Tuple(self.0.map(|t| t.as_ty()))
+                Ty::tuple(self.0.map(|t| t.as_ty()))
             }
 
             fn matches(&self, value: Value<'v>) -> bool {
@@ -913,34 +914,38 @@ impl<'v> TypeCompiled<Value<'v>> {
         }
     }
 
-    pub(crate) fn from_ty(ty: &Ty, heap: &'v Heap) -> Self {
+    fn from_ty_basic(ty: &TyBasic, heap: &'v Heap) -> Self {
         match ty {
-            Ty::Any => TypeCompiled::type_anything(),
-            Ty::Union(xs) => {
-                let xs = xs.alternatives().map(|x| TypeCompiled::from_ty(x, heap));
-                TypeCompiled::type_any_of(xs, heap)
-            }
-            Ty::Name(name) => TypeCompiled::from_str(name.as_str(), heap),
-            Ty::StarlarkValue(x) => TypeCompiled::from_str(x.as_name(), heap),
-            Ty::List(item) => {
+            TyBasic::Any => TypeCompiled::type_anything(),
+            TyBasic::Name(name) => TypeCompiled::from_str(name.as_str(), heap),
+            TyBasic::StarlarkValue(x) => TypeCompiled::from_str(x.as_name(), heap),
+            TyBasic::List(item) => {
                 let item = TypeCompiled::from_ty(item, heap);
                 TypeCompiled::type_list_of(item, heap)
             }
-            Ty::Tuple(xs) => {
+            TyBasic::Tuple(xs) => {
                 let xs = xs.map(|x| TypeCompiled::from_ty(x, heap));
                 TypeCompiled::type_tuple_of(xs, heap)
             }
-            Ty::Dict(k_v) => {
+            TyBasic::Dict(k_v) => {
                 let (k, v) = &**k_v;
                 let k = TypeCompiled::from_ty(k, heap);
                 let v = TypeCompiled::from_ty(v, heap);
                 TypeCompiled::type_dict_of(k, v, heap)
             }
-            Ty::Never | Ty::Iter(_) | Ty::Custom(_) => {
+            TyBasic::Iter(_) | TyBasic::Custom(_) => {
                 // There are no runtime matchers for these types.
                 TypeCompiled::ty_other(ty.clone(), heap)
             }
         }
+    }
+
+    pub(crate) fn from_ty(ty: &Ty, heap: &'v Heap) -> Self {
+        TypeCompiled::type_any_of(
+            ty.iter_union()
+                .map(|t| TypeCompiled::from_ty_basic(t, heap)),
+            heap,
+        )
     }
 
     pub(crate) fn new(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {

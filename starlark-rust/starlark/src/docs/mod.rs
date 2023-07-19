@@ -446,7 +446,7 @@ impl DocFunction {
             })
             .unwrap_or_default();
         let ret = Some(&self.ret.typ)
-            .filter(|t| t != &&Ty::Any)
+            .filter(|t| t != &&Ty::any())
             .map(|t| format!(" -> {}", t))
             .unwrap_or_default();
 
@@ -638,15 +638,15 @@ impl DocParam {
                 default_value,
                 ..
             } => match (typ, default_value.as_ref()) {
-                (Ty::Any, Some(default)) => format!("{} = {}", name, default),
-                (Ty::Any, None) => name.clone(),
+                (t, Some(default)) if t.is_any() => format!("{} = {}", name, default),
+                (t, None) if t.is_any() => name.clone(),
                 (t, Some(default)) => format!("{}: {} = {}", name, t, default),
                 (t, None) => format!("{}: {}", name, t),
             },
             DocParam::NoArgs => "*".to_owned(),
             DocParam::OnlyPosBefore => "/".to_owned(),
             DocParam::Args { name, typ, .. } | DocParam::Kwargs { name, typ, .. } => match typ {
-                Ty::Any => name.clone(),
+                t if t.is_any() => name.clone(),
                 typ => format!("{}: {}", name, typ),
             },
         }
@@ -666,7 +666,7 @@ impl Default for DocReturn {
     fn default() -> Self {
         DocReturn {
             docs: None,
-            typ: Ty::Any,
+            typ: Ty::any(),
         }
     }
 }
@@ -698,8 +698,8 @@ impl DocProperty {
             //     format!("{}\n_{}: {} = None", ds, name, t.raw_type)
             // }
             // (Some(t), None) => format!(r#"_{}: {} = None"#, name, t.raw_type),
-            (Ty::Any, Some(ds)) => format!("{}\n_{} = None", ds, name),
-            (Ty::Any, None) => format!("_{} = None", name),
+            (t, Some(ds)) if t.is_any() => format!("{}\n_{} = None", ds, name),
+            (t, None) if t.is_any() => format!("_{} = None", name),
             (t, Some(ds)) => {
                 format!("{}\n# type: {}\n_{} = None", ds, t, name)
             }
@@ -1200,7 +1200,7 @@ mod tests {
         DocParam::Arg {
             name: name.to_owned(),
             docs: None,
-            typ: Ty::Any,
+            typ: Ty::any(),
             default_value: None,
         }
     }
@@ -1231,13 +1231,13 @@ mod tests {
                 DocParam::Arg {
                     name: "**kwargs".to_owned(),
                     docs: DocString::from_docstring(kind, "Docs for kwargs"),
-                    typ: Ty::Any,
+                    typ: Ty::any(),
                     default_value: None,
                 },
                 DocParam::Arg {
                     name: "*args".to_owned(),
                     docs: DocString::from_docstring(kind, "Docs for args"),
-                    typ: Ty::Any,
+                    typ: Ty::any(),
                     default_value: None,
                 },
                 DocParam::Arg {
@@ -1250,13 +1250,13 @@ mod tests {
                             "over three lines"
                         ),
                     ),
-                    typ: Ty::Any,
+                    typ: Ty::any(),
                     default_value: None,
                 },
                 DocParam::Arg {
                     name: "arg_foo".to_owned(),
                     docs: DocString::from_docstring(kind, "The argument named foo"),
-                    typ: Ty::Any,
+                    typ: Ty::any(),
                     default_value: None,
                 },
             ],
@@ -1314,13 +1314,13 @@ mod tests {
                             "over three lines"
                         ),
                     ),
-                    typ: Ty::Any,
+                    typ: Ty::any(),
                     default_value: None,
                 },
                 DocParam::Arg {
                     name: "arg_foo".to_owned(),
                     docs: DocString::from_docstring(kind, "The argument named foo"),
-                    typ: Ty::Any,
+                    typ: Ty::any(),
                     default_value: None,
                 },
             ],

@@ -546,7 +546,7 @@ pub trait StarlarkValue<'v>:
     /// If [`get_attr`](StarlarkValue::get_attr) is implemented,
     /// `#[starlark_value]` proc macro will generate this to return `Some(Any)`.
     fn attr_ty(_name: &str) -> Option<Ty> {
-        Some(Ty::Any)
+        Some(Ty::any())
     }
 
     /// Get an attribute for the current value as would be returned by dotted

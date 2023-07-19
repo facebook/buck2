@@ -18,7 +18,6 @@
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::slice;
 
 use allocative::Allocative;
 use either::Either;
@@ -39,7 +38,7 @@ use crate::eval::compiler::scope::ResolvedIdent;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::type_expr::TypeExprUnpackP;
-use crate::typing::ctx::TypingContext;
+use crate::typing::basic::TyBasic;
 use crate::typing::custom::TyCustom;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::InternalError;
@@ -51,13 +50,10 @@ use crate::typing::function::TyFunction;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingAttr;
-use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::structs::TyStruct;
 use crate::typing::TypingOracle;
 use crate::values::bool::StarlarkBool;
 use crate::values::float::StarlarkFloat;
-use crate::values::none::NoneType;
-use crate::values::string::StarlarkStr;
 use crate::values::tuple::value::FrozenTuple;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::typing::TypeCompiled;
@@ -93,12 +89,7 @@ impl Display for Approximation {
 
 /// A Starlark type.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
-pub enum Ty {
-    /// Type that can't be inhabited.
-    /// If an expression has this type, then the code cannot be reached.
-    Never,
-    /// Type that contain anything
-    Any,
+pub struct Ty {
     /// A series of alternative types.
     ///
     /// When typechecking, we try all alternatives, and if at least one of them
@@ -115,24 +106,7 @@ pub enum Ty {
     ///
     /// This is different handling of union types than in TypeScript for example,
     /// TypeScript would consider such expression to be an error.
-    Union(TyUnion),
-    /// A name, represented by `"name"` in the Starlark type.
-    /// Will never be a type that can be represented by another operation,
-    /// e.g. never `"list"` because `Ty::List` could be used instead.
-    Name(TyName),
-    /// Type is handled by `StarlarkValue` trait implementation.
-    StarlarkValue(TyStarlarkValue),
-    /// Iter is a type that supports iteration, only used as arguments to primitive functions.
-    /// The inner type is applicable for each iteration element.
-    Iter(Box<Ty>),
-    /// A list.
-    List(Box<Ty>),
-    /// A tuple. May be empty, to indicate the empty tuple.
-    Tuple(Vec<Ty>),
-    /// A dictionary, with key and value types
-    Dict(Box<(Ty, Ty)>),
-    /// Custom type.
-    Custom(TyCustom),
+    alternatives: Vec<TyBasic>,
 }
 
 impl Serialize for Ty {
@@ -218,19 +192,19 @@ fn merge_adjacent<T>(xs: Vec<T>, f: impl Fn(T, T) -> Either<T, (T, T)>) -> Vec<T
 }
 
 impl Ty {
-    /// Create a [`Ty::Any`], but tagged in such a way it can easily be found.
+    /// Create a [`Ty::any`], but tagged in such a way it can easily be found.
     pub fn todo() -> Self {
-        Ty::Any
+        Ty::any()
     }
 
     /// Create a [`Ty::Name`], or one of the standard functions.
     pub(crate) fn name(name: &str) -> Self {
         match name {
-            "list" => Self::List(Box::new(Ty::Any)),
-            "dict" => Self::Dict(Box::new((Ty::Any, Ty::Any))),
+            "list" => Self::list(Ty::any()),
+            "dict" => Self::dict(Ty::any(), Ty::any()),
             "function" => Self::any_function(),
             "struct" => Self::custom(TyStruct::any()),
-            "never" => Self::Never,
+            "never" => Self::never(),
             "NoneType" => Self::none(),
             "bool" => Self::bool(),
             "int" => Self::int(),
@@ -239,29 +213,40 @@ impl Ty {
             "tuple" => Self::any_tuple(),
             // Note that "tuple" cannot be converted to Ty::Tuple
             // since we don't know the length of the tuple.
-            _ => Self::Name(TyName(name.to_owned())),
+            _ => Ty::basic(TyBasic::Name(TyName(name.to_owned()))),
         }
     }
 
     /// Turn a type back into a name, potentially erasing some structure.
     /// E.g. the type `[bool]` would return `list`.
-    /// Types like [`Ty::Any`] will return `None`.
+    /// Types like [`Ty::any`] will return `None`.
     pub fn as_name(&self) -> Option<&str> {
-        match self {
-            Ty::Name(x) => Some(x.as_str()),
-            Ty::StarlarkValue(t) => Some(t.as_name()),
-            Ty::List(_) => Some("list"),
-            Ty::Tuple(_) => Some("tuple"),
-            Ty::Dict(_) => Some("dict"),
-            Ty::Never => Some("never"),
-            Ty::Custom(c) => c.as_name(),
-            Ty::Any | Ty::Union(_) | Ty::Iter(_) => None,
+        match self.alternatives.as_slice() {
+            [x] => x.as_name(),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn basic(basic: TyBasic) -> Self {
+        Ty {
+            alternatives: vec![basic],
+        }
+    }
+
+    /// "any" type: can hold any value.
+    pub fn any() -> Self {
+        Ty::basic(TyBasic::Any)
+    }
+
+    pub(crate) fn never() -> Self {
+        Ty {
+            alternatives: Vec::new(),
         }
     }
 
     /// Create a `None` type.
     pub fn none() -> Self {
-        Ty::starlark_value::<NoneType>()
+        Ty::basic(TyBasic::none())
     }
 
     /// Create a boolean type.
@@ -281,27 +266,32 @@ impl Ty {
 
     /// Create a string type.
     pub fn string() -> Self {
-        Ty::starlark_value::<StarlarkStr>()
+        Ty::basic(TyBasic::string())
     }
 
     /// Create a list type.
     pub fn list(element: Ty) -> Self {
-        Ty::List(Box::new(element))
+        Ty::basic(TyBasic::list(element))
     }
 
     /// Create a iterable type.
     pub fn iter(item: Ty) -> Self {
-        Ty::Iter(Box::new(item))
+        Ty::basic(TyBasic::iter(item))
     }
 
     /// Create a dictionary type.
     pub fn dict(key: Ty, value: Ty) -> Self {
-        Ty::Dict(Box::new((key, value)))
+        Ty::basic(TyBasic::dict(key, value))
     }
 
     /// Create a tuple of two elements
     pub fn tuple2(a: Ty, b: Ty) -> Self {
-        Ty::Tuple(vec![a, b])
+        Ty::tuple(vec![a, b])
+    }
+
+    /// Create a tuple of given elements.
+    pub fn tuple(elements: Vec<Ty>) -> Self {
+        Ty::basic(TyBasic::Tuple(elements))
     }
 
     /// Tuple where elements are unknown.
@@ -333,68 +323,53 @@ impl Ty {
     }
 
     pub(crate) fn starlark_value<'v, T: StarlarkValue<'v>>() -> Self {
-        Ty::StarlarkValue(TyStarlarkValue::new::<T>())
+        Ty::basic(TyBasic::starlark_value::<T>())
     }
 
     pub(crate) fn is_any(&self) -> bool {
-        self == &Ty::Any
+        self == &Ty::any()
     }
 
     pub(crate) fn is_never(&self) -> bool {
-        self == &Ty::Never
+        self.alternatives.is_empty()
     }
 
     pub(crate) fn is_list(&self) -> bool {
-        matches!(self, Ty::List(_))
+        matches!(self.alternatives.as_slice(), [TyBasic::List(_)])
     }
 
     /// Create a unions type, which will be normalised before being created.
-    pub fn unions(mut xs: Vec<Self>) -> Self {
-        xs = xs.into_iter().flat_map(|x| x.into_iter_union()).collect();
+    pub fn unions(xs: Vec<Self>) -> Self {
+        let mut xs: Vec<TyBasic> = xs.into_iter().flat_map(|x| x.into_iter_union()).collect();
         xs.sort();
         xs.dedup();
-        xs.retain(|x| x != &Ty::Never);
-        if xs.contains(&Ty::Any) {
-            return Ty::Any;
+        if xs.contains(&TyBasic::Any) {
+            return Ty::any();
         }
         // Try merging adjacent elements
-        xs = merge_adjacent(xs, |x, y| match (x, y) {
-            (Ty::List(x), Ty::List(y)) => Either::Left(Ty::list(Ty::union2(*x, *y))),
-            (Ty::Dict(x), Ty::Dict(y)) => {
-                Either::Left(Ty::dict(Ty::union2(x.0, y.0), Ty::union2(x.1, y.1)))
+        let xs = merge_adjacent(xs, |x, y| match (x, y) {
+            (TyBasic::List(x), TyBasic::List(y)) => Either::Left(TyBasic::list(Ty::union2(*x, *y))),
+            (TyBasic::Dict(x), TyBasic::Dict(y)) => {
+                Either::Left(TyBasic::dict(Ty::union2(x.0, y.0), Ty::union2(x.1, y.1)))
             }
-            (Ty::Custom(x), Ty::Custom(y)) => match TyCustom::union2(x, y) {
-                Ok(u) => Either::Left(Ty::Custom(u)),
-                Err((x, y)) => Either::Right((Ty::Custom(x), Ty::Custom(y))),
+            (TyBasic::Custom(x), TyBasic::Custom(y)) => match TyCustom::union2(x, y) {
+                Ok(u) => Either::Left(TyBasic::Custom(u)),
+                Err((x, y)) => Either::Right((TyBasic::Custom(x), TyBasic::Custom(y))),
             },
             xy => Either::Right(xy),
         });
 
-        if xs.is_empty() {
-            Ty::Never
-        } else if xs.len() == 1 {
-            xs.pop().unwrap()
-        } else {
-            Self::Union(TyUnion(xs))
-        }
+        Ty { alternatives: xs }
     }
 
     /// Iterate over the types within a union, pretending the type is a singleton union if not a union.
-    pub(crate) fn iter_union(&self) -> &[Self] {
-        match self {
-            Self::Union(xs) => &xs.0,
-            Self::Never => &[],
-            _ => slice::from_ref(self),
-        }
+    pub(crate) fn iter_union(&self) -> &[TyBasic] {
+        &self.alternatives
     }
 
     /// Iterate over the types within a union, pretending the type is a singleton union if not a union.
-    pub(crate) fn into_iter_union(self) -> impl Iterator<Item = Self> {
-        match self {
-            Self::Union(xs) => Either::Left(xs.0.into_iter()),
-            Self::Never => Either::Left(Vec::new().into_iter()),
-            _ => Either::Right(std::iter::once(self)),
-        }
+    pub(crate) fn into_iter_union(self) -> impl Iterator<Item = TyBasic> {
+        self.alternatives.into_iter()
     }
 
     /// Create a union of two entries.
@@ -405,7 +380,7 @@ impl Ty {
     /// Create a custom type.
     /// This is called from generated code.
     pub fn custom(t: impl TyCustomImpl) -> Self {
-        Ty::Custom(TyCustom(Box::new(t)))
+        Ty::basic(TyBasic::Custom(TyCustom(Box::new(t))))
     }
 
     /// Create a custom function type.
@@ -415,15 +390,7 @@ impl Ty {
 
     /// If I do `self[i]` what will the resulting type be.
     pub(crate) fn indexed(self, i: usize) -> Ty {
-        match self {
-            Ty::Any => Ty::Any,
-            Ty::Never => Ty::Never,
-            Ty::List(x) => *x,
-            Ty::Tuple(xs) => xs.get(i).cloned().unwrap_or(Ty::Never),
-            Ty::Union(xs) => Ty::unions(xs.0.into_map(|x| x.indexed(i))),
-            // Not exactly sure what we should do here
-            _ => Ty::Any,
-        }
+        Ty::unions(self.alternatives.into_map(|x| x.indexed(i)))
     }
 
     /// Returns false on Void, since that is definitely not a list
@@ -431,34 +398,7 @@ impl Ty {
         if self.is_never() {
             return false;
         }
-        self.intersects(&Self::list(Ty::Any), ctx)
-    }
-
-    /// See what lies behind an attribute on a type
-    pub(crate) fn attribute(&self, attr: TypingAttr, ctx: &TypingContext) -> Result<Ty, ()> {
-        // There are some structural types which have to be handled in a specific way
-        match self {
-            Ty::Any => Ok(Ty::Any),
-            Ty::Never => Ok(Ty::Never),
-            Ty::Union(xs) => {
-                let rs = xs
-                    .alternatives()
-                    .iter()
-                    .flat_map(|x| x.attribute(attr, ctx))
-                    .collect::<Vec<_>>();
-                if rs.is_empty() {
-                    // Since xs wasn't empty, we must have had all types give us an invalid attribute.
-                    // So therefore this attribute must be invalid.
-                    Err(())
-                } else {
-                    Ok(Ty::unions(rs))
-                }
-            }
-            _ => match ctx.oracle.attribute(self, attr) {
-                Some(r) => r,
-                None => Ok(ctx.approximation("oracle.attribute", format!("{}.{}", self, attr))),
-            },
-        }
+        self.intersects(&Self::list(Ty::any()), ctx)
     }
 
     /// If you get to a point where these types are being checked, might they succeed
@@ -470,26 +410,30 @@ impl Ty {
         let equal_names =
             |x: &TyName, y: &TyName| x == y || oracle.subtype(x, y) || oracle.subtype(y, x);
 
-        let itered = |ty: &Ty| oracle.attribute(ty, TypingAttr::Iter)?.ok();
+        let itered = |ty: &TyBasic| oracle.attribute(ty, TypingAttr::Iter)?.ok();
 
         for x in self.iter_union() {
             for y in other.iter_union() {
                 let b = match (x, y) {
-                    (Ty::Name(x), Ty::Name(y)) => equal_names(x, y),
-                    (Ty::List(x), Ty::List(y)) => x.intersects(y, oracle),
-                    (Ty::Dict(x), Ty::Dict(y)) => {
+                    (TyBasic::Name(x), TyBasic::Name(y)) => equal_names(x, y),
+                    (TyBasic::List(x), TyBasic::List(y)) => x.intersects(y, oracle),
+                    (TyBasic::Dict(x), TyBasic::Dict(y)) => {
                         x.0.intersects(&y.0, oracle) && x.1.intersects(&y.1, oracle)
                     }
-                    (Ty::Tuple(_), t) | (t, Ty::Tuple(_)) if t.as_name() == Some("tuple") => true,
-                    (Ty::Tuple(xs), Ty::Tuple(ys)) if xs.len() == ys.len() => {
+                    (TyBasic::Tuple(_), t) | (t, TyBasic::Tuple(_))
+                        if t.as_name() == Some("tuple") =>
+                    {
+                        true
+                    }
+                    (TyBasic::Tuple(xs), TyBasic::Tuple(ys)) if xs.len() == ys.len() => {
                         std::iter::zip(xs, ys).all(|(x, y)| x.intersects(y, oracle))
                     }
-                    (Ty::Iter(x), Ty::Iter(y)) => x.intersects(y, oracle),
-                    (Ty::Iter(x), y) | (y, Ty::Iter(x)) => match itered(y) {
+                    (TyBasic::Iter(x), TyBasic::Iter(y)) => x.intersects(y, oracle),
+                    (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match itered(y) {
                         Some(yy) => x.intersects(&yy, oracle),
                         None => false,
                     },
-                    (Ty::Custom(x), Ty::Custom(y)) => TyCustom::intersects(x, y),
+                    (TyBasic::Custom(x), TyBasic::Custom(y)) => TyCustom::intersects(x, y),
                     (x, y)
                         if x.as_name() == Some("function") && y.as_name() == Some("function") =>
                     {
@@ -513,7 +457,7 @@ impl Ty {
         codemap: &CodeMap,
     ) -> Result<Self, InternalError> {
         match x {
-            None => Ok(Ty::Any),
+            None => Ok(Ty::any()),
             Some(x) => Self::from_type_expr(x, typecheck_mode, approximations, codemap),
         }
     }
@@ -558,7 +502,7 @@ impl Ty {
     ) -> Self {
         let mut unknown = || {
             approximations.push(Approximation::new("Unknown type", x));
-            Ty::Any
+            Ty::any()
         };
 
         fn ident_global(ident: &CstIdent) -> Option<FrozenValue> {
@@ -570,7 +514,7 @@ impl Ty {
 
         match &x.node {
             TypeExprUnpackP::Tuple(xs) => {
-                Ty::Tuple(xs.map(|x| Self::from_expr_impl(x, approximations)))
+                Ty::tuple(xs.map(|x| Self::from_expr_impl(x, approximations)))
             }
             TypeExprUnpackP::Any(xs) => {
                 Ty::unions(xs.map(|x| Self::from_expr_impl(x, approximations)))
@@ -582,7 +526,7 @@ impl Ty {
             ),
             TypeExprUnpackP::Literal(x) => {
                 if x.is_empty() || x.starts_with('_') {
-                    Ty::Any
+                    Ty::any()
                 } else {
                     Ty::name(x)
                 }
@@ -616,7 +560,7 @@ impl Ty {
                 if let Some(a) = ident_global(a) {
                     if !a.to_value().ptr_eq(Constants::get().fn_list.0.to_value()) {
                         approximations.push(Approximation::new("Not list", x));
-                        return Ty::Any;
+                        return Ty::any();
                     }
                     let i = Self::from_expr_impl(i, approximations);
                     let heap = Heap::new();
@@ -627,24 +571,24 @@ impl Ty {
                             Err(_) => {
                                 approximations
                                     .push(Approximation::new("TypeCompiled::new failed", x));
-                                Ty::Any
+                                Ty::any()
                             }
                         },
                         Err(e) => {
                             approximations.push(Approximation::new("Getitem failed", e));
-                            Ty::Any
+                            Ty::any()
                         }
                     }
                 } else {
                     approximations.push(Approximation::new("Not global", x));
-                    Ty::Any
+                    Ty::any()
                 }
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {
                 if let Some(a) = ident_global(a) {
                     if !a.to_value().ptr_eq(Constants::get().fn_dict.0.to_value()) {
                         approximations.push(Approximation::new("Not dict", x));
-                        return Ty::Any;
+                        return Ty::any();
                     }
                     let i0 = Self::from_expr_impl(i0, approximations);
                     let i1 = Self::from_expr_impl(i1, approximations);
@@ -661,17 +605,17 @@ impl Ty {
                             Err(_) => {
                                 approximations
                                     .push(Approximation::new("TypeCompiled::new failed", x));
-                                Ty::Any
+                                Ty::any()
                             }
                         },
                         Err(e) => {
                             approximations.push(Approximation::new("Getitem2 failed", e));
-                            Ty::Any
+                            Ty::any()
                         }
                     }
                 } else {
                     approximations.push(Approximation::new("Not global", x));
-                    Ty::Any
+                    Ty::any()
                 }
             }
         }
@@ -734,23 +678,10 @@ impl Ty {
 
 impl Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Ty::Never => write!(f, "\"never\""),
-            Ty::Any => write!(f, "\"\""),
-            Ty::Union(xs) => write!(f, "{}", xs),
-            Ty::Name(x) => write!(f, "{}", x),
-            Ty::StarlarkValue(x) => write!(f, "{}", x),
-            Ty::Iter(x) => write!(f, "iter({})", x),
-            Ty::List(x) => write!(f, "[{}]", x),
-            Ty::Tuple(xs) => {
-                if xs.len() == 1 {
-                    write!(f, "({},)", xs[0])
-                } else {
-                    display_container::fmt_container(f, "(", ")", xs)
-                }
-            }
-            Ty::Dict(k_v) => write!(f, "{{{}: {}}}", k_v.0, k_v.1),
-            Ty::Custom(c) => Display::fmt(c, f),
+        match self.alternatives.as_slice() {
+            [] => write!(f, "\"never\""),
+            [x] => write!(f, "{}", x),
+            xs => display_container::fmt_container(f, "[", "]", xs),
         }
     }
 }

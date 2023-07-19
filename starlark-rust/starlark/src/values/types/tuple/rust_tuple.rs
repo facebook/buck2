@@ -87,7 +87,7 @@ impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr> StarlarkTypeRepr for (T1, T2) {
 
 impl<T1: StarlarkTypeRepr> StarlarkTypeRepr for (T1,) {
     fn starlark_type_repr() -> Ty {
-        Ty::Tuple(vec![T1::starlark_type_repr()])
+        Ty::tuple(vec![T1::starlark_type_repr()])
     }
 }
 
@@ -95,7 +95,7 @@ impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr, T3: StarlarkTypeRepr> StarlarkT
     for (T1, T2, T3)
 {
     fn starlark_type_repr() -> Ty {
-        Ty::Tuple(vec![
+        Ty::tuple(vec![
             T1::starlark_type_repr(),
             T2::starlark_type_repr(),
             T3::starlark_type_repr(),

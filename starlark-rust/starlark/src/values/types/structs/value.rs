@@ -181,7 +181,7 @@ where
                         name,
                         DocMember::Property(DocProperty {
                             docs: None,
-                            typ: Ty::Any,
+                            typ: Ty::any(),
                         }),
                     ),
                 }

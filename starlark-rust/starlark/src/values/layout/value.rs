@@ -1055,7 +1055,7 @@ impl<'v> StarlarkTypeRepr for Value<'v> {
 
 impl StarlarkTypeRepr for FrozenValue {
     fn starlark_type_repr() -> Ty {
-        Ty::Any
+        Ty::any()
     }
 }
 

@@ -18,6 +18,7 @@
 use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
+use crate::typing::basic::TyBasic;
 use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::unordered_map::UnorderedMap;
 use crate::typing::Ty;
@@ -89,7 +90,7 @@ impl OracleDocs {
 }
 
 impl TypingOracle for OracleDocs {
-    fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         match attr {
             TypingAttr::Regular(attr) => match self.objects.get(ty.as_name()?)?.get(attr) {
                 None => Some(Err(())),

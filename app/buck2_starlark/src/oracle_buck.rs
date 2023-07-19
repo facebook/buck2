@@ -36,17 +36,19 @@ pub(crate) fn oracle_buck(globals: &Globals) -> Arc<dyn TypingOracle + Send + Sy
 struct CustomBuck;
 
 impl TypingOracle for CustomBuck {
-    fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         match ty.as_name()? {
             "dependency" => match attr {
                 // We can index by providers, which either appear as functions (for builtin providers)
                 // or as Any (for user providers)
-                TypingAttr::Index => {
-                    Some(Ok(Ty::function(vec![Param::pos_only(Ty::Any)], Ty::Any)))
-                }
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Some(Ok(Ty::function(vec![Param::pos_only(Ty::Any)], Ty::bool())))
-                }
+                TypingAttr::Index => Some(Ok(Ty::function(
+                    vec![Param::pos_only(Ty::any())],
+                    Ty::any(),
+                ))),
+                TypingAttr::BinOp(TypingBinOp::In) => Some(Ok(Ty::function(
+                    vec![Param::pos_only(Ty::any())],
+                    Ty::bool(),
+                ))),
                 _ => None,
             },
             _ => None,
@@ -57,13 +59,13 @@ impl TypingOracle for CustomBuck {
         match ty.as_str() {
             "provider_callable" => Some(Ok(TyFunction {
                 type_attr: None,
-                params: vec![Param::kwargs(Ty::Any)],
+                params: vec![Param::kwargs(Ty::any())],
                 // TODO(nga): this should be more precise.
-                result: Box::new(Ty::Any),
+                result: Box::new(Ty::any()),
             })),
             "rule" => Some(Ok(TyFunction {
                 type_attr: None,
-                params: vec![Param::kwargs(Ty::Any)],
+                params: vec![Param::kwargs(Ty::any())],
                 result: Box::new(Ty::none()),
             })),
             _ => None,
@@ -81,7 +83,7 @@ impl TypingOracle for CustomBuck {
 struct AddErrors(OracleDocs);
 
 impl TypingOracle for AddErrors {
-    fn attribute(&self, ty: &Ty, _attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &TyBasic, _attr: TypingAttr) -> Option<Result<Ty, ()>> {
         if self.0.known_object(ty.as_name()?) {
             Some(Err(()))
         } else {

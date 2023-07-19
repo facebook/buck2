@@ -664,7 +664,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
             .iter_params()
             .enumerate()
             .map(|(i, (name, kind))| {
-                let typ = parameter_types.remove(&i).unwrap_or(Ty::Any);
+                let typ = parameter_types.remove(&i).unwrap_or_else(Ty::any);
                 let docs = parameter_docs.remove(name).flatten();
                 if pos_only == i
                     && !matches!(kind, ParameterKind::Args | ParameterKind::KWargs)
@@ -859,7 +859,7 @@ mod tests {
             DocParam::Args {
                 name: "*args".to_owned(),
                 docs: None,
-                typ: Ty::Any,
+                typ: Ty::any(),
             },
             DocParam::Arg {
                 name: "a".to_owned(),
@@ -870,7 +870,7 @@ mod tests {
             DocParam::Arg {
                 name: "b".to_owned(),
                 docs: DocString::from_docstring(DocStringKind::Rust, "param b docs"),
-                typ: Ty::Any,
+                typ: Ty::any(),
                 default_value: Some("_".to_owned()),
             },
         ];

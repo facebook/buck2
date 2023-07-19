@@ -19,6 +19,7 @@ use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::environment::Globals;
 use crate::stdlib::LibraryExtension;
+use crate::typing::basic::TyBasic;
 use crate::typing::function::Param;
 use crate::typing::oracle::docs::OracleDocs;
 use crate::typing::oracle::traits::TypingAttr;
@@ -72,7 +73,7 @@ impl OracleStandard {
 }
 
 impl TypingOracle for OracleStandard {
-    fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         let fallback = || match self.fallback.attribute(ty, attr) {
             // We know we have full knowledge, so if we don't know, that must mean the attribute does not exist
             None => Some(Err(())),
@@ -81,8 +82,8 @@ impl TypingOracle for OracleStandard {
         // We have to explicitly implement operators (e.g. `__in__` since we don't generate documentation for them).
         // We explicitly implement polymorphic functions (e.g. `dict.get`) so they can get much more precise types.
         Some(Ok(match ty {
-            Ty::List(elem) => match attr {
-                TypingAttr::Slice => ty.clone(),
+            TyBasic::List(elem) => match attr {
+                TypingAttr::Slice => Ty::basic(ty.clone()),
                 TypingAttr::BinOp(TypingBinOp::Less) => {
                     // This is a bit weak, beacuse it only looks at this oracle
                     return self.attribute(ty, attr);
@@ -96,10 +97,10 @@ impl TypingOracle for OracleStandard {
                     Ty::function(vec![Param::pos_only(Ty::int())], (**elem).clone())
                 }
                 TypingAttr::BinOp(TypingBinOp::Add) => {
-                    Ty::function(vec![Param::pos_only(Ty::Any)], Ty::list(Ty::Any))
+                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::list(Ty::any()))
                 }
                 TypingAttr::BinOp(TypingBinOp::Mul) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], ty.clone())
+                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::basic(ty.clone()))
                 }
                 TypingAttr::Regular("pop") => Ty::function(
                     vec![Param::pos_only(Ty::int()).optional()],
@@ -117,15 +118,16 @@ impl TypingOracle for OracleStandard {
                 }
                 _ => return fallback(),
             },
-            Ty::Dict(tk_tv) => {
+            TyBasic::Dict(tk_tv) => {
                 let (ref tk, ref tv) = **tk_tv;
                 match attr {
                     TypingAttr::BinOp(TypingBinOp::In) => {
                         Ty::function(vec![Param::pos_only(tk.clone())], Ty::bool())
                     }
-                    TypingAttr::BinOp(TypingBinOp::BitOr) => {
-                        Ty::function(vec![Param::pos_only(ty.clone())], ty.clone())
-                    }
+                    TypingAttr::BinOp(TypingBinOp::BitOr) => Ty::function(
+                        vec![Param::pos_only(Ty::basic(ty.clone()))],
+                        Ty::basic(ty.clone()),
+                    ),
                     TypingAttr::Iter => tk.clone(),
                     TypingAttr::Index => {
                         Ty::function(vec![Param::pos_only(tk.clone())], tv.clone())
@@ -137,22 +139,22 @@ impl TypingOracle for OracleStandard {
                         ),
                         // This second signature is a bit too lax, but get with a default is much rarer
                         Ty::function(
-                            vec![Param::pos_only(tk.clone()), Param::pos_only(Ty::Any)],
-                            Ty::Any,
+                            vec![Param::pos_only(tk.clone()), Param::pos_only(Ty::any())],
+                            Ty::any(),
                         ),
                     ),
                     TypingAttr::Regular("keys") => Ty::function(vec![], Ty::list(tk.clone())),
                     TypingAttr::Regular("values") => Ty::function(vec![], Ty::list(tv.clone())),
                     TypingAttr::Regular("items") => {
-                        Ty::function(vec![], Ty::list(Ty::Tuple(vec![tk.clone(), tv.clone()])))
+                        Ty::function(vec![], Ty::list(Ty::tuple(vec![tk.clone(), tv.clone()])))
                     }
                     TypingAttr::Regular("popitem") => {
-                        Ty::function(vec![], Ty::Tuple(vec![tk.clone(), tv.clone()]))
+                        Ty::function(vec![], Ty::tuple(vec![tk.clone(), tv.clone()]))
                     }
                     _ => return fallback(),
                 }
             }
-            Ty::StarlarkValue(x) if x.as_name() == "int" => match attr {
+            TyBasic::StarlarkValue(x) if x.as_name() == "int" => match attr {
                 TypingAttr::BinOp(TypingBinOp::Less) => {
                     Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool())
                 }
@@ -163,11 +165,11 @@ impl TypingOracle for OracleStandard {
                     Ty::function(vec![Param::pos_only(Ty::int())], Ty::int())
                 }
                 TypingAttr::BinOp(TypingBinOp::Div) => {
-                    Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float())
+                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::float())
                 }
                 _ => return Some(Err(())),
             },
-            Ty::StarlarkValue(x) if x.as_name() == "float" => match attr {
+            TyBasic::StarlarkValue(x) if x.as_name() == "float" => match attr {
                 TypingAttr::BinOp(TypingBinOp::Less) => {
                     Ty::function(vec![Param::pos_only(Ty::float())], Ty::bool())
                 }
@@ -178,11 +180,11 @@ impl TypingOracle for OracleStandard {
                     Ty::function(vec![Param::pos_only(Ty::float())], Ty::float())
                 }
                 TypingAttr::BinOp(TypingBinOp::Div) => {
-                    Ty::function(vec![Param::pos_only(Ty::Any)], Ty::float())
+                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::float())
                 }
                 _ => return Some(Err(())),
             },
-            Ty::StarlarkValue(x) if x.as_name() == "string" => match attr {
+            TyBasic::StarlarkValue(x) if x.as_name() == "string" => match attr {
                 TypingAttr::BinOp(TypingBinOp::Less) => {
                     Ty::function(vec![Param::pos_only(Ty::string())], Ty::bool())
                 }
@@ -198,7 +200,7 @@ impl TypingOracle for OracleStandard {
                 }
                 TypingAttr::Slice => Ty::string(),
                 TypingAttr::BinOp(TypingBinOp::Percent) => {
-                    Ty::function(vec![Param::pos_only(Ty::Any)], Ty::string())
+                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::string())
                 }
                 TypingAttr::Regular(name) => match x.attr(name) {
                     Ok(res) => res,
@@ -206,7 +208,7 @@ impl TypingOracle for OracleStandard {
                 },
                 _ => return fallback(),
             },
-            Ty::Name(x) if x == "range" => match attr {
+            TyBasic::Name(x) if x == "range" => match attr {
                 TypingAttr::Iter => Ty::int(),
                 TypingAttr::BinOp(TypingBinOp::In) => {
                     Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool())

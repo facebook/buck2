@@ -24,7 +24,7 @@ pub(crate) enum StarlarkNever {}
 
 impl StarlarkTypeRepr for StarlarkNever {
     fn starlark_type_repr() -> Ty {
-        Ty::Never
+        Ty::never()
     }
 }
 

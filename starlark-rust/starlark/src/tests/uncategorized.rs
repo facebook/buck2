@@ -736,11 +736,11 @@ def g(q = 1):
 g()",
         &["referenced before assignment", "`x`"],
     );
-    assert::fails(
+    assert::fails_skip_typecheck(
         "[1 for _ in [1] for y in y]",
         &["referenced before assignment", "`y`"],
     );
-    assert::fails(
+    assert::fails_skip_typecheck(
         "def f():\n [1 for _ in [1] for y in y]\nf()",
         &["referenced before assignment", "`y`"],
     );

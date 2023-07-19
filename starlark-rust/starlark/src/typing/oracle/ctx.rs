@@ -22,6 +22,7 @@ use dupe::Dupe;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::typing::basic::TyBasic;
 use crate::typing::error::TypingError;
 use crate::typing::function::Arg;
 use crate::typing::function::Param;
@@ -59,10 +60,10 @@ pub struct TypingOracleCtx<'a> {
 }
 
 impl<'a> TypingOracle for TypingOracleCtx<'a> {
-    fn attribute(&self, ty: &Ty, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         Some(Ok(match ty {
-            ty if ty == &Ty::none() => return Some(Err(())),
-            Ty::Tuple(tys) => match attr {
+            ty if ty == &TyBasic::none() => return Some(Err(())),
+            TyBasic::Tuple(tys) => match attr {
                 TypingAttr::BinOp(TypingBinOp::In) => {
                     Ty::function(vec![Param::pos_only(Ty::unions(tys.clone()))], Ty::bool())
                 }
@@ -72,15 +73,15 @@ impl<'a> TypingOracle for TypingOracleCtx<'a> {
                 }
                 _ => return Some(Err(())),
             },
-            Ty::StarlarkValue(x) if x.as_name() == "tuple" => match attr {
-                TypingAttr::Iter => Ty::Any,
+            TyBasic::StarlarkValue(x) if x.as_name() == "tuple" => match attr {
+                TypingAttr::Iter => Ty::any(),
                 TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(Ty::Any)], Ty::bool())
+                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::bool())
                 }
-                TypingAttr::Index => Ty::function(vec![Param::pos_only(Ty::int())], Ty::Any),
+                TypingAttr::Index => Ty::function(vec![Param::pos_only(Ty::int())], Ty::any()),
                 _ => return Some(Err(())),
             },
-            Ty::Custom(c) => return c.0.attribute_dyn(attr),
+            TyBasic::Custom(c) => return c.0.attribute_dyn(attr),
             ty => return self.oracle.attribute(ty, attr),
         }))
     }
@@ -101,6 +102,24 @@ impl<'a> TypingOracleCtx<'a> {
 
     pub(crate) fn msg_error(&self, span: Span, msg: impl Display) -> TypingError {
         TypingError::msg(msg, span, self.codemap)
+    }
+
+    pub(crate) fn attribute_ty(&self, ty: &Ty, attr: TypingAttr) -> Result<Ty, ()> {
+        let mut results = Vec::new();
+        let mut errors = false;
+        for basic in ty.iter_union() {
+            match basic.attribute(attr, *self) {
+                Ok(res) => results.push(res),
+                Err(()) => errors = true,
+            }
+        }
+        if !results.is_empty() {
+            Ok(Ty::unions(results))
+        } else if errors {
+            Err(())
+        } else {
+            Ok(Ty::any())
+        }
     }
 
     pub(crate) fn validate_type(
@@ -221,7 +240,7 @@ impl<'a> TypingOracleCtx<'a> {
                         .iter_union()
                         .iter()
                         .filter_map(|x| match x {
-                            Ty::Dict(k_v) => Some(k_v.1.clone()),
+                            TyBasic::Dict(k_v) => Some(k_v.1.clone()),
                             _ => None,
                         })
                         .collect();
@@ -256,7 +275,7 @@ impl<'a> TypingOracleCtx<'a> {
         match self.oracle.as_function(ty) {
             None => {
                 // Unknown type, may be callable.
-                Ok(Ty::Any)
+                Ok(Ty::any())
             }
             Some(Ok(f)) => self.validate_fn_call(span, &f, args),
             Some(Err(())) => Err(self.mk_error(
@@ -267,49 +286,55 @@ impl<'a> TypingOracleCtx<'a> {
     }
 
     #[allow(clippy::collapsible_else_if)]
+    fn validate_call_basic(
+        &self,
+        span: Span,
+        fun: &TyBasic,
+        args: &[Spanned<Arg>],
+    ) -> Result<Ty, TypingError> {
+        match fun {
+            TyBasic::Any => Ok(Ty::any()),
+            TyBasic::Name(n) => self.validate_call_for_type_name(span, n, args),
+            TyBasic::StarlarkValue(t) => Err(self.mk_error(
+                span,
+                TypingOracleCtxError::CallToNonCallable { ty: t.to_string() },
+            )),
+            TyBasic::List(_) | TyBasic::Dict(_) | TyBasic::Tuple(_) => Err(self.mk_error(
+                span,
+                TypingOracleCtxError::CallToNonCallable {
+                    ty: fun.to_string(),
+                },
+            )),
+            TyBasic::Iter(_) => {
+                // Unknown type, may be callable.
+                Ok(Ty::any())
+            }
+            TyBasic::Custom(t) => t.0.validate_call_dyn(span, args, *self),
+        }
+    }
+
+    #[allow(clippy::collapsible_else_if)]
     pub(crate) fn validate_call(
         &self,
         span: Span,
         fun: &Ty,
         args: &[Spanned<Arg>],
     ) -> Result<Ty, TypingError> {
-        match fun {
-            Ty::Never => Ok(Ty::Never),
-            Ty::Any => Ok(Ty::Any),
-            Ty::Name(n) => self.validate_call_for_type_name(span, n, args),
-            Ty::StarlarkValue(t) => Err(self.mk_error(
-                span,
-                TypingOracleCtxError::CallToNonCallable { ty: t.to_string() },
-            )),
-            Ty::List(_) | Ty::Dict(_) | Ty::Tuple(_) => Err(self.mk_error(
-                span,
-                TypingOracleCtxError::CallToNonCallable {
-                    ty: fun.to_string(),
-                },
-            )),
-            Ty::Iter(_) => {
-                // Unknown type, may be callable.
-                Ok(Ty::Any)
+        let mut successful = Vec::new();
+        let mut errors = Vec::new();
+        for variant in fun.iter_union() {
+            match self.validate_call_basic(span, variant, args) {
+                Ok(ty) => successful.push(ty),
+                Err(e) => errors.push(e),
             }
-            Ty::Custom(t) => t.0.validate_call_dyn(span, args, *self),
-            Ty::Union(variants) => {
-                let mut successful = Vec::new();
-                let mut errors = Vec::new();
-                for variant in variants.alternatives() {
-                    match self.validate_call(span, variant, args) {
-                        Ok(ty) => successful.push(ty),
-                        Err(e) => errors.push(e),
-                    }
-                }
-                if !successful.is_empty() {
-                    Ok(Ty::unions(successful))
-                } else {
-                    if errors.len() == 1 {
-                        Err(errors.pop().unwrap())
-                    } else {
-                        Err(self.mk_error(span, TypingOracleCtxError::CallArgumentsIncompatible))
-                    }
-                }
+        }
+        if !successful.is_empty() {
+            Ok(Ty::unions(successful))
+        } else {
+            if errors.len() == 1 {
+                Err(errors.pop().unwrap())
+            } else {
+                Err(self.mk_error(span, TypingOracleCtxError::CallArgumentsIncompatible))
             }
         }
     }

@@ -37,6 +37,7 @@ use crate::syntax::ast::BinOp;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
+use crate::typing::basic::TyBasic;
 use crate::typing::bindings::BindExpr;
 use crate::typing::error::TypingError;
 use crate::typing::function::Arg;
@@ -73,14 +74,14 @@ impl TypingContext<'_> {
     fn add_error(&self, span: Span, err: TypingContextError) -> Ty {
         let err = self.oracle.mk_error(span, err);
         self.errors.borrow_mut().push(err);
-        Ty::Never
+        Ty::never()
     }
 
     pub(crate) fn approximation(&self, category: &'static str, message: impl Debug) -> Ty {
         self.approximoations
             .borrow_mut()
             .push(Approximation::new(category, message));
-        Ty::Any
+        Ty::any()
     }
 
     fn validate_call(&self, fun: &Ty, args: &[Spanned<Arg>], span: Span) -> Ty {
@@ -88,7 +89,7 @@ impl TypingContext<'_> {
             Ok(ty) => ty,
             Err(e) => {
                 self.errors.borrow_mut().push(e);
-                Ty::Never
+                Ty::never()
             }
         }
     }
@@ -116,7 +117,7 @@ impl TypingContext<'_> {
     }
 
     fn expression_attribute(&self, ty: &Ty, attr: TypingAttr, span: Span) -> Ty {
-        match ty.attribute(attr, self) {
+        match self.oracle.attribute_ty(ty, attr) {
             Ok(x) => x,
             Err(()) => self.add_error(
                 span,
@@ -156,8 +157,8 @@ impl TypingContext<'_> {
         let mut results = Vec::new();
         for variant in ty.iter_union() {
             match variant {
-                Ty::StarlarkValue(ty) => match ty.un_op(un_op) {
-                    Ok(x) => results.push(Ty::StarlarkValue(x)),
+                TyBasic::StarlarkValue(ty) => match ty.un_op(un_op) {
+                    Ok(x) => results.push(Ty::basic(TyBasic::StarlarkValue(x))),
                     Err(()) => {}
                 },
                 _ => {
@@ -219,10 +220,10 @@ impl TypingContext<'_> {
                 }
                 for ty in self.types[id].iter_union() {
                     match ty {
-                        Ty::List(_) => {
+                        TyBasic::List(_) => {
                             res.push(Ty::list(e.clone()));
                         }
-                        Ty::Dict(_) => {
+                        TyBasic::Dict(_) => {
                             res.push(Ty::dict(index.clone(), e.clone()));
                         }
                         _ => {
@@ -238,7 +239,7 @@ impl TypingContext<'_> {
                     Ty::list(self.expression_type(e))
                 } else {
                     // It doesn't seem to be a list, so let's assume the append is non-mutating
-                    Ty::Never
+                    Ty::never()
                 }
             }
             BindExpr::ListExtend(id, e) => {
@@ -246,7 +247,7 @@ impl TypingContext<'_> {
                     Ty::list(self.from_iterated(&self.expression_type(e), e.span))
                 } else {
                     // It doesn't seem to be a list, so let's assume the extend is non-mutating
-                    Ty::Never
+                    Ty::never()
                 }
             }
         }
@@ -293,7 +294,7 @@ impl TypingContext<'_> {
     pub(crate) fn expression_type(&self, x: &CstExpr) -> Ty {
         let span = x.span;
         match &**x {
-            ExprP::Tuple(xs) => Ty::Tuple(xs.map(|x| self.expression_type(x))),
+            ExprP::Tuple(xs) => Ty::tuple(xs.map(|x| self.expression_type(x))),
             ExprP::Dot(a, b) => {
                 self.expression_attribute(&self.expression_type(a), TypingAttr::Regular(b), b.span)
             }
@@ -312,7 +313,7 @@ impl TypingContext<'_> {
                         }
                         ArgumentP::KwArgs(x) => {
                             let ty = self.expression_type(x);
-                            self.validate_type(&ty, &Ty::dict(Ty::string(), Ty::Any), x.span);
+                            self.validate_type(&ty, &Ty::dict(Ty::string(), Ty::any()), x.span);
                             Arg::Kwargs(ty)
                         }
                     },
@@ -330,7 +331,7 @@ impl TypingContext<'_> {
                 self.expression_type(a);
                 self.expression_type(i0);
                 self.expression_type(i1);
-                Ty::Any
+                Ty::any()
             }
             ExprP::Slice(x, start, stop, stride) => {
                 for e in [start, stop, stride].iter().copied().flatten() {
@@ -346,7 +347,7 @@ impl TypingContext<'_> {
                         } else {
                             // All types must be resolved to this point,
                             // this code is unreachable.
-                            Ty::Any
+                            Ty::any()
                         }
                     }
                     Some(ResolvedIdent::Global(g)) => {
@@ -360,7 +361,7 @@ impl TypingContext<'_> {
                         // All identifiers must be resolved at this point,
                         // but we don't stop after scope resolution error,
                         // so this code is reachable.
-                        Ty::Any
+                        Ty::any()
                     }
                 }
             }
@@ -375,7 +376,7 @@ impl TypingContext<'_> {
             },
             ExprP::Not(x) => {
                 if self.expression_type(x).is_never() {
-                    Ty::Never
+                    Ty::never()
                 } else {
                     Ty::bool()
                 }
@@ -387,14 +388,14 @@ impl TypingContext<'_> {
                 let lhs = self.expression_type_spanned(lhs);
                 let rhs = self.expression_type_spanned(rhs);
                 let bool_ret = if lhs.is_never() || rhs.is_never() {
-                    Ty::Never
+                    Ty::never()
                 } else {
                     Ty::bool()
                 };
                 match op {
                     BinOp::And | BinOp::Or => {
                         if lhs.is_never() {
-                            Ty::Never
+                            Ty::never()
                         } else {
                             Ty::union2(lhs.node, rhs.node)
                         }
@@ -497,7 +498,7 @@ impl TypingContext<'_> {
                 let t = self.expression_type(&c_t_f.1);
                 let f = self.expression_type(&c_t_f.2);
                 if c.is_never() {
-                    Ty::Never
+                    Ty::never()
                 } else {
                     Ty::union2(t, f)
                 }

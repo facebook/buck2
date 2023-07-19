@@ -25,6 +25,7 @@ use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::tests::golden_test_template::golden_test_template;
+use crate::typing::basic::TyBasic;
 use crate::typing::function::Param;
 use crate::typing::oracle::traits::OracleNoAttributes;
 use crate::typing::oracle::traits::OracleSeq;
@@ -52,7 +53,7 @@ fn test_oracle() {
     b.add_module(&Globals::extended().documentation());
 
     assert_eq!(
-        o.attribute(&Ty::string(), TypingAttr::Regular("removeprefix")),
+        o.attribute(&TyBasic::string(), TypingAttr::Regular("removeprefix")),
         Some(Ok(Ty::function(
             vec![Param::pos_only(Ty::string())],
             Ty::string()
@@ -65,19 +66,19 @@ fn test_oracle() {
     assert_eq!(
         b.builtin("any"),
         Ok(Ty::function(
-            vec![Param::pos_only(Ty::iter(Ty::Any))],
+            vec![Param::pos_only(Ty::iter(Ty::any()))],
             Ty::bool()
         ))
     );
     assert_eq!(
         b.builtin("fail"),
-        Ok(Ty::function(vec![Param::args(Ty::Any)], Ty::Never))
+        Ok(Ty::function(vec![Param::args(Ty::any())], Ty::never()))
     );
     assert_eq!(b.builtin("not_a_symbol"), Err(()));
 
     fn has_type(x: &Result<Ty, ()>) -> bool {
-        match x {
-            Ok(Ty::Custom(c)) => {
+        match x.as_ref().map(|x| x.iter_union()) {
+            Ok([TyBasic::Custom(c)]) => {
                 matches!(c.0.attribute_dyn(TypingAttr::Regular("type")), Some(Ok(_)))
             }
             _ => false,

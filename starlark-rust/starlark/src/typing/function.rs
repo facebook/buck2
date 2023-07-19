@@ -223,8 +223,8 @@ impl TyFunction {
     pub(crate) fn any() -> TyFunction {
         TyFunction {
             type_attr: None,
-            params: vec![Param::args(Ty::Any), Param::kwargs(Ty::Any)],
-            result: Box::new(Ty::Any),
+            params: vec![Param::args(Ty::any()), Param::kwargs(Ty::any())],
+            result: Box::new(Ty::any()),
         }
     }
 }

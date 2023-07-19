@@ -341,7 +341,7 @@ fn returns_documentation() -> anyhow::Result<()> {
         empty_spec.docstrings(),
     );
     params.extend(vec![
-        arg("any", Ty::Any, None),
+        arg("any", Ty::any(), None),
         arg("arg", Ty::string(), Some("_")),
         arg("bool", Ty::bool(), Some("_")),
         arg("default_only", Ty::string(), Some("_")),

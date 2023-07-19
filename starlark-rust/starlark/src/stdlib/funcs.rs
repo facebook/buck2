@@ -39,7 +39,6 @@ use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::Ty;
 use crate::typing::TypingAttr;
-use crate::typing::TypingOracle;
 use crate::values::bool::StarlarkBool;
 use crate::values::dict::value::FrozenDict;
 use crate::values::dict::Dict;
@@ -158,12 +157,11 @@ impl TyCustomFunctionImpl for ZipType {
         let mut seen_star_args = false;
         for arg in args {
             match &arg.node {
-                Arg::Pos(pos) => match oracle.attribute(pos, TypingAttr::Iter) {
-                    Some(Err(_)) => {
+                Arg::Pos(pos) => match oracle.attribute_ty(pos, TypingAttr::Iter) {
+                    Err(_) => {
                         return Err(oracle.msg_error(arg.span, "Argument does not allow iteration"));
                     }
-                    Some(Ok(t)) => iter_item_types.push(t),
-                    None => iter_item_types.push(Ty::Any),
+                    Ok(t) => iter_item_types.push(t),
                 },
                 Arg::Name(_, _) => {
                     return Err(
@@ -180,9 +178,9 @@ impl TyCustomFunctionImpl for ZipType {
             }
         }
         if seen_star_args {
-            Ok(Ty::list(Ty::Any))
+            Ok(Ty::list(Ty::any()))
         } else {
-            Ok(Ty::list(Ty::Tuple(iter_item_types)))
+            Ok(Ty::list(Ty::tuple(iter_item_types)))
         }
     }
 }

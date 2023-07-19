@@ -71,7 +71,7 @@ impl TyCustomImpl for TyStruct {
         match attr {
             TypingAttr::Regular(attr) => match self.fields.get(attr) {
                 Some(ty) => Some(Ok(ty.clone())),
-                None if self.extra => Some(Ok(Ty::Any)),
+                None if self.extra => Some(Ok(Ty::any())),
                 _ => Some(Err(())),
             },
             TypingAttr::BinOp(TypingBinOp::Less) => Some(Ok(Ty::function(

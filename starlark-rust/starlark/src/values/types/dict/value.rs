@@ -125,7 +125,7 @@ impl<'v> AllocValue<'v> for Dict<'v> {
 
 impl StarlarkTypeRepr for FrozenDictData {
     fn starlark_type_repr() -> Ty {
-        Ty::dict(Ty::Any, Ty::Any)
+        Ty::dict(Ty::any(), Ty::any())
     }
 }
 

@@ -83,6 +83,6 @@ impl AttrTypeCoerce for AnyAttrType {
     }
 
     fn starlark_type(&self) -> Ty {
-        Ty::Any
+        Ty::any()
     }
 }
