@@ -148,23 +148,6 @@ pub struct ExecutionPlatformConstraints {
     exec_compatible_with: Vec<TargetLabel>,
 }
 
-impl ConfiguredAttrTraversal for ExecutionPlatformConstraints {
-    fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-        // TODO(cjhopman): Check that the dep is in the unbound_exe configuration
-        self.exec_deps.insert(dep.target().unconfigured().dupe());
-        Ok(())
-    }
-
-    fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-        self.toolchain_deps.insert(dep.target().dupe());
-        Ok(())
-    }
-}
-
 impl ExecutionPlatformConstraints {
     pub fn new_constraints(
         exec_deps: IndexSet<TargetLabel>,
@@ -178,45 +161,43 @@ impl ExecutionPlatformConstraints {
         }
     }
 
-    async fn new(
-        ctx: &DiceComputations,
+    fn new(
         node: &TargetNode,
-        resolved_configuration: &ResolvedConfiguration,
-        resolved_transitions: &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+        gathered_deps: &GatheredDeps,
+        cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ) -> SharedResult<Self> {
-        let mut me = Self::default();
-
-        let platform_cfgs = compute_platform_cfgs(ctx, node).await?;
-        let cfg_ctx = AttrConfigurationContextImpl::new(
-            resolved_configuration,
-            ConfigurationNoExec::unbound_exec(),
-            // We don't really need `resolved_transitions` here:
-            // `Traversal` declared above ignores transitioned dependencies.
-            // But we pass `resolved_transitions` here to prevent breakages in the future
-            // if something here changes.
-            resolved_transitions,
-            &platform_cfgs,
-        );
-
-        for a in node.attrs(AttrInspectOptions::All) {
-            let configured_attr = a.configure(&cfg_ctx).with_context(|| {
+        let mut exec_compatible_with = Vec::new();
+        if let Some(a) = node.attr_or_none(
+            EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
+            AttrInspectOptions::All,
+        ) {
+            let configured_attr = a.configure(cfg_ctx).with_context(|| {
                 format!(
                     "Error configuring attribute `{}` to resolve execution platform",
                     a.name
                 )
             })?;
-            configured_attr.traverse(node.label().pkg(), &mut me)?;
-            if a.name == EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD {
-                for label in
-                    ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
-                {
-                    me.exec_compatible_with.push(label.with_context(|| {
-                        format!("attribute `{}`", EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD)
-                    })?);
-                }
+            for label in ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
+            {
+                exec_compatible_with.push(label.with_context(|| {
+                    format!("attribute `{}`", EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD)
+                })?);
             }
         }
-        Ok(me)
+
+        Ok(Self::new_constraints(
+            gathered_deps
+                .exec_deps
+                .iter()
+                .map(|c| c.target().unconfigured().dupe())
+                .collect(),
+            gathered_deps
+                .toolchain_deps
+                .iter()
+                .map(|c| c.target().dupe())
+                .collect(),
+            exec_compatible_with,
+        ))
     }
 
     async fn toolchain_allows(
@@ -306,13 +287,20 @@ async fn execution_platforms_for_toolchain(
                     node.get_configuration_deps(),
                 )
                 .await?;
-            let constraints = ExecutionPlatformConstraints::new(
-                ctx,
-                &node,
+            let platform_cfgs = compute_platform_cfgs(ctx, &node).await?;
+            // We don't really need `resolved_transitions` here:
+            // `Traversal` declared above ignores transitioned dependencies.
+            // But we pass `resolved_transitions` here to prevent breakages in the future
+            // if something here changes.
+            let resolved_transitions = OrderedMap::new();
+            let cfg_ctx = AttrConfigurationContextImpl::new(
                 resolved_configuration,
-                &OrderedMap::new(),
-            )
-            .await?;
+                ConfigurationNoExec::unbound_exec(),
+                &resolved_transitions,
+                &platform_cfgs,
+            );
+            let gathered_deps = gather_deps(&node, &cfg_ctx)?;
+            let constraints = ExecutionPlatformConstraints::new(&node, &gathered_deps, &cfg_ctx)?;
             constraints.many(ctx, &self.0).await
         }
 
@@ -348,11 +336,21 @@ pub async fn get_execution_platform_toolchain_dep(
             target_label.unconfigured().dupe(),
         )))
     } else {
+        let platform_cfgs = compute_platform_cfgs(ctx, target_node).await?;
+        let resolved_transitions = OrderedMap::new();
+        let cfg_ctx = AttrConfigurationContextImpl::new(
+            &resolved_configuration,
+            ConfigurationNoExec::unbound_exec(),
+            &resolved_transitions,
+            &platform_cfgs,
+        );
+        let gathered_deps = gather_deps(target_node, &cfg_ctx)?;
         resolve_execution_platform(
             ctx,
             target_node,
             &resolved_configuration,
-            &OrderedMap::new(),
+            &gathered_deps,
+            &cfg_ctx,
         )
         .await
     }
@@ -362,7 +360,8 @@ async fn resolve_execution_platform(
     ctx: &DiceComputations,
     node: &TargetNode,
     resolved_configuration: &ResolvedConfiguration,
-    resolved_transitions: &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    gathered_deps: &GatheredDeps,
+    cfg_ctx: &(dyn AttrConfigurationContext + Sync),
 ) -> SharedResult<ExecutionPlatformResolution> {
     // If no execution platforms are configured, we fall back to the legacy execution
     // platform behavior. We currently only support legacy execution platforms. That behavior is that there is a
@@ -377,9 +376,7 @@ async fn resolve_execution_platform(
         ));
     };
 
-    let constraints =
-        ExecutionPlatformConstraints::new(ctx, node, resolved_configuration, resolved_transitions)
-            .await?;
+    let constraints = ExecutionPlatformConstraints::new(node, gathered_deps, cfg_ctx)?;
     constraints.one(ctx, node).await
 }
 
@@ -623,11 +620,7 @@ async fn compute_configured_target_node_no_transition(
         &resolved_transitions,
         &platform_cfgs,
     );
-    let GatheredDeps {
-        deps,
-        exec_deps,
-        toolchain_deps,
-    } = gather_deps(&target_node, &attr_cfg_ctx)?;
+    let gathered_deps = gather_deps(&target_node, &attr_cfg_ctx)?;
 
     let execution_platform_resolution = if target_cfg.is_unbound() {
         // The unbound configuration is used when evaluation configuration nodes.
@@ -655,7 +648,8 @@ async fn compute_configured_target_node_no_transition(
             ctx,
             &target_node,
             &resolved_configuration,
-            &resolved_transitions,
+            &gathered_deps,
+            &attr_cfg_ctx,
         )
         .await?
     };
@@ -663,13 +657,15 @@ async fn compute_configured_target_node_no_transition(
 
     // Check transitive target compatibility. We now need to replace the dummy exec config we used
     // above with the real one
-    let dep_futures = toolchain_deps
+    let dep_futures = gathered_deps
+        .toolchain_deps
         .iter()
         .map(|v| v.target().map_exec_cfg(execution_platform.cfg()))
-        .chain(deps.iter().map(|v| v.target().dupe()))
+        .chain(gathered_deps.deps.iter().map(|v| v.target().dupe()))
         .map(|v| async move { ctx.get_configured_target_node(&v).await });
 
-    let exec_dep_futures = exec_deps
+    let exec_dep_futures = gathered_deps
+        .exec_deps
         .iter()
         .map(|v| {
             v.target()
@@ -685,8 +681,8 @@ async fn compute_configured_target_node_no_transition(
     let (dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
         ConfiguredGraphCycleDescriptor::guard_this(ctx, fut).await??;
 
-    let mut deps = Vec::with_capacity(deps.len());
-    let mut exec_deps = Vec::with_capacity(exec_deps.len());
+    let mut deps = Vec::with_capacity(gathered_deps.deps.len());
+    let mut exec_deps = Vec::with_capacity(gathered_deps.exec_deps.len());
 
     let unpack_dep = |
         result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>| -> ControlFlow<_, ConfiguredTargetNode>
