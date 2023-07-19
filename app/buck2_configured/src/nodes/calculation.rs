@@ -298,7 +298,8 @@ async fn execution_platforms_for_toolchain(
                 &resolved_transitions,
                 &platform_cfgs,
             );
-            let gathered_deps = gather_deps(&node, &cfg_ctx)?;
+            let (gathered_deps, _errors_and_incompats) =
+                gather_deps(&self.0, &node, &cfg_ctx, ctx).await?;
             let constraints = ExecutionPlatformConstraints::new(&node, &gathered_deps, &cfg_ctx)?;
             constraints.many(ctx, &self.0).await
         }
@@ -343,7 +344,8 @@ pub async fn get_execution_platform_toolchain_dep(
             &resolved_transitions,
             &platform_cfgs,
         );
-        let gathered_deps = gather_deps(target_node, &cfg_ctx)?;
+        let (gathered_deps, _errors_and_incompats) =
+            gather_deps(target_label, target_node, &cfg_ctx, ctx).await?;
         resolve_execution_platform(
             ctx,
             target_node,
@@ -596,16 +598,25 @@ impl ErrorsAndIncompatibilities {
 
 #[derive(Default)]
 struct GatheredDeps {
-    deps: SmallSet<ConfiguredProvidersLabel>,
+    deps: Vec<ConfiguredTargetNode>,
     exec_deps: SmallSet<ConfiguredProvidersLabel>,
     toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
 }
 
-fn gather_deps(
+async fn gather_deps(
+    target_label: &ConfiguredTargetLabel,
     target_node: &TargetNode,
-    attr_cfg_ctx: &dyn AttrConfigurationContext,
-) -> anyhow::Result<GatheredDeps> {
-    impl ConfiguredAttrTraversal for GatheredDeps {
+    attr_cfg_ctx: &(dyn AttrConfigurationContext + Sync),
+    ctx: &DiceComputations,
+) -> anyhow::Result<(GatheredDeps, ErrorsAndIncompatibilities)> {
+    #[derive(Default)]
+    struct Traversal {
+        deps: SmallSet<ConfiguredProvidersLabel>,
+        exec_deps: SmallSet<ConfiguredProvidersLabel>,
+        toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
+    }
+
+    impl ConfiguredAttrTraversal for Traversal {
         fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
             self.deps.insert(dep.clone());
             Ok(())
@@ -622,12 +633,34 @@ fn gather_deps(
         }
     }
 
-    let mut traversal = GatheredDeps::default();
+    let mut traversal = Traversal::default();
     for a in target_node.attrs(AttrInspectOptions::All) {
         let configured_attr = a.configure(attr_cfg_ctx)?;
         configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
     }
-    Ok(traversal)
+
+    let dep_futures = traversal
+        .deps
+        .iter()
+        .map(|v| ctx.get_configured_target_node(v.target()));
+    let dep_results =
+        ConfiguredGraphCycleDescriptor::guard_this(ctx, futures::future::join_all(dep_futures))
+            .await??;
+
+    let mut deps = Vec::new();
+    let mut errors_and_incompats = ErrorsAndIncompatibilities::default();
+    for res in dep_results {
+        errors_and_incompats.unpack_dep(target_label, res, &mut deps);
+    }
+
+    Ok((
+        GatheredDeps {
+            deps,
+            exec_deps: traversal.exec_deps,
+            toolchain_deps: traversal.toolchain_deps,
+        },
+        errors_and_incompats,
+    ))
 }
 
 /// Compute configured target node ignoring transition for this node.
@@ -675,15 +708,8 @@ async fn compute_configured_target_node_no_transition(
         &resolved_transitions,
         &platform_cfgs,
     );
-    let gathered_deps = gather_deps(&target_node, &attr_cfg_ctx)?;
-
-    let dep_futures = gathered_deps
-        .deps
-        .iter()
-        .map(|v| ctx.get_configured_target_node(v.target()));
-    let dep_results =
-        ConfiguredGraphCycleDescriptor::guard_this(ctx, futures::future::join_all(dep_futures))
-            .await??;
+    let (gathered_deps, mut errors_and_incompats) =
+        gather_deps(target_label, &target_node, &attr_cfg_ctx, ctx).await?;
 
     let execution_platform_resolution = if target_cfg.is_unbound() {
         // The unbound configuration is used when evaluation configuration nodes.
@@ -742,14 +768,9 @@ async fn compute_configured_target_node_no_transition(
     let (toolchain_dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
         ConfiguredGraphCycleDescriptor::guard_this(ctx, fut).await??;
 
-    let mut deps = Vec::with_capacity(gathered_deps.deps.len());
+    let mut deps = gathered_deps.deps;
     let mut exec_deps = Vec::with_capacity(gathered_deps.exec_deps.len());
 
-    let mut errors_and_incompats = ErrorsAndIncompatibilities::default();
-
-    for dep in dep_results {
-        errors_and_incompats.unpack_dep(target_label, dep, &mut deps);
-    }
     for dep in toolchain_dep_results {
         errors_and_incompats.unpack_dep(target_label, dep, &mut deps);
     }
