@@ -41,13 +41,14 @@ impl From<ModuleInternals> for EvaluationResult {
             state,
             imports,
             buildfile_path,
+            super_package,
             ..
         } = internals;
         let recorder = match state.into_inner() {
             State::BeforeTargets(_) => TargetsRecorder::new(),
             State::Targets(RecordingTargets { recorder, .. }) => recorder,
         };
-        EvaluationResult::new(buildfile_path, imports, recorder.take())
+        EvaluationResult::new(buildfile_path, imports, super_package, recorder.take())
     }
 }
 

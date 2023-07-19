@@ -122,6 +122,7 @@ async fn test_get_node() -> anyhow::Result<()> {
             FileNameBuf::unchecked_new("BUCK"),
         )),
         Vec::new(),
+        Default::default(),
         TargetsMap::from_iter([node1.dupe(), node2.dupe()]),
     );
 

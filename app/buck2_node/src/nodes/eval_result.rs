@@ -28,6 +28,7 @@ use itertools::Itertools;
 
 use crate::nodes::targets_map::TargetsMap;
 use crate::nodes::unconfigured::TargetNode;
+use crate::super_package::SuperPackage;
 
 #[derive(Debug, thiserror::Error)]
 enum EvalulationResultError {
@@ -120,6 +121,7 @@ pub struct EvaluationResult {
     /// its own cell, so we don't need a full ImportPath here.
     buildfile_path: Arc<BuildFilePath>,
     imports: Vec<ImportPath>,
+    super_package: SuperPackage,
     targets: TargetsMap,
 }
 
@@ -127,11 +129,13 @@ impl EvaluationResult {
     pub fn new(
         buildfile_path: Arc<BuildFilePath>,
         imports: Vec<ImportPath>,
+        super_package: SuperPackage,
         targets: TargetsMap,
     ) -> Self {
         Self {
             buildfile_path,
             imports,
+            super_package,
             targets,
         }
     }
@@ -150,6 +154,10 @@ impl EvaluationResult {
 
     pub fn imports(&self) -> &[ImportPath] {
         &self.imports
+    }
+
+    pub fn super_package(&self) -> &SuperPackage {
+        &self.super_package
     }
 
     pub fn get_target<'a>(&'a self, name: &TargetNameRef) -> Option<&'a TargetNode> {
