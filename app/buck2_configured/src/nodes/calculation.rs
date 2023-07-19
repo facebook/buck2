@@ -298,8 +298,13 @@ async fn execution_platforms_for_toolchain(
                 &resolved_transitions,
                 &platform_cfgs,
             );
-            let (gathered_deps, _errors_and_incompats) =
+            let (gathered_deps, errors_and_incompats) =
                 gather_deps(&self.0, &node, &cfg_ctx, ctx).await?;
+            if let Some(ret) = errors_and_incompats.finalize() {
+                // Statically assert that we hit one of the `?`s
+                enum Void {}
+                let _: Void = ret?.require_compatible()?;
+            }
             let constraints = ExecutionPlatformConstraints::new(&node, &gathered_deps, &cfg_ctx)?;
             constraints.many(ctx, &self.0).await
         }
@@ -320,7 +325,7 @@ pub async fn get_execution_platform_toolchain_dep(
     ctx: &DiceComputations,
     target_label: &ConfiguredTargetLabel,
     target_node: &TargetNode,
-) -> SharedResult<ExecutionPlatformResolution> {
+) -> SharedResult<MaybeCompatible<ExecutionPlatformResolution>> {
     assert!(target_node.is_toolchain_rule());
     let target_cfg = target_label.cfg();
     let target_cell = target_node.label().pkg().cell_name();
@@ -344,16 +349,21 @@ pub async fn get_execution_platform_toolchain_dep(
             &resolved_transitions,
             &platform_cfgs,
         );
-        let (gathered_deps, _errors_and_incompats) =
+        let (gathered_deps, errors_and_incompats) =
             gather_deps(target_label, target_node, &cfg_ctx, ctx).await?;
-        resolve_execution_platform(
-            ctx,
-            target_node,
-            &resolved_configuration,
-            &gathered_deps,
-            &cfg_ctx,
-        )
-        .await
+        if let Some(ret) = errors_and_incompats.finalize() {
+            return ret.map_err(Into::into);
+        }
+        Ok(MaybeCompatible::Compatible(
+            resolve_execution_platform(
+                ctx,
+                target_node,
+                &resolved_configuration,
+                &gathered_deps,
+                &cfg_ctx,
+            )
+            .await?,
+        ))
     }
 }
 

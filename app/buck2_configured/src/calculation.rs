@@ -67,6 +67,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                 let exec_cfg =
                     get_execution_platform_toolchain_dep(ctx, &target.configure(cfg.dupe()), &node)
                         .await?
+                        .require_compatible()?
                         .cfg();
                 Ok(target.configure_with_exec(cfg, exec_cfg.cfg().dupe()))
             }
