@@ -9,7 +9,6 @@
 
 //! Calculations relating to 'TargetNode's that runs on Dice
 
-use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -684,31 +683,37 @@ async fn compute_configured_target_node_no_transition(
     let mut deps = Vec::with_capacity(gathered_deps.deps.len());
     let mut exec_deps = Vec::with_capacity(gathered_deps.exec_deps.len());
 
-    let unpack_dep = |
-        result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>| -> ControlFlow<_, ConfiguredTargetNode>
+    let mut errs = Vec::new();
+    let mut incompats = Vec::new();
+    let mut unpack_dep = |
+        result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>| -> Option<ConfiguredTargetNode>
     {
         match result {
-            Err(e) => ControlFlow::Break(Err(e)),
+            Err(e) => {
+                errs.push(e);
+                None
+            },
             Ok(MaybeCompatible::Incompatible(reason)) => {
-                ControlFlow::Break(Ok(MaybeCompatible::Incompatible(Arc::new(IncompatiblePlatformReason {
+                incompats.push(Arc::new(IncompatiblePlatformReason {
                     target: target_label.dupe(),
                     cause: IncompatiblePlatformReasonCause::Dependency(reason.dupe()),
-                }))))
+                }));
+                None
             }
             Ok(MaybeCompatible::Compatible(dep)) => {
-                let visible = match dep.is_visible_to(target_label.unconfigured()) {
-                    Ok(visible) => visible,
-                    Err(e) => return ControlFlow::Break(Err(e)),
-                };
-                if !visible {
-                    ControlFlow::Break(
-                        Err(anyhow::anyhow!(VisibilityError::NotVisibleTo(
+                match dep.is_visible_to(target_label.unconfigured()) {
+                    Ok(true) => Some(dep),
+                    Ok(false) => {
+                        errs.push(anyhow::anyhow!(VisibilityError::NotVisibleTo(
                             dep.label().unconfigured().dupe(),
                             target_label.unconfigured().dupe(),
-                        ))),
-                    )
-                } else {
-                    ControlFlow::Continue(dep)
+                        )));
+                        None
+                    }
+                    Err(e) => {
+                        errs.push(e);
+                        None
+                    }
                 }
             }
         }
@@ -716,15 +721,22 @@ async fn compute_configured_target_node_no_transition(
 
     for dep in dep_results {
         match unpack_dep(dep) {
-            ControlFlow::Continue(dep) => deps.push(dep),
-            ControlFlow::Break(r) => return r,
+            Some(dep) => deps.push(dep),
+            None => continue,
         };
     }
     for dep in exec_dep_results {
         match unpack_dep(dep) {
-            ControlFlow::Continue(dep) => exec_deps.push(dep),
-            ControlFlow::Break(r) => return r,
+            Some(dep) => exec_deps.push(dep),
+            None => continue,
         };
+    }
+    // FIXME(JakobDegen): Report all incompatibilities
+    if let Some(incompat) = incompats.pop() {
+        return Ok(MaybeCompatible::Incompatible(incompat));
+    }
+    if let Some(err) = errs.pop() {
+        return Err(err);
     }
 
     Ok(MaybeCompatible::Compatible(ConfiguredTargetNode::new(
