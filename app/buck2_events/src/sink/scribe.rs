@@ -263,13 +263,6 @@ mod fbcode {
                     Self::truncate_target_patterns(target_patterns);
                 }
             }
-
-            if let Some(buck2_data::command_end::Data::Audit(ref mut audit_command_end)) =
-                command_end.data
-            {
-                const TRUNCATED_ARGS_LENGTH: usize = 512 * 1024; // 512Kb
-                audit_command_end.args = truncate(&audit_command_end.args, TRUNCATED_ARGS_LENGTH);
-            }
         }
 
         fn truncate_file_watcher_stats(file_watcher_stats: &mut buck2_data::FileWatcherStats) {
@@ -443,18 +436,6 @@ mod fbcode {
                 data: Some(buck2_data::command_end::Data::Build(
                     buck2_data::BuildCommandEnd {
                         unresolved_target_patterns,
-                    },
-                )),
-                ..Default::default()
-            }
-        }
-
-        fn make_audit_command_end(args: String) -> buck2_data::CommandEnd {
-            buck2_data::CommandEnd {
-                data: Some(buck2_data::command_end::Data::Audit(
-                    buck2_data::AuditCommandEnd {
-                        args,
-                        ..Default::default()
                     },
                 )),
                 ..Default::default()
@@ -716,48 +697,6 @@ mod fbcode {
             };
             let record = buck2_data::InvocationRecord {
                 file_watcher_stats: Some(file_watcher_stats),
-                ..Default::default()
-            };
-            let mut event_data = make_invocation_record(record);
-            let event_data_expected = event_data.clone();
-
-            ThriftScribeSink::smart_truncate_event(&mut event_data);
-
-            assert_eq!(event_data, event_data_expected);
-        }
-
-        #[test]
-        fn smart_truncate_long_audit_args_truncated() {
-            let long_args = "0123456789".repeat(100 * 1024); // 1000KB
-            let mut long_args_truncated = long_args.clone();
-            // See buck2_util::truncate::truncate to know the formula here
-            long_args_truncated.replace_range(
-                ((512 * 1024 - 11) / 2)..(1000 * 1024 - ((512 * 1024 - 11) / 2)),
-                "<<omitted>>",
-            );
-            let audit_command_end = make_audit_command_end(long_args);
-            let audit_command_end_truncated = make_audit_command_end(long_args_truncated);
-            let record = buck2_data::InvocationRecord {
-                command_end: Some(audit_command_end),
-                ..Default::default()
-            };
-            let record_truncated = buck2_data::InvocationRecord {
-                command_end: Some(audit_command_end_truncated),
-                ..Default::default()
-            };
-            let mut event_data = make_invocation_record(record);
-            let event_data_expected = make_invocation_record(record_truncated);
-
-            ThriftScribeSink::smart_truncate_event(&mut event_data);
-
-            assert_eq!(event_data, event_data_expected);
-        }
-
-        #[test]
-        fn smart_truncate_short_audit_args_not_truncated() {
-            let audit_command_end = make_audit_command_end("some args".to_owned());
-            let record = buck2_data::InvocationRecord {
-                command_end: Some(audit_command_end),
                 ..Default::default()
             };
             let mut event_data = make_invocation_record(record);

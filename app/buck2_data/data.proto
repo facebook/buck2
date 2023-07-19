@@ -770,10 +770,10 @@ message CommandCriticalEnd {
 }
 
 message AuditCommandEnd {
+  reserved 2;
+
   // output status
   uint64 status = 1;
-  // arguments to command
-  string args = 2;
   // execution dir
   string dir = 3;
 }
