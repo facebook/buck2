@@ -33,6 +33,8 @@ def find_windows_sdk_includes():
 def find_msvc_includes(compiler):
     include_paths = []
     compiler_path = shutil.which(compiler)
+    if compiler_path is None:
+        raise FileNotFoundError("{} not found".format(compiler))
     parts = os.path.normpath(compiler_path).split(os.sep)
     msvc_include = os.sep.join(parts[:-4] + ["include"])
     assert os.path.isdir(msvc_include), "MSVC include directory is not found"

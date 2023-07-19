@@ -76,6 +76,8 @@ def find_windows_sdk(arch):
 def find_msvc_libpath(linker):
     libpath = []
     linker_path = shutil.which(linker)
+    if linker_path is None:
+        raise FileNotFoundError("{} not found".format(linker))
     parts = os.path.normpath(linker_path).split(os.sep)
     arch = parts[-2]
     assert arch in ["x86", "x64"], "Unsupported MSVC setup"
