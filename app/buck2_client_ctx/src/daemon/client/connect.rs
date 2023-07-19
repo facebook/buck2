@@ -26,6 +26,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::cells::DaemonStartupConfig;
 use buck2_core::env_helper::EnvHelper;
 use buck2_util::process::async_background_command;
+use buck2_util::truncate::truncate;
 use dupe::Dupe;
 use futures::future::try_join3;
 use thiserror::Error;
@@ -806,7 +807,9 @@ fn daemon_connect_error(paths: &InvocationPaths) -> BuckdConnectError {
         })
         .unwrap_or_else(|_| "<none>".to_owned());
 
-    BuckdConnectError::ConnectError { stderr }
+    BuckdConnectError::ConnectError {
+        stderr: truncate(&stderr, 64000),
+    }
 }
 
 #[cfg(test)]
