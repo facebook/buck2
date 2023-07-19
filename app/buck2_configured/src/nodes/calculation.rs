@@ -539,6 +539,62 @@ fn check_compatible(
 }
 
 #[derive(Default)]
+struct ErrorsAndIncompatibilities {
+    errs: Vec<anyhow::Error>,
+    incompats: Vec<Arc<IncompatiblePlatformReason>>,
+}
+
+impl ErrorsAndIncompatibilities {
+    pub fn unpack_dep(
+        &mut self,
+        target_label: &ConfiguredTargetLabel,
+        result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>,
+        list: &mut Vec<ConfiguredTargetNode>,
+    ) {
+        match result {
+            Err(e) => {
+                self.errs.push(e);
+            }
+            Ok(MaybeCompatible::Incompatible(reason)) => {
+                self.incompats.push(Arc::new(IncompatiblePlatformReason {
+                    target: target_label.dupe(),
+                    cause: IncompatiblePlatformReasonCause::Dependency(reason.dupe()),
+                }));
+            }
+            Ok(MaybeCompatible::Compatible(dep)) => {
+                match dep.is_visible_to(target_label.unconfigured()) {
+                    Ok(true) => {
+                        list.push(dep);
+                    }
+                    Ok(false) => {
+                        self.errs
+                            .push(anyhow::anyhow!(VisibilityError::NotVisibleTo(
+                                dep.label().unconfigured().dupe(),
+                                target_label.unconfigured().dupe(),
+                            )));
+                    }
+                    Err(e) => {
+                        self.errs.push(e);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Returns an error/incompatibility to return, if any, and `None` otherwise
+    pub fn finalize<T>(mut self) -> Option<anyhow::Result<MaybeCompatible<T>>> {
+        // FIXME(JakobDegen): Report all incompatibilities
+        if let Some(incompat) = self.incompats.pop() {
+            return Some(Ok(MaybeCompatible::Incompatible(incompat)));
+        }
+        if let Some(err) = self.errs.pop() {
+            return Some(Err(err));
+        }
+        None
+    }
+}
+
+#[derive(Default)]
 struct GatheredDeps {
     deps: SmallSet<ConfiguredProvidersLabel>,
     exec_deps: SmallSet<ConfiguredProvidersLabel>,
@@ -689,52 +745,20 @@ async fn compute_configured_target_node_no_transition(
     let mut deps = Vec::with_capacity(gathered_deps.deps.len());
     let mut exec_deps = Vec::with_capacity(gathered_deps.exec_deps.len());
 
-    let mut errs = Vec::new();
-    let mut incompats = Vec::new();
-    let mut unpack_dep = |result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>,
-                          list: &mut Vec<_>| match result {
-        Err(e) => {
-            errs.push(e);
-        }
-        Ok(MaybeCompatible::Incompatible(reason)) => {
-            incompats.push(Arc::new(IncompatiblePlatformReason {
-                target: target_label.dupe(),
-                cause: IncompatiblePlatformReasonCause::Dependency(reason.dupe()),
-            }));
-        }
-        Ok(MaybeCompatible::Compatible(dep)) => {
-            match dep.is_visible_to(target_label.unconfigured()) {
-                Ok(true) => {
-                    list.push(dep);
-                }
-                Ok(false) => {
-                    errs.push(anyhow::anyhow!(VisibilityError::NotVisibleTo(
-                        dep.label().unconfigured().dupe(),
-                        target_label.unconfigured().dupe(),
-                    )));
-                }
-                Err(e) => {
-                    errs.push(e);
-                }
-            }
-        }
-    };
+    let mut errors_and_incompats = ErrorsAndIncompatibilities::default();
 
     for dep in dep_results {
-        unpack_dep(dep, &mut deps);
+        errors_and_incompats.unpack_dep(target_label, dep, &mut deps);
     }
     for dep in toolchain_dep_results {
-        unpack_dep(dep, &mut deps);
+        errors_and_incompats.unpack_dep(target_label, dep, &mut deps);
     }
     for dep in exec_dep_results {
-        unpack_dep(dep, &mut exec_deps);
+        errors_and_incompats.unpack_dep(target_label, dep, &mut exec_deps);
     }
-    // FIXME(JakobDegen): Report all incompatibilities
-    if let Some(incompat) = incompats.pop() {
-        return Ok(MaybeCompatible::Incompatible(incompat));
-    }
-    if let Some(err) = errs.pop() {
-        return Err(err);
+
+    if let Some(ret) = errors_and_incompats.finalize() {
+        return ret;
     }
 
     Ok(MaybeCompatible::Compatible(ConfiguredTargetNode::new(
