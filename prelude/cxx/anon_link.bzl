@@ -58,7 +58,8 @@ def _serialize_link_info(info: LinkInfo.type):
         info.pre_flags,
         info.post_flags,
         [_serialize_linkable(linkable) for linkable in info.linkables],
-        external_debug_info,
+        # TODO(agallagher): It appears anon-targets don't allow passing in `label`.
+        [(str(info.label.raw_target()), info.artifacts) for info in external_debug_info],
     )
 
 def _serialize_link_args(link: LinkArgs.type):
@@ -123,7 +124,7 @@ def _deserialize_linkable(linkable: (str.type, "_payload")) -> "_Linkable":
 
     fail("Invalid linkable type: {}".format(typ))
 
-def _deserialize_link_info(actions: "actions", info) -> LinkInfo.type:
+def _deserialize_link_info(actions: "actions", label: "label", info) -> LinkInfo.type:
     name, pre_flags, post_flags, linkables, external_debug_info = info
     return LinkInfo(
         name = name,
@@ -133,27 +134,30 @@ def _deserialize_link_info(actions: "actions", info) -> LinkInfo.type:
         external_debug_info = make_artifact_tset(
             actions = actions,
             infos = [
-                ArtifactInfo(label, artifacts)
-                for label, artifacts in external_debug_info
+                ArtifactInfo(label = label, artifacts = artifacts)
+                for _label, artifacts in external_debug_info
             ],
         ),
     )
 
-def _deserialize_link_args(actions: "actions", link: (str.type, "_payload")) -> LinkArgs.type:
+def _deserialize_link_args(
+        actions: "actions",
+        label: "label",
+        link: (str.type, "_payload")) -> LinkArgs.type:
     typ, payload = link
 
     if typ == "flags":
         return LinkArgs(flags = payload)
 
     if typ == "infos":
-        return LinkArgs(infos = [_deserialize_link_info(actions, info) for info in payload])
+        return LinkArgs(infos = [_deserialize_link_info(actions, label, info) for info in payload])
 
     fail("invalid link args type: {}".format(typ))
 
-def deserialize_anon_attrs(actions: "actions", attrs: "struct") -> {str.type: ""}:
+def deserialize_anon_attrs(actions: "actions", label: "label", attrs: "struct") -> {str.type: ""}:
     return dict(
         output = attrs.output,
-        links = [_deserialize_link_args(actions, link) for link in attrs.links],
+        links = [_deserialize_link_args(actions, label, link) for link in attrs.links],
         import_library = attrs.import_library,
         link_execution_preference = LinkExecutionPreference(attrs.link_execution_preference),
         category_suffix = attrs.category_suffix,
@@ -212,7 +216,15 @@ ANON_ATTRS = {
                                 ),
                             ),
                         ),
-                        attrs.list(attrs.tuple(attrs.label(), attrs.list(attrs.source()))),  # external_debug_info
+                        attrs.list(
+                            # external_debug_info
+                            attrs.tuple(
+                                # TODO(agallagher): It appears anon-targets don't
+                                # allow passing in `label`.
+                                attrs.string(),  # label
+                                attrs.list(attrs.source()),  # artifacts
+                            ),
+                        ),
                     ),
                 ),
             ),

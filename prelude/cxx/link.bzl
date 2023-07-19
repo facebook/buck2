@@ -312,7 +312,7 @@ def _anon_link_impl(ctx):
     link_result = cxx_link(
         ctx = ctx,
         result_type = CxxLinkResultType(ctx.attrs.result_type),
-        **deserialize_anon_attrs(ctx.actions, ctx.attrs)
+        **deserialize_anon_attrs(ctx.actions, ctx.label, ctx.attrs)
     )
     return [DefaultInfo(), _AnonLinkInfo(result = link_result)]
 
