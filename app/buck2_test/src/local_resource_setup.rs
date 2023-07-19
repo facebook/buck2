@@ -21,7 +21,6 @@ use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_test_api::data::RequiredLocalResources;
 use dice::DiceTransaction;
-use either::Either;
 use indexmap::IndexMap;
 
 /// Container for everything needed to set up a local resource.
@@ -102,22 +101,17 @@ async fn required_providers<'v>(
         .collect::<Result<Vec<_>, _>>()
 }
 
-async fn get_local_resource_info<'a, 'v>(
-    dice: &'a DiceTransaction,
-    provider_or_target: &'a Either<&'v FrozenLocalResourceInfo, &'v ConfiguredProvidersLabel>,
+async fn get_local_resource_info<'v>(
+    dice: &DiceTransaction,
+    target: &'v ConfiguredProvidersLabel,
 ) -> anyhow::Result<&'v FrozenLocalResourceInfo> {
-    match provider_or_target {
-        Either::Left(provider) => Ok(*provider),
-        Either::Right(target) => {
-            let providers = dice.get_providers(target).await?.require_compatible()?;
-            let providers = providers.provider_collection();
-            Ok(providers
-                .get_provider(LocalResourceInfoCallable::provider_id_t())
-                .context(format!(
-                    "Target `{}` expected to contain `LocalResourceInfo` provider",
-                    target
-                ))?
-                .as_ref())
-        }
-    }
+    let providers = dice.get_providers(target).await?.require_compatible()?;
+    let providers = providers.provider_collection();
+    Ok(providers
+        .get_provider(LocalResourceInfoCallable::provider_id_t())
+        .context(format!(
+            "Target `{}` expected to contain `LocalResourceInfo` provider",
+            target
+        ))?
+        .as_ref())
 }

@@ -39,7 +39,6 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
-use crate::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
 use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 
 /// Provider that signals that a rule can be tested using an external runner. This is the
@@ -102,7 +101,7 @@ pub struct ExternalRunnerTestInfoGen<V> {
     /// Required types are passed from test runner.
     /// If the value for a corresponding type is omitted it means local resource
     /// should be ignored when executing tests even if those are passed as required from test runner.
-    #[provider(field_type = "DictType<String, Option<Either<FrozenLocalResourceInfo, Label>>>")]
+    #[provider(field_type = "DictType<String, Option<Label>>")]
     local_resources: V,
 }
 
@@ -154,9 +153,7 @@ impl FrozenExternalRunnerTestInfo {
             .map(|v| StarlarkCommandExecutorConfig::from_value(v.to_value()).unwrap())
     }
 
-    pub fn local_resources(
-        &self,
-    ) -> IndexMap<&str, Option<Either<&FrozenLocalResourceInfo, &ConfiguredProvidersLabel>>> {
+    pub fn local_resources(&self) -> IndexMap<&str, Option<&ConfiguredProvidersLabel>> {
         unwrap_all(iter_local_resources(self.local_resources.to_value())).collect()
     }
 
@@ -345,12 +342,7 @@ fn iter_executor_overrides<'v>(
 
 fn iter_local_resources<'v>(
     local_resources: Value<'v>,
-) -> impl Iterator<
-    Item = anyhow::Result<(
-        &'v str,
-        Option<Either<&'v FrozenLocalResourceInfo, &'v ConfiguredProvidersLabel>>,
-    )>,
-> {
+) -> impl Iterator<Item = anyhow::Result<(&'v str, Option<&'v ConfiguredProvidersLabel>)>> {
     if local_resources.is_none() {
         return Either::Left(Either::Left(empty()));
     }
@@ -380,10 +372,8 @@ fn iter_local_resources<'v>(
 
         let resource = if value.is_none() {
             None
-        } else if let Some(provider) = value.downcast_ref::<FrozenLocalResourceInfo>() {
-            Some(Either::Left(provider))
         } else {
-            Some(Either::Right(
+            Some(
                 Label::from_value(value)
                     .ok_or_else(|| {
                         anyhow::anyhow!(format!(
@@ -392,7 +382,7 @@ fn iter_local_resources<'v>(
                         ))
                     })?
                     .label(),
-            ))
+            )
         };
 
         Ok((key, resource))
