@@ -568,6 +568,7 @@ async fn compute_configured_target_node_no_transition(
     struct Traversal<'a> {
         deps: &'a mut SmallSet<ConfiguredProvidersLabel>,
         exec_deps: &'a mut SmallSet<ConfiguredProvidersLabel>,
+        toolchain_deps: &'a mut SmallSet<ConfiguredProvidersLabel>,
     }
 
     impl ConfiguredAttrTraversal for Traversal<'_> {
@@ -578,6 +579,11 @@ async fn compute_configured_target_node_no_transition(
 
         fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
             self.exec_deps.insert(dep.clone());
+            Ok(())
+        }
+
+        fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            self.toolchain_deps.insert(dep.clone());
             Ok(())
         }
     }
@@ -593,6 +599,7 @@ async fn compute_configured_target_node_no_transition(
 
     let mut deps = SmallSet::new();
     let mut exec_deps = SmallSet::new();
+    let mut toolchain_deps = SmallSet::new();
 
     let platform_cfgs = compute_platform_cfgs(ctx, &target_node).await?;
 
@@ -602,6 +609,7 @@ async fn compute_configured_target_node_no_transition(
         let mut traversal = Traversal {
             deps: &mut deps,
             exec_deps: &mut exec_deps,
+            toolchain_deps: &mut toolchain_deps,
         };
         let attr_cfg_ctx = AttrConfigurationContextImpl::new(
             &resolved_configuration,
@@ -651,9 +659,10 @@ async fn compute_configured_target_node_no_transition(
 
     // Check transitive target compatibility. We now need to replace the dummy exec config we used
     // above with the real one
-    let dep_futures = deps
+    let dep_futures = toolchain_deps
         .iter()
         .map(|v| v.target().map_exec_cfg(execution_platform.cfg()))
+        .chain(deps.iter().map(|v| v.target().dupe()))
         .map(|v| async move { ctx.get_configured_target_node(&v).await });
 
     let exec_dep_futures = exec_deps
