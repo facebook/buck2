@@ -156,7 +156,7 @@ pub trait BuckSubcommand {
 impl<T: StreamingCommand> BuckSubcommand for T {
     /// Actual call that runs a `StreamingCommand`.
     /// Handles all of the business of setting up a runtime, server, and subscribers.
-    fn exec<'a>(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'a>) -> ExitResult {
+    fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.with_runtime(async move |mut ctx| {
             let work = async {
                 let constraints = if T::existing_only() {
