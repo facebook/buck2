@@ -23,6 +23,7 @@ load(":android_prebuilt_aar.bzl", "android_prebuilt_aar_impl")
 load(":android_resource.bzl", "android_resource_impl")
 load(":android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
 load(":apk_genrule.bzl", "apk_genrule_impl")
+load(":build_only_native_code.bzl", "is_build_only_native_code")
 load(":configuration.bzl", "cpu_split_transition", "cpu_transition", "is_building_android_binary_attr")
 load(":gen_aidl.bzl", "gen_aidl_impl")
 load(":prebuilt_native_library.bzl", "prebuilt_native_library_impl")
@@ -75,14 +76,6 @@ def _kotlin_toolchain():
         providers = [
             KotlinToolchainInfo,
         ],
-    )
-
-def is_build_only_native_code():
-    return select(
-        {
-            "DEFAULT": False,
-            "fbsource//xplat/buck2/platform/android:build_only_native_code": True,
-        },
     )
 
 implemented_rules = {

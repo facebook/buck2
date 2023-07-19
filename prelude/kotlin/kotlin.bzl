@@ -5,9 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "is_build_only_native_code", "select_dex_toolchain", "select_java_test_toolchain", "select_java_toolchain")
+load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version", "select_dex_toolchain", "select_java_test_toolchain", "select_java_toolchain")
 load(
     "@prelude//java:java_toolchain.bzl",
     "JavaPlatformInfo",

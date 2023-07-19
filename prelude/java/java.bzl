@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
@@ -67,14 +68,6 @@ def select_java_test_toolchain():
 def select_prebuilt_jar_toolchain():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
     return "fbcode//buck2/platform:prebuilt_jar"
-
-def is_build_only_native_code():
-    return select(
-        {
-            "DEFAULT": False,
-            "fbsource//xplat/buck2/platform/android:build_only_native_code": True,
-        },
-    )
 
 implemented_rules = {
     "jar_genrule": jar_genrule_impl,
