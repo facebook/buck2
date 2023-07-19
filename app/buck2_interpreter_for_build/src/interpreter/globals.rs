@@ -91,4 +91,5 @@ pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_package_natives(globals_builder);
     register_label(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_analysis_context)(globals_builder);
+    (MORE_FUNCTIONS.get().unwrap().register_dependency)(globals_builder);
 }

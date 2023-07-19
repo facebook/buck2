@@ -15,6 +15,7 @@ use crate::interpreter::build_defs::register_transitive_set;
 use crate::interpreter::rule_defs::cmd_args::register_cmd_args;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
 use crate::interpreter::rule_defs::context::register_analysis_context;
+use crate::interpreter::rule_defs::provider::dependency::register_dependency;
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use crate::interpreter::rule_defs::register_rule_defs;
 
@@ -27,5 +28,6 @@ pub(crate) fn init_more_functions() {
         register_rule_defs,
         register_transitive_set,
         register_analysis_context,
+        register_dependency,
     });
 }

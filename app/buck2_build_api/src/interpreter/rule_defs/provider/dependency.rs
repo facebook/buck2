@@ -17,12 +17,15 @@ use buck2_core::provider::label::ProviderName;
 use buck2_interpreter::types::label::Label;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
+use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -132,6 +135,7 @@ where
     }
 }
 
+/// Dependency type. In Starlark typing it can be represented with `Dependency` global.
 #[starlark_module]
 fn dependency_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
@@ -152,7 +156,7 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
 
     /// Obtain the dependency representing a subtarget. In most cases you will want to use
     /// `x[DefaultInfo].sub_targets["foo"]` to get the _providers_ of the subtarget, but if you
-    /// need a real `"dependency"` type (e.g. for use with `ctx.action.anon_target`) then use
+    /// need a real `Dependency` type (e.g. for use with `ctx.action.anon_target`) then use
     /// this method.
     fn sub_target<'v>(
         this: &Dependency<'v>,
@@ -174,4 +178,9 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
     fn get<'v>(this: &Dependency<'v>, index: Value<'v>) -> anyhow::Result<Value<'v>> {
         this.provider_collection()?.get(index)
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_dependency(globals: &mut GlobalsBuilder) {
+    const Dependency: StarlarkValueAsType<DependencyGen<FrozenValue>> = StarlarkValueAsType::new();
 }
