@@ -198,25 +198,33 @@ async fn check_execution_platform(
         }
     }
 
-    // Then check that all exec_deps are compatible with the platform
+    // Then check that all exec_deps are compatible with the platform. We collect errors separately,
+    // so that we do not report an error if we would later find an incompatibility
+    let mut errs = Vec::new();
     for dep in exec_deps {
-        let dep_node = ctx
+        match ctx
             .get_configured_target_node(
                 &dep.configure_pair_no_exec(exec_platform.cfg_pair_no_exec().dupe()),
             )
             .await
-            .with_context(|| {
-                format!(
-                    "Error checking compatibility of `{}` with `{}`",
-                    dep,
-                    exec_platform.cfg()
-                )
-            })?;
-        if let MaybeCompatible::Incompatible(reason) = dep_node {
-            return Ok(Err(
-                ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(reason.dupe()),
-            ));
-        }
+        {
+            Ok(MaybeCompatible::Compatible(_)) => (),
+            Ok(MaybeCompatible::Incompatible(reason)) => {
+                return Ok(Err(
+                    ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(
+                        reason.dupe(),
+                    ),
+                ));
+            }
+            Err(e) => errs.push(e.context(format!(
+                "Error checking compatibility of `{}` with `{}`",
+                dep,
+                exec_platform.cfg()
+            ))),
+        };
+    }
+    if let Some(e) = errs.pop() {
+        return Err(e);
     }
 
     Ok(Ok(()))
