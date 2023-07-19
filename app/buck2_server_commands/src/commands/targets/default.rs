@@ -140,7 +140,14 @@ pub(crate) async fn targets_batch(
                         formatter.separator(&mut buffer);
                     }
                     needs_separator = true;
-                    formatter.target(TargetInfo { node, target_hash }, &mut buffer)
+                    formatter.target(
+                        TargetInfo {
+                            node,
+                            target_hash,
+                            super_package: res.super_package(),
+                        },
+                        &mut buffer,
+                    )
                 }
             }
             Err(e) => {

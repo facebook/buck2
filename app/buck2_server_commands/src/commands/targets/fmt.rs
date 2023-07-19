@@ -29,6 +29,7 @@ use buck2_node::nodes::attributes::TARGET_CALL_STACK;
 use buck2_node::nodes::attributes::TARGET_HASH;
 use buck2_node::nodes::attributes::TYPE;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::super_package::SuperPackage;
 use buck2_util::indent::indent;
 use gazebo::prelude::SliceExt;
 use regex::RegexSet;
@@ -47,6 +48,8 @@ enum FormatterError {
 pub(crate) struct TargetInfo<'a> {
     pub(crate) node: &'a TargetNode,
     pub(crate) target_hash: Option<BuckTargetHash>,
+    #[allow(unused)]
+    pub(crate) super_package: &'a SuperPackage,
 }
 
 fn package_error_to_stderr(package: &PackageLabel, error: &anyhow::Error, stderr: &mut String) {

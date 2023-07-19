@@ -142,6 +142,7 @@ pub(crate) async fn targets_streaming(
                                                 target_hash: fast_hash.map(|fast| {
                                                     TargetHashes::compute_immediate_one(node, fast)
                                                 }),
+                                                super_package: eval_result.super_package(),
                                             },
                                             &mut res.stdout,
                                         )
