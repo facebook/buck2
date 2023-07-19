@@ -24,7 +24,7 @@ load("@prelude//utils:utils.bzl", "expect", "flatten", "is_any")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
-load(":apple_bundle_types.bzl", "AppleBinaryExtraOutputsInfo", "AppleBundleExtraOutputsInfo", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
+load(":apple_bundle_types.bzl", "AppleBinaryExtraOutputsInfo", "AppleBundleBinaryOutput", "AppleBundleExtraOutputsInfo", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
 load(":apple_dsym.bzl", "AppleBundleDebuggableInfo", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
@@ -47,13 +47,6 @@ AppleBundlePartListOutput = record(
     parts = field([AppleBundlePart.type]),
     # Part that holds the info.plist
     info_plist_part = field(AppleBundlePart.type),
-)
-
-AppleBundleBinaryOutput = record(
-    binary = field("artifact"),
-    debuggable_info = field([AppleDebuggableInfo.type, None], None),
-    # In the case of watchkit, the `ctx.attrs.binary`'s not set, and we need to create a stub binary.
-    is_watchkit_stub_binary = field(bool, False),
 )
 
 def _get_binary(ctx: "context") -> AppleBundleBinaryOutput.type:
