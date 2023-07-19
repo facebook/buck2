@@ -11,7 +11,7 @@
 
 mod transitive_set;
 mod transitive_set_args_projection;
-mod transitive_set_definition;
+pub mod transitive_set_definition;
 mod transitive_set_iterator;
 mod transitive_set_json_projection;
 mod traversal;

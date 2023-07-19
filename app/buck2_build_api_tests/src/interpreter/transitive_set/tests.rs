@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use buck2_build_api::interpreter::build_defs::register_transitive_set;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
+use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;

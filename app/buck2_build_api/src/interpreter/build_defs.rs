@@ -8,7 +8,6 @@
  */
 
 use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
-use buck2_interpreter::path::StarlarkPath;
 use either::Either;
 use itertools::Itertools;
 use starlark::collections::SmallMap;
@@ -16,22 +15,14 @@ use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::Value;
 use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::callable::UserProviderCallable;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSetOperations;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSetProjectionKind;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSetProjectionSpec;
 
 #[derive(Debug, thiserror::Error)]
 enum NativesError {
     #[error("non-unique field names: [{}]", .0.iter().map(|s| format!("`{}`", s)).join(", "))]
     NonUniqueFields(Vec<String>),
-    #[error("`transitive_set()` can only be used in `bzl` files")]
-    TransitiveSetOnlyInBzl,
 }
 
 #[starlark_module]
@@ -84,72 +75,6 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
             docstring,
             field_docs,
             field_names,
-        ))
-    }
-}
-
-#[starlark_module]
-pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
-    fn transitive_set<'v>(
-        args_projections: Option<SmallMap<String, Value<'v>>>,
-        json_projections: Option<SmallMap<String, Value<'v>>>,
-        reductions: Option<SmallMap<String, Value<'v>>>,
-        eval: &mut Evaluator,
-    ) -> anyhow::Result<TransitiveSetDefinition<'v>> {
-        // TODO(cjhopman): Reductions could do similar signature checking.
-        let projections: SmallMap<_, _> = args_projections
-            .into_iter()
-            .flat_map(|v| v.into_iter())
-            .map(|(k, v)| {
-                (
-                    k,
-                    TransitiveSetProjectionSpec {
-                        kind: TransitiveSetProjectionKind::Args,
-                        projection: v,
-                    },
-                )
-            })
-            .chain(
-                json_projections
-                    .into_iter()
-                    .flat_map(|v| v.into_iter())
-                    .map(|(k, v)| {
-                        (
-                            k,
-                            TransitiveSetProjectionSpec {
-                                kind: TransitiveSetProjectionKind::Json,
-                                projection: v,
-                            },
-                        )
-                    }),
-            )
-            .collect();
-
-        // Both kinds of projections take functions with the same signature.
-        for (name, spec) in projections.iter() {
-            // We should probably be able to require that the projection returns a parameters_spec, but
-            // we don't depend on this type-checking and we'd just error out later when calling it if it
-            // were wrong.
-            if let Some(v) = spec.projection.parameters_spec() {
-                if v.len() != 1 {
-                    return Err(TransitiveSetError::ProjectionSignatureError {
-                        name: name.clone(),
-                    }
-                    .into());
-                }
-            };
-        }
-
-        let starlark_path: StarlarkPath = (STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?;
-        Ok(TransitiveSetDefinition::new(
-            match starlark_path {
-                StarlarkPath::LoadFile(import_path) => import_path.clone(),
-                _ => return Err(NativesError::TransitiveSetOnlyInBzl.into()),
-            },
-            TransitiveSetOperations {
-                projections,
-                reductions: reductions.unwrap_or_default(),
-            },
         ))
     }
 }

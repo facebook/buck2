@@ -16,6 +16,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::bzl::ImportPath;
+use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
+use buck2_interpreter::path::StarlarkPath;
 use derive_more::Display;
 use dupe::Dupe;
 use serde::Serialize;
@@ -25,6 +27,7 @@ use starlark::coerce::coerce;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::collections::StarlarkHasher;
+use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
@@ -39,6 +42,12 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
+
+#[derive(Debug, thiserror::Error)]
+enum TransitiveSetDefinitionError {
+    #[error("`transitive_set()` can only be used in `bzl` files")]
+    TransitiveSetOnlyInBzl,
+}
 
 #[derive(Debug, Clone, Dupe, Copy, Trace, Freeze, PartialEq, Allocative)]
 pub enum TransitiveSetProjectionKind {
@@ -176,7 +185,7 @@ impl<'v> Serialize for TransitiveSetDefinition<'v> {
 }
 
 impl<'v> TransitiveSetDefinition<'v> {
-    pub fn new(module_id: ImportPath, operations: TransitiveSetOperations<'v>) -> Self {
+    fn new(module_id: ImportPath, operations: TransitiveSetOperations<'v>) -> Self {
         Self {
             id: RefCell::new(None),
             module_id,
@@ -376,5 +385,71 @@ impl<'v> TransitiveSetDefinitionLike<'v> for FrozenTransitiveSetDefinition {
 
     fn operations(&self) -> &TransitiveSetOperations<'v> {
         coerce(&self.operations)
+    }
+}
+
+#[starlark_module]
+pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
+    fn transitive_set<'v>(
+        args_projections: Option<SmallMap<String, Value<'v>>>,
+        json_projections: Option<SmallMap<String, Value<'v>>>,
+        reductions: Option<SmallMap<String, Value<'v>>>,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<TransitiveSetDefinition<'v>> {
+        // TODO(cjhopman): Reductions could do similar signature checking.
+        let projections: SmallMap<_, _> = args_projections
+            .into_iter()
+            .flat_map(|v| v.into_iter())
+            .map(|(k, v)| {
+                (
+                    k,
+                    TransitiveSetProjectionSpec {
+                        kind: TransitiveSetProjectionKind::Args,
+                        projection: v,
+                    },
+                )
+            })
+            .chain(
+                json_projections
+                    .into_iter()
+                    .flat_map(|v| v.into_iter())
+                    .map(|(k, v)| {
+                        (
+                            k,
+                            TransitiveSetProjectionSpec {
+                                kind: TransitiveSetProjectionKind::Json,
+                                projection: v,
+                            },
+                        )
+                    }),
+            )
+            .collect();
+
+        // Both kinds of projections take functions with the same signature.
+        for (name, spec) in projections.iter() {
+            // We should probably be able to require that the projection returns a parameters_spec, but
+            // we don't depend on this type-checking and we'd just error out later when calling it if it
+            // were wrong.
+            if let Some(v) = spec.projection.parameters_spec() {
+                if v.len() != 1 {
+                    return Err(TransitiveSetError::ProjectionSignatureError {
+                        name: name.clone(),
+                    }
+                    .into());
+                }
+            };
+        }
+
+        let starlark_path: StarlarkPath = (STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?;
+        Ok(TransitiveSetDefinition::new(
+            match starlark_path {
+                StarlarkPath::LoadFile(import_path) => import_path.clone(),
+                _ => return Err(TransitiveSetDefinitionError::TransitiveSetOnlyInBzl.into()),
+            },
+            TransitiveSetOperations {
+                projections,
+                reductions: reductions.unwrap_or_default(),
+            },
+        ))
     }
 }
