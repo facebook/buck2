@@ -202,6 +202,21 @@ mod fbcode {
                         } else if let Some(ref mut command_end) = invocation_record.command_end {
                             Self::truncate_command_end(command_end, false);
                         }
+
+                        const MAX_CLI_ARGS_BYTES: usize = 512 * 1024;
+                        let orig_len = invocation_record.cli_args.len();
+                        let mut bytes: usize = 0;
+                        for (index, arg) in invocation_record.cli_args.iter().enumerate() {
+                            bytes += arg.len();
+                            if bytes > MAX_CLI_ARGS_BYTES {
+                                invocation_record.cli_args.truncate(index);
+                                invocation_record.cli_args.push(format!(
+                                    "<<Truncated (reported {} / {})>>",
+                                    index, orig_len
+                                ));
+                                break;
+                            }
+                        }
                     }
                 }
                 _ => {}
@@ -699,6 +714,53 @@ mod fbcode {
                 file_watcher_stats: Some(file_watcher_stats),
                 ..Default::default()
             };
+            let mut event_data = make_invocation_record(record);
+            let event_data_expected = event_data.clone();
+
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            assert_eq!(event_data, event_data_expected);
+        }
+
+        #[test]
+        fn smart_truncate_invocation_record_long_cli_args_truncated() {
+            let cli_args = vec![
+                "0123456789".repeat(20 * 1024),
+                "0123456789".repeat(20 * 1024),
+                "0123456789".repeat(20 * 1024), // 600k in total; 88k-byte over
+            ];
+            let cli_args_truncated = vec![
+                "0123456789".repeat(20 * 1024),
+                "0123456789".repeat(20 * 1024),
+                "<<Truncated (reported 2 / 3)>>".to_owned(),
+            ];
+
+            let mut record = buck2_data::InvocationRecord {
+                cli_args,
+                ..Default::default()
+            };
+            let mut record_truncated = buck2_data::InvocationRecord {
+                cli_args: cli_args_truncated,
+                ..Default::default()
+            };
+
+            let mut event_data = make_invocation_record(record);
+            let event_data_expected = make_invocation_record(record_truncated);
+
+            ThriftScribeSink::smart_truncate_event(&mut event_data);
+
+            assert_eq!(event_data, event_data_expected);
+        }
+
+        #[test]
+        fn smart_truncate_invocation_record_short_cli_args_truncated() {
+            let cli_args = vec!["this is".to_owned(), "a test".to_owned()];
+
+            let mut record = buck2_data::InvocationRecord {
+                cli_args,
+                ..Default::default()
+            };
+
             let mut event_data = make_invocation_record(record);
             let event_data_expected = event_data.clone();
 
