@@ -101,9 +101,9 @@ def apple_test_impl(ctx: "context") -> [["provider"], "promise"]:
 
         binary_part = AppleBundlePart(source = test_binary, destination = AppleBundleDestination("executables"), new_name = ctx.attrs.name)
         part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = [binary_part]))
-        assemble_bundle(ctx, xctest_bundle, part_list_output.parts, part_list_output.info_plist_part, None)
+        sub_targets = assemble_bundle(ctx, xctest_bundle, part_list_output.parts, part_list_output.info_plist_part, None)
 
-        sub_targets = cxx_library_output.sub_targets
+        sub_targets.update(cxx_library_output.sub_targets)
         (debuginfo,) = sub_targets[DEBUGINFO_SUBTARGET]
         dsym_artifact = get_apple_dsym(
             ctx = ctx,

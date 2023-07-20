@@ -200,12 +200,10 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
 
     primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, primary_binary_part)
 
-    assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part, SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path))
+    sub_targets = assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part, SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path))
 
     primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
     run_cmd = cmd_args(primary_binary_path).hidden(bundle)
-
-    sub_targets = {}
 
     linker_maps_directory, linker_map_info = _linker_maps_data(ctx)
     sub_targets["linker-maps"] = [DefaultInfo(default_output = linker_maps_directory)]

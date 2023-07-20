@@ -40,7 +40,15 @@ def bundle_output(ctx: "context") -> "artifact":
     output = ctx.actions.declare_output(bundle_dir_name)
     return output
 
-def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.type], info_plist_part: [AppleBundlePart.type, None], swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> None:
+def assemble_bundle(
+        ctx: "context",
+        bundle: "artifact",
+        parts: [AppleBundlePart.type],
+        info_plist_part: [AppleBundlePart.type, None],
+        swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> {str: ["provider"]}:
+    """
+    Returns extra subtargets related to bundling.
+    """
     all_parts = parts + [info_plist_part] if info_plist_part else []
     spec_file = _bundle_spec_json(ctx, all_parts)
 
@@ -153,9 +161,11 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         profile_output = ctx.actions.declare_output("bundling_profile.txt").as_output()
         command.add("--profile-output", profile_output)
 
+    subtargets = {}
     if ctx.attrs._bundling_log_file_enabled:
-        bundling_log_output = ctx.actions.declare_output("bundling_log.txt").as_output()
-        command.add("--log-file", bundling_log_output)
+        bundling_log_output = ctx.actions.declare_output("bundling_log.txt")
+        command.add("--log-file", bundling_log_output.as_output())
+        subtargets["bundling-log"] = [DefaultInfo(default_output = bundling_log_output)]
 
     command.add(codesign_configuration_args)
 
@@ -173,6 +183,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         env = env,
         **run_incremental_args
     )
+    return subtargets
 
 def get_bundle_dir_name(ctx: "context") -> str:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
