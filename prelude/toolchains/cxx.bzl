@@ -45,7 +45,6 @@ def _system_cxx_toolchain_impl(ctx):
     cxx_compiler = ctx.attrs.cxx_compiler
     linker = ctx.attrs.linker
     linker_type = "gnu"
-    supports_pic = True
     pic_behavior = PicBehavior("supported")
     binary_extension = ""
     object_file_extension = "o"
@@ -65,7 +64,6 @@ def _system_cxx_toolchain_impl(ctx):
         cxx_compiler = compiler
         linker = _windows_linker_wrapper(ctx)
         linker_type = "windows"
-        supports_pic = False
         binary_extension = "exe"
         object_file_extension = "obj"
         static_library_extension = "lib"
@@ -109,7 +107,6 @@ def _system_cxx_toolchain_impl(ctx):
                 static_library_extension = static_library_extension,
                 force_full_hybrid_if_capable = False,
                 is_pdb_generated = is_pdb_generated(linker_type, ctx.attrs.link_flags),
-                supports_pic = supports_pic,
             ),
             bolt_enabled = False,
             binary_utilities_info = BinaryUtilitiesInfo(

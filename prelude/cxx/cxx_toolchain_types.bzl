@@ -51,8 +51,6 @@ LinkerInfo = provider(fields = [
     "requires_archives",
     "requires_objects",
     "supports_distributed_thinlto",
-    # Deprecated, use cxx_toolchain.pic_behavior instead.
-    "supports_pic",
     "independent_shlib_interface_linker_flags",
     "type",  # of "LinkerType" type
     "use_archiver_flags",
