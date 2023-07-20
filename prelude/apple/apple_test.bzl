@@ -109,7 +109,7 @@ def apple_test_impl(ctx: "context") -> [["provider"], "promise"]:
         dsym_artifact = get_apple_dsym(
             ctx = ctx,
             executable = test_binary,
-            external_debug_info = debuginfo.other_outputs,
+            debug_info = debuginfo.other_outputs,
             action_identifier = "generate_apple_test_dsym",
             output_path_override = get_bundle_dir_name(ctx) + ".dSYM",
         )

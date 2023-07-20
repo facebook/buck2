@@ -66,7 +66,7 @@ SwiftDependencyInfo = provider(fields = [
     "exported_headers",  # ExportedHeadersTSet of {"module_name": [exported_headers]}
     "exported_swiftmodule_paths",  # SwiftmodulePathsTSet of artifact that includes only paths through exported_deps, used for compilation
     "transitive_swiftmodule_paths",  # SwiftmodulePathsTSet of artifact that includes all transitive paths, used for linking
-    "external_debug_info",
+    "debug_info_tset",  # ArtifactTSet
 ])
 
 SwiftCompilationOutput = record(
@@ -563,7 +563,7 @@ def _get_transitive_swift_paths_tsets(deps: ["dependency"]) -> [SwiftmodulePaths
 
 def _get_external_debug_info_tsets(deps: ["dependency"]) -> [ArtifactTSet.type]:
     return [
-        d[SwiftDependencyInfo].external_debug_info
+        d[SwiftDependencyInfo].debug_info_tset
         for d in deps
         if SwiftDependencyInfo in d
     ]
@@ -617,7 +617,7 @@ def get_swift_dependency_info(
         exported_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(exported_deps))
         transitive_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_transitive_swift_paths_tsets(all_deps))
 
-    external_debug_info = make_artifact_tset(
+    debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = [output_module] if output_module != None else [],
@@ -628,7 +628,7 @@ def get_swift_dependency_info(
         exported_headers = _get_exported_headers_tset(ctx, exported_headers),
         exported_swiftmodule_paths = exported_swiftmodules,
         transitive_swiftmodule_paths = transitive_swiftmodules,
-        external_debug_info = external_debug_info,
+        debug_info_tset = debug_info_tset,
     )
 
 def _header_basename(header: ["artifact", "string"]) -> "string":

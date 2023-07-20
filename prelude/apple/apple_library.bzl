@@ -72,7 +72,11 @@ load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_module_name")
-load(":debug.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET")
+load(
+    ":debug.bzl",
+    "AppleDebuggableInfo",
+    "DEBUGINFO_SUBTARGET",
+)
 load(":modulemap.bzl", "preprocessor_info_for_modulemap")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
@@ -171,16 +175,16 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     # When linking, we expect each linked object to provide the transitively required swiftmodule AST entries for linking.
     swiftmodule_linkable = get_swiftmodule_linkable(ctx, swift_compile.dependency_info) if swift_compile else None
 
-    swift_static_external_debug_info = _get_swift_static_external_debug_info(ctx, swift_compile.swiftmodule) if swift_compile else []
+    swift_static_debug_info = _get_swift_static_debug_info(ctx, swift_compile.swiftmodule) if swift_compile else []
 
     # When determing the debug info for shared libraries, if the shared library is a link group, we rely on the link group links to
     # obtain the debug info for linked libraries and only need to provide any swift debug info for this library itself. Otherwise
     # if linking standard shared, we need to obtain the transitive debug info.
     swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, exported_pre, None)
     if get_link_group(ctx):
-        swift_shared_external_debug_info = swift_static_external_debug_info
+        swift_shared_debug_info = swift_static_debug_info
     else:
-        swift_shared_external_debug_info = _get_swift_shared_external_debug_info(swift_dependency_info) if swift_dependency_info else []
+        swift_shared_debug_info = _get_swift_shared_debug_info(swift_dependency_info) if swift_dependency_info else []
 
     modular_pre = CPreprocessor(
         uses_modules = ctx.attrs.uses_modules,
@@ -232,8 +236,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
             # We need to add any swift modules that we include in the link, as
             # these will end up as `N_AST` entries that `dsymutil` will need to
             # follow.
-            static_external_debug_info = swift_static_external_debug_info,
-            shared_external_debug_info = swift_shared_external_debug_info,
+            static_external_debug_info = swift_static_debug_info,
+            shared_external_debug_info = swift_shared_debug_info,
             subtargets = {
                 "swift-compile": [DefaultInfo(default_output = swift_compile.object_file if swift_compile else None)],
             },
@@ -275,7 +279,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         ctx: "context",
         executable: "artifact",
-        external_debug_info: ArtifactTSet.type,
+        debug_info_tset: ArtifactTSet.type,
         _dwp: ["artifact", None],
         _pdb: ["artifact", None],
         linker_map: [CxxLinkerMapData.type, None]) -> ({str: ["provider"]}, ["provider"]):
@@ -285,37 +289,37 @@ def _get_shared_link_style_sub_targets_and_providers(
     min_version = get_min_deployment_version_for_node(ctx)
     min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
 
-    external_debug_info_args = project_artifacts(
+    debug_info = project_artifacts(
         actions = ctx.actions,
-        tsets = [external_debug_info],
+        tsets = [debug_info_tset],
     )
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
         executable = executable,
-        external_debug_info = external_debug_info_args,
+        debug_info = debug_info,
         action_identifier = executable.short_path,
     )
     subtargets = {
         DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
-        DEBUGINFO_SUBTARGET: [DefaultInfo(other_outputs = external_debug_info_args)],
+        DEBUGINFO_SUBTARGET: [DefaultInfo(other_outputs = debug_info)],
     }
     providers = [
-        AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = external_debug_info),
+        AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = debug_info_tset),
     ] + min_version_providers
     if linker_map != None:
         subtargets["linker-map"] = [DefaultInfo(default_output = linker_map.map, other_outputs = [linker_map.binary])]
         providers += [AppleBundleLinkerMapInfo(linker_maps = [linker_map.map])]
     return (subtargets, providers)
 
-def _get_swift_static_external_debug_info(ctx: "context", swiftmodule: "artifact") -> [ArtifactTSet.type]:
+def _get_swift_static_debug_info(ctx: "context", swiftmodule: "artifact") -> [ArtifactTSet.type]:
     return [make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = [swiftmodule],
     )]
 
-def _get_swift_shared_external_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> [ArtifactTSet.type]:
-    return [swift_dependency_info.external_debug_info] if swift_dependency_info.external_debug_info else []
+def _get_swift_shared_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> [ArtifactTSet.type]:
+    return [swift_dependency_info.debug_info_tset] if swift_dependency_info.debug_info_tset else []
 
 def _get_linker_flags(ctx: "context") -> cmd_args:
     return cmd_args(get_min_deployment_version_target_linker_flags(ctx))

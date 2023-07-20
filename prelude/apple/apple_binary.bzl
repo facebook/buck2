@@ -94,18 +94,18 @@ def apple_binary_impl(ctx: "context") -> [["provider"], "promise"]:
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 
-        external_debug_info = project_artifacts(
+        debug_info = project_artifacts(
             actions = ctx.actions,
             tsets = [cxx_output.external_debug_info],
         )
         dsym_artifact = get_apple_dsym(
             ctx = ctx,
             executable = cxx_output.binary,
-            external_debug_info = external_debug_info,
+            debug_info = debug_info,
             action_identifier = cxx_output.binary.short_path,
         )
         cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
-        cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = external_debug_info)]
+        cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = debug_info)]
         cxx_output.sub_targets.update(extra_linker_output_providers)
 
         min_version = get_min_deployment_version_for_node(ctx)
@@ -125,7 +125,7 @@ def apple_binary_impl(ctx: "context") -> [["provider"], "promise"]:
             DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
             RunInfo(args = cmd_args(cxx_output.binary).hidden(cxx_output.runtime_files)),
             AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
-            AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = cxx_output.external_debug_info),
+            AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = cxx_output.external_debug_info),
             cxx_output.xcode_data,
             cxx_output.compilation_db,
             merge_bundle_linker_maps_info(bundle_infos),

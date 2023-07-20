@@ -16,5 +16,5 @@ AppleDebugInfo = ArtifactProjection
 
 AppleDebuggableInfo = provider(fields = [
     "dsyms",  # ["artifact"]
-    "external_debug_info",  # ArtifactTSet.type
+    "debug_info_tset",  # ArtifactTSet.type
 ])

@@ -5,7 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "make_artifact_tset", "project_artifacts")
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",  # @unused Used as a type
+    "make_artifact_tset",
+    "project_artifacts",
+)
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs") 
@@ -28,7 +33,11 @@ load(":apple_bundle_types.bzl", "AppleBinaryExtraOutputsInfo", "AppleBundleBinar
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
 load(":apple_dsym.bzl", "AppleBundleDebuggableInfo", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
-load(":debug.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET")
+load(
+    ":debug.bzl",
+    "AppleDebuggableInfo",
+    "DEBUGINFO_SUBTARGET",
+)
 load(":xcode.bzl", "apple_xcode_data_add_xctoolchain")
 
 INSTALL_DATA_SUB_TARGET = "install-data"
@@ -92,30 +101,30 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
 
     # If we have debuggable info for this binary, create the scrubed dsym for the binary
     # and filter debug info.
-    external_debug_info = debuggable_info.external_debug_info
-    dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, external_debug_info)
+    debug_info_tset = debuggable_info.debug_info_tset
+    dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
 
     # TODO: We should add specialized traversal that does this filtering lazily.
-    all_debug_info = external_debug_info._tset.traverse()
+    all_debug_info = debug_info_tset._tset.traverse()
     filtered_debug_info = selective_debugging_info.filter(all_debug_info)
     filtered_external_debug_info = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = filtered_debug_info,
     )
-    debuggable_info = AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = filtered_external_debug_info)
+    debuggable_info = AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = filtered_external_debug_info)
 
     return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
 
-def _get_scrubbed_binary_dsym(ctx, binary: "artifact", external_debug_info: "ArtifactTSet") -> "artifact":
-    external_debug_info_args = project_artifacts(
+def _get_scrubbed_binary_dsym(ctx, binary: "artifact", debug_info_tset: ArtifactTSet.type) -> "artifact":
+    debug_info = project_artifacts(
         actions = ctx.actions,
-        tsets = [external_debug_info],
+        tsets = [debug_info_tset],
     )
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
         executable = binary,
-        external_debug_info = external_debug_info_args,
+        debug_info = debug_info,
         action_identifier = binary.short_path,
     )
     return dsym_artifact
@@ -160,14 +169,14 @@ def _get_debuggable_deps(ctx: "context", binary_output: AppleBundleBinaryOutput.
             ctx = ctx,
             # Calling `dsymutil` on the correctly named binary in the _final bundle_
             executable = run_cmd,
-            external_debug_info = project_artifacts(
+            debug_info = project_artifacts(
                 actions = ctx.actions,
-                tsets = [binary_debuggable_info.external_debug_info] if binary_debuggable_info else [],
+                tsets = [binary_debuggable_info.debug_info_tset] if binary_debuggable_info else [],
             ),
             action_identifier = get_bundle_dir_name(ctx),
             output_path = _get_bundle_dsym_name(ctx),
         )
-        bundle_debuggable_info = AppleDebuggableInfo(dsyms = [bundle_binary_dsym_artifact], external_debug_info = binary_debuggable_info.external_debug_info)
+        bundle_debuggable_info = AppleDebuggableInfo(dsyms = [bundle_binary_dsym_artifact], debug_info_tset = binary_debuggable_info.debug_info_tset)
 
     return AppleBundleDebuggableInfo(
         binary_info = bundle_debuggable_info,
@@ -217,16 +226,16 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     if dsym_artifacts:
         sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = dsym_artifacts)]
 
-    external_debug_info = make_artifact_tset(
+    debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
-        children = [info.external_debug_info for info in bundle_debuggable_info.all_infos],
+        children = [info.debug_info_tset for info in bundle_debuggable_info.all_infos],
     )
     sub_targets[DEBUGINFO_SUBTARGET] = [
         DefaultInfo(
             other_outputs = project_artifacts(
                 actions = ctx.actions,
-                tsets = [external_debug_info],
+                tsets = [debug_info_tset],
             ),
         ),
     ]
@@ -261,7 +270,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
             contains_watchapp = is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
             skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
         ),
-        AppleDebuggableInfo(dsyms = dsym_artifacts, external_debug_info = external_debug_info),
+        AppleDebuggableInfo(dsyms = dsym_artifacts, debug_info_tset = debug_info_tset),
         InstallInfo(
             installer = ctx.attrs._apple_toolchain[AppleToolchainInfo].installer,
             files = {
