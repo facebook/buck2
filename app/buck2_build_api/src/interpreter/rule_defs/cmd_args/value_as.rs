@@ -15,12 +15,14 @@ use starlark::values::ValueLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
+use crate::starlark::values::StarlarkValue;
 
 #[derive(Debug, thiserror::Error)]
 enum CommandLineArgError {
     #[error(
-        "expected command line item to be a string, artifact, or label, or list thereof, \
-        not `{repr}` (`{type_name}`)"
+        "expected command line item to be a string, artifact, or {}, or list thereof, \
+        not `{repr}` (`{type_name}`)",
+        StarlarkTargetLabel::TYPE
     )]
     InvalidItemType {
         repr: String,
