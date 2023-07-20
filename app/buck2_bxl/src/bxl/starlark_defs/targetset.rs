@@ -87,19 +87,13 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let i = index.unpack_i32().ok_or_else(|| {
-            ValueError::IncorrectParameterTypeWithExpected(
-                "int".to_owned(),
-                index.get_type().to_owned(),
-            )
-        })?;
-        if i < 0 {
-            return Err(anyhow::anyhow!(ValueError::IndexOutOfBound(i)));
+        let i = i32::unpack_value_err(index)?;
+        if let Ok(i) = usize::try_from(i) {
+            if let Some(node) = self.0.get_index(i) {
+                return Ok(node.dupe().alloc(heap));
+            }
         }
-        self.0
-            .get_index(i as usize)
-            .ok_or_else(|| anyhow::anyhow!(ValueError::IndexOutOfBound(i)))
-            .map(|node| node.dupe().alloc(heap))
+        Err(anyhow::anyhow!(ValueError::IndexOutOfBound(i)))
     }
 
     fn length(&self) -> anyhow::Result<i32> {
