@@ -36,9 +36,7 @@ use crate::values::ValueOfUnchecked;
 
 #[starlark_module]
 pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
-    /// [dict.clear](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·clear
-    /// ): clear a dictionary
+    /// Clear a dictionary
     ///
     /// `D.clear()` removes all the entries of dictionary D and returns `None`.
     /// It fails if the dictionary is frozen or if there are active iterators.
@@ -56,9 +54,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    /// [dict.get](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·get
-    /// ): return an element from the dictionary.
+    /// Return an element from the dictionary.
     ///
     /// `D.get(key[, default])` returns the dictionary value corresponding to
     /// the given key. If the dictionary contains no such value, `get`
@@ -90,9 +86,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         }
     }
 
-    /// [dict.items](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·items
-    /// ): get list of (key, value) pairs.
+    /// Get list of (key, value) pairs.
     ///
     /// `D.items()` returns a new list of key/value pairs, one per element in
     /// dictionary D, in the same order as they would be returned by a `for`
@@ -113,9 +107,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         )))
     }
 
-    /// [dict.keys](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·keys
-    /// ): get the list of keys of the dictionary.
+    /// Get the list of keys of the dictionary.
     ///
     /// `D.keys()` returns a new list containing the keys of dictionary D, in
     /// the same order as they would be returned by a `for` loop.
@@ -134,9 +126,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         Ok(ValueOfUnchecked::new(heap.alloc(AllocList(this.keys()))))
     }
 
-    /// [dict.pop](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·pop
-    /// ): return an element and remove it from a dictionary.
+    /// Return an element and remove it from a dictionary.
     ///
     /// `D.pop(key[, default])` returns the value corresponding to the specified
     /// key, and removes it from the dictionary.  If the dictionary contains no
@@ -189,9 +179,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         }
     }
 
-    /// [dict.popitem](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·popitem
-    /// ): returns and removes the first key/value pair of a dictionary.
+    /// Returns and removes the first key/value pair of a dictionary.
     ///
     /// `D.popitem()` returns the first key/value pair, removing it from the
     /// dictionary.
@@ -228,9 +216,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         }
     }
 
-    /// [dict.setdefault](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·setdefault
-    /// ): get a value from a dictionary, setting it to a new value if not
+    /// Get a value from a dictionary, setting it to a new value if not
     /// present.
     ///
     /// `D.setdefault(key[, default])` returns the dictionary value
@@ -272,9 +258,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         Ok(def)
     }
 
-    /// [dict.update](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·update
-    /// ): update values in the dictionary.
+    /// Update values in the dictionary.
     ///
     /// `D.update([pairs][, name=value[, ...])` makes a sequence of key/value
     /// insertions into dictionary D, then returns `None.`
@@ -343,9 +327,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    /// [dict.values](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#dict·values
-    /// ): get the list of values of the dictionary.
+    /// Get the list of values of the dictionary.
     ///
     /// `D.values()` returns a new list containing the dictionary's values, in
     /// the same order as they would be returned by a `for` loop over the

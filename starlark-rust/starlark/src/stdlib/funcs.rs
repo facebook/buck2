@@ -197,7 +197,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// A boolean representing false.
     const False: bool = false;
 
-    /// fail: fail the execution
+    /// Fail the execution
     ///
     /// ```
     /// # starlark::assert::fail(r#"
@@ -219,9 +219,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         Err(anyhow::anyhow!("fail:{}", s))
     }
 
-    /// [any](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#any
-    /// ): returns true if any value in the iterable object have a truth value
+    /// Returns true if any value in the iterable object have a truth value
     /// of true.
     ///
     /// ```
@@ -246,9 +244,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         Ok(false)
     }
 
-    /// [all](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#all
-    /// ): returns true if all values in the iterable object have a truth value
+    /// Returns true if all values in the iterable object have a truth value
     /// of true.
     ///
     /// ```
@@ -276,9 +272,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         Ok(true)
     }
 
-    /// [bool](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#bool
-    /// ): returns the truth value of any starlark value.
+    /// Returns the truth value of any starlark value.
     ///
     /// ```
     /// # starlark::assert::all_true(r#"
@@ -307,9 +301,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         }
     }
 
-    /// [chr](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#bool
-    /// ): returns a string encoding a codepoint.
+    /// Returns a string encoding a codepoint.
     ///
     /// `chr(i)` returns a returns a string that encodes the single Unicode code
     /// point whose value is specified by the integer `i`. `chr` fails
@@ -335,9 +327,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         }
     }
 
-    /// [dict](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dict
-    /// ): creates a dictionary.
+    /// Creates a dictionary.
     ///
     /// `dict` creates a dictionary. It accepts up to one positional argument,
     /// which is interpreted as an iterable of two-element sequences
@@ -408,9 +398,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         }
     }
 
-    /// [dir](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dir
-    /// ): list attributes of a value.
+    /// List attributes of a value.
     ///
     /// `dir(x)` returns a list of the names of the attributes (fields and
     /// methods) of its operand. The attributes of a value `x` are the names
@@ -426,9 +414,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         Ok(x.dir_attr())
     }
 
-    /// [enumerate](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#enumerate
-    /// ): return a list of (index, element) from an iterable.
+    /// Return a list of (index, element) from an iterable.
     ///
     /// `enumerate(x)` returns a list of `(index, value)` pairs, each containing
     /// successive values of the iterable sequence and the index of the
@@ -457,9 +443,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         Ok(AllocList(v))
     }
 
-    /// [float](
-    /// https://github.com/google/skylark/blob/a5f7082aabed29c0e429c722292c66ec8ecf9591/doc/spec.md#float
-    /// ): interprets its argument as a floating-point number.
+    /// Interprets its argument as a floating-point number.
     ///
     /// If x is a `float`, the result is x.
     /// if x is an `int`, the result is the nearest floating point value to x.
@@ -518,9 +502,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         }
     }
 
-    /// [getattr](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#getattr
-    /// ): returns the value of an attribute
+    /// Returns the value of an attribute
     ///
     /// `getattr(x, name)` returns the value of the attribute (field or method)
     /// of x named `name`. It is a dynamic error if x has no such attribute.
@@ -549,9 +531,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         }
     }
 
-    /// [hasattr](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#hasattr
-    /// ): test if an object has an attribute
+    /// Test if an object has an attribute
     ///
     /// `hasattr(x, name)` reports whether x has an attribute (field or method)
     /// named `name`.
@@ -564,9 +544,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         Ok(a.has_attr(attr, heap))
     }
 
-    /// [hash](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#hash
-    /// ): returns the hash number of a value.
+    /// Returns the hash number of a value.
     ///
     /// `hash(x)`` returns an integer hash value for x such that `x == y`
     /// implies `hash(x) == hash(y)``.
@@ -606,9 +584,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         }))
     }
 
-    /// [int](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#int
-    /// ): convert a value to integer.
+    /// Convert a value to integer.
     ///
     /// `int(x[, base])` interprets its argument as an integer.
     ///
@@ -743,9 +719,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         }
     }
 
-    /// [len](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#len
-    /// ): get the length of a sequence
+    /// Get the length of a sequence
     ///
     /// `len(x)` returns the number of elements in its argument.
     ///
@@ -769,9 +743,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         a.length()
     }
 
-    /// [list](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#list
-    /// ): construct a list.
+    /// Construct a list.
     ///
     /// `list(x)` returns a new list containing the elements of the
     /// iterable sequence x.
@@ -808,9 +780,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         }))
     }
 
-    /// [max](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#max
-    /// ): returns the maximum of a sequence.
+    /// Returns the maximum of a sequence.
     ///
     /// `max(x)` returns the greatest element in the iterable sequence x.
     ///
@@ -836,9 +806,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         min_max(args, key, eval, false)
     }
 
-    /// [min](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#min
-    /// ): returns the minimum of a sequence.
+    /// Returns the minimum of a sequence.
     ///
     /// `min(x)` returns the least element in the iterable sequence x.
     ///
@@ -861,9 +829,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         min_max(args, key, eval, true)
     }
 
-    /// [ord](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.mdord
-    /// ): returns the codepoint of a character
+    /// Returns the codepoint of a character
     ///
     /// `ord(s)` returns the integer value of the sole Unicode code point
     /// encoded by the string `s`.
@@ -895,9 +861,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         ))
     }
 
-    /// [range](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#range
-    /// ): return a range of integers
+    /// Return a range of integers
     ///
     /// `range` returns a tuple of integers defined by the specified interval
     /// and stride.
@@ -949,9 +913,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         Ok(Range::new(start, stop, step))
     }
 
-    /// [repr](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#repr
-    /// ): formats its argument as a string.
+    /// Formats its argument as a string.
     ///
     /// All strings in the result are double-quoted.
     ///
@@ -976,9 +938,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         Ok(r)
     }
 
-    /// [reversed](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#reversed
-    /// ): reverse a sequence
+    /// Reverse a sequence
     ///
     /// `reversed(x)` returns a new list containing the elements of the iterable
     /// sequence x in reverse order.
@@ -1001,9 +961,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         Ok(v)
     }
 
-    /// [sorted](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#sorted
-    /// ): sort a sequence
+    /// Sort a sequence
     ///
     /// `sorted(x)` returns a new list containing the elements of the iterable
     /// sequence x, in sorted order.  The sort algorithm is stable.
@@ -1065,9 +1023,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         Ok(AllocList(it.into_iter().map(|x| x.0)))
     }
 
-    /// [str](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#str
-    /// ): formats its argument as a string.
+    /// Formats its argument as a string.
     ///
     /// If x is a string, the result is x (without quotation).
     /// All other strings, such as elements of a list of strings, are
@@ -1097,9 +1053,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         }
     }
 
-    /// [tuple](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#tuple
-    /// ): returns a tuple containing the elements of the iterable x.
+    /// Returns a tuple containing the elements of the iterable x.
     ///
     /// With no arguments, `tuple()` returns the empty tuple.
     ///
@@ -1126,9 +1080,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         }
     }
 
-    /// [type](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#type
-    /// ): returns a string describing the type of its operand.
+    /// Returns a string describing the type of its operand.
     ///
     /// ```
     /// # starlark::assert::all_true(r#"
@@ -1144,9 +1096,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         Ok(a.get_type_value())
     }
 
-    /// [zip](
-    /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#zip
-    /// ): zip several iterables together
+    /// Zip several iterables together
     ///
     /// `zip()` returns a new list of n-tuples formed from corresponding
     /// elements of each of the n iterable sequences provided as arguments to
