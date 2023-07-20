@@ -91,7 +91,13 @@ impl FileTailer {
                     while reader.read_until(b'\n', &mut line).unwrap() != 0 {
                         let event = match stdout_or_stderr {
                             StdoutOrStderr::Stdout => FileTailerEvent::Stdout(line),
-                            StdoutOrStderr::Stderr => FileTailerEvent::Stderr(line),
+                            StdoutOrStderr::Stderr => {
+                                if omit_stderr_line(&line) {
+                                    line.clear();
+                                    continue;
+                                }
+                                FileTailerEvent::Stderr(line)
+                            }
                         };
                         if sender.send(event).is_err() {
                             break;
@@ -109,6 +115,14 @@ impl FileTailer {
     }
 }
 
+fn omit_stderr_line(line: &[u8]) -> bool {
+    fn bytes_contains(haystack: &[u8], needle: &[u8]) -> bool {
+        haystack.windows(needle.len()).any(|w| w == needle)
+    }
+
+    bytes_contains(line, b"[warn] kq_dispatch: skipping fd=") && bytes_contains(line, b"errno=9:")
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Write;
@@ -121,7 +135,7 @@ mod tests {
     use crate::file_tailer::StdoutOrStderr;
 
     #[tokio::test]
-    async fn test_tailer() -> anyhow::Result<()> {
+    async fn test_tailer_stdout() -> anyhow::Result<()> {
         let mut file = tempfile::NamedTempFile::new()?;
         file.write_all(b"before\n")?;
 
@@ -134,9 +148,12 @@ mod tests {
             StdoutOrStderr::Stdout,
         )?;
 
+        let omitted_on_stderr =
+            b"[warn] kq_dispatch: skipping fd=421 errno=9: Socket is not connected\n";
         let ok_line = b"after\n";
         let invalid_utf8_line = b"\xc3\x28\n";
 
+        file.write_all(omitted_on_stderr.as_slice())?;
         file.write_all(ok_line.as_slice())?;
         file.write_all(invalid_utf8_line.as_slice())?;
 
@@ -144,11 +161,53 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(250)).await;
         std::mem::drop(tailer);
         assert_eq!(
+            FileTailerEvent::Stdout((*omitted_on_stderr).into()),
+            receiver.recv().await.unwrap()
+        );
+        assert_eq!(
             FileTailerEvent::Stdout((*ok_line).into()),
             receiver.recv().await.unwrap()
         );
         assert_eq!(
             FileTailerEvent::Stdout((*invalid_utf8_line).into()),
+            receiver.recv().await.unwrap()
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_tailer_stderr() -> anyhow::Result<()> {
+        let mut file = tempfile::NamedTempFile::new()?;
+        file.write_all(b"before\n")?;
+
+        // If we could control the interval for tailer polling, we could reliably
+        // test more of the behavior. For now, just test a simple case.
+        let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let tailer = FileTailer::tail_file(
+            AbsNormPathBuf::new(file.path().to_owned())?,
+            sender,
+            StdoutOrStderr::Stderr,
+        )?;
+
+        let omitted_line =
+            b"[warn] kq_dispatch: skipping fd=421 errno=9: Socket is not connected\n";
+        let ok_line = b"after\n";
+        let invalid_utf8_line = b"\xc3\x28\n";
+
+        file.write_all(omitted_line.as_slice())?;
+        file.write_all(ok_line.as_slice())?;
+        file.write_all(invalid_utf8_line.as_slice())?;
+
+        // have to sleep long enough for a read or else this test is racy.
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        std::mem::drop(tailer);
+        assert_eq!(
+            FileTailerEvent::Stderr((*ok_line).into()),
+            receiver.recv().await.unwrap()
+        );
+        assert_eq!(
+            FileTailerEvent::Stderr((*invalid_utf8_line).into()),
             receiver.recv().await.unwrap()
         );
 
