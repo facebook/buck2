@@ -460,6 +460,7 @@ impl SpanTrackable for BuckEvent {
                 }
             }
             Some(Data::BxlDiceInvocation(..)) => true,
+            Some(Data::QueryEvaluation(..)) => true,
             _ => false,
         }
     }
