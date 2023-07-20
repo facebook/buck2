@@ -36,7 +36,9 @@ use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue as _;
 use starlark::values::Value;
+use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark_map::small_map::SmallMap;
 
@@ -90,6 +92,16 @@ where
             .collect())
     }
 
+    fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        let i = i32::unpack_value_err(index)?;
+        if let Ok(i) = usize::try_from(i) {
+            if let Some(artifact) = self.iter().nth(i) {
+                return Ok(heap.alloc(StarlarkArtifact::new(artifact.dupe())));
+            }
+        }
+        Err(anyhow::anyhow!(ValueError::IndexOutOfBound(i)))
+    }
+
     fn length(&self) -> anyhow::Result<i32> {
         i32::try_from(self.iter().count()).map_err(|e| e.into())
     }
@@ -135,6 +147,16 @@ where
 {
     fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
         Ok(self.iter().map(|e| heap.alloc(format!("{}", e))).collect())
+    }
+
+    fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        let i = i32::unpack_value_err(index)?;
+        if let Ok(i) = usize::try_from(i) {
+            if let Some(e) = self.iter().nth(i) {
+                return Ok(heap.alloc(format!("{}", e)));
+            }
+        }
+        Err(anyhow::anyhow!(ValueError::IndexOutOfBound(i)))
     }
 
     fn length(&self) -> anyhow::Result<i32> {
