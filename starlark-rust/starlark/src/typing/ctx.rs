@@ -291,6 +291,16 @@ impl TypingContext<'_> {
         }
     }
 
+    fn expr_bin_op_ty(
+        &self,
+        span: Span,
+        lhs: Spanned<Ty>,
+        op: TypingBinOp,
+        rhs: Spanned<Ty>,
+    ) -> Ty {
+        self.expression_primitive_ty(TypingAttr::BinOp(op), lhs.node, vec![rhs], span)
+    }
+
     fn expr_bin_op(&self, span: Span, lhs: &CstExpr, op: BinOp, rhs: &CstExpr) -> Ty {
         let lhs = self.expression_type_spanned(lhs);
         let rhs = self.expression_type_spanned(rhs);
@@ -314,90 +324,25 @@ impl TypingContext<'_> {
             }
             BinOp::In | BinOp::NotIn => {
                 // We dispatch `x in y` as y.__in__(x) as that's how we validate
-                self.expression_primitive_ty(
-                    TypingAttr::BinOp(TypingBinOp::In),
-                    rhs.node,
-                    vec![lhs],
-                    span,
-                );
+                self.expr_bin_op_ty(span, rhs, TypingBinOp::In, lhs);
                 // Ignore the return type, we know it's always a bool
                 bool_ret
             }
             BinOp::Less | BinOp::LessOrEqual | BinOp::Greater | BinOp::GreaterOrEqual => {
-                self.expression_primitive_ty(
-                    TypingAttr::BinOp(TypingBinOp::Less),
-                    lhs.node,
-                    vec![rhs],
-                    span,
-                );
+                self.expr_bin_op_ty(span, lhs, TypingBinOp::Less, rhs);
                 bool_ret
             }
-            BinOp::Subtract => self.expression_primitive_ty(
-                TypingAttr::BinOp(TypingBinOp::Sub),
-                lhs.node,
-                vec![rhs],
-                span,
-            ),
-            BinOp::Add => self.expression_primitive_ty(
-                TypingAttr::BinOp(TypingBinOp::Add),
-                lhs.node,
-                vec![rhs],
-                span,
-            ),
-            BinOp::Multiply => self.expression_primitive_ty(
-                TypingAttr::BinOp(TypingBinOp::Mul),
-                lhs.node,
-                vec![rhs],
-                span,
-            ),
-            BinOp::Percent => self.expression_primitive_ty(
-                TypingAttr::BinOp(TypingBinOp::Percent),
-                lhs.node,
-                vec![rhs],
-                span,
-            ),
-            BinOp::Divide => self.expression_primitive_ty(
-                TypingAttr::BinOp(TypingBinOp::Div),
-                lhs.node,
-                vec![rhs],
-                span,
-            ),
-            BinOp::FloorDivide => self.expression_primitive_ty(
-                TypingAttr::BinOp(TypingBinOp::FloorDiv),
-                lhs.node,
-                vec![rhs],
-                span,
-            ),
-            BinOp::BitAnd => self.expression_primitive_ty(
-                TypingAttr::BinOp(TypingBinOp::BitAnd),
-                lhs.node,
-                vec![rhs],
-                span,
-            ),
-            BinOp::BitOr => self.expression_primitive_ty(
-                TypingAttr::BinOp(TypingBinOp::BitOr),
-                lhs.node,
-                vec![rhs],
-                span,
-            ),
-            BinOp::BitXor => self.expression_primitive_ty(
-                TypingAttr::BinOp(TypingBinOp::BitXor),
-                lhs.node,
-                vec![rhs],
-                span,
-            ),
-            BinOp::LeftShift => self.expression_primitive_ty(
-                TypingAttr::BinOp(TypingBinOp::LeftShift),
-                lhs.node,
-                vec![rhs],
-                span,
-            ),
-            BinOp::RightShift => self.expression_primitive_ty(
-                TypingAttr::BinOp(TypingBinOp::RightShift),
-                lhs.node,
-                vec![rhs],
-                span,
-            ),
+            BinOp::Subtract => self.expr_bin_op_ty(span, lhs, TypingBinOp::Sub, rhs),
+            BinOp::Add => self.expr_bin_op_ty(span, lhs, TypingBinOp::Add, rhs),
+            BinOp::Multiply => self.expr_bin_op_ty(span, lhs, TypingBinOp::Mul, rhs),
+            BinOp::Percent => self.expr_bin_op_ty(span, lhs, TypingBinOp::Percent, rhs),
+            BinOp::Divide => self.expr_bin_op_ty(span, lhs, TypingBinOp::Div, rhs),
+            BinOp::FloorDivide => self.expr_bin_op_ty(span, lhs, TypingBinOp::FloorDiv, rhs),
+            BinOp::BitAnd => self.expr_bin_op_ty(span, lhs, TypingBinOp::BitAnd, rhs),
+            BinOp::BitOr => self.expr_bin_op_ty(span, lhs, TypingBinOp::BitOr, rhs),
+            BinOp::BitXor => self.expr_bin_op_ty(span, lhs, TypingBinOp::BitXor, rhs),
+            BinOp::LeftShift => self.expr_bin_op_ty(span, lhs, TypingBinOp::LeftShift, rhs),
+            BinOp::RightShift => self.expr_bin_op_ty(span, lhs, TypingBinOp::RightShift, rhs),
         }
     }
 
