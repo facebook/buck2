@@ -578,7 +578,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     sub_targets["debuginfo"] = [DefaultInfo(
         other_outputs = project_artifact_tset(
             actions = ctx.actions,
-            infos = [external_debug_info],
+            tsets = [external_debug_info],
         ),
     )]
 

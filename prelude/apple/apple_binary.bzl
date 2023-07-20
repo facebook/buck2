@@ -95,7 +95,7 @@ def apple_binary_impl(ctx: "context") -> [["provider"], "promise"]:
 
         external_debug_info = project_artifact_tset(
             actions = ctx.actions,
-            infos = [cxx_output.external_debug_info],
+            tsets = [cxx_output.external_debug_info],
         )
         dsym_artifact = get_apple_dsym(
             ctx = ctx,

@@ -142,7 +142,7 @@ def executable_shared_lib_arguments(
     runtime_files.extend(
         project_artifact_tset(
             actions = actions,
-            infos = [shlib.external_debug_info for shlib in shared_libs.values()],
+            tsets = [shlib.external_debug_info for shlib in shared_libs.values()],
         ),
     )
 

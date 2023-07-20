@@ -66,17 +66,17 @@ def make_artifact_tset(
 
 def project_artifact_tset(
         actions: "actions",
-        infos: [ArtifactTSet.type] = []) -> ["transitive_set_args_projection"]:
+        tsets: [ArtifactTSet.type] = []) -> ["transitive_set_args_projection"]:
     """
     Helper to project a list of optional tsets.
     """
 
-    info = make_artifact_tset(
+    tset = make_artifact_tset(
         actions = actions,
-        children = infos,
+        children = tsets,
     )
 
-    if info._tset == None:
+    if tset._tset == None:
         return []
 
-    return [info._tset.project_as_args("artifacts")]
+    return [tset._tset.project_as_args("artifacts")]

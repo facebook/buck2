@@ -286,7 +286,7 @@ def _get_shared_link_style_sub_targets_and_providers(
 
     external_debug_info_args = project_artifact_tset(
         actions = ctx.actions,
-        infos = [external_debug_info],
+        tsets = [external_debug_info],
     )
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
