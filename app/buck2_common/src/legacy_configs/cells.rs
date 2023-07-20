@@ -437,6 +437,7 @@ pub struct DaemonStartupConfig {
     pub source_digest_algorithm: Option<String>,
     pub allow_vpnless: Option<String>,
     pub paranoid: bool,
+    pub use_tonic_rt: Option<String>,
 }
 
 impl DaemonStartupConfig {
@@ -459,6 +460,7 @@ impl DaemonStartupConfig {
                 .map(ToOwned::to_owned),
             allow_vpnless: config.get("buck2", "allow_vpnless").map(ToOwned::to_owned),
             paranoid,
+            use_tonic_rt: config.get("buck2", "use_tonic_rt").map(ToOwned::to_owned),
         })
     }
 
@@ -478,6 +480,7 @@ impl DaemonStartupConfig {
             source_digest_algorithm: None,
             allow_vpnless: None,
             paranoid: false,
+            use_tonic_rt: None,
         }
     }
 }

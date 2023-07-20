@@ -16,6 +16,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmKind;
@@ -64,6 +65,7 @@ use dupe::Dupe;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
+use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 
 use crate::active_commands::ActiveCommandDropGuard;
@@ -86,6 +88,9 @@ pub struct DaemonState {
 
     /// This holds the main data shared across different commands.
     pub(crate) data: SharedResult<Arc<DaemonStateData>>,
+
+    #[allocative(skip)]
+    rt: Handle,
 }
 
 /// DaemonStateData is the main shared data across all commands. It's lazily initialized on
@@ -157,6 +162,12 @@ pub struct DaemonStateData {
 
     /// If enabled, paranoid RE downloads.
     pub paranoid: Option<ParanoidDownloader>,
+
+    /// Spawner
+    pub spawner: Arc<BuckSpawner>,
+
+    /// Did we enable running tonic on a separate runtime?
+    pub use_tonic_rt: bool,
 }
 
 impl DaemonStateData {
@@ -182,8 +193,10 @@ impl DaemonState {
         fb: fbinit::FacebookInit,
         paths: InvocationPaths,
         init_ctx: BuckdServerInitPreferences,
+        rt: Handle,
+        use_tonic_rt: bool,
     ) -> Self {
-        let data = Self::init_data(fb, &paths, init_ctx)
+        let data = Self::init_data(fb, paths.clone(), init_ctx, rt.clone(), use_tonic_rt)
             .await
             .context("Error initializing DaemonStateData");
         if let Ok(data) = &data {
@@ -194,299 +207,319 @@ impl DaemonState {
 
         let data = data.shared_error();
 
-        DaemonState { fb, paths, data }
+        DaemonState {
+            fb,
+            paths,
+            data,
+            rt,
+        }
     }
 
     // Creates the initial DaemonStateData.
     // Starts up the watchman query.
     async fn init_data(
         fb: fbinit::FacebookInit,
-        paths: &InvocationPaths,
+        paths: InvocationPaths,
         init_ctx: BuckdServerInitPreferences,
+        rt: Handle,
+        use_tonic_rt: bool,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
-        let fs = paths.project_root().clone();
+        let daemon_state_data_rt = rt.clone();
+        rt.spawn(async move {
+            let fs = paths.project_root().clone();
 
-        tracing::info!("Reading config...");
-        let legacy_cells = BuckConfigBasedCells::parse(&fs)?;
+            tracing::info!("Reading config...");
+            let legacy_cells = BuckConfigBasedCells::parse(&fs)?;
 
-        tracing::info!("Starting...");
+            tracing::info!("Starting...");
 
-        let (legacy_configs, cells) = (legacy_cells.configs_by_name, legacy_cells.cell_resolver);
+            let (legacy_configs, cells) =
+                (legacy_cells.configs_by_name, legacy_cells.cell_resolver);
 
-        let root_config = legacy_configs
-            .get(cells.root_cell())
-            .context("No config for root cell")?;
+            let root_config = legacy_configs
+                .get(cells.root_cell())
+                .context("No config for root cell")?;
 
-        // This really should belong in  in DaemonCommand::run, but we can't read configs there. In
-        // practice, while changing cwd after starting is not a great idea, it's ... fine.
+            // This really should belong in  in DaemonCommand::run, but we can't read configs there. In
+            // practice, while changing cwd after starting is not a great idea, it's ... fine.
 
-        fs_util::create_dir_all(paths.buck_out_path()).context("Error creating buck_out_path")?;
+            fs_util::create_dir_all(paths.buck_out_path())
+                .context("Error creating buck_out_path")?;
 
-        let materialization_method =
-            MaterializationMethod::try_new_from_config(legacy_configs.get(cells.root_cell()).ok())?;
-
-        if !matches!(materialization_method, MaterializationMethod::Eden) {
-            fs_util::set_current_dir(paths.buck_out_path()).context("Error changing dirs")?;
-            buck2_core::fs::cwd::cwd_will_not_change().context("Error initializing static cwd")?;
-        }
-
-        static DEFAULT_DIGEST_ALGORITHM: EnvHelper<DigestAlgorithmKind> =
-            EnvHelper::new("BUCK_DEFAULT_DIGEST_ALGORITHM");
-
-        let default_digest_algorithm =
-            DEFAULT_DIGEST_ALGORITHM.get_copied()?.unwrap_or_else(|| {
-                if buck2_core::is_open_source() {
-                    DigestAlgorithmKind::Sha256
-                } else {
-                    DigestAlgorithmKind::Sha1
-                }
-            });
-
-        let digest_algorithms = init_ctx
-            .daemon_startup_config
-            .digest_algorithms
-            .as_ref()
-            .map(|algos| {
-                algos
-                    .split(',')
-                    .map(DigestAlgorithmKind::from_str)
-                    .collect::<Result<_, _>>()
-            })
-            .transpose()
-            .context("Invalid digest_algorithms")?
-            .unwrap_or_else(|| vec![default_digest_algorithm])
-            .into_try_map(convert_algorithm_kind)?;
-
-        let preferred_source_algorithm = init_ctx
-            .daemon_startup_config
-            .source_digest_algorithm
-            .as_deref()
-            .map(|a| convert_algorithm_kind(a.parse()?))
-            .transpose()
-            .context("Invalid source_digest_algorithm")?;
-
-        let digest_config = DigestConfig::leak_new(digest_algorithms, preferred_source_algorithm)
-            .context("Error initializing DigestConfig")?;
-
-        // TODO(rafaelc): merge configs from all cells once they are consistent
-        let static_metadata = Arc::new(RemoteExecutionStaticMetadata::from_legacy_config(
-            root_config,
-        )?);
-
-        let ignore_specs: HashMap<CellName, IgnoreSet> = legacy_configs
-            .iter()
-            .map(|(cell, config)| {
-                Ok((
-                    cell,
-                    IgnoreSet::from_ignore_spec(
-                        config.get("project", "ignore").unwrap_or(""),
-                        cells.is_root_cell(cell),
-                    )?,
-                ))
-            })
-            .collect::<anyhow::Result<_>>()?;
-
-        let disk_state_options = DiskStateOptions::new(root_config, materialization_method.dupe())?;
-        let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?);
-        let cache_dir_path = paths.cache_dir_path();
-        let valid_cache_dirs = paths.valid_cache_dirs();
-        let fs_duped = fs.dupe();
-
-        let deferred_materializer_configs = {
-            let defer_write_actions = root_config
-                .parse::<RolloutPercentage>("buck2", "defer_write_actions")?
-                .unwrap_or_else(RolloutPercentage::never)
-                .roll();
-
-            // RE will refresh any TTL < 1 hour, so we check twice an hour and refresh any TTL
-            // < 1 hour.
-            let ttl_refresh_frequency = root_config
-                .parse("buck2", "ttl_refresh_frequency_seconds")?
-                .unwrap_or(1800);
-
-            let ttl_refresh_min_ttl = root_config
-                .parse("buck2", "ttl_refresh_min_ttl_seconds")?
-                .unwrap_or(3600);
-
-            let ttl_refresh_enabled = root_config
-                .parse::<RolloutPercentage>("buck2", "ttl_refresh_enabled")?
-                .unwrap_or_else(RolloutPercentage::never)
-                .roll();
-
-            DeferredMaterializerConfigs {
-                materialize_final_artifacts: matches!(
-                    materialization_method,
-                    MaterializationMethod::Deferred
-                ),
-                defer_write_actions,
-                ttl_refresh: TtlRefreshConfiguration {
-                    frequency: std::time::Duration::from_secs(ttl_refresh_frequency),
-                    min_ttl: chrono::Duration::seconds(ttl_refresh_min_ttl),
-                    enabled: ttl_refresh_enabled,
-                },
-            }
-        };
-
-        let (io, _, (materializer_db, materializer_state)) = futures::future::try_join3(
-            create_io_provider(
-                fb,
-                fs.dupe(),
+            let materialization_method = MaterializationMethod::try_new_from_config(
                 legacy_configs.get(cells.root_cell()).ok(),
-                digest_config.cas_digest_config(),
-                init_ctx.enable_trace_io,
-            ),
-            (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
-                // Using `execute_io_inline` is just out of convenience.
-                // It doesn't really matter what's used here since there's no IO-heavy
-                // operations on daemon startup
-                delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs, fs_duped)
-            }),
-            maybe_initialize_materializer_sqlite_db(
-                &disk_state_options,
-                paths,
-                blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
+            )?;
+
+            if !matches!(materialization_method, MaterializationMethod::Eden) {
+                fs_util::set_current_dir(paths.buck_out_path()).context("Error changing dirs")?;
+                buck2_core::fs::cwd::cwd_will_not_change()
+                    .context("Error initializing static cwd")?;
+            }
+
+            static DEFAULT_DIGEST_ALGORITHM: EnvHelper<DigestAlgorithmKind> =
+                EnvHelper::new("BUCK_DEFAULT_DIGEST_ALGORITHM");
+
+            let default_digest_algorithm =
+                DEFAULT_DIGEST_ALGORITHM.get_copied()?.unwrap_or_else(|| {
+                    if buck2_core::is_open_source() {
+                        DigestAlgorithmKind::Sha256
+                    } else {
+                        DigestAlgorithmKind::Sha1
+                    }
+                });
+
+            let digest_algorithms = init_ctx
+                .daemon_startup_config
+                .digest_algorithms
+                .as_ref()
+                .map(|algos| {
+                    algos
+                        .split(',')
+                        .map(DigestAlgorithmKind::from_str)
+                        .collect::<Result<_, _>>()
+                })
+                .transpose()
+                .context("Invalid digest_algorithms")?
+                .unwrap_or_else(|| vec![default_digest_algorithm])
+                .into_try_map(convert_algorithm_kind)?;
+
+            let preferred_source_algorithm = init_ctx
+                .daemon_startup_config
+                .source_digest_algorithm
+                .as_deref()
+                .map(|a| convert_algorithm_kind(a.parse()?))
+                .transpose()
+                .context("Invalid source_digest_algorithm")?;
+
+            let digest_config =
+                DigestConfig::leak_new(digest_algorithms, preferred_source_algorithm)
+                    .context("Error initializing DigestConfig")?;
+
+            // TODO(rafaelc): merge configs from all cells once they are consistent
+            let static_metadata = Arc::new(RemoteExecutionStaticMetadata::from_legacy_config(
                 root_config,
-                &deferred_materializer_configs,
-                fs.clone(),
-                digest_config,
-                &init_ctx,
-            ),
-        )
-        .await?;
+            )?);
 
-        let allow_vpnless = init_ctx
-            .daemon_startup_config
-            .allow_vpnless
-            .as_deref()
-            .map(|v| v.parse())
-            .transpose()
-            .context("Invalid allow_vpnless value")?
-            .unwrap_or(false);
-        let http_client = http_client(allow_vpnless)?;
+            let ignore_specs: HashMap<CellName, IgnoreSet> = legacy_configs
+                .iter()
+                .map(|(cell, config)| {
+                    Ok((
+                        cell,
+                        IgnoreSet::from_ignore_spec(
+                            config.get("project", "ignore").unwrap_or(""),
+                            cells.is_root_cell(cell),
+                        )?,
+                    ))
+                })
+                .collect::<anyhow::Result<_>>()?;
 
-        let materializer_state_identity = materializer_db.as_ref().map(|d| d.identity().clone());
+            let disk_state_options =
+                DiskStateOptions::new(root_config, materialization_method.dupe())?;
+            let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?);
+            let cache_dir_path = paths.cache_dir_path();
+            let valid_cache_dirs = paths.valid_cache_dirs();
+            let fs_duped = fs.dupe();
 
-        let re_client_manager = Arc::new(ReConnectionManager::new(
-            fb,
-            false,
-            10,
-            static_metadata,
-            Some(paths.re_logs_dir()),
-            paths.buck_out_path(),
-            init_ctx.daemon_startup_config.paranoid,
-        ));
-        let materializer = Self::create_materializer(
-            fb,
-            io.project_root().dupe(),
-            digest_config,
-            paths.buck_out_dir(),
-            re_client_manager.dupe(),
-            blocking_executor.dupe(),
-            materialization_method,
-            deferred_materializer_configs,
-            materializer_db,
-            materializer_state,
-            http_client.dupe(),
-        )?;
+            let deferred_materializer_configs = {
+                let defer_write_actions = root_config
+                    .parse::<RolloutPercentage>("buck2", "defer_write_actions")?
+                    .unwrap_or_else(RolloutPercentage::never)
+                    .roll();
 
-        // Create this after the materializer because it'll want to write to buck-out, and an Eden
-        // materializer would create buck-out now.
-        let forkserver =
-            maybe_launch_forkserver(root_config, &paths.forkserver_state_dir()).await?;
+                // RE will refresh any TTL < 1 hour, so we check twice an hour and refresh any TTL
+                // < 1 hour.
+                let ttl_refresh_frequency = root_config
+                    .parse("buck2", "ttl_refresh_frequency_seconds")?
+                    .unwrap_or(1800);
 
-        let dice = init_ctx
-            .construct_dice(io.dupe(), digest_config, root_config)
+                let ttl_refresh_min_ttl = root_config
+                    .parse("buck2", "ttl_refresh_min_ttl_seconds")?
+                    .unwrap_or(3600);
+
+                let ttl_refresh_enabled = root_config
+                    .parse::<RolloutPercentage>("buck2", "ttl_refresh_enabled")?
+                    .unwrap_or_else(RolloutPercentage::never)
+                    .roll();
+
+                DeferredMaterializerConfigs {
+                    materialize_final_artifacts: matches!(
+                        materialization_method,
+                        MaterializationMethod::Deferred
+                    ),
+                    defer_write_actions,
+                    ttl_refresh: TtlRefreshConfiguration {
+                        frequency: std::time::Duration::from_secs(ttl_refresh_frequency),
+                        min_ttl: chrono::Duration::seconds(ttl_refresh_min_ttl),
+                        enabled: ttl_refresh_enabled,
+                    },
+                }
+            };
+
+            let (io, _, (materializer_db, materializer_state)) = futures::future::try_join3(
+                create_io_provider(
+                    fb,
+                    fs.dupe(),
+                    legacy_configs.get(cells.root_cell()).ok(),
+                    digest_config.cas_digest_config(),
+                    init_ctx.enable_trace_io,
+                ),
+                (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
+                    // Using `execute_io_inline` is just out of convenience.
+                    // It doesn't really matter what's used here since there's no IO-heavy
+                    // operations on daemon startup
+                    delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs, fs_duped)
+                }),
+                maybe_initialize_materializer_sqlite_db(
+                    &disk_state_options,
+                    paths.clone(),
+                    blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
+                    root_config,
+                    &deferred_materializer_configs,
+                    fs.clone(),
+                    digest_config,
+                    &init_ctx,
+                ),
+            )
             .await?;
 
-        // TODO(cjhopman): We want to use Expr::True here, but we need to workaround
-        // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
-        // this list should be safe until we can revert it to Expr::True.
+            let allow_vpnless = init_ctx
+                .daemon_startup_config
+                .allow_vpnless
+                .as_deref()
+                .map(|v| v.parse())
+                .transpose()
+                .context("Invalid allow_vpnless value")?
+                .unwrap_or(false);
+            let http_client = http_client(allow_vpnless)?;
 
-        let file_watcher = <dyn FileWatcher>::new(
-            paths.project_root(),
-            root_config,
-            cells.dupe(),
-            ignore_specs,
-        )
-        .with_context(|| {
-            format!(
-                "Error creating a FileWatcher for project root `{}`",
-                paths.project_root()
-            )
-        })?;
+            let materializer_state_identity =
+                materializer_db.as_ref().map(|d| d.identity().clone());
 
-        let hash_all_commands = root_config
-            .parse::<RolloutPercentage>("buck2", "hash_all_commands")?
-            .unwrap_or_else(RolloutPercentage::never)
-            .roll();
-
-        let use_network_action_output_cache = root_config
-            .parse("buck2", "use_network_action_output_cache")?
-            .unwrap_or(false);
-
-        let create_unhashed_outputs_lock = Arc::new(Mutex::new(()));
-
-        let buffer_size = root_config
-            .parse("buck2", "event_log_buffer_size")?
-            .unwrap_or(10000);
-        let retry_backoff = Duration::from_millis(
-            root_config
-                .parse("buck2", "event_log_retry_backoff_duration_ms")?
-                .unwrap_or(500),
-        );
-        let retry_attempts = root_config
-            .parse("buck2", "event_log_retry_attempts")?
-            .unwrap_or(5);
-        let message_batch_size = root_config.parse("buck2", "event_log_message_batch_size")?;
-        let scribe_sink = Self::init_scribe_sink(
-            fb,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        )
-        .context("failed to init scribe sink")?;
-
-        let enable_restarter = root_config
-            .parse::<RolloutPercentage>("buck2", "restarter")?
-            .unwrap_or_else(RolloutPercentage::never)
-            .roll();
-
-        let paranoid = if init_ctx.daemon_startup_config.paranoid {
-            Some(ParanoidDownloader::new(
-                fs.clone(),
-                blocking_executor.dupe(),
+            let re_client_manager = Arc::new(ReConnectionManager::new(
+                fb,
+                false,
+                10,
+                static_metadata,
+                Some(paths.re_logs_dir()),
+                paths.buck_out_path(),
+                init_ctx.daemon_startup_config.paranoid,
+            ));
+            let materializer = Self::create_materializer(
+                fb,
+                io.project_root().dupe(),
+                digest_config,
+                paths.buck_out_dir(),
                 re_client_manager.dupe(),
-                paths.paranoid_cache_dir(),
-            ))
-        } else {
-            None
-        };
+                blocking_executor.dupe(),
+                materialization_method,
+                deferred_materializer_configs,
+                materializer_db,
+                materializer_state,
+                http_client.dupe(),
+            )?;
 
-        // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
-        // about (potentially kicking off an initial crawl).
+            // Create this after the materializer because it'll want to write to buck-out, and an Eden
+            // materializer would create buck-out now.
+            let forkserver =
+                maybe_launch_forkserver(root_config, &paths.forkserver_state_dir()).await?;
 
-        // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
-        // tokio::task::spawn(watchman_query.sync());
-        Ok(Arc::new(DaemonStateData {
-            dice_manager: ConcurrencyHandler::new(dice),
-            file_watcher,
-            io,
-            re_client_manager,
-            blocking_executor,
-            materializer,
-            forkserver,
-            scribe_sink,
-            hash_all_commands,
-            use_network_action_output_cache,
-            disk_state_options,
-            start_time: std::time::Instant::now(),
-            create_unhashed_outputs_lock,
-            materializer_state_identity,
-            enable_restarter,
-            http_client,
-            paranoid,
-        }))
+            let dice = init_ctx
+                .construct_dice(io.dupe(), digest_config, root_config)
+                .await?;
+
+            // TODO(cjhopman): We want to use Expr::True here, but we need to workaround
+            // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
+            // this list should be safe until we can revert it to Expr::True.
+
+            let file_watcher = <dyn FileWatcher>::new(
+                paths.project_root(),
+                root_config,
+                cells.dupe(),
+                ignore_specs,
+            )
+            .with_context(|| {
+                format!(
+                    "Error creating a FileWatcher for project root `{}`",
+                    paths.project_root()
+                )
+            })?;
+
+            let hash_all_commands = root_config
+                .parse::<RolloutPercentage>("buck2", "hash_all_commands")?
+                .unwrap_or_else(RolloutPercentage::never)
+                .roll();
+
+            let use_network_action_output_cache = root_config
+                .parse("buck2", "use_network_action_output_cache")?
+                .unwrap_or(false);
+
+            let create_unhashed_outputs_lock = Arc::new(Mutex::new(()));
+
+            let buffer_size = root_config
+                .parse("buck2", "event_log_buffer_size")?
+                .unwrap_or(10000);
+            let retry_backoff = Duration::from_millis(
+                root_config
+                    .parse("buck2", "event_log_retry_backoff_duration_ms")?
+                    .unwrap_or(500),
+            );
+            let retry_attempts = root_config
+                .parse("buck2", "event_log_retry_attempts")?
+                .unwrap_or(5);
+            let message_batch_size = root_config.parse("buck2", "event_log_message_batch_size")?;
+            let scribe_sink = Self::init_scribe_sink(
+                fb,
+                buffer_size,
+                retry_backoff,
+                retry_attempts,
+                message_batch_size,
+            )
+            .context("failed to init scribe sink")?;
+
+            let enable_restarter = root_config
+                .parse::<RolloutPercentage>("buck2", "restarter")?
+                .unwrap_or_else(RolloutPercentage::never)
+                .roll();
+
+            let paranoid = if init_ctx.daemon_startup_config.paranoid {
+                Some(ParanoidDownloader::new(
+                    fs.clone(),
+                    blocking_executor.dupe(),
+                    re_client_manager.dupe(),
+                    paths.paranoid_cache_dir(),
+                ))
+            } else {
+                None
+            };
+
+            // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
+            // about (potentially kicking off an initial crawl).
+
+            // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
+            // tokio::task::spawn(watchman_query.sync());
+            Ok(Arc::new(DaemonStateData {
+                dice_manager: ConcurrencyHandler::new(dice),
+                file_watcher,
+                io,
+                re_client_manager,
+                blocking_executor,
+                materializer,
+                forkserver,
+                scribe_sink,
+                hash_all_commands,
+                use_network_action_output_cache,
+                disk_state_options,
+                start_time: std::time::Instant::now(),
+                create_unhashed_outputs_lock,
+                materializer_state_identity,
+                enable_restarter,
+                http_client,
+                paranoid,
+                spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
+                use_tonic_rt,
+            }))
+        })
+        .await?
     }
 
     fn create_materializer(
@@ -649,6 +682,7 @@ impl DaemonState {
                 data.disk_state_options.sqlite_materializer_state
             ),
             format!("paranoid:{}", data.paranoid.is_some()),
+            format!("use_tonic_rt:{}", data.use_tonic_rt),
         ];
 
         dispatcher.instant_event(buck2_data::TagEvent { tags });
@@ -666,6 +700,7 @@ impl DaemonState {
             events: dispatcher,
             daemon: data.dupe(), // FIXME: Remove the duplicative fields.
             _drop_guard: drop_guard,
+            spawner: data.spawner.dupe(),
         })
     }
 

@@ -9,6 +9,7 @@
 
 use std::any::Any;
 
+use allocative::Allocative;
 use buck2_common::events::HasEvents;
 use buck2_events::dispatch::with_dispatcher_async;
 use dupe::Dupe;
@@ -16,11 +17,18 @@ use futures::future::BoxFuture;
 use more_futures::spawner::Spawner;
 use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
+
+#[derive(Allocative)]
 pub struct BuckSpawner {
+    #[allocative(skip)]
     rt: Handle,
 }
 
 impl BuckSpawner {
+    pub fn new(rt: Handle) -> Self {
+        Self { rt }
+    }
+
     pub fn current_runtime() -> Option<Self> {
         Some(Self {
             rt: Handle::try_current().ok()?,

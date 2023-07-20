@@ -73,6 +73,7 @@ use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_cancellable;
 use rand::RngCore;
 use rand::SeedableRng;
+use tokio::runtime::Handle;
 use tokio::sync::oneshot;
 use tonic::service::interceptor;
 use tonic::service::Interceptor;
@@ -299,6 +300,8 @@ pub(crate) struct BuckdServerData {
     callbacks: &'static dyn BuckdServerDependencies,
     #[allocative(skip)]
     log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
+    #[allocative(skip)]
+    rt: Handle,
 }
 
 /// The BuckdServer implements the DaemonApi.
@@ -319,6 +322,8 @@ impl BuckdServer {
         base_daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
         callbacks: &'static dyn BuckdServerDependencies,
+        rt: Handle,
+        use_tonic_rt: bool,
     ) -> anyhow::Result<()> {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;
@@ -326,7 +331,8 @@ impl BuckdServer {
         let (shutdown_channel, shutdown_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
         let (command_channel, command_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
 
-        let daemon_state = Arc::new(DaemonState::new(fb, paths, init_ctx).await);
+        let daemon_state =
+            Arc::new(DaemonState::new(fb, paths, init_ctx, rt.clone(), use_tonic_rt).await);
 
         let auth_token = process_info.auth_token.clone();
         let api_server = BuckdServer(Arc::new(BuckdServerData {
@@ -346,6 +352,7 @@ impl BuckdServer {
             command_channel,
             callbacks,
             log_reload_handle,
+            rt,
         }));
 
         let shutdown = server_shutdown_signal(command_receiver, shutdown_receiver)?;
@@ -491,8 +498,8 @@ impl BuckdServer {
                 }
                 .boxed()
             },
-        )
-        .await;
+            &self.0.rt,
+        );
         Ok(resp)
     }
 
@@ -676,7 +683,7 @@ fn pump_events(
 
 /// Dispatches a request to the given function and returns a stream of responses, suitable for streaming to a client.
 #[allow(clippy::mut_mut)] // select! does this internally
-async fn streaming<
+fn streaming<
     Req: Send + Sync + 'static,
     F: for<'a> FnOnce(Req, &'a ExplicitCancellationContext) -> BoxFuture<'a, ()>,
 >(
@@ -686,6 +693,7 @@ async fn streaming<
     dispatcher: EventDispatcher,
     daemon_shutdown_channel: oneshot::Receiver<buck2_data::DaemonShutdown>,
     func: F,
+    rt: &Handle,
 ) -> Response<ResponseStream>
 where
     F: Send + 'static,
@@ -713,7 +721,7 @@ where
     let events_ctx = EventsCtx { dispatcher };
     let spawned = spawn_cancellable(
         |cancellations| func(req, cancellations),
-        &BuckSpawner::current_runtime().unwrap(),
+        &BuckSpawner::new(rt.clone()),
         &events_ctx,
     );
     let (output_send, output_recv) = tokio::sync::mpsc::unbounded_channel();
@@ -1230,8 +1238,8 @@ impl DaemonApi for BuckdServer {
                 }
                 .boxed()
             },
-        )
-        .await)
+            &self.0.rt,
+        ))
     }
 
     type UnstableDocsStream = ResponseStream;

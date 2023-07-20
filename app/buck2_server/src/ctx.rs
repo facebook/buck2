@@ -147,6 +147,8 @@ pub struct BaseServerCommandContext {
     pub(crate) daemon: Arc<DaemonStateData>,
     /// Removes this command from the set of active commands when dropped.
     pub _drop_guard: ActiveCommandDropGuard,
+    /// Spawner
+    pub spawner: Arc<BuckSpawner>,
 }
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
@@ -400,6 +402,7 @@ impl<'a> ServerCommandContext<'a> {
                 .map_or(false, |opts| opts.keep_going),
             http_client: self.base_context.daemon.http_client.dupe(),
             paranoid: self.base_context.daemon.paranoid.dupe(),
+            spawner: self.base_context.spawner.dupe(),
         }
     }
 
@@ -503,6 +506,7 @@ struct DiceCommandDataProvider {
     keep_going: bool,
     http_client: CountingHttpClient,
     paranoid: Option<ParanoidDownloader>,
+    spawner: Arc<BuckSpawner>,
 }
 
 #[async_trait]
@@ -621,7 +625,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_starlark_debugger_handle(self.starlark_debugger.clone().map(|v| Box::new(v) as _));
         data.set_keep_going(self.keep_going);
         data.set_critical_path_backend(critical_path_backend);
-        data.spawner = Arc::new(BuckSpawner::current_runtime().unwrap());
+        data.spawner = self.spawner.dupe();
 
         let tags = vec![
             format!("lazy-cycle-detector:{}", has_cycle_detector),

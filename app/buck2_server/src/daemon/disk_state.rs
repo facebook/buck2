@@ -56,7 +56,7 @@ impl DiskStateOptions {
 
 pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     options: &DiskStateOptions,
-    paths: &InvocationPaths,
+    paths: InvocationPaths,
     io_executor: Arc<dyn BlockingExecutor>,
     root_config: &LegacyBuckConfig,
     deferred_materializer_configs: &DeferredMaterializerConfigs,
