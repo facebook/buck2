@@ -14,7 +14,7 @@ def _maybe_get_bool(config: str, default: [None, bool]) -> [None, bool]:
 def apple_bundle_config() -> {str: ""}:
     return {
         "_bundling_cache_buster": read_root_config("apple", "bundling_cache_buster", None),
-        "_bundling_log_file_enabled": _maybe_get_bool("bundling_log_file_enabled", False),
+        "_bundling_log_file_enabled": _maybe_get_bool("bundling_log_file_enabled", True),
         "_codesign_type": read_root_config("apple", "codesign_type_override", None),
         "_compile_resources_locally_override": _maybe_get_bool("compile_resources_locally_override", None),
         "_dry_run_code_signing": _maybe_get_bool("dry_run_code_signing", False),
