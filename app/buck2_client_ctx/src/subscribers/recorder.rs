@@ -113,7 +113,7 @@ mod imp {
         initial_sink_dropped_count: Option<u64>,
         sink_max_buffer_depth: u64,
         soft_error_categories: HashSet<String>,
-        concurrent_command_blocking_duration: Option<prost_types::Duration>,
+        concurrent_command_blocking_duration: Option<Duration>,
         metadata: HashMap<String, String>,
         analysis_count: u64,
         total_concurrent_commands: Option<u32>,
@@ -363,7 +363,7 @@ mod imp {
                     .collect(),
                 concurrent_command_blocking_duration: self
                     .concurrent_command_blocking_duration
-                    .take(),
+                    .and_then(|x| x.try_into().ok()),
                 analysis_count: Some(self.analysis_count),
                 total_concurrent_commands: self.total_concurrent_commands,
                 exit_when_different_state: Some(self.exit_when_different_state),
@@ -856,7 +856,42 @@ mod imp {
                     ));
                 }
             };
-            self.concurrent_command_blocking_duration = block_concurrent_command.duration;
+
+            let mut duration = self
+                .concurrent_command_blocking_duration
+                .unwrap_or_default();
+            if let Some(d) = &block_concurrent_command.duration {
+                duration += d.try_into_duration()?;
+            }
+
+            self.concurrent_command_blocking_duration = Some(duration);
+
+            Ok(())
+        }
+
+        fn handle_dice_cleanup_end(
+            &mut self,
+            _command: &buck2_data::DiceCleanupEnd,
+            event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            let dice_cleanup_end = match event.data() {
+                buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "handle_dice_cleanup_end was passed a DiceCleanupEnd not contained in a SpanEndEvent"
+                    ));
+                }
+            };
+
+            let mut duration = self
+                .concurrent_command_blocking_duration
+                .unwrap_or_default();
+            if let Some(d) = &dice_cleanup_end.duration {
+                duration += d.try_into_duration()?;
+            }
+
+            self.concurrent_command_blocking_duration = Some(duration);
+
             Ok(())
         }
 
@@ -925,6 +960,9 @@ mod imp {
                             block_concurrent_command,
                             event,
                         ),
+                        buck2_data::span_end_event::Data::DiceCleanup(dice_cleanup_end) => {
+                            self.handle_dice_cleanup_end(dice_cleanup_end, event)
+                        }
                         buck2_data::span_end_event::Data::BxlEnsureArtifacts(
                             _bxl_ensure_artifacts,
                         ) => self.handle_bxl_ensure_artifacts_end(_bxl_ensure_artifacts, event),
