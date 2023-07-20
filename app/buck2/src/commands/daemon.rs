@@ -21,8 +21,6 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_audit_server::server::server_audit_command;
-use buck2_bxl::command::bxl_command;
-use buck2_bxl::profile_command::bxl_profile_command;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
 use buck2_cli_proto::DaemonProcessInfo;
@@ -54,6 +52,7 @@ use buck2_server_commands::commands::query::cquery::cquery_command;
 use buck2_server_commands::commands::query::uquery::uquery_command;
 use buck2_server_commands::commands::targets::targets_command;
 use buck2_server_commands::commands::targets_show_outputs::targets_show_outputs_command;
+use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -147,14 +146,6 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     ) -> anyhow::Result<buck2_cli_proto::InstallResponse> {
         install_command(ctx, partial_result_dispatcher, req).await
     }
-    async fn bxl(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::BxlRequest,
-    ) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
-        bxl_command(ctx, partial_result_dispatcher, req).await
-    }
     async fn audit(
         &self,
         ctx: &dyn ServerCommandContextTrait,
@@ -182,7 +173,10 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
                 profile_command(ctx, partial_result_dispatcher, req).await
             }
             buck2_cli_proto::profile_request::ProfileOpts::BxlProfile(_) => {
-                bxl_profile_command(ctx, partial_result_dispatcher, req).await
+                BXL_SERVER_COMMANDS
+                    .get()?
+                    .bxl_profile(ctx, partial_result_dispatcher, req)
+                    .await
             }
         }
     }

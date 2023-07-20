@@ -16,6 +16,7 @@ use std::sync::Once;
 
 pub mod bxl;
 pub mod command;
+mod commands;
 pub mod profile_command;
 
 pub fn init_late_bindings() {
@@ -23,6 +24,7 @@ pub fn init_late_bindings() {
     ONCE.call_once(|| {
         bxl::starlark_defs::init_bxl_functions();
         bxl::calculation::init_bxl_calculation_impl();
+        commands::init_bxl_server_commands();
     });
 }
 

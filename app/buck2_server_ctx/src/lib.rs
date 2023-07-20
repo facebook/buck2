@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub mod bxl;
 pub mod command_end;
 pub mod concurrency;
 pub mod ctx;

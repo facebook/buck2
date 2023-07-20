@@ -36,7 +36,7 @@ use crate::bxl::key::BxlKey;
 use crate::command::get_bxl_cli_args;
 use crate::command::parse_bxl_label_from_cli;
 
-pub async fn bxl_profile_command(
+pub(crate) async fn bxl_profile_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: ProfileRequest,

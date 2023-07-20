@@ -49,6 +49,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_profile::starlark_profiler_configuration_from_request;
+use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -184,12 +185,6 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: InstallRequest,
     ) -> anyhow::Result<InstallResponse>;
-    async fn bxl(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::BxlRequest,
-    ) -> anyhow::Result<BxlResponse>;
     async fn audit(
         &self,
         ctx: &dyn ServerCommandContextTrait,
@@ -941,12 +936,16 @@ impl DaemonApi for BuckdServer {
 
     type BxlStream = ResponseStream;
     async fn bxl(&self, req: Request<BxlRequest>) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.bxl(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    BXL_SERVER_COMMANDS
+                        .get()?
+                        .bxl(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await

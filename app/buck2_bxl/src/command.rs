@@ -67,7 +67,7 @@ use crate::bxl::eval::CliResolutionCtx;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
 
-pub async fn bxl_command(
+pub(crate) async fn bxl_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: BxlRequest,
