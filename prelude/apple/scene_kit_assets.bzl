@@ -63,5 +63,5 @@ def _get_copy_scene_kit_assets_cmd(ctx: "context", scene_kit_assets_spec: SceneK
         "-o",
         cmd_args(scnassets_folder, format = "$TMPDIR/{}"),
         "--target-platform=" + get_apple_sdk_name(ctx),
-        "--target-version=" + get_bundle_min_target_version(ctx),
+        "--target-version=" + get_bundle_min_target_version(ctx, ctx.attrs.binary),
     ], delimiter = " ")

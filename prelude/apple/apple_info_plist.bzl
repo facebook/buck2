@@ -112,7 +112,7 @@ def _info_plist_additional_keys(ctx: "context") -> {str: ""}:
     xcode_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].xcode_version
     if xcode_version:
         result["DTXcode"] = xcode_version
-    result[sdk_metadata.min_version_plist_info_key] = get_bundle_min_target_version(ctx)
+    result[sdk_metadata.min_version_plist_info_key] = get_bundle_min_target_version(ctx, ctx.attrs.binary)
     return result
 
 def _extra_mac_info_plist_keys(sdk_metadata: AppleSdkMetadata.type, extension: str) -> {str: ""}:

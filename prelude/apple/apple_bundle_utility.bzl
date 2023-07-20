@@ -30,7 +30,7 @@ def get_extension_attr(ctx: "context") -> "":
 # Derives the effective deployment target for the bundle. It's
 # usually the deployment target of the binary if present,
 # otherwise it falls back to other values (see implementation).
-def get_bundle_min_target_version(ctx: "context") -> str:
+def get_bundle_min_target_version(ctx: "context", binary: ["dependency", None]) -> str:
     binary_min_version = None
 
     # Could be not set for e.g. watchOS bundles which have a stub
@@ -44,8 +44,8 @@ def get_bundle_min_target_version(ctx: "context") -> str:
     #
     # The solution might to be support SDK version from
     # Info.plist (T110378109).
-    if ctx.attrs.binary != None:
-        min_version_info = ctx.attrs.binary[AppleMinDeploymentVersionInfo]
+    if binary != None:
+        min_version_info = binary[AppleMinDeploymentVersionInfo]
         if min_version_info != None:
             binary_min_version = min_version_info.version
 

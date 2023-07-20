@@ -74,7 +74,7 @@ def _get_actool_command(ctx: "context", info: AppleAssetCatalogSpec.type, catalo
                                   "--platform",
                                   actool_platform,
                                   "--minimum-deployment-target",
-                                  get_bundle_min_target_version(ctx),
+                                  get_bundle_min_target_version(ctx, ctx.attrs.binary),
                                   "--compile",
                                   '"$TMPDIR"',
                                   "--output-partial-info-plist",

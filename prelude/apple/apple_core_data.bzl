@@ -62,7 +62,7 @@ def _get_momc_command(ctx: "context", core_data_spec: AppleCoreDataSpec.type, pr
         "--sdkroot",
         ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_path,
         "--" + get_apple_sdk_name(ctx) + "-deployment-target",
-        get_bundle_min_target_version(ctx),
+        get_bundle_min_target_version(ctx, ctx.attrs.binary),
         "--module",
         product_name,
         core_data_spec.path,

@@ -302,7 +302,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
 
 def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str: ""}:
     data = {
-        "deployment_version": get_bundle_min_target_version(ctx),
+        "deployment_version": get_bundle_min_target_version(ctx, ctx.attrs.binary),
         "info_plist": ctx.attrs.info_plist,
         "processed_info_plist": processed_info_plist,
         "product_name": get_product_name(ctx),
