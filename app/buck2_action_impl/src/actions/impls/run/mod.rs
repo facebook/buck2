@@ -73,10 +73,9 @@ use starlark::values::ValueOf;
 use thiserror::Error;
 
 use crate::actions::impls::run::dep_files::check_local_dep_file_cache;
-use crate::actions::impls::run::dep_files::make_local_dep_file_lookup_key;
+use crate::actions::impls::run::dep_files::make_dep_file_bundle;
 use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
-use crate::actions::impls::run::dep_files::LocalDepFileLookUpKey;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::metadata::metadata_content;
 
@@ -534,7 +533,7 @@ impl IncrementalActionExecutable for RunAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let knobs = ctx.run_action_knobs();
         let process_dep_files = !self.inner.dep_files.labels.is_empty() || knobs.hash_all_commands;
-        let (prepared_run_action, dep_files) = if !process_dep_files {
+        let (prepared_run_action, dep_file_bundle) = if !process_dep_files {
             (
                 self.prepare(&mut SimpleCommandLineArtifactVisitor::new(), ctx)?,
                 None,
@@ -542,8 +541,8 @@ impl IncrementalActionExecutable for RunAction {
         } else {
             let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
             let prepared = self.prepare(&mut visitor, ctx)?;
-            let dep_files = make_local_dep_file_lookup_key(ctx, visitor, &prepared)?;
-            (prepared, Some(dep_files))
+            let dep_file_bundle = make_dep_file_bundle(ctx, visitor, &prepared)?;
+            (prepared, Some(dep_file_bundle))
         };
 
         // Run actions are assumed to be shared
@@ -563,19 +562,21 @@ impl IncrementalActionExecutable for RunAction {
         // First prepare the action, check the action cache, check dep_files if needed, and execute the command
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
-        let (mut result, dep_files) = match ctx.action_cache(manager, &req, &prepared_action).await
+        let (mut result, dep_file_bundle) = match ctx
+            .action_cache(manager, &req, &prepared_action)
+            .await
         {
-            ControlFlow::Break(res) => (res, dep_files),
+            ControlFlow::Break(res) => (res, dep_file_bundle),
             ControlFlow::Continue(manager) => {
-                let dep_files = if let Some(dep_files) = dep_files {
-                    match check_local_dep_file_cache(ctx, self.outputs.as_slice(), &dep_files)
+                let dep_file_bundle = if let Some(dep_file_bundle) = dep_file_bundle {
+                    match check_local_dep_file_cache(ctx, self.outputs.as_slice(), &dep_file_bundle)
                         .await?
                     {
                         Some(m) => {
                             // We have a dep_file based match, return early
                             return Ok(m);
                         }
-                        None => Some(dep_files),
+                        None => Some(dep_file_bundle),
                     }
                 } else {
                     None
@@ -583,7 +584,7 @@ impl IncrementalActionExecutable for RunAction {
 
                 (
                     ctx.exec_cmd(manager, &req, &prepared_action).await,
-                    dep_files,
+                    dep_file_bundle,
                 )
             }
         };
@@ -597,23 +598,8 @@ impl IncrementalActionExecutable for RunAction {
         let (outputs, metadata) =
             ctx.unpack_command_execution_result(&req, result, self.inner.allow_cache_upload)?;
 
-        if let Some(dep_files) = dep_files {
-            let LocalDepFileLookUpKey {
-                dep_files_key,
-                digests,
-                declared_inputs,
-                declared_dep_files,
-            } = dep_files;
-
-            populate_dep_files(
-                dep_files_key,
-                digests,
-                declared_inputs,
-                declared_dep_files,
-                &outputs,
-                ctx,
-            )
-            .await?;
+        if let Some(dep_file_bundle) = dep_file_bundle {
+            populate_dep_files(ctx, dep_file_bundle, &outputs).await?;
         }
 
         Ok((outputs, metadata))

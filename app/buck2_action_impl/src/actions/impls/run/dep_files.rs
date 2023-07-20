@@ -260,18 +260,18 @@ impl RunActionDepFiles {
     }
 }
 
-pub(crate) struct LocalDepFileLookUpKey {
+pub(crate) struct DepFileBundle {
     pub dep_files_key: DepFilesKey,
     pub digests: CommandDigests,
     pub declared_inputs: PartitionedInputs<ActionDirectoryBuilder>,
     pub declared_dep_files: DeclaredDepFiles,
 }
 
-pub(crate) fn make_local_dep_file_lookup_key(
+pub(crate) fn make_dep_file_bundle(
     ctx: &mut dyn ActionExecutionCtx,
     visitor: DepFilesCommandLineVisitor<'_>,
     prepared_action: &PreparedRunAction,
-) -> anyhow::Result<LocalDepFileLookUpKey> {
+) -> anyhow::Result<DepFileBundle> {
     let digests = CommandDigests {
         cli: prepared_action.expanded.fingerprint(),
         directory: prepared_action
@@ -288,7 +288,7 @@ pub(crate) fn make_local_dep_file_lookup_key(
         outputs: declared_dep_files,
         ..
     } = visitor;
-    Ok(LocalDepFileLookUpKey {
+    Ok(DepFileBundle {
         dep_files_key,
         digests,
         declared_inputs: declared_inputs.to_directories(ctx)?,
@@ -299,14 +299,14 @@ pub(crate) fn make_local_dep_file_lookup_key(
 pub(crate) async fn check_local_dep_file_cache(
     ctx: &mut dyn ActionExecutionCtx,
     declared_outputs: &[BuildArtifact],
-    dep_files: &LocalDepFileLookUpKey,
+    dep_file_bundle: &DepFileBundle,
 ) -> anyhow::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
-    let LocalDepFileLookUpKey {
+    let DepFileBundle {
         dep_files_key,
         digests,
         declared_inputs,
         declared_dep_files,
-    } = dep_files;
+    } = dep_file_bundle;
 
     let matching_result = span_async(buck2_data::MatchDepFilesStart {}, async {
         let res: anyhow::Result<_> = try {
@@ -525,9 +525,9 @@ fn compute_fingerprints(
 }
 
 pub(crate) async fn eagerly_compute_fingerprints(
+    ctx: &dyn ActionExecutionCtx,
     declared_inputs: &PartitionedInputs<ActionDirectoryBuilder>,
     declared_dep_files: &DeclaredDepFiles,
-    ctx: &dyn ActionExecutionCtx,
 ) -> anyhow::Result<StoredFingerprints> {
     let dep_files = read_dep_files(false, declared_dep_files, ctx.fs(), ctx.materializer())
         .await?
@@ -544,16 +544,20 @@ pub(crate) async fn eagerly_compute_fingerprints(
 
 /// Post-process the dep files produced by an action.
 pub(crate) async fn populate_dep_files(
-    key: DepFilesKey,
-    digests: CommandDigests,
-    declared_inputs: PartitionedInputs<ActionDirectoryBuilder>,
-    declared_dep_files: DeclaredDepFiles,
-    result: &ActionOutputs,
     ctx: &dyn ActionExecutionCtx,
+    dep_file_bundle: DepFileBundle,
+    result: &ActionOutputs,
 ) -> anyhow::Result<()> {
+    let DepFileBundle {
+        declared_dep_files,
+        dep_files_key,
+        digests,
+        declared_inputs,
+    } = dep_file_bundle;
+
     let state = if declared_dep_files.is_empty() || ctx.run_action_knobs().eager_dep_files {
         let fingerprint =
-            eagerly_compute_fingerprints(&declared_inputs, &declared_dep_files, ctx).await?;
+            eagerly_compute_fingerprints(ctx, &declared_inputs, &declared_dep_files).await?;
         fingerprint.to_dep_file_state(digests, declared_dep_files, result)
     } else {
         DepFileState {
@@ -566,7 +570,7 @@ pub(crate) async fn populate_dep_files(
         }
     };
 
-    DEP_FILES.insert(key, Arc::new(state));
+    DEP_FILES.insert(dep_files_key, Arc::new(state));
     Ok(())
 }
 
