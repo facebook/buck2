@@ -151,8 +151,8 @@ mod tests {
     use buck2_events::dispatch::span;
     use buck2_events::dispatch::with_dispatcher_async;
     use buck2_events::dispatch::EventDispatcher;
+    use buck2_events::source::ChannelEventSource;
     use buck2_events::BuckEvent;
-    use buck2_events::EventSource;
     use buck2_wrapper_common::invocation_id::TraceId;
     use futures::future::BoxFuture;
     use futures::FutureExt;
@@ -161,17 +161,14 @@ mod tests {
 
     use super::*;
 
-    fn create_dispatcher() -> (impl EventSource, EventDispatcher, TraceId) {
+    fn create_dispatcher() -> (ChannelEventSource, EventDispatcher, TraceId) {
         let (events, sink) = create_source_sink_pair();
         let trace_id = TraceId::new();
         let dispatcher = EventDispatcher::new(trace_id.dupe(), sink);
         (events, dispatcher, trace_id)
     }
 
-    async fn next_event<E>(source: &mut E) -> BuckEvent
-    where
-        E: EventSource,
-    {
+    async fn next_event(source: &mut ChannelEventSource) -> BuckEvent {
         let event = tokio::time::timeout(std::time::Duration::from_secs(3), async {
             source.receive()
         })

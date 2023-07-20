@@ -38,7 +38,6 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use anyhow::Context;
-use async_trait::async_trait;
 use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::PartialResult;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -269,16 +268,8 @@ impl EventSink for Arc<dyn EventSink> {
     }
 }
 
-/// A source for events, suitable for reading a stream of events coming out of Buck.
-#[async_trait]
-pub trait EventSource: Send {
-    fn receive(&mut self) -> Option<Event>;
-
-    fn try_receive(&mut self) -> Option<Event>;
-}
-
 /// Creates a pair of an EventSource and an EventSink such that writes to the sink can be read by the event source.
-pub fn create_source_sink_pair() -> (impl EventSource, impl EventSink) {
+pub fn create_source_sink_pair() -> (ChannelEventSource, impl EventSink) {
     let (send, recv) = crossbeam_channel::unbounded();
     let sink = ChannelEventSink::new(send);
     let source = ChannelEventSource::new(recv);

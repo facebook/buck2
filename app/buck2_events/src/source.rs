@@ -7,27 +7,20 @@
  * of this source tree.
  */
 
-use async_trait::async_trait;
-
 use crate::Event;
-use crate::EventSource;
 
-/// A simple EventSource backed by an unbounded channel.
 pub struct ChannelEventSource(crossbeam_channel::Receiver<Event>);
 
 impl ChannelEventSource {
     pub fn new(recv: crossbeam_channel::Receiver<Event>) -> ChannelEventSource {
         ChannelEventSource(recv)
     }
-}
 
-#[async_trait]
-impl EventSource for ChannelEventSource {
-    fn receive(&mut self) -> Option<Event> {
+    pub fn receive(&mut self) -> Option<Event> {
         self.0.recv().ok()
     }
 
-    fn try_receive(&mut self) -> Option<Event> {
+    pub fn try_receive(&mut self) -> Option<Event> {
         self.0.try_recv().ok()
     }
 }
@@ -46,7 +39,6 @@ mod tests {
     use crate::sink::channel::ChannelEventSink;
     use crate::BuckEvent;
     use crate::EventSink;
-    use crate::EventSource;
     use crate::TraceId;
 
     #[tokio::test]

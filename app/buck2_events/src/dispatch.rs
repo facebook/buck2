@@ -624,7 +624,6 @@ mod tests {
     use super::*;
     use crate::sink::channel::ChannelEventSink;
     use crate::source::ChannelEventSource;
-    use crate::EventSource;
 
     async fn next_event(source: &mut ChannelEventSource) -> BuckEvent {
         source.receive().unwrap().unpack_buck().unwrap().clone()

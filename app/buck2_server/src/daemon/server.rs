@@ -42,9 +42,9 @@ use buck2_core::error::reset_soft_error_counters;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::source::ChannelEventSource;
 use buck2_events::ControlEvent;
 use buck2_events::Event;
-use buck2_events::EventSource;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
@@ -624,8 +624,8 @@ impl<T: Stream + Send> Stream for SyncStream<T> {
     }
 }
 
-fn pump_events<E: EventSource>(
-    mut events: E,
+fn pump_events(
+    mut events: ChannelEventSource,
     mut state: ActiveCommandStateWriter,
     output_send: tokio::sync::mpsc::UnboundedSender<
         Result<buck2_cli_proto::CommandProgress, tonic::Status>,
@@ -679,10 +679,9 @@ fn pump_events<E: EventSource>(
 async fn streaming<
     Req: Send + Sync + 'static,
     F: for<'a> FnOnce(Req, &'a ExplicitCancellationContext) -> BoxFuture<'a, ()>,
-    E: EventSource + 'static,
 >(
     req: Request<Req>,
-    events: E,
+    events: ChannelEventSource,
     state: ActiveCommandStateWriter,
     dispatcher: EventDispatcher,
     daemon_shutdown_channel: oneshot::Receiver<buck2_data::DaemonShutdown>,
@@ -690,9 +689,8 @@ async fn streaming<
 ) -> Response<ResponseStream>
 where
     F: Send + 'static,
-    E: Sync,
 {
-    // This function is responsible for receiving all events coming into an EventSource and reacting accordingly. There
+    // This function is responsible for receiving all events coming into an ChannelEventSource and reacting accordingly. There
     // are two categories events that can be seen:
     // 1. Control events, which are not to be sent across the gRPC boundary but instruct this function to do something.
     // 2. Buck events, which are to be sent across the gRPC boundary.

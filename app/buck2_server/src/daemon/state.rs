@@ -38,8 +38,8 @@ use buck2_core::tag_result;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::scribe;
 use buck2_events::sink::tee::TeeSink;
+use buck2_events::source::ChannelEventSource;
 use buck2_events::EventSinkWithStats;
-use buck2_events::EventSource;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::BuckBlockingExecutor;
@@ -591,7 +591,7 @@ impl DaemonState {
     pub async fn prepare_events(
         &self,
         trace_id: TraceId,
-    ) -> SharedResult<(impl EventSource, EventDispatcher)> {
+    ) -> SharedResult<(ChannelEventSource, EventDispatcher)> {
         // facebook only: logging events to Scribe.
         facebook_only();
         let (events, sink) = buck2_events::create_source_sink_pair();

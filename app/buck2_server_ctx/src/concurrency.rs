@@ -681,9 +681,9 @@ mod tests {
     use buck2_core::is_open_source;
     use buck2_events::create_source_sink_pair;
     use buck2_events::dispatch::EventDispatcher;
+    use buck2_events::source::ChannelEventSource;
     use buck2_events::span::SpanId;
     use buck2_events::BuckEvent;
-    use buck2_events::EventSource;
     use buck2_wrapper_common::invocation_id::TraceId;
     use derivative::Derivative;
     use dice::DetectCycles;
@@ -1305,9 +1305,11 @@ mod tests {
         Ok(())
     }
 
-    async fn wait_for_event<T, F>(source: &mut T, matcher: Box<F>) -> anyhow::Result<BuckEvent>
+    async fn wait_for_event<F>(
+        source: &mut ChannelEventSource,
+        matcher: Box<F>,
+    ) -> anyhow::Result<BuckEvent>
     where
-        T: EventSource,
         F: Fn(&BuckEvent) -> bool + Send,
     {
         tokio::time::timeout(Duration::from_millis(2), async {
@@ -1326,13 +1328,10 @@ mod tests {
         .context("Time out waiting for matching buck event")
     }
 
-    async fn wait_for_exclusive_span_start<T>(
-        source: &mut T,
+    async fn wait_for_exclusive_span_start(
+        source: &mut ChannelEventSource,
         cmd: Option<&str>,
-    ) -> anyhow::Result<Option<SpanId>>
-    where
-        T: EventSource,
-    {
+    ) -> anyhow::Result<Option<SpanId>> {
         let cmd = cmd.map(|c| c.to_owned());
         Ok(wait_for_event(
             source,
@@ -1354,13 +1353,10 @@ mod tests {
         .span_id())
     }
 
-    async fn wait_for_exclusive_span_end<T>(
-        source: &mut T,
+    async fn wait_for_exclusive_span_end(
+        source: &mut ChannelEventSource,
         span_id: Option<SpanId>,
-    ) -> anyhow::Result<BuckEvent>
-    where
-        T: EventSource,
-    {
+    ) -> anyhow::Result<BuckEvent> {
         wait_for_event(
             source,
             Box::new(|e: &BuckEvent| {

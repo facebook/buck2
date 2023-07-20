@@ -49,8 +49,8 @@ mod tests {
     use buck2_events::create_source_sink_pair;
     use buck2_events::dispatch::span;
     use buck2_events::dispatch::EventDispatcher;
+    use buck2_events::source::ChannelEventSource;
     use buck2_events::BuckEvent;
-    use buck2_events::EventSource;
     use buck2_wrapper_common::invocation_id::TraceId;
     use dice::DiceData;
     use dice::UserComputationData;
@@ -59,10 +59,7 @@ mod tests {
 
     use super::*;
 
-    async fn next_event<T>(source: &mut T) -> BuckEvent
-    where
-        T: EventSource,
-    {
+    async fn next_event(source: &mut ChannelEventSource) -> BuckEvent {
         source.receive().unwrap().unpack_buck().unwrap().clone()
     }
 
