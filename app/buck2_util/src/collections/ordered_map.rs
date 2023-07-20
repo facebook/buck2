@@ -11,6 +11,8 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use serde::Deserialize;
+use serde::Serialize;
 use starlark_map::small_map;
 use starlark_map::small_map::IterHashed;
 use starlark_map::small_map::SmallMap;
@@ -225,6 +227,28 @@ impl<'a, K, V> IntoIterator for &'a mut OrderedMap<K, V> {
     }
 }
 
+impl<K: Serialize, V: Serialize> Serialize for OrderedMap<K, V> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de, K, V> Deserialize<'de> for OrderedMap<K, V>
+where
+    K: Deserialize<'de> + Hash + Eq,
+    V: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        SmallMap::deserialize(deserializer).map(Self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::Cell;
@@ -278,5 +302,14 @@ mod tests {
         map.hash(&mut hasher);
         assert_eq!(1, map.keys().next().unwrap().hash_count.get());
         assert_eq!(3, map.values().next().unwrap().hash_count.get());
+    }
+
+    #[test]
+    fn test_serde() {
+        let map = OrderedMap::from_iter([("a", 1), ("b", 2)]);
+        let serialized = serde_json::to_string(&map).unwrap();
+        assert_eq!(serialized, "{\"a\":1,\"b\":2}");
+        let map2 = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(map, map2);
     }
 }
