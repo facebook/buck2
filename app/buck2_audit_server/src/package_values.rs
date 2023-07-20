@@ -12,6 +12,7 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_audit::package_values::PackageValuesCommand;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_core::metadata_key::MetadataKey;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::parse_package::parse_package;
 use buck2_events::dispatch::console_message;
@@ -60,7 +61,7 @@ impl AuditSubcommand for PackageValuesCommand {
                 });
                 let package_values_by_package: SmallMap<
                     PackageLabel,
-                    SmallMap<String, serde_json::Value>,
+                    SmallMap<MetadataKey, serde_json::Value>,
                 > = SmallMap::from_iter(
                     futures::future::try_join_all(package_values_by_package).await?,
                 );

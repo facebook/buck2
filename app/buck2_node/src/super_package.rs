@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::metadata_key::MetadataKey;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
@@ -18,7 +19,7 @@ use crate::visibility::WithinViewSpecification;
 
 #[derive(Default, Debug, Allocative)]
 pub(crate) struct SuperPackageData {
-    package_values: SmallMap<String, serde_json::Value>,
+    package_values: SmallMap<MetadataKey, serde_json::Value>,
     visibility: VisibilitySpecification,
     within_view: WithinViewSpecification,
 }
@@ -30,7 +31,7 @@ pub struct SuperPackage(Arc<SuperPackageData>);
 
 impl SuperPackage {
     pub fn new(
-        package_values: SmallMap<String, serde_json::Value>,
+        package_values: SmallMap<MetadataKey, serde_json::Value>,
         visibility: VisibilitySpecification,
         within_view: WithinViewSpecification,
     ) -> SuperPackage {
@@ -41,7 +42,7 @@ impl SuperPackage {
         }))
     }
 
-    pub fn package_values(&self) -> &SmallMap<String, serde_json::Value> {
+    pub fn package_values(&self) -> &SmallMap<MetadataKey, serde_json::Value> {
         &self.0.package_values
     }
 

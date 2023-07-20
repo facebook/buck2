@@ -218,7 +218,7 @@ impl TargetFormatter for JsonFormat {
                         .super_package
                         .package_values()
                         .iter()
-                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .map(|(k, v)| (k.as_str().to_owned(), v.clone()))
                         .collect(),
                 );
                 QuotedJson::from_serde_json_value(package_values)

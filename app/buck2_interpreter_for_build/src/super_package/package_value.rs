@@ -8,6 +8,8 @@
  */
 
 use anyhow::Context;
+use buck2_core::metadata_key::MetadataKey;
+use buck2_core::metadata_key::MetadataKeyRef;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -20,18 +22,9 @@ use crate::interpreter::module_internals::ModuleInternals;
 #[derive(Debug, thiserror::Error)]
 enum PackageValueError {
     #[error("key already set in this file: `{0}`")]
-    KeyAlreadySetInThisFile(String),
+    KeyAlreadySetInThisFile(MetadataKey),
     #[error("key set in parent `PACKAGE` file, and overwrite flag is not set: `{0}`")]
-    KeySetInParentFile(String),
-    #[error("key must contain exactly one dot: `{0}`")]
-    KeyMustContainExactlyOneDot(String),
-}
-
-fn validate_key(key: &str) -> anyhow::Result<()> {
-    if key.chars().filter(|c| *c == '.').count() != 1 {
-        return Err(PackageValueError::KeyMustContainExactlyOneDot(key.to_owned()).into());
-    }
-    Ok(())
+    KeySetInParentFile(MetadataKey),
 }
 
 #[starlark_module]
@@ -43,7 +36,7 @@ pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
         #[starlark(require = named, default = false)] overwrite: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
-        validate_key(key)?;
+        let key = MetadataKeyRef::new(key)?;
 
         let package_ctx = BuildContext::from_context(eval)?
             .additional
@@ -81,7 +74,7 @@ pub fn register_read_package_value(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] key: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        validate_key(key)?;
+        let key = MetadataKeyRef::new(key)?;
 
         let build_ctx = ModuleInternals::from_context(eval, "read_package_value")?;
         match build_ctx.super_package.package_values().get(key) {
