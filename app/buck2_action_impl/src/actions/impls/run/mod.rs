@@ -542,7 +542,7 @@ impl IncrementalActionExecutable for RunAction {
         } else {
             let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
             let prepared = self.prepare(&mut visitor, ctx)?;
-            let dep_files = make_local_dep_file_lookup_key(ctx, visitor, &prepared);
+            let dep_files = make_local_dep_file_lookup_key(ctx, visitor, &prepared)?;
             (prepared, Some(dep_files))
         };
 

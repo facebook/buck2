@@ -263,7 +263,7 @@ impl RunActionDepFiles {
 pub(crate) struct LocalDepFileLookUpKey {
     pub dep_files_key: DepFilesKey,
     pub digests: CommandDigests,
-    pub declared_inputs: PartitionedInputs<Vec<ArtifactGroup>>,
+    pub declared_inputs: PartitionedInputs<ActionDirectoryBuilder>,
     pub declared_dep_files: DeclaredDepFiles,
 }
 
@@ -271,7 +271,7 @@ pub(crate) fn make_local_dep_file_lookup_key(
     ctx: &mut dyn ActionExecutionCtx,
     visitor: DepFilesCommandLineVisitor<'_>,
     prepared_action: &PreparedRunAction,
-) -> LocalDepFileLookUpKey {
+) -> anyhow::Result<LocalDepFileLookUpKey> {
     let digests = CommandDigests {
         cli: prepared_action.expanded.fingerprint(),
         directory: prepared_action
@@ -288,12 +288,12 @@ pub(crate) fn make_local_dep_file_lookup_key(
         outputs: declared_dep_files,
         ..
     } = visitor;
-    LocalDepFileLookUpKey {
+    Ok(LocalDepFileLookUpKey {
         dep_files_key,
         digests,
-        declared_inputs,
+        declared_inputs: declared_inputs.to_directories(ctx)?,
         declared_dep_files,
-    }
+    })
 }
 
 pub(crate) async fn check_local_dep_file_cache(
@@ -343,7 +343,7 @@ pub(crate) async fn check_local_dep_file_cache(
 pub(crate) async fn match_or_clear_dep_file(
     key: &DepFilesKey,
     digests: &CommandDigests,
-    declared_inputs: &PartitionedInputs<Vec<ArtifactGroup>>,
+    declared_inputs: &PartitionedInputs<ActionDirectoryBuilder>,
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
     ctx: &dyn ActionExecutionCtx,
@@ -394,7 +394,7 @@ pub(crate) async fn match_or_clear_dep_file(
 async fn dep_files_match(
     previous_state: &DepFileState,
     digests: &CommandDigests,
-    declared_inputs: &PartitionedInputs<Vec<ArtifactGroup>>,
+    declared_inputs: &PartitionedInputs<ActionDirectoryBuilder>,
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
     ctx: &dyn ActionExecutionCtx,
@@ -461,10 +461,9 @@ async fn dep_files_match(
         // destination and the old. If it's not, then we can assume that the tool wouldn't traverse
         // the symlink anymore.
         let new_fingerprints = declared_inputs
-            .to_directories(ctx)?
+            .clone()
             .filter(dep_files)
             .fingerprint(digest_config);
-
         *previous_fingerprints == new_fingerprints
     };
 
@@ -526,17 +525,16 @@ fn compute_fingerprints(
 }
 
 pub(crate) async fn eagerly_compute_fingerprints(
-    declared_inputs: &PartitionedInputs<Vec<ArtifactGroup>>,
+    declared_inputs: &PartitionedInputs<ActionDirectoryBuilder>,
     declared_dep_files: &DeclaredDepFiles,
     ctx: &dyn ActionExecutionCtx,
 ) -> anyhow::Result<StoredFingerprints> {
-    let directories = declared_inputs.to_directories(ctx)?;
     let dep_files = read_dep_files(false, declared_dep_files, ctx.fs(), ctx.materializer())
         .await?
         .context("Dep file not found")?;
 
     let fingerprints = compute_fingerprints(
-        directories,
+        declared_inputs.clone(),
         dep_files,
         ctx.digest_config(),
         KEEP_DIRECTORIES.get_copied()?.unwrap_or_default(),
@@ -548,7 +546,7 @@ pub(crate) async fn eagerly_compute_fingerprints(
 pub(crate) async fn populate_dep_files(
     key: DepFilesKey,
     digests: CommandDigests,
-    declared_inputs: PartitionedInputs<Vec<ArtifactGroup>>,
+    declared_inputs: PartitionedInputs<ActionDirectoryBuilder>,
     declared_dep_files: DeclaredDepFiles,
     result: &ActionOutputs,
     ctx: &dyn ActionExecutionCtx,
@@ -558,11 +556,10 @@ pub(crate) async fn populate_dep_files(
             eagerly_compute_fingerprints(&declared_inputs, &declared_dep_files, ctx).await?;
         fingerprint.to_dep_file_state(digests, declared_dep_files, result)
     } else {
-        let directories = declared_inputs.to_directories(ctx)?;
         DepFileState {
             digests,
             input_signatures: Mutex::new(DepFileStateInputSignatures::Deferred(Some(
-                directories.share(ctx.digest_config()),
+                declared_inputs.share(ctx.digest_config()),
             ))),
             declared_dep_files,
             result: result.dupe(),
