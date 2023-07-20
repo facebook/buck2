@@ -9,6 +9,7 @@ commands:
             rustc --version
             cargo --version
             rustup --version
+            python3 --version
 
   init_opam:
     description: Init Opam
@@ -50,11 +51,30 @@ commands:
     description: Setup env for Windows
     steps:
       - run:
-          name: Install dependencies
+          # Use Rust toolchain installed by Rustup and uninstall default one.
+          name: Install Rustup
           command: |
-            choco install -y rustup.install llvm
+            choco uninstall -y rust
+            choco install -y rustup.install
             write-output "[net]`ngit-fetch-with-cli = true" | out-file -append -encoding utf8 $Env:USERPROFILE/.cargo/config
             type $Env:USERPROFILE/.cargo/config
+      - run:
+          name: Create python3 symlink
+          command: |
+            New-Item -ItemType SymbolicLink -Path C:\ProgramData\chocolatey\bin\python3.exe -Target $(Get-Command python).Source
+      - run:
+          name: Write Powershell profile
+          command: |
+            $psProfileContent = @'
+            $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+            $msvcPath = (Get-ChildItem (Join-Path $vsPath "VC\Tools\MSVC") -Directory).FullName
+            $msvcBinPath = Join-Path $msvcPath "bin\Hostx64\x64"
+            $env:PATH = "$env:USERPROFILE\.cargo\bin;$msvcBinPath;" + $env:PATH
+            # In CircleCI username here is shortened and this breaks some tests.
+            $env:TEMP = "$env:USERPROFILE\AppData\Local\Temp"
+            $env:TMP = $env:TEMP
+            '@
+            Add-Content "$PsHome\profile.ps1" $psProfileContent
       - print_versions
 
   setup_reindeer:
@@ -68,7 +88,7 @@ commands:
 
 version: 2.1
 orbs:
-  win: circleci/windows@2.2.0
+  win: circleci/windows@5.0
 jobs:
   linux-build-and-test:
     description: |
@@ -193,11 +213,11 @@ jobs:
       - run:
           name: Build buck2 binary (debug)
           command: |
-            mkdir C:/tmp/artifacts
-            cargo build --bin=buck2 -Z unstable-options --out-dir=C:/tmp/artifacts
+            mkdir /tmp/artifacts
+            cargo build --bin=buck2 -Z unstable-options --out-dir=/tmp/artifacts
       - run:
           name: Run test.py
-          command: python test.py --ci --git --buck2=/tmp/artifacts/buck2
+          command: python3 test.py --ci --git --buck2=/tmp/artifacts/buck2
 
   windows-build-examples:
     description: Build example projects
@@ -211,15 +231,15 @@ jobs:
       - run:
           name: Build buck2 binary (release)
           command: |
-            mkdir C:/tmp/artifacts
-            cargo build --bin=buck2 --release -Z unstable-options --out-dir=C:/tmp/artifacts
+            mkdir /tmp/artifacts
+            cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
       - run:
           name: Build example/prelude directory
           command: |
             cd examples/with_prelude
-            C:/tmp/artifacts/buck2.exe init
-            copy-item -Path 'C:\Users\circleci\project\prelude' -Destination 'prelude' -Recurse
-            C:/tmp/artifacts/buck2.exe build //... -v 2
+            /tmp/artifacts/buck2 init
+            copy-item -Path $env:CIRCLE_WORKING_DIRECTORY\prelude -Destination prelude -Recurse
+            /tmp/artifacts/buck2 build //... -v 2
       - run:
           name: Build example/no_prelude directory
           command: |
