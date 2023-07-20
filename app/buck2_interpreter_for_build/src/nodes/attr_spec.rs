@@ -11,6 +11,7 @@ use std::collections::HashMap;
 
 use anyhow::Context;
 use buck2_core::soft_error;
+use buck2_core::target::label::TargetLabelRef;
 use buck2_core::target::name::TargetName;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::string::StringLiteral;
@@ -83,6 +84,8 @@ impl AttributeSpecExt for AttributeSpec {
             _ => panic!("First attribute is `name`, it is known"),
         };
 
+        let target_label = TargetLabelRef::new(internals.buildfile_path().package(), name.as_ref());
+
         for (attr_name, attr_idx, attribute) in indices {
             let configurable = attr_is_configurable(attr_name);
 
@@ -103,10 +106,8 @@ impl AttributeSpecExt for AttributeSpec {
                     )
                     .with_context(|| {
                         format!(
-                            "Error coercing attribute `{}` of `{}:{}`",
-                            attr_name,
-                            internals.buildfile_path().package(),
-                            name,
+                            "Error coercing attribute `{}` of `{}`",
+                            attr_name, target_label,
                         )
                     })?;
 
@@ -160,10 +161,8 @@ impl AttributeSpecExt for AttributeSpec {
                 )
                 .with_context(|| {
                     format!(
-                        "checking `within_view` for attribute `{}` of `{}:{}`",
-                        a.name,
-                        internals.buildfile_path().package(),
-                        name
+                        "checking `within_view` for attribute `{}` of `{}`",
+                        a.name, target_label,
                     )
                 }) {
                     if internals.check_within_view {
