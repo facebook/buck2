@@ -14,10 +14,19 @@ use buck2_events::dispatch::with_dispatcher_async;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use more_futures::spawner::Spawner;
+use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
+pub struct BuckSpawner {
+    rt: Handle,
+}
 
-#[derive(Default)]
-pub struct BuckSpawner;
+impl BuckSpawner {
+    pub fn current_runtime() -> Option<Self> {
+        Some(Self {
+            rt: Handle::try_current().ok()?,
+        })
+    }
+}
 
 impl<T: HasEvents> Spawner<T> for BuckSpawner {
     fn spawn(
@@ -27,7 +36,7 @@ impl<T: HasEvents> Spawner<T> for BuckSpawner {
     ) -> JoinHandle<Box<dyn Any + Send + 'static>> {
         let dispatcher = ctx.get_dispatcher().dupe();
         let task = async move { with_dispatcher_async(dispatcher, fut).await };
-        tokio::spawn(task)
+        self.rt.spawn(task)
     }
 }
 
@@ -86,7 +95,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn() {
-        let sp = BuckSpawner;
+        let sp = BuckSpawner::current_runtime().unwrap();
 
         // Create dispatcher
         let (mut events, sink) = create_source_sink_pair();
@@ -112,7 +121,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn_task() {
-        let sp = Arc::new(BuckSpawner);
+        let sp = Arc::new(BuckSpawner::current_runtime().unwrap());
 
         // Create dispatchers
         let (mut events1, sink1) = create_source_sink_pair();
