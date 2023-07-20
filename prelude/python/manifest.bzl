@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "project_artifact_tset")
+load("@prelude//:artifact_tset.bzl", "project_artifacts")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
 # Manifests are files containing information how to map sources into a package.
@@ -117,7 +117,7 @@ def create_manifest_for_extensions(
     # in the manifest, as python packaging may also consume debug paths which
     # were referenced in native code.
     for name, (lib, _) in extensions.items():
-        for dbginfo in project_artifact_tset(ctx.actions, [lib.external_debug_info]):
+        for dbginfo in project_artifacts(ctx.actions, [lib.external_debug_info]):
             manifest.artifacts.append((dbginfo, name))
 
     return manifest

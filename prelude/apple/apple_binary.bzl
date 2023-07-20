@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "project_artifact_tset")
+load("@prelude//:artifact_tset.bzl", "project_artifacts")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
@@ -93,7 +93,7 @@ def apple_binary_impl(ctx: "context") -> [["provider"], "promise"]:
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 
-        external_debug_info = project_artifact_tset(
+        external_debug_info = project_artifacts(
             actions = ctx.actions,
             tsets = [cxx_output.external_debug_info],
         )

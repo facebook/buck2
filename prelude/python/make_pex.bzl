@@ -10,7 +10,7 @@ Rule for the inplace pex builder, and some utility methods for generic pex build
 execution
 """
 
-load("@prelude//:artifact_tset.bzl", "project_artifact_tset")
+load("@prelude//:artifact_tset.bzl", "project_artifacts")
 load("@prelude//:local_only.bzl", "package_python_locally")
 load(
     "@prelude//linking:link_info.bzl",
@@ -432,7 +432,7 @@ def _pex_modules_common_args(
 
     deps.extend([(lib.output, name) for name, lib in shared_libraries.items()])
 
-    external_debug_info = project_artifact_tset(
+    external_debug_info = project_artifacts(
         ctx.actions,
         [lib.external_debug_info for lib in shared_libraries.values()],
     )

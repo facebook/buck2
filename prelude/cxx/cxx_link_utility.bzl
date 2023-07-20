@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "project_artifact_tset")
+load("@prelude//:artifact_tset.bzl", "project_artifacts")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
@@ -140,7 +140,7 @@ def executable_shared_lib_arguments(
     # Add external debug paths to runtime files, so that they're
     # materialized when the binary is built.
     runtime_files.extend(
-        project_artifact_tset(
+        project_artifacts(
             actions = actions,
             tsets = [shlib.external_debug_info for shlib in shared_libs.values()],
         ),

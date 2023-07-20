@@ -38,7 +38,7 @@ def make_artifact_tset(
         children: [ArtifactTSet.type] = []) -> ArtifactTSet.type:
     expect(
         label != None or not artifacts,
-        "must pass in `label` to associate with arifacts",
+        "must pass in `label` to associate with artifacts",
     )
 
     # As a convenience for our callers, filter our `None` children.
@@ -64,7 +64,7 @@ def make_artifact_tset(
         _tset = actions.tset(_ArtifactTSet, **kwargs),
     )
 
-def project_artifact_tset(
+def project_artifacts(
         actions: "actions",
         tsets: [ArtifactTSet.type] = []) -> ["transitive_set_args_projection"]:
     """

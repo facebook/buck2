@@ -9,7 +9,7 @@ load(
     "@prelude//:artifact_tset.bzl",
     "ArtifactTSet",  # @unused Used as a type
     "make_artifact_tset",
-    "project_artifact_tset",
+    "project_artifacts",
 )
 load("@prelude//apple:apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
@@ -284,7 +284,7 @@ def _get_shared_link_style_sub_targets_and_providers(
     min_version = get_min_deployment_version_for_node(ctx)
     min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
 
-    external_debug_info_args = project_artifact_tset(
+    external_debug_info_args = project_artifacts(
         actions = ctx.actions,
         tsets = [external_debug_info],
     )

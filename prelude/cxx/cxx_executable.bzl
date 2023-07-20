@@ -9,7 +9,7 @@ load(
     "@prelude//:artifact_tset.bzl",
     "ArtifactTSet",
     "make_artifact_tset",
-    "project_artifact_tset",
+    "project_artifacts",
 )
 load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_preference")
 load(
@@ -576,7 +576,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         ),
     )
     sub_targets["debuginfo"] = [DefaultInfo(
-        other_outputs = project_artifact_tset(
+        other_outputs = project_artifacts(
             actions = ctx.actions,
             tsets = [external_debug_info],
         ),
