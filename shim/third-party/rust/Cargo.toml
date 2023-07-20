@@ -153,7 +153,7 @@ rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
 rustyline = "11.0"
 scopeguard = "1.0.0"
 sequence_trie = "0.3.6"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0.173", features = ["derive"] }
 serde_json = "1.0.48"
 sha1 = "0.10"
 sha2 = "0.10"
