@@ -23,3 +23,7 @@ pub(crate) mod tcp;
 pub mod translations;
 #[cfg(unix)]
 pub(crate) mod unix;
+
+pub fn init_late_bindings() {
+    command::init_test_command();
+}

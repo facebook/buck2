@@ -55,6 +55,7 @@ use buck2_server_ctx::other_server_commands::OTHER_SERVER_COMMANDS;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
+use buck2_server_ctx::test_command::TEST_COMMAND;
 use buck2_server_starlark_debug::run::run_dap_server_command;
 use dice::DetectCycles;
 use dice::Dice;
@@ -168,12 +169,6 @@ impl BuckdServerInitPreferences {
 /// Access to functions which live outside of `buck2_server` crate.
 #[async_trait]
 pub trait BuckdServerDependencies: Send + Sync + 'static {
-    async fn test(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: TestRequest,
-    ) -> anyhow::Result<TestResponse>;
     async fn audit(
         &self,
         ctx: &dyn ServerCommandContextTrait,
@@ -910,12 +905,11 @@ impl DaemonApi for BuckdServer {
 
     type TestStream = ResponseStream;
     async fn test(&self, req: Request<TestRequest>) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.test(ctx, partial_result_dispatcher, req)
+                Box::pin(async { (TEST_COMMAND.get()?)(ctx, partial_result_dispatcher, req).await })
             },
         )
         .await

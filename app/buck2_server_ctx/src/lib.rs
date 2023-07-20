@@ -19,3 +19,4 @@ pub mod stderr_output_guard;
 pub mod stdout_partial_output;
 pub mod streaming_request_handler;
 pub mod template;
+pub mod test_command;

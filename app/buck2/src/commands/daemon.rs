@@ -47,7 +47,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_starlark::server::server_starlark_command;
-use buck2_test::command::test_command;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::pin_mut;
@@ -112,14 +111,6 @@ struct BuckdServerDependenciesImpl;
 
 #[async_trait]
 impl BuckdServerDependencies for BuckdServerDependenciesImpl {
-    async fn test(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::TestRequest,
-    ) -> anyhow::Result<buck2_cli_proto::TestResponse> {
-        test_command(ctx, partial_result_dispatcher, req).await
-    }
     async fn audit(
         &self,
         ctx: &dyn ServerCommandContextTrait,

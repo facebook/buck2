@@ -60,6 +60,7 @@ use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::test_command::TEST_COMMAND;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::protocol::TestExecutor;
@@ -199,12 +200,18 @@ impl TestStatuses {
     }
 }
 
-pub async fn test_command(
+async fn test_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: TestRequest,
 ) -> anyhow::Result<TestResponse> {
     run_server_command(TestServerCommand { req }, ctx, partial_result_dispatcher).await
+}
+
+pub(crate) fn init_test_command() {
+    TEST_COMMAND.init(|ctx, partial_result_dispatcher, req| {
+        Box::pin(test_command(ctx, partial_result_dispatcher, req))
+    })
 }
 
 struct TestServerCommand {
