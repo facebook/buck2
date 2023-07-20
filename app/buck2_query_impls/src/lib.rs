@@ -16,6 +16,7 @@ use std::sync::Once;
 pub mod analysis;
 pub mod aquery;
 pub mod cquery;
+mod description;
 pub mod dice;
 pub mod frontend;
 pub mod uquery;
@@ -27,6 +28,7 @@ pub fn init_late_bindings() {
         analysis::environment::init_query_functions();
         analysis::eval::init_eval_analysis_query();
         aquery::find_matching_action::init_find_matching_action();
+        description::init_query_environment_description_by_type();
         frontend::init_query_frontend();
         cquery::bxl::init_new_bxl_cquery_functions();
         uquery::bxl::init_new_bxl_uquery_functions();

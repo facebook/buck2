@@ -167,7 +167,7 @@ impl<'c> UqueryEnvironment<'c> {
         Self { delegate, literals }
     }
 
-    pub fn describe() -> QueryEnvironmentDescription {
+    pub(crate) fn describe() -> QueryEnvironmentDescription {
         QueryEnvironmentDescription {
             name: "Uquery Environment".to_owned(),
             mods: vec![DefaultQueryFunctionsModule::<Self>::describe()],

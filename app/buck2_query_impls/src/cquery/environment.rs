@@ -97,7 +97,7 @@ impl<'c> CqueryEnvironment<'c> {
         }
     }
 
-    pub fn describe() -> QueryEnvironmentDescription {
+    pub(crate) fn describe() -> QueryEnvironmentDescription {
         QueryEnvironmentDescription {
             name: "Cquery Environment".to_owned(),
             mods: vec![DefaultQueryFunctionsModule::<Self>::describe()],

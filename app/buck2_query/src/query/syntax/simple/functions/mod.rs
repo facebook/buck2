@@ -37,6 +37,7 @@ use crate::query::syntax::simple::functions::helpers::QueryBinaryOp;
 use crate::query::syntax::simple::functions::helpers::QueryFunction;
 
 pub mod deps;
+pub mod description;
 pub mod docs;
 pub mod helpers;
 

@@ -9,10 +9,10 @@
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_query::query::syntax::simple::functions::description::QueryType;
+use buck2_query::query::syntax::simple::functions::description::QUERY_ENVIRONMENT_DESCRIPTION_BY_TYPE;
 use buck2_query::query::syntax::simple::functions::docs::MarkdownOptions;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
-use buck2_query_impls::cquery::environment::CqueryEnvironment;
-use buck2_query_impls::uquery::environment::UqueryEnvironment;
 
 use crate::commands::docs::output::DocsOutputFormatOptions;
 
@@ -47,7 +47,7 @@ impl DocsUqueryCommand {
         _matches: &clap::ArgMatches,
         _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
-        let description = UqueryEnvironment::describe();
+        let description = (QUERY_ENVIRONMENT_DESCRIPTION_BY_TYPE.get()?)(QueryType::Uquery);
         output(self.docs_options, description)
     }
 }
@@ -58,7 +58,7 @@ impl DocsCqueryCommand {
         _matches: &clap::ArgMatches,
         _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
-        let description = CqueryEnvironment::describe();
+        let description = (QUERY_ENVIRONMENT_DESCRIPTION_BY_TYPE.get()?)(QueryType::Cquery);
         output(self.docs_options, description)
     }
 }
