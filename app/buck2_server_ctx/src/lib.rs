@@ -12,6 +12,7 @@ pub mod command_end;
 pub mod concurrency;
 pub mod ctx;
 pub mod logging;
+pub mod other_server_commands;
 pub mod partial_result_dispatcher;
 pub mod pattern;
 pub mod stderr_output_guard;

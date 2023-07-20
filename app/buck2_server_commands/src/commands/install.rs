@@ -133,7 +133,7 @@ async fn get_installer_log_directory(
     Ok(install_log_dir)
 }
 
-pub async fn install_command(
+pub(crate) async fn install_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: InstallRequest,

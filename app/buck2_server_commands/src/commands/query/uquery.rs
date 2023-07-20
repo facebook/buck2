@@ -30,7 +30,7 @@ use dupe::Dupe;
 use crate::commands::query::printer::QueryResultPrinter;
 use crate::commands::query::printer::ShouldPrintProviders;
 
-pub async fn uquery_command(
+pub(crate) async fn uquery_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: UqueryRequest,

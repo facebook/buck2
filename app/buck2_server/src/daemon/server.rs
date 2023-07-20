@@ -51,6 +51,7 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::other_server_commands::OTHER_SERVER_COMMANDS;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
@@ -173,18 +174,6 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: TestRequest,
     ) -> anyhow::Result<TestResponse>;
-    async fn build(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: BuildRequest,
-    ) -> anyhow::Result<BuildResponse>;
-    async fn install(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: InstallRequest,
-    ) -> anyhow::Result<InstallResponse>;
     async fn audit(
         &self,
         ctx: &dyn ServerCommandContextTrait,
@@ -203,42 +192,6 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::ProfileRequest,
     ) -> anyhow::Result<buck2_cli_proto::ProfileResponse>;
-    async fn uquery(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::UqueryRequest,
-    ) -> anyhow::Result<buck2_cli_proto::UqueryResponse>;
-    async fn cquery(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::CqueryRequest,
-    ) -> anyhow::Result<CqueryResponse>;
-    async fn aquery(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::AqueryRequest,
-    ) -> anyhow::Result<buck2_cli_proto::AqueryResponse>;
-    async fn targets(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: TargetsRequest,
-    ) -> anyhow::Result<TargetsResponse>;
-    async fn ctargets(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: ConfiguredTargetsRequest,
-    ) -> anyhow::Result<ConfiguredTargetsResponse>;
-    async fn targets_show_outputs(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: TargetsRequest,
-    ) -> anyhow::Result<TargetsShowOutputsResponse>;
     async fn docs(
         &self,
         ctx: &dyn ServerCommandContextTrait,
@@ -923,12 +876,16 @@ impl DaemonApi for BuckdServer {
 
     type BuildStream = ResponseStream;
     async fn build(&self, req: Request<BuildRequest>) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.build(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    OTHER_SERVER_COMMANDS
+                        .get()?
+                        .build(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await
@@ -969,12 +926,16 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<AqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.aquery(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    OTHER_SERVER_COMMANDS
+                        .get()?
+                        .aquery(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await
@@ -985,12 +946,16 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<UqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.uquery(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    OTHER_SERVER_COMMANDS
+                        .get()?
+                        .uquery(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await
@@ -1001,12 +966,16 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<CqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.cquery(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    OTHER_SERVER_COMMANDS
+                        .get()?
+                        .cquery(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await
@@ -1017,12 +986,16 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<TargetsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.targets(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    OTHER_SERVER_COMMANDS
+                        .get()?
+                        .targets(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await
@@ -1033,12 +1006,16 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<ConfiguredTargetsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.ctargets(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    OTHER_SERVER_COMMANDS
+                        .get()?
+                        .ctargets(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await
@@ -1049,12 +1026,16 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<TargetsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.targets_show_outputs(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    OTHER_SERVER_COMMANDS
+                        .get()?
+                        .targets_show_outputs(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await
@@ -1097,12 +1078,16 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<InstallRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.install(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    OTHER_SERVER_COMMANDS
+                        .get()?
+                        .install(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await

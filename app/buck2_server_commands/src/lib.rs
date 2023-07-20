@@ -19,5 +19,6 @@ pub(crate) mod json;
 pub mod target_hash;
 
 pub fn init_late_bindings() {
+    commands::init_commands::init_other_server_commands();
     commands::query::printer::init_print_action_node();
 }

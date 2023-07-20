@@ -77,7 +77,7 @@ use crate::commands::build::unhashed_outputs::create_unhashed_outputs;
 mod results;
 mod unhashed_outputs;
 
-pub async fn build_command(
+pub(crate) async fn build_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::BuildRequest,

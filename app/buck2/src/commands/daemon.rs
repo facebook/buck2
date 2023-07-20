@@ -21,8 +21,6 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_audit_server::server::server_audit_command;
-use buck2_cli_proto::ConfiguredTargetsRequest;
-use buck2_cli_proto::ConfiguredTargetsResponse;
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_client_ctx::argv::Argv;
 use buck2_client_ctx::argv::SanitizedArgv;
@@ -44,14 +42,6 @@ use buck2_server::daemon::server::BuckdServerDelegate;
 use buck2_server::daemon::server::BuckdServerDependencies;
 use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_server::profile::profile_command;
-use buck2_server_commands::commands::build::build_command;
-use buck2_server_commands::commands::configured_targets::configured_targets_command;
-use buck2_server_commands::commands::install::install_command;
-use buck2_server_commands::commands::query::aquery::aquery_command;
-use buck2_server_commands::commands::query::cquery::cquery_command;
-use buck2_server_commands::commands::query::uquery::uquery_command;
-use buck2_server_commands::commands::targets::targets_command;
-use buck2_server_commands::commands::targets_show_outputs::targets_show_outputs_command;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -130,22 +120,6 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     ) -> anyhow::Result<buck2_cli_proto::TestResponse> {
         test_command(ctx, partial_result_dispatcher, req).await
     }
-    async fn build(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::BuildRequest,
-    ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
-        build_command(ctx, partial_result_dispatcher, req).await
-    }
-    async fn install(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::InstallRequest,
-    ) -> anyhow::Result<buck2_cli_proto::InstallResponse> {
-        install_command(ctx, partial_result_dispatcher, req).await
-    }
     async fn audit(
         &self,
         ctx: &dyn ServerCommandContextTrait,
@@ -179,54 +153,6 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
                     .await
             }
         }
-    }
-    async fn uquery(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::UqueryRequest,
-    ) -> anyhow::Result<buck2_cli_proto::UqueryResponse> {
-        uquery_command(ctx, partial_result_dispatcher, req).await
-    }
-    async fn cquery(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::CqueryRequest,
-    ) -> anyhow::Result<buck2_cli_proto::CqueryResponse> {
-        cquery_command(ctx, partial_result_dispatcher, req).await
-    }
-    async fn aquery(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::AqueryRequest,
-    ) -> anyhow::Result<buck2_cli_proto::AqueryResponse> {
-        aquery_command(ctx, partial_result_dispatcher, req).await
-    }
-    async fn targets(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::TargetsRequest,
-    ) -> anyhow::Result<buck2_cli_proto::TargetsResponse> {
-        targets_command(ctx, partial_result_dispatcher, req).await
-    }
-    async fn targets_show_outputs(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::TargetsRequest,
-    ) -> anyhow::Result<buck2_cli_proto::TargetsShowOutputsResponse> {
-        targets_show_outputs_command(ctx, partial_result_dispatcher, req).await
-    }
-    async fn ctargets(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: ConfiguredTargetsRequest,
-    ) -> anyhow::Result<ConfiguredTargetsResponse> {
-        configured_targets_command(ctx, partial_result_dispatcher, req).await
     }
     async fn docs(
         &self,

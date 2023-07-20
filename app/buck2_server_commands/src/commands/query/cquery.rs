@@ -40,7 +40,7 @@ use crate::commands::query::printer::ProviderLookUp;
 use crate::commands::query::printer::QueryResultPrinter;
 use crate::commands::query::printer::ShouldPrintProviders;
 
-pub async fn cquery_command(
+pub(crate) async fn cquery_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: CqueryRequest,

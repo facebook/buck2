@@ -103,7 +103,7 @@ impl Outputter {
     }
 }
 
-pub async fn targets_command(
+pub(crate) async fn targets_command(
     server_ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: TargetsRequest,
