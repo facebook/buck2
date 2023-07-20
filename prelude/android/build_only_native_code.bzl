@@ -9,6 +9,6 @@ def is_build_only_native_code():
     return select(
         {
             "DEFAULT": False,
-            "fbsource//xplat/buck2/platform/android:build_only_native_code": True,
+            "prelude//android/constraints:build_only_native_code": True,
         },
     )

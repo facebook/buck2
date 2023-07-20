@@ -26,11 +26,11 @@ load("@prelude//utils:utils.bzl", "expect")
 _REFS = {
     "arm64": "config//cpu/constraints:arm64",
     "armv7": "config//cpu/constraints:arm32",
-    "build_only_native_code": "fbsource//xplat/buck2/platform/android:build_only_native_code",
+    "build_only_native_code": "prelude//android/constraints:build_only_native_code",
     "building_android_binary": "prelude//os:building_android_binary",
     "cpu": "config//cpu/constraints:cpu",
     "default_platform": "config//platform/android:x86_32-fbsource",
-    "maybe_build_only_native_code": "fbsource//xplat/buck2/platform/android:maybe_build_only_native_code",
+    "maybe_build_only_native_code": "prelude//android/constraints:maybe_build_only_native_code",
     "maybe_building_android_binary": "prelude//os:maybe_building_android_binary",
     "min_sdk_version": "fbsource//xplat/buck2/platform/android:min_sdk_version",
     "x86": "config//cpu/constraints:x86_32",
