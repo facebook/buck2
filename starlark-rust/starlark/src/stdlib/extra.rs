@@ -174,7 +174,7 @@ pub fn pprint(builder: &mut GlobalsBuilder) {
 #[starlark_module]
 pub fn abs(builder: &mut GlobalsBuilder) {
     /// Take the absolute value of an int.
-    //
+    ///
     /// ```
     /// # starlark::assert::all_true(r#"
     /// abs(0)   == 0
