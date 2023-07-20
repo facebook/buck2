@@ -88,7 +88,7 @@ impl UnregisteredAction for UnregisteredWriteAction {
 
 #[derive(Debug, Allocative)]
 struct WriteAction {
-    contents: OwnedFrozenValue, // StarlarkCommandLine
+    contents: OwnedFrozenValue, // StarlarkCmdArgs
     is_executable: bool,
     macro_files: Option<IndexSet<Artifact>>,
     output: BuildArtifact,

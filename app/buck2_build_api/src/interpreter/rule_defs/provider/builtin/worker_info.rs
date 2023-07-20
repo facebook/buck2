@@ -28,7 +28,7 @@ use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 
 /// Provider that signals that a rule is a worker tool
 #[internal_provider(worker_info_creator)]
@@ -37,7 +37,7 @@ use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 #[repr(C)]
 pub struct WorkerInfoGen<V> {
     // Command to spawn a new worker
-    #[provider(field_type = "StarlarkCommandLine")]
+    #[provider(field_type = "StarlarkCmdArgs")]
     pub exe: V,
     // Maximum number of concurrent commands to execute on a worker instance without queuing
     #[provider(field_type = "NoneOr<usize>")]
@@ -60,7 +60,7 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<WorkerInfo<'v>> {
         let heap = eval.heap();
-        let valid_exe = StarlarkCommandLine::try_from_value(exe)?;
+        let valid_exe = StarlarkCmdArgs::try_from_value(exe)?;
         let exe = heap.alloc(valid_exe);
         let id = next_id();
         Ok(WorkerInfo {
@@ -90,7 +90,7 @@ fn validate_worker_info<'v, V>(info: &WorkerInfoGen<V>) -> anyhow::Result<()>
 where
     V: ValueLike<'v>,
 {
-    let exe = StarlarkCommandLine::try_from_value(info.exe.to_value()).with_context(|| {
+    let exe = StarlarkCmdArgs::try_from_value(info.exe.to_value()).with_context(|| {
         format!(
             "Value for `exe` field is not a command line: `{}`",
             info.exe

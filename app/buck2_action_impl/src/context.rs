@@ -28,7 +28,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
+use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ACTIONS;
@@ -382,7 +382,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
                 let cli_inputs = get_cli_inputs(with_inputs, content_arg)?;
                 (content, count, cli_inputs)
             } else {
-                let cli = StarlarkCommandLine::try_from_value(content)?;
+                let cli = StarlarkCmdArgs::try_from_value(content)?;
                 let count = count_write_to_file_macros(allow_args, &cli)?;
                 let cli_inputs = get_cli_inputs(with_inputs, &cli)?;
                 (eval.heap().alloc(cli), count, cli_inputs)
@@ -655,7 +655,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
 
         let mut artifact_visitor = RunCommandArtifactVisitor::new();
 
-        let starlark_args = StarlarkCommandLine::try_from_value(arguments)?;
+        let starlark_args = StarlarkCmdArgs::try_from_value(arguments)?;
         starlark_args.visit_artifacts(&mut artifact_visitor)?;
 
         let (starlark_exe, starlark_worker) = match exe {
@@ -663,16 +663,16 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
                 let worker: ValueOf<&WorkerInfo> = worker_run.typed.worker();
                 let worker_exe = worker_run.typed.exe();
                 worker_exe.as_ref().visit_artifacts(&mut artifact_visitor)?;
-                let starlark_exe = StarlarkCommandLine::try_from_value(worker_exe.to_value())?;
+                let starlark_exe = StarlarkCmdArgs::try_from_value(worker_exe.to_value())?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
                 (starlark_exe, NoneOr::Other(worker))
             }
             Some(Either::Right(exe)) => {
-                let starlark_exe = StarlarkCommandLine::try_from_value(*exe)?;
+                let starlark_exe = StarlarkCmdArgs::try_from_value(*exe)?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
                 (starlark_exe, NoneOr::None)
             }
-            None => (StarlarkCommandLine::default(), NoneOr::None),
+            None => (StarlarkCmdArgs::default(), NoneOr::None),
         };
 
         let weight = match (weight, weight_percentage) {

@@ -24,7 +24,7 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
 
-use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 
 /// Provider that signals that a rule can run using a worker
@@ -37,7 +37,7 @@ pub struct WorkerRunInfoGen<V> {
     worker: V,
 
     // Command to execute without spawning a worker, when the build environment or configuration does not support workers
-    #[provider(field_type = "StarlarkCommandLine")]
+    #[provider(field_type = "StarlarkCmdArgs")]
     exe: V,
 }
 
@@ -50,7 +50,7 @@ fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<WorkerRunInfo<'v>> {
         let heap = eval.heap();
-        let valid_exe = StarlarkCommandLine::try_from_value(exe)?;
+        let valid_exe = StarlarkCmdArgs::try_from_value(exe)?;
         Ok(WorkerRunInfo {
             worker: *worker,
             exe: heap.alloc(valid_exe),
@@ -63,7 +63,7 @@ impl<'v, V: ValueLike<'v>> WorkerRunInfoGen<V> {
         ValueOf::unpack_value(self.worker.to_value()).expect("validated at construction")
     }
 
-    pub fn exe(&self) -> ValueTyped<'v, StarlarkCommandLine<'v>> {
+    pub fn exe(&self) -> ValueTyped<'v, StarlarkCmdArgs<'v>> {
         ValueTyped::new(self.exe.to_value()).expect("validated at construction")
     }
 }

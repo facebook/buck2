@@ -26,7 +26,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 /// Provider that signals that a rule is runnable
@@ -35,7 +35,7 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 #[repr(transparent)]
 pub struct RunInfoGen<V> {
     /// The command to run, stored as CommandLine
-    #[provider(field_type = "StarlarkCommandLine")]
+    #[provider(field_type = "StarlarkCmdArgs")]
     args: V,
 }
 
@@ -47,7 +47,7 @@ fn run_info_creator(globals: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<RunInfo<'v>> {
         let heap = eval.heap();
-        let valid_args = StarlarkCommandLine::try_from_value(args)?;
+        let valid_args = StarlarkCmdArgs::try_from_value(args)?;
         Ok(RunInfo {
             args: heap.alloc(valid_args),
         })

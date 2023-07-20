@@ -24,7 +24,7 @@ use starlark::values::Value;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::starlark::values::ValueLike;
 
 #[internal_provider(local_resource_info_creator)]
@@ -49,7 +49,7 @@ pub struct LocalResourceInfoGen<V> {
     /// will be reserved from the pool, for example `{"socket_address": "bar:2"}` and environment variable with
     /// name resolved using mapping in `resource_env_vars` field and `"socket_address"` key will be added to
     /// execution command.
-    #[provider(field_type = "StarlarkCommandLine")]
+    #[provider(field_type = "StarlarkCmdArgs")]
     setup: V,
     /// Mapping from environment variable (appended to an execution command which is dependent on this local resource)
     /// to keys in setup command JSON output.
@@ -61,7 +61,7 @@ fn validate_local_resource_info<'v, V>(info: &LocalResourceInfoGen<V>) -> anyhow
 where
     V: ValueLike<'v>,
 {
-    let setup = StarlarkCommandLine::try_from_value(info.setup.to_value()).with_context(|| {
+    let setup = StarlarkCmdArgs::try_from_value(info.setup.to_value()).with_context(|| {
         format!(
             "Value for `setup` field is not a command line: `{}`",
             info.setup

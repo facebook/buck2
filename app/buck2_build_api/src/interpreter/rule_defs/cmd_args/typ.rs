@@ -139,8 +139,8 @@ impl<'v, F: Fields<'v>> Display for FieldsRef<'v, F> {
 }
 
 impl<'v, F: Fields<'v>> FieldsRef<'v, F> {
-    fn copy(&self) -> StarlarkCommandLine<'v> {
-        StarlarkCommandLine(RefCell::new(StarlarkCommandLineData {
+    fn copy(&self) -> StarlarkCmdArgs<'v> {
+        StarlarkCmdArgs(RefCell::new(StarlarkCommandLineData {
             items: self.0.items().to_vec(),
             hidden: self.0.hidden().to_vec(),
             options: self
@@ -272,9 +272,9 @@ pub struct StarlarkCommandLineData<'v> {
     StarlarkDocs,
     Allocative
 )]
-pub struct StarlarkCommandLine<'v>(RefCell<StarlarkCommandLineData<'v>>);
+pub struct StarlarkCmdArgs<'v>(RefCell<StarlarkCommandLineData<'v>>);
 
-impl<'v> Serialize for StarlarkCommandLine<'v> {
+impl<'v> Serialize for StarlarkCmdArgs<'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -284,13 +284,13 @@ impl<'v> Serialize for StarlarkCommandLine<'v> {
 }
 
 #[derive(Debug, ProvidesStaticType, Allocative)]
-pub struct FrozenStarlarkCommandLine {
+pub struct FrozenStarlarkCmdArgs {
     items: ThinBoxSlice<FrozenCommandLineArg>,
     hidden: ThinBoxSlice<FrozenCommandLineArg>,
     options: FrozenCommandLineOptions,
 }
 
-impl Serialize for FrozenStarlarkCommandLine {
+impl Serialize for FrozenStarlarkCmdArgs {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -316,7 +316,7 @@ impl<'a, 'v> Fields<'v> for Ref<'a, StarlarkCommandLineData<'v>> {
     }
 }
 
-impl<'v> Fields<'v> for FrozenStarlarkCommandLine {
+impl<'v> Fields<'v> for FrozenStarlarkCmdArgs {
     fn items(&self) -> &[CommandLineArg<'v>] {
         coerce(&*self.items)
     }
@@ -372,11 +372,11 @@ impl<'v, A: Fields<'v>, B: Fields<'v>> Fields<'v> for Either<A, B> {
 }
 
 // These types show up a lot in the frozen heaps, so make sure they don't regress
-assert_eq_size!(StarlarkCommandLine<'static>, [usize; 8]);
-assert_eq_size!(FrozenStarlarkCommandLine, [usize; 3]);
+assert_eq_size!(StarlarkCmdArgs<'static>, [usize; 8]);
+assert_eq_size!(FrozenStarlarkCmdArgs, [usize; 3]);
 assert_eq_size!(CommandLineOptions<'static>, [usize; 10]);
 
-impl<'v> Display for StarlarkCommandLine<'v> {
+impl<'v> Display for StarlarkCmdArgs<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.0.try_borrow() {
             Ok(x) => Display::fmt(&FieldsRef(x, PhantomData), f),
@@ -385,7 +385,7 @@ impl<'v> Display for StarlarkCommandLine<'v> {
     }
 }
 
-impl Display for FrozenStarlarkCommandLine {
+impl Display for FrozenStarlarkCmdArgs {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&FieldsRef(self, PhantomData), f)
     }
@@ -400,29 +400,29 @@ impl<'v> StarlarkCommandLineData<'v> {
     }
 }
 
-impl<'v> StarlarkCommandLine<'v> {
+impl<'v> StarlarkCmdArgs<'v> {
     pub(crate) fn is_concat(&self) -> bool {
         FieldsRef(self.0.borrow(), PhantomData).is_concat()
     }
 }
 
-impl FrozenStarlarkCommandLine {
+impl FrozenStarlarkCmdArgs {
     pub(crate) fn is_concat(&self) -> bool {
         FieldsRef(self, PhantomData).is_concat()
     }
 }
 
-impl<'v> StarlarkCommandLine<'v> {
+impl<'v> StarlarkCmdArgs<'v> {
     pub fn is_empty(&self) -> bool {
         self.0.borrow().items.is_empty()
     }
 }
 
 #[starlark_value(type = "cmd_args")]
-impl<'v> StarlarkValue<'v> for StarlarkCommandLine<'v> {
+impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(command_line_builder_methods)
+        RES.methods(cmd_args_methods)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
@@ -431,12 +431,12 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandLine<'v> {
 }
 
 #[starlark_value(type = "cmd_args")]
-impl<'v> StarlarkValue<'v> for FrozenStarlarkCommandLine {
+impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs {
     fn get_methods() -> Option<&'static Methods> {
         // We return the same methods for frozen command lines, even though some of them fail,
         // so the methods remain consistent during freezing
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(command_line_builder_methods)
+        RES.methods(cmd_args_methods)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
@@ -444,13 +444,13 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCommandLine {
     }
 }
 
-impl<'v> AllocValue<'v> for StarlarkCommandLine<'v> {
+impl<'v> AllocValue<'v> for StarlarkCmdArgs<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex(self)
     }
 }
 
-impl<'v> CommandLineArgLike for StarlarkCommandLine<'v> {
+impl<'v> CommandLineArgLike for StarlarkCmdArgs<'v> {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
@@ -475,7 +475,7 @@ impl<'v> CommandLineArgLike for StarlarkCommandLine<'v> {
     }
 }
 
-impl CommandLineArgLike for FrozenStarlarkCommandLine {
+impl CommandLineArgLike for FrozenStarlarkCmdArgs {
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
@@ -500,8 +500,8 @@ impl CommandLineArgLike for FrozenStarlarkCommandLine {
     }
 }
 
-impl<'v> Freeze for StarlarkCommandLine<'v> {
-    type Frozen = FrozenStarlarkCommandLine;
+impl<'v> Freeze for StarlarkCmdArgs<'v> {
+    type Frozen = FrozenStarlarkCmdArgs;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let StarlarkCommandLineData {
             items,
@@ -515,7 +515,7 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
             .try_map(|options| (*options).freeze(freezer))?
             .unwrap_or_default();
 
-        Ok(FrozenStarlarkCommandLine {
+        Ok(FrozenStarlarkCmdArgs {
             items,
             hidden,
             options,
@@ -523,7 +523,7 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
     }
 }
 
-impl<'v> StarlarkCommandLine<'v> {
+impl<'v> StarlarkCmdArgs<'v> {
     pub(crate) fn new() -> Self {
         Self::default()
     }
@@ -597,7 +597,7 @@ struct StarlarkCommandLineMut<'v> {
 
 impl<'v> StarlarkTypeRepr for StarlarkCommandLineMut<'v> {
     fn starlark_type_repr() -> Ty {
-        StarlarkCommandLine::starlark_type_repr()
+        StarlarkCmdArgs::starlark_type_repr()
     }
 }
 
@@ -607,7 +607,7 @@ impl<'v> UnpackValue<'v> for StarlarkCommandLineMut<'v> {
     }
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
-        value.downcast_ref::<StarlarkCommandLine>().map(|v| Self {
+        value.downcast_ref::<StarlarkCmdArgs>().map(|v| Self {
             value,
             borrow: v.0.borrow_mut(),
         })
@@ -621,9 +621,9 @@ impl<'v> AllocValue<'v> for StarlarkCommandLineMut<'v> {
 }
 
 fn cmd_args<'v>(x: Value<'v>) -> FieldsRef<'v, impl Fields<'v>> {
-    if let Some(x) = x.downcast_ref::<StarlarkCommandLine>() {
+    if let Some(x) = x.downcast_ref::<StarlarkCmdArgs>() {
         FieldsRef(Either::Left(x.0.borrow()), PhantomData)
-    } else if let Some(x) = x.downcast_ref::<FrozenStarlarkCommandLine>() {
+    } else if let Some(x) = x.downcast_ref::<FrozenStarlarkCmdArgs>() {
         FieldsRef(Either::Right(x), PhantomData)
     } else {
         unreachable!("This parameter must always be a type of command args")
@@ -635,7 +635,7 @@ fn cmd_args<'v>(x: Value<'v>) -> FieldsRef<'v, impl Fields<'v>> {
 /// In general, command lines, artifacts, strings, `RunInfo` and lists thereof can be added to or used to construct a `cmd_args` value.
 /// All these methods operate mutably on `cmd` and return that value too.
 #[starlark_module]
-fn command_line_builder_methods(builder: &mut MethodsBuilder) {
+fn cmd_args_methods(builder: &mut MethodsBuilder) {
     /// A list of arguments to be added to the command line, which may including `cmd_args`, artifacts, strings, `RunInfo` or lists thereof.
     /// Note that this operation mutates the input `cmd_args`.
     fn add<'v>(
@@ -764,7 +764,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
 
     /// Returns a copy of the `cmd_args` such that any modifications to the original or the returned value will not impact each other.
     /// Note that this is a shallow copy, so any inner `cmd_args` can still be modified.
-    fn copy<'v>(this: Value<'v>) -> anyhow::Result<StarlarkCommandLine<'v>> {
+    fn copy<'v>(this: Value<'v>) -> anyhow::Result<StarlarkCmdArgs<'v>> {
         Ok(cmd_args(this).copy())
     }
 
@@ -801,7 +801,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-/// A wrapper for a [StarlarkCommandLine]'s inputs. This is an opaque type that only allows
+/// A wrapper for a [StarlarkCmdArgs]'s inputs. This is an opaque type that only allows
 /// debug-printing and querying the length to tell if any inputs exist.
 #[derive(Debug, PartialEq, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct StarlarkCommandLineInputs {

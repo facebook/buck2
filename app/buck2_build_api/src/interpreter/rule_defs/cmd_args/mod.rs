@@ -29,7 +29,7 @@ pub use typ::*;
 
 #[starlark_module]
 pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
-    #[starlark(as_type = FrozenStarlarkCommandLine)]
+    #[starlark(as_type = FrozenStarlarkCmdArgs)]
     /// The `cmd_args` type is created by this function and is consumed by `ctx.actions.run`.
     /// The type is a mutable collection of strings and artifact values.
     /// In general, command lines, artifacts, strings, `RunInfo` and lists thereof can be added to or used to construct a `cmd_args` value.
@@ -47,8 +47,8 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
         format: Option<StringValue<'v>>,
         prepend: Option<StringValue<'v>>,
         quote: Option<&str>,
-    ) -> anyhow::Result<StarlarkCommandLine<'v>> {
-        StarlarkCommandLine::try_from_values_with_options(
+    ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
+        StarlarkCmdArgs::try_from_values_with_options(
             &args,
             delimiter,
             format,

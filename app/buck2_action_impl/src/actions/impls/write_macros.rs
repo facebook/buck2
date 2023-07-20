@@ -81,7 +81,7 @@ enum WriteMacrosActionValidationError {
 #[derive(Debug, Allocative)]
 struct WriteMacrosToFileAction {
     identifier: String,
-    contents: OwnedFrozenValue, // StarlarkCommandLine
+    contents: OwnedFrozenValue, // StarlarkCmdArgs
     inputs: Box<[ArtifactGroup]>,
     outputs: Box<[BuildArtifact]>,
 }

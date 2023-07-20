@@ -39,8 +39,8 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCommandLine;
-use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
+use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
@@ -233,9 +233,9 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
 }
 
 fn is_singleton_cmdargs(x: Value) -> bool {
-    if let Some(x) = x.downcast_ref::<StarlarkCommandLine>() {
+    if let Some(x) = x.downcast_ref::<StarlarkCmdArgs>() {
         x.is_concat()
-    } else if let Some(x) = x.downcast_ref::<FrozenStarlarkCommandLine>() {
+    } else if let Some(x) = x.downcast_ref::<FrozenStarlarkCmdArgs>() {
         x.is_concat()
     } else {
         false
