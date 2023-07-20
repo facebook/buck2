@@ -12,6 +12,7 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use starlark_map::small_map;
+use starlark_map::small_map::IterHashed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Equivalent;
 
@@ -139,6 +140,11 @@ impl<K, V> OrderedMap<K, V> {
         K: Ord,
     {
         self.0.sort_keys()
+    }
+
+    #[inline]
+    pub fn iter_hashed(&self) -> IterHashed<K, V> {
+        self.0.iter_hashed()
     }
 }
 
