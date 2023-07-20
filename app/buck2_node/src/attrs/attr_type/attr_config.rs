@@ -45,6 +45,7 @@ impl ToJsonWithContext for ConfiguredAttr {
             ConfiguredAttr::Arg(e) => Ok(to_value(e.to_string())?),
             ConfiguredAttr::Query(e) => Ok(to_value(e.query())?),
             ConfiguredAttr::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
+            ConfiguredAttr::Metadata(m) => Ok(m.to_value()),
         }
     }
 }
@@ -71,6 +72,7 @@ impl AnyMatches for ConfiguredAttr {
             ConfiguredAttr::Arg(e) => filter(&e.to_string()),
             ConfiguredAttr::Query(e) => filter(e.query()),
             ConfiguredAttr::SourceFile(e) => filter(&e.path().to_string()),
+            ConfiguredAttr::Metadata(e) => e.any_matches(filter),
         }
     }
 }

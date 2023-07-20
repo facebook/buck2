@@ -7,12 +7,8 @@
  * of this source tree.
  */
 
-pub mod cell_root;
-pub mod configuration;
-pub mod label;
-pub mod label_relative_path;
-pub mod opaque_metadata;
-pub mod provider;
-pub mod rule;
-pub mod target_label;
-pub mod transition;
+use allocative::Allocative;
+use dupe::Dupe;
+
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
+pub struct MetadataAttrType;

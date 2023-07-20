@@ -27,6 +27,7 @@ use crate::attrs::attr_type::enumeration::EnumAttrType;
 use crate::attrs::attr_type::int::IntAttrType;
 use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::list::ListAttrType;
+use crate::attrs::attr_type::metadata::MetadataAttrType;
 use crate::attrs::attr_type::one_of::OneOfAttrType;
 use crate::attrs::attr_type::option::OptionAttrType;
 use crate::attrs::attr_type::query::QueryAttrType;
@@ -53,6 +54,7 @@ pub mod enumeration;
 pub mod int;
 pub mod label;
 pub mod list;
+pub mod metadata;
 pub mod one_of;
 pub mod option;
 pub mod query;
@@ -88,6 +90,7 @@ pub enum AttrTypeInner {
     Label(LabelAttrType),
     Visibility(VisibilityAttrType),
     WithinView(WithinViewAttrType),
+    Metadata(MetadataAttrType),
 }
 
 impl AttrType {
@@ -126,6 +129,7 @@ impl AttrType {
             AttrTypeInner::Label(_) => attr("label"),
             AttrTypeInner::Visibility(_) => attr("visibility"),
             AttrTypeInner::WithinView(_) => attr("within_view"),
+            AttrTypeInner::Metadata(_) => attr("metadata"),
         }
     }
 
@@ -304,7 +308,8 @@ impl AttrType {
             | AttrTypeInner::Label(_)
             | AttrTypeInner::Enum(_)
             | AttrTypeInner::Visibility(_)
-            | AttrTypeInner::WithinView(_) => false,
+            | AttrTypeInner::WithinView(_)
+            | AttrTypeInner::Metadata(_) => false,
             AttrTypeInner::Any(_)
             | AttrTypeInner::Arg(_)
             | AttrTypeInner::Dict(_)

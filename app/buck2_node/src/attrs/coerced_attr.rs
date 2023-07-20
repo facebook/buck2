@@ -56,6 +56,7 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
+use crate::metadata::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
@@ -207,6 +208,7 @@ pub enum CoercedAttr {
     Arg(StringWithMacros<ProvidersLabel>),
     Query(Box<QueryAttr<ProvidersLabel>>),
     SourceFile(CoercedPath),
+    Metadata(MetadataMap),
 }
 
 // This is just to help understand any impact that changes have to the size of this.
@@ -264,6 +266,7 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::Arg(e) => write!(f, "\"{}\"", e),
             CoercedAttr::Query(e) => write!(f, "\"{}\"", e.query()),
             CoercedAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
+            CoercedAttr::Metadata(m) => write!(f, "{}", m),
         }
     }
 }
@@ -343,6 +346,7 @@ impl CoercedAttr {
             CoercedAttr::Arg(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::Query(e) => Ok(to_value(e.query())?),
             CoercedAttr::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
+            CoercedAttr::Metadata(m) => Ok(m.to_value()),
         }
     }
 
@@ -461,6 +465,7 @@ impl CoercedAttr {
                 }
                 Ok(())
             }
+            CoercedAttrWithType::Metadata(..) => Ok(()),
         }
     }
 
@@ -604,6 +609,7 @@ impl CoercedAttr {
                 ConfiguredAttr::Query(Box::new(query.configure(ctx)?))
             }
             CoercedAttrWithType::SourceFile(s, _) => ConfiguredAttr::SourceFile(s.clone()),
+            CoercedAttrWithType::Metadata(m, _) => ConfiguredAttr::Metadata(m.clone()),
         })
     }
 
@@ -650,6 +656,7 @@ impl CoercedAttr {
             CoercedAttr::Arg(e) => filter(&e.to_string()),
             CoercedAttr::Query(e) => filter(e.query()),
             CoercedAttr::SourceFile(e) => filter(&e.path().to_string()),
+            CoercedAttr::Metadata(e) => e.any_matches(filter),
         }
     }
 }

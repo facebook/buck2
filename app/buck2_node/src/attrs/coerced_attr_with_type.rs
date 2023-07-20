@@ -27,6 +27,7 @@ use crate::attrs::attr_type::int::IntAttrType;
 use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::list::ListAttrType;
 use crate::attrs::attr_type::list::ListLiteral;
+use crate::attrs::attr_type::metadata::MetadataAttrType;
 use crate::attrs::attr_type::one_of::OneOfAttrType;
 use crate::attrs::attr_type::option::OptionAttrType;
 use crate::attrs::attr_type::query::QueryAttr;
@@ -45,6 +46,7 @@ use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr::CoercedSelector;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::display::AttrDisplayWithContextExt;
+use crate::metadata::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
@@ -98,6 +100,7 @@ pub enum CoercedAttrWithType<'a, 't> {
     Arg(&'a StringWithMacros<ProvidersLabel>, ArgAttrType),
     Query(&'a QueryAttr<ProvidersLabel>, &'t QueryAttrType),
     SourceFile(&'a CoercedPath, SourceAttrType),
+    Metadata(&'a MetadataMap, MetadataAttrType),
 }
 
 impl<'a, 't> CoercedAttrWithType<'a, 't> {
@@ -161,6 +164,9 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             (CoercedAttr::SourceFile(p), AttrTypeInner::Source(t)) => {
                 Ok(CoercedAttrWithType::SourceFile(p, *t))
             }
+            (CoercedAttr::Metadata(p), AttrTypeInner::Metadata(t)) => {
+                Ok(CoercedAttrWithType::Metadata(p, *t))
+            }
 
             // Explicitly list the remaining pattern to make sure nothing is forgotten.
             (CoercedAttr::Bool(_), _)
@@ -181,7 +187,8 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | (CoercedAttr::Label(_), _)
             | (CoercedAttr::Arg(_), _)
             | (CoercedAttr::Query(_), _)
-            | (CoercedAttr::SourceFile(_), _) => {
+            | (CoercedAttr::SourceFile(_), _)
+            | (CoercedAttr::Metadata(_), _) => {
                 Err(CoercedAttrWithTypeError::Mismatch(attr.clone(), ty.clone()).into())
             }
         }
@@ -213,7 +220,8 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | CoercedAttr::Arg(_)
             | CoercedAttr::Query(_)
             | CoercedAttr::EnumVariant(_)
-            | CoercedAttr::SourceFile(_) => Err(CoercedAttrWithTypeError::Any.into()),
+            | CoercedAttr::SourceFile(_)
+            | CoercedAttr::Metadata(_) => Err(CoercedAttrWithTypeError::Any.into()),
         }
     }
 }

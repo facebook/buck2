@@ -14,6 +14,7 @@ use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen
 use buck2_core::buck_path::path::BuckPath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
@@ -146,6 +147,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                 ctx,
                 BuckPath::new(pkg.dupe(), s.path().dupe()),
             )),
+            ConfiguredAttr::Metadata(..) => Ok(ctx.heap().alloc(OpaqueMetadata)),
         }
     }
 
@@ -175,6 +177,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
             ConfiguredAttr::Query(_) => Ok(starlark::values::string::STRING_TYPE),
             ConfiguredAttr::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
+            ConfiguredAttr::Metadata(..) => Ok(OpaqueMetadata::get_type_value_static().as_str()),
         }
     }
 
@@ -237,6 +240,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
                 SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().dupe())),
             ))),
+            ConfiguredAttr::Metadata(..) => heap.alloc(OpaqueMetadata),
         })
     }
 }

@@ -42,6 +42,7 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
+use crate::metadata::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
@@ -107,6 +108,7 @@ pub enum ConfiguredAttr {
     Arg(ConfiguredStringWithMacros),
     Query(Box<QueryAttr<ConfiguredProvidersLabel>>),
     SourceFile(CoercedPath),
+    Metadata(MetadataMap),
 }
 
 impl AttrSerializeWithContext for ConfiguredAttr {
@@ -147,6 +149,7 @@ impl AttrDisplayWithContext for ConfiguredAttr {
             ConfiguredAttr::Arg(e) => write!(f, "\"{}\"", e),
             ConfiguredAttr::Query(e) => write!(f, "\"{}\"", e.query()),
             ConfiguredAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
+            ConfiguredAttr::Metadata(m) => write!(f, "{}", m),
         }
     }
 }
@@ -205,6 +208,7 @@ impl ConfiguredAttr {
                 }
                 Ok(())
             }
+            ConfiguredAttr::Metadata(..) => Ok(()),
         }
     }
 

@@ -28,6 +28,7 @@ mod enumeration;
 pub mod int;
 pub mod label;
 mod list;
+mod metadata;
 mod one_of;
 mod option;
 pub mod query;
@@ -119,6 +120,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
             Self::Label(x) => x.coerce_item(configurable, ctx, value),
             Self::Visibility(x) => x.coerce_item(configurable, ctx, value),
             Self::WithinView(x) => x.coerce_item(configurable, ctx, value),
+            Self::Metadata(x) => x.coerce_item(configurable, ctx, value),
         }
     }
 
@@ -146,6 +148,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
             AttrTypeInner::Label(x) => x.starlark_type(),
             AttrTypeInner::Visibility(x) => x.starlark_type(),
             AttrTypeInner::WithinView(x) => x.starlark_type(),
+            AttrTypeInner::Metadata(x) => x.starlark_type(),
         }
     }
 }
