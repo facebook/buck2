@@ -9,20 +9,11 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(
     ":debug.bzl",
     "AppleDebugInfo",  # @unused Used as a type
-    "AppleDebuggableInfo",
 )
 
 DSYM_SUBTARGET = "dsym"
 DSYM_INFO_SUBTARGET = "dsym-info"
 DWARF_AND_DSYM_SUBTARGET = "dwarf-and-dsym"
-
-AppleBundleDebuggableInfo = record(
-    # Can be `None` for WatchKit stub
-    binary_info = field([AppleDebuggableInfo.type, None]),
-    dep_infos = field([AppleDebuggableInfo.type]),
-    # Concat of `binary_info` and `dep_infos`
-    all_infos = field([AppleDebuggableInfo.type]),
-)
 
 def get_apple_dsym(ctx: "context", executable: "artifact", debug_info: [AppleDebugInfo], action_identifier: "string", output_path_override: ["string", None] = None) -> "artifact":
     output_path = output_path_override or "{}.dSYM".format(executable.short_path)

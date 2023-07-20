@@ -29,9 +29,9 @@ load("@prelude//utils:utils.bzl", "expect", "flatten", "is_any")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
-load(":apple_bundle_types.bzl", "AppleBinaryExtraOutputsInfo", "AppleBundleBinaryOutput", "AppleBundleExtraOutputsInfo", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
+load(":apple_bundle_types.bzl", "AppleBinaryExtraOutputsInfo", "AppleBundleExtraOutputsInfo", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
-load(":apple_dsym.bzl", "AppleBundleDebuggableInfo", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info")
+load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(
     ":debug.bzl",
@@ -46,6 +46,22 @@ _INSTALL_DATA_FILE_NAME = "install_apple_data.json"
 _PLIST = "plist"
 
 _XCTOOLCHAIN_SUB_TARGET = "xctoolchain"
+
+AppleBundleBinaryOutput = record(
+    binary = field("artifact"),
+    debuggable_info = field([AppleDebuggableInfo.type, None], None),
+    # In the case of watchkit, the `ctx.attrs.binary`'s not set, and we need to create a stub binary.
+    is_watchkit_stub_binary = field(bool, False),
+)
+
+AppleBundleDebuggableInfo = record(
+    # Can be `None` for WatchKit stub
+    binary_info = field([AppleDebuggableInfo.type, None]),
+    # Debugable info of all bundle deps
+    dep_infos = field([AppleDebuggableInfo.type]),
+    # Concat of `binary_info` and `dep_infos`
+    all_infos = field([AppleDebuggableInfo.type]),
+)
 
 AppleBundlePartListConstructorParams = record(
     # The binaries/executables, required to create a bundle
