@@ -116,7 +116,6 @@ impl<'v> Default for CheapCallStack<'v> {
 // * Linux default stack size is 8MB
 // * [tokio default stack size is 2MB][1]
 // [1] https://docs.rs/tokio/0.2.1/tokio/runtime/struct.Builder.html#method.thread_stack_size
-// TODO(nga): count loops in call stack size.
 // TODO(nga): make it configurable.
 const MAX_CALLSTACK_RECURSION: usize = 50;
 
