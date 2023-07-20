@@ -11,3 +11,57 @@
 pub trait AnyMatches {
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
 }
+
+impl AnyMatches for serde_json::Value {
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+        match self {
+            Self::Null => {}
+            Self::Bool(..) => {}
+            Self::Number(..) => {}
+            Self::String(v) => {
+                if filter(v)? {
+                    return Ok(true);
+                }
+            }
+            Self::Array(vals) => {
+                for v in vals {
+                    if v.any_matches(filter)? {
+                        return Ok(true);
+                    }
+                }
+            }
+            Self::Object(vals) => {
+                for (k, v) in vals {
+                    if filter(k)? {
+                        return Ok(true);
+                    }
+
+                    if v.any_matches(filter)? {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+
+        Ok(false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_serde_json_any_matches() {
+        let v = serde_json::json!({
+            "number": 123,
+            "list": ["list1", "list2"],
+            "object": {"key": "value"}
+        });
+
+        assert!(v.any_matches(&|s| Ok(s == "key")).unwrap());
+        assert!(v.any_matches(&|s| Ok(s == "value")).unwrap());
+        assert!(v.any_matches(&|s| Ok(s == "list1")).unwrap());
+        assert!(!v.any_matches(&|_s| Ok(false)).unwrap());
+    }
+}
