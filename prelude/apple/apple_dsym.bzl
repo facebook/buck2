@@ -5,6 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactProjection",  # @unused Used as a type
+)
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 DSYM_SUBTARGET = "dsym"
@@ -25,7 +29,7 @@ AppleBundleDebuggableInfo = record(
     all_infos = field([AppleDebuggableInfo.type]),
 )
 
-def get_apple_dsym(ctx: "context", executable: "artifact", external_debug_info: ["_arglike"], action_identifier: "string", output_path_override: ["string", None] = None) -> "artifact":
+def get_apple_dsym(ctx: "context", executable: "artifact", external_debug_info: [ArtifactProjection], action_identifier: "string", output_path_override: ["string", None] = None) -> "artifact":
     output_path = output_path_override or "{}.dSYM".format(executable.short_path)
     return get_apple_dsym_ext(ctx, executable, external_debug_info, action_identifier, output_path)
 
@@ -33,7 +37,7 @@ def get_apple_dsym(ctx: "context", executable: "artifact", external_debug_info: 
 # - pass in dsymutil_extra_flags
 # - oso_prefix
 # - dsym_verification
-def get_apple_dsym_ext(ctx: "context", executable: ["_arglike", "artifact"], external_debug_info: ["_arglike"], action_identifier: "string", output_path: "string") -> "artifact":
+def get_apple_dsym_ext(ctx: "context", executable: ["_arglike", "artifact"], external_debug_info: [ArtifactProjection], action_identifier: "string", output_path: "string") -> "artifact":
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output(output_path, dir = True)
 
