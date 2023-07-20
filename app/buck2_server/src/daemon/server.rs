@@ -737,6 +737,8 @@ where
         }
     };
 
+    let events = tokio_stream::wrappers::UnboundedReceiverStream::new(output_recv);
+
     //
     // Note that while this is an event, we don't send it through our normal event
     // processing. The reason for that is that we dont want this event to queue behind any other
@@ -770,10 +772,7 @@ where
 
     // The stream we ultimately return is the receiving end of the channel that the above task is
     // writing to, plus the shutdown channel.
-    let events = futures::stream::select(
-        tokio_stream::wrappers::UnboundedReceiverStream::new(output_recv),
-        daemon_shutdown_stream,
-    );
+    let events = futures::stream::select(events, daemon_shutdown_stream);
 
     let events = MultiEventStream::new(events);
 
