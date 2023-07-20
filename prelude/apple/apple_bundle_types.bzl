@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":apple_dsym.bzl", "AppleDebuggableInfo")
+load(":debug.bzl", "AppleDebuggableInfo")
 
 # Provider flagging that result of the rule contains Apple bundle.
 # It might be copied into main bundle to appropriate place if rule
