@@ -33,6 +33,7 @@ use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::coerce;
 use starlark::docs::StarlarkDocs;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -534,7 +535,7 @@ impl<'v> StarlarkCmdArgs<'v> {
         Ok(builder)
     }
 
-    pub(crate) fn try_from_values_with_options(
+    fn try_from_values_with_options(
         value: &[Value<'v>],
         delimiter: Option<StringValue<'v>>,
         format: Option<StringValue<'v>>,
@@ -798,6 +799,37 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
             outputs.push(StarlarkOutputArtifact::new(declared));
         }
         Ok(outputs)
+    }
+}
+
+#[starlark_module]
+pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
+    #[starlark(as_type = FrozenStarlarkCmdArgs)]
+    /// The `cmd_args` type is created by this function and is consumed by `ctx.actions.run`.
+    /// The type is a mutable collection of strings and artifact values.
+    /// In general, command lines, artifacts, strings, `RunInfo` and lists thereof can be added to or used to construct a `cmd_args` value.
+    ///
+    /// The arguments are:
+    ///
+    /// * `*args` - a list of things to add to the command line, each of which must be coercible to a command line. Further items can be added with `cmd.add`.
+    /// * `format` - a string that provides a format to apply to the argument. for example, `cmd_args(x, format="--args={}")` would prepend `--args=` before `x`, or if `x` was a list, before each element in `x`.
+    /// * `delimiter` - added between arguments to join them together. For example, `cmd_args(["--args=",x], delimiter="")` would produce a single argument to the underlying tool.
+    /// * `prepend` - added as a separate argument before each argument.
+    /// * `quote` - indicates whether quoting is to be applied to each argument. The only current valid value is `"shell"`.
+    fn cmd_args<'v>(
+        #[starlark(args)] args: Vec<Value<'v>>,
+        delimiter: Option<StringValue<'v>>,
+        format: Option<StringValue<'v>>,
+        prepend: Option<StringValue<'v>>,
+        quote: Option<&str>,
+    ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
+        StarlarkCmdArgs::try_from_values_with_options(
+            &args,
+            delimiter,
+            format,
+            prepend,
+            quote.try_map(QuoteStyle::parse)?,
+        )
     }
 }
 
