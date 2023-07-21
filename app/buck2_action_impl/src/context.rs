@@ -32,6 +32,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ACTIONS;
+use buck2_build_api::interpreter::rule_defs::digest_config::StarlarkDigestConfig;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
@@ -991,6 +992,15 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         )?;
         let res = StarlarkPromiseArtifact::new(declaration_location, artifact, short_path);
         Ok(res)
+    }
+
+    /// Obtain this daemon's digest configuration. This allows rules to discover what digests the
+    /// daemon may be able to e.g. defer download because they conform to its RE backend's expected
+    /// digest format.
+    fn digest_config<'v>(this: &AnalysisActions<'v>) -> anyhow::Result<StarlarkDigestConfig> {
+        Ok(StarlarkDigestConfig {
+            digest_config: this.digest_config,
+        })
     }
 }
 
