@@ -31,12 +31,18 @@ commands:
     steps:
       - run: sudo apt-get update
       - run: sudo apt-get install libssl-dev cmake clang lld opam
+      - run:
+          # the xlarge linux resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
+          name: "Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used"
+          command: echo 'export CARGO_BUILD_JOBS="6"' >> "$BASH_ENV"
       - print_versions
 
   setup_macos_env:
     description: Setup env for macOS
     steps:
-      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - run:
+          name: Install Rustup
+          command: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - run:
           name: Brew install
           command: |
@@ -45,6 +51,13 @@ commands:
             rm -f '/usr/local/lib/python3.9/site-packages/six.py'
             brew unlink python@3.9
             brew install cmake coreutils opam llvm
+      - run:
+          # the xlarge linux resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
+          name: "Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used"
+          command: echo 'export CARGO_BUILD_JOBS="6"' >> "$BASH_ENV"
+      - run:
+          name: "Add LLVM to PATH"
+          command: echo 'export PATH=/usr/local/opt/llvm/bin:"$PATH"' >> "$BASH_ENV"
       - print_versions
 
   setup_windows_env:
@@ -87,6 +100,49 @@ commands:
             cargo install --locked --git https://github.com/facebookincubator/reindeer reindeer
             reindeer --third-party-dir shim/third-party/rust buckify
 
+  build_debug:
+    description: Build buck2 binary (debug)
+    steps:
+      - run:
+          name: Build buck2 binary (debug)
+          command: |
+            mkdir /tmp/artifacts
+            cargo build --bin=buck2 -Z unstable-options --out-dir=/tmp/artifacts
+
+  build_release:
+    description: Build buck2 binary (release)
+    steps:
+      - run:
+          name: Build buck2 binary (release)
+          command: |
+            mkdir /tmp/artifacts
+            cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
+
+  run_test_py:
+    description: Run test.py
+    steps:
+      - run:
+          name: Run test.py
+          command: python3 test.py --ci --git --buck2=/tmp/artifacts/buck2
+
+  build_bootstrap:
+    description: Build `buck2` with `buck2`
+    steps:
+      - run:
+          name: Build `buck2` with `buck2`
+          command: |
+            /tmp/artifacts/buck2 build :buck2 -v 2
+
+  build_example_no_prelude:
+    description: Build example/no_prelude directory
+    steps:
+      - run:
+          name: Build example/no_prelude directory
+          command: |
+            cd examples/no_prelude
+            /tmp/artifacts/buck2 build //... -v 2
+
+
 version: 2.1
 orbs:
   win: circleci/windows@5.0
@@ -100,18 +156,8 @@ jobs:
     steps:
       - checkout
       - setup_linux_env
-      - run:
-          # the xlarge linux resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
-          name: "Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used"
-          command: echo 'export CARGO_BUILD_JOBS="6"' >> "$BASH_ENV"
-      - run:
-          name: Build buck2 binary (debug)
-          command: |
-            mkdir /tmp/artifacts
-            cargo build --bin=buck2 -Z unstable-options --out-dir=/tmp/artifacts
-      - run:
-          name: Run test.py
-          command: python3 test.py --ci --git --buck2=/tmp/artifacts/buck2
+      - build_debug
+      - run_test_py
 
   linux-build-examples:
     description: Build example projects
@@ -122,11 +168,7 @@ jobs:
       - checkout
       - setup_linux_env
       - init_opam
-      - run:
-          name: Build buck2 binary (release)
-          command: |
-            mkdir /tmp/artifacts
-            cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
+      - build_release
       - run:
           name: Build example/prelude directory
           command: |
@@ -136,16 +178,9 @@ jobs:
             # Additional setup for ocaml
             source ./setup.sh
             /tmp/artifacts/buck2 build //... -v 2
-      - run:
-          name: Build example/no_prelude directory
-          command: |
-            cd examples/no_prelude
-            /tmp/artifacts/buck2 build //... -v 2
+      - build_example_no_prelude
       - setup_reindeer
-      - run:
-          name: Build `buck2` with `buck2`
-          command: |
-            /tmp/artifacts/buck2 build :buck2 -v 2
+      - build_bootstrap
 
   macos-build-and-test:
     description: |
@@ -156,14 +191,8 @@ jobs:
     steps:
       - checkout
       - setup_macos_env
-      - run:
-          name: Build buck2 binary (debug)
-          command: |
-            mkdir /tmp/artifacts
-            cargo build --bin=buck2 -Z unstable-options --out-dir=/tmp/artifacts
-      - run:
-          name: Run test.py
-          command: python3 test.py --ci --git --buck2=/tmp/artifacts/buck2
+      - build_debug
+      - run_test_py
 
   macos-build-examples:
     description: Build example projects
@@ -174,32 +203,19 @@ jobs:
       - checkout
       - setup_macos_env
       - init_opam
-      - run:
-          name: Build buck2 binary (release)
-          command: |
-            mkdir /tmp/artifacts
-            # the large resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
-            cargo build -j 6 --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
+      - build_release
       - run:
           name: Build example/prelude directory
           command: |
-            export PATH=/usr/local/opt/llvm/bin:"$PATH"
             cd examples/with_prelude
             /tmp/artifacts/buck2 init
             cp -r ../../prelude prelude
             # Additional setup for ocaml
             source ./setup.sh
             /tmp/artifacts/buck2 build //... -v 2
-      - run:
-          name: Build example/no_prelude directory
-          command: |
-            cd examples/no_prelude
-            /tmp/artifacts/buck2 build //... -v 2
+      - build_example_no_prelude
       - setup_reindeer
-      - run:
-          name: Build `buck2` with `buck2`
-          command: |
-            /tmp/artifacts/buck2 build :buck2 -v 2
+      - build_bootstrap
 
   windows-build-and-test:
     description: |
@@ -211,14 +227,8 @@ jobs:
     steps:
       - checkout
       - setup_windows_env
-      - run:
-          name: Build buck2 binary (debug)
-          command: |
-            mkdir /tmp/artifacts
-            cargo build --bin=buck2 -Z unstable-options --out-dir=/tmp/artifacts
-      - run:
-          name: Run test.py
-          command: python3 test.py --ci --git --buck2=/tmp/artifacts/buck2
+      - build_debug
+      - run_test_py
 
   windows-build-examples:
     description: Build example projects
@@ -229,11 +239,7 @@ jobs:
     steps:
       - checkout
       - setup_windows_env
-      - run:
-          name: Build buck2 binary (release)
-          command: |
-            mkdir /tmp/artifacts
-            cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
+      - build_release
       - run:
           name: Build example/prelude directory
           command: |
@@ -241,16 +247,9 @@ jobs:
             /tmp/artifacts/buck2 init
             copy-item -Path $env:CIRCLE_WORKING_DIRECTORY\prelude -Destination prelude -Recurse
             /tmp/artifacts/buck2 build //... -v 2
-      - run:
-          name: Build example/no_prelude directory
-          command: |
-            cd examples/no_prelude
-            /tmp/artifacts/buck2 build //... -v 2
+      - build_example_no_prelude
       - setup_reindeer
-      - run:
-          name: Build `buck2` with `buck2`
-          command: |
-            /tmp/artifacts/buck2 build :buck2 -v 2
+      - build_bootstrap
 
 workflows:
   build-and-test:
