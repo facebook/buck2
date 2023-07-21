@@ -11,7 +11,6 @@ def _impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),
         LocalResourceInfo(
-            source_target = ctx.label,
             setup = cmd_args([ctx.attrs.broker[RunInfo]] + ctx.attrs.args),
             resource_env_vars = {
                 "IDB_COMPANION": "socket_address",
