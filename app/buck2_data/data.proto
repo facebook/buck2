@@ -236,6 +236,9 @@ message InstantEvent {
 
     // Log options that are command-level and processed by the daemon.
     CommandOptions comand_options = 31;
+
+    // Concurrent active commands.
+    ConcurrentCommands concurrent_commands = 32;
   }
 
   reserved 12; // Log
@@ -1626,6 +1629,8 @@ message InvocationRecord {
   optional uint64 re_download_bytes = 72;
   // Count of actions that downloaded the remote depfile cache
   uint64 run_remote_dep_file_cache_count = 73;
+  // List of concurrent command trace IDs
+  repeated string concurrent_command_ids = 74;
 }
 
 enum CacheUploadReason {
@@ -1799,6 +1804,10 @@ message IoProviderInfo {
 
 message DiceConcurrentCommands {
   uint32 total_concurrent_commands = 1;
+}
+
+message ConcurrentCommands {
+  repeated string trace_ids = 1;
 }
 
 message StarlarkFailNoStacktrace {

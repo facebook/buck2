@@ -116,6 +116,7 @@ mod imp {
         concurrent_command_blocking_duration: Option<Duration>,
         metadata: HashMap<String, String>,
         analysis_count: u64,
+        // TODO(@wendyy) remove
         total_concurrent_commands: Option<u32>,
         exit_when_different_state: bool,
         daemon_in_memory_state_is_corrupted: bool,
@@ -130,6 +131,7 @@ mod imp {
         bxl_ensure_artifacts_duration: Option<prost_types::Duration>,
         initial_re_upload_bytes: Option<u64>,
         initial_re_download_bytes: Option<u64>,
+        concurrent_command_ids: HashSet<String>,
     }
 
     impl<'a> InvocationRecorder<'a> {
@@ -227,6 +229,7 @@ mod imp {
                 bxl_ensure_artifacts_duration: None,
                 initial_re_upload_bytes: None,
                 initial_re_download_bytes: None,
+                concurrent_command_ids: HashSet::new(),
             }
         }
 
@@ -382,6 +385,9 @@ mod imp {
                 bxl_ensure_artifacts_duration: self.bxl_ensure_artifacts_duration.take(),
                 re_upload_bytes,
                 re_download_bytes,
+                concurrent_command_ids: std::mem::take(&mut self.concurrent_command_ids)
+                    .into_iter()
+                    .collect(),
             };
 
             let event = BuckEvent::new(
@@ -759,6 +765,17 @@ mod imp {
             Ok(())
         }
 
+        fn handle_concurrent_commands(
+            &mut self,
+            concurrent_commands: &buck2_data::ConcurrentCommands,
+        ) -> anyhow::Result<()> {
+            concurrent_commands.trace_ids.iter().for_each(|c| {
+                self.tags.push(format!("concurrent_commands:{}", c));
+                self.concurrent_command_ids.insert(c.clone());
+            });
+            Ok(())
+        }
+
         fn handle_snapshot(
             &mut self,
             update: &buck2_data::Snapshot,
@@ -1006,6 +1023,9 @@ mod imp {
                             self.enable_restarter = conf.enable_restarter;
                             Ok(())
                         }
+                        buck2_data::instant_event::Data::ConcurrentCommands(
+                            concurrent_commands,
+                        ) => self.handle_concurrent_commands(concurrent_commands),
                         _ => Ok(()),
                     }
                 }

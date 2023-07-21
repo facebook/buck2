@@ -252,18 +252,16 @@ impl ActiveCommand {
 
         if let Some(commands) = result {
             // Notify our command it is running concurrently with others.
-            event_dispatcher.instant_event(buck2_data::TagEvent {
-                tags: commands
-                    .keys()
-                    .map(|cmd| format!("concurrent_commands:{}", cmd))
-                    .collect(),
+            event_dispatcher.instant_event(buck2_data::ConcurrentCommands {
+                trace_ids: commands.keys().map(|cmd| cmd.to_string()).collect(),
             });
 
             // Notify other commands that they are concurrent with ours.
             for cmd in commands.values() {
-                cmd.dispatcher.instant_event(buck2_data::TagEvent {
-                    tags: vec![format!("concurrent_commands:{}", trace_id)],
-                });
+                cmd.dispatcher
+                    .instant_event(buck2_data::ConcurrentCommands {
+                        trace_ids: vec![trace_id.to_string()],
+                    });
             }
         }
 
