@@ -100,7 +100,7 @@ def _anon_target_example(ctx):
     # Then, we map the result to "my_function", which does some validation
     promise = actions.anon_target(my_mirror_rule, my_attrs).map(my_function)
 
-    # Resolving the promise returns a "provider_callable", which was defined by "my_function" above.
+    # Resolving the promise returns a "provider_collection", which was defined by "my_function" above.
     # `DefaultInfo` is at index 0, `StringInfo` is at index 1
     promise_result = ctx.resolve(actions, promise)
 
