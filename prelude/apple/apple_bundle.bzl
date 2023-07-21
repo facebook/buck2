@@ -25,7 +25,12 @@ load(
     "LinkExecutionPreference",
     "LinkExecutionPreferenceInfo",
 )
-load("@prelude//utils:utils.bzl", "expect", "flatten", "is_any")
+load(
+    "@prelude//utils:utils.bzl",
+    "expect",
+    "flatten",
+    "is_any",
+)
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
@@ -115,18 +120,16 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
     if not debuggable_info:
         return AppleBundleBinaryOutput(binary = binary)
 
-    # If we have debuggable info for this binary, create the scrubed dsym for the binary
-    # and filter debug info.
+    # If we have debuggable info for this binary, create the scrubed dsym for the binary and filter debug info.
     debug_info_tset = debuggable_info.debug_info_tset
     dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
 
-    # TODO: We should add specialized traversal that does this filtering lazily.
     all_debug_info = debug_info_tset._tset.traverse()
     filtered_debug_info = selective_debugging_info.filter(all_debug_info)
     filtered_external_debug_info = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
-        artifacts = filtered_debug_info,
+        artifacts = flatten(filtered_debug_info.map.values()),
     )
     debuggable_info = AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = filtered_external_debug_info)
 

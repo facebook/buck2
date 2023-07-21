@@ -36,6 +36,10 @@ AppleSelectiveDebuggingInfo = provider(fields = [
     "filter",  # function
 ])
 
+AppleSelectiveDebuggingFilteredDebugInfo = record(
+    map = field({"label": ["artifact"]}),
+)
+
 # The type of selective debugging json input to utilze.
 _SelectiveDebuggingJsonTypes = [
     # Use a targets json file containing all targets to include.
@@ -109,13 +113,14 @@ def _impl(ctx: "context") -> ["provider"]:
         )
         return output
 
-    def filter_debug_info(debug_info: "transitive_set_iterator") -> ["artifact"]:
-        selected_debug_info = []
+    def filter_debug_info(debug_info: "transitive_set_iterator") -> AppleSelectiveDebuggingFilteredDebugInfo.type:
+        map = {}
         for infos in debug_info:
             for info in infos:
                 if _is_label_included(info.label, selection_criteria):
-                    selected_debug_info.extend(info.artifacts)
-        return selected_debug_info
+                    map[info.label] = info.artifacts
+
+        return AppleSelectiveDebuggingFilteredDebugInfo(map = map)
 
     def preference_for_links(links: [Label], deps_preferences: [LinkExecutionPreferenceInfo.type]) -> LinkExecutionPreference.type:
         # If any dependent links were run locally, prefer that the current link is also performed locally,
