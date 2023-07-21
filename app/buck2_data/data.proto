@@ -163,7 +163,7 @@ message CommandOptions {
 
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 8, 9, 13, 22;
+  reserved 8, 9, 13, 22, 24;
 
   oneof data {
     StructuredError structured_error = 1;
@@ -208,9 +208,6 @@ message InstantEvent {
     ConsolePreferences console_preferences = 21;
 
     IoProviderInfo io_provider_info = 23;
-
-    // Total number of concurrent commands in an active dice.
-    DiceConcurrentCommands dice_concurrent_commands = 24;
 
     // Stacktrace from the fail_no_stacktrace() call.
     StarlarkFailNoStacktrace starlark_fail_no_stacktrace = 25;
@@ -1798,10 +1795,6 @@ message MaterializerStateInfo {
 
 message IoProviderInfo {
   optional string eden_version = 1;
-}
-
-message DiceConcurrentCommands {
-  uint32 total_concurrent_commands = 1;
 }
 
 message ConcurrentCommands {
