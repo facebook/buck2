@@ -15,7 +15,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictRef;
-use starlark::values::none::NoneOr;
 use starlark::values::type_repr::DictType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
@@ -115,10 +114,8 @@ where
 
 #[starlark_module]
 fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
-    #[allow(unused)]
     #[starlark(as_type = FrozenLocalResourceInfo)]
     fn LocalResourceInfo<'v>(
-        #[starlark(require = named, default = NoneOr::None)] source_target: NoneOr<Value<'v>>,
         #[starlark(require = named)] setup: Value<'v>,
         #[starlark(require = named)] resource_env_vars: Value<'v>,
         _eval: &mut Evaluator<'v, '_>,

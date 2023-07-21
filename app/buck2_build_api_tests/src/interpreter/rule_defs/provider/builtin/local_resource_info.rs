@@ -75,7 +75,7 @@ fn test_validation() -> anyhow::Result<()> {
             def test():
                 target = label("//:foobar")
                 wrong_setup = {5:6}
-                LocalResourceInfo(source_target=target, setup=wrong_setup, resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
+                LocalResourceInfo(setup=wrong_setup, resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
             "#
         );
         expect_error(
