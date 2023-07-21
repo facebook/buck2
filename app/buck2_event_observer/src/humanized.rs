@@ -23,7 +23,7 @@ impl HumanizedBytes {
         }
     }
 
-    pub const FIXED_WIDTH_WIDTH: usize = 7;
+    pub const FIXED_WIDTH_WIDTH: usize = 6;
 
     pub fn fixed_width(bytes: u64) -> Self {
         HumanizedBytes {
@@ -128,10 +128,10 @@ impl fmt::Display for HumanizedBytes {
             preformat(self.bytes, 1024.0, "B", &["KiB", "MiB", "GiB"]);
 
         match (point, self.fixed_width) {
-            (false, false) => write!(f, "{:.0} {}", val, label),
-            (true, false) => write!(f, "{:.1} {}", val, label),
-            (false, true) => write!(f, "{:>3.0} {:<3}", val, label),
-            (true, true) => write!(f, "{:>3.1} {:<3}", val, label),
+            (false, false) => write!(f, "{:.0}{}", val, label),
+            (true, false) => write!(f, "{:.1}{}", val, label),
+            (false, true) => write!(f, "{:>3.0}{:<3}", val, label),
+            (true, true) => write!(f, "{:>3.1}{:<3}", val, label),
         }
     }
 }
@@ -146,10 +146,10 @@ impl fmt::Display for HumanizedBytesPerSecond {
         );
 
         match (point, self.fixed_width) {
-            (false, false) => write!(f, "{:.0} {}", val, label),
-            (true, false) => write!(f, "{:.1} {}", val, label),
-            (false, true) => write!(f, "{:>3.0} {:<5}", val, label),
-            (true, true) => write!(f, "{:>3.1} {:<5}", val, label),
+            (false, false) => write!(f, "{:.0}{}", val, label),
+            (true, false) => write!(f, "{:.1}{}", val, label),
+            (false, true) => write!(f, "{:>3.0}{:<5}", val, label),
+            (true, true) => write!(f, "{:>3.1}{:<5}", val, label),
         }
     }
 }
@@ -158,24 +158,11 @@ impl fmt::Display for HumanizedCount {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Preformat { val, label, point } = preformat(self.count, 1000.0, "", &["K", "M", "B"]);
 
-        struct SpacePrefixedUnlessEmpty<'a> {
-            label: &'a str,
-        }
-
-        impl fmt::Display for SpacePrefixedUnlessEmpty<'_> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                if self.label.is_empty() {
-                    return Ok(());
-                }
-                write!(f, " {}", self.label)
-            }
-        }
-
         match (point, self.fixed_width) {
-            (false, false) => write!(f, "{:.0}{}", val, SpacePrefixedUnlessEmpty { label }),
-            (true, false) => write!(f, "{:.1}{}", val, SpacePrefixedUnlessEmpty { label }),
-            (false, true) => write!(f, "{:>3.0} {:<1}", val, label),
-            (true, true) => write!(f, "{:>3.1} {:<1}", val, label),
+            (false, false) => write!(f, "{:.0}{}", val, label),
+            (true, false) => write!(f, "{:.1}{}", val, label),
+            (false, true) => write!(f, "{:>3.0}{:<1}", val, label),
+            (true, true) => write!(f, "{:>3.1}{:<1}", val, label),
         }
     }
 }
@@ -214,21 +201,21 @@ mod test {
             );
         }
 
-        t(0, "0 B", "  0 B  ");
-        t(1, "1 B", "  1 B  ");
-        t(10, "10 B", " 10 B  ");
-        t(345, "345 B", "345 B  ");
-        t(1023, "1.0 KiB", "1.0 KiB");
-        t(1024, "1.0 KiB", "1.0 KiB");
-        t(1536, "1.5 KiB", "1.5 KiB");
-        t(10 * 1024 - 1, "10 KiB", " 10 KiB");
-        t(10 * 1024 + 0, "10 KiB", " 10 KiB");
-        t(654 * 1024 + 0, "654 KiB", "654 KiB");
-        t(1024 * 1024 - 1, "1.0 MiB", "1.0 MiB");
-        t(1024 * 1024 + 0, "1.0 MiB", "1.0 MiB");
-        t(1024 * 1024 * 1024 - 1, "1.0 GiB", "1.0 GiB");
-        t(2034 * 1024 * 1024 + 0, "2.0 GiB", "2.0 GiB");
-        t(100500 * 1024 * 1024 * 1024, "100500 GiB", "100500 GiB");
+        t(0, "0B", "  0B  ");
+        t(1, "1B", "  1B  ");
+        t(10, "10B", " 10B  ");
+        t(345, "345B", "345B  ");
+        t(1023, "1.0KiB", "1.0KiB");
+        t(1024, "1.0KiB", "1.0KiB");
+        t(1536, "1.5KiB", "1.5KiB");
+        t(10 * 1024 - 1, "10KiB", " 10KiB");
+        t(10 * 1024 + 0, "10KiB", " 10KiB");
+        t(654 * 1024 + 0, "654KiB", "654KiB");
+        t(1024 * 1024 - 1, "1.0MiB", "1.0MiB");
+        t(1024 * 1024 + 0, "1.0MiB", "1.0MiB");
+        t(1024 * 1024 * 1024 - 1, "1.0GiB", "1.0GiB");
+        t(2034 * 1024 * 1024 + 0, "2.0GiB", "2.0GiB");
+        t(100500 * 1024 * 1024 * 1024, "100500GiB", "100500GiB");
     }
 
     #[test]
@@ -258,9 +245,9 @@ mod test {
             );
         }
 
-        t(0, "0 B/s", "  0 B/s  ");
-        t(22, "22 B/s", " 22 B/s  ");
-        t(1024 * 1024, "1.0 MiB/s", "1.0 MiB/s");
+        t(0, "0B/s", "  0B/s  ");
+        t(22, "22B/s", " 22B/s  ");
+        t(1024 * 1024, "1.0MiB/s", "1.0MiB/s");
     }
 
     #[test]
@@ -284,8 +271,8 @@ mod test {
             );
         }
 
-        t(0, "0", "  0  ");
-        t(22, "22", " 22  ");
-        t(1000000, "1.0 M", "1.0 M");
+        t(0, "0", "  0 ");
+        t(22, "22", " 22 ");
+        t(1000000, "1.0M", "1.0M");
     }
 }
