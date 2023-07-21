@@ -67,9 +67,10 @@ commands:
           command: |
             $psProfileContent = @'
             $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-            $msvcPath = (Get-ChildItem (Join-Path $vsPath "VC\Tools\MSVC") -Directory).FullName
-            $msvcBinPath = Join-Path $msvcPath "bin\Hostx64\x64"
-            $env:PATH = "$env:USERPROFILE\.cargo\bin;$msvcBinPath;" + $env:PATH
+            $msvcVersion = (Get-Content -raw (Join-Path $vsPath "VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt")).Trim()
+            $msvcBinPath = Join-Path $vsPath "VC\Tools\MSVC\$msvcVersion\bin\Hostx64\x64"
+            $llvmPath = Join-Path $vsPath "VC\Tools\Llvm\x64\bin"
+            $env:PATH = "$env:USERPROFILE\.cargo\bin;$msvcBinPath;$llvmPath;" + $env:PATH
             # In CircleCI username here is shortened and this breaks some tests.
             $env:TEMP = "$env:USERPROFILE\AppData\Local\Temp"
             $env:TMP = $env:TEMP
@@ -244,9 +245,7 @@ jobs:
           name: Build example/no_prelude directory
           command: |
             cd examples/no_prelude
-            # TODO: Fix //cpp on CircleCI, some C++ includes are missing from the system
-            /tmp/artifacts/buck2 build //go/... -v 2
-            /tmp/artifacts/buck2 build //rust/... -v 2
+            /tmp/artifacts/buck2 build //... -v 2
       - setup_reindeer
       # TODO: Fix buck2 bootstrap for Windows
       # - run:
