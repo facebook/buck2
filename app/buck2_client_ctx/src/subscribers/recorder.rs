@@ -116,8 +116,6 @@ mod imp {
         concurrent_command_blocking_duration: Option<Duration>,
         metadata: HashMap<String, String>,
         analysis_count: u64,
-        // TODO(@wendyy) remove
-        total_concurrent_commands: Option<u32>,
         exit_when_different_state: bool,
         daemon_in_memory_state_is_corrupted: bool,
         daemon_materializer_state_is_corrupted: bool,
@@ -215,7 +213,6 @@ mod imp {
                 concurrent_command_blocking_duration: None,
                 metadata: buck2_events::metadata::collect(),
                 analysis_count: 0,
-                total_concurrent_commands: None,
                 exit_when_different_state: false,
                 daemon_in_memory_state_is_corrupted: false,
                 daemon_materializer_state_is_corrupted: false,
@@ -368,7 +365,6 @@ mod imp {
                     .concurrent_command_blocking_duration
                     .and_then(|x| x.try_into().ok()),
                 analysis_count: Some(self.analysis_count),
-                total_concurrent_commands: self.total_concurrent_commands,
                 exit_when_different_state: Some(self.exit_when_different_state),
                 restarted_trace_id: self.restarted_trace_id.as_ref().map(|t| t.to_string()),
                 has_command_result: Some(self.has_command_result),
@@ -743,15 +739,6 @@ mod imp {
             Ok(())
         }
 
-        fn handle_dice_concurrent_commands(
-            &mut self,
-            dice_concurrent_commands: &buck2_data::DiceConcurrentCommands,
-        ) -> anyhow::Result<()> {
-            self.total_concurrent_commands =
-                Some(dice_concurrent_commands.total_concurrent_commands);
-            Ok(())
-        }
-
         fn handle_exit_when_different_state(
             &mut self,
             _exit_when_different_state: &buck2_data::ExitWhenDifferentState,
@@ -1013,9 +1000,6 @@ mod imp {
                         buck2_data::instant_event::Data::StructuredError(err) => {
                             self.handle_structured_error(err)
                         }
-                        buck2_data::instant_event::Data::DiceConcurrentCommands(
-                            dice_concurrent_commands,
-                        ) => self.handle_dice_concurrent_commands(dice_concurrent_commands),
                         buck2_data::instant_event::Data::ExitWhenDifferentState(
                             exit_when_different_state,
                         ) => self.handle_exit_when_different_state(exit_when_different_state),

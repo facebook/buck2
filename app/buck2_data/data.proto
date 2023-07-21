@@ -1505,7 +1505,7 @@ message TypedMetadata {
 
 // Record event sent directly to scribe.
 message InvocationRecord {
-  reserved 22, 36, 66;
+  reserved 22, 36, 61, 66;
 
   // Optional - present if ever sent to client.
   CommandStart command_start = 1;
@@ -1614,8 +1614,6 @@ message InvocationRecord {
   google.protobuf.Duration concurrent_command_blocking_duration = 59;
   // How many analyses were executed
   optional uint64 analysis_count = 60;
-  // Total concurrent commands.
-  optional uint32 total_concurrent_commands = 61;
   optional bool exit_when_different_state = 62;
   optional string restarted_trace_id = 63;
   optional bool has_command_result = 64;
