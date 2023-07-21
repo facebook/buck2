@@ -233,6 +233,10 @@ impl CasDigestConfig {
         self.inner.digest256 == Some(DigestAlgorithm::Sha256)
     }
 
+    pub fn allows_blake3(self) -> bool {
+        self.inner.digest256 == Some(DigestAlgorithm::Blake3)
+    }
+
     pub fn allows_blake3_keyed(self) -> bool {
         matches!(
             self.inner.digest256,
