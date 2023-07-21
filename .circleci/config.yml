@@ -247,11 +247,10 @@ jobs:
             cd examples/no_prelude
             /tmp/artifacts/buck2 build //... -v 2
       - setup_reindeer
-      # TODO: Fix buck2 bootstrap for Windows
-      # - run:
-      #     name: Build `buck2` with `buck2`
-      #     command: |
-      #       /tmp/artifacts/buck2 build :buck2 -v 2
+      - run:
+          name: Build `buck2` with `buck2`
+          command: |
+            /tmp/artifacts/buck2 build :buck2 -v 2
 
 workflows:
   build-and-test:
