@@ -95,6 +95,11 @@ OutputPaths = record(
     scratch = "artifact",
 )
 
+def qualified_name_with_subtarget(label: "label") -> str:
+    if label.sub_target:
+        return "{}:{}[{}]".format(label.path, label.name, label.sub_target[0])
+    return "{}:{}".format(label.path, label.name)
+
 # Converted to str so that we get the right result when written as json.
 def base_qualified_name(label: "label") -> str:
     return "{}:{}".format(label.path, label.name)
@@ -389,13 +394,13 @@ def prepare_cd_exe(
     jvm_args = ["-XX:-MaxFDLimit"]
 
     if extra_jvm_args_target:
-        if qualified_name == base_qualified_name(extra_jvm_args_target):
+        if qualified_name == qualified_name_with_subtarget(extra_jvm_args_target):
             jvm_args = jvm_args + extra_jvm_args
             local_only = True
     else:
         jvm_args = jvm_args + extra_jvm_args
 
-    if debug_port and qualified_name == base_qualified_name(debug_target):
+    if debug_port and qualified_name == qualified_name_with_subtarget(debug_target):
         # Do not use a worker when debugging is enabled
         local_only = True
         jvm_args.extend(["-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port)])
