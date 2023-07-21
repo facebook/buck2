@@ -356,13 +356,14 @@ def rust_compile(
     )
 
     rustc_cmd = cmd_args(
+        # Lints go first to allow other args to override them.
+        lints,
+        # Report unused --extern crates in the notification stream.
+        ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         common_args.args,
         cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, "/=", ctx.label.package, "/", delimiter = ""),
         compile_ctx.linker_args,
-        # Report unused --extern crates in the notification stream
-        ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         extra_flags,
-        lints,
     )
 
     # If we're using failure filtering then we need to make sure the final
@@ -459,7 +460,8 @@ def rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
             prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
-            rustc_cmd = cmd_args(compile_ctx.clippy_wrapper, rustc_cmd, clippy_lints, clippy_emit_args),
+            # Lints go first to allow other args to override them.
+            rustc_cmd = cmd_args(compile_ctx.clippy_wrapper, clippy_lints, rustc_cmd, clippy_emit_args),
             env = clippy_env,
             diag = "clippy",
             outputs = clippy_out.values(),
