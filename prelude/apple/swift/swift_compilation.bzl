@@ -403,7 +403,10 @@ def _get_shared_flags(
         cmd.add(["-swift-version", ctx.attrs.swift_version])
 
     if ctx.attrs.enable_cxx_interop:
-        cmd.add(["-enable-experimental-cxx-interop"])
+        if toolchain.supports_swift_cxx_interoperability_mode:
+            cmd.add(["-cxx-interoperability-mode=default"])
+        else:
+            cmd.add(["-enable-experimental-cxx-interop"])
 
     serialize_debugging_options = False
     if ctx.attrs.serialize_debugging_options:

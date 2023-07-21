@@ -993,6 +993,7 @@ swift_toolchain = prelude_rule(
             "sdk_dependencies_path": attrs.option(attrs.string(), default = None),
             "sdk_path": attrs.source(),
             "static_runtime_paths": attrs.list(attrs.string(), default = []),
+            "supports_swift_cxx_interoperability_mode": attrs.bool(default = False),
             "swift_stdlib_tool": attrs.option(attrs.source(), default = None),
             "swift_stdlib_tool_flags": attrs.list(attrs.arg(), default = []),
             "swiftc": attrs.source(),

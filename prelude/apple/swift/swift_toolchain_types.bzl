@@ -30,6 +30,7 @@ SwiftToolchainInfo = provider(fields = [
     "swift_stdlib_tool_flags",
     "swift_stdlib_tool",
     "runtime_run_paths",  # [str]
+    "supports_swift_cxx_interoperability_mode",  # bool
 ])
 
 # A provider that represents a non-yet-compiled SDK (Swift or Clang) module,
