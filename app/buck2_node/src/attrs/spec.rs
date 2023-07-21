@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use buck2_core::soft_error;
 use buck2_util::collections::ordered_map::OrderedMap;
 use once_cell::sync::Lazy;
 use starlark_map::small_map;
@@ -120,6 +121,14 @@ impl AttributeSpec {
         }
 
         for (name, instance) in attributes.into_iter() {
+            if name == "metadata" {
+                soft_error!(
+                    "metadata_attribute",
+                    anyhow::anyhow!("Rules should not declare an attribute named metadata`"),
+                    quiet: true
+                )?;
+            }
+
             match instances.entry(name) {
                 small_map::Entry::Vacant(e) => {
                     e.insert(instance);
