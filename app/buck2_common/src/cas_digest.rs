@@ -250,6 +250,17 @@ impl CasDigestConfig {
     }
 }
 
+impl fmt::Display for CasDigestConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "CasDigestConfig(preferred = {}, source preferred = {})",
+            self.preferred_algorithm().kind(),
+            self.source_files_config().preferred_algorithm().kind()
+        )
+    }
+}
+
 #[derive(Debug, Allocative, Hash, Eq, PartialEq)]
 struct CasDigestConfigInner {
     /// The algorithm we use for non-source files, action digests, etc.

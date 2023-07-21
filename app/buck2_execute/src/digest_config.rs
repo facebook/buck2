@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt;
+
 use allocative::Allocative;
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::CasDigestConfigError;
@@ -66,6 +68,12 @@ impl DigestConfig {
 
     pub fn empty_directory(&self) -> ActionSharedDirectory {
         self.inner.empty_directory.dupe()
+    }
+}
+
+impl fmt::Display for DigestConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.cas_digest_config(), f)
     }
 }
 
