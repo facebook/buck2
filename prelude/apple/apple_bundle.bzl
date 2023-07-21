@@ -41,7 +41,7 @@ load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(
     ":debug.bzl",
     "AppleDebuggableInfo",
-    "DEBUGINFO_SUBTARGET",
+    "get_aggregated_debug_info",
 )
 load(":xcode.bzl", "apple_xcode_data_add_xctoolchain")
 
@@ -126,12 +126,13 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
 
     all_debug_info = debug_info_tset._tset.traverse()
     filtered_debug_info = selective_debugging_info.filter(all_debug_info)
+
     filtered_external_debug_info = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = flatten(filtered_debug_info.map.values()),
     )
-    debuggable_info = AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = filtered_external_debug_info)
+    debuggable_info = AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = filtered_external_debug_info, filtered_map = filtered_debug_info.map)
 
     return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
 
@@ -195,7 +196,7 @@ def _get_debuggable_deps(ctx: "context", binary_output: AppleBundleBinaryOutput.
             action_identifier = get_bundle_dir_name(ctx),
             output_path = _get_bundle_dsym_name(ctx),
         )
-        bundle_debuggable_info = AppleDebuggableInfo(dsyms = [bundle_binary_dsym_artifact], debug_info_tset = binary_debuggable_info.debug_info_tset)
+        bundle_debuggable_info = AppleDebuggableInfo(dsyms = [bundle_binary_dsym_artifact], debug_info_tset = binary_debuggable_info.debug_info_tset, filtered_map = binary_debuggable_info.filtered_map)
 
     return AppleBundleDebuggableInfo(
         binary_info = bundle_debuggable_info,
@@ -245,19 +246,8 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     if dsym_artifacts:
         sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = dsym_artifacts)]
 
-    debug_info_tset = make_artifact_tset(
-        actions = ctx.actions,
-        label = ctx.label,
-        children = [info.debug_info_tset for info in bundle_debuggable_info.all_infos],
-    )
-    sub_targets[DEBUGINFO_SUBTARGET] = [
-        DefaultInfo(
-            other_outputs = project_artifacts(
-                actions = ctx.actions,
-                tsets = [debug_info_tset],
-            ),
-        ),
-    ]
+    aggregated_debug_info = get_aggregated_debug_info(ctx, bundle_debuggable_info.all_infos, dsym_artifacts)
+    sub_targets.update(aggregated_debug_info.sub_targets)
 
     dsym_info = get_apple_dsym_info(ctx, binary_dsyms = binary_dsym_artifacts, dep_dsyms = dep_dsym_artifacts)
     sub_targets[DSYM_INFO_SUBTARGET] = [
@@ -289,7 +279,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
             contains_watchapp = is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
             skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
         ),
-        AppleDebuggableInfo(dsyms = dsym_artifacts, debug_info_tset = debug_info_tset),
+        aggregated_debug_info.debug_info,
         InstallInfo(
             installer = ctx.attrs._apple_toolchain[AppleToolchainInfo].installer,
             files = {
