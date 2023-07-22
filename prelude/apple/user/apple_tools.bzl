@@ -8,7 +8,7 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
-def _impl(ctx: "context") -> ["provider"]:
+def _impl(ctx: AnalysisContext) -> ["provider"]:
     return [
         DefaultInfo(),
         AppleToolsInfo(

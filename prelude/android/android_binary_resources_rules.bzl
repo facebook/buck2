@@ -18,8 +18,8 @@ load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//decls/android_rules.bzl", "RType")
 
 def get_android_binary_resources_info(
-        ctx: "context",
-        deps: ["dependency"],
+        ctx: AnalysisContext,
+        deps: [Dependency],
         android_packageable_info: "AndroidPackageableInfo",
         java_packaging_deps: ["JavaPackagingDep"],
         use_proto_format: bool,
@@ -177,7 +177,7 @@ def get_android_binary_resources_info(
     )
 
 def _maybe_filter_resources(
-        ctx: "context",
+        ctx: AnalysisContext,
         resources: [AndroidResourceInfo.type],
         android_toolchain: AndroidToolchainInfo.type) -> ([AndroidResourceInfo.type], ["artifact", None], ["artifact", None], ["artifact"]):
     resources_filter_strings = getattr(ctx.attrs, "resource_filter", [])
@@ -370,7 +370,7 @@ def _maybe_generate_string_source_map(
     return output
 
 def _maybe_package_strings_as_assets(
-        ctx: "context",
+        ctx: AnalysisContext,
         string_files_list: ["artifact", None],
         string_files_res_dirs: ["artifact"],
         r_dot_txt: "artifact",
@@ -410,7 +410,7 @@ def _maybe_package_strings_as_assets(
     return string_assets_zip
 
 def _get_manifest(
-        ctx: "context",
+        ctx: AnalysisContext,
         android_packageable_info: "AndroidPackageableInfo",
         manifest_entries: dict) -> "artifact":
     robolectric_manifest = getattr(ctx.attrs, "robolectric_manifest", None)
@@ -458,7 +458,7 @@ def _get_manifest(
         return android_manifest
 
 def _get_module_manifests(
-        ctx: "context",
+        ctx: AnalysisContext,
         android_packageable_info: "AndroidPackageableInfo",
         manifest_entries: dict,
         apk_module_graph_file: ["artifact", None],
@@ -480,7 +480,7 @@ def _get_module_manifests(
     module_manifests_dir = ctx.actions.declare_output("module_manifests_dir", dir = True)
     android_manifests = list(android_packageable_info.manifests.traverse()) if android_packageable_info.manifests else []
 
-    def get_manifests_modular(ctx: "context", artifacts, outputs):
+    def get_manifests_modular(ctx: AnalysisContext, artifacts, outputs):
         apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts)
         get_module_from_target = apk_module_graph_info.target_to_module_mapping_function
         module_to_manifests = {}
@@ -528,7 +528,7 @@ def _get_module_manifests(
 # Returns the "primary resources APK" (i.e. the resource that are packaged into the primary APK),
 # and optionally an "exopackaged assets APK" and the hash for that APK.
 def _merge_assets(
-        ctx: "context",
+        ctx: AnalysisContext,
         is_exopackaged_enabled_for_resources: bool,
         base_apk: "artifact",
         resource_infos: ["AndroidResourceInfo"],
@@ -581,7 +581,7 @@ def get_effective_banned_duplicate_resource_types(
     else:
         fail("Unrecognized duplicate_resource_behavior: {}".format(duplicate_resource_behavior))
 
-def _get_cxx_resources(ctx: "context", deps: ["dependency"]) -> ["artifact", None]:
+def _get_cxx_resources(ctx: AnalysisContext, deps: [Dependency]) -> ["artifact", None]:
     cxx_resources = gather_resources(
         label = ctx.label,
         resources = {},

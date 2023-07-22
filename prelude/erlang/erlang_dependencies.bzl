@@ -12,9 +12,9 @@ load(
     "ErlangTestInfo",
 )
 
-ErlAppDependencies = {"string": "dependency"}
+ErlAppDependencies = {"string": Dependency}
 
-def check_dependencies(in_deps: ["dependency"], allowlist: "list") -> ["dependency"]:
+def check_dependencies(in_deps: [Dependency], allowlist: "list") -> [Dependency]:
     """ filter valid dependencies
 
     check all dependencies for validity and collect only the relevant ones
@@ -34,7 +34,7 @@ def check_dependencies(in_deps: ["dependency"], allowlist: "list") -> ["dependen
             _bad_dependency_error(dep)
     return out_deps
 
-def flatten_dependencies(_ctx: "context", deps: ["dependency"]) -> ErlAppDependencies:
+def flatten_dependencies(_ctx: AnalysisContext, deps: [Dependency]) -> ErlAppDependencies:
     """ collect transitive dependencies
 
     Flatten all transitive dependencies and merge together with the direct
@@ -54,7 +54,7 @@ def flatten_dependencies(_ctx: "context", deps: ["dependency"]) -> ErlAppDepende
 
     return dependencies
 
-def _safe_add_dependency(dependencies: ErlAppDependencies, dep: "dependency") -> ErlAppDependencies:
+def _safe_add_dependency(dependencies: ErlAppDependencies, dep: Dependency) -> ErlAppDependencies:
     """Adds ErlangAppInfo and ErlangAppIncludeInfo dependencies
 
     ErlangAppInfo (full) application dependencies overwrite include_only dependencies,
@@ -69,7 +69,7 @@ def _safe_add_dependency(dependencies: ErlAppDependencies, dep: "dependency") ->
         dependencies[dep[ErlangAppIncludeInfo].name] = dep
     return dependencies
 
-def _bad_dependency_error(dep: "dependency"):
+def _bad_dependency_error(dep: Dependency):
     fail((
         "unsupported dependency through target `%s`: " +
         "the target needs to define an Erlang application"

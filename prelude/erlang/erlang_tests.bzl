@@ -125,7 +125,7 @@ def erlang_tests_macro(
             **common_attributes
         )
 
-def erlang_test_impl(ctx: "context") -> ["provider"]:
+def erlang_test_impl(ctx: AnalysisContext) -> ["provider"]:
     toolchains = select_toolchains(ctx)
     primary_toolchain_name = get_primary(ctx)
     primary_toolchain = toolchains[primary_toolchain_name]
@@ -274,7 +274,7 @@ def _build_default_info(dependencies: ErlAppDependencies, output_dir: "artifact"
     return DefaultInfo(default_output = output_dir, other_outputs = outputs)
 
 def _write_test_info_file(
-        ctx: "context",
+        ctx: AnalysisContext,
         test_suite: "string",
         dependencies: ErlAppDependencies,
         test_dir: "artifact",
@@ -331,7 +331,7 @@ def _build_resource_dir(ctx, resources: "list", target_dir: "string") -> "artifa
     )
 
 def link_output(
-        ctx: "context",
+        ctx: AnalysisContext,
         test_suite: "string",
         build_environment: "BuildEnvironment",
         data_dir: "artifact",

@@ -111,7 +111,7 @@ def _process_plugins(
             "--javac_processors_classpath_file",
         )
 
-def _build_classpath(actions: "actions", deps: ["dependency"], additional_classpath_entries: ["artifact"], classpath_args_projection: "string") -> [cmd_args, None]:
+def _build_classpath(actions: "actions", deps: [Dependency], additional_classpath_entries: ["artifact"], classpath_args_projection: "string") -> [cmd_args, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
 
     if additional_classpath_entries or compiling_deps_tset:
@@ -144,7 +144,7 @@ def _append_javac_params(
         javac_plugin_params: ["PluginParams", None],
         source_level: int,
         target_level: int,
-        deps: ["dependency"],
+        deps: [Dependency],
         extra_arguments: cmd_args,
         additional_classpath_entries: ["artifact"],
         bootclasspath_entries: ["artifact"],
@@ -264,7 +264,7 @@ def _jar_creator(
         fail("unrecognized javac protocol `{}`".format(java_toolchain.javac_protocol))
 
 def compile_to_jar(
-        ctx: "context",
+        ctx: AnalysisContext,
         srcs: ["artifact"],
         *,
         abi_generation_mode: ["AbiGenerationMode", None] = None,
@@ -279,9 +279,9 @@ def compile_to_jar(
         plugin_params: ["PluginParams", None] = None,
         source_level: [int, None] = None,
         target_level: [int, None] = None,
-        deps: [["dependency"], None] = None,
+        deps: [[Dependency], None] = None,
         required_for_source_only_abi: bool = False,
-        source_only_abi_deps: [["dependency"], None] = None,
+        source_only_abi_deps: [[Dependency], None] = None,
         extra_arguments: [cmd_args, None] = None,
         additional_classpath_entries: [["artifact"], None] = None,
         additional_compiled_srcs: ["artifact", None] = None,
@@ -359,9 +359,9 @@ def _create_jar_artifact(
         plugin_params: ["PluginParams", None],
         source_level: int,
         target_level: int,
-        deps: ["dependency"],
+        deps: [Dependency],
         required_for_source_only_abi: bool,
-        _source_only_abi_deps: ["dependency"],
+        _source_only_abi_deps: [Dependency],
         extra_arguments: cmd_args,
         additional_classpath_entries: ["artifact"],
         additional_compiled_srcs: ["artifact", None],
@@ -434,19 +434,19 @@ def _create_jar_artifact(
         annotation_processor_output = generated_sources_dir,
     )
 
-def _check_dep_types(deps: ["dependency"]):
+def _check_dep_types(deps: [Dependency]):
     for dep in deps:
         if JavaLibraryInfo not in dep and SharedLibraryInfo not in dep:
             fail("Received dependency {} is not supported. `java_library`, `prebuilt_jar` and native libraries are supported.".format(dep))
 
-def _check_provided_deps(provided_deps: ["dependency"], attr_name: str):
+def _check_provided_deps(provided_deps: [Dependency], attr_name: str):
     for provided_dep in provided_deps:
         expect(
             JavaLibraryInfo in provided_dep or SharedLibraryInfo not in provided_dep,
             "Java code does not need native libs in order to compile, so not valid as {}: {}".format(attr_name, provided_dep),
         )
 
-def _check_exported_deps(exported_deps: ["dependency"], attr_name: str):
+def _check_exported_deps(exported_deps: [Dependency], attr_name: str):
     for exported_dep in exported_deps:
         expect(
             JavaLibraryInfo in exported_dep,
@@ -455,10 +455,10 @@ def _check_exported_deps(exported_deps: ["dependency"], attr_name: str):
         )
 
 # TODO(T145137403) remove need for this
-def _skip_java_library_dep_checks(ctx: "context") -> bool:
+def _skip_java_library_dep_checks(ctx: AnalysisContext) -> bool:
     return "skip_buck2_java_library_dep_checks" in ctx.attrs.labels
 
-def java_library_impl(ctx: "context") -> ["provider"]:
+def java_library_impl(ctx: AnalysisContext) -> ["provider"]:
     """
      java_library() rule implementation
 
@@ -496,7 +496,7 @@ def java_library_impl(ctx: "context") -> ["provider"]:
     return to_list(java_providers) + [android_packageable_info]
 
 def build_java_library(
-        ctx: "context",
+        ctx: AnalysisContext,
         srcs: ["artifact"],
         run_annotation_processors = True,
         additional_classpath_entries: ["artifact"] = [],

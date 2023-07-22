@@ -12,7 +12,7 @@ load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get
 load("@prelude//utils:utils.bzl", "expect")
 
 def _build_js_bundle(
-        ctx: "context",
+        ctx: AnalysisContext,
         bundle_name_out: str,
         js_bundle_info: JsBundleInfo.type,
         named_output: str) -> JsBundleInfo.type:
@@ -73,9 +73,9 @@ def _build_js_bundle(
     )
 
 def _get_extra_providers(
-        ctx: "context",
+        ctx: AnalysisContext,
         skip_resources: bool,
-        initial_target: ["provider_collection", "dependency"],
+        initial_target: ["provider_collection", Dependency],
         js_bundle_out: JsBundleInfo.type) -> ["provider"]:
     providers = []
     android_resource_info = initial_target.get(AndroidResourceInfo)
@@ -98,7 +98,7 @@ def _get_extra_providers(
 
     return providers
 
-def js_bundle_genrule_impl(ctx: "context") -> ["provider"]:
+def js_bundle_genrule_impl(ctx: AnalysisContext) -> ["provider"]:
     sub_targets = {}
     for transform_profile in TRANSFORM_PROFILES:
         for ram_bundle_name in RAM_BUNDLE_TYPES.keys():

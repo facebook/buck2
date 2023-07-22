@@ -10,7 +10,7 @@ load("@prelude//android:android_apk.bzl", "get_install_info")
 load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
-def apk_genrule_impl(ctx: "context") -> ["provider"]:
+def apk_genrule_impl(ctx: AnalysisContext) -> ["provider"]:
     # TODO(T104150125) The underlying APK should not have exopackage enabled
     input_android_apk_info = ctx.attrs.apk[AndroidApkInfo]
     expect(input_android_apk_info != None, "'apk' attribute must be an Android APK!")

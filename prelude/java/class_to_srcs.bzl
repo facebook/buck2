@@ -29,9 +29,9 @@ JavaClassToSourceMapInfo = provider(
 )
 
 def create_class_to_source_map_info(
-        ctx: "context",
+        ctx: AnalysisContext,
         mapping: ["artifact", None] = None,
-        deps = ["dependency"]) -> JavaClassToSourceMapInfo.type:
+        deps = [Dependency]) -> JavaClassToSourceMapInfo.type:
     return JavaClassToSourceMapInfo(
         tset = ctx.actions.tset(
             JavaClassToSourceMapTset,

@@ -16,7 +16,7 @@ PycInvalidationMode = enum(
 )
 
 def compile_manifests(
-        ctx: "context",
+        ctx: AnalysisContext,
         manifests: [ManifestInfo.type]) -> {PycInvalidationMode.type: ManifestInfo.type}:
     return {
         mode: compile_manifests_for_mode(ctx, manifests, mode)
@@ -24,7 +24,7 @@ def compile_manifests(
     }
 
 def compile_manifests_for_mode(
-        ctx: "context",
+        ctx: AnalysisContext,
         manifests: [ManifestInfo.type],
         invalidation_mode: PycInvalidationMode.type = PycInvalidationMode("UNCHECKED_HASH")) -> ManifestInfo.type:
     output = ctx.actions.declare_output("bytecode_{}".format(invalidation_mode.value), dir = True)

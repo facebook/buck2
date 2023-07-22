@@ -183,7 +183,7 @@ filesystem_params = struct(
 
 def get_compiling_deps_tset(
         actions: "actions",
-        deps: ["dependency"],
+        deps: [Dependency],
         additional_classpath_entries: ["artifact"]) -> [JavaCompilingDepsTSet.type, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
     if additional_classpath_entries:
@@ -199,7 +199,7 @@ def get_compiling_deps_tset(
 
     return compiling_deps_tset
 
-def _get_source_only_abi_compiling_deps(compiling_deps_tset: [JavaCompilingDepsTSet.type, None], source_only_abi_deps: ["dependency"]) -> ["JavaClasspathEntry"]:
+def _get_source_only_abi_compiling_deps(compiling_deps_tset: [JavaCompilingDepsTSet.type, None], source_only_abi_deps: [Dependency]) -> ["JavaClasspathEntry"]:
     source_only_abi_compiling_deps = []
     if compiling_deps_tset:
         source_only_abi_deps_filter = {}
@@ -460,10 +460,10 @@ def generate_abi_jars(
         abi_generation_mode: [AbiGenerationMode.type, None],
         additional_compiled_srcs: ["artifact", None],
         is_building_android_binary: bool,
-        class_abi_generator: "dependency",
+        class_abi_generator: Dependency,
         final_jar: "artifact",
         compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
-        source_only_abi_deps: ["dependency"],
+        source_only_abi_deps: [Dependency],
         class_abi_jar: ["artifact", None],
         class_abi_output_dir: ["artifact", None],
         encode_abi_command: "function",

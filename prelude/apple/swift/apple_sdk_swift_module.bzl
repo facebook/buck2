@@ -8,7 +8,7 @@
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags")
 load(":swift_toolchain_types.bzl", "SdkSwiftOverlayInfo", "SdkUncompiledModuleInfo")
 
-def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:
+def apple_sdk_swift_module_impl(ctx: AnalysisContext) -> ["provider"]:
     module_name = ctx.attrs.module_name
 
     cmd = cmd_args([

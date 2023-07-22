@@ -8,7 +8,7 @@
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(":julia_binary.bzl", "build_julia_command")
 
-def julia_test_impl(ctx: "context") -> ["provider"]:
+def julia_test_impl(ctx: AnalysisContext) -> ["provider"]:
     cmd = build_julia_command(ctx)
     external_runner_test_info = ExternalRunnerTestInfo(
         type = "julia",

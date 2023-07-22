@@ -42,7 +42,7 @@ SdkUncompiledModuleInfo = provider(fields = [
     "is_swiftmodule",  # If True then represents a swiftinterface, otherwise Clang's modulemap.
     "partial_cmd",  # Partial arguments, required to compile a particular SDK module.
     "input_relative_path",  # A relative prefixed path to a textual swiftinterface/modulemap file within an SDK.
-    "deps",  # ["dependency"]
+    "deps",  # [Dependency]
 ])
 
 WrappedSdkCompiledModuleInfo = provider(fields = [

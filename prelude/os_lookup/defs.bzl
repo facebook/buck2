@@ -10,7 +10,7 @@ load("@prelude//decls/core_rules.bzl", "Platform")
 
 OsLookup = provider(fields = ["cpu", "platform"])
 
-def _os_lookup_impl(ctx: "context"):
+def _os_lookup_impl(ctx: AnalysisContext):
     return [
         DefaultInfo(),
         OsLookup(

@@ -24,7 +24,7 @@ ScriptOs = enum("unix", "windows")
 #     return cmd_args(linker_wrapper, format = "-Clinker={}")
 #
 def cmd_script(
-        ctx: "context",
+        ctx: AnalysisContext,
         name: str,
         cmd: cmd_args,
         os: ScriptOs.type) -> cmd_args:

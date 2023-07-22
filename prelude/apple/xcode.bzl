@@ -38,24 +38,24 @@ def apple_populate_xcode_attributes(
     apple_xcode_data_add_xctoolchain(ctx, data)
     return data
 
-def apple_xcode_data_add_xctoolchain(ctx: "context", data: {str: ""}):
+def apple_xcode_data_add_xctoolchain(ctx: AnalysisContext, data: {str: ""}):
     _add_label_for_attr(ctx, "_apple_xctoolchain_bundle_id", "xctoolchain_bundle_id_target", data)
     _add_output_for_attr(ctx, "_apple_xctoolchain_bundle_id", "xctoolchain_bundle_id", data)
     _add_label_for_attr(ctx, "_apple_xctoolchain", "xctoolchain_bundle_target", data)
 
-def _add_label_for_attr(ctx: "context", attr_name: str, field_name: str, data: {str: ""}):
+def _add_label_for_attr(ctx: AnalysisContext, attr_name: str, field_name: str, data: {str: ""}):
     xctoolchain_dep = _get_attribute_with_output(ctx, attr_name)
     if xctoolchain_dep:
         data[field_name] = xctoolchain_dep.label
 
-def _add_output_for_attr(ctx: "context", attr_name: str, field_name: str, data: {str: ""}):
+def _add_output_for_attr(ctx: AnalysisContext, attr_name: str, field_name: str, data: {str: ""}):
     xctoolchain_dep = _get_attribute_with_output(ctx, attr_name)
     if xctoolchain_dep:
         default_info = xctoolchain_dep[DefaultInfo]
         expect(len(default_info.default_outputs) == 1, "Expected only one output, got {}", len(default_info.default_outputs))
         data[field_name] = default_info.default_outputs[0]
 
-def _get_attribute_with_output(ctx: "context", attr_name: str) -> ["dependency", None]:
+def _get_attribute_with_output(ctx: AnalysisContext, attr_name: str) -> [Dependency, None]:
     if hasattr(ctx.attrs, attr_name):
         dep = getattr(ctx.attrs, attr_name)
         default_info = dep[DefaultInfo]

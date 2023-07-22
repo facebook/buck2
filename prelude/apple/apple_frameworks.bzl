@@ -33,7 +33,7 @@ _IMPLICIT_SDKROOT_FRAMEWORK_SEARCH_PATHS = [
     "$SDKROOT/System/Library/Frameworks",
 ]
 
-def apple_create_frameworks_linkable(ctx: "context") -> [FrameworksLinkable.type, None]:
+def apple_create_frameworks_linkable(ctx: AnalysisContext) -> [FrameworksLinkable.type, None]:
     if not ctx.attrs.libraries and not ctx.attrs.frameworks:
         return None
 
@@ -43,7 +43,7 @@ def apple_create_frameworks_linkable(ctx: "context") -> [FrameworksLinkable.type
         framework_names = [to_framework_name(x) for x in ctx.attrs.frameworks],
     )
 
-def _get_apple_frameworks_linker_flags(ctx: "context", linkable: [FrameworksLinkable.type, None]) -> cmd_args:
+def _get_apple_frameworks_linker_flags(ctx: AnalysisContext, linkable: [FrameworksLinkable.type, None]) -> cmd_args:
     if not linkable:
         return cmd_args()
 
@@ -56,7 +56,7 @@ def _get_apple_frameworks_linker_flags(ctx: "context", linkable: [FrameworksLink
 
     return flags
 
-def get_framework_search_path_flags(ctx: "context") -> cmd_args:
+def get_framework_search_path_flags(ctx: AnalysisContext) -> cmd_args:
     unresolved_framework_dirs = _get_non_sdk_unresolved_framework_directories(ctx.attrs.frameworks)
     expanded_framework_dirs = _expand_sdk_framework_paths(ctx, unresolved_framework_dirs)
     return _get_framework_search_path_flags(expanded_framework_dirs)
@@ -88,10 +88,10 @@ def _library_name(library: str) -> str:
         fail("unexpected library: {}".format(library))
     return paths.split_extension(name[3:])[0]
 
-def _expand_sdk_framework_paths(ctx: "context", unresolved_framework_paths: [str]) -> [cmd_args]:
+def _expand_sdk_framework_paths(ctx: AnalysisContext, unresolved_framework_paths: [str]) -> [cmd_args]:
     return [_expand_sdk_framework_path(ctx, unresolved_framework_path) for unresolved_framework_path in unresolved_framework_paths]
 
-def _expand_sdk_framework_path(ctx: "context", framework_path: str) -> cmd_args:
+def _expand_sdk_framework_path(ctx: AnalysisContext, framework_path: str) -> cmd_args:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     path_expansion_map = {
         "$PLATFORM_DIR/": apple_toolchain_info.platform_path,
@@ -125,7 +125,7 @@ def _non_sdk_unresolved_framework_directory(framework_path: str) -> [str, None]:
     return paths.dirname(framework_path)
 
 def apple_build_link_args_with_deduped_flags(
-        ctx: "context",
+        ctx: AnalysisContext,
         info: "MergedLinkInfo",
         frameworks_linkable: [FrameworksLinkable.type, None],
         link_style: "LinkStyle",
@@ -153,7 +153,7 @@ def apple_build_link_args_with_deduped_flags(
     )
 
 def apple_get_link_info_by_deduping_link_infos(
-        ctx: "context",
+        ctx: AnalysisContext,
         infos: [[LinkInfo.type, None]],
         framework_linkable: [FrameworksLinkable.type, None] = None,
         swiftmodule_linkable: [SwiftmoduleLinkable.type, None] = None,
@@ -187,7 +187,7 @@ def _extract_framework_linkables(link_infos: [[LinkInfo.type], None]) -> [Framew
     return linkables
 
 def _link_info_from_linkables(
-        ctx: "context",
+        ctx: AnalysisContext,
         framework_linkables: [[FrameworksLinkable.type, None]],
         swiftmodule_linkables: [[SwiftmoduleLinkable.type, None]] = [],
         swift_runtime_linkables: [[SwiftRuntimeLinkable.type, None]] = []) -> [LinkInfo.type, None]:

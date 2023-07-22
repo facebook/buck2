@@ -22,7 +22,7 @@ def _generate_script(generate_wrapper: bool, native_libs: {str: "SharedLibrary"}
     return generate_wrapper and len(native_libs) == 0
 
 def _create_fat_jar(
-        ctx: "context",
+        ctx: AnalysisContext,
         java_toolchain: JavaToolchainInfo.type,
         jars: cmd_args,
         native_libs: {str: "SharedLibrary"},
@@ -137,7 +137,7 @@ def _get_java_tool_artifacts(java_toolchain: JavaToolchainInfo.type) -> ["artifa
     default_info = java_toolchain.java[DefaultInfo]
     return default_info.default_outputs + default_info.other_outputs
 
-def java_binary_impl(ctx: "context") -> ["provider"]:
+def java_binary_impl(ctx: AnalysisContext) -> ["provider"]:
     """
      java_binary() rule implementation
 

@@ -211,7 +211,7 @@ AndroidLibraryIntellijInfo = provider(
 def merge_android_packageable_info(
         label: Label,
         actions: "actions",
-        deps: ["dependency"],
+        deps: [Dependency],
         build_config_info: ["AndroidBuildConfigInfo", None] = None,
         manifest: ["artifact", None] = None,
         prebuilt_native_library_dir: [PrebuiltNativeLibraryDir.type, None] = None,
@@ -282,7 +282,7 @@ def _get_transitive_set(
     return actions.tset(transitive_set_definition, **kwargs) if kwargs else None
 
 def merge_exported_android_resource_info(
-        exported_deps: ["dependency"]) -> "ExportedAndroidResourceInfo":
+        exported_deps: [Dependency]) -> "ExportedAndroidResourceInfo":
     exported_android_resource_infos = []
     for exported_dep in exported_deps:
         exported_resource_info = exported_dep.get(ExportedAndroidResourceInfo)

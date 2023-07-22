@@ -12,7 +12,7 @@ load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//utils:set.bzl", "set")
 
-def android_apk_impl(ctx: "context") -> ["provider"]:
+def android_apk_impl(ctx: AnalysisContext) -> ["provider"]:
     android_binary_info = get_binary_info(ctx, use_proto_format = False)
     java_packaging_deps = android_binary_info.java_packaging_deps
     sub_targets = android_binary_info.sub_targets
@@ -122,7 +122,7 @@ def build_apk(
 
     return output_apk
 
-def get_install_info(ctx: "context", output_apk: "artifact", manifest: "artifact", exopackage_info: [ExopackageInfo.type, None]) -> InstallInfo.type:
+def get_install_info(ctx: AnalysisContext, output_apk: "artifact", manifest: "artifact", exopackage_info: [ExopackageInfo.type, None]) -> InstallInfo.type:
     files = {
         ctx.attrs.name: output_apk,
         "manifest": manifest,
@@ -185,7 +185,7 @@ def _get_exopackage_outputs(exopackage_info: ExopackageInfo.type) -> ["artifact"
 
     return outputs
 
-def generate_install_config(ctx: "context") -> "artifact":
+def generate_install_config(ctx: AnalysisContext) -> "artifact":
     data = get_install_config()
     return ctx.actions.write_json("install_android_options.json", data)
 

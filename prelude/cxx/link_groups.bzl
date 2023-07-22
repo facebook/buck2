@@ -135,7 +135,7 @@ _LinkedLinkGroups = record(
     symbol_ldflags = field([""], []),
 )
 
-def get_link_group(ctx: "context") -> [str, None]:
+def get_link_group(ctx: AnalysisContext) -> [str, None]:
     return ctx.attrs.link_group
 
 def build_link_group_info(
@@ -169,7 +169,7 @@ def build_link_group_info(
     )
 
 def get_link_group_info(
-        ctx: "context",
+        ctx: AnalysisContext,
         executable_deps: [[LinkableGraph.type], None] = None) -> [LinkGroupInfo.type, None]:
     """
     Parses the currently analyzed context for any link group definitions
@@ -473,7 +473,7 @@ def get_filtered_links(
 def get_filtered_targets(labels_to_links_map: {Label: LinkGroupLinkInfo.type}):
     return [label.raw_target() for label in labels_to_links_map.keys()]
 
-def get_link_group_map_json(ctx: "context", targets: ["target_label"]) -> DefaultInfo.type:
+def get_link_group_map_json(ctx: AnalysisContext, targets: ["target_label"]) -> DefaultInfo.type:
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets))
     return DefaultInfo(default_output = json_map)
 
@@ -508,7 +508,7 @@ def find_relevant_roots(
     return relevant_roots
 
 def _create_link_group(
-        ctx: "context",
+        ctx: AnalysisContext,
         spec: LinkGroupLibSpec.type,
         # The deps of the top-level executable.
         executable_deps: [Label] = [],
@@ -609,7 +609,7 @@ def _create_link_group(
     return link_result.linked_object
 
 def _stub_library(
-        ctx: "context",
+        ctx: AnalysisContext,
         name: str,
         extra_ldflags: [""] = [],
         anonymous: bool = False) -> LinkInfos.type:
@@ -639,7 +639,7 @@ def _stub_library(
     )
 
 def _symbol_files_for_link_group(
-        ctx: "context",
+        ctx: AnalysisContext,
         lib: LinkedObject.type,
         prefer_local: bool = False,
         anonymous: bool = False) -> ("artifact", "artifact"):
@@ -668,7 +668,7 @@ def _symbol_files_for_link_group(
     return undefined_symfile, global_symfile
 
 def _symbol_flags_for_link_groups(
-        ctx: "context",
+        ctx: AnalysisContext,
         undefined_symfiles: ["artifact"] = [],
         global_symfiles: ["artifact"] = []) -> ["_arglike"]:
     """
@@ -706,7 +706,7 @@ def _symbol_flags_for_link_groups(
     return sym_linker_flags
 
 def create_link_groups(
-        ctx: "context",
+        ctx: AnalysisContext,
         link_groups: {str.type: Group.type} = {},
         link_group_specs: [LinkGroupLibSpec.type] = [],
         executable_deps: ["label"] = [],

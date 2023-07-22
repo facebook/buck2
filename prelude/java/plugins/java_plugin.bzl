@@ -21,7 +21,7 @@ PluginParams = record(
     deps = field(["JavaPackagingDepTSet", None]),
 )
 
-def create_plugin_params(ctx: "context", plugins: ["dependency"]) -> [PluginParams.type, None]:
+def create_plugin_params(ctx: AnalysisContext, plugins: [Dependency]) -> [PluginParams.type, None]:
     processors = []
     plugin_deps = []
 
@@ -43,7 +43,7 @@ def create_plugin_params(ctx: "context", plugins: ["dependency"]) -> [PluginPara
         args = {},
     )
 
-def java_plugin_impl(ctx: "context") -> ["provider"]:
+def java_plugin_impl(ctx: AnalysisContext) -> ["provider"]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 

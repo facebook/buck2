@@ -43,7 +43,7 @@ def is_sdk_modules_provided(toolchain: SwiftToolchainInfo.type) -> bool:
         return False
     return True
 
-def get_compiled_sdk_deps_tset(ctx: "context", deps_providers: list) -> SDKDepTSet.type:
+def get_compiled_sdk_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SDKDepTSet.type:
     sdk_deps = [
         deps_provider[WrappedSdkCompiledModuleInfo].tset
         for deps_provider in deps_providers
@@ -54,7 +54,7 @@ def get_compiled_sdk_deps_tset(ctx: "context", deps_providers: list) -> SDKDepTS
 def get_uncompiled_sdk_deps(
         sdk_modules: [str],
         required_modules: [str],
-        toolchain: SwiftToolchainInfo.type) -> ["dependency"]:
+        toolchain: SwiftToolchainInfo.type) -> [Dependency]:
     if not is_sdk_modules_provided(toolchain):
         fail("SDK deps are not set for swift_toolchain")
 

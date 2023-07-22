@@ -115,7 +115,7 @@ OtherOutputsInfo = provider(
     fields = ["info"],  # :OtherOutputsTSet
 )
 
-def merge_other_outputs_info(ctx: "context", value: {str: ["artifact"]}, infos: ["OtherOutputsInfo"]) -> "OtherOutputsInfo":
+def merge_other_outputs_info(ctx: AnalysisContext, value: {str: ["artifact"]}, infos: ["OtherOutputsInfo"]) -> "OtherOutputsInfo":
     return OtherOutputsInfo(
         info =
             ctx.actions.tset(

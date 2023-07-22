@@ -158,18 +158,18 @@ HaskellLibraryInfo = record(
 
 # --
 
-def _by_platform(ctx: "context", xs: [(str, ["_a"])]) -> ["_a"]:
+def _by_platform(ctx: AnalysisContext, xs: [(str, ["_a"])]) -> ["_a"]:
     platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
     return flatten(by_platform([platform], xs))
 
-def attr_deps(ctx: "context") -> ["dependency"]:
+def attr_deps(ctx: AnalysisContext) -> [Dependency]:
     return ctx.attrs.deps + _by_platform(ctx, ctx.attrs.platform_deps)
 
 # Disable until we have a need to call this.
-# def _attr_deps_merged_link_infos(ctx: "context") -> ["MergedLinkInfo"]:
+# def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> ["MergedLinkInfo"]:
 #     return filter(None, [d[MergedLinkInfo] for d in attr_deps(ctx)])
 
-def _attr_deps_haskell_link_infos(ctx: "context") -> ["HaskellLinkInfo"]:
+def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> ["HaskellLinkInfo"]:
     return filter(
         None,
         [
@@ -179,7 +179,7 @@ def _attr_deps_haskell_link_infos(ctx: "context") -> ["HaskellLinkInfo"]:
     )
 
 def _attr_deps_haskell_lib_infos(
-        ctx: "context",
+        ctx: AnalysisContext,
         link_style: LinkStyle.type) -> ["HaskellLibraryInfo"]:
     return [
         x.lib[link_style]
@@ -189,16 +189,16 @@ def _attr_deps_haskell_lib_infos(
         ])
     ]
 
-def _cxx_toolchain_link_style(ctx: "context") -> LinkStyle.type:
+def _cxx_toolchain_link_style(ctx: AnalysisContext) -> LinkStyle.type:
     return ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.link_style
 
-def _attr_link_style(ctx: "context") -> LinkStyle.type:
+def _attr_link_style(ctx: AnalysisContext) -> LinkStyle.type:
     if ctx.attrs.link_style != None:
         return LinkStyle(ctx.attrs.link_style)
     else:
         return _cxx_toolchain_link_style(ctx)
 
-def _attr_preferred_linkage(ctx: "context") -> Linkage.type:
+def _attr_preferred_linkage(ctx: AnalysisContext) -> Linkage.type:
     preferred_linkage = ctx.attrs.preferred_linkage
 
     # force_static is deprecated, but it has precedence over preferred_linkage
@@ -217,7 +217,7 @@ def _src_to_module_name(x: str) -> str:
     base, _ext = paths.split_extension(x)
     return base.replace("/", ".")
 
-def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
+def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> ["provider"]:
     native_infos = []
     haskell_infos = []
     shared_library_infos = []
@@ -357,7 +357,7 @@ PackagesInfo = record(
 )
 
 def get_packages_info(
-        ctx: "context",
+        ctx: AnalysisContext,
         link_style: LinkStyle.type,
         specify_pkg_version: bool) -> PackagesInfo.type:
     # Collect library dependencies. Note that these don't need to be in a
@@ -435,7 +435,7 @@ def _output_extensions(
         return (osuf, hisuf)
 
 def _srcs_to_objfiles(
-        ctx: "context",
+        ctx: AnalysisContext,
         odir: "artifact",
         osuf: str) -> cmd_args:
     objfiles = cmd_args()
@@ -447,7 +447,7 @@ def _srcs_to_objfiles(
 
 # Compile all the context's sources.
 def _compile(
-        ctx: "context",
+        ctx: AnalysisContext,
         link_style: LinkStyle.type,
         extra_args = []) -> CompileResultInfo.type:
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
@@ -565,7 +565,7 @@ PKGCONF=$3
 #    at compile time, so it uses the package specs to find out
 #    which libraries and where.
 def _make_package(
-        ctx: "context",
+        ctx: AnalysisContext,
         link_style: LinkStyle.type,
         pkgname: str,
         libname: str,
@@ -623,7 +623,7 @@ def _make_package(
 
     return db
 
-def haskell_library_impl(ctx: "context") -> ["provider"]:
+def haskell_library_impl(ctx: AnalysisContext) -> ["provider"]:
     linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
     libname = repr(ctx.label.path).replace("//", "_").replace("/", "_") + "_" + ctx.label.name
     pkgname = libname.replace("_", "-")
@@ -841,7 +841,7 @@ def derive_indexing_tset(
         actions: "actions",
         link_style: LinkStyle.type,
         value: ["artifact", None],
-        children: ["dependency"]) -> "HaskellIndexingTSet":
+        children: [Dependency]) -> "HaskellIndexingTSet":
     index_children = []
     for dep in children:
         li = dep.get(HaskellIndexInfo)
@@ -855,7 +855,7 @@ def derive_indexing_tset(
         children = index_children,
     )
 
-def haskell_binary_impl(ctx: "context") -> ["provider"]:
+def haskell_binary_impl(ctx: AnalysisContext) -> ["provider"]:
     # Decide what kind of linking we're doing
     link_style = _attr_link_style(ctx)
 

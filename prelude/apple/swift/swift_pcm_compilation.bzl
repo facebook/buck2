@@ -34,7 +34,7 @@ PcmDepTSet = transitive_set(args_projections = {
     "clang_deps": _project_as_clang_deps,
 })
 
-def get_compiled_pcm_deps_tset(ctx: "context", pcm_deps_providers: list) -> PcmDepTSet.type:
+def get_compiled_pcm_deps_tset(ctx: AnalysisContext, pcm_deps_providers: list) -> PcmDepTSet.type:
     pcm_deps = [
         pcm_deps_provider[WrappedSwiftPCMCompiledInfo].tset
         for pcm_deps_provider in pcm_deps_providers
@@ -43,8 +43,8 @@ def get_compiled_pcm_deps_tset(ctx: "context", pcm_deps_providers: list) -> PcmD
     return ctx.actions.tset(PcmDepTSet, children = pcm_deps)
 
 def get_swift_pcm_anon_targets(
-        ctx: "context",
-        uncompiled_deps: ["dependency"],
+        ctx: AnalysisContext,
+        uncompiled_deps: [Dependency],
         swift_cxx_args: [str]):
     deps = [
         {
@@ -60,7 +60,7 @@ def get_swift_pcm_anon_targets(
     return [(_swift_pcm_compilation, d) for d in deps]
 
 def _compile_with_argsfile(
-        ctx: "context",
+        ctx: AnalysisContext,
         category: str,
         module_name: str,
         args: cmd_args,
@@ -90,7 +90,7 @@ def _compile_with_argsfile(
         allow_cache_upload = local_only,
     )
 
-def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
+def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", ["provider"]]:
     def k(compiled_pcm_deps_providers) -> ["provider"]:
         uncompiled_pcm_info = ctx.attrs.dep[SwiftPCMUncompiledInfo]
 
@@ -209,7 +209,7 @@ _swift_pcm_compilation = rule(
 )
 
 def compile_underlying_pcm(
-        ctx: "context",
+        ctx: AnalysisContext,
         uncompiled_pcm_info: "SwiftPCMUncompiledInfo",
         compiled_pcm_deps_providers,
         swift_cxx_args: [str]) -> "SwiftPCMCompiledInfo":
@@ -254,7 +254,7 @@ def compile_underlying_pcm(
     )
 
 def _get_base_pcm_flags(
-        ctx: "context",
+        ctx: AnalysisContext,
         module_name: str,
         uncompiled_pcm_info: SwiftPCMUncompiledInfo.type,
         sdk_deps_tset: SDKDepTSet.type,

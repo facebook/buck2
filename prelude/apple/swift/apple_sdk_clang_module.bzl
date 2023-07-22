@@ -8,7 +8,7 @@
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args")
 load(":swift_toolchain_types.bzl", "SdkSwiftOverlayInfo", "SdkUncompiledModuleInfo")
 
-def apple_sdk_clang_module_impl(ctx: "context") -> ["provider"]:
+def apple_sdk_clang_module_impl(ctx: AnalysisContext) -> ["provider"]:
     cmd = get_shared_pcm_compilation_args(ctx.attrs.target, ctx.attrs.module_name)
     overlays = []
     if ctx.attrs.overlays:

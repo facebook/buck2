@@ -47,7 +47,7 @@ def http_file_shared(
         providers.append(RunInfo(args = [output]))
     return providers
 
-def http_file_impl(ctx: "context") -> ["provider"]:
+def http_file_impl(ctx: AnalysisContext) -> ["provider"]:
     expect(len(ctx.attrs.urls) == 1, "multiple `urls` not supported: {}", ctx.attrs.urls)
     expect(len(ctx.attrs.vpnless_urls) < 2, "multiple `vpnless_urls` not supported: {}", ctx.attrs.vpnless_urls)
     if len(ctx.attrs.vpnless_urls) > 0:

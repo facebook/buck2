@@ -228,7 +228,7 @@ def _get_default_use_dep_files(platform_name: str) -> bool:
             return True
     return False
 
-def _get_header_mode(ctx: "context") -> HeaderMode.type:
+def _get_header_mode(ctx: AnalysisContext) -> HeaderMode.type:
     if ctx.attrs.use_header_map:
         if ctx.attrs.private_headers_symlinks_enabled or ctx.attrs.public_headers_symlinks_enabled:
             return HeaderMode("symlink_tree_with_header_map")
@@ -237,7 +237,7 @@ def _get_header_mode(ctx: "context") -> HeaderMode.type:
     else:
         return HeaderMode("symlink_tree_only")
 
-def _get_shared_library_name_format(ctx: "context") -> str:
+def _get_shared_library_name_format(ctx: AnalysisContext) -> str:
     linker_type = ctx.attrs.linker_type
     extension = ctx.attrs.shared_library_extension
     if extension == "":
@@ -245,7 +245,7 @@ def _get_shared_library_name_format(ctx: "context") -> str:
     prefix = "" if extension == "dll" else "lib"
     return prefix + "{}." + extension
 
-def _get_shared_library_versioned_name_format(ctx: "context") -> str:
+def _get_shared_library_versioned_name_format(ctx: AnalysisContext) -> str:
     linker_type = ctx.attrs.linker_type
     extension_format = ctx.attrs.shared_library_versioned_extension_format.replace("%s", "{}")
     if extension_format == "":

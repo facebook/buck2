@@ -21,7 +21,7 @@ ProguardOutput = record(
 )
 
 def _get_proguard_command_line_args(
-        ctx: "context",
+        ctx: AnalysisContext,
         inputs_to_unscrubbed_outputs: {"artifact": "artifact"},
         proguard_configs: ["artifact"],
         additional_library_jars: ["artifact"],
@@ -69,7 +69,7 @@ def _get_proguard_command_line_args(
     return cmd, hidden
 
 def run_proguard(
-        ctx: "context",
+        ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
         java_toolchain: "JavaToolchainInfo",
         command_line_args_file: "artifact",
@@ -103,7 +103,7 @@ def run_proguard(
 # Note that ctx.attrs.skip_proguard means that we should create the proguard command line (since
 # e.g. Redex might want to consume it) but we don't actually run the proguard command.
 def get_proguard_output(
-        ctx: "context",
+        ctx: AnalysisContext,
         input_jars: {"artifact": "target_label"},
         java_packaging_deps: ["JavaPackagingDep"],
         aapt_generated_proguard_config: ["artifact", None],

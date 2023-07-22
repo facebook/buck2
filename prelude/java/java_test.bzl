@@ -18,7 +18,7 @@ load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_share
 load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
-def java_test_impl(ctx: "context") -> ["provider"]:
+def java_test_impl(ctx: AnalysisContext) -> ["provider"]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 
@@ -34,7 +34,7 @@ def java_test_impl(ctx: "context") -> ["provider"]:
     ]
 
 def build_junit_test(
-        ctx: "context",
+        ctx: AnalysisContext,
         tests_java_library_info: "JavaLibraryInfo",
         tests_java_packaging_info: "JavaPackagingInfo",
         tests_class_to_source_info: [JavaClassToSourceMapInfo.type, None] = None,
@@ -147,7 +147,7 @@ def build_junit_test(
     )
     return test_info
 
-def _get_native_libs_env(ctx: "context") -> dict:
+def _get_native_libs_env(ctx: AnalysisContext) -> dict:
     if not ctx.attrs.use_cxx_libraries:
         return {}
 

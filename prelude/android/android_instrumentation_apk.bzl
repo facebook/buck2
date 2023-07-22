@@ -15,7 +15,7 @@ load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex
 load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps")
 load("@prelude//utils:utils.bzl", "expect")
 
-def android_instrumentation_apk_impl(ctx: "context"):
+def android_instrumentation_apk_impl(ctx: AnalysisContext):
     _verify_params(ctx)
 
     apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
@@ -112,6 +112,6 @@ def android_instrumentation_apk_impl(ctx: "context"):
         DefaultInfo(default_output = output_apk),
     ]
 
-def _verify_params(ctx: "context"):
+def _verify_params(ctx: AnalysisContext):
     expect(ctx.attrs.aapt_mode == "aapt2", "aapt1 is deprecated!")
     expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")

@@ -44,7 +44,7 @@ def _get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo.type) -> "list":
     return ["--strip-unneeded"]
 
 def create_shared_libraries(
-        ctx: "context",
+        ctx: AnalysisContext,
         libraries: {str: LinkedObject.type}) -> SharedLibraries.type:
     """
     Take a mapping of dest -> src and turn it into a mapping that will be

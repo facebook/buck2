@@ -50,7 +50,7 @@ load(
     "cxx_inherited_link_info",
 )
 
-def _linkage(ctx: "context") -> Linkage.type:
+def _linkage(ctx: AnalysisContext) -> Linkage.type:
     """
     Construct the preferred linkage to use for the given prebuilt library.
     """
@@ -226,7 +226,7 @@ def _get_shared_link_info(
 #         "libfoo2.so": "lib/libfoo2.so",
 #     },
 #
-def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
+def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> ["provider"]:
     providers = []
 
     deps = ctx.attrs.deps

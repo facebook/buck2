@@ -26,17 +26,17 @@ _TARGET_TRIPLE_MAP = {
 def get_explicit_modules_env_var(uses_explicit_modules: bool) -> dict:
     return ({"EXPLICIT_MODULES_ENABLED": "TRUE"} if uses_explicit_modules else {})
 
-def get_apple_cxx_headers_layout(ctx: "context") -> CxxHeadersLayout.type:
+def get_apple_cxx_headers_layout(ctx: AnalysisContext) -> CxxHeadersLayout.type:
     namespace = value_or(ctx.attrs.header_path_prefix, ctx.attrs.name)
     return CxxHeadersLayout(namespace = namespace, naming = CxxHeadersNaming("apple"))
 
-def get_module_name(ctx: "context") -> str:
+def get_module_name(ctx: AnalysisContext) -> str:
     return ctx.attrs.module_name or ctx.attrs.header_path_prefix or ctx.attrs.name
 
-def has_apple_toolchain(ctx: "context") -> bool:
+def has_apple_toolchain(ctx: AnalysisContext) -> bool:
     return hasattr(ctx.attrs, "_apple_toolchain")
 
-def get_versioned_target_triple(ctx: "context") -> str:
+def get_versioned_target_triple(ctx: AnalysisContext) -> str:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     swift_toolchain_info = apple_toolchain_info.swift_toolchain_info
 

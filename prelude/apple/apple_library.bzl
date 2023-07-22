@@ -103,7 +103,7 @@ AppleLibraryAdditionalParams = record(
     force_link_group_linking = field(bool, False),
 )
 
-def apple_library_impl(ctx: "context") -> ["promise", ["provider"]]:
+def apple_library_impl(ctx: AnalysisContext) -> ["promise", ["provider"]]:
     def get_apple_library_providers(deps_providers) -> ["provider"]:
         constructor_params = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
@@ -134,7 +134,7 @@ def apple_library_impl(ctx: "context") -> ["promise", ["provider"]]:
     else:
         return get_apple_library_providers([])
 
-def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", params: AppleLibraryAdditionalParams.type, deps_providers: list = []) -> CxxRuleConstructorParams.type:
+def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams.type, deps_providers: list = []) -> CxxRuleConstructorParams.type:
     cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
     # First create a modulemap if necessary. This is required for importing
@@ -259,12 +259,12 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     )
 
 def _get_extra_linker_flags_and_outputs(
-        _ctx: "context") -> (["_arglike"], {str: [DefaultInfo.type]}): # @oss-enable
-        # @oss-disable: ctx: "context") -> (["_arglike"], {str: [DefaultInfo.type]}): 
+        _ctx: AnalysisContext) -> (["_arglike"], {str: [DefaultInfo.type]}): # @oss-enable
+        # @oss-disable: ctx: AnalysisContext) -> (["_arglike"], {str: [DefaultInfo.type]}): 
     # @oss-disable: return add_extra_linker_outputs(ctx) 
     return [], {} # @oss-enable
 
-def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlags"]):
+def _filter_swift_srcs(ctx: AnalysisContext) -> (["CxxSrcWithFlags"], ["CxxSrcWithFlags"]):
     cxx_srcs = []
     swift_srcs = []
     for s in get_srcs_with_flags(ctx):
@@ -277,7 +277,7 @@ def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlag
 
 def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
-        ctx: "context",
+        ctx: AnalysisContext,
         executable: "artifact",
         debug_info_tset: ArtifactTSet.type,
         _dwp: ["artifact", None],
@@ -311,7 +311,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         providers += [AppleBundleLinkerMapInfo(linker_maps = [linker_map.map])]
     return (subtargets, providers)
 
-def _get_swift_static_debug_info(ctx: "context", swiftmodule: "artifact") -> [ArtifactTSet.type]:
+def _get_swift_static_debug_info(ctx: AnalysisContext, swiftmodule: "artifact") -> [ArtifactTSet.type]:
     return [make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
@@ -321,7 +321,7 @@ def _get_swift_static_debug_info(ctx: "context", swiftmodule: "artifact") -> [Ar
 def _get_swift_shared_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> [ArtifactTSet.type]:
     return [swift_dependency_info.debug_info_tset] if swift_dependency_info.debug_info_tset else []
 
-def _get_linker_flags(ctx: "context") -> cmd_args:
+def _get_linker_flags(ctx: AnalysisContext) -> cmd_args:
     return cmd_args(get_min_deployment_version_target_linker_flags(ctx))
 
 def _xcode_populate_attributes(

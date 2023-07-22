@@ -34,7 +34,7 @@ LinkGroupLibInfo = provider(fields = [
 def gather_link_group_libs(
         libs: [{str: LinkGroupLib.type}] = [],
         children: [LinkGroupLibInfo.type] = [],
-        deps: ["dependency"] = []) -> {str: LinkGroupLib.type}:
+        deps: [Dependency] = []) -> {str: LinkGroupLib.type}:
     """
     Return all link groups libs deps and top-level libs.
     """
@@ -50,7 +50,7 @@ def merge_link_group_lib_info(
         name: [str, None] = None,
         shared_libs: [{str: LinkedObject.type}, None] = None,
         shared_link_infos: [LinkInfos.type, None] = None,
-        deps: ["dependency"] = []) -> LinkGroupLibInfo.type:
+        deps: [Dependency] = []) -> LinkGroupLibInfo.type:
     """
     Merge and return link group info libs from deps and the current rule wrapped
     in a provider.

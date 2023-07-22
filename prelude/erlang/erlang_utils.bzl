@@ -25,13 +25,13 @@ def to_term_args(data: "") -> cmd_args:
     return args
 
 # paths
-def app_file(ctx: "context") -> "string":
+def app_file(ctx: AnalysisContext) -> "string":
     return paths.join(beam_dir(ctx), ctx.attrs.name + ".app")
 
-def beam_dir(ctx: "context") -> "string":
+def beam_dir(ctx: AnalysisContext) -> "string":
     return paths.join(ctx.attrs.name, "ebin")
 
-def beam_path(ctx: "context", src: "artifact") -> "string":
+def beam_path(ctx: AnalysisContext, src: "artifact") -> "string":
     return paths.join(beam_dir(ctx), paths.replace_extension(src.basename, ".beam"))
 
 def linktree() -> "string":
@@ -154,7 +154,7 @@ def preserve_structure(path: "string") -> {"string": ["string"]}:
         mapping[dirname] = mapping.get(dirname, []) + [filename]
     return mapping
 
-def _file_mapping_impl(ctx: "context") -> ["provider"]:
+def _file_mapping_impl(ctx: AnalysisContext) -> ["provider"]:
     outputs = []
     for target_path, files in ctx.attrs.mapping.items():
         for file in files:

@@ -9,14 +9,14 @@ load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":debug.bzl", "SplitDebugMode")
 
-def dwp_available(ctx: "context"):
+def dwp_available(ctx: AnalysisContext):
     toolchain = get_cxx_toolchain_info(ctx)
     dwp = toolchain.binary_utilities_info.dwp
     split_debug_mode = toolchain.split_debug_mode
     return dwp != None and split_debug_mode != SplitDebugMode("none")
 
 def run_dwp_action(
-        ctx: "context",
+        ctx: AnalysisContext,
         obj: "artifact",
         identifier: [str, None],
         category_suffix: [str, None],
@@ -47,7 +47,7 @@ def run_dwp_action(
     )
 
 def dwp(
-        ctx: "context",
+        ctx: AnalysisContext,
         # Executable/library to extra dwo paths from.
         obj: "artifact",
         # An identifier that will uniquely name this link action in the context of a category. Useful for

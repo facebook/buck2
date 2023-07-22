@@ -135,7 +135,7 @@ CxxCompileOutput = record(
 )
 
 def create_compile_cmds(
-        ctx: "context",
+        ctx: AnalysisContext,
         impl_params: "CxxRuleConstructorParams",
         own_preprocessors: [CPreprocessor.type],
         inherited_preprocessor_infos: [CPreprocessorInfo.type],
@@ -249,7 +249,7 @@ def create_compile_cmds(
         )
 
 def compile_cxx(
-        ctx: "context",
+        ctx: AnalysisContext,
         src_compile_cmds: [CxxSrcCompileCommand.type],
         pic: bool = False) -> [CxxCompileOutput.type]:
     """
@@ -354,7 +354,7 @@ def compile_cxx(
 
     return objects
 
-def _validate_target_headers(ctx: "context", preprocessor: [CPreprocessor.type]):
+def _validate_target_headers(ctx: AnalysisContext, preprocessor: [CPreprocessor.type]):
     path_to_artifact = {}
     all_headers = flatten([x.headers for x in preprocessor])
     for header in all_headers:
@@ -430,7 +430,7 @@ def _add_compiler_info_flags(compiler_info: "_compiler_info", ext: CxxExtension.
         cmd.add(get_flags_for_colorful_output(compiler_info.compiler_type))
 
 def _mk_argsfile(
-        ctx: "context",
+        ctx: AnalysisContext,
         compiler_info: "_compiler_info",
         preprocessor: CPreprocessorInfo.type,
         ext: CxxExtension.type,
@@ -496,7 +496,7 @@ def _mk_argsfile(
         args_without_file_prefix_args = args_without_file_prefix_args,
     )
 
-def _attr_compiler_flags(ctx: "context", ext: str) -> [""]:
+def _attr_compiler_flags(ctx: AnalysisContext, ext: str) -> [""]:
     return (
         cxx_by_language_ext(ctx.attrs.lang_compiler_flags, ext, ctx.label) +
         flatten(cxx_by_platform(ctx, ctx.attrs.platform_compiler_flags)) +

@@ -55,7 +55,7 @@ BuildEnvironment = record(
 )
 
 def _prepare_build_environment(
-        ctx: "context",
+        ctx: AnalysisContext,
         toolchain: "Toolchain",
         dependencies: ErlAppDependencies) -> "BuildEnvironment":
     """Prepare build environment and collect the context from all dependencies."""
@@ -163,7 +163,7 @@ def _generate_input_mapping(build_environment: "BuildEnvironment", input_artifac
         app_chunks = build_environment.app_chunks,
     )
 
-def _generated_source_artifacts(ctx: "context", toolchain: "Toolchain", name: "string") -> PathArtifactMapping:
+def _generated_source_artifacts(ctx: AnalysisContext, toolchain: "Toolchain", name: "string") -> PathArtifactMapping:
     """Generate source output artifacts and build actions for generated erl files."""
     inputs = [src for src in ctx.attrs.srcs if _is_xyrl(src)]
     outputs = {
@@ -178,7 +178,7 @@ def _generated_source_artifacts(ctx: "context", toolchain: "Toolchain", name: "s
     return outputs
 
 def _generate_include_artifacts(
-        ctx: "context",
+        ctx: AnalysisContext,
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         name: "string",
@@ -239,7 +239,7 @@ def _header_key(hrl: "artifact", name: "string", is_private: "bool") -> [("strin
     return hrl.basename if is_private else (name, hrl.basename)
 
 def _generate_beam_artifacts(
-        ctx: "context",
+        ctx: AnalysisContext,
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         name: "string",
@@ -297,7 +297,7 @@ def _check_beam_uniqueness(
     return None
 
 def _generate_chunk_artifacts(
-        ctx: "context",
+        ctx: AnalysisContext,
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         name: "string",
@@ -336,14 +336,14 @@ def _generate_chunk_artifacts(
 
     return updated_build_environment
 
-def _make_dir_anchor(ctx: "context", path: "string") -> "artifact":
+def _make_dir_anchor(ctx: AnalysisContext, path: "string") -> "artifact":
     return ctx.actions.write(
         paths.normalize(paths.join(path, ".hidden")),
         cmd_args([""]),
     )
 
 def _get_deps_files(
-        ctx: "context",
+        ctx: AnalysisContext,
         toolchain: "Toolchain",
         anchor: "artifact",
         srcs: ["artifact"],
@@ -364,7 +364,7 @@ def _deps_key(anchor: "artifact", src: "artifact") -> "string":
         ext = ".beam"
     return anchor_path(anchor, name + ext)
 
-def _get_deps_file(ctx: "context", toolchain: "Toolchain", src: "artifact") -> "artifact":
+def _get_deps_file(ctx: AnalysisContext, toolchain: "Toolchain", src: "artifact") -> "artifact":
     dependency_analyzer = toolchain.dependency_analyzer
     dependency_json = ctx.actions.declare_output(_dep_file_name(toolchain, src))
     escript = toolchain.otp_binaries.escript
@@ -387,7 +387,7 @@ def _get_deps_file(ctx: "context", toolchain: "Toolchain", src: "artifact") -> "
     return dependency_json
 
 def _build_hrl(
-        ctx: "context",
+        ctx: AnalysisContext,
         hrl: "artifact",
         output: "artifact") -> "NoneType":
     """Copy the header file and add dependencies on other includes."""
@@ -395,7 +395,7 @@ def _build_hrl(
     return None
 
 def _build_xyrl(
-        ctx: "context",
+        ctx: AnalysisContext,
         toolchain: "Toolchain",
         xyrl: "artifact",
         output: "artifact") -> "artifact":
@@ -419,7 +419,7 @@ def _build_xyrl(
     return output
 
 def _build_erl(
-        ctx: "context",
+        ctx: AnalysisContext,
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         src: "artifact",
@@ -429,7 +429,7 @@ def _build_erl(
     trampoline = toolchain.erlc_trampoline
     erlc = toolchain.otp_binaries.erlc
 
-    def dynamic_lambda(ctx: "context", artifacts, outputs):
+    def dynamic_lambda(ctx: AnalysisContext, artifacts, outputs):
         erl_opts = _get_erl_opts(ctx, toolchain, src)
         erlc_cmd = cmd_args(
             [
@@ -461,7 +461,7 @@ def _build_erl(
     return None
 
 def _build_edoc(
-        ctx: "context",
+        ctx: AnalysisContext,
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         src: "artifact",
@@ -508,7 +508,7 @@ def _build_edoc(
     return None
 
 def _add_dependencies_to_args(
-        ctx: "context",
+        ctx: AnalysisContext,
         artifacts,
         queue: ["string"],
         done: {"string": "bool"},
@@ -642,7 +642,7 @@ def _erlc_dependency_args(
     return args
 
 def _get_erl_opts(
-        ctx: "context",
+        ctx: AnalysisContext,
         toolchain: "Toolchain",
         src: "artifact") -> cmd_args:
     always = ["+deterministic"]
@@ -765,7 +765,7 @@ def _generate_file_mapping_string(mapping: {"string": ("bool", ["string", "artif
 
     return to_term_args(items)
 
-def _run_with_env(ctx: "context", toolchain: "Toolchain", *args, **kwargs):
+def _run_with_env(ctx: AnalysisContext, toolchain: "Toolchain", *args, **kwargs):
     """ run interfact that injects env"""
 
     # use os_env defined in target if present

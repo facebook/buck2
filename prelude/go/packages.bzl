@@ -14,7 +14,7 @@ GoPkg = record(
     static = field("artifact"),
 )
 
-def go_attr_pkg_name(ctx: "context") -> str:
+def go_attr_pkg_name(ctx: AnalysisContext) -> str:
     """
     Return the Go package name for the given context corresponding to a rule.
     """

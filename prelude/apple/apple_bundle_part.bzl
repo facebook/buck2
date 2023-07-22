@@ -35,13 +35,13 @@ SwiftStdlibArguments = record(
     primary_binary_rel_path = field(str),
 )
 
-def bundle_output(ctx: "context") -> "artifact":
+def bundle_output(ctx: AnalysisContext) -> "artifact":
     bundle_dir_name = get_bundle_dir_name(ctx)
     output = ctx.actions.declare_output(bundle_dir_name)
     return output
 
 def assemble_bundle(
-        ctx: "context",
+        ctx: AnalysisContext,
         bundle: "artifact",
         parts: [AppleBundlePart.type],
         info_plist_part: [AppleBundlePart.type, None],
@@ -185,16 +185,16 @@ def assemble_bundle(
     )
     return subtargets
 
-def get_bundle_dir_name(ctx: "context") -> str:
+def get_bundle_dir_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
 
-def get_apple_bundle_part_relative_destination_path(ctx: "context", part: AppleBundlePart.type) -> str:
+def get_apple_bundle_part_relative_destination_path(ctx: AnalysisContext, part: AppleBundlePart.type) -> str:
     bundle_relative_path = bundle_relative_path_for_destination(part.destination, get_apple_sdk_name(ctx), ctx.attrs.extension)
     destination_file_or_directory_name = part.new_name if part.new_name != None else paths.basename(part.source.short_path)
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
 
 # Returns JSON to be passed into bundle assembling tool. It should contain a dictionary which maps bundle relative destination paths to source paths."
-def _bundle_spec_json(ctx: "context", parts: [AppleBundlePart.type]) -> "artifact":
+def _bundle_spec_json(ctx: AnalysisContext, parts: [AppleBundlePart.type]) -> "artifact":
     specs = []
 
     for part in parts:
@@ -208,7 +208,7 @@ def _bundle_spec_json(ctx: "context", parts: [AppleBundlePart.type]) -> "artifac
 
     return ctx.actions.write_json("bundle_spec.json", specs)
 
-def _detect_codesign_type(ctx: "context") -> CodeSignType.type:
+def _detect_codesign_type(ctx: AnalysisContext) -> CodeSignType.type:
     if ctx.attrs.extension not in ["app", "appex"]:
         # Only code sign application bundles and extensions
         return CodeSignType("skip")
@@ -219,7 +219,7 @@ def _detect_codesign_type(ctx: "context") -> CodeSignType.type:
     is_ad_hoc_sufficient = get_apple_sdk_metadata_for_sdk_name(sdk_name).is_ad_hoc_code_sign_sufficient
     return CodeSignType("adhoc" if is_ad_hoc_sufficient else "distribution")
 
-def _entitlements_file(ctx: "context") -> ["artifact", None]:
+def _entitlements_file(ctx: AnalysisContext) -> ["artifact", None]:
     if not ctx.attrs.binary:
         return None
 
@@ -230,7 +230,7 @@ def _entitlements_file(ctx: "context") -> ["artifact", None]:
 
     return ctx.attrs._codesign_entitlements
 
-def _should_include_entitlements(ctx: "context", codesign_type: CodeSignType.type) -> bool:
+def _should_include_entitlements(ctx: AnalysisContext, codesign_type: CodeSignType.type) -> bool:
     if codesign_type.value == "distribution":
         return True
 
@@ -242,7 +242,7 @@ def _should_include_entitlements(ctx: "context", codesign_type: CodeSignType.typ
 
     return False
 
-def _get_entitlements_codesign_args(ctx: "context", codesign_type: CodeSignType.type) -> ["_arglike"]:
+def _get_entitlements_codesign_args(ctx: AnalysisContext, codesign_type: CodeSignType.type) -> ["_arglike"]:
     include_entitlements = _should_include_entitlements(ctx, codesign_type)
     maybe_entitlements = _entitlements_file(ctx) if include_entitlements else None
     entitlements_args = ["--entitlements", maybe_entitlements] if maybe_entitlements else []

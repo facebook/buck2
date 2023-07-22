@@ -24,7 +24,7 @@ DexLibraryInfo = provider(
 )
 
 def get_dex_produced_from_java_library(
-        ctx: "context",
+        ctx: AnalysisContext,
         dex_toolchain: "DexToolchainInfo",
         jar_to_dex: "artifact",
         needs_desugar: bool = False,

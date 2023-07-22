@@ -12,7 +12,7 @@ _NL = {
     "windows": "\r\n",
 }
 
-def _impl(ctx: "context"):
+def _impl(ctx: AnalysisContext):
     # Figure out the type of newlines we're using.
     newline_type = ctx.attrs.newline
     if newline_type == "auto":

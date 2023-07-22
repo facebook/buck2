@@ -230,7 +230,7 @@ def get_output_flags(linker_type: str, output: "artifact") -> ["_argslike"]:
         return ["-o", output.as_output()]
 
 def get_import_library(
-        ctx: "context",
+        ctx: AnalysisContext,
         linker_type: str,
         output_short_path: str) -> (["artifact", None], ["_argslike"]):
     if linker_type == "windows":

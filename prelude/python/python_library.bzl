@@ -146,7 +146,7 @@ def create_python_library_info(
         shared_libraries = new_shared_libraries,
     )
 
-def gather_dep_libraries(raw_deps: [["dependency"]]) -> (["PythonLibraryInfo"], ["SharedLibraryInfo"]):
+def gather_dep_libraries(raw_deps: [[Dependency]]) -> (["PythonLibraryInfo"], ["SharedLibraryInfo"]):
     """
     Takes a list of raw dependencies, and partitions them into python_library / shared library providers.
     Fails if a dependency is not one of these.
@@ -170,7 +170,7 @@ def gather_dep_libraries(raw_deps: [["dependency"]]) -> (["PythonLibraryInfo"], 
     return (deps, shared_libraries)
 
 def _exclude_deps_from_omnibus(
-        ctx: "context",
+        ctx: AnalysisContext,
         srcs: {str: "artifact"}) -> bool:
     # User-specified parameter.
     if ctx.attrs.exclude_deps_from_merged_linking:
@@ -187,7 +187,7 @@ def _exclude_deps_from_omnibus(
 
     return False
 
-def _attr_srcs(ctx: "context") -> {str: "artifact"}:
+def _attr_srcs(ctx: AnalysisContext) -> {str: "artifact"}:
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     all_srcs = {}
@@ -196,7 +196,7 @@ def _attr_srcs(ctx: "context") -> {str: "artifact"}:
         all_srcs.update(from_named_set(srcs))
     return all_srcs
 
-def _attr_resources(ctx: "context") -> {str: ["dependency", "artifact"]}:
+def _attr_resources(ctx: AnalysisContext) -> {str: [Dependency, "artifact"]}:
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     all_resources = {}
@@ -205,7 +205,7 @@ def _attr_resources(ctx: "context") -> {str: ["dependency", "artifact"]}:
         all_resources.update(from_named_set(resources))
     return all_resources
 
-def py_attr_resources(ctx: "context") -> {str: ("artifact", ["_arglike"])}:
+def py_attr_resources(ctx: AnalysisContext) -> {str: ("artifact", ["_arglike"])}:
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
@@ -214,7 +214,7 @@ def py_attr_resources(ctx: "context") -> {str: ("artifact", ["_arglike"])}:
     return unpack_artifact_map(_attr_resources(ctx))
 
 def py_resources(
-        ctx: "context",
+        ctx: AnalysisContext,
         resources: {str: ("artifact", ["_arglike"])}) -> (ManifestInfo.type, ["_arglike"]):
     """
     Generate a manifest to wrap this rules resources.
@@ -250,7 +250,7 @@ def _src_types(srcs: {str: "artifact"}, type_stubs: {str: "artifact"}) -> {str: 
 
     return src_types
 
-def python_library_impl(ctx: "context") -> ["provider"]:
+def python_library_impl(ctx: AnalysisContext) -> ["provider"]:
     # Versioned params should be intercepted and converted away via the stub.
     expect(not ctx.attrs.versioned_srcs)
     expect(not ctx.attrs.versioned_resources)

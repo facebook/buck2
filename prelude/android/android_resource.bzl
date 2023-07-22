@@ -12,7 +12,7 @@ load(":android_toolchain.bzl", "AndroidToolchainInfo")
 
 JAVA_PACKAGE_FILENAME = "java_package.txt"
 
-def _convert_to_artifact_dir(ctx: "context", attr: ["dependency", "dict", "artifact", None], attr_name: str) -> ["artifact", None]:
+def _convert_to_artifact_dir(ctx: AnalysisContext, attr: [Dependency, "dict", "artifact", None], attr_name: str) -> ["artifact", None]:
     if type(attr) == "dependency":
         expect(len(attr[DefaultInfo].default_outputs) == 1, "Expect one default output from build dep of attr {}!".format(attr_name))
         return attr[DefaultInfo].default_outputs[0]
@@ -21,7 +21,7 @@ def _convert_to_artifact_dir(ctx: "context", attr: ["dependency", "dict", "artif
     else:
         return attr
 
-def android_resource_impl(ctx: "context") -> ["provider"]:
+def android_resource_impl(ctx: AnalysisContext) -> ["provider"]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 
@@ -73,7 +73,7 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
     return providers
 
 def aapt2_compile(
-        ctx: "context",
+        ctx: AnalysisContext,
         resources_dir: "artifact",
         android_toolchain: "AndroidToolchainInfo",
         skip_crunch_pngs: bool = False,
@@ -91,14 +91,14 @@ def aapt2_compile(
 
     return aapt2_output
 
-def _get_package(ctx: "context", package: [str, None], manifest: ["artifact", None]) -> "artifact":
+def _get_package(ctx: AnalysisContext, package: [str, None], manifest: ["artifact", None]) -> "artifact":
     if package:
         return ctx.actions.write(JAVA_PACKAGE_FILENAME, package)
     else:
         expect(manifest != None, "if package is not declared then a manifest must be")
         return extract_package_from_manifest(ctx, manifest)
 
-def extract_package_from_manifest(ctx: "context", manifest: "artifact") -> "artifact":
+def extract_package_from_manifest(ctx: AnalysisContext, manifest: "artifact") -> "artifact":
     r_dot_java_package = ctx.actions.declare_output(JAVA_PACKAGE_FILENAME)
     extract_package_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].manifest_utils[RunInfo])
     extract_package_cmd.add(["--manifest-path", manifest])
@@ -109,9 +109,9 @@ def extract_package_from_manifest(ctx: "context", manifest: "artifact") -> "arti
     return r_dot_java_package
 
 def get_text_symbols(
-        ctx: "context",
+        ctx: AnalysisContext,
         res: "artifact",
-        deps: ["dependency"],
+        deps: [Dependency],
         identifier: [str, None] = None):
     mini_aapt_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mini_aapt[RunInfo])
 
@@ -133,7 +133,7 @@ def get_text_symbols(
 
     return text_symbols
 
-def _get_dep_symbols(deps: ["dependency"]) -> ["artifact"]:
+def _get_dep_symbols(deps: [Dependency]) -> ["artifact"]:
     dep_symbols = []
     for dep in deps:
         android_resource_info = dep.get(AndroidResourceInfo)

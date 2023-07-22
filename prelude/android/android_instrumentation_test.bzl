@@ -12,7 +12,7 @@ load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
-def android_instrumentation_test_impl(ctx: "context"):
+def android_instrumentation_test_impl(ctx: AnalysisContext):
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
 
     cmd = [ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests]

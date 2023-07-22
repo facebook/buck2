@@ -14,23 +14,23 @@ load(":resource_groups.bzl", "ResourceGraph")
 
 # `ctx` in all functions below is expected to be of `apple_bundle` or `apple_test` rule
 
-def _get_bundle_target_name(ctx: "context"):
+def _get_bundle_target_name(ctx: AnalysisContext):
     if hasattr(ctx.attrs, "_bundle_target_name"):
         # `apple_resource_bundle` rules are proxies for the real rules,
         # so make sure we return the real target name rather the proxy one
         return ctx.attrs._bundle_target_name
     return ctx.attrs.name
 
-def get_product_name(ctx: "context") -> str:
+def get_product_name(ctx: AnalysisContext) -> str:
     return ctx.attrs.product_name if hasattr(ctx.attrs, "product_name") and ctx.attrs.product_name != None else _get_bundle_target_name(ctx)
 
-def get_extension_attr(ctx: "context") -> "":
+def get_extension_attr(ctx: AnalysisContext) -> "":
     return ctx.attrs.extension
 
 # Derives the effective deployment target for the bundle. It's
 # usually the deployment target of the binary if present,
 # otherwise it falls back to other values (see implementation).
-def get_bundle_min_target_version(ctx: "context", binary: ["dependency", None]) -> str:
+def get_bundle_min_target_version(ctx: AnalysisContext, binary: [Dependency, None]) -> str:
     binary_min_version = None
 
     # Could be not set for e.g. watchOS bundles which have a stub
@@ -58,7 +58,7 @@ def get_bundle_min_target_version(ctx: "context", binary: ["dependency", None]) 
     # TODO(T110378109): support default value from SDK `Info.plist`
     fail("Could not determine min target sdk version for bundle: {}".format(ctx.label))
 
-def get_bundle_resource_processing_options(ctx: "context") -> AppleResourceProcessingOptions.type:
+def get_bundle_resource_processing_options(ctx: AnalysisContext) -> AppleResourceProcessingOptions.type:
     compile_resources_locally = value_or(ctx.attrs._compile_resources_locally_override, ctx.attrs._apple_toolchain[AppleToolchainInfo].compile_resources_locally)
     return AppleResourceProcessingOptions(prefer_local = compile_resources_locally, allow_cache_upload = compile_resources_locally)
 

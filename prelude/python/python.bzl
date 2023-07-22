@@ -152,7 +152,7 @@ def manifests_to_interface(manifests: PythonLibraryManifestsTSet.type) -> Python
         resource_artifacts_with_paths = lambda: [(a, p) for m in manifests.traverse() if m != None and m.resources != None for a, p in m.resources[0].artifacts],
     )
 
-def get_python_deps(ctx: "context"):
+def get_python_deps(ctx: AnalysisContext):
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     return flatten(

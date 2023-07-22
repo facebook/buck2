@@ -11,7 +11,7 @@ load("@prelude//cxx:preprocessor.bzl", "CPreprocessorInfo", "cxx_merge_cpreproce
 load("@prelude//utils:utils.bzl", "expect")
 load(":rule_spec.bzl", "RuleRegistrationSpec")
 
-def _headers(ctx: "context", deps: ["dependency"]) -> {str: "artifact"}:
+def _headers(ctx: AnalysisContext, deps: [Dependency]) -> {str: "artifact"}:
     headers = {}
 
     pp_info = cxx_merge_cpreprocessors(ctx, [], [d[CPreprocessorInfo] for d in deps])
@@ -22,7 +22,7 @@ def _headers(ctx: "context", deps: ["dependency"]) -> {str: "artifact"}:
 
     return headers
 
-def _impl(ctx: "context") -> ["provider"]:
+def _impl(ctx: AnalysisContext) -> ["provider"]:
     headers = _headers(ctx, ctx.attrs.deps)
     if ctx.attrs.limit != None:
         expect(

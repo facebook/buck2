@@ -30,7 +30,7 @@ AndroidBinaryInfo = record(
     resources_info = "AndroidBinaryResourcesInfo",
 )
 
-def get_binary_info(ctx: "context", use_proto_format: bool) -> AndroidBinaryInfo.type:
+def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBinaryInfo.type:
     sub_targets = {}
 
     _verify_params(ctx)
@@ -166,7 +166,7 @@ def get_binary_info(ctx: "context", use_proto_format: bool) -> AndroidBinaryInfo
         resources_info = resources_info,
     )
 
-def _get_build_config_java_libraries(ctx: "context", build_config_infos: ["AndroidBuildConfigInfo"]) -> ["JavaPackagingInfo"]:
+def _get_build_config_java_libraries(ctx: AnalysisContext, build_config_infos: ["AndroidBuildConfigInfo"]) -> ["JavaPackagingInfo"]:
     # BuildConfig deps should not be added for instrumented APKs because BuildConfig.class has
     # already been added to the APK under test.
     if ctx.attrs.package_type == "instrumented":
@@ -202,7 +202,7 @@ def _get_build_config_java_libraries(ctx: "context", build_config_infos: ["Andro
 
     return java_libraries
 
-def _verify_params(ctx: "context"):
+def _verify_params(ctx: AnalysisContext):
     expect(ctx.attrs.aapt_mode == "aapt2", "aapt1 is deprecated!")
     expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")
     expect(not ctx.attrs.use_split_dex or ctx.attrs.allow_r_dot_java_in_secondary_dex)

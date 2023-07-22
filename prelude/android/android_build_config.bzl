@@ -10,7 +10,7 @@ load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo", "create_java_packaging_dep", "derive_compiling_deps")
 load(":android_providers.bzl", "AndroidBuildConfigInfo", "BuildConfigField", "merge_android_packageable_info")
 
-def android_build_config_impl(ctx: "context") -> ["provider"]:
+def android_build_config_impl(ctx: AnalysisContext) -> ["provider"]:
     providers = []
 
     default_build_config_fields = get_build_config_fields(ctx.attrs.values)
@@ -34,7 +34,7 @@ def android_build_config_impl(ctx: "context") -> ["provider"]:
     return providers
 
 def generate_android_build_config(
-        ctx: "context",
+        ctx: AnalysisContext,
         source: str,
         java_package: str,
         use_constant_expressions: bool,
@@ -56,7 +56,7 @@ def generate_android_build_config(
     ))
 
 def _generate_build_config_dot_java(
-        ctx: "context",
+        ctx: AnalysisContext,
         source: str,
         java_package: str,
         use_constant_expressions: bool,
@@ -92,7 +92,7 @@ def _generate_build_config_dot_java(
     return build_config_dot_java
 
 def _compile_and_package_build_config_dot_java(
-        ctx: "context",
+        ctx: AnalysisContext,
         java_package: str,
         build_config_dot_java: "artifact") -> "JavaCompileOutputs":
     return compile_to_jar(

@@ -9,7 +9,7 @@ load("@prelude//linking:shared_libraries.bzl", "merge_shared_libraries", "traver
 load("@prelude//utils:utils.bzl", "flatten")
 load(":julia_info.bzl", "JuliaLibraryInfo", "JuliaLibraryTSet", "JuliaToolchainInfo")
 
-def write_overrides_file(ctx: "context"):
+def write_overrides_file(ctx: AnalysisContext):
     """Compiles a JSON file containing all required info for jlls.
 
     We need to create a JSON file that contains all the relevant jlls, all the
@@ -69,7 +69,7 @@ def write_overrides_file(ctx: "context"):
 
     return ctx.actions.write_json(json_info_file, json_info, with_inputs = True)
 
-def build_load_path_symtree(ctx: "context"):
+def build_load_path_symtree(ctx: AnalysisContext):
     """Builds symtree of all julia library files."""
     dep_julia_library_infos = filter(None, [dep.get(JuliaLibraryInfo) for dep in ctx.attrs.deps])
 
@@ -154,6 +154,6 @@ def build_julia_command(ctx):
 
     return cmd
 
-def julia_binary_impl(ctx: "context") -> ["provider"]:
+def julia_binary_impl(ctx: AnalysisContext) -> ["provider"]:
     cmd = build_julia_command(ctx)
     return [DefaultInfo(), RunInfo(cmd)]

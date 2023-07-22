@@ -80,7 +80,7 @@ AppleBundlePartListOutput = record(
     info_plist_part = field(AppleBundlePart.type),
 )
 
-def _get_binary(ctx: "context") -> AppleBundleBinaryOutput.type:
+def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput.type:
     # No binary means we are building watchOS bundle. In v1 bundle binary is present, but its sources are empty.
     if ctx.attrs.binary == None:
         return AppleBundleBinaryOutput(
@@ -94,10 +94,10 @@ def _get_binary(ctx: "context") -> AppleBundleBinaryOutput.type:
 
     return _maybe_scrub_binary(ctx, binary_dep)
 
-def _get_bundle_dsym_name(ctx: "context") -> str:
+def _get_bundle_dsym_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_bundle_dir_name(ctx), ".dSYM")
 
-def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutput.type:
+def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput.type:
     binary = binary_dep[DefaultInfo].default_outputs[0]
     debuggable_info = binary_dep.get(AppleDebuggableInfo)
     if ctx.attrs.selective_debugging == None:
@@ -149,7 +149,7 @@ def _get_scrubbed_binary_dsym(ctx, binary: "artifact", debug_info_tset: Artifact
     )
     return dsym_artifact
 
-def _get_binary_bundle_parts(ctx: "context", binary_output: AppleBundleBinaryOutput.type) -> ([AppleBundlePart.type], AppleBundlePart.type):
+def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput.type) -> ([AppleBundlePart.type], AppleBundlePart.type):
     """Returns a tuple of all binary bundle parts and the primary bundle binary."""
     result = []
 
@@ -160,18 +160,18 @@ def _get_binary_bundle_parts(ctx: "context", binary_output: AppleBundleBinaryOut
     result.append(primary_binary_part)
     return result, primary_binary_part
 
-def _get_watch_kit_stub_artifact(ctx: "context") -> "artifact":
+def _get_watch_kit_stub_artifact(ctx: AnalysisContext) -> "artifact":
     expect(ctx.attrs.binary == None, "Stub is useful only when binary is not set which means watchOS bundle is built.")
     stub_binary = ctx.attrs._apple_toolchain[AppleToolchainInfo].watch_kit_stub_binary
     if stub_binary == None:
         fail("Expected Watch Kit stub binary to be provided when bundle binary is not set.")
     return stub_binary
 
-def _apple_bundle_run_validity_checks(ctx: "context"):
+def _apple_bundle_run_validity_checks(ctx: AnalysisContext):
     if ctx.attrs.extension == None:
         fail("`extension` attribute is required")
 
-def _get_debuggable_deps(ctx: "context", binary_output: AppleBundleBinaryOutput.type, run_cmd: "_arglike") -> AppleBundleDebuggableInfo.type:
+def _get_debuggable_deps(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput.type, run_cmd: "_arglike") -> AppleBundleDebuggableInfo.type:
     # `label` captures configuration as well, so it's safe to use for comparison purposes
     binary_label = getattr(ctx.attrs.binary, "label", None)
     deps_debuggable_infos = filter(
@@ -204,7 +204,7 @@ def _get_debuggable_deps(ctx: "context", binary_output: AppleBundleBinaryOutput.
         all_infos = deps_debuggable_infos + ([bundle_debuggable_info] if bundle_debuggable_info else []),
     )
 
-def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstructorParams.type) -> AppleBundlePartListOutput.type:
+def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartListConstructorParams.type) -> AppleBundlePartListOutput.type:
     resource_part_list = None
     if hasattr(ctx.attrs, "_resource_bundle") and ctx.attrs._resource_bundle != None:
         resource_info = ctx.attrs._resource_bundle[AppleBundleResourceInfo]
@@ -219,7 +219,7 @@ def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstr
         info_plist_part = resource_part_list.info_plist_part,
     )
 
-def apple_bundle_impl(ctx: "context") -> ["provider"]:
+def apple_bundle_impl(ctx: AnalysisContext) -> ["provider"]:
     _apple_bundle_run_validity_checks(ctx)
 
     binary_outputs = _get_binary(ctx)
@@ -305,7 +305,7 @@ def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str: "
     apple_xcode_data_add_xctoolchain(ctx, data)
     return data
 
-def _linker_maps_data(ctx: "context") -> ("artifact", AppleBundleLinkerMapInfo.type):
+def _linker_maps_data(ctx: AnalysisContext) -> ("artifact", AppleBundleLinkerMapInfo.type):
     deps_with_binary = ctx.attrs.deps + ([ctx.attrs.binary] if ctx.attrs.binary != None else [])
     deps_linker_map_infos = filter(
         None,
@@ -320,7 +320,7 @@ def _linker_maps_data(ctx: "context") -> ("artifact", AppleBundleLinkerMapInfo.t
     provider = AppleBundleLinkerMapInfo(linker_maps = all_maps.values())
     return (directory, provider)
 
-def _extra_output_provider(ctx: "context") -> AppleBundleExtraOutputsInfo.type:
+def _extra_output_provider(ctx: AnalysisContext) -> AppleBundleExtraOutputsInfo.type:
     # Collect the sub_targets for this bundle's binary that are extra_linker_outputs.
     extra_outputs = []
     if ctx.attrs.binary != None:
@@ -340,7 +340,7 @@ def _extra_output_provider(ctx: "context") -> AppleBundleExtraOutputsInfo.type:
     return AppleBundleExtraOutputsInfo(extra_outputs = extra_outputs)
 
 def generate_install_data(
-        ctx: "context",
+        ctx: AnalysisContext,
         plist_path: str,
         populate_rule_specific_attributes_func: ["function", None] = None,
         **kwargs) -> "artifact":

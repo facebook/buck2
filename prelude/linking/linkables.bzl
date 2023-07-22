@@ -39,7 +39,7 @@ LinkableProviders = record(
     linkable_root_info = field([LinkableRootInfo.type, None], None),
 )
 
-def linkable(dep: "dependency") -> LinkableProviders.type:
+def linkable(dep: Dependency) -> LinkableProviders.type:
     expect(LinkGroupLibInfo in dep, str(dep.label.raw_target()))
     return LinkableProviders(
         shared_library_info = dep[SharedLibraryInfo],
@@ -49,5 +49,5 @@ def linkable(dep: "dependency") -> LinkableProviders.type:
         linkable_root_info = dep.get(LinkableRootInfo),
     )
 
-def linkables(deps: ["dependency"]) -> [LinkableProviders.type]:
+def linkables(deps: [Dependency]) -> [LinkableProviders.type]:
     return [linkable(dep) for dep in deps if MergedLinkInfo in dep]

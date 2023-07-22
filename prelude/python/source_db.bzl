@@ -21,7 +21,7 @@ def create_python_source_db_info(manifests: [PythonLibraryManifestsTSet.type, No
     return PythonSourceDBInfo(manifests = manifests)
 
 def create_source_db(
-        ctx: "context",
+        ctx: AnalysisContext,
         srcs: [ManifestInfo.type, None],
         python_deps: ["PythonLibraryInfo"]) -> DefaultInfo.type:
     output = ctx.actions.declare_output("db.json")
@@ -51,7 +51,7 @@ def create_source_db(
     return DefaultInfo(default_output = output, other_outputs = artifacts)
 
 def create_dbg_source_db(
-        ctx: "context",
+        ctx: AnalysisContext,
         srcs: [ManifestInfo.type, None],
         python_deps: ["PythonLibraryInfo"]) -> DefaultInfo.type:
     output = ctx.actions.declare_output("dbg-db.json")
@@ -79,14 +79,14 @@ def create_dbg_source_db(
     return DefaultInfo(default_output = output, other_outputs = artifacts)
 
 def create_source_db_no_deps(
-        ctx: "context",
+        ctx: AnalysisContext,
         srcs: [{str: "artifact"}, None]) -> DefaultInfo.type:
     content = {} if srcs == None else srcs
     output = ctx.actions.write_json("db_no_deps.json", content)
     return DefaultInfo(default_output = output, other_outputs = content.values())
 
 def create_source_db_no_deps_from_manifest(
-        ctx: "context",
+        ctx: AnalysisContext,
         srcs: ManifestInfo.type) -> DefaultInfo.type:
     output = ctx.actions.declare_output("db_no_deps.json")
     cmd = cmd_args(ctx.attrs._python_toolchain[PythonToolchainInfo].make_source_db_no_deps)

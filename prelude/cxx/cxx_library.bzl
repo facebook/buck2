@@ -272,7 +272,7 @@ _CxxLibraryParameterizedOutput = record(
     bitcode_bundle = field([BitcodeBundle.type, None], None),
 )
 
-def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorParams") -> _CxxLibraryParameterizedOutput.type:
+def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstructorParams") -> _CxxLibraryParameterizedOutput.type:
     """
     Defines the outputs for a cxx library, return the default output and any subtargets and providers based upon the requested params.
     """
@@ -767,7 +767,7 @@ def get_default_cxx_library_product_name(ctx, impl_params) -> str:
         return _soname(ctx, impl_params)
 
 def cxx_compile_srcs(
-        ctx: "context",
+        ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams.type,
         own_preprocessors: [CPreprocessor.type],
         inherited_non_exported_preprocessor_infos: [CPreprocessorInfo.type],
@@ -846,7 +846,7 @@ def cxx_compile_srcs(
     )
 
 def _form_library_outputs(
-        ctx: "context",
+        ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams.type,
         compiled_srcs: _CxxCompiledSourcesOutput.type,
         preferred_linkage: Linkage.type,
@@ -970,7 +970,7 @@ def _form_library_outputs(
         solibs = solibs,
     )
 
-def _strip_objects(ctx: "context", objects: ["artifact"]) -> ["artifact"]:
+def _strip_objects(ctx: AnalysisContext, objects: ["artifact"]) -> ["artifact"]:
     """
     Return new objects with debug info stripped.
     """
@@ -990,14 +990,14 @@ def _strip_objects(ctx: "context", objects: ["artifact"]) -> ["artifact"]:
     return outs
 
 def _get_shared_library_links(
-        ctx: "context",
+        ctx: AnalysisContext,
         linkable_graph_node_map_func,
         link_group: [str, None],
         link_group_mappings: [{"label": str}, None],
         link_group_preferred_linkage: {"label": Linkage.type},
         link_group_libs: {str: LinkGroupLib.type},
-        exported_deps: ["dependency"],
-        non_exported_deps: ["dependency"],
+        exported_deps: [Dependency],
+        non_exported_deps: [Dependency],
         force_link_group_linking,
         frameworks_linkable: [FrameworksLinkable.type, None],
         force_static_follows_dependents: bool = True,
@@ -1096,7 +1096,7 @@ def _use_pic(link_style: LinkStyle.type) -> bool:
 # Returns a tuple of objects/archive to use as the default output for the link
 # style(s) it's used in and the `LinkInfo` to export to dependents.
 def _static_library(
-        ctx: "context",
+        ctx: AnalysisContext,
         impl_params: "CxxRuleConstructorParams",
         objects: ["artifact"],
         pic: bool,
@@ -1189,7 +1189,7 @@ def _static_library(
 # A bitcode bundle is very much like a static library and is generated from object file
 # inputs, except the output is a combined bitcode file, which is not machine code.
 def _bitcode_bundle(
-        ctx: "context",
+        ctx: AnalysisContext,
         objects: [["artifact"], None],
         pic: bool = False,
         stripped: bool = False,
@@ -1212,7 +1212,7 @@ _CxxSharedLibraryResult = record(
 )
 
 def _shared_library(
-        ctx: "context",
+        ctx: AnalysisContext,
         impl_params: "CxxRuleConstructorParams",
         objects: ["artifact"],
         external_debug_info: ArtifactTSet.type,
@@ -1321,10 +1321,10 @@ def _shared_library(
         ),
     )
 
-def _attr_reexport_all_header_dependencies(ctx: "context") -> bool:
+def _attr_reexport_all_header_dependencies(ctx: AnalysisContext) -> bool:
     return value_or(ctx.attrs.reexport_all_header_dependencies, False)
 
-def _soname(ctx: "context", impl_params) -> str:
+def _soname(ctx: AnalysisContext, impl_params) -> str:
     """
     Get the shared library name to set for the given C++ library.
     """
@@ -1334,7 +1334,7 @@ def _soname(ctx: "context", impl_params) -> str:
         return get_shared_library_name_for_param(linker_info, explicit_soname)
     return get_default_shared_library_name(linker_info, ctx.label)
 
-def _base_static_library_name(ctx: "context", stripped: bool) -> str:
+def _base_static_library_name(ctx: AnalysisContext, stripped: bool) -> str:
     return ctx.label.name + ".stripped" if stripped else ctx.label.name
 
 def _archive_name(name: str, pic: bool, extension: str) -> str:
@@ -1343,10 +1343,10 @@ def _archive_name(name: str, pic: bool, extension: str) -> str:
 def _bitcode_bundle_name(name: str, pic: bool, stripped: bool = False) -> str:
     return "{}{}{}.bc".format(name, ".pic" if pic else "", ".stripped" if stripped else "")
 
-def _attr_link_whole(ctx: "context") -> bool:
+def _attr_link_whole(ctx: AnalysisContext) -> bool:
     return value_or(ctx.attrs.link_whole, False)
 
-def use_archives(ctx: "context") -> bool:
+def use_archives(ctx: AnalysisContext) -> bool:
     """
     Whether this rule should use archives to package objects when producing
     link input for dependents.
@@ -1368,7 +1368,7 @@ def use_archives(ctx: "context") -> bool:
     # Otherwise, fallback to the rule-specific setting.
     return value_or(ctx.attrs.use_archive, True)
 
-def _attr_post_linker_flags(ctx: "context") -> [""]:
+def _attr_post_linker_flags(ctx: AnalysisContext) -> [""]:
     return (
         ctx.attrs.post_linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.post_platform_linker_flags))

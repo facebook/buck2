@@ -395,7 +395,7 @@ def wrap_link_infos(
 
 def create_merged_link_info(
         # Target context for which to create the link info.
-        ctx: "context",
+        ctx: AnalysisContext,
         pic_behavior: PicBehavior.type,
         # The link infos provided by this rule, as a map from link style (as
         # used by dependents) to `LinkInfo`.
@@ -478,7 +478,7 @@ def create_merged_link_info(
     )
 
 def merge_link_infos(
-        ctx: "context",
+        ctx: AnalysisContext,
         xs: ["MergedLinkInfo"]) -> "MergedLinkInfo":
     merged = {}
     merged_external_debug_info = {}

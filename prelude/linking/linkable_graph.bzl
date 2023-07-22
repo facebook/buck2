@@ -105,10 +105,10 @@ LinkableGraph = provider(fields = [
 DlopenableLibraryInfo = provider(fields = [])
 
 def create_linkable_node(
-        ctx: "context",
+        ctx: AnalysisContext,
         preferred_linkage: Linkage.type = Linkage("any"),
-        deps: ["dependency"] = [],
-        exported_deps: ["dependency"] = [],
+        deps: [Dependency] = [],
+        exported_deps: [Dependency] = [],
         link_infos: {LinkStyle.type: LinkInfos.type} = {},
         shared_libs: {str: LinkedObject.type} = {}) -> LinkableNode.type:
     for link_style in get_link_styles_for_linkage(preferred_linkage):
@@ -126,7 +126,7 @@ def create_linkable_node(
     )
 
 def create_linkable_graph_node(
-        ctx: "context",
+        ctx: AnalysisContext,
         linkable_node: [LinkableNode.type, None] = None,
         roots: {Label: AnnotatedLinkableRoot.type} = {},
         excluded: {Label: None} = {}) -> LinkableGraphNode.type:
@@ -138,9 +138,9 @@ def create_linkable_graph_node(
     )
 
 def create_linkable_graph(
-        ctx: "context",
+        ctx: AnalysisContext,
         node: [LinkableGraphNode.type, None] = None,
-        deps: ["dependency"] = [],
+        deps: [Dependency] = [],
         children: [LinkableGraph.type] = []) -> LinkableGraph.type:
     all_children_graphs = filter(None, [x.get(LinkableGraph) for x in deps]) + children
     kwargs = {
@@ -164,7 +164,7 @@ def get_linkable_graph_node_map_func(graph: LinkableGraph.type):
 
     return get_linkable_graph_node_map
 
-def linkable_deps(deps: ["dependency"]) -> [Label]:
+def linkable_deps(deps: [Dependency]) -> [Label]:
     labels = []
 
     for dep in deps:
@@ -174,7 +174,7 @@ def linkable_deps(deps: ["dependency"]) -> [Label]:
 
     return labels
 
-def linkable_graph(dep: "dependency") -> [LinkableGraph.type, None]:
+def linkable_graph(dep: Dependency) -> [LinkableGraph.type, None]:
     """
     Helper to extract `LinkableGraph` from a dependency which also
     provides `MergedLinkInfo`.

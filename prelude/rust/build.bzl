@@ -77,7 +77,7 @@ RustcOutput = record(
     dwp_outputs = field({Emit.type: "artifact"}),
 )
 
-def compile_context(ctx: "context") -> CompileContext.type:
+def compile_context(ctx: AnalysisContext) -> CompileContext.type:
     toolchain_info = ctx_toolchain_info(ctx)
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
@@ -119,7 +119,7 @@ def compile_context(ctx: "context") -> CompileContext.type:
     )
 
 def generate_rustdoc(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         # link style doesn't matter, but caller should pass in build params
         # with static-pic (to get best cache hits for deps)
@@ -197,7 +197,7 @@ def generate_rustdoc(
     return output
 
 def generate_rustdoc_test(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         link_style: LinkStyle.type,
         library: RustLinkStyleInfo.type,
@@ -298,7 +298,7 @@ def generate_rustdoc_test(
 # Generate multiple compile artifacts so that distinct sets of artifacts can be
 # generated concurrently.
 def rust_compile_multi(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         emits: [Emit.type],
         params: BuildParams.type,
@@ -331,7 +331,7 @@ def rust_compile_multi(
 # numerous output artifacts, so return an artifact object for each of
 # them.
 def rust_compile(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         emit: Emit.type,
         params: BuildParams.type,
@@ -515,7 +515,7 @@ def rust_compile(
 # Second element of result tuple is a list of files/directories that should be present for executable to be run successfully
 # Third return is the mapping from crate names back to targets (needed so that a deps linter knows what deps need fixing)
 def _dependency_args(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         subdir: str,
         crate_type: CrateType.type,
@@ -580,7 +580,7 @@ def _dependency_args(
     return (args, crate_targets)
 
 def simple_symlinked_dirs(
-        ctx: "context",
+        ctx: AnalysisContext,
         prefix: str,
         artifacts: {"artifact": None}) -> cmd_args:
     # Add as many -Ldependency dirs as we need to avoid name conflicts
@@ -599,7 +599,7 @@ def simple_symlinked_dirs(
     return cmd_args(symlinked_dirs, format = "-Ldependency={}")
 
 def dynamic_symlinked_dirs(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         prefix: str,
         artifacts: {"artifact": CrateName.type}) -> cmd_args:
@@ -655,7 +655,7 @@ def _rustc_flags(flags: [[str, "resolved_macro"]]) -> [[str, "resolved_macro"]]:
 
 # Compute which are common to both rustc and rustdoc
 def _compute_common_args(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         emit: Emit.type,
         params: BuildParams.type,
@@ -753,7 +753,7 @@ def _compute_common_args(
 # (small - ~15ms per invocation) perf hit but only applies when generating
 # specifically requested clippy diagnostics.
 def _clippy_wrapper(
-        ctx: "context",
+        ctx: AnalysisContext,
         toolchain_info: RustToolchainInfo.type) -> cmd_args:
     clippy_driver = cmd_args(toolchain_info.clippy_driver)
     rustc_print_sysroot = cmd_args(toolchain_info.compiler, "--print=sysroot", delimiter = " ")
@@ -794,7 +794,7 @@ def _clippy_wrapper(
 # without an artifact. We create a wrapper (which is an artifact),
 # and add -Clinker=
 def _linker_args(
-        ctx: "context",
+        ctx: AnalysisContext,
         linker_info: LinkerInfo.type) -> cmd_args:
     linker = cmd_args(
         linker_info.linker,
@@ -824,7 +824,7 @@ def _metadata(label: "label") -> (str, str):
     return (label, "0" * (8 - len(h)) + h)
 
 def _crate_root(
-        ctx: "context",
+        ctx: AnalysisContext,
         srcs: [str],
         default_roots: [str]) -> str:
     candidates = set()
@@ -844,7 +844,7 @@ def _crate_root(
 
 # Take a desired output and work out how to convince rustc to generate it
 def _rustc_emits(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         emit: Emit.type,
         predeclared_outputs: {Emit.type: "artifact"},
@@ -918,7 +918,7 @@ def _rustc_emits(
 
 # Invoke rustc and capture outputs
 def _rustc_invoke(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         prefix: str,
         rustc_cmd: cmd_args,
@@ -996,7 +996,7 @@ def _rustc_invoke(
 # flags, so write to file to avoid hitting the platform's limit on command line
 # length. This limit is particularly small on Windows.
 def _long_command(
-        ctx: "context",
+        ctx: AnalysisContext,
         exe: RunInfo.type,
         args: cmd_args,
         argfile_name: str) -> cmd_args:

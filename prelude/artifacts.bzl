@@ -18,7 +18,7 @@ ArtifactGroupInfo = provider(
     ],
 )
 
-def _from_default_info(dep: "dependency") -> ("artifact", ["_arglike"]):
+def _from_default_info(dep: Dependency) -> ("artifact", ["_arglike"]):
     info = dep[DefaultInfo]
     expect(
         len(info.default_outputs) == 1,
@@ -27,7 +27,7 @@ def _from_default_info(dep: "dependency") -> ("artifact", ["_arglike"]):
     )
     return (info.default_outputs[0], info.other_outputs)
 
-def unpack_artifacts(artifacts: [["artifact", "dependency"]]) -> [("artifact", ["_arglike"])]:
+def unpack_artifacts(artifacts: [["artifact", Dependency]]) -> [("artifact", ["_arglike"])]:
     """
     Unpack a list of `artifact` and `ArtifactGroupInfo` into a flattened list
     of `artifact`s
@@ -53,7 +53,7 @@ def unpack_artifacts(artifacts: [["artifact", "dependency"]]) -> [("artifact", [
 
     return out
 
-def unpack_artifact_map(artifacts: {str: ["artifact", "dependency"]}) -> {str: ("artifact", ["_arglike"])}:
+def unpack_artifact_map(artifacts: {str: ["artifact", Dependency]}) -> {str: ("artifact", ["_arglike"])}:
     """
     Unpack a list of `artifact` and `ArtifactGroupInfo` into a flattened list
     of `artifact`s

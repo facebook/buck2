@@ -10,7 +10,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def _extract_symbol_names(
-        ctx: "context",
+        ctx: AnalysisContext,
         name: str,
         objects: ["artifact"],
         category: str,
@@ -113,7 +113,7 @@ _anon_extract_symbol_names_impl_rule = rule(
 )
 
 def extract_symbol_names(
-        ctx: "context",
+        ctx: AnalysisContext,
         name: str,
         anonymous: bool = False,
         **kwargs) -> ["artifact", "promise_artifact"]:
@@ -143,7 +143,7 @@ def extract_symbol_names(
         )
 
 def extract_undefined_syms(
-        ctx: "context",
+        ctx: AnalysisContext,
         output: "artifact",
         category_prefix: str,
         prefer_local: bool = False,
@@ -162,7 +162,7 @@ def extract_undefined_syms(
     )
 
 def extract_global_syms(
-        ctx: "context",
+        ctx: AnalysisContext,
         output: "artifact",
         category_prefix: str,
         prefer_local: bool = False,
@@ -215,7 +215,7 @@ def _create_symbols_file_from_script(
     return output
 
 def get_undefined_symbols_args(
-        ctx: "context",
+        ctx: AnalysisContext,
         name: str,
         symbol_files: ["artifact"],
         category: [str, None] = None,

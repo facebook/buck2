@@ -19,7 +19,7 @@ def get_path_separator() -> "string":
     # On UNIX systems, this character is ':'; on Microsoft Windows systems it is ';'.
     return ":"
 
-def derive_javac(javac_attribute: [str, "dependency", "artifact"]) -> [str, "RunInfo", "artifact"]:
+def derive_javac(javac_attribute: [str, Dependency, "artifact"]) -> [str, "RunInfo", "artifact"]:
     javac_attr_type = type(javac_attribute)
     if javac_attr_type == "dependency":
         javac_run_info = javac_attribute.get(RunInfo)
@@ -37,7 +37,7 @@ def derive_javac(javac_attribute: [str, "dependency", "artifact"]) -> [str, "Run
 
     fail("Type of attribute javac {} that equals to {} is not supported.\n Supported types are \"dependency\", \"artifact\" and \"string\".".format(javac_attr_type, javac_attribute))
 
-def get_java_version_attributes(ctx: "context") -> (int, int):
+def get_java_version_attributes(ctx: AnalysisContext) -> (int, int):
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     java_version = ctx.attrs.java_version
     java_source = ctx.attrs.source
@@ -114,9 +114,9 @@ def declare_prefixed_name(name: str, prefix: [str, None]) -> str:
     return "{}_{}".format(prefix, name)
 
 def get_class_to_source_map_info(
-        ctx: "context",
+        ctx: AnalysisContext,
         outputs: ["JavaCompileOutputs", None],
-        deps: ["dependency"]) -> (JavaClassToSourceMapInfo.type, dict):
+        deps: [Dependency]) -> (JavaClassToSourceMapInfo.type, dict):
     sub_targets = {}
     class_to_srcs = None
     if not ctx.attrs._is_building_android_binary and outputs != None:

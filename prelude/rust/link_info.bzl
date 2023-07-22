@@ -73,7 +73,7 @@ def style_info(info: RustLinkInfo.type, link_style: LinkStyle.type) -> RustLinkS
 # A Rust dependency
 RustDependency = record(
     # The actual dependency
-    dep = field("dependency"),
+    dep = field(Dependency),
     # The local name, if any (for `named_deps`)
     name = field([None, str]),
     # Any flags for the dependency (`flagged_deps`), which are passed on to rustc.
@@ -82,9 +82,9 @@ RustDependency = record(
 
 # Returns all first-order dependencies.
 def _do_resolve_deps(
-        deps: ["dependency"],
-        named_deps: {str: "dependency"},
-        flagged_deps: [("dependency", [str])] = []) -> [RustDependency.type]:
+        deps: [Dependency],
+        named_deps: {str: Dependency},
+        flagged_deps: [(Dependency, [str])] = []) -> [RustDependency.type]:
     return [
         RustDependency(name = name, dep = dep, flags = flags)
         for name, dep, flags in [(None, dep, []) for dep in deps] +
@@ -93,7 +93,7 @@ def _do_resolve_deps(
     ]
 
 def resolve_deps(
-        ctx: "context",
+        ctx: AnalysisContext,
         include_doc_deps: bool = False) -> [RustDependency.type]:
     # The `getattr`s are needed for when we're operating on
     # `prebuilt_rust_library` rules, which don't have those attrs.
@@ -113,8 +113,8 @@ def resolve_deps(
 
 # Returns native link dependencies.
 def _non_rust_link_deps(
-        ctx: "context",
-        include_doc_deps: bool = False) -> ["dependency"]:
+        ctx: AnalysisContext,
+        include_doc_deps: bool = False) -> [Dependency]:
     """
     Return all first-order native linkable dependencies of all transitive Rust
     libraries.
@@ -131,7 +131,7 @@ def _non_rust_link_deps(
 
 # Returns native link dependencies.
 def _non_rust_link_infos(
-        ctx: "context",
+        ctx: AnalysisContext,
         include_doc_deps: bool = False) -> ["MergedLinkInfo"]:
     """
     Return all first-order native link infos of all transitive Rust libraries.
@@ -145,7 +145,7 @@ def _non_rust_link_infos(
 
 # Returns native link dependencies.
 def _non_rust_shared_lib_infos(
-        ctx: "context",
+        ctx: AnalysisContext,
         include_doc_deps: bool = False) -> ["SharedLibraryInfo"]:
     """
     Return all transitive shared libraries for non-Rust native linkabes.
@@ -162,7 +162,7 @@ def _non_rust_shared_lib_infos(
 
 # Returns native link dependencies.
 def _rust_link_infos(
-        ctx: "context",
+        ctx: AnalysisContext,
         include_doc_deps: bool = False) -> ["RustLinkInfo"]:
     first_order_deps = resolve_deps(ctx, include_doc_deps)
     return filter(None, [d.dep.get(RustLinkInfo) for d in first_order_deps])
@@ -170,7 +170,7 @@ def _rust_link_infos(
 def normalize_crate(label: str) -> str:
     return label.replace("-", "_")
 
-def inherited_non_rust_exported_link_deps(ctx: "context") -> ["dependency"]:
+def inherited_non_rust_exported_link_deps(ctx: AnalysisContext) -> [Dependency]:
     deps = {}
     for dep in _non_rust_link_deps(ctx):
         deps[dep.label] = dep
@@ -180,7 +180,7 @@ def inherited_non_rust_exported_link_deps(ctx: "context") -> ["dependency"]:
     return deps.values()
 
 def inherited_non_rust_link_info(
-        ctx: "context",
+        ctx: AnalysisContext,
         include_doc_deps: bool = False) -> "MergedLinkInfo":
     infos = []
     infos.extend(_non_rust_link_infos(ctx, include_doc_deps))
@@ -188,14 +188,14 @@ def inherited_non_rust_link_info(
     return merge_link_infos(ctx, infos)
 
 def inherited_non_rust_shared_libs(
-        ctx: "context",
+        ctx: AnalysisContext,
         include_doc_deps: bool = False) -> ["SharedLibraryInfo"]:
     infos = []
     infos.extend(_non_rust_shared_lib_infos(ctx, include_doc_deps))
     infos.extend([d.non_rust_shared_libs for d in _rust_link_infos(ctx, include_doc_deps)])
     return infos
 
-def attr_simple_crate_for_filenames(ctx: "context") -> str:
+def attr_simple_crate_for_filenames(ctx: AnalysisContext) -> str:
     """
     A "good enough" identifier to use in filenames. Buck wants to have filenames
     of artifacts figured out before we begin building them. Normally we want a
@@ -217,7 +217,7 @@ def attr_simple_crate_for_filenames(ctx: "context") -> str:
     """
     return normalize_crate(ctx.attrs.crate or ctx.label.name)
 
-def attr_crate(ctx: "context") -> CrateName.type:
+def attr_crate(ctx: AnalysisContext) -> CrateName.type:
     """
     The true user-facing name of the crate, which may only be known at build
     time, not during analysis.

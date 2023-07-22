@@ -44,12 +44,12 @@ CxxExtensionLinkInfo = provider(
 
 def merge_cxx_extension_info(
         actions: "actions",
-        deps: ["dependency"],
+        deps: [Dependency],
         linkable_providers: [LinkableProviders.type, None] = None,
         artifacts: {str: "_a"} = {},
         python_module_names: {str: str} = {},
         unembeddable_extensions: {str: LinkableProviders.type} = {},
-        shared_deps: ["dependency"] = []) -> CxxExtensionLinkInfo.type:
+        shared_deps: [Dependency] = []) -> CxxExtensionLinkInfo.type:
     linkable_provider_children = []
     artifacts = dict(artifacts)
     python_module_names = dict(python_module_names)
@@ -95,7 +95,7 @@ def merge_cxx_extension_info(
     )
 
 def rewrite_static_symbols(
-        ctx: "context",
+        ctx: AnalysisContext,
         suffix: str,
         pic_objects: ["artifact"],
         non_pic_objects: ["artifact"],
@@ -164,7 +164,7 @@ def rewrite_static_symbols(
     return updated_libraries
 
 def _write_syms_file(
-        ctx: "context",
+        ctx: AnalysisContext,
         name: str,
         objects: ["artifact"],
         suffix: str,
@@ -226,7 +226,7 @@ def _write_syms_file(
     return symbols_file
 
 def suffix_symbols(
-        ctx: "context",
+        ctx: AnalysisContext,
         suffix: str,
         objects: ["artifact"],
         symbols_file: "artifact",

@@ -16,7 +16,7 @@ ResourceInfo = provider(fields = [
 def gather_resources(
         label: "label",
         resources: {str: ("artifact", ["_arglike"])} = {},
-        deps: ["dependency"] = []) -> {"label": {str: ("artifact", ["_arglike"])}}:
+        deps: [Dependency] = []) -> {"label": {str: ("artifact", ["_arglike"])}}:
     """
     Return the resources for this rule and its transitive deps.
     """
@@ -35,7 +35,7 @@ def gather_resources(
     return all_resources
 
 def create_resource_db(
-        ctx: "context",
+        ctx: AnalysisContext,
         name: str,
         binary: "artifact",
         resources: {str: ("artifact", ["_arglike"])}) -> "artifact":

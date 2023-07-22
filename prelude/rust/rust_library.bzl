@@ -93,7 +93,7 @@ load(
 load(":resources.bzl", "rust_attr_resources")
 load(":targets.bzl", "targets")
 
-def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
+def prebuilt_rust_library_impl(ctx: AnalysisContext) -> ["provider"]:
     providers = []
 
     # Default output.
@@ -169,7 +169,7 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
 
     return providers
 
-def rust_library_impl(ctx: "context") -> ["provider"]:
+def rust_library_impl(ctx: AnalysisContext) -> ["provider"]:
     compile_ctx = compile_context(ctx)
     toolchain_info = compile_ctx.toolchain_info
 
@@ -299,7 +299,7 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
     return providers
 
 def _build_params_for_styles(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type) -> (
     {BuildParams.type: [LinkageLang.type]},
     {(LinkageLang.type, LinkStyle.type): BuildParams.type},
@@ -346,7 +346,7 @@ def _build_params_for_styles(
     return (param_lang, style_param)
 
 def _build_library_artifacts(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         param_lang: {BuildParams.type: [LinkageLang.type]}) -> {
     (LinkageLang.type, BuildParams.type): (RustcOutput.type, RustcOutput.type),
@@ -378,7 +378,7 @@ def _build_library_artifacts(
     return param_artifact
 
 def _handle_rust_artifact(
-        ctx: "context",
+        ctx: AnalysisContext,
         params: BuildParams.type,
         link: RustcOutput.type,
         meta: RustcOutput.type) -> RustLinkStyleInfo.type:
@@ -414,7 +414,7 @@ def _handle_rust_artifact(
         )
 
 def _default_providers(
-        ctx: "context",
+        ctx: AnalysisContext,
         lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
         param_artifact: {BuildParams.type: RustLinkStyleInfo.type},
         rustdoc: "artifact",
@@ -476,7 +476,7 @@ def _default_providers(
     return providers
 
 def _rust_providers(
-        ctx: "context",
+        ctx: AnalysisContext,
         lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
         param_artifact: {BuildParams.type: RustLinkStyleInfo.type}) -> ["provider"]:
     """
@@ -520,7 +520,7 @@ def _rust_providers(
     return providers
 
 def _native_providers(
-        ctx: "context",
+        ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
         param_artifact: {BuildParams.type: "artifact"}) -> ["provider"]:
@@ -639,7 +639,7 @@ def _native_providers(
     return providers
 
 # Compute transitive deps. Caller decides whether this is necessary.
-def _compute_transitive_deps(ctx: "context", link_style: LinkStyle.type) -> ({"artifact": CrateName.type}, {"artifact": CrateName.type}):
+def _compute_transitive_deps(ctx: AnalysisContext, link_style: LinkStyle.type) -> ({"artifact": CrateName.type}, {"artifact": CrateName.type}):
     transitive_deps = {}
     transitive_rmeta_deps = {}
     for dep in resolve_deps(ctx):

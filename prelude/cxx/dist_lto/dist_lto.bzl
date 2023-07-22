@@ -74,7 +74,7 @@ _PrePostFlags = record(
 )
 
 def cxx_dist_link(
-        ctx: "context",
+        ctx: AnalysisContext,
         links: ["LinkArgs"],
         # The destination for the link output.
         output: "artifact",

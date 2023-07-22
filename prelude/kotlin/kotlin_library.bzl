@@ -41,9 +41,9 @@ load("@prelude//utils:utils.bzl", "is_any", "map_idx")
 _JAVA_OR_KOTLIN_FILE_EXTENSION = [".java", ".kt"]
 
 def _create_kotlin_sources(
-        ctx: "context",
+        ctx: AnalysisContext,
         srcs: ["artifact"],
-        deps: ["dependency"],
+        deps: [Dependency],
         annotation_processor_params: [["AnnotationProcessorParams"], None],
         ksp_annotation_processor_params: ["AnnotationProcessorParams", None],
         additional_classpath_entries: ["artifact"]) -> ("artifact", ["artifact", None], ["artifact", None]):
@@ -215,7 +215,7 @@ def _is_ksp_plugin(plugin: str) -> bool:
     return "symbol-processing" in plugin
 
 def _add_plugins(
-        ctx: "context",
+        ctx: AnalysisContext,
         kotlinc_cmd_args: cmd_args,
         compile_kotlin_cmd: cmd_args,
         is_ksp: bool):
@@ -237,7 +237,7 @@ def _add_plugins(
         if options:
             kotlinc_cmd_args.add(["-P", cmd_args(options, delimiter = ",")])
 
-def kotlin_library_impl(ctx: "context") -> ["provider"]:
+def kotlin_library_impl(ctx: AnalysisContext) -> ["provider"]:
     packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
 
     # TODO(T107163344) this shouldn't be in kotlin_library itself, use overlays to remove it.
@@ -259,7 +259,7 @@ def kotlin_library_impl(ctx: "context") -> ["provider"]:
     return to_list(java_providers) + [android_packageable_info]
 
 def build_kotlin_library(
-        ctx: "context",
+        ctx: AnalysisContext,
         additional_classpath_entries: ["artifact"] = [],
         bootclasspath_entries: ["artifact"] = [],
         extra_sub_targets: dict = {}) -> "JavaProviders":

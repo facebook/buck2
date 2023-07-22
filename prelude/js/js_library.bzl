@@ -18,7 +18,7 @@ GroupedSource = record(
     additional_sources = ["artifact"],
 )
 
-def _get_grouped_srcs(ctx: "context") -> [GroupedSource.type]:
+def _get_grouped_srcs(ctx: AnalysisContext) -> [GroupedSource.type]:
     grouped_srcs = {}
     for src in ctx.attrs.srcs:
         # TODO(ianc) also support sources with an "inner path".
@@ -38,7 +38,7 @@ def _get_grouped_srcs(ctx: "context") -> [GroupedSource.type]:
 
     return grouped_srcs.values()
 
-def _get_virtual_path(ctx: "context", src: "artifact", base_path: [str, None]) -> str:
+def _get_virtual_path(ctx: AnalysisContext, src: "artifact", base_path: [str, None]) -> str:
     package = ctx.label.package
     if base_path and base_path not in ["", "."]:
         package = paths.join(package, base_path)
@@ -46,7 +46,7 @@ def _get_virtual_path(ctx: "context", src: "artifact", base_path: [str, None]) -
     return paths.join(package, src.short_path)
 
 def _build_js_files(
-        ctx: "context",
+        ctx: AnalysisContext,
         transform_profile: str,
         flavors: [str],
         grouped_srcs: [GroupedSource.type]) -> ["artifact"]:
@@ -101,7 +101,7 @@ def _build_js_files(
     return all_output_paths
 
 def _build_library_files(
-        ctx: "context",
+        ctx: AnalysisContext,
         transform_profile: str,
         flavors: [str],
         js_files: ["artifact"]) -> "artifact":
@@ -129,7 +129,7 @@ def _build_library_files(
     return output_path
 
 def _build_js_library(
-        ctx: "context",
+        ctx: AnalysisContext,
         transform_profile: str,
         library_files: "artifact",
         flavors: [str],
@@ -167,7 +167,7 @@ def _build_js_library(
 
     return output_path
 
-def js_library_impl(ctx: "context") -> ["provider"]:
+def js_library_impl(ctx: AnalysisContext) -> ["provider"]:
     if ctx.attrs._build_only_native_code:
         sub_targets = {}
         unused_output = ctx.actions.write("unused.js", [])

@@ -13,7 +13,7 @@ WorkerToolInfo = provider(
     ],
 )
 
-def worker_tool(ctx: "context") -> ["provider"]:
+def worker_tool(ctx: AnalysisContext) -> ["provider"]:
     """
      worker_tool() rule implementation
 

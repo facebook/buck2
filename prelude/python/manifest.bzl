@@ -21,7 +21,7 @@ ManifestInfo = record(
 
 # Parse imports from a *.py file to generate a list of required modules
 def create_dep_manifest_for_source_map(
-        ctx: "context",
+        ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo.type,
         srcs: {str: "artifact"}) -> ManifestInfo.type:
     entries = []
@@ -46,7 +46,7 @@ def create_dep_manifest_for_source_map(
     )
 
 def _write_manifest(
-        ctx: "context",
+        ctx: AnalysisContext,
         name: str,
         entries: [(str, "artifact", str)]) -> "artifact":
     """
@@ -55,7 +55,7 @@ def _write_manifest(
     return ctx.actions.write_json(name + ".manifest", entries)
 
 def create_manifest_for_entries(
-        ctx: "context",
+        ctx: AnalysisContext,
         name: str,
         entries: [(str, "artifact", str)]) -> ManifestInfo.type:
     """
@@ -67,7 +67,7 @@ def create_manifest_for_entries(
     )
 
 def create_manifest_for_source_map(
-        ctx: "context",
+        ctx: AnalysisContext,
         param: str,
         srcs: {str: "artifact"}) -> ManifestInfo.type:
     """
@@ -81,7 +81,7 @@ def create_manifest_for_source_map(
     )
 
 def create_manifest_for_source_dir(
-        ctx: "context",
+        ctx: AnalysisContext,
         param: str,
         extracted: "artifact",
         exclude: [str, None]) -> ManifestInfo.type:
@@ -102,7 +102,7 @@ def create_manifest_for_source_dir(
     return ManifestInfo(manifest = manifest, artifacts = [(extracted, param)])
 
 def create_manifest_for_extensions(
-        ctx: "context",
+        ctx: AnalysisContext,
         extensions: {str: ("_a", "label")},
         # Whether to include DWP files.
         dwp: bool = False) -> ManifestInfo.type:

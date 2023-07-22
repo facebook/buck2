@@ -40,7 +40,7 @@ CPP_PATH = "cpp_path"
 CXX_PATH = "cxx_path"
 
 def _replace_macros_in_script_template(
-        ctx: "context",
+        ctx: AnalysisContext,
         script_template: "artifact",
         ghci_bin: "artifact",
         exposed_package_args: cmd_args,
@@ -92,7 +92,7 @@ def _replace_macros_in_script_template(
     return final_script
 
 def _write_iserv_script(
-        ctx: "context",
+        ctx: AnalysisContext,
         preload_deps_info: GHCiPreloadDepsInfo.type,
         haskell_toolchain: HaskellToolchainInfo.type) -> "artifact":
     iserv_script_cmd = cmd_args(SCRIPT_HEADER.format("GHCi iserv script"))
@@ -133,7 +133,7 @@ def _write_iserv_script(
     return iserv_script
 
 def _build_preload_deps_root(
-        ctx: "context",
+        ctx: AnalysisContext,
         haskell_toolchain: HaskellToolchainInfo.type) -> GHCiPreloadDepsInfo.type:
     preload_deps = ctx.attrs.preload_deps
 
@@ -204,7 +204,7 @@ def _symlink_ghci_binary(ctx, ghci_bin: "artifact"):
     src = ghci_bin_dep[DefaultInfo].default_outputs[0]
     ctx.actions.symlink_file(ghci_bin.as_output(), src)
 
-def _first_order_haskell_deps(ctx: "context") -> ["HaskellLibraryInfo"]:
+def _first_order_haskell_deps(ctx: AnalysisContext) -> ["HaskellLibraryInfo"]:
     return dedupe(
         flatten(
             [
@@ -216,7 +216,7 @@ def _first_order_haskell_deps(ctx: "context") -> ["HaskellLibraryInfo"]:
     )
 
 # Creates the start.ghci script used to load the packages during startup
-def _write_start_ghci(ctx: "context", script_file: "artifact"):
+def _write_start_ghci(ctx: AnalysisContext, script_file: "artifact"):
     start_cmd = cmd_args()
 
     # Reason for unsetting `LD_PRELOAD` env var obtained from D6255224:
@@ -256,7 +256,7 @@ def _write_start_ghci(ctx: "context", script_file: "artifact"):
     else:
         ctx.actions.copy_file(script_file, header_ghci)
 
-def haskell_ghci_impl(ctx: "context") -> ["provider"]:
+def haskell_ghci_impl(ctx: AnalysisContext) -> ["provider"]:
     start_ghci_file = ctx.actions.declare_output("start.ghci")
     _write_start_ghci(ctx, start_ghci_file)
 

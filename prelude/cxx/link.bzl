@@ -79,7 +79,7 @@ CxxLinkResult = record(
 )
 
 def link_external_debug_info(
-        ctx: "context",
+        ctx: AnalysisContext,
         links: [LinkArgs.type],
         split_debug_output: ["artifact", None] = None,
         pdb: ["artifact", None] = None) -> ArtifactTSet.type:
@@ -109,7 +109,7 @@ def link_external_debug_info(
 
 # Actually perform a link into the supplied output.
 def cxx_link_into(
-        ctx: "context",
+        ctx: AnalysisContext,
         # The destination for the link output.
         output: "artifact",
         links: [LinkArgs.type],
@@ -325,7 +325,7 @@ _anon_link_rule = rule(
 )
 
 def _anon_cxx_link(
-        ctx: "context",
+        ctx: AnalysisContext,
         output: str.type,
         result_type: CxxLinkResultType.type,
         links: [LinkArgs.type] = [],
@@ -378,7 +378,7 @@ def _anon_cxx_link(
     )
 
 def cxx_link(
-        ctx: "context",
+        ctx: AnalysisContext,
         output: str.type,
         anonymous: bool.type = False,
         **kwargs):
@@ -395,7 +395,7 @@ def cxx_link(
     )
 
 def cxx_link_shared_library(
-        ctx: "context",
+        ctx: AnalysisContext,
         # The destination for the link output.
         output: str.type,
         # Optional soname to link into shared library.

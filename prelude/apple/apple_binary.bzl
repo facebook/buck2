@@ -48,7 +48,7 @@ load(":debug.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
-def apple_binary_impl(ctx: "context") -> [["provider"], "promise"]:
+def apple_binary_impl(ctx: AnalysisContext) -> [["provider"], "promise"]:
     def get_apple_binary_providers(deps_providers) -> ["provider"]:
         # FIXME: Ideally we'd like to remove the support of "bridging header",
         # cause it affects build time and in general considered a bad practise.
@@ -141,11 +141,11 @@ _SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY = [
     MacOSXCatalystSdkMetadata.name,
 ]
 
-def _needs_entitlements_in_binary(ctx: "context") -> bool:
+def _needs_entitlements_in_binary(ctx: AnalysisContext) -> bool:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     return apple_toolchain_info.sdk_name in _SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY
 
-def _entitlements_link_flags(ctx: "context") -> [""]:
+def _entitlements_link_flags(ctx: AnalysisContext) -> [""]:
     return [
         "-Xlinker",
         "-sectcreate",
@@ -157,7 +157,7 @@ def _entitlements_link_flags(ctx: "context") -> [""]:
         ctx.attrs.entitlements_file,
     ] if (ctx.attrs.entitlements_file and _needs_entitlements_in_binary(ctx)) else []
 
-def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlags"]):
+def _filter_swift_srcs(ctx: AnalysisContext) -> (["CxxSrcWithFlags"], ["CxxSrcWithFlags"]):
     cxx_srcs = []
     swift_srcs = []
     for s in get_srcs_with_flags(ctx):
@@ -167,7 +167,7 @@ def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlag
             cxx_srcs.append(s)
     return cxx_srcs, swift_srcs
 
-def _get_bridging_header_flags(ctx: "context") -> ["_arglike"]:
+def _get_bridging_header_flags(ctx: AnalysisContext) -> ["_arglike"]:
     if ctx.attrs.bridging_header:
         objc_bridging_header_flags = [
             # Disable bridging header -> PCH compilation to mitigate an issue in Xcode 13 beta.

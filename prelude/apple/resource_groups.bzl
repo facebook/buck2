@@ -28,7 +28,7 @@ ResourceGroupInfo = provider(fields = [
     # NOTE(agallagher): We do this to maintain existing behavior w/ the
     # standalone `resource_group_map()` rule, but it's not clear if it's
     # actually desirable behavior.
-    "implicit_deps",  # ["dependency"]
+    "implicit_deps",  # [Dependency]
 ])
 
 ResourceGraphNode = record(
@@ -57,10 +57,10 @@ ResourceGraph = provider(fields = [
 ])
 
 def create_resource_graph(
-        ctx: "context",
+        ctx: AnalysisContext,
         labels: [str],
-        deps: ["dependency"],
-        exported_deps: ["dependency"],
+        deps: [Dependency],
+        exported_deps: [Dependency],
         resource_spec: [AppleResourceSpec.type, None] = None,
         asset_catalog_spec: [AppleAssetCatalogSpec.type, None] = None,
         core_data_spec: [AppleCoreDataSpec.type, None] = None,
@@ -89,7 +89,7 @@ def get_resource_graph_node_map_func(graph: ResourceGraph.type):
 
     return get_resource_graph_node_map
 
-def _with_resources_deps(deps: ["dependency"]) -> [Label]:
+def _with_resources_deps(deps: [Dependency]) -> [Label]:
     """
     Filters dependencies and returns only those which are relevant
     to working with resources i.e. those which contains resource graph provider.
@@ -97,7 +97,7 @@ def _with_resources_deps(deps: ["dependency"]) -> [Label]:
     graphs = filter(None, [d.get(ResourceGraph) for d in deps])
     return [g.label for g in graphs]
 
-def get_resource_group_info(ctx: "context") -> [ResourceGroupInfo.type, None]:
+def get_resource_group_info(ctx: AnalysisContext) -> [ResourceGroupInfo.type, None]:
     """
     Parses the currently analyzed context for any resource group definitions
     and returns a list of all resource groups with their mappings.

@@ -27,7 +27,7 @@ def make_compilation_db_info(src_compile_cmds: [CxxSrcCompileCommand.type], tool
     return CxxCompilationDbInfo(info = info, toolchain = toolchainInfo, platform = platformInfo)
 
 def create_compilation_database(
-        ctx: "context",
+        ctx: AnalysisContext,
         src_compile_cmds: [CxxSrcCompileCommand.type]) -> DefaultInfo.type:
     mk_comp_db = get_cxx_toolchain_info(ctx).mk_comp_db[RunInfo]
 

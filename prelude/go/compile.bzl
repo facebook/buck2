@@ -22,7 +22,7 @@ GoPkgCompileInfo = provider(fields = [
 # Provider for test targets that test a library. Contains information for
 # compiling the test and library code together as expected by go.
 GoTestInfo = provider(fields = [
-    "deps",  # ["dependency"]
+    "deps",  # [Dependency]
     "srcs",  # ["source"]
     "pkg_name",  # str
 ])
@@ -30,10 +30,10 @@ GoTestInfo = provider(fields = [
 def _out_root(shared: bool = False):
     return "__shared__" if shared else "__static__"
 
-def get_inherited_compile_pkgs(deps: ["dependency"]) -> {str: GoPkg.type}:
+def get_inherited_compile_pkgs(deps: [Dependency]) -> {str: GoPkg.type}:
     return merge_pkgs([d[GoPkgCompileInfo].pkgs for d in deps if GoPkgCompileInfo in d])
 
-def get_filtered_srcs(ctx: "context", srcs: ["artifact"], tests: bool = False) -> cmd_args:
+def get_filtered_srcs(ctx: AnalysisContext, srcs: ["artifact"], tests: bool = False) -> cmd_args:
     """
     Filter the input sources based on build pragma
     """
@@ -81,7 +81,7 @@ def _get_import_map(pkgs: [str]) -> {str: str}:
     return mappings
 
 def _assemble_cmd(
-        ctx: "context",
+        ctx: AnalysisContext,
         pkg_name: str,
         flags: [str] = [],
         shared: bool = False) -> cmd_args:
@@ -96,10 +96,10 @@ def _assemble_cmd(
     return cmd
 
 def _compile_cmd(
-        ctx: "context",
+        ctx: AnalysisContext,
         pkg_name: str,
         pkgs: {str: "artifact"} = {},
-        deps: ["dependency"] = [],
+        deps: [Dependency] = [],
         flags: [str] = [],
         shared: bool = False) -> cmd_args:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
@@ -137,11 +137,11 @@ def _compile_cmd(
     return cmd
 
 def compile(
-        ctx: "context",
+        ctx: AnalysisContext,
         pkg_name: str,
         srcs: cmd_args,
         pkgs: {str: "artifact"} = {},
-        deps: ["dependency"] = [],
+        deps: [Dependency] = [],
         compile_flags: [str] = [],
         assemble_flags: [str] = [],
         shared: bool = False) -> "artifact":

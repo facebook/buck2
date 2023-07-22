@@ -19,7 +19,7 @@ RDotJavaSourceCode = record(
 )
 
 def get_dummy_r_dot_java(
-        ctx: "context",
+        ctx: AnalysisContext,
         merge_android_resources_tool: RunInfo.type,
         android_resources: ["AndroidResourceInfo"],
         union_package: [str, None]) -> "JavaLibraryInfo":
@@ -36,7 +36,7 @@ def get_dummy_r_dot_java(
     )
 
 def generate_r_dot_javas(
-        ctx: "context",
+        ctx: AnalysisContext,
         merge_android_resources_tool: RunInfo.type,
         android_resources: ["AndroidResourceInfo"],
         banned_duplicate_resource_types: [str],
@@ -90,7 +90,7 @@ def generate_r_dot_javas(
     ) for library_output in filter(None, [main_library_output, strings_library_output, ids_library_output])]
 
 def _generate_r_dot_java_source_code(
-        ctx: "context",
+        ctx: AnalysisContext,
         merge_android_resources_tool: RunInfo.type,
         android_resources: ["AndroidResourceInfo"],
         identifier: str,
@@ -174,7 +174,7 @@ def _generate_r_dot_java_source_code(
     )
 
 def _generate_and_compile_r_dot_java(
-        ctx: "context",
+        ctx: AnalysisContext,
         r_dot_java_source_code_zipped: "artifact",
         identifier: str,
         remove_classes: [str] = []) -> JavaClasspathEntry.type:

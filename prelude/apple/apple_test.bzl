@@ -41,7 +41,7 @@ load(
 load(":debug.bzl", "DEBUGINFO_SUBTARGET")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
-def apple_test_impl(ctx: "context") -> [["provider"], "promise"]:
+def apple_test_impl(ctx: AnalysisContext) -> [["provider"], "promise"]:
     def get_apple_test_providers(deps_providers) -> ["provider"]:
         xctest_bundle = bundle_output(ctx)
 
@@ -135,7 +135,7 @@ def apple_test_impl(ctx: "context") -> [["provider"], "promise"]:
     else:
         return get_apple_test_providers([])
 
-def _get_test_info(ctx: "context", xctest_bundle: "artifact", test_host_app_bundle: ["artifact", None], dsym_artifact: ["artifact", None] = None) -> "provider":
+def _get_test_info(ctx: AnalysisContext, xctest_bundle: "artifact", test_host_app_bundle: ["artifact", None], dsym_artifact: ["artifact", None] = None) -> "provider":
     # When interacting with Tpx, we just pass our various inputs via env vars,
     # since Tpx basiclaly wants structured output for this.
 
@@ -187,7 +187,7 @@ def _get_test_info(ctx: "context", xctest_bundle: "artifact", test_host_app_bund
         },
     )
 
-def _get_test_host_app_bundle(ctx: "context") -> ["artifact", None]:
+def _get_test_host_app_bundle(ctx: AnalysisContext) -> ["artifact", None]:
     """ Get the bundle for the test host app, if one exists for this test. """
     if ctx.attrs.test_host_app:
         # Copy the test host app bundle into test's output directory
@@ -198,7 +198,7 @@ def _get_test_host_app_bundle(ctx: "context") -> ["artifact", None]:
 
     return None
 
-def _get_test_host_app_binary(ctx: "context", test_host_app_bundle: ["artifact", None]) -> [cmd_args, None]:
+def _get_test_host_app_binary(ctx: AnalysisContext, test_host_app_bundle: ["artifact", None]) -> [cmd_args, None]:
     """ Reference to the binary with the test host app bundle, if one exists for this test. Captures the bundle as an artifact in the cmd_args. """
     if ctx.attrs.test_host_app:
         return cmd_args([test_host_app_bundle, ctx.attrs.test_host_app[AppleBundleInfo].binary_name], delimiter = "/")
@@ -214,7 +214,7 @@ def _get_bundle_loader_flags(binary: [cmd_args, None]) -> [""]:
     return []
 
 def _xcode_populate_attributes(
-        ctx: "context",
+        ctx: AnalysisContext,
         srcs: [CxxSrcWithFlags.type],
         argsfiles: {str: CompileArgsfile.type},
         xctest_bundle: "artifact",
@@ -226,13 +226,13 @@ def _xcode_populate_attributes(
         data["test_host_app_binary"] = test_host_app_binary
     return data
 
-def _get_xctest_framework_search_paths(ctx: "context") -> (cmd_args, cmd_args):
+def _get_xctest_framework_search_paths(ctx: AnalysisContext) -> (cmd_args, cmd_args):
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     xctest_swiftmodule_search_path = cmd_args([toolchain.platform_path, "Developer/usr/lib"], delimiter = "/")
     xctest_framework_search_path = cmd_args([toolchain.platform_path, "Developer/Library/Frameworks"], delimiter = "/")
     return (xctest_swiftmodule_search_path, xctest_framework_search_path)
 
-def _get_xctest_framework_search_paths_flags(ctx: "context") -> [[cmd_args, str]]:
+def _get_xctest_framework_search_paths_flags(ctx: AnalysisContext) -> [[cmd_args, str]]:
     xctest_swiftmodule_search_path, xctest_framework_search_path = _get_xctest_framework_search_paths(ctx)
     return [
         "-I",
@@ -241,7 +241,7 @@ def _get_xctest_framework_search_paths_flags(ctx: "context") -> [[cmd_args, str]
         xctest_framework_search_path,
     ]
 
-def _get_xctest_framework_linker_flags(ctx: "context") -> [[cmd_args, str]]:
+def _get_xctest_framework_linker_flags(ctx: AnalysisContext) -> [[cmd_args, str]]:
     xctest_swiftmodule_search_path, xctest_framework_search_path = _get_xctest_framework_search_paths(ctx)
     return [
         "-L",

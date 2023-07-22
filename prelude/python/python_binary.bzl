@@ -89,12 +89,12 @@ load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo
 
 OmnibusMetadataInfo = provider(fields = ["omnibus_libs", "omnibus_graph"])
 
-def _link_strategy(ctx: "context") -> NativeLinkStrategy.type:
+def _link_strategy(ctx: AnalysisContext) -> NativeLinkStrategy.type:
     if ctx.attrs.native_link_strategy != None:
         return NativeLinkStrategy(ctx.attrs.native_link_strategy)
     return NativeLinkStrategy(ctx.attrs._python_toolchain[PythonToolchainInfo].native_link_strategy)
 
-def _package_style(ctx: "context") -> PackageStyle.type:
+def _package_style(ctx: AnalysisContext) -> PackageStyle.type:
     if ctx.attrs.package_style != None:
         return PackageStyle(ctx.attrs.package_style.lower())
     return PackageStyle(ctx.attrs._python_toolchain[PythonToolchainInfo].package_style)
@@ -221,7 +221,7 @@ def _get_shared_only_groups(shared_only_libs: [LinkableProviders.type]) -> [Grou
     return groups
 
 def _get_link_group_info(
-        ctx: "context",
+        ctx: AnalysisContext,
         link_deps: [LinkableProviders.type],
         libs: [LinkableProviders.type],
         extensions: {str: LinkableProviders.type},
@@ -284,7 +284,7 @@ def _get_link_group_info(
     return (link_group_info, link_group_specs)
 
 def python_executable(
-        ctx: "context",
+        ctx: AnalysisContext,
         main_module: str,
         srcs: {str: "artifact"},
         resources: {str: ("artifact", ["_arglike"])},
@@ -362,7 +362,7 @@ def python_executable(
     return exe
 
 def create_dep_report(
-        ctx: "context",
+        ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo.type,
         main_module: str,
         library_info: PythonLibraryInfo.type) -> DefaultInfo.type:
@@ -377,10 +377,10 @@ def create_dep_report(
     return DefaultInfo(default_output = out)
 
 def convert_python_library_to_executable(
-        ctx: "context",
+        ctx: AnalysisContext,
         main_module: "string",
         library: PythonLibraryInterface.type,
-        deps: ["dependency"],
+        deps: [Dependency],
         compile: bool = False,
         dbg_source_db: [DefaultInfo.type, None] = None) -> PexProviders.type:
     extra = {}
@@ -643,7 +643,7 @@ def convert_python_library_to_executable(
 
     return pex
 
-def python_binary_impl(ctx: "context") -> ["provider"]:
+def python_binary_impl(ctx: AnalysisContext) -> ["provider"]:
     main_module = ctx.attrs.main_module
     if ctx.attrs.main_module != None and ctx.attrs.main != None:
         fail("Only one of main_module or main may be set. Prefer main_module as main is considered deprecated")

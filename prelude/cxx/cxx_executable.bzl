@@ -158,7 +158,7 @@ CxxExecutableOutput = record(
     linker_map_data = [CxxLinkerMapData.type, None],
 )
 
-def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool = False) -> CxxExecutableOutput.type:
+def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool = False) -> CxxExecutableOutput.type:
     absolute_path_prefix = apple_get_xcode_absolute_path_prefix()
 
     # Gather preprocessor inputs.
@@ -607,7 +607,7 @@ _CxxLinkExecutableResult = record(
 )
 
 def _link_into_executable(
-        ctx: "context",
+        ctx: AnalysisContext,
         links: [LinkArgs.type],
         shared_libs: {str: LinkedObject.type},
         link_weight: int,
@@ -648,5 +648,5 @@ def _link_into_executable(
         linker_map_data = link_result.linker_map_data,
     )
 
-def get_cxx_executable_product_name(ctx: "context") -> str:
+def get_cxx_executable_product_name(ctx: AnalysisContext) -> str:
     return ctx.label.name + ("-wrapper" if cxx_use_bolt(ctx) else "")

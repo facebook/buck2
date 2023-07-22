@@ -18,7 +18,7 @@ load(
     "multidict_projection_key",
 )
 
-def erlang_application_includes_impl(ctx: "context") -> ["provider"]:
+def erlang_application_includes_impl(ctx: AnalysisContext) -> ["provider"]:
     """ rule for application includes target
     """
 

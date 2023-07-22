@@ -85,7 +85,7 @@ def _srcs(srcs: [""], format = "{}") -> cmd_args:
     return args
 
 def _fail_at_build_time(
-        ctx: "context",
+        ctx: AnalysisContext,
         python_toolchain: "PythonToolchainInfo",
         msg: str) -> PexProviders.type:
     error_message = ctx.actions.write("__error_message", msg)
@@ -106,7 +106,7 @@ def _fail_at_build_time(
     )
 
 def _fail(
-        ctx: "context",
+        ctx: AnalysisContext,
         python_toolchain: "PythonToolchainInfo",
         suffix: str,
         msg: str) -> PexProviders.type:
@@ -122,7 +122,7 @@ def _fail(
 #                 invocations. It might be perfectly reasonable to just have a wrapper
 #                 script that invokes make_xar in a slightly different way.
 def make_pex(
-        ctx: "context",
+        ctx: AnalysisContext,
         python_toolchain: "PythonToolchainInfo",
         # A rule-provided tool to use to build the PEX.
         make_pex_cmd: [RunInfo.type, None],
@@ -194,7 +194,7 @@ def make_pex(
     return default
 
 def _make_pex_impl(
-        ctx: "context",
+        ctx: AnalysisContext,
         python_toolchain: "PythonToolchainInfo",
         make_pex_cmd: [RunInfo.type, None],
         package_style: PackageStyle.type,
@@ -319,7 +319,7 @@ def _make_pex_impl(
         run_cmd = cmd_args(run_args).hidden([a for a, _ in runtime_files] + hidden_resources),
     )
 
-def _preload_libraries_args(ctx: "context", shared_libraries: {str: (LinkedObject.type, bool)}) -> cmd_args:
+def _preload_libraries_args(ctx: AnalysisContext, shared_libraries: {str: (LinkedObject.type, bool)}) -> cmd_args:
     preload_libraries_path = ctx.actions.write(
         "__preload_libraries.txt",
         cmd_args([
@@ -363,7 +363,7 @@ def _pex_bootstrap_args(
     return cmd
 
 def _pex_modules_common_args(
-        ctx: "context",
+        ctx: AnalysisContext,
         pex_modules: PexModules.type,
         shared_libraries: {str: LinkedObject.type}) -> (cmd_args, [("_arglike", str)]):
     srcs = []
@@ -443,7 +443,7 @@ def _pex_modules_common_args(
     return (cmd, deps)
 
 def _pex_modules_args(
-        ctx: "context",
+        ctx: AnalysisContext,
         common_args: cmd_args,
         dep_artifacts: [("_arglike", str)],
         symlink_tree_path: [None, "artifact"],
@@ -520,7 +520,7 @@ def _hidden_resources_error_message(current_target: "label", hidden_resources) -
     return msg
 
 def generate_manifest_module(
-        ctx: "context",
+        ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo.type,
         src_manifests: ["_arglike"]) -> ["_arglike", None]:
     """

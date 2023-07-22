@@ -151,7 +151,7 @@ cpu_transition = transition(
     ],
 )
 
-def get_deps_by_platform(ctx: "context") -> {str: ["dependency"]}:
+def get_deps_by_platform(ctx: AnalysisContext) -> {str: [Dependency]}:
     deps_by_platform = {}
     for dep_dict in ctx.attrs.deps:
         for platform, dep in dep_dict.items():

@@ -155,7 +155,7 @@ def get_omnibus_graph(graph: LinkableGraph.type, roots: {"label": AnnotatedLinka
 
     return OmnibusGraph(nodes = nodes, roots = roots, excluded = excluded)
 
-def get_roots(label: "label", deps: ["dependency"]) -> {"label": AnnotatedLinkableRoot.type}:
+def get_roots(label: "label", deps: [Dependency]) -> {"label": AnnotatedLinkableRoot.type}:
     roots = {}
     for dep in deps:
         if LinkableRootInfo in dep:
@@ -165,7 +165,7 @@ def get_roots(label: "label", deps: ["dependency"]) -> {"label": AnnotatedLinkab
             )
     return roots
 
-def get_excluded(deps: ["dependency"] = []) -> {"label": None}:
+def get_excluded(deps: [Dependency] = []) -> {"label": None}:
     excluded_nodes = {}
     for dep in deps:
         dep_info = linkable_graph(dep)
@@ -174,11 +174,11 @@ def get_excluded(deps: ["dependency"] = []) -> {"label": None}:
     return excluded_nodes
 
 def create_linkable_root(
-        ctx: "context",
+        ctx: AnalysisContext,
         graph: LinkableGraph.type,
         link_infos: LinkInfos.type,
         name: [str, None] = None,
-        deps: ["dependency"] = [],
+        deps: [Dependency] = [],
         create_shared_root: bool = False) -> LinkableRootInfo.type:
     # Only include dependencies that are linkable.
     deps = linkable_deps(deps)
@@ -325,7 +325,7 @@ def _omnibus_soname(ctx):
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     return get_shared_library_name(linker_info, "omnibus")
 
-def create_dummy_omnibus(ctx: "context", extra_ldflags: [""] = []) -> "artifact":
+def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: [""] = []) -> "artifact":
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     link_result = cxx_link_shared_library(
         ctx = ctx,
@@ -366,7 +366,7 @@ def all_deps(
     return all_deps
 
 def _create_root(
-        ctx: "context",
+        ctx: AnalysisContext,
         spec: OmnibusSpec.type,
         annotated_root_products,
         root: LinkableRootInfo.type,
@@ -528,7 +528,7 @@ def _requires_private_root(
     return None
 
 def _extract_global_symbols_from_link_args(
-        ctx: "context",
+        ctx: AnalysisContext,
         name: str,
         link_args: [["artifact", "resolved_macro", cmd_args, str]],
         prefer_local: bool = False) -> "artifact":
@@ -575,7 +575,7 @@ def _extract_global_symbols_from_link_args(
     return output
 
 def _create_global_symbols_version_script(
-        ctx: "context",
+        ctx: AnalysisContext,
         roots: [AnnotatedOmnibusRootProduct.type],
         excluded: ["artifact"],
         link_args: [["artifact", "resolved_macro", cmd_args, str]]) -> "artifact":
@@ -631,7 +631,7 @@ def _is_shared_only(info: LinkableNode.type) -> bool:
     return info.preferred_linkage == Linkage("shared")
 
 def _create_omnibus(
-        ctx: "context",
+        ctx: AnalysisContext,
         spec: OmnibusSpec.type,
         annotated_root_products,
         pic_behavior: PicBehavior.type,
@@ -755,7 +755,7 @@ def _create_omnibus(
     )
 
 def _build_omnibus_spec(
-        ctx: "context",
+        ctx: AnalysisContext,
         graph: OmnibusGraph.type) -> OmnibusSpec.type:
     """
     Divide transitive deps into excluded, root, and body nodes, which we'll
@@ -833,7 +833,7 @@ def _build_omnibus_spec(
         dispositions = dispositions,
     )
 
-def _implicit_exclusion_roots(ctx: "context", graph: OmnibusGraph.type) -> ["label"]:
+def _implicit_exclusion_roots(ctx: AnalysisContext, graph: OmnibusGraph.type) -> ["label"]:
     env = ctx.attrs._omnibus_environment
     if not env:
         return []
@@ -875,7 +875,7 @@ def _ordered_roots(
     return ordered_roots
 
 def create_omnibus_libraries(
-        ctx: "context",
+        ctx: AnalysisContext,
         graph: OmnibusGraph.type,
         extra_ldflags: [""] = [],
         prefer_stripped_objects: bool = False) -> OmnibusSharedLibraries.type:
@@ -936,7 +936,7 @@ def create_omnibus_libraries(
         dispositions = spec.dispositions,
     )
 
-def is_known_omnibus_root(ctx: "context") -> bool:
+def is_known_omnibus_root(ctx: AnalysisContext) -> bool:
     env = ctx.attrs._omnibus_environment
     if not env:
         return False
@@ -954,13 +954,13 @@ def is_known_omnibus_root(ctx: "context") -> bool:
 
     return False
 
-def explicit_roots_enabled(ctx: "context") -> bool:
+def explicit_roots_enabled(ctx: AnalysisContext) -> bool:
     env = ctx.attrs._omnibus_environment
     if not env:
         return False
     return env[OmnibusEnvironment].enable_explicit_roots
 
-def use_hybrid_links_for_libomnibus(ctx: "context") -> bool:
+def use_hybrid_links_for_libomnibus(ctx: AnalysisContext) -> bool:
     env = ctx.attrs._omnibus_environment
     if not env:
         return False

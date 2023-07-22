@@ -10,7 +10,7 @@ load("@prelude//android:android_providers.bzl", "Aapt2LinkInfo", "RESOURCE_PRIOR
 BASE_PACKAGE_ID = 0x7f
 
 def get_aapt2_link(
-        ctx: "context",
+        ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
         resource_infos: ["AndroidResourceInfo"],
         android_manifest: "artifact",
@@ -133,7 +133,7 @@ def get_aapt2_link(
     return link_infos[0], link_infos[1]
 
 def get_module_manifest_in_proto_format(
-        ctx: "context",
+        ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
         android_manifest: "artifact",
         primary_resources_apk: "artifact",

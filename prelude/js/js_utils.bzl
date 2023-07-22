@@ -59,7 +59,7 @@ ASSET_EXTENSIONS = [
 # Matches the default value for resolver.platforms in metro-config
 ASSET_PLATFORMS = ["ios", "android", "windows", "web"]
 
-def get_apple_resource_providers_for_js_bundle(ctx: "context", js_bundle_info: JsBundleInfo.type, platform: str, skip_resources: bool) -> [ResourceGraph.type]:
+def get_apple_resource_providers_for_js_bundle(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, platform: str, skip_resources: bool) -> [ResourceGraph.type]:
     if platform != "ios":
         return []
 
@@ -113,14 +113,14 @@ def get_canonical_src_name(src: str) -> str:
 
     return paths.join(dirname, filename + extension)
 
-def get_flavors(ctx: "context") -> [str]:
+def get_flavors(ctx: AnalysisContext) -> [str]:
     flavors = [ctx.attrs._platform]
     if ctx.attrs._is_release:
         flavors.append("release")
 
     return flavors
 
-def get_bundle_name(ctx: "context", default_bundle_name: str) -> str:
+def get_bundle_name(ctx: AnalysisContext, default_bundle_name: str) -> str:
     bundle_name_for_flavor_map = {key: value for key, value in ctx.attrs.bundle_name_for_flavor}
     flavors = bundle_name_for_flavor_map.keys()
     for flavor in flavors:
@@ -136,8 +136,8 @@ def get_bundle_name(ctx: "context", default_bundle_name: str) -> str:
         return ctx.attrs.bundle_name if ctx.attrs.bundle_name else default_bundle_name
 
 def run_worker_commands(
-        ctx: "context",
-        worker_tool: "dependency",
+        ctx: AnalysisContext,
+        worker_tool: Dependency,
         command_args_files: ["artifact"],
         identifier: str,
         category: str,

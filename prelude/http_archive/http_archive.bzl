@@ -34,7 +34,7 @@ def _type_from_url(url: str) -> [str, None]:
             return filename_ext
     return None
 
-def _type(ctx: "context") -> str:
+def _type(ctx: AnalysisContext) -> str:
     url = ctx.attrs.urls[0]
     typ = ctx.attrs.type
     if typ == None:
@@ -105,7 +105,7 @@ def _tar_strip_prefix_flags(strip_prefix: [str, None]) -> [str]:
         return ["--strip-components=" + str(count), strip_prefix]
     return []
 
-def http_archive_impl(ctx: "context") -> ["provider"]:
+def http_archive_impl(ctx: AnalysisContext) -> ["provider"]:
     expect(len(ctx.attrs.urls) == 1, "multiple `urls` not supported: {}".format(ctx.attrs.urls))
     expect(len(ctx.attrs.vpnless_urls) < 2, "multiple `vpnless_urls` not supported: {}".format(ctx.attrs.vpnless_urls))
 

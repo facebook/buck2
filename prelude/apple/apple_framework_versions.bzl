@@ -1015,7 +1015,7 @@ def _parse_version(version: str) -> (int, int, int):
         result[i] = components[i]
     return (result[0], result[1], result[2])
 
-def get_framework_linker_args(ctx: "context", framework_names: [str]) -> [str]:
+def get_framework_linker_args(ctx: AnalysisContext, framework_names: [str]) -> [str]:
     if not has_apple_toolchain(ctx):
         return _get_unchecked_framework_linker_args(framework_names)
 

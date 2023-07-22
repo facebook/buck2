@@ -21,7 +21,7 @@ load(":link.bzl", "link")
 load(":packages.bzl", "go_attr_pkg_name")
 
 def _gen_test_main(
-        ctx: "context",
+        ctx: AnalysisContext,
         pkg_name: str,
         coverage_mode: [GoCoverageMode.type, None],
         coverage_vars: [cmd_args, None],
@@ -44,7 +44,7 @@ def _gen_test_main(
     ctx.actions.run(cmd, category = "go_test_main_gen")
     return output
 
-def go_test_impl(ctx: "context") -> ["provider"]:
+def go_test_impl(ctx: AnalysisContext) -> ["provider"]:
     deps = ctx.attrs.deps
     srcs = ctx.attrs.srcs
     pkg_name = go_attr_pkg_name(ctx)

@@ -42,19 +42,19 @@ _BUILD_ROOT_LABELS = {label: True for label in [
 # that behavior.
 _NO_SRCS_ENVIRONMENT_LABEL = "no_srcs_environment"
 
-def _requires_build_root(ctx: "context") -> bool:
+def _requires_build_root(ctx: AnalysisContext) -> bool:
     for label in ctx.attrs.labels:
         if label in _BUILD_ROOT_LABELS:
             return True
     return False
 
-def _requires_local(ctx: "context") -> bool:
+def _requires_local(ctx: AnalysisContext) -> bool:
     return genrule_labels_require_local(ctx.attrs.labels)
 
-def _ignore_artifacts(ctx: "context") -> bool:
+def _ignore_artifacts(ctx: AnalysisContext) -> bool:
     return "buck2_ignore_artifacts" in ctx.attrs.labels
 
-def _requires_no_srcs_environment(ctx: "context") -> bool:
+def _requires_no_srcs_environment(ctx: AnalysisContext) -> bool:
     return _NO_SRCS_ENVIRONMENT_LABEL in ctx.attrs.labels
 
 # We don't want to use cache mode in open source because the config keys that drive it aren't wired up
@@ -75,13 +75,13 @@ def genrule_attributes() -> {str: "attribute"}:
 
     return attributes
 
-def _get_cache_mode(ctx: "context") -> CacheModeInfo.type:
+def _get_cache_mode(ctx: AnalysisContext) -> CacheModeInfo.type:
     if _USE_CACHE_MODE:
         return ctx.attrs._cache_mode[CacheModeInfo]
     else:
         return CacheModeInfo(allow_cache_uploads = False, cache_bust_genrules = False)
 
-def genrule_impl(ctx: "context") -> ["provider"]:
+def genrule_impl(ctx: AnalysisContext) -> ["provider"]:
     # Directories:
     #   sh - sh file
     #   src - sources files
@@ -91,7 +91,7 @@ def genrule_impl(ctx: "context") -> ["provider"]:
     # Buck2 clears the output directory before execution, and thus src/sh too.
     return process_genrule(ctx, ctx.attrs.out, ctx.attrs.outs)
 
-def _declare_output(ctx: "context", path: str) -> "artifact":
+def _declare_output(ctx: AnalysisContext, path: str) -> "artifact":
     if path == ".":
         return ctx.actions.declare_output("out", dir = True)
     elif path.endswith("/"):
@@ -108,7 +108,7 @@ def _project_output(out: "artifact", path: str) -> "artifact":
         return out.project(path, hide_prefix = True)
 
 def process_genrule(
-        ctx: "context",
+        ctx: AnalysisContext,
         out_attr: [str, None],
         outs_attr: [dict, None],
         extra_env_vars: dict = {},

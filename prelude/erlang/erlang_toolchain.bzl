@@ -68,20 +68,20 @@ ToolchainUtillInfo = provider(
     ],
 )
 
-def select_toolchains(ctx: "context") -> {"string": "Toolchain"}:
+def select_toolchains(ctx: AnalysisContext) -> {"string": "Toolchain"}:
     """helper returning toolchains"""
     return ctx.attrs._toolchain[ErlangMultiVersionToolchainInfo].toolchains
 
-def get_primary(ctx: "context") -> "string":
+def get_primary(ctx: AnalysisContext) -> "string":
     return ctx.attrs._toolchain[ErlangMultiVersionToolchainInfo].primary
 
-def get_primary_tools(ctx: "context") -> "Tools":
+def get_primary_tools(ctx: AnalysisContext) -> "Tools":
     return (get_primary_toolchain(ctx)).otp_binaries
 
-def get_primary_toolchain(ctx: "context") -> "Toolchain":
+def get_primary_toolchain(ctx: AnalysisContext) -> "Toolchain":
     return (select_toolchains(ctx)[get_primary(ctx)])
 
-def _multi_version_toolchain_impl(ctx: "context") -> ["provider"]:
+def _multi_version_toolchain_impl(ctx: AnalysisContext) -> ["provider"]:
     toolchains = {}
     for toolchain in ctx.attrs.targets:
         toolchain_info = toolchain[ErlangToolchainInfo]
@@ -123,7 +123,7 @@ multi_version_toolchain_rule = rule(
 def as_target(name: "string") -> "string":
     return ":" + name
 
-def _config_erlang_toolchain_impl(ctx: "context") -> ["provider"]:
+def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> ["provider"]:
     """ rule for erlang toolchain
     """
 
@@ -196,7 +196,7 @@ def _config_erlang_toolchain_impl(ctx: "context") -> ["provider"]:
         ),
     ]
 
-def _configured_otp_binaries_impl(ctx: "context") -> ["provider"]:
+def _configured_otp_binaries_impl(ctx: AnalysisContext) -> ["provider"]:
     name = ctx.attrs.name
     tools = get_primary_tools(ctx)
     bin_dir = ctx.actions.symlinked_dir(
@@ -225,7 +225,7 @@ configured_otp_binaries = rule(
     },
 )
 
-def _gen_parse_transforms(ctx: "context", erlc: Tool, parse_transforms: ["dependency"]) -> {"string": ("artifact", "artifact")}:
+def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: [Dependency]) -> {"string": ("artifact", "artifact")}:
     transforms = {}
     for dep in parse_transforms:
         src = dep[ErlangParseTransformInfo].source
@@ -237,7 +237,7 @@ def _gen_parse_transforms(ctx: "context", erlc: Tool, parse_transforms: ["depend
     return transforms
 
 def _gen_parse_transform_beam(
-        ctx: "context",
+        ctx: AnalysisContext,
         src: "artifact",
         extra: ["artifact"],
         erlc: Tool) -> ("artifact", "artifact"):
@@ -283,7 +283,7 @@ config_erlang_toolchain_rule = rule(
 )
 
 def _gen_util_beams(
-        ctx: "context",
+        ctx: AnalysisContext,
         sources: ["artifact"],
         erlc: Tool) -> "artifact":
     beams = []
@@ -314,7 +314,7 @@ def _gen_util_beams(
 
 # Parse Transform
 
-def erlang_otp_binaries_impl(ctx: "context"):
+def erlang_otp_binaries_impl(ctx: AnalysisContext):
     erl = ctx.attrs.erl
     erlc = ctx.attrs.erlc
     escript = ctx.attrs.escript
@@ -341,7 +341,7 @@ erlang_parse_transform = rule(
     },
 )
 
-def _toolchain_utils(ctx: "context") -> ["provider"]:
+def _toolchain_utils(ctx: AnalysisContext) -> ["provider"]:
     return [
         DefaultInfo(),
         ToolchainUtillInfo(

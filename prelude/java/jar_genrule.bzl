@@ -9,7 +9,7 @@ load("@prelude//:genrule.bzl", "process_genrule")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
-def jar_genrule_impl(ctx: "context") -> ["provider"]:
+def jar_genrule_impl(ctx: AnalysisContext) -> ["provider"]:
     output_name = "{}.jar".format(ctx.label.name)
     providers = process_genrule(ctx, output_name, None)
     expect(

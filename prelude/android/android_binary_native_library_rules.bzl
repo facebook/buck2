@@ -41,9 +41,9 @@ load("@prelude//utils:utils.bzl", "expect")
 #    at `assets/<module_name>/libs.txt`.
 
 def get_android_binary_native_library_info(
-        ctx: "context",
+        ctx: AnalysisContext,
         android_packageable_info: "AndroidPackageableInfo",
-        deps_by_platform: {str: ["dependency"]},
+        deps_by_platform: {str: [Dependency]},
         apk_module_graph_file: ["artifact", None] = None,
         prebuilt_native_library_dirs_to_exclude: [set_type, None] = None,
         shared_libraries_to_exclude: [set_type, None] = None) -> AndroidBinaryNativeLibsInfo.type:
@@ -125,7 +125,7 @@ def get_android_binary_native_library_info(
             non_root_module_compressed_lib_assets,
         ]
 
-        def get_native_libs_info_modular(ctx: "context", artifacts, outputs):
+        def get_native_libs_info_modular(ctx: AnalysisContext, artifacts, outputs):
             get_module_from_target = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts).target_to_module_mapping_function
             dynamic_info = _get_native_libs_and_assets(
                 ctx,
@@ -177,7 +177,7 @@ _NativeLibsAndAssetsInfo = record(
 )
 
 def _get_exopackage_info(
-        ctx: "context",
+        ctx: AnalysisContext,
         native_libs_always_in_primary_apk: "artifact",
         native_libs: "artifact",
         native_libs_metadata: "artifact") -> (["artifact"], [ExopackageNativeInfo.type, None]):
@@ -188,7 +188,7 @@ def _get_exopackage_info(
         return [native_libs, native_libs_always_in_primary_apk], None
 
 def _get_native_libs_and_assets(
-        ctx: "context",
+        ctx: AnalysisContext,
         get_module_from_target: "function",
         all_prebuilt_native_library_dirs: ["PrebuiltNativeLibraryDir"],
         platform_to_native_linkables: {str: {str: "SharedLibrary"}}) -> _NativeLibsAndAssetsInfo.type:
@@ -307,7 +307,7 @@ def _get_native_libs_and_assets(
     )
 
 def _filter_prebuilt_native_library_dir(
-        ctx: "context",
+        ctx: AnalysisContext,
         native_libs: ["PrebuiltNativeLibraryDir"],
         identifier: str,
         package_as_assets: bool = False,
@@ -328,7 +328,7 @@ def _filter_prebuilt_native_library_dir(
     return base_output_dir
 
 def _get_native_linkables(
-        ctx: "context",
+        ctx: AnalysisContext,
         platform_to_native_linkables: {str: {str: "SharedLibrary"}},
         get_module_from_target: "function",
         package_native_libs_as_assets_enabled: bool) -> ("artifact", "artifact", ["artifact", None], {str: "artifact"}):
@@ -389,7 +389,7 @@ def _get_native_linkables(
     )
 
 def _get_native_libs_as_assets_metadata(
-        ctx: "context",
+        ctx: AnalysisContext,
         native_lib_assets: ["artifact"],
         module: str) -> ("artifact", "artifact"):
     native_lib_assets_file = ctx.actions.write("{}/native_lib_assets".format(module), [cmd_args([native_lib_asset, _get_native_libs_as_assets_dir(module)], delimiter = "/") for native_lib_asset in native_lib_assets])
@@ -408,7 +408,7 @@ def _get_native_libs_as_assets_metadata(
     return metadata_output, native_library_paths
 
 def _get_compressed_native_libs_as_assets(
-        ctx: "context",
+        ctx: AnalysisContext,
         native_lib_assets: ["artifact"],
         native_library_paths: "artifact",
         module: str) -> "artifact":

@@ -55,7 +55,7 @@ _LINKAGE_FOR_LINK_STYLE = {
 }
 
 def _cgo(
-        ctx: "context",
+        ctx: AnalysisContext,
         srcs: ["artifact"],
         own_pre: [CPreprocessor.type],
         inherited_pre: ["CPreprocessorInfo"]) -> (["artifact"], ["artifact"], ["artifact"]):
@@ -115,7 +115,7 @@ def _cgo(
 
     return go_srcs, c_headers, c_srcs
 
-def cgo_library_impl(ctx: "context") -> ["provider"]:
+def cgo_library_impl(ctx: AnalysisContext) -> ["provider"]:
     pkg_name = go_attr_pkg_name(ctx)
 
     # Gather preprocessor inputs.
