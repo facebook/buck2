@@ -17,11 +17,11 @@ class Tool(NamedTuple):
     # Path of the executable
     exe: str
     # Paths to prepend onto $LIB
-    libs: List[str]
+    LIB: List[str]
     # Paths to prepend onto $PATH
-    paths: List[str]
-    # Paths to prepend onto $INCLUDES
-    includes: List[str]
+    PATH: List[str]
+    # Paths to prepend onto $INCLUDE
+    INCLUDE: List[str]
 
 
 def prepend_env(env, key, entries):
@@ -38,9 +38,9 @@ def main():
         tool = Tool(**json.load(f))
 
     env = os.environ.copy()
-    prepend_env(env, "LIB", tool.libs)
-    prepend_env(env, "PATH", tool.paths)
-    prepend_env(env, "INCLUDE", tool.includes)
+    prepend_env(env, "LIB", tool.LIB)
+    prepend_env(env, "PATH", tool.PATH)
+    prepend_env(env, "INCLUDE", tool.INCLUDE)
 
     completed_process = subprocess.run([tool.exe, *arguments], env=env)
     sys.exit(completed_process.returncode)

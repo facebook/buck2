@@ -29,9 +29,9 @@ class OutputJsonFiles(NamedTuple):
 
 class Tool(NamedTuple):
     exe: Path
-    libs: List[Path] = []
-    paths: List[Path] = []
-    includes: List[Path] = []
+    LIB: List[Path] = []
+    PATH: List[Path] = []
+    INCLUDE: List[Path] = []
 
 
 def find_in_path(executable):
@@ -121,9 +121,9 @@ def find_with_vswhere_exe():
             add_to_includes.append(sdk / "include" / sdk_version / "shared")
 
         for tool in tools:
-            tool.paths.extend(add_to_paths)
-            tool.libs.extend(add_to_libs)
-            tool.includes.extend(add_to_includes)
+            tool.PATH.extend(add_to_paths)
+            tool.LIB.extend(add_to_libs)
+            tool.INCLUDE.extend(add_to_includes)
 
         return tools
 

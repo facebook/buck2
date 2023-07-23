@@ -55,7 +55,28 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> ["provider"]:
     )
 
     return [
-        DefaultInfo(),
+        # Supports `buck2 run prelude//toolchains/msvc:msvc_tools[cl.exe]`
+        # and `buck2 build prelude//toolchains/msvc:msvc_tools[cl.exe][json]`
+        DefaultInfo(sub_targets = {
+            "cl.exe": [
+                RunInfo(args = [cl_exe_script]),
+                DefaultInfo(sub_targets = {
+                    "json": [DefaultInfo(default_output = cl_exe_json)],
+                }),
+            ],
+            "lib.exe": [
+                RunInfo(args = [lib_exe_script]),
+                DefaultInfo(sub_targets = {
+                    "json": [DefaultInfo(default_output = lib_exe_json)],
+                }),
+            ],
+            "ml64.exe": [
+                RunInfo(args = [ml64_exe_script]),
+                DefaultInfo(sub_targets = {
+                    "json": [DefaultInfo(default_output = ml64_exe_json)],
+                }),
+            ],
+        }),
         VisualStudio(
             cl_exe = cl_exe_script,
             lib_exe = lib_exe_script,
