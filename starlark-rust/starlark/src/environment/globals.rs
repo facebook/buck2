@@ -268,11 +268,12 @@ impl GlobalsBuilder {
 
     /// Called at the end to build a [`Globals`].
     pub fn build(self) -> Globals {
-        let variable_names = self
+        let mut variable_names: Vec<_> = self
             .variables
             .keys()
             .map(|x| self.heap.alloc_str_intern(x.as_str()))
             .collect();
+        variable_names.sort();
         Globals(Arc::new(GlobalsData {
             heap: self.heap.into_ref(),
             variables: self.variables,
@@ -285,7 +286,10 @@ impl GlobalsBuilder {
     pub fn set<'v, V: AllocFrozenValue>(&'v mut self, name: &str, value: V) {
         let value = value.alloc_frozen_value(&self.heap);
         match self.struct_fields.last_mut() {
-            None => self.variables.insert(name, value),
+            None => {
+                // TODO(nga): do not quietly ignore redefinitions.
+                self.variables.insert(name, value)
+            }
             Some(fields) => {
                 let name = self.heap.alloc_str(name);
                 fields.insert(name, value)
