@@ -153,16 +153,19 @@ async def handle_output(  # noqa: C901
         if DEBUG:
             print(f"diag={repr(diag)}", end="\n")
 
-        if diag.get("level") == "error":
-            got_error_diag = True
+        if "unused_extern_names" in diag:
+            unused_names = diag["unused_extern_names"]
 
-        # Add more information to unused crate warnings
-        unused_names = diag.get("unused_extern_names", None)
-        if unused_names:
+            # Empty unused_extern_names is just noise.
+            # This happens when there are no unused crates.
+            if not unused_names:
+                continue
+
             # Treat error-level unused dep warnings as errors
             if diag.get("lint_level") in ("deny", "forbid"):
                 got_error_diag = True
 
+            # Add more information to unused crate warnings.
             if args.buck_target:
                 rendered_unused = []
                 for name in unused_names:
@@ -181,6 +184,9 @@ async def handle_output(  # noqa: C901
             diag["unused_deps"] = {
                 name: crate_map[name] for name in unused_names if name in crate_map
             }
+        else:
+            if diag.get("level") == "error":
+                got_error_diag = True
 
         # Emit json
         if args.diag_json:
