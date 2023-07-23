@@ -97,35 +97,32 @@ def find_with_vswhere_exe():
         include_path = tools_path / "include"
 
         exe_names = "cl.exe", "lib.exe", "ml64.exe"
-        tools = [Tool(bin_path / exe) for exe in exe_names]
-        if not all(tool.exe.exists() for tool in tools):
+        if not all(bin_path.joinpath(exe).exists() for exe in exe_names):
             continue
 
-        add_to_paths = [bin_path]
-        add_to_libs = [lib_path]
-        add_to_includes = [include_path]
+        PATH = [bin_path]
+        LIB = [lib_path]
+        INCLUDE = [include_path]
 
         ucrt, ucrt_version = get_ucrt_dir()
         if ucrt and ucrt_version:
-            add_to_paths.append(ucrt / "bin" / ucrt_version / "x64")
-            add_to_libs.append(ucrt / "lib" / ucrt_version / "ucrt" / "x64")
-            add_to_includes.append(ucrt / "include" / ucrt_version / "ucrt")
+            PATH.append(ucrt / "bin" / ucrt_version / "x64")
+            LIB.append(ucrt / "lib" / ucrt_version / "ucrt" / "x64")
+            INCLUDE.append(ucrt / "include" / ucrt_version / "ucrt")
 
         sdk, sdk_version = get_sdk10_dir()
         if sdk and sdk_version:
-            add_to_paths.append(sdk / "bin" / "x64")
-            add_to_libs.append(sdk / "lib" / sdk_version / "um" / "x64")
-            add_to_includes.append(sdk / "include" / sdk_version / "um")
-            add_to_includes.append(sdk / "include" / sdk_version / "cppwinrt")
-            add_to_includes.append(sdk / "include" / sdk_version / "winrt")
-            add_to_includes.append(sdk / "include" / sdk_version / "shared")
+            PATH.append(sdk / "bin" / "x64")
+            LIB.append(sdk / "lib" / sdk_version / "um" / "x64")
+            INCLUDE.append(sdk / "include" / sdk_version / "um")
+            INCLUDE.append(sdk / "include" / sdk_version / "cppwinrt")
+            INCLUDE.append(sdk / "include" / sdk_version / "winrt")
+            INCLUDE.append(sdk / "include" / sdk_version / "shared")
 
-        for tool in tools:
-            tool.PATH.extend(add_to_paths)
-            tool.LIB.extend(add_to_libs)
-            tool.INCLUDE.extend(add_to_includes)
-
-        return tools
+        return [
+            Tool(exe=bin_path / exe, LIB=LIB, PATH=PATH, INCLUDE=INCLUDE)
+            for exe in exe_names
+        ]
 
     print(
         "vswhere.exe did not find a suitable MSVC toolchain containing cl.exe, lib.exe, ml64.exe",
