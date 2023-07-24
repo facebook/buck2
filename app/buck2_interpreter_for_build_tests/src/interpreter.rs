@@ -428,6 +428,7 @@ fn test_package_import() -> anyhow::Result<()> {
                     "tests": [],
                     "visibility": [],
                     "within_view": ["PUBLIC"],
+                    "metadata": {},
                 },
         }),
         targets_to_json(

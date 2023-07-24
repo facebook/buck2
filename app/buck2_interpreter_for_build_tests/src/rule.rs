@@ -177,6 +177,7 @@ fn udr_is_recorded() -> SharedResult<()> {
             "tests": [],
             "visibility": [],
             "within_view": ["PUBLIC"],
+            "metadata": {},
         },
         "target2": {
             "name": "target2",
@@ -193,6 +194,7 @@ fn udr_is_recorded() -> SharedResult<()> {
             "tests": [],
             "visibility": [],
             "within_view": ["PUBLIC"],
+            "metadata": {},
         },
     });
     let actual = targets_to_json(

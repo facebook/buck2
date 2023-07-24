@@ -21,6 +21,7 @@ use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
+use crate::metadata::MetadataMap;
 use crate::provider_id_set::ProviderIdSet;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
@@ -44,6 +45,7 @@ pub const EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "exec_compatible_with";
 
 pub const VISIBILITY_ATTRIBUTE_FIELD: &str = "visibility";
 pub const WITHIN_VIEW_ATTRIBUTE_FIELD: &str = "within_view";
+pub const METADATA_ATTRIBUTE_FIELD: &str = "metadata";
 
 pub const TESTS_ATTRIBUTE_FIELD: &str = "tests";
 
@@ -110,6 +112,14 @@ fn within_view_attribute() -> Attribute {
     )
 }
 
+fn metadata_attribute() -> Attribute {
+    Attribute::new(
+        Some(Arc::new(CoercedAttr::Metadata(MetadataMap::default()))),
+        "a key-value map of metadata associated with this target",
+        AttrType::metadata(),
+    )
+}
+
 fn tests_attribute() -> Attribute {
     let entry_type = AttrType::label();
     Attribute::new(
@@ -141,6 +151,7 @@ pub fn internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
             ),
             (VISIBILITY_ATTRIBUTE_FIELD, visibility_attribute()),
             (WITHIN_VIEW_ATTRIBUTE_FIELD, within_view_attribute()),
+            (METADATA_ATTRIBUTE_FIELD, metadata_attribute()),
             (TESTS_ATTRIBUTE_FIELD, tests_attribute()),
         ])
     });
@@ -155,6 +166,7 @@ pub fn attr_is_configurable(name: &str) -> AttrIsConfigurable {
         // visibility attributes aren't configurable so that we can cache them on targetnodes.
         || name == VISIBILITY_ATTRIBUTE_FIELD
         || name == WITHIN_VIEW_ATTRIBUTE_FIELD
+        || name == METADATA_ATTRIBUTE_FIELD
     {
         AttrIsConfigurable::No
     } else {

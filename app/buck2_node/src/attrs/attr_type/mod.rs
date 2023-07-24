@@ -288,6 +288,10 @@ impl AttrType {
         Self(Arc::new(AttrTypeInner::WithinView(WithinViewAttrType)))
     }
 
+    pub(crate) fn metadata() -> Self {
+        Self(Arc::new(AttrTypeInner::Metadata(MetadataAttrType)))
+    }
+
     /// Used when we first detect that concatenation is going to happen for an attr
     /// while loading a build file. Returning false here will make us provide an error
     /// during the loading phase at the point that the concatenation happens.
