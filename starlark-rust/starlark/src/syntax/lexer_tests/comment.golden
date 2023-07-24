@@ -1,0 +1,23 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Program:
+# first comment
+  # second comment
+a # third comment
+
+# But it should not eat everything
+[
+# comment inside list
+]
+
+Tokens:
+identifier 'a'  # a
+new line        # \n
+new line        # \n
+symbol '['      # [
+symbol ']'      # ]
+new line        #

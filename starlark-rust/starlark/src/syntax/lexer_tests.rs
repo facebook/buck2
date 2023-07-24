@@ -15,24 +15,57 @@
  * limitations under the License.
  */
 
+use std::fmt::Write;
+
 use crate::assert;
-use crate::syntax::lexer::Token::*;
+use crate::slice_vec_ext::VecExt;
+use crate::tests::golden_test_template::golden_test_template;
+
+fn lexer_golden_test(name: &str, program: &str) {
+    let program = program.trim();
+
+    let mut out = String::new();
+
+    writeln!(out, "Program:").unwrap();
+    writeln!(out, "{}", program).unwrap();
+    writeln!(out).unwrap();
+    writeln!(out, "Tokens:").unwrap();
+
+    let tokens =
+        assert::lex_tokens(program).into_map(|(from, token, to)| (from, token.to_string(), to));
+    let max_width = tokens
+        .iter()
+        .map(|(_, token, _)| token.len())
+        .max()
+        .unwrap_or(0);
+    for (from, token, to) in &tokens {
+        let source = program[*from..*to].replace('\n', "\\n");
+        writeln!(out, "{token:<max_width$}  # {source}").unwrap();
+    }
+
+    golden_test_template(&format!("src/syntax/lexer_tests/{}.golden", name), &out);
+}
 
 #[test]
 fn test_int_lit() {
-    assert_eq!(assert::lex("0 123"), "0 123 \n");
-    assert_eq!(assert::lex("0x7F 0x7d"), "127 125 \n");
-    assert_eq!(assert::lex("0B1011 0b1010"), "11 10 \n");
-    assert_eq!(assert::lex("0o755 0O753"), "493 491 \n");
+    lexer_golden_test(
+        "int_lit",
+        r#"
+0 123
+0x7F 0x7d
+0B1011 0b1010
+0o755 0O753
+"#,
+    );
     // Starlark requires us to ban leading zeros (confusion with implicit octal)
     assert::parse_fail("x = !01!");
 }
 
 #[test]
 fn test_indentation() {
-    assert_eq!(
-        assert::lex(
-            "
+    lexer_golden_test(
+        "indentation",
+        "
 +
   -
       /
@@ -42,36 +75,32 @@ fn test_indentation() {
       .
 +=
 ",
-        ),
-        "\n + \n \t - \n \t / \n * \n #dedent = \n \t % \n \t . \n #dedent #dedent #dedent += \n \n"
     );
 }
 
 #[test]
 fn test_symbols() {
-    assert_eq!(
-        assert::lex(", ; : += -= *= /= //= %= == != <= >= ** = < > - + * % / // . { } [ ] ( ) |"),
-        ", ; : += -= *= /= //= %= == != <= >= ** = < > - + * % / // . { } [ ] ( ) | \n",
+    lexer_golden_test(
+        "symbols",
+        ", ; : += -= *= /= //= %= == != <= >= ** = < > - + * % / // . { } [ ] ( ) |\n\
+        ,;:{}[]()|",
     );
-    assert_eq!(assert::lex(",;:{}[]()|"), ", ; : { } [ ] ( ) | \n",);
 }
 
 #[test]
 fn test_keywords() {
-    assert_eq!(
-        assert::lex(
-            "and else load break for not not  in continue if or def in pass elif return lambda"
-        ),
-        "and else load break for not not in continue if or def in pass elif return lambda \n"
+    lexer_golden_test(
+        "keywords",
+        "and else load break for not not  in continue if or def in pass elif return lambda",
     );
 }
 
 // Regression test for https://github.com/google/starlark-rust/issues/44.
 #[test]
 fn test_number_collated_with_keywords_or_identifier() {
-    assert_eq!(
-        assert::lex("0in 1and 2else 3load 4break 5for 6not 7not  in 8continue 10identifier11"),
-        "0 in 1 and 2 else 3 load 4 break 5 for 6 not 7 not in 8 continue 10 identifier11 \n"
+    lexer_golden_test(
+        "number_collated_with_keywords_or_identifier",
+        "0in 1and 2else 3load 4break 5for 6not 7not  in 8continue 10identifier11",
     );
 }
 
@@ -88,19 +117,24 @@ fn test_reserved() {
 #[test]
 fn test_comment() {
     // Comment should be ignored
-    assert_eq!(assert::lex("# a comment\n"), "\n");
-    assert_eq!(assert::lex(" # a comment\n"), "\n");
-    assert_eq!(assert::lex("a # a comment\n"), "a \n \n");
-    // But it should not eat everything
-    assert_eq!(assert::lex("[\n# a comment\n]"), "[ ] \n");
+    lexer_golden_test(
+        "comment",
+        r#"
+# first comment
+  # second comment
+a # third comment
+
+# But it should not eat everything
+[
+# comment inside list
+]
+"#,
+    );
 }
 
 #[test]
 fn test_identifier() {
-    assert_eq!(
-        assert::lex("a identifier CAPS _CAPS _0123"),
-        "a identifier CAPS _CAPS _0123 \n"
-    )
+    lexer_golden_test("identifier", "a identifier CAPS _CAPS _0123");
 }
 
 #[test]
@@ -131,13 +165,15 @@ fn test_string_lit() {
 
 #[test]
 fn test_string_escape() {
-    assert_eq!(assert::lex("'\\0\\0\\1n'"), "\"\\u0000\\u0000\\u0001n\" \n");
-    assert_eq!(
-        assert::lex("'\\0\\00\\000\\0000'"),
-        "\"\\u0000\\u0000\\u0000\\u00000\" \n"
+    lexer_golden_test(
+        "string_escape",
+        r#"
+'\0\0\1n'
+'\0\00\000\0000'
+'\x000'
+'\372x'
+"#,
     );
-    assert_eq!(assert::lex("'\\x000'"), "\"\\u00000\" \n");
-    assert_eq!(assert::lex("'\\372x'"), "\"úx\" \n");
     assert::parse_fail("test 'more !\\xT!Z");
     assert::parse_fail("test + 'more !\\UFFFFFFFF! overflows'");
     assert::parse_fail("test 'more !\\x0y!abc'");
@@ -146,40 +182,43 @@ fn test_string_escape() {
 
 #[test]
 fn test_simple_example() {
-    assert_eq!(
-        assert::lex(
-            "\"\"\"A docstring.\"\"\"
+    lexer_golden_test(
+        "simple_example",
+        "\"\"\"A docstring.\"\"\"
 
 def _impl(ctx):
   # Print Hello, World!
   print('Hello, World!')
-"
-        ),
-        "\"A docstring.\" \n \n def _impl ( ctx ) : \n \t print ( \"Hello, World!\" ) \n \n #dedent"
+",
     );
 }
 
 #[test]
 fn test_escape_newline() {
-    assert_eq!(assert::lex("a \\\nb"), "a b \n");
+    lexer_golden_test(
+        "escape_newline",
+        r#"
+a \
+b
+"#,
+    );
 }
 
 #[test]
 fn test_lexer_multiline_triple() {
-    assert_eq!(
-        assert::lex(
-            r#"
+    lexer_golden_test(
+        "multiline_triple",
+        r#"
 cmd = """A \
     B \
     C \
     """"#,
-        ),
-        "\n cmd = \"A     B     C     \" \n"
     );
 }
 
 #[test]
 fn test_span() {
+    use crate::syntax::lexer::Token::*;
     let expected = vec![
         (0, Newline, 1),
         (1, Def, 4),
@@ -218,38 +257,39 @@ test("abc")
 
 #[test]
 fn test_lexer_final_comment() {
-    assert_eq!(
-        assert::lex(
-            r#"
+    lexer_golden_test(
+        "final_comment",
+        r#"
 x
 # test"#,
-        ),
-        "\n x \n \n"
     );
 }
 
 #[test]
 fn test_lexer_dedent() {
-    assert_eq!(
-        assert::lex(
-            r#"
+    lexer_golden_test(
+        "dedent",
+        r#"
 def stuff():
   if 1:
     if 1:
       pass
   pass
-"#
-        ),
-        "\n def stuff ( ) : \n \t if 1 : \n \t if 1 : \n \t pass \n #dedent #dedent pass \n \n #dedent"
+"#,
     );
 }
 
 #[test]
 fn test_lexer_operators() {
-    assert_eq!(assert::lex("1+-2"), "1 + - 2 \n");
-    assert_eq!(assert::lex("1+------2"), "1 + - - - - - - 2 \n");
+    lexer_golden_test(
+        "operators",
+        r#"
+1+-2
+1+------2
+///==/+-
+"#,
+    );
     assert::eq("1+------2", "3");
-    assert_eq!(assert::lex("///==/+-"), "// /= = / + - \n");
 }
 
 #[test]
@@ -280,29 +320,28 @@ fn test_lexer_error_messages() {
 
 #[test]
 fn test_float_lit() {
-    assert_eq!(assert::lex("0.0 0. .0"), "0 0 0 \n");
-    assert_eq!(
-        assert::lex("1e10 1e+10 1e-10"),
-        "10000000000 10000000000 0.0000000001 \n"
-    );
-    assert_eq!(
-        assert::lex("1.1e10 1.1e+10 1.1e-10"),
-        "11000000000 11000000000 0.00000000011 \n"
-    );
-    assert_eq!(
-        assert::lex("0. .123 3.14 .2e3 1E+4"),
-        "0 0.123 3.14 200 10000 \n"
+    lexer_golden_test(
+        "float_lit",
+        r#"
+0.0 0. .0
+1e10 1e+10 1e-10
+1.1e10 1.1e+10 1.1e-10
+0. .123 3.14 .2e3 1E+4
+"#,
     );
 }
 
 #[test]
 fn test_f_string() {
-    assert_eq!(assert::lex("f\"basic {stuff}\""), "f\"basic {stuff}\" \n");
-    assert_eq!(assert::lex("f'basic {stuff}'"), "f\"basic {stuff}\" \n");
+    lexer_golden_test(
+        "f_string",
+        r#"
+f"basic1 {stuff1}"
+f'basic2 {stuff2}'
 
-    // Raw f-string
-    assert_eq!(
-        assert::lex("fr'' fr\"\" fr'\\'' fr\"\\\"\" fr'\"' fr\"'\" fr'\\n'"),
-        "f\"\" f\"\" f\"\'\" f\"\\\"\" f\"\\\"\" f\"\'\" f\"\\\\n\" \n"
+# Raw f-string
+
+fr'' fr"" fr'\'' fr"\"" fr'"' fr"'" fr'\n'
+"#,
     );
 }

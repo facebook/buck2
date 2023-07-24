@@ -875,12 +875,12 @@ impl Display for Token {
             Token::RawOctInt => write!(f, "octal integer literal"),
             Token::RawBinInt => write!(f, "binary integer literal"),
             Token::Float(n) => write!(f, "float literal '{}'", n),
-            Token::String(s) => write!(f, "string literal '{}'", s),
+            Token::String(s) => write!(f, "string literal {:?}", s),
             Token::RawSingleQuote => write!(f, "starting '"),
             Token::RawDoubleQuote => write!(f, "starting \""),
             Token::RawFStringDoubleQuote => write!(f, "starting f'"),
             Token::RawFStringSingleQuote => write!(f, "starting f\""),
-            Token::FString(s) => write!(f, "f-string '{}'", &s.content),
+            Token::FString(s) => write!(f, "f-string {:?}", &s.content),
             Token::Tabs => Ok(()),
         }
     }
