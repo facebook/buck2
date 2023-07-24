@@ -57,6 +57,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [["provider"], "promise"]:
 
         cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
+        framework_search_path_flags = get_framework_search_path_flags(ctx)
         swift_compile = compile_swift(
             ctx,
             swift_srcs,
@@ -64,6 +65,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [["provider"], "promise"]:
             deps_providers,
             [],
             None,
+            framework_search_path_flags,
             objc_bridging_header_flags,
         )
         swift_object_files = [swift_compile.object_file] if swift_compile else []
@@ -75,7 +77,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [["provider"], "promise"]:
         extra_link_flags = get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx) + extra_linker_output_flags
 
         framework_search_path_pre = CPreprocessor(
-            relative_args = CPreprocessorArgs(args = [get_framework_search_path_flags(ctx)]),
+            relative_args = CPreprocessorArgs(args = [framework_search_path_flags]),
         )
         constructor_params = CxxRuleConstructorParams(
             rule_type = "apple_binary",

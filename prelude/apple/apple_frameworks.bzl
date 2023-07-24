@@ -64,7 +64,7 @@ def get_framework_search_path_flags(ctx: AnalysisContext) -> cmd_args:
 def _get_framework_search_path_flags(frameworks: [cmd_args]) -> cmd_args:
     flags = cmd_args()
     for directory in frameworks:
-        flags.add(["-F", directory])
+        flags.add(cmd_args(directory, format = "-F{}"))
 
     return flags
 

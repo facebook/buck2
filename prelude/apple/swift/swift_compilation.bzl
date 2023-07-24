@@ -148,9 +148,19 @@ def compile_swift(
         deps_providers: list,
         exported_headers: [CHeader.type],
         objc_modulemap_pp_info: [CPreprocessor.type, None],
+        framework_search_paths_flags: cmd_args,
         extra_search_paths_flags: ["_arglike"] = []) -> [SwiftCompilationOutput.type, None]:
     if not srcs:
         return None
+
+    # If this target imports XCTest we need to pass the search path to its swiftmodule.
+    framework_search_paths = cmd_args()
+    framework_search_paths.add(_get_xctest_swiftmodule_search_path(ctx))
+
+    # Pass the framework search paths to the driver and clang importer. This is required
+    # for pcm compilation, which does not pass through driver search paths.
+    framework_search_paths.add(framework_search_paths_flags)
+    framework_search_paths.add(cmd_args(framework_search_paths_flags, prepend = "-Xcc"))
 
     # If a target exports ObjC headers and Swift explicit modules are enabled,
     # we need to precompile a PCM of the underlying module and supply it to the Swift compilation.
@@ -166,6 +176,7 @@ def compile_swift(
                 underlying_swift_pcm_uncompiled_info,
                 deps_providers,
                 get_swift_cxx_flags(ctx),
+                framework_search_paths,
             )
         else:
             compiled_underlying_pcm = None
@@ -189,6 +200,7 @@ def compile_swift(
         objc_modulemap_pp_info,
         extra_search_paths_flags,
     )
+    shared_flags.add(framework_search_paths)
 
     if toolchain.can_toolchain_emit_obj_c_header_textually:
         _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header)
@@ -663,3 +675,15 @@ def merge_swiftmodule_linkables(ctx: AnalysisContext, swiftmodule_linkables: [[S
 
 def get_swiftmodule_linker_flags(swiftmodule_linkable: [SwiftmoduleLinkable.type, None]) -> cmd_args:
     return cmd_args(swiftmodule_linkable.tset.project_as_args("linker_args")) if swiftmodule_linkable else cmd_args()
+
+def _get_xctest_swiftmodule_search_path(ctx: AnalysisContext) -> cmd_args:
+    # With explicit modules we don't need to search at all.
+    if uses_explicit_modules(ctx):
+        return cmd_args()
+
+    for fw in ctx.attrs.frameworks:
+        if fw.endswith("XCTest.framework"):
+            toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
+            return cmd_args(toolchain.platform_path, format = "-I{}/Developer/usr/lib")
+
+    return cmd_args()

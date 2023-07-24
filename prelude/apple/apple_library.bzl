@@ -145,6 +145,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     else:
         modulemap_pre = None
 
+    framework_search_paths_flags = get_framework_search_path_flags(ctx)
     swift_compile = compile_swift(
         ctx,
         swift_srcs,
@@ -152,6 +153,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         deps_providers,
         exported_hdrs,
         modulemap_pre,
+        framework_search_paths_flags,
         params.extra_swift_compiler_flags,
     )
     swift_object_files = [swift_compile.object_file] if swift_compile else []
@@ -215,7 +217,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         return providers + [swift_dependency_info]
 
     framework_search_path_pre = CPreprocessor(
-        relative_args = CPreprocessorArgs(args = [get_framework_search_path_flags(ctx)]),
+        relative_args = CPreprocessorArgs(args = [framework_search_paths_flags]),
     )
 
     return CxxRuleConstructorParams(

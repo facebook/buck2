@@ -212,7 +212,8 @@ def compile_underlying_pcm(
         ctx: AnalysisContext,
         uncompiled_pcm_info: "SwiftPCMUncompiledInfo",
         compiled_pcm_deps_providers,
-        swift_cxx_args: [str]) -> "SwiftPCMCompiledInfo":
+        swift_cxx_args: [str],
+        framework_search_path_flags: cmd_args) -> "SwiftPCMCompiledInfo":
     module_name = get_module_name(ctx)
 
     # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers
@@ -238,6 +239,7 @@ def compile_underlying_pcm(
         "-Xcc",
         cmd_args([cmd_args(modulemap_path).parent(), "exported_symlink_tree"], delimiter = "/"),
     ])
+    cmd.add(framework_search_path_flags)
 
     _compile_with_argsfile(
         ctx,
