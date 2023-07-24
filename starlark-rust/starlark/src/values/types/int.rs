@@ -150,12 +150,12 @@ impl PointerI32 {
 
     #[inline]
     pub(crate) fn as_avalue_dyn(&'static self) -> AValueDyn<'static> {
-        unsafe {
-            AValueDyn::new(
-                StarlarkValueRawPtr::new_pointer_i32(self),
-                AValueVTable::new::<AValueImpl<Basic, PointerI32>>(),
-            )
-        }
+        unsafe { AValueDyn::new(StarlarkValueRawPtr::new_pointer_i32(self), Self::vtable()) }
+    }
+
+    #[inline]
+    pub(crate) fn vtable() -> &'static AValueVTable {
+        &AValueVTable::new::<AValueImpl<Basic, PointerI32>>()
     }
 
     /// This operation is expensive, use only if you have to.

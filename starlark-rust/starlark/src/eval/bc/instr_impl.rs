@@ -1630,7 +1630,7 @@ fn call_maybe_known_method_common<'v>(
     span: FrozenRef<'static, FrameSpan>,
     target: BcSlotOut,
 ) -> anyhow::Result<()> {
-    if let Some(methods) = this.get_ref().get_methods() {
+    if let Some(methods) = this.vtable().methods() {
         // Instead of method lookup by name, we compare `Methods` pointers.
         // If pointers are equal, getattr would return the same method
         // we already have.

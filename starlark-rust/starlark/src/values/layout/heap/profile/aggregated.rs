@@ -162,7 +162,7 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
         };
 
         // Value allocated in this frame, record it!
-        let typ = value.get_ref().get_type();
+        let typ = value.vtable().type_name;
         let mut frame = frame.0.borrow_mut();
         frame.allocs.add(
             typ,

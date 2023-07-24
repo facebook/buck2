@@ -567,7 +567,7 @@ pub(crate) fn bit_or_assign<'v>(
     // mutably borrowed when we iterate over `rhs`, as they might alias.
 
     let lhs_aref = lhs.get_ref();
-    let lhs_ty = lhs_aref.static_type_of_value();
+    let lhs_ty = lhs_aref.vtable().static_type_of_value.get();
 
     if Dict::is_dict_type(lhs_ty) {
         let mut dict = DictMut::from_value(lhs)?;
@@ -575,7 +575,13 @@ pub(crate) fn bit_or_assign<'v>(
             // Nothing to do as union is idempotent
         } else {
             let rhs = DictRef::from_value(rhs).map_or_else(
-                || ValueError::unsupported_owned(lhs_aref.get_type(), "|=", Some(rhs.get_type())),
+                || {
+                    ValueError::unsupported_owned(
+                        lhs_aref.vtable().type_name,
+                        "|=",
+                        Some(rhs.get_type()),
+                    )
+                },
                 Ok,
             )?;
             for (k, v) in rhs.iter_hashed() {
@@ -610,7 +616,7 @@ pub(crate) fn add_assign<'v>(
     // If the users does x += select(...) we don't want an error,
     // we really want to x = x + select, so check radd first.
     let lhs_aref = lhs.get_ref();
-    let lhs_ty = lhs_aref.static_type_of_value();
+    let lhs_ty = lhs_aref.vtable().static_type_of_value.get();
 
     if ListData::is_list_type(lhs_ty) {
         if let Some(v) = rhs.get_ref().radd(lhs, heap) {

@@ -88,6 +88,7 @@ use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::layout::vtable::AValueDyn;
+use crate::values::layout::vtable::AValueVTable;
 use crate::values::num::NumRef;
 use crate::values::range::Range;
 use crate::values::record::instance::FrozenRecord;
@@ -424,6 +425,16 @@ impl<'v> Value<'v> {
         }
     }
 
+    #[inline]
+    pub(crate) fn vtable(self) -> &'static AValueVTable {
+        unsafe {
+            match self.0.unpack() {
+                Either::Left(x) => x.unpack_header_unchecked().0,
+                Either::Right(_) => PointerI32::vtable(),
+            }
+        }
+    }
+
     /// Downcast without checking the value type.
     #[inline]
     pub(crate) unsafe fn downcast_ref_unchecked<T: StarlarkValue<'v>>(self) -> &'v T {
@@ -484,7 +495,7 @@ impl<'v> Value<'v> {
 
     /// `type(x)`.
     pub fn get_type(self) -> &'static str {
-        self.get_ref().get_type()
+        self.vtable().type_name
     }
 
     /// `bool(x)`.
@@ -650,12 +661,12 @@ impl<'v> Value<'v> {
 
     /// `type(x)`.
     pub fn get_type_value(self) -> FrozenStringValue {
-        self.get_ref().get_type_value()
+        self.vtable().type_value()
     }
 
     /// The literal string that a user would need to use this in type annotations.
     pub(crate) fn get_type_starlark_repr(self) -> Ty {
-        self.get_ref().get_type_starlark_repr()
+        self.vtable().type_starlark_repr()
     }
 
     /// Add two [`Value`]s together. Will first try using [`radd`](StarlarkValue::radd),
@@ -793,7 +804,7 @@ impl<'v> Value<'v> {
     /// Return the attribute with the given name.
     pub fn get_attr(self, attribute: &str, heap: &'v Heap) -> anyhow::Result<Option<Value<'v>>> {
         let aref = self.get_ref();
-        if let Some(methods) = aref.get_methods() {
+        if let Some(methods) = aref.vtable().methods() {
             let attribute = Hashed::new(attribute);
             if let Some(v) = methods.get_hashed(attribute) {
                 return Ok(Some(MaybeUnboundValue::new(v).bind(self, heap)?));
@@ -818,7 +829,7 @@ impl<'v> Value<'v> {
     /// [`get_attr`](Value::get_attr) succeeds, but potentially more efficient.
     pub fn has_attr(self, attribute: &str, heap: &'v Heap) -> bool {
         let aref = self.get_ref();
-        if let Some(methods) = aref.get_methods() {
+        if let Some(methods) = aref.vtable().methods() {
             if methods.get(attribute).is_some() {
                 return true;
             }
@@ -830,7 +841,7 @@ impl<'v> Value<'v> {
     /// `dir()` function.
     pub fn dir_attr(self) -> Vec<String> {
         let aref = self.get_ref();
-        let mut result = if let Some(methods) = aref.get_methods() {
+        let mut result = if let Some(methods) = aref.vtable().methods() {
             let mut res = methods.names();
             res.extend(aref.dir_attr());
             res

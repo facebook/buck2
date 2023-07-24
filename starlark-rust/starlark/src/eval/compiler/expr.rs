@@ -1098,7 +1098,7 @@ pub(crate) fn get_attr_hashed_raw<'v>(
     heap: &'v Heap,
 ) -> anyhow::Result<MemberOrValue<'v>> {
     let aref = x.get_ref();
-    if let Some(methods) = aref.get_methods() {
+    if let Some(methods) = aref.vtable().methods() {
         if let Some(v) = methods.get_frozen_symbol(attribute) {
             return Ok(MemberOrValue::Member(v));
         }
@@ -1115,7 +1115,7 @@ pub(crate) fn get_attr_hashed_bind<'v>(
     heap: &'v Heap,
 ) -> anyhow::Result<Value<'v>> {
     let aref = x.get_ref();
-    if let Some(methods) = aref.get_methods() {
+    if let Some(methods) = aref.vtable().methods() {
         if let Some(v) = methods.get_frozen_symbol(attribute) {
             return MaybeUnboundValue::new(v).bind(x, heap);
         }

@@ -420,7 +420,7 @@ impl<A: ArenaAllocator> Arena<A> {
             let v = x.unpack();
             let e = entries
                 .entry(x.dupe())
-                .or_insert_with(|| (v.get_type(), AllocCounts::default()));
+                .or_insert_with(|| (v.vtable().type_name, AllocCounts::default()));
             e.1.count += 1;
             e.1.bytes += v.total_memory()
         };

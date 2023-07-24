@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
@@ -110,7 +109,7 @@ impl StarlarkValueRawPtr {
 pub(crate) struct AValueVTable {
     // Common `AValue` fields.
     pub(crate) static_type_of_value: ConstTypeId,
-    type_name: &'static str,
+    pub(crate) type_name: &'static str,
     /// Cache `type_name` here to avoid computing hash.
     pub(crate) type_as_allocative_key: allocative::Key,
 
@@ -231,7 +230,21 @@ impl AValueVTable {
         }
     }
 
-    pub(crate) fn drop_in_place(&self, value: StarlarkValueRawPtr) {
+    #[inline]
+    pub(crate) fn type_value(&'static self) -> FrozenStringValue {
+        (self.starlark_value.get_type_value_static)()
+    }
+
+    pub(crate) fn type_starlark_repr(&'static self) -> Ty {
+        (self.starlark_value.get_type_starlark_repr)()
+    }
+
+    #[inline]
+    pub(crate) fn methods(&'static self) -> Option<&'static Methods> {
+        (self.starlark_value.get_methods)()
+    }
+
+    pub(crate) fn drop_in_place(&'static self, value: StarlarkValueRawPtr) {
         (self.drop_in_place)(value)
     }
 }
@@ -264,6 +277,11 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
+    pub(crate) fn vtable(self) -> &'static AValueVTable {
+        self.vtable
+    }
+
+    #[inline]
     pub(crate) fn memory_size(self) -> ValueAllocSize {
         (self.vtable.memory_size)(self.value)
     }
@@ -275,25 +293,6 @@ impl<'v> AValueDyn<'v> {
     pub(crate) fn total_memory(self) -> usize {
         (self.memory_size().bytes() as usize)
             + allocative::size_of_unique_allocated_data(self.as_allocative())
-    }
-
-    #[inline]
-    pub(crate) fn get_type(self) -> &'static str {
-        self.vtable.type_name
-    }
-
-    pub(crate) fn get_type_starlark_repr(self) -> Ty {
-        (self.vtable.starlark_value.get_type_starlark_repr)()
-    }
-
-    #[inline]
-    pub(crate) fn get_type_value(self) -> FrozenStringValue {
-        (self.vtable.starlark_value.get_type_value_static)()
-    }
-
-    #[inline]
-    pub(crate) fn static_type_of_value(self) -> TypeId {
-        self.vtable.static_type_of_value.get()
     }
 
     #[inline]
@@ -317,11 +316,6 @@ impl<'v> AValueDyn<'v> {
 
     pub(crate) fn eval_type(self) -> Option<Ty> {
         (self.vtable.starlark_value.eval_type)(self.value, Private)
-    }
-
-    #[inline]
-    pub(crate) fn get_methods(self) -> Option<&'static Methods> {
-        (self.vtable.starlark_value.get_methods)()
     }
 
     #[inline]
@@ -500,7 +494,7 @@ impl<'v> AValueDyn<'v> {
 
     #[inline]
     pub(crate) fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T> {
-        if self.static_type_of_value() == T::static_type_id() {
+        if self.vtable.static_type_of_value.get() == T::static_type_id() {
             // SAFETY: just checked whether we are pointing to the correct type.
             unsafe { Some(self.value.value_ref()) }
         } else {
