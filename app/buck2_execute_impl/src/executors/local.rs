@@ -46,7 +46,7 @@ use buck2_execute::execute::inputs_directory::inputs_directory;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
-use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
+use buck2_execute::execute::manager::CommandExecutionManagerLike;
 use buck2_execute::execute::output::CommandStdStreams;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
@@ -213,6 +213,8 @@ impl LocalExecutor {
         cancellations: &CancellationContext<'_>,
         digest_config: DigestConfig,
         local_resource_holders: &[LocalResourceHolder],
+        dispatcher: EventDispatcher,
+        worker: Option<WorkerHandle>,
     ) -> CommandExecutionResult {
         let args = &request.all_args_vec();
         if args.is_empty() {
@@ -345,12 +347,6 @@ impl LocalExecutor {
             .collect();
 
         let daemon_uuid: &str = &buck2_events::daemon_id::DAEMON_UUID.to_string();
-        let dispatcher = match get_dispatcher_opt() {
-            Some(dispatcher) => dispatcher,
-            None => {
-                return manager.error("no_dispatcher", anyhow::anyhow!("No dispatcher available"));
-            }
-        };
         let build_id: &str = &dispatcher.trace_id().to_string();
 
         let iter_env = || {
@@ -374,8 +370,6 @@ impl LocalExecutor {
                 )))
         };
         let liveliness_observer = manager.liveliness_observer.dupe().and(cancellation);
-
-        let (worker, manager) = self.initialize_worker(request, manager, dispatcher).await?;
 
         let execution_kind = match worker {
             None => CommandExecutionKind::Local {
@@ -584,15 +578,12 @@ impl LocalExecutor {
         Ok(mapped_outputs)
     }
 
-    async fn initialize_worker(
+    async fn initialize_and_acquire_worker(
         &self,
         request: &CommandExecutionRequest,
-        manager: CommandExecutionManagerWithClaim,
-        dispatcher: EventDispatcher,
-    ) -> ControlFlow<
-        CommandExecutionResult,
-        (Option<Arc<WorkerHandle>>, CommandExecutionManagerWithClaim),
-    > {
+        manager: CommandExecutionManager,
+        dispatcher: &EventDispatcher,
+    ) -> ControlFlow<CommandExecutionResult, (Option<WorkerHandle>, CommandExecutionManager)> {
         if let (Some(worker_spec), Some(worker_pool), Some(forkserver), true) = (
             request.worker(),
             self.worker_pool.dupe(),
@@ -609,11 +600,11 @@ impl LocalExecutor {
                 env,
                 &self.root,
                 forkserver.clone(),
-                dispatcher,
+                dispatcher.clone(),
             );
 
             if let Some(Ok(worker)) = worker_fut.peek() {
-                return ControlFlow::Continue((Some(worker.clone()), manager));
+                return ControlFlow::Continue((Some(worker.clone().acquire().await), manager));
             }
 
             // Might make more sense for the stage to always be `WorkerWait` and for `WorkerInit` to be a separate, top level event
@@ -643,7 +634,7 @@ impl LocalExecutor {
             };
 
             match executor_stage_async(stage, worker_fut).await {
-                Ok(worker) => ControlFlow::Continue((Some(worker), manager)),
+                Ok(worker) => ControlFlow::Continue((Some(worker.acquire().await), manager)),
                 Err(e) => {
                     let res = {
                         let manager = check_inputs(
@@ -706,6 +697,16 @@ impl PreparedCommandExecutor for LocalExecutor {
         )
         .await;
 
+        let dispatcher = match get_dispatcher_opt() {
+            Some(dispatcher) => dispatcher,
+            None => {
+                return manager.error("no_dispatcher", anyhow::anyhow!("No dispatcher available"));
+            }
+        };
+        let (worker_with_permit, manager) = self
+            .initialize_and_acquire_worker(request, manager, &dispatcher)
+            .await?;
+
         let _permit = executor_stage_async(
             buck2_data::LocalStage {
                 stage: Some(buck2_data::LocalQueued {}.into()),
@@ -728,6 +729,8 @@ impl PreparedCommandExecutor for LocalExecutor {
                     cancellations,
                     *digest_config,
                     &local_resource_holders,
+                    dispatcher,
+                    worker_with_permit,
                 )
             })
             .await
@@ -814,12 +817,12 @@ pub async fn materialize_inputs(
     Ok(())
 }
 
-async fn check_inputs(
-    manager: CommandExecutionManagerWithClaim,
+async fn check_inputs<M: CommandExecutionManagerLike>(
+    manager: M,
     artifact_fs: &ArtifactFs,
     blocking_executor: &dyn BlockingExecutor,
     request: &CommandExecutionRequest,
-) -> ControlFlow<CommandExecutionResult, CommandExecutionManagerWithClaim> {
+) -> ControlFlow<CommandExecutionResult, M> {
     let res = blocking_executor
         .execute_io_inline(|| {
             for input in request.inputs() {
