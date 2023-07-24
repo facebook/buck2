@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub(crate) mod artifact_type;
 pub mod associated;
 pub mod output_artifact_like;
 mod starlark_artifact;

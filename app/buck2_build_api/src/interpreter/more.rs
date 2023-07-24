@@ -10,6 +10,7 @@
 use buck2_interpreter::functions::more::MoreFunctions;
 use buck2_interpreter::functions::more::MORE_FUNCTIONS;
 
+use crate::interpreter::rule_defs::artifact::artifact_type::register_artifact;
 use crate::interpreter::rule_defs::cmd_args::register_cmd_args;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
 use crate::interpreter::rule_defs::context::register_analysis_context;
@@ -29,5 +30,6 @@ pub(crate) fn init_more_functions() {
         register_transitive_set,
         register_analysis_context,
         register_dependency,
+        register_artifact,
     });
 }
