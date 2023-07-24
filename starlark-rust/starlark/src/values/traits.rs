@@ -404,7 +404,6 @@ pub trait StarlarkValue<'v>:
     #[doc(hidden)]
     fn invoke_method(
         &self,
-        _me: Value<'v>,
         _this: Value<'v>,
         _args: &Arguments<'v, '_>,
         _eval: &mut Evaluator<'v, '_>,

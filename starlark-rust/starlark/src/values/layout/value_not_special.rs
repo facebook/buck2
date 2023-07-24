@@ -79,8 +79,7 @@ impl FrozenValueNotSpecial {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         eval.with_call_stack(self.to_value(), Some(location), |eval| {
-            self.get_ref()
-                .invoke_method(self.to_value(), this, args, eval)
+            self.get_ref().invoke_method(this, args, eval)
         })
     }
 }

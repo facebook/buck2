@@ -346,7 +346,6 @@ starlark_simple_value!(NativeMethod);
 impl<'v> StarlarkValue<'v> for NativeMethod {
     fn invoke_method(
         &self,
-        _me: Value<'v>,
         this: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
@@ -387,7 +386,6 @@ impl NativeAttribute {
 impl<'v> StarlarkValue<'v> for NativeAttribute {
     fn invoke_method(
         &self,
-        _me: Value<'v>,
         this: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
@@ -447,13 +445,8 @@ where
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        self.method.invoke_method(
-            self.method.to_value(),
-            self.this.to_value(),
-            args,
-            eval,
-            Private,
-        )
+        self.method
+            .invoke_method(self.this.to_value(), args, eval, Private)
     }
 
     fn documentation(&self) -> Option<DocItem> {

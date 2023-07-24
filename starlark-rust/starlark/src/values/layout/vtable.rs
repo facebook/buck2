@@ -541,12 +541,11 @@ impl<'v> AValueDyn<'v> {
     #[inline]
     pub(crate) fn invoke_method(
         self,
-        me: Value<'v>,
         this: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        (self.vtable.starlark_value.invoke_method)(self.value, me, this, args, eval, Private)
+        (self.vtable.starlark_value.invoke_method)(self.value, this, args, eval, Private)
     }
 
     #[inline]
