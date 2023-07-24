@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def cxx_by_language_ext(x: {"": ""}, ext: str, label: "label") -> [""]:
+def cxx_by_language_ext(x: {"": ""}, ext: str) -> [""]:
     # lang_preprocessor_flags is indexed by c/cxx
     # lang_compiler_flags is indexed by c_cpp_output/cxx_cpp_output
     # so write a function that can do either
@@ -54,12 +54,7 @@ def cxx_by_language_ext(x: {"": ""}, ext: str, label: "label") -> [""]:
         key_pp = "asm_with_cpp"
         key_compiler = "asm"
     elif ext in (".h", ".hpp"):
-        # Note that the label is only required for this error message, once we make this a hard error, delete the label argument
-        soft_error("starlark_header_in_srcs", "Not allowed to have header files in the `srcs` attribute - put them in `headers`: " + repr(label))
-
-        # Same as .cpp for now
-        key_pp = "cxx"
-        key_compiler = "cxx_cpp_output"
+        fail("Not allowed to have header files in the `srcs` attribute - put them in `headers`")
     else:
         fail("Unexpected file extension: " + ext)
     res = []

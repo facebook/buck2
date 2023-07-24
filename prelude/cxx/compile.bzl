@@ -498,9 +498,9 @@ def _mk_argsfile(
 
 def _attr_compiler_flags(ctx: AnalysisContext, ext: str) -> [""]:
     return (
-        cxx_by_language_ext(ctx.attrs.lang_compiler_flags, ext, ctx.label) +
+        cxx_by_language_ext(ctx.attrs.lang_compiler_flags, ext) +
         flatten(cxx_by_platform(ctx, ctx.attrs.platform_compiler_flags)) +
-        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_compiler_flags, ext, ctx.label))) +
+        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_compiler_flags, ext))) +
         # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
         # flags ordering-dependent build errors
         ctx.attrs.compiler_flags
