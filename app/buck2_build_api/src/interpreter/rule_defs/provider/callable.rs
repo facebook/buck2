@@ -33,6 +33,7 @@ use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -48,6 +49,7 @@ use starlark::values::ValueLike;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
+use crate::interpreter::rule_defs::provider::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
 
 #[derive(Debug, thiserror::Error)]
@@ -426,4 +428,14 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
             field_names,
         ))
     }
+
+    /// Provider type, can be used in type expressions.
+    ///
+    /// # Examples
+    ///
+    /// ```python
+    /// def foo() -> list[Provider]:
+    ///     return [DefaultInfo()]
+    /// ```
+    const Provider: StarlarkValueAsType<AbstractProvider> = StarlarkValueAsType::new();
 }

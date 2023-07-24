@@ -68,6 +68,7 @@ use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoC
 use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 
+pub(crate) mod abstract_provider;
 pub mod builtin;
 pub mod callable;
 pub mod collection;
