@@ -462,7 +462,7 @@ impl<A: ArenaAllocator> Allocative for Arena<A> {
             let mut allocated_visitor =
                 visitor.enter(allocative::Key::new("allocated"), bump.allocated_bytes());
             Arena::for_each_unordered_in_bump(bump, |x| {
-                let key = x.unpack().type_as_allocative_key();
+                let key = x.0.type_as_allocative_key.clone();
                 let size = x.alloc_size();
                 let mut object_visitor = allocated_visitor.enter(key, size.bytes() as usize);
                 // We visit both drop and non-drop bumps, because although

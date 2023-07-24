@@ -216,7 +216,7 @@ impl AValueHeader {
     }
 
     pub(crate) unsafe fn payload<'v, T: StarlarkValue<'v>>(&self) -> &T {
-        debug_assert_eq!(self.unpack().static_type_of_value(), T::static_type_id());
+        debug_assert_eq!(self.0.static_type_of_value.get(), T::static_type_id());
         &*self.payload_ptr().value_ptr::<T>()
     }
 
@@ -266,7 +266,7 @@ impl AValueHeader {
 
     #[inline]
     pub(crate) unsafe fn as_repr_v<'v, T: StarlarkValue<'v>>(&self) -> &AValueRepr<T> {
-        debug_assert_eq!(T::static_type_id(), self.unpack().static_type_of_value());
+        debug_assert_eq!(T::static_type_id(), self.0.static_type_of_value.get());
         &*(self as *const AValueHeader as *const AValueRepr<T>)
     }
 

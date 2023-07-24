@@ -236,7 +236,7 @@ impl<'v> Value<'v> {
 
     #[inline]
     pub(crate) fn new_ptr_query_is_str(x: &'v AValueHeader) -> Self {
-        let is_string = x.unpack().is_str();
+        let is_string = x.0.is_str;
         Self::new_ptr(x, is_string)
     }
 
@@ -855,7 +855,7 @@ impl FrozenValue {
 
     #[inline]
     pub(crate) fn new_ptr_query_is_str(x: &'static AValueHeader) -> Self {
-        let is_string = x.unpack().is_str();
+        let is_string = x.0.is_str;
         Self::new_ptr(x, is_string)
     }
 

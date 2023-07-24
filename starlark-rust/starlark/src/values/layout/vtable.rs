@@ -109,10 +109,10 @@ impl StarlarkValueRawPtr {
 
 pub(crate) struct AValueVTable {
     // Common `AValue` fields.
-    static_type_of_value: ConstTypeId,
+    pub(crate) static_type_of_value: ConstTypeId,
     type_name: &'static str,
     /// Cache `type_name` here to avoid computing hash.
-    type_as_allocative_key: allocative::Key,
+    pub(crate) type_as_allocative_key: allocative::Key,
 
     // `StarlarkValue`
     starlark_value: StarlarkValueVTable,
@@ -121,7 +121,7 @@ pub(crate) struct AValueVTable {
     drop_in_place: fn(StarlarkValueRawPtr),
 
     // `AValue`
-    is_str: bool,
+    pub(crate) is_str: bool,
     memory_size: fn(StarlarkValueRawPtr) -> ValueAllocSize,
     heap_freeze: fn(StarlarkValueRawPtr, &Freezer) -> anyhow::Result<FrozenValue>,
     heap_copy: for<'v> fn(StarlarkValueRawPtr, &Tracer<'v>) -> Value<'v>,
@@ -292,18 +292,8 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn type_as_allocative_key(self) -> allocative::Key {
-        self.vtable.type_as_allocative_key.clone()
-    }
-
-    #[inline]
     pub(crate) fn static_type_of_value(self) -> TypeId {
         self.vtable.static_type_of_value.get()
-    }
-
-    #[inline]
-    pub(crate) fn is_str(self) -> bool {
-        self.vtable.is_str
     }
 
     #[inline]
