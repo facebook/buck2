@@ -25,6 +25,7 @@ class OutputJsonFiles(NamedTuple):
     cl: IO[str]
     lib: IO[str]
     ml64: IO[str]
+    link: IO[str]
 
 
 class Tool(NamedTuple):
@@ -96,7 +97,7 @@ def find_with_vswhere_exe():
         lib_path = tools_path / "lib" / "x64"
         include_path = tools_path / "include"
 
-        exe_names = "cl.exe", "lib.exe", "ml64.exe"
+        exe_names = "cl.exe", "lib.exe", "ml64.exe", "link.exe"
         if not all(bin_path.joinpath(exe).exists() for exe in exe_names):
             continue
 
@@ -204,6 +205,7 @@ def main():
     parser.add_argument("--cl", type=argparse.FileType("w"), required=True)
     parser.add_argument("--lib", type=argparse.FileType("w"), required=True)
     parser.add_argument("--ml64", type=argparse.FileType("w"), required=True)
+    parser.add_argument("--link", type=argparse.FileType("w"), required=True)
     output = OutputJsonFiles(**vars(parser.parse_args()))
 
     # If vcvars has been run, it puts these tools onto $PATH.
@@ -211,12 +213,14 @@ def main():
         cl_exe = find_in_path("cl.exe")
         lib_exe = find_in_path("lib.exe")
         ml64_exe = find_in_path("ml64.exe")
+        link_exe = find_in_path("link.exe")
     else:
-        cl_exe, lib_exe, ml64_exe = find_with_vswhere_exe()
+        cl_exe, lib_exe, ml64_exe, link_exe = find_with_vswhere_exe()
 
     write_tool_json(output.cl, cl_exe)
     write_tool_json(output.lib, lib_exe)
     write_tool_json(output.ml64, ml64_exe)
+    write_tool_json(output.link, link_exe)
 
 
 if __name__ == "__main__":
