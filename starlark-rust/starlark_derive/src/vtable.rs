@@ -22,6 +22,7 @@ use quote::quote_spanned;
 use syn::parse::ParseStream;
 use syn::parse_macro_input;
 use syn::spanned::Spanned;
+use syn::visit_mut::VisitMut;
 use syn::FnArg;
 use syn::ItemTrait;
 use syn::Pat;
@@ -72,6 +73,20 @@ impl Gen {
         Ok(syn::parse2::<FieldParser>(field)?.field)
     }
 
+    fn remove_lifetime_params(ty: &syn::Type) -> syn::Type {
+        struct RemoveLifetimeParams;
+
+        impl VisitMut for RemoveLifetimeParams {
+            fn visit_lifetime_mut(&mut self, i: &mut syn::Lifetime) {
+                i.ident = syn::Ident::new("_", i.ident.span());
+            }
+        }
+
+        let mut ty = ty.clone();
+        RemoveLifetimeParams.visit_type_mut(&mut ty);
+        ty
+    }
+
     fn vtable_entry(&self, method: &TraitItemFn) -> syn::Result<VTableEntry> {
         let fn_name = &method.sig.ident;
         let fn_ret_type = &method.sig.output;
@@ -97,6 +112,7 @@ impl Gen {
                         _ => return Err(syn::Error::new(p.span(), "parameter must be identifier")),
                     };
                     let ty = &p.ty;
+                    let ty_without_lifetime = Self::remove_lifetime_params(ty);
                     field_fn_param_types.push(syn::parse_quote_spanned! {method.sig.span()=>
                         #ty
                     });
@@ -105,7 +121,9 @@ impl Gen {
                     });
                     field_init_args.push(syn::parse_quote_spanned! {method.sig.span()=>
                         // We do `transmute` to get rid of lifetimes, see below.
-                        std::mem::transmute(#name)
+                        // We specify type parameters explicitly
+                        // to fail at compile time if there's a bug in derive.
+                        std::mem::transmute::<#ty_without_lifetime, #ty_without_lifetime>(#name)
                     });
                 }
             }
