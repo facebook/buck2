@@ -147,11 +147,13 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
     }
 
     /// Construct typed value without checking the value is of type `<T>`.
+    #[inline]
     pub unsafe fn new_unchecked(value: Value<'v>) -> ValueTyped<'v, T> {
         debug_assert!(value.downcast_ref::<T>().is_some());
         ValueTyped(value, marker::PhantomData)
     }
 
+    #[inline]
     pub(crate) fn new_repr<A: AValue<'v, StarlarkValue = T>>(
         repr: &'v AValueRepr<A>,
     ) -> ValueTyped<'v, T> {
@@ -159,11 +161,13 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
     }
 
     /// Erase the type.
+    #[inline]
     pub fn to_value(self) -> Value<'v> {
         self.0
     }
 
     /// Get the reference to the pointed value.
+    #[inline]
     pub fn as_ref(self) -> &'v T {
         if PointerI32::type_is_pointer_i32::<T>() {
             unsafe {
@@ -187,6 +191,7 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
 
 impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     /// Construct `FrozenValueTyped` without checking that the value is of correct type.
+    #[inline]
     pub unsafe fn new_unchecked(value: FrozenValue) -> FrozenValueTyped<'v, T> {
         debug_assert!(value.downcast_ref::<T>().is_some());
         FrozenValueTyped(value, marker::PhantomData)
@@ -199,6 +204,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
         Some(FrozenValueTyped(value, marker::PhantomData))
     }
 
+    #[inline]
     pub(crate) fn new_repr<A: AValue<'v, StarlarkValue = T>>(
         repr: &'v AValueRepr<A>,
     ) -> FrozenValueTyped<'v, T> {
@@ -208,6 +214,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     }
 
     /// Erase the type.
+    #[inline]
     pub fn to_frozen_value(self) -> FrozenValue {
         self.0
     }
@@ -219,6 +226,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     }
 
     /// Convert to the value.
+    #[inline]
     pub fn to_value_typed(self) -> ValueTyped<'v, T> {
         unsafe { ValueTyped::new_unchecked(self.0.to_value()) }
     }
@@ -256,6 +264,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
         }
     }
 
+    #[inline]
     pub(crate) fn as_frozen_ref(self) -> FrozenRef<'v, T> {
         FrozenRef::new(self.as_ref())
     }
@@ -263,6 +272,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
 
 impl<'v> ValueTyped<'v, StarlarkStr> {
     /// Get the Rust string reference.
+    #[inline]
     pub fn as_str(self) -> &'v str {
         self.as_ref().as_str()
     }
@@ -270,6 +280,7 @@ impl<'v> ValueTyped<'v, StarlarkStr> {
 
 impl<'v> FrozenValueTyped<'v, StarlarkStr> {
     /// Get the Rust string reference.
+    #[inline]
     pub fn as_str(self) -> &'v str {
         self.as_ref().as_str()
     }
@@ -286,6 +297,7 @@ unsafe impl<'v, T: StarlarkValue<'v>> Trace<'v> for ValueTyped<'v, T> {
 impl<'v, T: StarlarkValue<'v>> Deref for FrozenValueTyped<'v, T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &T {
         self.as_ref()
     }
@@ -294,6 +306,7 @@ impl<'v, T: StarlarkValue<'v>> Deref for FrozenValueTyped<'v, T> {
 impl<'v, T: StarlarkValue<'v>> Deref for ValueTyped<'v, T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &T {
         self.as_ref()
     }
