@@ -14,6 +14,9 @@ load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_at
 
 # Configuration
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
+
+# C++ - LLVM
+load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_extra_attributes", "cxx_toolchain_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
@@ -190,6 +193,9 @@ extra_implemented_rules = struct(
     cxx_python_extension = cxx_python_extension_impl,
     prebuilt_cxx_library = prebuilt_cxx_library_impl,
     prebuilt_cxx_library_group = prebuilt_cxx_library_group_impl,
+
+    # C++ / LLVM
+    llvm_link_bitcode = llvm_link_bitcode_impl,
 
     #git
     git_fetch = git_fetch_impl,
@@ -417,7 +423,11 @@ inlined_extra_attributes = {
         **_cxx_binary_and_test_attrs()
     ),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
+
+    # Generic rule to build from a command
     "genrule": genrule_attributes(),
+
+    # Go
     "go_binary": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
@@ -465,6 +475,9 @@ inlined_extra_attributes = {
         "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_haskell_toolchain": toolchains_common.haskell(),
+    },
+    "llvm_link_bitcode": {
+        "_cxx_toolchain": toolchains_common.cxx(),
     },
     "ndk_toolchain": {
         "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo, CxxPlatformInfo]),

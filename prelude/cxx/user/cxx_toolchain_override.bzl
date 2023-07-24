@@ -136,6 +136,7 @@ def _cxx_toolchain_override(ctx):
         bolt_enabled = value_or(ctx.attrs.bolt_enabled, base_toolchain.bolt_enabled),
         c_compiler_info = c_info,
         cxx_compiler_info = cxx_info,
+        llvm_link = ctx.attrs.llvm_link if ctx.attrs.llvm_link != None else base_toolchain.llvm_link,
         # the rest are used without overrides
         cuda_compiler_info = base_toolchain.cuda_compiler_info,
         hip_compiler_info = base_toolchain.hip_compiler_info,
@@ -186,6 +187,7 @@ def _cxx_toolchain_override_inheriting_target_platform_attrs(is_toolchain_rule):
         "linker": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "linker_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "linker_type": attrs.option(attrs.enum(LinkerType), default = None),
+        "llvm_link": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "lto_mode": attrs.option(attrs.enum(LtoMode.values()), default = None),
         "mk_comp_db": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "mk_hmap": attrs.option(dep_type(providers = [RunInfo]), default = None),

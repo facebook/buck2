@@ -1199,6 +1199,36 @@ prebuilt_cxx_library_group = prelude_rule(
     ),
 )
 
+llvm_link_bitcode = prelude_rule(
+    name = "llvm_link_bitcode",
+    docs = """
+        A llvm\\_link\\_bitcode() rule builds a LLVM bitcode object from a given set LLVM bitcode inputs.
+    """,
+    examples = """
+        ```
+
+        # A rule that builds and runs C/C++ test using gtest.
+        llvm_link_bitcode(
+          name = 'echo_test',
+          srcs = [
+            'echo_test.o',  // Where this is a LLVM bitcode object.
+            'echo_other.o', // And this is another LLVM bitcode object.
+          ],
+        )
+
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        cxx_common.srcs_arg() |
+        buck.deps_query_arg() |
+        {
+            "deps": attrs.list(attrs.dep(), default = []),
+        }
+    ),
+)
+
 cxx_rules = struct(
     cxx_binary = cxx_binary,
     cxx_genrule = cxx_genrule,
@@ -1208,4 +1238,5 @@ cxx_rules = struct(
     cxx_toolchain = cxx_toolchain,
     prebuilt_cxx_library = prebuilt_cxx_library,
     prebuilt_cxx_library_group = prebuilt_cxx_library_group,
+    llvm_link_bitcode = llvm_link_bitcode,
 )

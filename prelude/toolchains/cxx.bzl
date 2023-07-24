@@ -67,6 +67,11 @@ def _system_cxx_toolchain_impl(ctx):
     else:
         additional_linker_flags = ["-fuse-ld=lld"]
 
+    if ctx.attrs.compiler_type == "clang":
+        llvm_link = RunInfo(args = ["llvm-link"])
+    else:
+        llvm_link = None
+
     return [
         DefaultInfo(),
         CxxToolchainInfo(
@@ -129,6 +134,7 @@ def _system_cxx_toolchain_impl(ctx):
             header_mode = HeaderMode("symlink_tree_only"),
             cpp_dep_tracking_mode = ctx.attrs.cpp_dep_tracking_mode,
             pic_behavior = pic_behavior,
+            llvm_link = llvm_link,
         ),
         CxxPlatformInfo(name = "x86_64"),
     ]
