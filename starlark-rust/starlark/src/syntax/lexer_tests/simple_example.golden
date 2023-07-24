@@ -22,6 +22,7 @@ identifier 'ctx'                # ctx
 symbol ')'                      # )
 symbol ':'                      # :
 new line                        # \n
+comment ' Print Hello, World!'  # # Print Hello, World!
 new indentation block           #   
 identifier 'print'              # print
 symbol '('                      # (

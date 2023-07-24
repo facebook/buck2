@@ -15,9 +15,14 @@ a # third comment
 ]
 
 Tokens:
-identifier 'a'  # a
-new line        # \n
-new line        # \n
-symbol '['      # [
-symbol ']'      # ]
-new line        #
+comment ' first comment'                     # # first comment
+comment ' second comment'                    # # second comment
+identifier 'a'                               # a
+comment ' third comment'                     # # third comment
+new line                                     # \n
+new line                                     # \n
+comment ' But it should not eat everything'  # # But it should not eat everything
+symbol '['                                   # [
+comment ' comment inside list'               # # comment inside list
+symbol ']'                                   # ]
+new line                                     #

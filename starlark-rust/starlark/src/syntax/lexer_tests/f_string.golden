@@ -18,6 +18,7 @@ new line                    # \n
 f-string "basic2 {stuff2}"  # f'basic2 {stuff2}'
 new line                    # \n
 new line                    # \n
+comment ' Raw f-string'     # # Raw f-string
 new line                    # \n
 f-string ""                 # fr''
 f-string ""                 # fr""

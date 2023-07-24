@@ -53,6 +53,8 @@ pub(crate) enum LexemeError {
     StartsZero(String),
     #[error("Parse error: failed to parse integer: `{0}`")]
     IntParse(String),
+    #[error("Comment span is computed incorrectly (internal error)")]
+    CommentSpanComputedIncorrectly,
 }
 
 type LexemeT<T> = Result<(usize, T, usize), EvalException>;
@@ -112,6 +114,27 @@ impl<'a> Lexer<'a> {
         )
     }
 
+    /// Comment tokens are produced by either logos for comments after code,
+    /// or explicitly on lines which are only comments. This functions is used in the latter case.
+    #[allow(clippy::manual_strip)]
+    fn make_comment(&self, start: usize, end: usize) -> Lexeme {
+        let comment = &self.codemap.source()[start..end];
+        if !comment.starts_with('#') {
+            return self.err_pos(LexemeError::CommentSpanComputedIncorrectly, start);
+        }
+        // Remove the `#`.
+        let comment = &comment[1..];
+        // Remove the trailing `\r` if it exists.
+        // Note comments do not contain `\n`.
+        if comment.ends_with('\r') {
+            let end = end - 1;
+            let comment = &comment[..comment.len() - 1];
+            Ok((start, Token::Comment(comment.to_owned()), end))
+        } else {
+            Ok((start, Token::Comment(comment.to_owned()), end))
+        }
+    }
+
     /// We have just seen a newline, read how many indents we have
     /// and then set self.indent properly
     fn calculate_indent(&mut self) -> Result<(), EvalException> {
@@ -142,14 +165,17 @@ impl<'a> Lexer<'a> {
                     // We just ignore these entirely
                 }
                 Some('#') => {
-                    // A line that is all comments doesn't get emitted at all
+                    // A line that is all comments, only emits comment tokens.
                     // Skip until the next newline
                     // Remove skip now, so we can freely add it on later
                     spaces = 0;
                     tabs = 0;
+                    let start = self.lexer.span().end + it.pos() - 1;
                     loop {
                         match it.next_char() {
                             None => {
+                                let end = self.lexer.span().end + it.pos();
+                                self.buffer.push_back(self.make_comment(start, end));
                                 self.lexer.bump(it.pos());
                                 return Ok(());
                             }
@@ -157,6 +183,8 @@ impl<'a> Lexer<'a> {
                             Some(_) => {}
                         }
                     }
+                    let end = self.lexer.span().end + it.pos() - 1;
+                    self.buffer.push_back(self.make_comment(start, end));
                     indent_start = self.lexer.span().end + it.pos();
                 }
                 _ => break,
@@ -570,9 +598,13 @@ pub enum Token {
     #[regex(" +", logos::skip)] // Whitespace
     #[token("\\\n", logos::skip)] // Escaped newline
     #[token("\\\r\n", logos::skip)] // Escaped newline (Windows line ending)
-    #[regex(r#"#[^\n]*"#, logos::skip)] // Comments
     #[error]
     Error,
+
+    /// Comment as token.
+    /// Span includes the leading `#`, but the content does not.
+    #[regex(r#"#[^\r\n]*"#, |lex| lex.slice()[1..].to_owned())]
+    Comment(String),
 
     #[regex("\t+")] // Tabs (might be an error)
     Tabs,
@@ -881,6 +913,7 @@ impl Display for Token {
             Token::RawFStringDoubleQuote => write!(f, "starting f'"),
             Token::RawFStringSingleQuote => write!(f, "starting f\""),
             Token::FString(s) => write!(f, "f-string {:?}", &s.content),
+            Token::Comment(c) => write!(f, "comment '{}'", c),
             Token::Tabs => Ok(()),
         }
     }
