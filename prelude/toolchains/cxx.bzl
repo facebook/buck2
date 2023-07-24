@@ -22,7 +22,7 @@ load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//toolchains/msvc:tools.bzl", "VisualStudio")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 
-def _system_cxx_toolchain_impl(ctx):
+def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     """
     A very simple toolchain that is hardcoded to the current environment.
     """
@@ -53,7 +53,9 @@ def _system_cxx_toolchain_impl(ctx):
         if compiler == "cl.exe":
             compiler = msvc_tools.cl_exe
         cxx_compiler = compiler
-        linker = _windows_linker_wrapper(ctx)
+        if linker == "link.exe":
+            linker = msvc_tools.link_exe
+        linker = _windows_linker_wrapper(ctx, linker)
         linker_type = "windows"
         binary_extension = "exe"
         object_file_extension = "obj"
@@ -139,7 +141,7 @@ def _system_cxx_toolchain_impl(ctx):
         CxxPlatformInfo(name = "x86_64"),
     ]
 
-def _windows_linker_wrapper(ctx: AnalysisContext) -> cmd_args:
+def _windows_linker_wrapper(ctx: AnalysisContext, linker: cmd_args) -> cmd_args:
     # Linkers pretty much all support @file.txt argument syntax to insert
     # arguments from the given text file, usually formatted one argument per
     # line.
@@ -157,7 +159,7 @@ def _windows_linker_wrapper(ctx: AnalysisContext) -> cmd_args:
         name = "windows_linker",
         cmd = cmd_args(
             ctx.attrs.linker_wrapper[RunInfo],
-            ctx.attrs.linker,
+            linker,
         ),
         os = ScriptOs("windows"),
     )
