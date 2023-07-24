@@ -125,7 +125,7 @@ impl LibraryExtension {
             Breakpoint => breakpoint::global(builder),
             Json => json::json(builder),
             Abs => extra::abs(builder),
-            Typing => typing::register_eval_type(builder),
+            Typing => typing::globals::register_typing(builder),
         }
     }
 }

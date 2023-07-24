@@ -56,7 +56,7 @@ use crate::values::bool::StarlarkBool;
 use crate::values::float::StarlarkFloat;
 use crate::values::tuple::value::FrozenTuple;
 use crate::values::types::bigint::StarlarkBigInt;
-use crate::values::typing::TypeCompiled;
+use crate::values::typing::type_compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
