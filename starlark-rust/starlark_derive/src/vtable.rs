@@ -16,6 +16,7 @@
  */
 
 use proc_macro2::Ident;
+use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
@@ -38,6 +39,28 @@ struct VTableEntry {
     field: syn::Field,
     init: syn::FieldValue,
     init_for_black_hole: syn::FieldValue,
+}
+
+/// Description of vtable fn parameter.
+struct VTableFnParam {
+    /// Span for error reporting.
+    span: Span,
+    /// Name of the parameter.
+    name: Ident,
+    /// Type of the parameter.
+    ty: syn::Type,
+    /// Expression to convert function argument to method argument.
+    unpack: syn::Expr,
+}
+
+impl VTableFnParam {
+    fn fn_arg(&self) -> syn::FnArg {
+        let name = &self.name;
+        let ty = &self.ty;
+        syn::parse_quote_spanned! {self.span=>
+            #name: #ty
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -87,56 +110,54 @@ impl Gen {
         ty
     }
 
-    fn vtable_entry(&self, method: &TraitItemFn) -> syn::Result<VTableEntry> {
-        let fn_name = &method.sig.ident;
-        let fn_ret_type = &method.sig.output;
-        let mut field_fn_param_types: Vec<syn::Type> = Vec::new();
-        let mut field_params_names: Vec<Ident> = Vec::new();
-        let mut field_init_args: Vec<syn::Expr> = Vec::new();
-        for param in &method.sig.inputs {
-            match param {
-                FnArg::Receiver(_) => {
-                    field_fn_param_types.push(syn::parse_quote_spanned! {method.sig.span()=>
-                        crate::values::layout::vtable::StarlarkValueRawPtr
-                    });
-                    field_params_names.push(syn::parse_quote_spanned! {method.sig.span()=>
-                        this
-                    });
-                    field_init_args.push(syn::parse_quote_spanned! {method.sig.span()=>
-                        this.value_ref::<T>()
-                    });
-                }
-                FnArg::Typed(p) => {
-                    let name = match &*p.pat {
-                        Pat::Ident(p) => p.ident.clone(),
-                        _ => return Err(syn::Error::new(p.span(), "parameter must be identifier")),
-                    };
-                    let ty = &p.ty;
-                    let ty_without_lifetime = Self::remove_lifetime_params(ty);
-                    field_fn_param_types.push(syn::parse_quote_spanned! {method.sig.span()=>
-                        #ty
-                    });
-                    field_params_names.push(syn::parse_quote_spanned! {method.sig.span()=>
-                        #name
-                    });
-                    field_init_args.push(syn::parse_quote_spanned! {method.sig.span()=>
+    /// Parse `StarlarkValue` method parameter into vtable `fn` parameter and unpack expr.
+    fn vtable_entry_param(&self, span: Span, param: &FnArg) -> syn::Result<VTableFnParam> {
+        match param {
+            FnArg::Receiver(_) => Ok(VTableFnParam {
+                span,
+                name: syn::parse_quote_spanned! {span=>
+                    this
+                },
+                ty: syn::parse_quote_spanned! {span=>
+                    crate::values::layout::vtable::StarlarkValueRawPtr
+                },
+                unpack: syn::parse_quote_spanned! {span=>
+                    this.value_ref::<T>()
+                },
+            }),
+            FnArg::Typed(p) => {
+                let name: &Ident = match &*p.pat {
+                    Pat::Ident(p) => &p.ident,
+                    p => return Err(syn::Error::new(p.span(), "parameter must be identifier")),
+                };
+                let ty_without_lifetime = Self::remove_lifetime_params(&p.ty);
+                Ok(VTableFnParam {
+                    span,
+                    name: name.clone(),
+                    ty: (*p.ty).clone(),
+                    unpack: syn::parse_quote_spanned! {span=>
                         // We do `transmute` to get rid of lifetimes, see below.
                         // We specify type parameters explicitly
                         // to fail at compile time if there's a bug in derive.
                         std::mem::transmute::<#ty_without_lifetime, #ty_without_lifetime>(#name)
-                    });
-                }
+                    },
+                })
             }
         }
-        let field_init_param_pairs: Vec<syn::FnArg> = field_fn_param_types
+    }
+
+    fn vtable_entry(&self, method: &TraitItemFn) -> syn::Result<VTableEntry> {
+        let fn_name = &method.sig.ident;
+        let fn_ret_type = &method.sig.output;
+
+        let params: Vec<VTableFnParam> = method
+            .sig
+            .inputs
             .iter()
-            .zip(field_params_names.iter())
-            .map(|(ty, name)| {
-                syn::parse_quote_spanned! {method.sig.span()=>
-                    #name: #ty
-                }
-            })
-            .collect();
+            .map(|param| self.vtable_entry_param(method.sig.span(), param))
+            .collect::<syn::Result<_>>()?;
+
+        let field_init_param_pairs: Vec<syn::FnArg> = params.iter().map(|p| p.fn_arg()).collect();
         let ret = match &method.sig.output {
             ReturnType::Default => quote! {},
             ReturnType::Type(_, ty) => {
@@ -145,12 +166,14 @@ impl Gen {
                 }
             }
         };
+        let field_fn_param_types: Vec<&syn::Type> = params.iter().map(|p| &p.ty).collect();
         let field = Self::parse_named_field(quote_spanned! {method.sig.span()=>
             pub(crate) #fn_name: for<'a, 'v> fn(
                 #(#field_fn_param_types),*
             ) #ret
         })?;
 
+        let field_init_args: Vec<&syn::Expr> = params.iter().map(|p| &p.unpack).collect();
         let init = syn::parse_quote_spanned! {method.sig.span()=>
             #fn_name: {
                 // It is important to put vtable entry into named function
@@ -176,6 +199,7 @@ impl Gen {
                 #fn_name::<T>
             }
         };
+        let field_params_names: Vec<&Ident> = params.iter().map(|p| &p.name).collect();
         let init_for_black_hole = syn::parse_quote_spanned! {method.sig.span()=>
             #fn_name: |#(#field_params_names),*| {
                 panic!("BlackHole")
