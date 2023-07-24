@@ -1164,6 +1164,11 @@ f()
     }
 
     #[test]
+    fn test_eval_type_eval_type() {
+        assert::is_true("isinstance(1, eval_type(eval_type(int)))");
+    }
+
+    #[test]
     fn test_type_compiled_can_be_used_in_function_signature() {
         assert::pass(
             r#"
