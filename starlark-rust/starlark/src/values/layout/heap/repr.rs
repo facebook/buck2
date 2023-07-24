@@ -141,19 +141,19 @@ impl AValueOrForward {
         unsafe { (self.flags & 1) != 0 }
     }
 
-    pub(crate) fn unpack(&self) -> Either<&AValueHeader, &AValueForward> {
+    pub(crate) fn unpack(&self) -> AValueOrForwardUnpack {
         if self.is_forward() {
-            Either::Right(unsafe { &self.forward })
+            AValueOrForwardUnpack::Forward(unsafe { &self.forward })
         } else {
-            Either::Left(unsafe { &self.header })
+            AValueOrForwardUnpack::Header(unsafe { &self.header })
         }
     }
 
     /// Unpack something that might have been overwritten.
     pub(crate) fn unpack_overwrite<'v>(&'v self) -> Either<ForwardPtr, AValueDyn<'v>> {
         match self.unpack() {
-            Either::Left(header) => Either::Right(header.unpack()),
-            Either::Right(forward) => Either::Left(forward.forward_ptr()),
+            AValueOrForwardUnpack::Header(header) => Either::Right(header.unpack()),
+            AValueOrForwardUnpack::Forward(forward) => Either::Left(forward.forward_ptr()),
         }
     }
 
@@ -164,24 +164,36 @@ impl AValueOrForward {
     }
 
     pub(crate) fn unpack_header(&self) -> Option<&AValueHeader> {
-        self.unpack().left()
+        match self.unpack() {
+            AValueOrForwardUnpack::Header(header) => Some(header),
+            AValueOrForwardUnpack::Forward(_) => None,
+        }
     }
 
     pub(crate) fn unpack_forward(&self) -> Option<&AValueForward> {
-        self.unpack().right()
+        match self.unpack() {
+            AValueOrForwardUnpack::Header(_) => None,
+            AValueOrForwardUnpack::Forward(forward) => Some(forward),
+        }
     }
 
     /// Size of allocation for this object:
     /// following object is allocated at `self + alloc_size + align up`.
     pub(crate) fn alloc_size(&self) -> ValueAllocSize {
         match self.unpack() {
-            Either::Left(ptr) => ptr.unpack().memory_size(),
-            Either::Right(forward) => {
+            AValueOrForwardUnpack::Header(ptr) => ptr.unpack().memory_size(),
+            AValueOrForwardUnpack::Forward(forward) => {
                 // Overwritten, so the next word will be the size of the memory
                 forward.object_size
             }
         }
     }
+}
+
+/// `AValueOrForward` as enum.
+pub(crate) enum AValueOrForwardUnpack<'a> {
+    Header(&'a AValueHeader),
+    Forward(&'a AValueForward),
 }
 
 impl AValueForward {

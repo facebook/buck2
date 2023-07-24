@@ -38,7 +38,6 @@ use allocative::Allocative;
 use allocative::Visitor;
 use bumpalo::Bump;
 use dupe::Dupe;
-use either::Either;
 use starlark_map::small_map::SmallMap;
 
 use crate::cast::transmute;
@@ -59,6 +58,7 @@ use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForward;
+use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::string::StarlarkStr;
@@ -352,7 +352,7 @@ impl<A: ArenaAllocator> Arena<A> {
         }
 
         self.for_each_ordered(|x| match x.unpack() {
-            Either::Left(header) => {
+            AValueOrForwardUnpack::Header(header) => {
                 let value = header.unpack_value(heap_kind);
                 if let Some(call_enter) = value.downcast_ref::<CallEnter<NeedsDrop>>() {
                     visitor.call_enter(
@@ -372,7 +372,7 @@ impl<A: ArenaAllocator> Arena<A> {
                     visitor.regular_value(x);
                 }
             }
-            Either::Right(_forward) => {
+            AValueOrForwardUnpack::Forward(_forward) => {
                 visitor.regular_value(x);
             }
         });

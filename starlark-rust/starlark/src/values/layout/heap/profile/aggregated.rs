@@ -28,7 +28,6 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use either::Either;
 use starlark_map::small_map::SmallMap;
 
 use crate::eval::runtime::profile::data::ProfileDataImpl;
@@ -46,6 +45,7 @@ use crate::values::layout::heap::profile::string_index::StringId;
 use crate::values::layout::heap::profile::string_index::StringIndex;
 use crate::values::layout::heap::profile::summary_by_function::HeapSummaryByFunction;
 use crate::values::layout::heap::repr::AValueOrForward;
+use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Heap;
 use crate::values::Value;
@@ -149,8 +149,10 @@ impl StackCollector {
 impl<'v> ArenaVisitor<'v> for StackCollector {
     fn regular_value(&mut self, value: &'v AValueOrForward) {
         let value = match (value.unpack(), self.retained) {
-            (Either::Left(header), None) => unsafe { header.unpack_value(HeapKind::Unfrozen) },
-            (Either::Right(forward), Some(retained)) => unsafe {
+            (AValueOrForwardUnpack::Header(header), None) => unsafe {
+                header.unpack_value(HeapKind::Unfrozen)
+            },
+            (AValueOrForwardUnpack::Forward(forward), Some(retained)) => unsafe {
                 forward.forward_ptr().unpack_value(retained)
             },
             _ => return,
