@@ -45,6 +45,7 @@ use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::offset::Local;
 use chrono::DateTime;
+use derive_more::Display;
 use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::future::LocalBoxFuture;
@@ -82,6 +83,14 @@ enum RageError {
 struct RageSection<T> {
     title: String,
     status: CommandStatus<T>,
+}
+
+#[derive(Display)]
+pub enum MaterializerRageUploadData {
+    #[display(fmt = "state")]
+    State,
+    #[display(fmt = "fsck")]
+    Fsck,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -258,12 +267,26 @@ impl RageCommand {
             let materializer_state = RageSection::get(
                 "Materializer state Manifold path".to_owned(),
                 timeout,
-                || materializer::upload_materializer_state(&buckd, &client_ctx, &manifold_id),
+                || {
+                    materializer::upload_materializer_data(
+                        &buckd,
+                        &client_ctx,
+                        &manifold_id,
+                        MaterializerRageUploadData::State,
+                    )
+                },
             );
             let materializer_fsck = RageSection::get(
                 "Materializer fsck Manifold path".to_owned(),
                 timeout,
-                || materializer::upload_materializer_fsck(&buckd, &client_ctx, &manifold_id),
+                || {
+                    materializer::upload_materializer_data(
+                        &buckd,
+                        &client_ctx,
+                        &manifold_id,
+                        MaterializerRageUploadData::Fsck,
+                    )
+                },
             );
             let thread_dump = {
                 let title = "Thread dump Manifold path".to_owned();
