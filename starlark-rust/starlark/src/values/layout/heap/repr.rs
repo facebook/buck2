@@ -129,9 +129,9 @@ impl AValueForward {
 pub(crate) union AValueOrForward {
     // We intentionally do not implement `Copy` for these types
     // to avoid accidentally copying them.
-    pub(crate) header: ManuallyDrop<AValueHeader>,
-    pub(crate) forward: ManuallyDrop<AValueForward>,
-    pub(crate) flags: usize,
+    header: ManuallyDrop<AValueHeader>,
+    forward: ManuallyDrop<AValueForward>,
+    flags: usize,
 }
 
 impl AValueOrForward {
