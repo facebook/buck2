@@ -116,11 +116,12 @@ use crate::interpreter::rule_defs::provider::ProviderCollection;
 #[freeze(validator = validate_default_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
 pub struct DefaultInfoGen<V> {
-    /// A mapping of names to `ProviderCollection`s. The keys are used when
-    /// resolving the `ProviderName` portion of a `ProvidersLabel`. These collections
-    /// can contain, and actually /must/ contain a `DefaultInfo` provider. However,
-    /// nested label syntax is not supported. That is, `cell//foo:bar[baz]` is valid,
-    /// `cell//foo:bar[baz][quz]` is not.
+    /// A mapping of names to `ProviderCollection`s. The keys are used when resolving the
+    /// `ProviderName` portion of a `ProvidersLabel` in order to access the providers for a
+    /// subtarget, such as when doing `buck2 build cell//foo:bar[baz]`. Just like any
+    /// `ProviderCollection`, this collection must include at least a `DefaultInfo` provider. The
+    /// subtargets can have their own subtargets as well, which can be accessed by chaining them,
+    /// e.g.: `buck2 build cell//foo:bar[baz][qux]`.
     #[provider(field_type = "DictType<String, ProviderCollection>")]
     sub_targets: V,
     /// A list of `Artifact`s that are built by default if this rule is requested
