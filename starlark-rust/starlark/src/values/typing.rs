@@ -176,6 +176,15 @@ pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {
     ) -> anyhow::Result<TypeCompiled<Value<'v>>> {
         TypeCompiled::new(ty, heap)
     }
+
+    /// Check if a value matches the given type.
+    fn isinstance<'v>(
+        #[starlark(require = pos)] value: Value<'v>,
+        #[starlark(require = pos)] ty: Value<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<bool> {
+        Ok(TypeCompiled::new(ty, heap)?.matches(value))
+    }
 }
 
 #[derive(
@@ -1187,6 +1196,12 @@ f("x")
 "#,
             "Expected type `int.type` but got `str.type`",
         );
+    }
+
+    #[test]
+    fn test_isinstance() {
+        assert::eq("True", "isinstance(1, int)");
+        assert::eq("False", "isinstance(1, str)");
     }
 
     #[test]
