@@ -216,7 +216,7 @@ impl<'v> AllocValue<'v> for StarlarkDeclaredArtifact {
 impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(artifact_methods)
+        RES.methods(declared_artifact_methods)
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
@@ -234,7 +234,7 @@ impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
 
 /// A single input or output for an action
 #[starlark_module]
-fn artifact_methods(builder: &mut MethodsBuilder) {
+fn declared_artifact_methods(builder: &mut MethodsBuilder) {
     /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
     #[starlark(attribute)]
     fn basename<'v>(

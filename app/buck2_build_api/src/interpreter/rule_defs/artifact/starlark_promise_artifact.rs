@@ -198,7 +198,7 @@ impl CommandLineArgLike for StarlarkPromiseArtifact {
 impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(artifact_methods)
+        RES.methods(promise_artifact_methods)
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
@@ -220,7 +220,7 @@ impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
 
 /// A single input or output for an action
 #[starlark_module]
-fn artifact_methods(builder: &mut MethodsBuilder) {
+fn promise_artifact_methods(builder: &mut MethodsBuilder) {
     /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
     #[starlark(attribute)]
     fn basename<'v>(

@@ -310,7 +310,7 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(artifact_methods)
+        RES.methods(ensured_artifact_methods)
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
@@ -326,7 +326,7 @@ where
 ///
 /// Ensured artifacts are serializable and hashable.
 #[starlark_module]
-fn artifact_methods(builder: &mut MethodsBuilder) {
+fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
     /// Converts this artifact to be printed by its absolute path. Note that this will only print out the
     /// absolute path via `ctx.output.print()`. Starlark's `print()` will print out the display info for an
     /// ensured artifact.
