@@ -71,6 +71,54 @@ pub async fn upload_materializer_state(
     ))
 }
 
+pub async fn upload_materializer_fsck(
+    buckd: &SharedResult<BootstrapBuckdClient>,
+    client_context: &ClientContext,
+    manifold_id: &String,
+) -> anyhow::Result<String> {
+    let mut buckd = buckd
+        .clone()?
+        .with_subscribers(vec![Box::new(TracingSubscriber) as _]);
+
+    let mut capture = CaptureStdout::new();
+
+    let outcome = buckd
+        .with_flushing()
+        .audit(
+            buck2_cli_proto::GenericRequest {
+                context: Some(client_context.clone()),
+                serialized_opts: serde_json::to_string(&AuditCommand::DeferredMaterializer(
+                    DeferredMaterializerCommand {
+                        common_opts: Default::default(),
+                        subcommand: DeferredMaterializerSubcommand::Fsck,
+                    },
+                ))?,
+            },
+            None,
+            &mut capture,
+        )
+        .await?;
+
+    match outcome {
+        CommandOutcome::Success(..) => {}
+        CommandOutcome::Failure(..) => return Err(anyhow::anyhow!("Command failed")),
+    }
+
+    let manifold_bucket = manifold::Bucket::RAGE_DUMPS;
+    let manifold_filename = format!("{}_materializer_fsck", manifold_id);
+    manifold::Upload::new(manifold_bucket, &manifold_filename)
+        .with_default_ttl()
+        .from_async_read(&mut Cursor::new(&capture.buf))?
+        .spawn()
+        .await
+        .context("Error uploading to Manifold")?;
+
+    Ok(format!(
+        "{}/flat/{}",
+        manifold_bucket.name, manifold_filename
+    ))
+}
+
 /// Receive StdoutBytes, just capture them.
 struct CaptureStdout {
     buf: Vec<u8>,
