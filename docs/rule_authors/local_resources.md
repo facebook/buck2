@@ -10,7 +10,6 @@ Executing a test might require an external resource which is expensive to create
 This provider describes how to initialize and clean up a pool of homogeneous local resources. Management of initialized resources is done by Buck2 itself when it executes tests requiring such resources.
 
 Fields:
-* `source_target` — configured target label that is providing this local resource. It is an implementation detail and used internally to uniquely identify local resource and should be set to `ctx.label` in an implementation of a rule which returns this provider instance.
 * `setup` — command represented by `cmd_args` object which is executed to initialize a local resource. Running this command should write a JSON to stdout. This JSON represents a pool of local resources which are ready to be used.
 * `resource_env_vars` — key-value mapping `{str.type: str.type}` from environment variable (appended to an execution command for test which is dependent on this local resource) to keys in JSON output of `setup` command.
 
@@ -38,9 +37,9 @@ A decision whether certain local resource is required for specific test is made 
 
 If resource is required for a certain test execution and test could potentially be executed locally, `local_resources` field in test's `ExternalRunnerTestInfo` provider is used to select appropriate `LocalResourceInfo` provider.
 
-`ExternalRunnerTestInfo.local_resources` is a key-value mapping `{str.type: [LocalResourceInfo.type, None]}`. Keys are resource types (matching values passed from test runner) and values are `LocalResourceInfo` providers to be used for initialization of resource of that type. If the value is `None` it means resource of that type will not be provided even if the test runner requests it.
+`ExternalRunnerTestInfo.local_resources` is a key-value mapping `{str.type: ["label", None]}`. Keys represent resource types that match the values passed from the test runner, and values are labels that should point to a target exposing the `LocalResourceInfo` provider to be used for the initialization of the resource of that type. If the value is `None`, it indicates that a resource of that type will not be provided, even if the test runner requests it.
 
-Before running a test, `setup` command from selected provider is executed and its output is used to create a pool of resource instances. This pool is shared across all tests pointing to the same configured target label in `LocalResourceInfo.source_target` field (normally that means pool is shared for tests requiring same resource type). A resource is acquired (with potential queuing) from that pool prior single test is executed and is returned back to the pool when test finished execution. After `buck2 test` command is finished, cleanup is performed when SIGTERM is sent to each process holding a pool of resources.
+Before running a test, `setup` command from selected provider is executed and its output is used to create a pool of resource instances. This pool is shared across all tests pointing to the same configured target label containing `LocalResourceInfo` provider (normally that means pool is shared for tests requiring same resource type). A resource is acquired (with potential queuing) from that pool prior single test is executed and is returned back to the pool when test finished execution. After `buck2 test` command is finished, cleanup is performed when SIGTERM is sent to each process holding a pool of resources.
 
 ## Example Usage
 
@@ -59,7 +58,6 @@ def _impl(ctx: AnalysisContext) -> ["provider"]:
   return [
     DefaultInfo(),
     LocalResourceInfo(
-      source_target = ctx.label,
       setup = cmd_args([ctx.attrs.broker[RunInfo]]),
       resource_env_vars = { "IDB_COMPANION": "socket_address" },
     )
@@ -94,7 +92,7 @@ apple_test = rule(
 )
 ```
 
-Actually map "ios_simulator" resource type to provider:
+Actually map "ios_simulator" resource type to `:broker` target containing `LocalResourceInfo` provider:
 
 ```
 def apple_test_impl(ctx: AnalysisContext) -> ["provider"]:
@@ -104,7 +102,7 @@ def apple_test_impl(ctx: AnalysisContext) -> ["provider"]:
         ExternalRunnerTestInfo(
             ...
             local_resources = {
-                "ios_simulator": ctx.attrs._ios_simulator[LocalResourceInfo],
+                "ios_simulator": ctx.attrs._ios_simulator,
             },
             ...
 ```
