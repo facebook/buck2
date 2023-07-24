@@ -8,7 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:utils.bzl", "expect")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
-load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
+load(":apple_bundle_utility.bzl", "get_default_binary_dep", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo", "CodeSignType")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_sdk_metadata.bzl", "get_apple_sdk_metadata_for_sdk_name")
@@ -224,7 +224,7 @@ def _entitlements_file(ctx: AnalysisContext) -> ["artifact", None]:
         return None
 
     # The `binary` attribute can be either an apple_binary or a dynamic library from apple_library
-    binary_entitlement_info = ctx.attrs.binary[AppleEntitlementsInfo]
+    binary_entitlement_info = get_default_binary_dep(ctx)[AppleEntitlementsInfo]
     if binary_entitlement_info and binary_entitlement_info.entitlements_file:
         return binary_entitlement_info.entitlements_file
 

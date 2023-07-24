@@ -35,7 +35,7 @@ load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
 load(":apple_bundle_types.bzl", "AppleBinaryExtraOutputsInfo", "AppleBundleExtraOutputsInfo", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
-load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
+load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_default_binary_dep", "get_flattened_binary_deps", "get_product_name")
 load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(
@@ -88,11 +88,14 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput.type:
             is_watchkit_stub_binary = True,
         )
 
-    binary_dep = ctx.attrs.binary
-    if len(binary_dep[DefaultInfo].default_outputs) != 1:
-        fail("Expected single output artifact. Make sure the implementation of rule from `binary` attribute is correct.")
+    if ctx.attrs.universal:
+        fail("not implemented")
+    else:
+        binary_dep = get_default_binary_dep(ctx)
+        if len(binary_dep[DefaultInfo].default_outputs) != 1:
+            fail("Expected single output artifact. Make sure the implementation of rule from `binary` attribute is correct.")
 
-    return _maybe_scrub_binary(ctx, binary_dep)
+        return _maybe_scrub_binary(ctx, binary_dep)
 
 def _get_bundle_dsym_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_bundle_dir_name(ctx), ".dSYM")
@@ -173,12 +176,12 @@ def _apple_bundle_run_validity_checks(ctx: AnalysisContext):
 
 def _get_debuggable_deps(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput.type, run_cmd: "_arglike") -> AppleBundleDebuggableInfo.type:
     # `label` captures configuration as well, so it's safe to use for comparison purposes
-    binary_label = getattr(ctx.attrs.binary, "label", None)
+    binary_labels = filter(None, [getattr(binary_dep, "label", None) for binary_dep in get_flattened_binary_deps(ctx)])
     deps_debuggable_infos = filter(
         None,
         # It's allowed for `ctx.attrs.binary` to appear in `ctx.attrs.deps` as well,
         # in this case, do not duplicate the debugging info for the binary coming from two paths.
-        [dep.get(AppleDebuggableInfo) for dep in ctx.attrs.deps if dep.label != binary_label],
+        [dep.get(AppleDebuggableInfo) for dep in ctx.attrs.deps if dep.label not in binary_labels],
     )
 
     # We don't care to process the watchkit stub binary.
@@ -295,7 +298,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> ["provider"]:
 
 def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str: ""}:
     data = {
-        "deployment_version": get_bundle_min_target_version(ctx, ctx.attrs.binary),
+        "deployment_version": get_bundle_min_target_version(ctx, get_default_binary_dep(ctx)),
         "info_plist": ctx.attrs.info_plist,
         "processed_info_plist": processed_info_plist,
         "product_name": get_product_name(ctx),
@@ -306,7 +309,7 @@ def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str: "
     return data
 
 def _linker_maps_data(ctx: AnalysisContext) -> ("artifact", AppleBundleLinkerMapInfo.type):
-    deps_with_binary = ctx.attrs.deps + ([ctx.attrs.binary] if ctx.attrs.binary != None else [])
+    deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx)
     deps_linker_map_infos = filter(
         None,
         [dep.get(AppleBundleLinkerMapInfo) for dep in deps_with_binary],
@@ -323,12 +326,12 @@ def _linker_maps_data(ctx: AnalysisContext) -> ("artifact", AppleBundleLinkerMap
 def _extra_output_provider(ctx: AnalysisContext) -> AppleBundleExtraOutputsInfo.type:
     # Collect the sub_targets for this bundle's binary that are extra_linker_outputs.
     extra_outputs = []
-    if ctx.attrs.binary != None:
+    for binary_dep in get_flattened_binary_deps(ctx):
         linker_outputs = ctx.attrs._apple_toolchain[AppleToolchainInfo].extra_linker_outputs
-        binary_outputs = {k: v[DefaultInfo].default_outputs for k, v in ctx.attrs.binary[DefaultInfo].sub_targets.items() if k in linker_outputs}
+        binary_outputs = {k: v[DefaultInfo].default_outputs for k, v in binary_dep[DefaultInfo].sub_targets.items() if k in linker_outputs}
         extra_outputs.append(AppleBinaryExtraOutputsInfo(
             name = get_product_name(ctx),
-            default_output = ctx.attrs.binary[DefaultInfo].default_outputs[0],
+            default_output = binary_dep[DefaultInfo].default_outputs[0],
             extra_outputs = binary_outputs,
         ))
 

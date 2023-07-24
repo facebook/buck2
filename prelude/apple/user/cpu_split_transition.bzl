@@ -15,11 +15,9 @@ def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
         attrs: struct.type) -> {str: PlatformInfo.type}:
-    # Keeping the linter happy for now, attrs will be used in a future diff.
-    _ = attrs
-
+    universal = attrs.universal if attrs.universal != None else attrs._universal_default
     os = _os_constraint_value(platform, refs)
-    if os == None:
+    if not universal or os == None:
         # Don't do the splitting, since we don't know what OS type this is.
         return {platform.label: platform}
 
@@ -76,19 +74,23 @@ def _cpu_split_transition_impl(
 cpu_split_transition = transition(
     impl = _cpu_split_transition_impl,
     refs = {
-        "arm32": "ovr_config//cpu/constraints:arm32",
-        "arm64": "ovr_config//cpu/constraints:arm64",
-        "cpu": "ovr_config//cpu/constraints:cpu",
-        "ios": "ovr_config//os/constraints:iphoneos",
-        "ios_device_sdk": "ovr_config//os/sdk/apple/constraints:iphoneos",
-        "ios_simulator_sdk": "ovr_config//os/sdk/apple/constraints:iphonesimulator",
-        "macos": "ovr_config//os/constraints:macos",
-        "os": "ovr_config//os/constraints:os",
-        "sdk": "ovr_config//os/sdk/apple/constraints:_",
-        "watchos": "ovr_config//os/constraints:watchos",
-        "watchos_device_sdk": "ovr_config//os/sdk/apple/constraints:watchos",
-        "watchos_simulator_sdk": "ovr_config//os/sdk/apple/constraints:watchsimulator",
-        "x86_64": "ovr_config//cpu/constraints:x86_64",
+        "arm32": "config//cpu/constraints:arm32",
+        "arm64": "config//cpu/constraints:arm64",
+        "cpu": "config//cpu/constraints:cpu",
+        "ios": "config//os/constraints:iphoneos",
+        "ios_device_sdk": "config//os/sdk/apple/constraints:iphoneos",
+        "ios_simulator_sdk": "config//os/sdk/apple/constraints:iphonesimulator",
+        "macos": "config//os/constraints:macos",
+        "os": "config//os/constraints:os",
+        "sdk": "config//os/sdk/apple/constraints:_",
+        "watchos": "config//os/constraints:watchos",
+        "watchos_device_sdk": "config//os/sdk/apple/constraints:watchos",
+        "watchos_simulator_sdk": "config//os/sdk/apple/constraints:watchsimulator",
+        "x86_64": "config//cpu/constraints:x86_64",
     },
+    attrs = [
+        "universal",
+        "_universal_default",
+    ],
     split = True,
 )
