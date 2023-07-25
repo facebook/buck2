@@ -320,10 +320,12 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list["provider"]:
     if header_dirs != None:
         for x in header_dirs:
             args.append(format_system_include_arg(cmd_args(x), compiler_type))
-    specific_exportd_pre = CPreprocessor(relative_args = CPreprocessorArgs(args = args))
+    exported_items = [generic_exported_pre]
+    if args:
+        exported_items.append(CPreprocessor(relative_args = CPreprocessorArgs(args = args)))
     providers.append(cxx_merge_cpreprocessors(
         ctx,
-        [generic_exported_pre, specific_exportd_pre],
+        exported_items,
         inherited_pp_infos,
     ))
 
