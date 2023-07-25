@@ -369,11 +369,11 @@ def rust_compile(
     # If we're using failure filtering then we need to make sure the final
     # artifact location is the predeclared one since its specific path may have
     # already been encoded into the other compile args (eg rpath). So we still
-    # let rustc_emits generate its own output artifacts, and then make sure we
+    # let rustc_emit generate its own output artifacts, and then make sure we
     # use the predeclared one as the output after the failure filter action
     # below. Otherwise we'll use the predeclared outputs directly.
     if toolchain_info.failure_filter:
-        outputs, emit_args = _rustc_emits(
+        emit_output, emit_args = _rustc_emit(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = emit,
@@ -382,7 +382,7 @@ def rust_compile(
             params = params,
         )
     else:
-        outputs, emit_args = _rustc_emits(
+        emit_output, emit_args = _rustc_emit(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = emit,
@@ -409,7 +409,7 @@ def rust_compile(
                 ),
             ],
             "{}-{}".format(subdir, tempfile),
-            output_short_path = outputs[emit].short_path,
+            output_short_path = emit_output.short_path,
         )
         linker_argsfile, _ = ctx.actions.write(
             "{}/__{}_linker_args.txt".format(subdir, tempfile),
@@ -427,7 +427,7 @@ def rust_compile(
         prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
         rustc_cmd = cmd_args(toolchain_info.compiler, rustc_cmd, emit_args),
         diag = "diag",
-        outputs = outputs.values(),
+        outputs = [emit_output],
         short_cmd = common_args.short_cmd,
         is_binary = is_binary,
         crate_map = common_args.crate_map,
@@ -436,7 +436,7 @@ def rust_compile(
     # Add clippy diagnostic targets for check builds
     if common_args.is_check:
         # We don't really need the outputs from this build, just to keep the artifact accounting straight
-        clippy_out, clippy_emit_args = _rustc_emits(
+        clippy_out, clippy_emit_args = _rustc_emit(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = emit,
@@ -464,7 +464,7 @@ def rust_compile(
             rustc_cmd = cmd_args(compile_ctx.clippy_wrapper, clippy_lints, rustc_cmd, clippy_emit_args),
             env = clippy_env,
             diag = "clippy",
-            outputs = clippy_out.values(),
+            outputs = [clippy_out],
             short_cmd = common_args.short_cmd,
             is_binary = False,
             crate_map = common_args.crate_map,
@@ -472,42 +472,48 @@ def rust_compile(
         diag.update(clippy_diag)
 
     if toolchain_info.failure_filter:
-        # Filter each output through a failure filter
-        filtered_outputs = {}
-        for (emit, output) in outputs.items():
-            # This is only needed when this action's output is being used as an
-            # input, so we only need standard diagnostics (clippy is always
-            # asked for explicitly).
-            stderr = diag["diag.txt"]
-            filter_prov = RustFailureFilter(buildstatus = build_status, required = output, stderr = stderr)
+        # This is only needed when this action's output is being used as an
+        # input, so we only need standard diagnostics (clippy is always
+        # asked for explicitly).
+        stderr = diag["diag.txt"]
+        filter_prov = RustFailureFilter(
+            buildstatus = build_status,
+            required = emit_output,
+            stderr = stderr,
+        )
 
-            filtered_outputs[emit] = failure_filter(
-                ctx = ctx,
-                compile_ctx = compile_ctx,
-                prefix = "{}/{}".format(common_args.subdir, emit.value),
-                predecl_out = predeclared_outputs.get(emit),
-                failprov = filter_prov,
-                short_cmd = common_args.short_cmd,
-            )
+        filtered_output = failure_filter(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            prefix = "{}/{}".format(common_args.subdir, emit.value),
+            predecl_out = predeclared_outputs.get(emit),
+            failprov = filter_prov,
+            short_cmd = common_args.short_cmd,
+        )
     else:
-        filtered_outputs = outputs
+        filtered_output = emit_output
 
-    filtered_dwp_outputs = {}
     if is_binary and dwp_available(ctx):
-        for (emit, output) in outputs.items():
-            filtered_dwp_outputs[emit] = dwp(
-                ctx,
-                output,
-                identifier = "{}/__{}_{}_dwp".format(common_args.subdir, common_args.tempfile, str(emit)),
-                category_suffix = "rust",
-                # TODO(T110378142): Ideally, referenced objects are a list of
-                # artifacts, but currently we don't track them properly.  So, we
-                # just pass in the full link line and extract all inputs from that,
-                # which is a bit of an overspecification.
-                referenced_objects = dwp_inputs,
-            )
+        filtered_dwp_output = dwp(
+            ctx,
+            emit_output,
+            identifier = "{}/__{}_{}_dwp".format(common_args.subdir, common_args.tempfile, str(emit)),
+            category_suffix = "rust",
+            # TODO(T110378142): Ideally, referenced objects are a list of
+            # artifacts, but currently we don't track them properly.  So, we
+            # just pass in the full link line and extract all inputs from that,
+            # which is a bit of an overspecification.
+            referenced_objects = dwp_inputs,
+        )
+    else:
+        filtered_dwp_output = None
 
-    return RustcOutput(outputs = filtered_outputs, diag = diag, pdb = pdb_artifact, dwp_outputs = filtered_dwp_outputs)
+    return RustcOutput(
+        outputs = {emit: filtered_output},
+        diag = diag,
+        pdb = pdb_artifact,
+        dwp_outputs = {emit: filtered_dwp_output} if filtered_dwp_output else {},
+    )
 
 # --extern <crate>=<path> for direct dependencies
 # -Ldependency=<dir> for transitive dependencies
@@ -843,13 +849,13 @@ def _crate_root(
     fail("Could not infer crate_root. candidates=%s\nAdd 'crate_root = \"src/example.rs\"' to your attributes to disambiguate." % candidates.list())
 
 # Take a desired output and work out how to convince rustc to generate it
-def _rustc_emits(
+def _rustc_emit(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         emit: Emit.type,
         predeclared_outputs: dict[Emit.type, "artifact"],
         subdir: str,
-        params: BuildParams.type) -> (dict[Emit.type, "artifact"], cmd_args):
+        params: BuildParams.type) -> ("artifact", cmd_args):
     toolchain_info = compile_ctx.toolchain_info
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
@@ -867,7 +873,7 @@ def _rustc_emits(
 
     emit_args = cmd_args()
     if emit in predeclared_outputs:
-        output = predeclared_outputs[emit]
+        emit_output = predeclared_outputs[emit]
     else:
         extra_hash = "-" + _metadata(ctx.label)[1]
         emit_args.add("-Cextra-filename={}".format(extra_hash))
@@ -877,9 +883,7 @@ def _rustc_emits(
         else:
             filename = subdir + "/" + output_filename(simple_crate, emit, params, extra_hash)
 
-        output = ctx.actions.declare_output(filename)
-
-    outputs = {emit: output}
+        emit_output = ctx.actions.declare_output(filename)
 
     if pipeline_meta:
         # If we're doing a pipelined build, instead of emitting an actual rmeta
@@ -888,18 +892,18 @@ def _rustc_emits(
         # crate which is generating code (MIR, etc).
         # Requires https://github.com/rust-lang/rust/pull/86045
         emit_args.add(
-            cmd_args(output.as_output(), format = "--emit=link={}"),
+            cmd_args(emit_output.as_output(), format = "--emit=link={}"),
             "-Zno-codegen",
         )
     elif emit == Emit("expand"):
         emit_args.add(
             "-Zunpretty=expanded",
-            cmd_args(output.as_output(), format = "-o{}"),
+            cmd_args(emit_output.as_output(), format = "-o{}"),
         )
     else:
         # Assume https://github.com/rust-lang/rust/issues/85356 is fixed (ie
         # https://github.com/rust-lang/rust/pull/85362 is applied)
-        emit_args.add(cmd_args("--emit=", emit.value, "=", output.as_output(), delimiter = ""))
+        emit_args.add(cmd_args("--emit=", emit.value, "=", emit_output.as_output(), delimiter = ""))
 
     if emit != Emit("expand"):
         # Strip file extension from directory name.
@@ -914,7 +918,7 @@ def _rustc_emits(
             incremental_cmd = cmd_args(incremental_out.as_output(), format = "-Cincremental={}")
             emit_args.add(incremental_cmd)
 
-    return (outputs, emit_args)
+    return (emit_output, emit_args)
 
 # Invoke rustc and capture outputs
 def _rustc_invoke(
