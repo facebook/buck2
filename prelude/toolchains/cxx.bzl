@@ -83,6 +83,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 linker_flags = additional_linker_flags + ctx.attrs.link_flags,
                 archiver = RunInfo(args = archiver_args),
                 archiver_type = archiver_type,
+                archiver_supports_argfiles = True,
                 generate_linker_maps = False,
                 lto_mode = LtoMode("none"),
                 type = linker_type,
