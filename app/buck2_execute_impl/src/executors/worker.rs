@@ -23,8 +23,8 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
-use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
+use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
 use buck2_execute::execute::output::CommandStdStreams;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::WorkerId;
@@ -40,7 +40,6 @@ use buck2_worker_proto::ExecuteResponse;
 use futures::future::BoxFuture;
 use futures::future::Shared;
 use futures::FutureExt;
-use host_sharing::host_sharing::HostSharingGuard;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingRequirements;
 use host_sharing::HostSharingStrategy;
@@ -69,7 +68,7 @@ impl WorkerInitError {
     pub(crate) fn to_command_execution_result(
         &self,
         request: &CommandExecutionRequest,
-        manager: CommandExecutionManager,
+        manager: CommandExecutionManagerWithClaim,
     ) -> CommandExecutionResult {
         let worker_spec = request.worker().as_ref().unwrap();
         let execution_kind = CommandExecutionKind::LocalWorkerInit {
@@ -187,7 +186,7 @@ async fn spawn_worker(
     root: &AbsNormPathBuf,
     forkserver: ForkserverClient,
     dispatcher: EventDispatcher,
-) -> Result<WorkerConnection, WorkerInitError> {
+) -> Result<WorkerHandle, WorkerInitError> {
     // Use fixed length path at /tmp to avoid 108 character limit for unix domain sockets
     let dir_name = format!("{}-{}", dispatcher.trace_id(), worker_spec.id);
     let worker_dir = AbsNormPathBuf::from("/tmp/buck2_worker".to_owned())
@@ -286,8 +285,7 @@ async fn spawn_worker(
 
     tracing::info!("Connected to socket for spawned worker: {}", socket_path);
     let client = WorkerClient::new(channel);
-
-    Ok(WorkerConnection::new(
+    Ok(WorkerHandle::new(
         client,
         stdout_path,
         stderr_path,
@@ -296,7 +294,7 @@ async fn spawn_worker(
     ))
 }
 
-type WorkerFuture = Shared<BoxFuture<'static, Result<Arc<WorkerConnection>, Arc<WorkerInitError>>>>;
+type WorkerFuture = Shared<BoxFuture<'static, Result<Arc<WorkerHandle>, Arc<WorkerInitError>>>>;
 
 pub struct WorkerPool {
     workers: Arc<parking_lot::Mutex<HashMap<WorkerId, WorkerFuture>>>,
@@ -341,7 +339,7 @@ impl WorkerPool {
     }
 }
 
-pub struct WorkerConnection {
+pub struct WorkerHandle {
     client: WorkerClient<Channel>,
     stdout_path: AbsNormPathBuf,
     stderr_path: AbsNormPathBuf,
@@ -349,12 +347,7 @@ pub struct WorkerConnection {
     _liveliness_guard: LivelinessGuard,
 }
 
-pub struct WorkerHandle {
-    inner: Arc<WorkerConnection>,
-    _permit: Option<HostSharingGuard>,
-}
-
-impl WorkerConnection {
+impl WorkerHandle {
     fn new(
         client: WorkerClient<Channel>,
         stdout_path: AbsNormPathBuf,
@@ -370,26 +363,6 @@ impl WorkerConnection {
             stderr_path,
             host_sharing_broker,
             _liveliness_guard: liveliness_guard,
-        }
-    }
-
-    pub async fn acquire(self: Arc<Self>) -> WorkerHandle {
-        let permit = if let Some(host_sharing_broker) = &self.host_sharing_broker {
-            Some(
-                executor_stage_async(
-                    buck2_data::LocalStage {
-                        stage: Some(buck2_data::WorkerQueued {}.into()),
-                    },
-                    host_sharing_broker.acquire(&HostSharingRequirements::default()),
-                )
-                .await,
-            )
-        } else {
-            None
-        };
-        WorkerHandle {
-            inner: self,
-            _permit: permit,
         }
     }
 }
@@ -416,6 +389,21 @@ impl WorkerHandle {
         args: &[String],
         env: Vec<(OsString, OsString)>,
     ) -> (GatherOutputStatus, Vec<u8>, Vec<u8>) {
+        // Would be better to acquire this permit before global permit (associated with LocalQueued span)
+        let _permit = if let Some(host_sharing_broker) = &self.host_sharing_broker {
+            Some(
+                executor_stage_async(
+                    buck2_data::LocalStage {
+                        stage: Some(buck2_data::WorkerQueued {}.into()),
+                    },
+                    host_sharing_broker.acquire(&HostSharingRequirements::default()),
+                )
+                .await,
+            )
+        } else {
+            None
+        };
+
         tracing::info!(
             "Sending worker command:\nExecuteCommand {{ argv: {:?}, env: {:?} }}\n",
             args,
@@ -425,7 +413,7 @@ impl WorkerHandle {
         let env: Vec<EnvironmentEntry> = env_entries(&env);
 
         let request = ExecuteCommand { argv, env };
-        let response = self.inner.client.clone().execute(request).await;
+        let response = self.client.clone().execute(request).await;
 
         match response {
             Ok(response) => {
@@ -444,7 +432,7 @@ impl WorkerHandle {
                 (
                     GatherOutputStatus::SpawnFailed(format!(
                         "Error sending ExecuteCommand to worker: {:?}, see worker logs:\n{}\n{}",
-                        err, self.inner.stdout_path, self.inner.stderr_path,
+                        err, self.stdout_path, self.stderr_path,
                     )),
                     // stdout/stderr logs for worker are for multiple commands, probably do not want to dump contents here
                     vec![],

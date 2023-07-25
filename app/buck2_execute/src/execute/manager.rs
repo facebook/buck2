@@ -25,7 +25,7 @@ use crate::execute::result::CommandExecutionReport;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::result::CommandExecutionStatus;
 
-pub trait CommandExecutionManagerLike: Sized {
+trait CommandExecutionManagerLike: Sized {
     /// Create a new Command execution result.
     fn result(
         self,
