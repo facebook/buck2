@@ -53,7 +53,9 @@ pub(crate) fn golden_test_template(golden_rel_path: &str, output: &str) {
     let output_with_prefix = make_golden(output);
 
     if env::var(REGENERATE_VAR_NAME).is_ok() {
-        fs::write(golden_file_path, &output_with_prefix).unwrap();
+        fs::write(&golden_file_path, &output_with_prefix)
+            .with_context(|| format!("Writing `{golden_file_path}`"))
+            .unwrap();
     } else {
         let expected = fs::read_to_string(&golden_file_path)
             .with_context(|| format!("Reading `{golden_file_path}`"))
