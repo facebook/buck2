@@ -128,7 +128,7 @@ impl Display for TyBasic {
             TyBasic::Name(x) => write!(f, "{}", x),
             TyBasic::StarlarkValue(x) => write!(f, "{}", x),
             TyBasic::Iter(x) => write!(f, "iter({})", x),
-            TyBasic::List(x) => write!(f, "[{}]", x),
+            TyBasic::List(x) => write!(f, "list[{}]", x),
             TyBasic::Tuple(xs) => {
                 if xs.len() == 1 {
                     write!(f, "({},)", xs[0])
@@ -136,7 +136,7 @@ impl Display for TyBasic {
                     display_container::fmt_container(f, "(", ")", xs)
                 }
             }
-            TyBasic::Dict(k_v) => write!(f, "{{{}: {}}}", k_v.0, k_v.1),
+            TyBasic::Dict(k_v) => write!(f, "dict[{}, {}]", k_v.0, k_v.1),
             TyBasic::Custom(c) => Display::fmt(c, f),
         }
     }

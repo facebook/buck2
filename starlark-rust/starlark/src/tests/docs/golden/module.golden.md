@@ -102,8 +102,8 @@ def pos_either_named(
 
 ```python
 def with_defaults(
-    explicit_default: [str.type] = [],
-    hidden_default: [str.type] = _,
+    explicit_default: list[str.type] = [],
+    hidden_default: list[str.type] = _,
     string_default: str.type = "my_default"
 ) -> None
 ```

@@ -11,4 +11,4 @@ res = [foo([])]
 No errors.
 
 Interfaces:
-res: [str.type]
+res: list[str.type]

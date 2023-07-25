@@ -14,4 +14,4 @@ x = new_list_dict_syntax({"a": 1, "b": 2})
 No errors.
 
 Interfaces:
-x: [str.type]
+x: list[str.type]

@@ -21,7 +21,7 @@ def f1(
     *,
     d: str.type = "some string",
     **kwargs
-) -> [str.type]
+) -> list[str.type]
 ```
 
 Summary line goes here
@@ -43,7 +43,7 @@ A string repr of the args
 ## f2
 
 ```python
-def f2(a, *args: [str.type])
+def f2(a, *args: list[str.type])
 ```
 
 This is a function with *args, and no return type

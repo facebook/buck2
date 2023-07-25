@@ -9,7 +9,7 @@ def foo(x: [""]):
     x()
 
 Error:
-error: Call to a non-callable type `[""]`
+error: Call to a non-callable type `list[""]`
  --> filename:3:5
   |
 3 |     x()

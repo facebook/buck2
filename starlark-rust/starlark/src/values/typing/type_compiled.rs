@@ -1154,8 +1154,8 @@ f()
         }
 
         t("\"\"", "\"\"");
-        t("[\"\"]", "list.type");
-        t("[\"\"]", "[\"\"]");
+        t("list[\"\"]", "list.type");
+        t("list[\"\"]", "[\"\"]");
         t("None", "None");
         t("\"a\" | \"b\"", "[\"a\", \"b\"]");
     }
@@ -1239,7 +1239,7 @@ def uuu(x: list[int]):
 
 uuu(["mm"])
 "#,
-            "Expected type `[int.type]` but got `[str.type]`",
+            "Expected type `list[int.type]` but got `list[str.type]`",
         );
     }
 
