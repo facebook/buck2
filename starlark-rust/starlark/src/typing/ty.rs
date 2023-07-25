@@ -680,8 +680,15 @@ impl Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.alternatives.as_slice() {
             [] => write!(f, "\"never\""),
-            [x] => write!(f, "{}", x),
-            xs => display_container::fmt_container(f, "[", "]", xs),
+            xs => {
+                for (i, x) in xs.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, " | ")?;
+                    }
+                    write!(f, "{}", x)?;
+                }
+                Ok(())
+            }
         }
     }
 }
