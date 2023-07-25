@@ -18,7 +18,7 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% Public API
--export([prepare/2, link_to_artifact_dir/2]).
+-export([prepare/1, link_to_artifact_dir/2]).
 
 -export_type([dir_path/0]).
 
@@ -63,8 +63,8 @@ with_artifact_annotation_dir(Func) ->
 
 % Collect, create and link the logs and other relevant files in
 % the artefacts directory.
--spec prepare([file:filename()], file:filename()) -> ok.
-prepare(FilesToUpload, ExecutionDir) ->
+-spec prepare(file:filename()) -> ok.
+prepare(ExecutionDir) ->
     with_artifact_dir(
         fun(_ArtifactDir) ->
             link_tar_ball(ExecutionDir),
@@ -74,14 +74,11 @@ prepare(FilesToUpload, ExecutionDir) ->
                 LogPrivate ->
                     [
                         link_to_artifact_dir(File, LogPrivate)
-                     || File <- filelib:wildcard(filename:join(LogPrivate, "**/*.{json,log}")),
+                     || File <- filelib:wildcard(filename:join(LogPrivate, "**/*.log")),
                         filelib:is_regular(File)
                     ]
             end,
-            lists:foreach(
-                fun(FileToUpload) -> link_to_artifact_dir(FileToUpload, ExecutionDir) end,
-                FilesToUpload
-            )
+            ok
         end
     ).
 
@@ -107,7 +104,8 @@ link_to_artifact_dir(File, Root) ->
                     file:make_symlink(File, filename:join(ArtifactDir, FullFileName)),
                     Annotation = artifact_annotations:create_artifact_annotation(FullFileName),
                     dump_annotation(Annotation, FullFileName);
-                _ -> ok
+                _ ->
+                    ok
             end
         end
     ).

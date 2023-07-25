@@ -29,9 +29,7 @@ set_up_logger(LogDir, AppName, StandaloneConfig) ->
                 LogFileOpened, self()
             )
     end,
-    configure_logger(Log),
-    test_artifact_directory:link_to_artifact_dir(StdOut, LogDir),
-    test_artifact_directory:link_to_artifact_dir(Log, LogDir).
+    configure_logger(Log).
 
 -spec configure_logger(file:filename()) -> ok.
 configure_logger(LogFile) ->

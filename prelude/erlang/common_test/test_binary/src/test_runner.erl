@@ -228,17 +228,7 @@ provide_output_file(
         end,
     JsonLogs = execution_logs:create_dir_summary(OutputDir),
     file:write_file(filename:join(OutputDir, "logs.json"), jsone:encode(JsonLogs)),
-    FilesToUpload = [
-        ResultsFile,
-        ResultOuptuFile,
-        epmd_manager:get_epmd_out_path(OutputDir),
-        test_logger:get_log_file(OutputDir, ct_executor),
-        test_logger:get_std_out(OutputDir, ct_executor),
-        test_logger:get_log_file(OutputDir, test_runner),
-        test_logger:get_std_out(OutputDir, test_runner),
-        TestSpecFile
-    ],
-    test_artifact_directory:prepare(FilesToUpload, OutputDir).
+    test_artifact_directory:prepare(OutputDir).
 
 trimmed_content_file(File) ->
     case file:open(File, [read]) of
