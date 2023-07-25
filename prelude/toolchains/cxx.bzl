@@ -28,6 +28,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     """
     archiver_args = ["ar", "rcs"]
     archiver_type = "gnu"
+    archiver_supports_argfiles = True
     asm_compiler = ctx.attrs.compiler
     asm_compiler_type = ctx.attrs.compiler_type
     compiler = ctx.attrs.compiler
@@ -42,6 +43,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     shared_library_versioned_name_format = "lib{}.so.{}"
     additional_linker_flags = []
     if host_info().os.is_macos:
+        archiver_supports_argfiles = False
         linker_type = "darwin"
         pic_behavior = PicBehavior("always_enabled")
     elif host_info().os.is_windows:
@@ -83,7 +85,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 linker_flags = additional_linker_flags + ctx.attrs.link_flags,
                 archiver = RunInfo(args = archiver_args),
                 archiver_type = archiver_type,
-                archiver_supports_argfiles = True,
+                archiver_supports_argfiles = archiver_supports_argfiles,
                 generate_linker_maps = False,
                 lto_mode = LtoMode("none"),
                 type = linker_type,
