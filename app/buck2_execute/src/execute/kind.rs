@@ -64,4 +64,82 @@ impl CommandExecutionKind {
             Self::ActionCache { .. } => buck2_data::ActionExecutionKind::ActionCache,
         }
     }
+
+    pub fn to_proto<T>(&self, omit_details: bool) -> T
+    where
+        T: From<buck2_data::LocalCommand>
+            + From<buck2_data::RemoteCommand>
+            + From<buck2_data::OmittedLocalCommand>
+            + From<buck2_data::WorkerInitCommand>
+            + From<buck2_data::WorkerCommand>,
+    {
+        match self {
+            Self::Local {
+                command,
+                env,
+                digest,
+            } => {
+                if omit_details {
+                    buck2_data::OmittedLocalCommand {
+                        action_digest: digest.to_string(),
+                    }
+                    .into()
+                } else {
+                    buck2_data::LocalCommand {
+                        action_digest: digest.to_string(),
+                        argv: command.to_owned(),
+                        env: env
+                            .iter()
+                            .map(|(key, value)| buck2_data::EnvironmentEntry {
+                                key: key.clone(),
+                                value: value.clone(),
+                            })
+                            .collect(),
+                    }
+                    .into()
+                }
+            }
+            Self::Remote { digest, queue_time } => buck2_data::RemoteCommand {
+                action_digest: digest.to_string(),
+                cache_hit: false,
+                queue_time: (*queue_time).try_into().ok(),
+            }
+            .into(),
+            Self::ActionCache { digest } => buck2_data::RemoteCommand {
+                action_digest: digest.to_string(),
+                cache_hit: true,
+                queue_time: None,
+            }
+            .into(),
+            Self::LocalWorkerInit { command, env } => buck2_data::WorkerInitCommand {
+                argv: command.to_owned(),
+                env: env
+                    .iter()
+                    .map(|(key, value)| buck2_data::EnvironmentEntry {
+                        key: key.clone(),
+                        value: value.clone(),
+                    })
+                    .collect(),
+            }
+            .into(),
+            Self::LocalWorker {
+                command,
+                env,
+                digest,
+                fallback_exe,
+            } => buck2_data::WorkerCommand {
+                action_digest: digest.to_string(),
+                argv: command.to_owned(),
+                env: env
+                    .iter()
+                    .map(|(key, value)| buck2_data::EnvironmentEntry {
+                        key: key.clone(),
+                        value: value.clone(),
+                    })
+                    .collect(),
+                fallback_exe: fallback_exe.to_owned(),
+            }
+            .into(),
+        }
+    }
 }

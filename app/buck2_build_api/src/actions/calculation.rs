@@ -24,7 +24,6 @@ use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::span_async;
 use buck2_events::span::SpanId;
-use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::output_size::OutputSize;
@@ -369,74 +368,10 @@ pub async fn command_details(
         stderr = pair.stderr;
     };
 
-    let command_data = command.status.execution_kind().map(|kind| match kind {
-        CommandExecutionKind::Local {
-            command,
-            env,
-            digest,
-        } => {
-            if omit_details {
-                buck2_data::OmittedLocalCommand {
-                    action_digest: digest.to_string(),
-                }
-                .into()
-            } else {
-                buck2_data::LocalCommand {
-                    action_digest: digest.to_string(),
-                    argv: command.to_owned(),
-                    env: env
-                        .iter()
-                        .map(|(key, value)| buck2_data::EnvironmentEntry {
-                            key: key.clone(),
-                            value: value.clone(),
-                        })
-                        .collect(),
-                }
-                .into()
-            }
-        }
-        CommandExecutionKind::Remote { digest, queue_time } => buck2_data::RemoteCommand {
-            action_digest: digest.to_string(),
-            cache_hit: false,
-            queue_time: (*queue_time).try_into().ok(),
-        }
-        .into(),
-        CommandExecutionKind::ActionCache { digest } => buck2_data::RemoteCommand {
-            action_digest: digest.to_string(),
-            cache_hit: true,
-            queue_time: None,
-        }
-        .into(),
-        CommandExecutionKind::LocalWorkerInit { command, env } => buck2_data::WorkerInitCommand {
-            argv: command.to_owned(),
-            env: env
-                .iter()
-                .map(|(key, value)| buck2_data::EnvironmentEntry {
-                    key: key.clone(),
-                    value: value.clone(),
-                })
-                .collect(),
-        }
-        .into(),
-        CommandExecutionKind::LocalWorker {
-            command,
-            env,
-            digest,
-            fallback_exe,
-        } => buck2_data::WorkerCommand {
-            action_digest: digest.to_string(),
-            argv: command.to_owned(),
-            env: env
-                .iter()
-                .map(|(key, value)| buck2_data::EnvironmentEntry {
-                    key: key.clone(),
-                    value: value.clone(),
-                })
-                .collect(),
-            fallback_exe: fallback_exe.to_owned(),
-        }
-        .into(),
-    });
+    let command_data = command
+        .status
+        .execution_kind()
+        .map(|k| k.to_proto(omit_details));
 
     buck2_data::CommandExecutionDetails {
         stdout,
