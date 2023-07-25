@@ -230,6 +230,8 @@ _CxxCompiledSourcesOutput = record(
     objects = field([["artifact"], None]),
     # Those outputs which are bitcode
     bitcode_objects = field([["artifact"], None]),
+    # yaml file with optimization remarks about clang compilation
+    clang_remarks = field([["artifact"], None]),
     # json file with trace information about clang compilation
     clang_traces = field([["artifact"], None]),
     # Externally referenced debug info, which doesn't get linked with the
@@ -241,6 +243,8 @@ _CxxCompiledSourcesOutput = record(
     pic_objects = field([["artifact"], None]),
     pic_objects_have_external_debug_info = field(bool, False),
     pic_external_debug_info = field([["artifact"], None]),
+    # yaml file with optimization remarks about clang compilation
+    pic_clang_remarks = field([["artifact"], None]),
     # json file with trace information about clang compilation
     pic_clang_traces = field([["artifact"], None]),
     # Non-PIC object files stripped of debug information
@@ -343,6 +347,17 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
         sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compiled_srcs.compile_cmds.argsfiles.relative, "argsfiles")]
         if absolute_path_prefix:
             sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compiled_srcs.compile_cmds.argsfiles.absolute, "abs-argsfiles")]
+
+    if impl_params.generate_sub_targets.clang_remarks:
+        if compiled_srcs.clang_remarks:
+            sub_targets["clang-remarks"] = [DefaultInfo(
+                default_outputs = compiled_srcs.clang_remarks,
+            )]
+
+        if compiled_srcs.pic_clang_remarks:
+            sub_targets["pic-clang-remarks"] = [DefaultInfo(
+                default_outputs = compiled_srcs.pic_clang_remarks,
+            )]
 
     if impl_params.generate_sub_targets.clang_traces:
         if compiled_srcs.clang_traces:
@@ -792,11 +807,13 @@ def cxx_compile_srcs(
     objects_have_external_debug_info = False
     external_debug_info = None
     stripped_objects = []
+    clang_remarks = []
     clang_traces = []
     pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True)
     pic_objects = [out.object for out in pic_cxx_outs]
     pic_objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, pic_cxx_outs)
     pic_external_debug_info = [out.external_debug_info for out in pic_cxx_outs if out.external_debug_info]
+    pic_clang_remarks = [out.clang_remarks for out in pic_cxx_outs if out.clang_remarks != None]
     pic_clang_traces = [out.clang_trace for out in pic_cxx_outs if out.clang_trace != None]
     stripped_pic_objects = _strip_objects(ctx, pic_objects)
 
@@ -818,6 +835,7 @@ def cxx_compile_srcs(
         objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, cxx_outs)
         external_debug_info = [out.external_debug_info for out in cxx_outs if out.external_debug_info]
         stripped_objects = _strip_objects(ctx, objects)
+        clang_remarks = [out.clang_remarks for out in cxx_outs if out.clang_remarks != None]
         clang_traces = [out.clang_trace for out in cxx_outs if out.clang_trace != None]
 
     # Add in additional objects, after setting up stripped objects.
@@ -835,10 +853,12 @@ def cxx_compile_srcs(
         bitcode_objects = bitcode_outs,
         objects_have_external_debug_info = objects_have_external_debug_info,
         external_debug_info = external_debug_info,
+        clang_remarks = clang_remarks,
         clang_traces = clang_traces,
         pic_objects = pic_objects,
         pic_objects_have_external_debug_info = pic_objects_have_external_debug_info,
         pic_external_debug_info = pic_external_debug_info,
+        pic_clang_remarks = pic_clang_remarks,
         pic_clang_traces = pic_clang_traces,
         stripped_objects = stripped_objects,
         stripped_pic_objects = stripped_pic_objects,

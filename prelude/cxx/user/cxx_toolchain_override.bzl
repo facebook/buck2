@@ -146,6 +146,7 @@ def _cxx_toolchain_override(ctx):
         mk_hmap = _pick_bin(ctx.attrs.mk_hmap, base_toolchain.mk_hmap),
         dist_lto_tools_info = base_toolchain.dist_lto_tools_info,
         use_dep_files = base_toolchain.use_dep_files,
+        clang_remarks = base_toolchain.clang_remarks,
         clang_trace = base_toolchain.clang_trace,
         object_format = CxxObjectFormat(ctx.attrs.object_format) if ctx.attrs.object_format != None else base_toolchain.object_format,
         conflicting_header_basename_allowlist = base_toolchain.conflicting_header_basename_allowlist,

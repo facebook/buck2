@@ -131,6 +131,7 @@ CxxCompileOutput = record(
     # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
     # the `.dwo` when using `-gsplit-dwarf=split`).
     external_debug_info = field(["artifact", None], None),
+    clang_remarks = field(["artifact", None], None),
     clang_trace = field(["artifact", None], None),
 )
 
@@ -326,6 +327,14 @@ def compile_cxx(
         if pic:
             identifier += " (pic)"
 
+        clang_remarks = None
+        if toolchain.clang_remarks and compiler_type == "clang":
+            args.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
+            clang_remarks = ctx.actions.declare_output(
+                paths.join("__objects__", "{}.opt.yaml".format(filename_base)),
+            )
+            cmd.hidden(clang_remarks.as_output())
+
         clang_trace = None
         if toolchain.clang_trace and compiler_type == "clang":
             args.add(["-ftime-trace"])
@@ -349,6 +358,7 @@ def compile_cxx(
             object = object,
             object_format = object_format,
             object_has_external_debug_info = object_has_external_debug_info,
+            clang_remarks = clang_remarks,
             clang_trace = clang_trace,
         ))
 

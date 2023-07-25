@@ -177,6 +177,8 @@ def cxx_objects_sub_target(outs: list[CxxCompileOutput.type]) -> list["provider"
         sub_targets = {}
         if obj.clang_trace:
             sub_targets["clang-trace"] = [DefaultInfo(obj.clang_trace)]
+        if obj.clang_remarks:
+            sub_targets["clang-remarks"] = [DefaultInfo(obj.clang_remarks)]
         objects_sub_targets[obj.object.short_path] = [DefaultInfo(
             obj.object,
             sub_targets = sub_targets,
