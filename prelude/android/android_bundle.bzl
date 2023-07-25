@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//android:android_binary.bzl", "get_binary_info")
+load("@prelude//android:android_providers.bzl", "AndroidAabInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 
@@ -24,6 +25,7 @@ def android_bundle_impl(ctx: AnalysisContext) -> list["provider"]:
     java_packaging_deps = android_binary_info.java_packaging_deps
     return [
         DefaultInfo(default_output = output_bundle, sub_targets = android_binary_info.sub_targets),
+        AndroidAabInfo(aab = output_bundle, manifest = android_binary_info.resources_info.manifest),
         TemplatePlaceholderInfo(
             keyed_variables = {
                 "classpath": cmd_args([dep.jar for dep in java_packaging_deps if dep.jar], delimiter = get_path_separator()),

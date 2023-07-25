@@ -78,6 +78,13 @@ AndroidApkInfo = provider(
     ],
 )
 
+AndroidAabInfo = provider(
+    fields = [
+        "aab",
+        "manifest",
+    ],
+)
+
 AndroidApkUnderTestInfo = provider(
     fields = [
         "java_packaging_deps",  # set_type("JavaPackagingDep")
