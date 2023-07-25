@@ -131,6 +131,13 @@ where
         Ok(self.0 == other.0)
     }
 
+    fn eval_type(&self, _private: Private) -> Option<Ty> {
+        // `TypeCompiled::new` handles this type explicitly,
+        // but implement this function to make proc-macro generate `bit_or`.
+        // Also safer to be explicit here.
+        Some(self.0.as_ty())
+    }
+
     fn get_methods() -> Option<&'static Methods>
     where
         Self: Sized,
@@ -628,7 +635,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiled(heap.alloc_complex(TypeCompiledImplAsStarlarkValue(IsListOf(t))))
     }
 
-    fn type_any_of_two(
+    pub(crate) fn type_any_of_two(
         t1: TypeCompiled<Value<'v>>,
         t2: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
@@ -969,6 +976,8 @@ impl<'v> TypeCompiled<Value<'v>> {
         } else if let Some(t) = DictRef::from_value(ty) {
             TypeCompiled::from_dict(t, heap)
         } else if ty.request_value::<&dyn TypeCompiledImpl>().is_some() {
+            // This branch is optimization: `TypeCompiledAsStarlarkValue` implements `eval_type`,
+            // but this branch avoids copying the type.
             Ok(TypeCompiled(ty))
         } else if let Some(ty) = ty.get_ref().eval_type() {
             Ok(TypeCompiled::from_ty(&ty, heap))
@@ -1245,5 +1254,23 @@ noop(uuu)(["mm"])
 "#,
             r#"Value `["mm"]` of type `list` does not match"#,
         );
+    }
+
+    #[test]
+    fn test_bit_or() {
+        let types = [
+            ("int", "17"),
+            ("str", "'x'"),
+            ("None", "None"),
+            ("list", "[]"),
+            ("(str | int)", "19"),
+        ];
+        for (at, av) in &types {
+            for (bt, bv) in &types {
+                assert::is_true(&format!("isinstance({av}, {at} | {bt})"));
+                assert::is_true(&format!("isinstance({bv}, {at} | {bt})"));
+                assert::is_true(&format!("not isinstance(range(10), {at} | {bt})"));
+            }
+        }
     }
 }

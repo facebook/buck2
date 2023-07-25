@@ -220,15 +220,24 @@ impl<'a> ImplStarlarkValue<'a> {
         })
     }
 
-    /// There's an function with given name.
-    fn has_fn(&self, name: &str) -> bool {
-        self.input.items.iter().any(|item| {
+    /// Find a function with given name.
+    fn find_fn(&self, name: &str) -> Option<syn::ImplItemFn> {
+        self.input.items.iter().find_map(|item| {
             if let syn::ImplItem::Fn(fn_) = item {
-                fn_.sig.ident == name
+                if fn_.sig.ident == name {
+                    Some(fn_.clone())
+                } else {
+                    None
+                }
             } else {
-                false
+                None
             }
         })
+    }
+
+    /// There's an function with given name.
+    fn has_fn(&self, name: &str) -> bool {
+        self.find_fn(name).is_some()
     }
 
     /// `fn attr_ty()`.
@@ -247,6 +256,24 @@ impl<'a> ImplStarlarkValue<'a> {
             Ok(None)
         }
     }
+
+    /// `fn bit_or()` for values which are types.
+    fn bit_or(&self) -> syn::Result<Option<syn::ImplItem>> {
+        if !self.has_fn("eval_type") {
+            return Ok(None);
+        }
+        if let Some(bit_or) = self.find_fn("bit_or") {
+            return Err(syn::Error::new_spanned(
+                bit_or.sig.ident,
+                "types with `eval_type` implemented can only have generated `bit_or`",
+            ));
+        }
+        Ok(Some(syn::parse2(quote_spanned! { self.span() =>
+            fn bit_or(&self, other: starlark::values::Value<'v>, heap: &'v starlark::values::Heap) -> anyhow::Result<starlark::values::Value<'v>> {
+                starlark::values::typing::macro_refs::starlark_value_bit_or_for_type(self, other, heap)
+            }
+        })?))
+    }
 }
 
 fn derive_starlark_value_impl(
@@ -264,6 +291,7 @@ fn derive_starlark_value_impl(
     let has_minus = impl_starlark_value.has_unop("HAS_MINUS", "minus")?;
     let has_bit_not = impl_starlark_value.has_unop("HAS_BIT_NOT", "bit_not")?;
     let attr_ty = impl_starlark_value.attr_ty()?;
+    let bit_or = impl_starlark_value.bit_or()?;
 
     input.items.splice(
         0..0,
@@ -276,7 +304,8 @@ fn derive_starlark_value_impl(
             has_bit_not,
         ]
         .into_iter()
-        .chain(attr_ty),
+        .chain(attr_ty)
+        .chain(bit_or),
     );
 
     Ok(quote_spanned! {
