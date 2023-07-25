@@ -769,9 +769,9 @@ def get_default_cxx_library_product_name(ctx, impl_params) -> str:
 def cxx_compile_srcs(
         ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams.type,
-        own_preprocessors: [CPreprocessor.type],
-        inherited_non_exported_preprocessor_infos: [CPreprocessorInfo.type],
-        inherited_exported_preprocessor_infos: [CPreprocessorInfo.type],
+        own_preprocessors: list[CPreprocessor.type],
+        inherited_non_exported_preprocessor_infos: list[CPreprocessorInfo.type],
+        inherited_exported_preprocessor_infos: list[CPreprocessorInfo.type],
         absolute_path_prefix: [str, None],
         preferred_linkage: Linkage.type) -> _CxxCompiledSourcesOutput.type:
     """
@@ -851,7 +851,7 @@ def _form_library_outputs(
         compiled_srcs: _CxxCompiledSourcesOutput.type,
         preferred_linkage: Linkage.type,
         shared_links: LinkArgs.type,
-        extra_static_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
+        extra_static_linkables: list[[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         gnu_use_link_groups: bool,
         link_execution_preference: LinkExecutionPreference.type) -> _CxxAllLibraryOutputs.type:
     # Build static/shared libs and the link info we use to export them to dependents.
@@ -970,7 +970,7 @@ def _form_library_outputs(
         solibs = solibs,
     )
 
-def _strip_objects(ctx: AnalysisContext, objects: ["artifact"]) -> ["artifact"]:
+def _strip_objects(ctx: AnalysisContext, objects: list["artifact"]) -> list["artifact"]:
     """
     Return new objects with debug info stripped.
     """
@@ -993,11 +993,11 @@ def _get_shared_library_links(
         ctx: AnalysisContext,
         linkable_graph_node_map_func,
         link_group: [str, None],
-        link_group_mappings: [{"label": str}, None],
-        link_group_preferred_linkage: {"label": Linkage.type},
-        link_group_libs: {str: LinkGroupLib.type},
-        exported_deps: [Dependency],
-        non_exported_deps: [Dependency],
+        link_group_mappings: [dict["label", str], None],
+        link_group_preferred_linkage: dict["label", Linkage.type],
+        link_group_libs: dict[str, LinkGroupLib.type],
+        exported_deps: list[Dependency],
+        non_exported_deps: list[Dependency],
         force_link_group_linking,
         frameworks_linkable: [FrameworksLinkable.type, None],
         force_static_follows_dependents: bool = True,
@@ -1098,13 +1098,13 @@ def _use_pic(link_style: LinkStyle.type) -> bool:
 def _static_library(
         ctx: AnalysisContext,
         impl_params: "CxxRuleConstructorParams",
-        objects: ["artifact"],
+        objects: list["artifact"],
         pic: bool,
         stripped: bool,
-        extra_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
+        extra_linkables: list[[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         objects_have_external_debug_info: bool = False,
         external_debug_info: ArtifactTSet.type = ArtifactTSet(),
-        bitcode_objects: [["artifact"], None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
+        bitcode_objects: [list["artifact"], None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -1190,7 +1190,7 @@ def _static_library(
 # inputs, except the output is a combined bitcode file, which is not machine code.
 def _bitcode_bundle(
         ctx: AnalysisContext,
-        objects: [["artifact"], None],
+        objects: [list["artifact"], None],
         pic: bool = False,
         stripped: bool = False,
         name_extra = "") -> [BitcodeBundle.type, None]:
@@ -1214,11 +1214,11 @@ _CxxSharedLibraryResult = record(
 def _shared_library(
         ctx: AnalysisContext,
         impl_params: "CxxRuleConstructorParams",
-        objects: ["artifact"],
+        objects: list["artifact"],
         external_debug_info: ArtifactTSet.type,
         dep_infos: "LinkArgs",
         gnu_use_link_groups: bool,
-        extra_linker_flags: ["_arglike"],
+        extra_linker_flags: list["_arglike"],
         link_execution_preference: LinkExecutionPreference.type,
         link_ordering: [LinkOrdering.type, None] = None) -> _CxxSharedLibraryResult.type:
     """
@@ -1368,7 +1368,7 @@ def use_archives(ctx: AnalysisContext) -> bool:
     # Otherwise, fallback to the rule-specific setting.
     return value_or(ctx.attrs.use_archive, True)
 
-def _attr_post_linker_flags(ctx: AnalysisContext) -> [""]:
+def _attr_post_linker_flags(ctx: AnalysisContext) -> list[""]:
     return (
         ctx.attrs.post_linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.post_platform_linker_flags))

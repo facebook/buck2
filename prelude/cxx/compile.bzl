@@ -137,8 +137,8 @@ CxxCompileOutput = record(
 def create_compile_cmds(
         ctx: AnalysisContext,
         impl_params: "CxxRuleConstructorParams",
-        own_preprocessors: [CPreprocessor.type],
-        inherited_preprocessor_infos: [CPreprocessorInfo.type],
+        own_preprocessors: list[CPreprocessor.type],
+        inherited_preprocessor_infos: list[CPreprocessorInfo.type],
         absolute_path_prefix: [str, None]) -> CxxCompileCommandOutput.type:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
@@ -250,8 +250,8 @@ def create_compile_cmds(
 
 def compile_cxx(
         ctx: AnalysisContext,
-        src_compile_cmds: [CxxSrcCompileCommand.type],
-        pic: bool = False) -> [CxxCompileOutput.type]:
+        src_compile_cmds: list[CxxSrcCompileCommand.type],
+        pic: bool = False) -> list[CxxCompileOutput.type]:
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
@@ -354,7 +354,7 @@ def compile_cxx(
 
     return objects
 
-def _validate_target_headers(ctx: AnalysisContext, preprocessor: [CPreprocessor.type]):
+def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreprocessor.type]):
     path_to_artifact = {}
     all_headers = flatten([x.headers for x in preprocessor])
     for header in all_headers:
@@ -496,7 +496,7 @@ def _mk_argsfile(
         args_without_file_prefix_args = args_without_file_prefix_args,
     )
 
-def _attr_compiler_flags(ctx: AnalysisContext, ext: str) -> [""]:
+def _attr_compiler_flags(ctx: AnalysisContext, ext: str) -> list[""]:
     return (
         cxx_by_language_ext(ctx.attrs.lang_compiler_flags, ext) +
         flatten(cxx_by_platform(ctx, ctx.attrs.platform_compiler_flags)) +

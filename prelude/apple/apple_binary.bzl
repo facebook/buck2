@@ -48,8 +48,8 @@ load(":debug.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
-def apple_binary_impl(ctx: AnalysisContext) -> [["provider"], "promise"]:
-    def get_apple_binary_providers(deps_providers) -> ["provider"]:
+def apple_binary_impl(ctx: AnalysisContext) -> [list["provider"], "promise"]:
+    def get_apple_binary_providers(deps_providers) -> list["provider"]:
         # FIXME: Ideally we'd like to remove the support of "bridging header",
         # cause it affects build time and in general considered a bad practise.
         # But we need it for now to achieve compatibility with BUCK1.
@@ -147,7 +147,7 @@ def _needs_entitlements_in_binary(ctx: AnalysisContext) -> bool:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     return apple_toolchain_info.sdk_name in _SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY
 
-def _entitlements_link_flags(ctx: AnalysisContext) -> [""]:
+def _entitlements_link_flags(ctx: AnalysisContext) -> list[""]:
     return [
         "-Xlinker",
         "-sectcreate",
@@ -159,7 +159,7 @@ def _entitlements_link_flags(ctx: AnalysisContext) -> [""]:
         ctx.attrs.entitlements_file,
     ] if (ctx.attrs.entitlements_file and _needs_entitlements_in_binary(ctx)) else []
 
-def _filter_swift_srcs(ctx: AnalysisContext) -> (["CxxSrcWithFlags"], ["CxxSrcWithFlags"]):
+def _filter_swift_srcs(ctx: AnalysisContext) -> (list["CxxSrcWithFlags"], list["CxxSrcWithFlags"]):
     cxx_srcs = []
     swift_srcs = []
     for s in get_srcs_with_flags(ctx):
@@ -169,7 +169,7 @@ def _filter_swift_srcs(ctx: AnalysisContext) -> (["CxxSrcWithFlags"], ["CxxSrcWi
             cxx_srcs.append(s)
     return cxx_srcs, swift_srcs
 
-def _get_bridging_header_flags(ctx: AnalysisContext) -> ["_arglike"]:
+def _get_bridging_header_flags(ctx: AnalysisContext) -> list["_arglike"]:
     if ctx.attrs.bridging_header:
         objc_bridging_header_flags = [
             # Disable bridging header -> PCH compilation to mitigate an issue in Xcode 13 beta.

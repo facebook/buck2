@@ -46,7 +46,7 @@ def _bundle(ctx: AnalysisContext, name: str, args: cmd_args, prefer_local: bool)
 def make_bitcode_bundle(
         ctx: AnalysisContext,
         name: str,
-        objects: ["artifact"]) -> [BitcodeBundle.type, None]:
+        objects: list["artifact"]) -> [BitcodeBundle.type, None]:
     if len(objects) == 0:
         fail("no objects to archive")
 
@@ -60,7 +60,7 @@ def make_bitcode_bundle(
 
     return BitcodeBundle(artifact = bundle, external_objects = objects)
 
-def llvm_link_bitcode_impl(ctx: "context") -> ["provider"]:
+def llvm_link_bitcode_impl(ctx: "context") -> list["provider"]:
     llvm_link = get_cxx_toolchain_info(ctx).llvm_link
     if llvm_link == None:
         fail("llvm-link is not provided by toolchain.")

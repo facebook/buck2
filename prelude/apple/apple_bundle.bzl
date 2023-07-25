@@ -152,7 +152,7 @@ def _get_scrubbed_binary_dsym(ctx, binary: "artifact", debug_info_tset: Artifact
     )
     return dsym_artifact
 
-def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput.type) -> ([AppleBundlePart.type], AppleBundlePart.type):
+def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput.type) -> (list[AppleBundlePart.type], AppleBundlePart.type):
     """Returns a tuple of all binary bundle parts and the primary bundle binary."""
     result = []
 
@@ -222,7 +222,7 @@ def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartList
         info_plist_part = resource_part_list.info_plist_part,
     )
 
-def apple_bundle_impl(ctx: AnalysisContext) -> ["provider"]:
+def apple_bundle_impl(ctx: AnalysisContext) -> list["provider"]:
     _apple_bundle_run_validity_checks(ctx)
 
     binary_outputs = _get_binary(ctx)
@@ -296,7 +296,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> ["provider"]:
         extra_output_provider,
     ]
 
-def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str: ""}:
+def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> dict[str, ""]:
     data = {
         "deployment_version": get_bundle_min_target_version(ctx, get_default_binary_dep(ctx)),
         "info_plist": ctx.attrs.info_plist,

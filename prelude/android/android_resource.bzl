@@ -21,7 +21,7 @@ def _convert_to_artifact_dir(ctx: AnalysisContext, attr: [Dependency, "dict", "a
     else:
         return attr
 
-def android_resource_impl(ctx: AnalysisContext) -> ["provider"]:
+def android_resource_impl(ctx: AnalysisContext) -> list["provider"]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 
@@ -111,7 +111,7 @@ def extract_package_from_manifest(ctx: AnalysisContext, manifest: "artifact") ->
 def get_text_symbols(
         ctx: AnalysisContext,
         res: "artifact",
-        deps: [Dependency],
+        deps: list[Dependency],
         identifier: [str, None] = None):
     mini_aapt_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mini_aapt[RunInfo])
 
@@ -133,7 +133,7 @@ def get_text_symbols(
 
     return text_symbols
 
-def _get_dep_symbols(deps: [Dependency]) -> ["artifact"]:
+def _get_dep_symbols(deps: list[Dependency]) -> list["artifact"]:
     dep_symbols = []
     for dep in deps:
         android_resource_info = dep.get(AndroidResourceInfo)

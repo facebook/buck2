@@ -12,7 +12,7 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 def _extract_symbol_names(
         ctx: AnalysisContext,
         name: str,
-        objects: ["artifact"],
+        objects: list["artifact"],
         category: str,
         identifier: [str, None] = None,
         undefined_only: bool = False,
@@ -183,7 +183,7 @@ def _create_symbols_file_from_script(
         actions: "actions",
         name: str,
         script: str,
-        symbol_files: ["artifact"],
+        symbol_files: list["artifact"],
         category: str,
         prefer_local: bool,
         weight_percentage: int,
@@ -217,7 +217,7 @@ def _create_symbols_file_from_script(
 def get_undefined_symbols_args(
         ctx: AnalysisContext,
         name: str,
-        symbol_files: ["artifact"],
+        symbol_files: list["artifact"],
         category: [str, None] = None,
         identifier: [str, None] = None,
         prefer_local: bool = False) -> cmd_args.type:
@@ -245,7 +245,7 @@ def get_undefined_symbols_args(
 def create_undefined_symbols_argsfile(
         actions: "actions",
         name: str,
-        symbol_files: ["artifact"],
+        symbol_files: list["artifact"],
         category: [str, None] = None,
         identifier: [str, None] = None,
         prefer_local: bool = False) -> "artifact":
@@ -271,7 +271,7 @@ LC_ALL=C sort -S 10% -u -m --files0-from="$2.files0.txt" | sed "s/^/-u/" > "$2"
 def create_undefined_symbols_linker_script(
         actions: "actions",
         name: str,
-        symbol_files: ["artifact"],
+        symbol_files: list["artifact"],
         category: [str, None] = None,
         identifier: [str, None] = None,
         prefer_local: bool = False) -> "artifact":
@@ -299,7 +299,7 @@ echo ")" >> "$2";
 def create_global_symbols_version_script(
         actions: "actions",
         name: str,
-        symbol_files: ["artifact"],
+        symbol_files: list["artifact"],
         identifier: [str, None] = None,
         category: [str, None] = None,
         prefer_local: bool = False) -> "artifact":
@@ -329,7 +329,7 @@ echo "};" >> "$2"
 def create_dynamic_list_version_script(
         actions: "actions",
         name: str,
-        symbol_files: ["artifact"],
+        symbol_files: list["artifact"],
         identifier: [str, None] = None,
         category: [str, None] = None,
         prefer_local: bool = False) -> "artifact":

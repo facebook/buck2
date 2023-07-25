@@ -43,7 +43,7 @@ load("@prelude//utils:utils.bzl", "expect")
 def get_android_binary_native_library_info(
         ctx: AnalysisContext,
         android_packageable_info: "AndroidPackageableInfo",
-        deps_by_platform: {str: [Dependency]},
+        deps_by_platform: dict[str, list[Dependency]],
         apk_module_graph_file: ["artifact", None] = None,
         prebuilt_native_library_dirs_to_exclude: [set_type, None] = None,
         shared_libraries_to_exclude: [set_type, None] = None) -> AndroidBinaryNativeLibsInfo.type:
@@ -180,7 +180,7 @@ def _get_exopackage_info(
         ctx: AnalysisContext,
         native_libs_always_in_primary_apk: "artifact",
         native_libs: "artifact",
-        native_libs_metadata: "artifact") -> (["artifact"], [ExopackageNativeInfo.type, None]):
+        native_libs_metadata: "artifact") -> (list["artifact"], [ExopackageNativeInfo.type, None]):
     is_exopackage_enabled_for_native_libs = "native_library" in getattr(ctx.attrs, "exopackage_modes", [])
     if is_exopackage_enabled_for_native_libs:
         return [native_libs_always_in_primary_apk], ExopackageNativeInfo(directory = native_libs, metadata = native_libs_metadata)
@@ -190,8 +190,8 @@ def _get_exopackage_info(
 def _get_native_libs_and_assets(
         ctx: AnalysisContext,
         get_module_from_target: "function",
-        all_prebuilt_native_library_dirs: ["PrebuiltNativeLibraryDir"],
-        platform_to_native_linkables: {str: {str: "SharedLibrary"}}) -> _NativeLibsAndAssetsInfo.type:
+        all_prebuilt_native_library_dirs: list["PrebuiltNativeLibraryDir"],
+        platform_to_native_linkables: dict[str, dict[str, "SharedLibrary"]]) -> _NativeLibsAndAssetsInfo.type:
     is_packaging_native_libs_as_assets_supported = getattr(ctx.attrs, "package_asset_libraries", False)
 
     prebuilt_native_library_dirs = []
@@ -308,7 +308,7 @@ def _get_native_libs_and_assets(
 
 def _filter_prebuilt_native_library_dir(
         ctx: AnalysisContext,
-        native_libs: ["PrebuiltNativeLibraryDir"],
+        native_libs: list["PrebuiltNativeLibraryDir"],
         identifier: str,
         package_as_assets: bool = False,
         module: str = ROOT_MODULE) -> "artifact":
@@ -329,9 +329,9 @@ def _filter_prebuilt_native_library_dir(
 
 def _get_native_linkables(
         ctx: AnalysisContext,
-        platform_to_native_linkables: {str: {str: "SharedLibrary"}},
+        platform_to_native_linkables: dict[str, dict[str, "SharedLibrary"]],
         get_module_from_target: "function",
-        package_native_libs_as_assets_enabled: bool) -> ("artifact", "artifact", ["artifact", None], {str: "artifact"}):
+        package_native_libs_as_assets_enabled: bool) -> ("artifact", "artifact", ["artifact", None], dict[str, "artifact"]):
     stripped_native_linkables_srcs = {}
     stripped_native_linkables_always_in_primary_apk_srcs = {}
     stripped_native_linkable_assets_for_primary_apk_srcs = {}
@@ -390,7 +390,7 @@ def _get_native_linkables(
 
 def _get_native_libs_as_assets_metadata(
         ctx: AnalysisContext,
-        native_lib_assets: ["artifact"],
+        native_lib_assets: list["artifact"],
         module: str) -> ("artifact", "artifact"):
     native_lib_assets_file = ctx.actions.write("{}/native_lib_assets".format(module), [cmd_args([native_lib_asset, _get_native_libs_as_assets_dir(module)], delimiter = "/") for native_lib_asset in native_lib_assets])
     metadata_output = ctx.actions.declare_output("{}/native_libs_as_assets_metadata.txt".format(module))
@@ -409,7 +409,7 @@ def _get_native_libs_as_assets_metadata(
 
 def _get_compressed_native_libs_as_assets(
         ctx: AnalysisContext,
-        native_lib_assets: ["artifact"],
+        native_lib_assets: list["artifact"],
         native_library_paths: "artifact",
         module: str) -> "artifact":
     output_dir = ctx.actions.declare_output("{}/compressed_native_libs_as_assets_dir".format(module))

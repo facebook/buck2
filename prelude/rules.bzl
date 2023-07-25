@@ -90,7 +90,7 @@ def _flatten_decls():
             decls[rule] = getattr(decl_set, rule)
     return decls
 
-def _update_rules(rules: {str: ""}, extra_attributes: ""):
+def _update_rules(rules: dict[str, ""], extra_attributes: ""):
     for k in dir(extra_attributes):
         v = getattr(extra_attributes, k)
         if k in rules:

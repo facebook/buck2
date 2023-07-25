@@ -124,7 +124,7 @@ def generate_rustdoc(
         # link style doesn't matter, but caller should pass in build params
         # with static-pic (to get best cache hits for deps)
         params: BuildParams.type,
-        default_roots: [str],
+        default_roots: list[str],
         document_private_items: bool) -> "artifact":
     toolchain_info = compile_ctx.toolchain_info
 
@@ -202,7 +202,7 @@ def generate_rustdoc_test(
         link_style: LinkStyle.type,
         library: RustLinkStyleInfo.type,
         params: BuildParams.type,
-        default_roots: [str]) -> cmd_args:
+        default_roots: list[str]) -> cmd_args:
     toolchain_info = compile_ctx.toolchain_info
 
     resources = create_resource_db(
@@ -300,14 +300,14 @@ def generate_rustdoc_test(
 def rust_compile_multi(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
-        emits: [Emit.type],
+        emits: list[Emit.type],
         params: BuildParams.type,
         link_style: LinkStyle.type,
-        default_roots: [str],
-        extra_link_args: [""] = [],
-        predeclared_outputs: {Emit.type: "artifact"} = {},
-        extra_flags: [[str, "resolved_macro"]] = [],
-        is_binary: bool = False) -> [RustcOutput.type]:
+        default_roots: list[str],
+        extra_link_args: list[""] = [],
+        predeclared_outputs: dict[Emit.type, "artifact"] = {},
+        extra_flags: list[[str, "resolved_macro"]] = [],
+        is_binary: bool = False) -> list[RustcOutput.type]:
     outputs = []
 
     for emit in emits:
@@ -336,10 +336,10 @@ def rust_compile(
         emit: Emit.type,
         params: BuildParams.type,
         link_style: LinkStyle.type,
-        default_roots: [str],
-        extra_link_args: [""] = [],
-        predeclared_outputs: {Emit.type: "artifact"} = {},
-        extra_flags: [[str, "resolved_macro"]] = [],
+        default_roots: list[str],
+        extra_link_args: list[""] = [],
+        predeclared_outputs: dict[Emit.type, "artifact"] = {},
+        extra_flags: list[[str, "resolved_macro"]] = [],
         is_binary: bool = False) -> RustcOutput.type:
     toolchain_info = compile_ctx.toolchain_info
 
@@ -522,7 +522,7 @@ def _dependency_args(
         link_style: LinkStyle.type,
         is_check: bool,
         is_rustdoc_test: bool,
-        extra_transitive_deps: {"artifact": CrateName.type}) -> (cmd_args, [(CrateName.type, "label")]):
+        extra_transitive_deps: dict["artifact", CrateName.type]) -> (cmd_args, list[(CrateName.type, "label")]):
     args = cmd_args()
     transitive_deps = {}
     deps = []
@@ -582,7 +582,7 @@ def _dependency_args(
 def simple_symlinked_dirs(
         ctx: AnalysisContext,
         prefix: str,
-        artifacts: {"artifact": None}) -> cmd_args:
+        artifacts: dict["artifact", None]) -> cmd_args:
     # Add as many -Ldependency dirs as we need to avoid name conflicts
     deps_dirs = [{}]
     for dep in artifacts.keys():
@@ -602,7 +602,7 @@ def dynamic_symlinked_dirs(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         prefix: str,
-        artifacts: {"artifact": CrateName.type}) -> cmd_args:
+        artifacts: dict["artifact", CrateName.type]) -> cmd_args:
     name = "{}-dyn".format(prefix)
     transitive_dependency_dir = ctx.actions.declare_output(name, dir = True)
     do_symlinks = cmd_args(
@@ -620,7 +620,7 @@ def dynamic_symlinked_dirs(
     compile_ctx.transitive_dependency_dirs[transitive_dependency_dir] = None
     return cmd_args(transitive_dependency_dir, format = "@{}/dirs").hidden(artifacts.keys())
 
-def _lintify(flag: str, clippy: bool, lints: ["resolved_macro"]) -> cmd_args:
+def _lintify(flag: str, clippy: bool, lints: list["resolved_macro"]) -> cmd_args:
     return cmd_args(
         [lint for lint in lints if str(lint).startswith("\"clippy::") == clippy],
         format = "-{}{{}}".format(flag),
@@ -643,7 +643,7 @@ def _lint_flags(compile_ctx: CompileContext.type) -> (cmd_args, cmd_args):
 
     return (plain, clippy)
 
-def _rustc_flags(flags: [[str, "resolved_macro"]]) -> [[str, "resolved_macro"]]:
+def _rustc_flags(flags: list[[str, "resolved_macro"]]) -> list[[str, "resolved_macro"]]:
     # Rustc's "-g" flag is documented as being exactly equivalent to
     # "-Cdebuginfo=2". Rustdoc supports the latter, it just doesn't have the
     # "-g" shorthand for it.
@@ -660,9 +660,9 @@ def _compute_common_args(
         emit: Emit.type,
         params: BuildParams.type,
         link_style: LinkStyle.type,
-        default_roots: [str],
+        default_roots: list[str],
         is_rustdoc_test: bool,
-        extra_transitive_deps: {"artifact": CrateName.type} = {}) -> CommonArgsInfo.type:
+        extra_transitive_deps: dict["artifact", CrateName.type] = {}) -> CommonArgsInfo.type:
     crate_type = params.crate_type
 
     args_key = (crate_type, emit, link_style, is_rustdoc_test)
@@ -825,8 +825,8 @@ def _metadata(label: "label") -> (str, str):
 
 def _crate_root(
         ctx: AnalysisContext,
-        srcs: [str],
-        default_roots: [str]) -> str:
+        srcs: list[str],
+        default_roots: list[str]) -> str:
     candidates = set()
     if getattr(ctx.attrs, "crate_dynamic", None):
         crate_with_suffix = None
@@ -847,9 +847,9 @@ def _rustc_emits(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         emit: Emit.type,
-        predeclared_outputs: {Emit.type: "artifact"},
+        predeclared_outputs: dict[Emit.type, "artifact"],
         subdir: str,
-        params: BuildParams.type) -> ({Emit.type: "artifact"}, cmd_args):
+        params: BuildParams.type) -> (dict[Emit.type, "artifact"], cmd_args):
     toolchain_info = compile_ctx.toolchain_info
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
@@ -923,11 +923,11 @@ def _rustc_invoke(
         prefix: str,
         rustc_cmd: cmd_args,
         diag: str,
-        outputs: ["artifact"],
+        outputs: list["artifact"],
         short_cmd: str,
         is_binary: bool,
-        crate_map: [(CrateName.type, "label")],
-        env: {str: ["resolved_macro", "artifact"]} = {}) -> ({str: "artifact"}, ["artifact", None]):
+        crate_map: list[(CrateName.type, "label")],
+        env: dict[str, ["resolved_macro", "artifact"]] = {}) -> (dict[str, "artifact"], ["artifact", None]):
     toolchain_info = compile_ctx.toolchain_info
 
     plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env)
@@ -1013,7 +1013,7 @@ def _long_command(
 # path and non-path content, but we'll burn that bridge when we get to it.)
 def _process_env(
         compile_ctx: CompileContext.type,
-        env: {str: ["resolved_macro", "artifact"]}) -> ({str: cmd_args}, {str: cmd_args}):
+        env: dict[str, ["resolved_macro", "artifact"]]) -> (dict[str, cmd_args], dict[str, cmd_args]):
     # Values with inputs (ie artifact references).
     path_env = {}
 

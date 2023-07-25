@@ -14,7 +14,7 @@ load(
 
 ErlAppDependencies = {"string": Dependency}
 
-def check_dependencies(in_deps: [Dependency], allowlist: "list") -> [Dependency]:
+def check_dependencies(in_deps: list[Dependency], allowlist: "list") -> list[Dependency]:
     """ filter valid dependencies
 
     check all dependencies for validity and collect only the relevant ones
@@ -34,7 +34,7 @@ def check_dependencies(in_deps: [Dependency], allowlist: "list") -> [Dependency]
             _bad_dependency_error(dep)
     return out_deps
 
-def flatten_dependencies(_ctx: AnalysisContext, deps: [Dependency]) -> ErlAppDependencies:
+def flatten_dependencies(_ctx: AnalysisContext, deps: list[Dependency]) -> ErlAppDependencies:
     """ collect transitive dependencies
 
     Flatten all transitive dependencies and merge together with the direct

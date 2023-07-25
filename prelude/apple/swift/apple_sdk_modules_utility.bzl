@@ -52,9 +52,9 @@ def get_compiled_sdk_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SD
     return ctx.actions.tset(SDKDepTSet, children = sdk_deps)
 
 def get_uncompiled_sdk_deps(
-        sdk_modules: [str],
-        required_modules: [str],
-        toolchain: SwiftToolchainInfo.type) -> [Dependency]:
+        sdk_modules: list[str],
+        required_modules: list[str],
+        toolchain: SwiftToolchainInfo.type) -> list[Dependency]:
     if not is_sdk_modules_provided(toolchain):
         fail("SDK deps are not set for swift_toolchain")
 

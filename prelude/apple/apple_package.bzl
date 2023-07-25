@@ -13,7 +13,7 @@ load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
-def apple_package_impl(ctx: AnalysisContext) -> ["provider"]:
+def apple_package_impl(ctx: AnalysisContext) -> list["provider"]:
     ipa_contents = _get_ipa_contents(ctx)
     compression_level = _compression_level_arg(IpaCompressionLevel(ctx.attrs._ipa_compression_level))
 

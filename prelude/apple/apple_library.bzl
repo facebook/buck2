@@ -103,8 +103,8 @@ AppleLibraryAdditionalParams = record(
     force_link_group_linking = field(bool, False),
 )
 
-def apple_library_impl(ctx: AnalysisContext) -> ["promise", ["provider"]]:
-    def get_apple_library_providers(deps_providers) -> ["provider"]:
+def apple_library_impl(ctx: AnalysisContext) -> ["promise", list["provider"]]:
+    def get_apple_library_providers(deps_providers) -> list["provider"]:
         constructor_params = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
             AppleLibraryAdditionalParams(
@@ -204,7 +204,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         ],
     )
 
-    def additional_providers_factory(propagated_exported_preprocessor_info: [CPreprocessorInfo.type, None]) -> ["provider"]:
+    def additional_providers_factory(propagated_exported_preprocessor_info: [CPreprocessorInfo.type, None]) -> list["provider"]:
         # Expose `SwiftPCMUncompiledInfo` which represents the ObjC part of a target,
         # if a target also has a Swift part, the provider will expose the generated `-Swift.h` header.
         # This is used for Swift Explicit Modules, and allows compiling a PCM file out of the exported headers.
@@ -262,11 +262,11 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
 
 def _get_extra_linker_flags_and_outputs(
         _ctx: AnalysisContext) -> (["_arglike"], {str: [DefaultInfo.type]}): # @oss-enable
-        # @oss-disable: ctx: AnalysisContext) -> (["_arglike"], {str: [DefaultInfo.type]}): 
+        # @oss-disable: ctx: AnalysisContext) -> (list["_arglike"], dict[str, list[DefaultInfo.type]]): 
     # @oss-disable: return add_extra_linker_outputs(ctx) 
     return [], {} # @oss-enable
 
-def _filter_swift_srcs(ctx: AnalysisContext) -> (["CxxSrcWithFlags"], ["CxxSrcWithFlags"]):
+def _filter_swift_srcs(ctx: AnalysisContext) -> (list["CxxSrcWithFlags"], list["CxxSrcWithFlags"]):
     cxx_srcs = []
     swift_srcs = []
     for s in get_srcs_with_flags(ctx):
@@ -284,7 +284,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         debug_info_tset: ArtifactTSet.type,
         _dwp: ["artifact", None],
         _pdb: ["artifact", None],
-        linker_map: [CxxLinkerMapData.type, None]) -> ({str: ["provider"]}, ["provider"]):
+        linker_map: [CxxLinkerMapData.type, None]) -> (dict[str, list["provider"]], list["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
 
@@ -313,14 +313,14 @@ def _get_shared_link_style_sub_targets_and_providers(
         providers += [AppleBundleLinkerMapInfo(linker_maps = [linker_map.map])]
     return (subtargets, providers)
 
-def _get_swift_static_debug_info(ctx: AnalysisContext, swiftmodule: "artifact") -> [ArtifactTSet.type]:
+def _get_swift_static_debug_info(ctx: AnalysisContext, swiftmodule: "artifact") -> list[ArtifactTSet.type]:
     return [make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
         artifacts = [swiftmodule],
     )]
 
-def _get_swift_shared_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> [ArtifactTSet.type]:
+def _get_swift_shared_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> list[ArtifactTSet.type]:
     return [swift_dependency_info.debug_info_tset] if swift_dependency_info.debug_info_tset else []
 
 def _get_linker_flags(ctx: AnalysisContext) -> cmd_args:
@@ -328,10 +328,10 @@ def _get_linker_flags(ctx: AnalysisContext) -> cmd_args:
 
 def _xcode_populate_attributes(
         ctx,
-        srcs: ["CxxSrcWithFlags"],
-        argsfiles: {str: CompileArgsfile.type},
+        srcs: list["CxxSrcWithFlags"],
+        argsfiles: dict[str, CompileArgsfile.type],
         populate_xcode_attributes_func: "function",
-        **_kwargs) -> {str: ""}:
+        **_kwargs) -> dict[str, ""]:
     # Overwrite the product name
     data = populate_xcode_attributes_func(ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     return data

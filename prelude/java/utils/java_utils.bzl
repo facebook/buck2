@@ -116,7 +116,7 @@ def declare_prefixed_name(name: str, prefix: [str, None]) -> str:
 def get_class_to_source_map_info(
         ctx: AnalysisContext,
         outputs: ["JavaCompileOutputs", None],
-        deps: [Dependency]) -> (JavaClassToSourceMapInfo.type, dict):
+        deps: list[Dependency]) -> (JavaClassToSourceMapInfo.type, dict):
     sub_targets = {}
     class_to_srcs = None
     if not ctx.attrs._is_building_android_binary and outputs != None:
@@ -135,7 +135,7 @@ def get_class_to_source_map_info(
     )
     return (class_to_src_map_info, sub_targets)
 
-def get_classpath_subtarget(actions: "actions", packaging_info: "JavaPackagingInfo") -> {str: ["provider"]}:
+def get_classpath_subtarget(actions: "actions", packaging_info: "JavaPackagingInfo") -> dict[str, list["provider"]]:
     proj = packaging_info.packaging_deps.project_as_args("full_jar_args")
     output = actions.write("classpath", proj)
     return {"classpath": [DefaultInfo(output, other_outputs = [proj])]}

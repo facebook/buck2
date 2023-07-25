@@ -45,7 +45,7 @@ PexProviders = record(
 
 def make_pex_providers(
         python_toolchain: PythonToolchainInfo.type,
-        pex: PexProviders.type) -> ["provider"]:
+        pex: PexProviders.type) -> list["provider"]:
     providers = [
         make_default_info(pex),
         make_run_info(pex),
@@ -78,7 +78,7 @@ def make_default_info(pex: PexProviders.type) -> "provider":
 def make_run_info(pex: PexProviders.type) -> "provider":
     return RunInfo(pex.run_cmd)
 
-def _srcs(srcs: [""], format = "{}") -> cmd_args:
+def _srcs(srcs: list[""], format = "{}") -> cmd_args:
     args = cmd_args()
     for src in srcs:
         args.add(cmd_args(src, format = format))
@@ -127,11 +127,11 @@ def make_pex(
         # A rule-provided tool to use to build the PEX.
         make_pex_cmd: [RunInfo.type, None],
         package_style: PackageStyle.type,
-        build_args: ["_arglike"],
+        build_args: list["_arglike"],
         pex_modules: PexModules.type,
-        shared_libraries: {str: (LinkedObject.type, bool)},
+        shared_libraries: dict[str, (LinkedObject.type, bool)],
         main_module: str,
-        hidden_resources: [None, ["_arglike"]]) -> PexProviders.type:
+        hidden_resources: [None, list["_arglike"]]) -> PexProviders.type:
     """
     Passes a standardized set of flags to a `make_pex` binary to create a python
     "executable".
@@ -198,13 +198,13 @@ def _make_pex_impl(
         python_toolchain: "PythonToolchainInfo",
         make_pex_cmd: [RunInfo.type, None],
         package_style: PackageStyle.type,
-        build_args: ["_arglike"],
-        shared_libraries: {str: (LinkedObject.type, bool)},
+        build_args: list["_arglike"],
+        shared_libraries: dict[str, (LinkedObject.type, bool)],
         preload_libraries: cmd_args,
         common_modules_args: cmd_args,
-        dep_artifacts: [("_arglike", str)],
+        dep_artifacts: list[("_arglike", str)],
         main_module: str,
-        hidden_resources: [None, ["_arglike"]],
+        hidden_resources: [None, list["_arglike"]],
         manifest_module: [None, "_arglike"],
         pex_modules: PexModules.type,
         output_suffix: str) -> PexProviders.type:
@@ -319,7 +319,7 @@ def _make_pex_impl(
         run_cmd = cmd_args(run_args).hidden([a for a, _ in runtime_files] + hidden_resources),
     )
 
-def _preload_libraries_args(ctx: AnalysisContext, shared_libraries: {str: (LinkedObject.type, bool)}) -> cmd_args:
+def _preload_libraries_args(ctx: AnalysisContext, shared_libraries: dict[str, (LinkedObject.type, bool)]) -> cmd_args:
     preload_libraries_path = ctx.actions.write(
         "__preload_libraries.txt",
         cmd_args([
@@ -336,7 +336,7 @@ def _pex_bootstrap_args(
         python_host_interpreter: "_arglike",
         main_module: str,
         output: "artifact",
-        shared_libraries: {str: (LinkedObject.type, bool)},
+        shared_libraries: dict[str, (LinkedObject.type, bool)],
         preload_libraries: cmd_args,
         symlink_tree_path: [None, "artifact"],
         package_style: PackageStyle.type) -> cmd_args:
@@ -365,7 +365,7 @@ def _pex_bootstrap_args(
 def _pex_modules_common_args(
         ctx: AnalysisContext,
         pex_modules: PexModules.type,
-        shared_libraries: {str: LinkedObject.type}) -> (cmd_args, [("_arglike", str)]):
+        shared_libraries: dict[str, LinkedObject.type]) -> (cmd_args, list[("_arglike", str)]):
     srcs = []
     src_artifacts = []
     deps = []
@@ -445,7 +445,7 @@ def _pex_modules_common_args(
 def _pex_modules_args(
         ctx: AnalysisContext,
         common_args: cmd_args,
-        dep_artifacts: [("_arglike", str)],
+        dep_artifacts: list[("_arglike", str)],
         symlink_tree_path: [None, "artifact"],
         manifest_module: ["_arglike", None],
         pex_modules: PexModules.type,
@@ -522,7 +522,7 @@ def _hidden_resources_error_message(current_target: "label", hidden_resources) -
 def generate_manifest_module(
         ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo.type,
-        src_manifests: ["_arglike"]) -> ["_arglike", None]:
+        src_manifests: list["_arglike"]) -> ["_arglike", None]:
     """
     Generates a __manifest__.py module, and an extra entry to add to source manifests.
 

@@ -107,10 +107,10 @@ DlopenableLibraryInfo = provider(fields = [])
 def create_linkable_node(
         ctx: AnalysisContext,
         preferred_linkage: Linkage.type = Linkage("any"),
-        deps: [Dependency] = [],
-        exported_deps: [Dependency] = [],
-        link_infos: {LinkStyle.type: LinkInfos.type} = {},
-        shared_libs: {str: LinkedObject.type} = {}) -> LinkableNode.type:
+        deps: list[Dependency] = [],
+        exported_deps: list[Dependency] = [],
+        link_infos: dict[LinkStyle.type, LinkInfos.type] = {},
+        shared_libs: dict[str, LinkedObject.type] = {}) -> LinkableNode.type:
     for link_style in get_link_styles_for_linkage(preferred_linkage):
         expect(
             link_style in link_infos,
@@ -128,8 +128,8 @@ def create_linkable_node(
 def create_linkable_graph_node(
         ctx: AnalysisContext,
         linkable_node: [LinkableNode.type, None] = None,
-        roots: {Label: AnnotatedLinkableRoot.type} = {},
-        excluded: {Label: None} = {}) -> LinkableGraphNode.type:
+        roots: dict[Label, AnnotatedLinkableRoot.type] = {},
+        excluded: dict[Label, None] = {}) -> LinkableGraphNode.type:
     return LinkableGraphNode(
         label = ctx.label,
         linkable = linkable_node,
@@ -140,8 +140,8 @@ def create_linkable_graph_node(
 def create_linkable_graph(
         ctx: AnalysisContext,
         node: [LinkableGraphNode.type, None] = None,
-        deps: [Dependency] = [],
-        children: [LinkableGraph.type] = []) -> LinkableGraph.type:
+        deps: list[Dependency] = [],
+        children: list[LinkableGraph.type] = []) -> LinkableGraph.type:
     all_children_graphs = filter(None, [x.get(LinkableGraph) for x in deps]) + children
     kwargs = {
         "children": [child_node.nodes for child_node in all_children_graphs],
@@ -154,7 +154,7 @@ def create_linkable_graph(
     )
 
 def get_linkable_graph_node_map_func(graph: LinkableGraph.type):
-    def get_linkable_graph_node_map() -> {Label: LinkableNode.type}:
+    def get_linkable_graph_node_map() -> dict[Label, LinkableNode.type]:
         nodes = graph.nodes.traverse()
         linkable_nodes = {}
         for node in filter(None, nodes):
@@ -164,7 +164,7 @@ def get_linkable_graph_node_map_func(graph: LinkableGraph.type):
 
     return get_linkable_graph_node_map
 
-def linkable_deps(deps: [Dependency]) -> [Label]:
+def linkable_deps(deps: list[Dependency]) -> list[Label]:
     labels = []
 
     for dep in deps:
@@ -205,7 +205,7 @@ def get_link_info(
 def get_deps_for_link(
         node: LinkableNode.type,
         link_style: LinkStyle.type,
-        pic_behavior: PicBehavior.type) -> ["label"]:
+        pic_behavior: PicBehavior.type) -> list["label"]:
     """
     Return deps to follow when linking against this node with the given link
     style.

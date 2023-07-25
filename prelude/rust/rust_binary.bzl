@@ -57,8 +57,8 @@ load(":resources.bzl", "rust_attr_resources")
 def _rust_binary_common(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
-        default_roots: [str],
-        extra_flags: [str]) -> ([[DefaultInfo.type, RunInfo.type]], cmd_args):
+        default_roots: list[str],
+        extra_flags: list[str]) -> (list[[DefaultInfo.type, RunInfo.type]], cmd_args):
     toolchain_info = compile_ctx.toolchain_info
 
     simple_crate = attr_simple_crate_for_filenames(ctx)
@@ -203,7 +203,7 @@ def _rust_binary_common(
     ]
     return (providers, args)
 
-def rust_binary_impl(ctx: AnalysisContext) -> [[DefaultInfo.type, RunInfo.type]]:
+def rust_binary_impl(ctx: AnalysisContext) -> list[[DefaultInfo.type, RunInfo.type]]:
     compile_ctx = compile_context(ctx)
 
     providers, args = _rust_binary_common(
@@ -215,7 +215,7 @@ def rust_binary_impl(ctx: AnalysisContext) -> [[DefaultInfo.type, RunInfo.type]]
 
     return providers + [RunInfo(args = args)]
 
-def rust_test_impl(ctx: AnalysisContext) -> [[DefaultInfo.type, RunInfo.type, ExternalRunnerTestInfo.type]]:
+def rust_test_impl(ctx: AnalysisContext) -> list[[DefaultInfo.type, RunInfo.type, ExternalRunnerTestInfo.type]]:
     compile_ctx = compile_context(ctx)
     toolchain_info = compile_ctx.toolchain_info
 

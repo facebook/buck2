@@ -94,7 +94,7 @@ def link_group_map_attr():
         default = None,
     )
 
-def _impl(ctx: AnalysisContext) -> ["provider"]:
+def _impl(ctx: AnalysisContext) -> list["provider"]:
     # Extract graphs from the roots via the raw attrs, as `parse_groups_definitions`
     # parses them as labels.
     linkable_graph = create_linkable_graph(

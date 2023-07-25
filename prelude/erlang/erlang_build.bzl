@@ -133,7 +133,7 @@ def _prepare_build_environment(
         input_mapping = input_mapping,
     )
 
-def _generate_input_mapping(build_environment: "BuildEnvironment", input_artifacts: ["artifact"]) -> "BuildEnvironment":
+def _generate_input_mapping(build_environment: "BuildEnvironment", input_artifacts: list["artifact"]) -> "BuildEnvironment":
     # collect input artifacts for current targets
     # Note: this must be after the dependencies to overwrite private includes
     input_mapping = dict(build_environment.input_mapping)
@@ -182,7 +182,7 @@ def _generate_include_artifacts(
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         name: "string",
-        header_artifacts: ["artifact"],
+        header_artifacts: list["artifact"],
         is_private: "bool" = False) -> "BuildEnvironment":
     # anchor for include dir
     anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "include"))
@@ -243,8 +243,8 @@ def _generate_beam_artifacts(
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         name: "string",
-        src_artifacts: ["artifact"],
-        output_mapping: ["NoneType", {"artifact": "string"}] = None) -> "BuildEnvironment":
+        src_artifacts: list["artifact"],
+        output_mapping: ["NoneType", dict["artifact", "string"]] = None) -> "BuildEnvironment":
     # anchor for ebin dir
     anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "ebin"))
 
@@ -301,7 +301,7 @@ def _generate_chunk_artifacts(
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         name: "string",
-        src_artifacts: ["artifact"]) -> "BuildEnvironment":
+        src_artifacts: list["artifact"]) -> "BuildEnvironment":
     anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "chunks"))
 
     chunk_mapping = {
@@ -346,8 +346,8 @@ def _get_deps_files(
         ctx: AnalysisContext,
         toolchain: "Toolchain",
         anchor: "artifact",
-        srcs: ["artifact"],
-        output_mapping: ["NoneType", {"artifact": "string"}] = None) -> {"string": "artifact"}:
+        srcs: list["artifact"],
+        output_mapping: ["NoneType", dict["artifact", "string"]] = None) -> dict["string", "artifact"]:
     """Mapping from the output path to the deps file artifact for each srcs artifact."""
 
     def output_path(src: "artifact") -> "string":
@@ -510,11 +510,11 @@ def _build_edoc(
 def _add_dependencies_to_args(
         ctx: AnalysisContext,
         artifacts,
-        queue: ["string"],
-        done: {"string": "bool"},
-        input_mapping: {"string": ("bool", ["string", "artifact"])},
+        queue: list["string"],
+        done: dict["string", "bool"],
+        input_mapping: dict["string", ("bool", ["string", "artifact"])],
         args: cmd_args,
-        build_environment: "BuildEnvironment") -> (cmd_args, {"string": ("bool", ["string", "artifact"])}):
+        build_environment: "BuildEnvironment") -> (cmd_args, dict["string", ("bool", ["string", "artifact"])]):
     """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden.
 
     This function traverses the deps specified in the deps files and adds all discovered dependencies.
@@ -590,7 +590,7 @@ def _add_full_dependencies(erlc_cmd: cmd_args, build_environment: "BuildEnvironm
         erlc_cmd.hidden(artifact)
     return erlc_cmd
 
-def _dependency_include_dirs(build_environment: "BuildEnvironment") -> [cmd_args]:
+def _dependency_include_dirs(build_environment: "BuildEnvironment") -> list[cmd_args]:
     includes = [
         cmd_args(include_dir_anchor).parent()
         for include_dir_anchor in build_environment.private_include_dir
@@ -602,15 +602,15 @@ def _dependency_include_dirs(build_environment: "BuildEnvironment") -> [cmd_args
 
     return includes
 
-def _dependency_code_paths(build_environment: "BuildEnvironment") -> [cmd_args]:
+def _dependency_code_paths(build_environment: "BuildEnvironment") -> list[cmd_args]:
     return [
         cmd_args(ebin_dir_anchor).parent()
         for ebin_dir_anchor in build_environment.ebin_dirs.values()
     ]
 
 def _erlc_dependency_args(
-        includes: [cmd_args],
-        code_paths: [cmd_args],
+        includes: list[cmd_args],
+        code_paths: list[cmd_args],
         path_in_arg: "bool" = True) -> cmd_args:
     """Build include and path options."""
     # Q: why not just change format here - why do we add -I/-pa as a separate argument?
@@ -730,7 +730,7 @@ def _is_xyrl(in_file: "artifact") -> "bool":
     """ Returns True if the artifact is a xrl or yrl file """
     return _is_ext(in_file, [".yrl", ".xrl"])
 
-def _is_ext(in_file: "artifact", extensions: ["string"]) -> "bool":
+def _is_ext(in_file: "artifact", extensions: list["string"]) -> "bool":
     """ Returns True if the artifact has an extension listed in extensions """
     _, ext = paths.split_extension(in_file.basename)
     return ext in extensions
@@ -757,7 +757,7 @@ def _add(a: "dict", key: "", value: "") -> "dict":
 def _build_dir(toolchain: "Toolchain") -> "string":
     return paths.join("__build", toolchain.name)
 
-def _generate_file_mapping_string(mapping: {"string": ("bool", ["string", "artifact"])}) -> cmd_args:
+def _generate_file_mapping_string(mapping: dict["string", ("bool", ["string", "artifact"])]) -> cmd_args:
     """produces an easily parsable string for the file mapping"""
     items = {}
     for file, (if_found, artifact) in mapping.items():

@@ -93,7 +93,7 @@ load(
 load(":resources.bzl", "rust_attr_resources")
 load(":targets.bzl", "targets")
 
-def prebuilt_rust_library_impl(ctx: AnalysisContext) -> ["provider"]:
+def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list["provider"]:
     providers = []
 
     # Default output.
@@ -169,7 +169,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> ["provider"]:
 
     return providers
 
-def rust_library_impl(ctx: AnalysisContext) -> ["provider"]:
+def rust_library_impl(ctx: AnalysisContext) -> list["provider"]:
     compile_ctx = compile_context(ctx)
     toolchain_info = compile_ctx.toolchain_info
 
@@ -301,8 +301,8 @@ def rust_library_impl(ctx: AnalysisContext) -> ["provider"]:
 def _build_params_for_styles(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type) -> (
-    {BuildParams.type: [LinkageLang.type]},
-    {(LinkageLang.type, LinkStyle.type): BuildParams.type},
+    dict[BuildParams.type, list[LinkageLang.type]],
+    dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
 ):
     """
     For a given rule, return two things:
@@ -348,9 +348,7 @@ def _build_params_for_styles(
 def _build_library_artifacts(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
-        param_lang: {BuildParams.type: [LinkageLang.type]}) -> {
-    (LinkageLang.type, BuildParams.type): (RustcOutput.type, RustcOutput.type),
-}:
+        param_lang: dict[BuildParams.type, list[LinkageLang.type]]) -> dict[(LinkageLang.type, BuildParams.type), (RustcOutput.type, RustcOutput.type)]:
     """
     Generate the actual actions to build various output artifacts. Given the set
     parameters we need, return a mapping to the linkable and metadata artifacts.
@@ -415,13 +413,13 @@ def _handle_rust_artifact(
 
 def _default_providers(
         ctx: AnalysisContext,
-        lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
-        param_artifact: {BuildParams.type: RustLinkStyleInfo.type},
+        lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
+        param_artifact: dict[BuildParams.type, RustLinkStyleInfo.type],
         rustdoc: "artifact",
         rustdoc_test: [cmd_args, None],
-        check_artifacts: {str: "artifact"},
+        check_artifacts: dict[str, "artifact"],
         expand: "artifact",
-        sources: "artifact") -> ["provider"]:
+        sources: "artifact") -> list["provider"]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
@@ -477,8 +475,8 @@ def _default_providers(
 
 def _rust_providers(
         ctx: AnalysisContext,
-        lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
-        param_artifact: {BuildParams.type: RustLinkStyleInfo.type}) -> ["provider"]:
+        lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
+        param_artifact: dict[BuildParams.type, RustLinkStyleInfo.type]) -> list["provider"]:
     """
     Return the set of providers for Rust linkage.
     """
@@ -522,8 +520,8 @@ def _rust_providers(
 def _native_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
-        lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
-        param_artifact: {BuildParams.type: "artifact"}) -> ["provider"]:
+        lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
+        param_artifact: dict[BuildParams.type, "artifact"]) -> list["provider"]:
     """
     Return the set of providers needed to link Rust as a dependency for native
     (ie C/C++) code, along with relevant dependencies.
@@ -639,7 +637,7 @@ def _native_providers(
     return providers
 
 # Compute transitive deps. Caller decides whether this is necessary.
-def _compute_transitive_deps(ctx: AnalysisContext, link_style: LinkStyle.type) -> ({"artifact": CrateName.type}, {"artifact": CrateName.type}):
+def _compute_transitive_deps(ctx: AnalysisContext, link_style: LinkStyle.type) -> (dict["artifact", CrateName.type], dict["artifact", CrateName.type]):
     transitive_deps = {}
     transitive_rmeta_deps = {}
     for dep in resolve_deps(ctx):

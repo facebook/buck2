@@ -17,7 +17,7 @@ def generate_xcode_data(
         rule_type: str,
         output: ["artifact", None],
         populate_rule_specific_attributes_func: ["function", None] = None,
-        **kwargs) -> (["DefaultInfo"], XcodeDataInfo.type):
+        **kwargs) -> (list["DefaultInfo"], XcodeDataInfo.type):
     data = {
         "rule_type": rule_type,
         "target": ctx.label,

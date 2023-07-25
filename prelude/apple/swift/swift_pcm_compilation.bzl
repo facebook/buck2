@@ -44,8 +44,8 @@ def get_compiled_pcm_deps_tset(ctx: AnalysisContext, pcm_deps_providers: list) -
 
 def get_swift_pcm_anon_targets(
         ctx: AnalysisContext,
-        uncompiled_deps: [Dependency],
-        swift_cxx_args: [str]):
+        uncompiled_deps: list[Dependency],
+        swift_cxx_args: list[str]):
     deps = [
         {
             "dep": uncompiled_dep,
@@ -90,8 +90,8 @@ def _compile_with_argsfile(
         allow_cache_upload = local_only,
     )
 
-def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", ["provider"]]:
-    def k(compiled_pcm_deps_providers) -> ["provider"]:
+def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list["provider"]]:
+    def k(compiled_pcm_deps_providers) -> list["provider"]:
         uncompiled_pcm_info = ctx.attrs.dep[SwiftPCMUncompiledInfo]
 
         # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers
@@ -212,7 +212,7 @@ def compile_underlying_pcm(
         ctx: AnalysisContext,
         uncompiled_pcm_info: "SwiftPCMUncompiledInfo",
         compiled_pcm_deps_providers,
-        swift_cxx_args: [str],
+        swift_cxx_args: list[str],
         framework_search_path_flags: cmd_args) -> "SwiftPCMCompiledInfo":
     module_name = get_module_name(ctx)
 
@@ -261,7 +261,7 @@ def _get_base_pcm_flags(
         uncompiled_pcm_info: SwiftPCMUncompiledInfo.type,
         sdk_deps_tset: SDKDepTSet.type,
         pcm_deps_tset: PcmDepTSet.type,
-        swift_cxx_args: [str]) -> (cmd_args, cmd_args, "artifact"):
+        swift_cxx_args: list[str]) -> (cmd_args, cmd_args, "artifact"):
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     cmd = cmd_args()

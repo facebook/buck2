@@ -16,7 +16,7 @@ load(
     "get_java_packaging_info",
 )
 
-def _generate_script(generate_wrapper: bool, native_libs: {str: "SharedLibrary"}) -> bool:
+def _generate_script(generate_wrapper: bool, native_libs: dict[str, "SharedLibrary"]) -> bool:
     # if `generate_wrapper` is set and no native libs then it should be a wrapper script as result,
     # otherwise fat jar will be generated (inner jar or script will be included inside a final fat jar)
     return generate_wrapper and len(native_libs) == 0
@@ -25,9 +25,9 @@ def _create_fat_jar(
         ctx: AnalysisContext,
         java_toolchain: JavaToolchainInfo.type,
         jars: cmd_args,
-        native_libs: {str: "SharedLibrary"},
+        native_libs: dict[str, "SharedLibrary"],
         do_not_create_inner_jar: bool,
-        generate_wrapper: bool) -> ["artifact"]:
+        generate_wrapper: bool) -> list["artifact"]:
     extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
     output = ctx.actions.declare_output("{}.{}".format(ctx.label.name, extension))
 
@@ -133,11 +133,11 @@ def _get_run_cmd(
     else:
         return cmd_args([java_toolchain.java[RunInfo]] + attrs.java_args_for_run_info + ["-jar", main_artifact])
 
-def _get_java_tool_artifacts(java_toolchain: JavaToolchainInfo.type) -> ["artifact"]:
+def _get_java_tool_artifacts(java_toolchain: JavaToolchainInfo.type) -> list["artifact"]:
     default_info = java_toolchain.java[DefaultInfo]
     return default_info.default_outputs + default_info.other_outputs
 
-def java_binary_impl(ctx: AnalysisContext) -> ["provider"]:
+def java_binary_impl(ctx: AnalysisContext) -> list["provider"]:
     """
      java_binary() rule implementation
 

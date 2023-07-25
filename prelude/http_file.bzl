@@ -16,7 +16,7 @@ def http_file_shared(
         is_exploded_zip: bool,
         unzip_tool: [RunInfo.type, None],
         sha1: [None, str],
-        sha256 = [None, str]) -> ["provider"]:
+        sha256 = [None, str]) -> list["provider"]:
     output = actions.declare_output(name)
     downloaded_output = actions.declare_output("exploded_zip") if is_exploded_zip else output
     actions.download_file(
@@ -47,7 +47,7 @@ def http_file_shared(
         providers.append(RunInfo(args = [output]))
     return providers
 
-def http_file_impl(ctx: AnalysisContext) -> ["provider"]:
+def http_file_impl(ctx: AnalysisContext) -> list["provider"]:
     expect(len(ctx.attrs.urls) == 1, "multiple `urls` not supported: {}", ctx.attrs.urls)
     expect(len(ctx.attrs.vpnless_urls) < 2, "multiple `vpnless_urls` not supported: {}", ctx.attrs.vpnless_urls)
     if len(ctx.attrs.vpnless_urls) > 0:

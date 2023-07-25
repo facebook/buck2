@@ -70,7 +70,7 @@ def dest_prefix(label: "label", base_module: [None, str]) -> str:
 def qualify_srcs(
         label: "label",
         base_module: [None, str],
-        srcs: {str: "_a"}) -> {str: "_a"}:
+        srcs: dict[str, "_a"]) -> dict[str, "_a"]:
     """
     Fully qualify package-relative sources with the rule's base module.
 
@@ -92,7 +92,7 @@ def qualify_srcs(
 def create_python_needed_coverage_info(
         label: "label",
         base_module: [None, str],
-        srcs: [str]) -> PythonNeededCoverageInfo.type:
+        srcs: list[str]) -> PythonNeededCoverageInfo.type:
     prefix = dest_prefix(label, base_module)
     return PythonNeededCoverageInfo(
         modules = {src: prefix + src for src in srcs},
@@ -103,12 +103,12 @@ def create_python_library_info(
         label: Label,
         srcs: [ManifestInfo.type, None] = None,
         src_types: [ManifestInfo.type, None] = None,
-        bytecode: [{PycInvalidationMode.type: ManifestInfo.type}, None] = None,
+        bytecode: [dict[PycInvalidationMode.type, ManifestInfo.type], None] = None,
         dep_manifest: [ManifestInfo.type, None] = None,
-        resources: [(ManifestInfo.type, ["_arglike"]), None] = None,
-        extensions: [{str: LinkedObject.type}, None] = None,
-        deps: ["PythonLibraryInfo"] = [],
-        shared_libraries: ["SharedLibraryInfo"] = []):
+        resources: [(ManifestInfo.type, list["_arglike"]), None] = None,
+        extensions: [dict[str, LinkedObject.type], None] = None,
+        deps: list["PythonLibraryInfo"] = [],
+        shared_libraries: list["SharedLibraryInfo"] = []):
     """
     Create a `PythonLibraryInfo` for a set of sources and deps
 
@@ -146,7 +146,7 @@ def create_python_library_info(
         shared_libraries = new_shared_libraries,
     )
 
-def gather_dep_libraries(raw_deps: [[Dependency]]) -> (["PythonLibraryInfo"], ["SharedLibraryInfo"]):
+def gather_dep_libraries(raw_deps: list[list[Dependency]]) -> (list["PythonLibraryInfo"], list["SharedLibraryInfo"]):
     """
     Takes a list of raw dependencies, and partitions them into python_library / shared library providers.
     Fails if a dependency is not one of these.
@@ -171,7 +171,7 @@ def gather_dep_libraries(raw_deps: [[Dependency]]) -> (["PythonLibraryInfo"], ["
 
 def _exclude_deps_from_omnibus(
         ctx: AnalysisContext,
-        srcs: {str: "artifact"}) -> bool:
+        srcs: dict[str, "artifact"]) -> bool:
     # User-specified parameter.
     if ctx.attrs.exclude_deps_from_merged_linking:
         return True
@@ -187,7 +187,7 @@ def _exclude_deps_from_omnibus(
 
     return False
 
-def _attr_srcs(ctx: AnalysisContext) -> {str: "artifact"}:
+def _attr_srcs(ctx: AnalysisContext) -> dict[str, "artifact"]:
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     all_srcs = {}
@@ -196,7 +196,7 @@ def _attr_srcs(ctx: AnalysisContext) -> {str: "artifact"}:
         all_srcs.update(from_named_set(srcs))
     return all_srcs
 
-def _attr_resources(ctx: AnalysisContext) -> {str: [Dependency, "artifact"]}:
+def _attr_resources(ctx: AnalysisContext) -> dict[str, [Dependency, "artifact"]]:
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     all_resources = {}
@@ -205,7 +205,7 @@ def _attr_resources(ctx: AnalysisContext) -> {str: [Dependency, "artifact"]}:
         all_resources.update(from_named_set(resources))
     return all_resources
 
-def py_attr_resources(ctx: AnalysisContext) -> {str: ("artifact", ["_arglike"])}:
+def py_attr_resources(ctx: AnalysisContext) -> dict[str, ("artifact", list["_arglike"])]:
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
@@ -215,7 +215,7 @@ def py_attr_resources(ctx: AnalysisContext) -> {str: ("artifact", ["_arglike"])}
 
 def py_resources(
         ctx: AnalysisContext,
-        resources: {str: ("artifact", ["_arglike"])}) -> (ManifestInfo.type, ["_arglike"]):
+        resources: dict[str, ("artifact", list["_arglike"])]) -> (ManifestInfo.type, list["_arglike"]):
     """
     Generate a manifest to wrap this rules resources.
     """
@@ -232,7 +232,7 @@ def py_resources(
     manifest = create_manifest_for_source_map(ctx, "resources", d)
     return manifest, dedupe(hidden)
 
-def _src_types(srcs: {str: "artifact"}, type_stubs: {str: "artifact"}) -> {str: "artifact"}:
+def _src_types(srcs: dict[str, "artifact"], type_stubs: dict[str, "artifact"]) -> dict[str, "artifact"]:
     src_types = {}
 
     # First, add all `.py` files.
@@ -250,7 +250,7 @@ def _src_types(srcs: {str: "artifact"}, type_stubs: {str: "artifact"}) -> {str: 
 
     return src_types
 
-def python_library_impl(ctx: AnalysisContext) -> ["provider"]:
+def python_library_impl(ctx: AnalysisContext) -> list["provider"]:
     # Versioned params should be intercepted and converted away via the stub.
     expect(not ctx.attrs.versioned_srcs)
     expect(not ctx.attrs.versioned_resources)

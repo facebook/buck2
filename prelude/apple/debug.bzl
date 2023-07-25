@@ -34,7 +34,7 @@ AggregatedAppleDebugInfo = record(
     sub_targets = field({str.type: ["DefaultInfo"]}),
 )
 
-def get_aggregated_debug_info(ctx: "context", debug_infos: [AppleDebuggableInfo.type], dsym_artifacts: [""]) -> AggregatedAppleDebugInfo.type:
+def get_aggregated_debug_info(ctx: "context", debug_infos: list[AppleDebuggableInfo.type], dsym_artifacts: list[""]) -> AggregatedAppleDebugInfo.type:
     all_debug_info_tsets = []
     full_debug_info_tsets = []
     debug_info_map = {}

@@ -53,7 +53,7 @@ _SelectiveDebuggingJsonType = enum(*_SelectiveDebuggingJsonTypes)
 
 _LOCAL_LINK_THRESHOLD = 0.2
 
-def _impl(ctx: AnalysisContext) -> ["provider"]:
+def _impl(ctx: AnalysisContext) -> list["provider"]:
     json_type = _SelectiveDebuggingJsonType(ctx.attrs.json_type)
 
     # process inputs and provide them up the graph with typing
@@ -122,7 +122,7 @@ def _impl(ctx: AnalysisContext) -> ["provider"]:
 
         return AppleSelectiveDebuggingFilteredDebugInfo(map = map)
 
-    def preference_for_links(links: [Label], deps_preferences: [LinkExecutionPreferenceInfo.type]) -> LinkExecutionPreference.type:
+    def preference_for_links(links: list[Label], deps_preferences: list[LinkExecutionPreferenceInfo.type]) -> LinkExecutionPreference.type:
         # If any dependent links were run locally, prefer that the current link is also performed locally,
         # to avoid needing to upload the previous link.
         dep_prefered_local = is_any(lambda info: info.preference == LinkExecutionPreference("local"), deps_preferences)
@@ -174,7 +174,7 @@ def _is_label_included(label: "label", selection_criteria: _SelectionCriteria.ty
     # If included (above snippet), ensure that this target is not excluded.
     return not _check_if_label_matches_patterns_or_expressions(label, selection_criteria.exclude_build_target_patterns, selection_criteria.exclude_regular_expressions)
 
-def _check_if_label_matches_patterns_or_expressions(label: "label", patterns: ["BuildTargetPattern"], expressions: ["regex"]) -> bool:
+def _check_if_label_matches_patterns_or_expressions(label: "label", patterns: list["BuildTargetPattern"], expressions: list["regex"]) -> bool:
     for pattern in patterns:
         if pattern.matches(label):
             return True

@@ -36,7 +36,7 @@ def get_default_binary_dep(ctx: "context") -> ["dependency", None]:
 
     return ctx.attrs.binary["arm64"] if "arm64" in ctx.attrs.binary else ctx.attrs.binary["x86_64"]
 
-def get_flattened_binary_deps(ctx: "context") -> ["dependency"]:
+def get_flattened_binary_deps(ctx: "context") -> list["dependency"]:
     return [] if ctx.attrs.binary == None else ctx.attrs.binary.values()
 
 # Derives the effective deployment target for the bundle. It's
@@ -74,7 +74,7 @@ def get_bundle_resource_processing_options(ctx: AnalysisContext) -> AppleResourc
     compile_resources_locally = value_or(ctx.attrs._compile_resources_locally_override, ctx.attrs._apple_toolchain[AppleToolchainInfo].compile_resources_locally)
     return AppleResourceProcessingOptions(prefer_local = compile_resources_locally, allow_cache_upload = compile_resources_locally)
 
-def get_bundle_infos_from_graph(graph: ResourceGraph.type) -> [AppleBundleLinkerMapInfo.type]:
+def get_bundle_infos_from_graph(graph: ResourceGraph.type) -> list[AppleBundleLinkerMapInfo.type]:
     bundle_infos = []
     for node in graph.nodes.traverse():
         if not node.resource_spec:
@@ -91,7 +91,7 @@ def get_bundle_infos_from_graph(graph: ResourceGraph.type) -> [AppleBundleLinker
 
     return bundle_infos
 
-def merge_bundle_linker_maps_info(infos: [AppleBundleLinkerMapInfo.type]) -> AppleBundleLinkerMapInfo.type:
+def merge_bundle_linker_maps_info(infos: list[AppleBundleLinkerMapInfo.type]) -> AppleBundleLinkerMapInfo.type:
     return AppleBundleLinkerMapInfo(
         linker_maps = flatten([info.linker_maps for info in infos]),
     )

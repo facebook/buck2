@@ -82,9 +82,9 @@ RustDependency = record(
 
 # Returns all first-order dependencies.
 def _do_resolve_deps(
-        deps: [Dependency],
-        named_deps: {str: Dependency},
-        flagged_deps: [(Dependency, [str])] = []) -> [RustDependency.type]:
+        deps: list[Dependency],
+        named_deps: dict[str, Dependency],
+        flagged_deps: list[(Dependency, list[str])] = []) -> list[RustDependency.type]:
     return [
         RustDependency(name = name, dep = dep, flags = flags)
         for name, dep, flags in [(None, dep, []) for dep in deps] +
@@ -94,7 +94,7 @@ def _do_resolve_deps(
 
 def resolve_deps(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> [RustDependency.type]:
+        include_doc_deps: bool = False) -> list[RustDependency.type]:
     # The `getattr`s are needed for when we're operating on
     # `prebuilt_rust_library` rules, which don't have those attrs.
     dependencies = _do_resolve_deps(
@@ -114,7 +114,7 @@ def resolve_deps(
 # Returns native link dependencies.
 def _non_rust_link_deps(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> [Dependency]:
+        include_doc_deps: bool = False) -> list[Dependency]:
     """
     Return all first-order native linkable dependencies of all transitive Rust
     libraries.
@@ -132,7 +132,7 @@ def _non_rust_link_deps(
 # Returns native link dependencies.
 def _non_rust_link_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> ["MergedLinkInfo"]:
+        include_doc_deps: bool = False) -> list["MergedLinkInfo"]:
     """
     Return all first-order native link infos of all transitive Rust libraries.
 
@@ -146,7 +146,7 @@ def _non_rust_link_infos(
 # Returns native link dependencies.
 def _non_rust_shared_lib_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> ["SharedLibraryInfo"]:
+        include_doc_deps: bool = False) -> list["SharedLibraryInfo"]:
     """
     Return all transitive shared libraries for non-Rust native linkabes.
 
@@ -163,14 +163,14 @@ def _non_rust_shared_lib_infos(
 # Returns native link dependencies.
 def _rust_link_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> ["RustLinkInfo"]:
+        include_doc_deps: bool = False) -> list["RustLinkInfo"]:
     first_order_deps = resolve_deps(ctx, include_doc_deps)
     return filter(None, [d.dep.get(RustLinkInfo) for d in first_order_deps])
 
 def normalize_crate(label: str) -> str:
     return label.replace("-", "_")
 
-def inherited_non_rust_exported_link_deps(ctx: AnalysisContext) -> [Dependency]:
+def inherited_non_rust_exported_link_deps(ctx: AnalysisContext) -> list[Dependency]:
     deps = {}
     for dep in _non_rust_link_deps(ctx):
         deps[dep.label] = dep
@@ -189,7 +189,7 @@ def inherited_non_rust_link_info(
 
 def inherited_non_rust_shared_libs(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> ["SharedLibraryInfo"]:
+        include_doc_deps: bool = False) -> list["SharedLibraryInfo"]:
     infos = []
     infos.extend(_non_rust_shared_lib_infos(ctx, include_doc_deps))
     infos.extend([d.non_rust_shared_libs for d in _rust_link_infos(ctx, include_doc_deps)])

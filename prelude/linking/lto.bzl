@@ -21,7 +21,7 @@ LtoMode = enum(
     "thin",
 )
 
-def lto_compiler_flags(lto_mode: "LtoMode") -> [str]:
+def lto_compiler_flags(lto_mode: "LtoMode") -> list[str]:
     if lto_mode == LtoMode("none"):
         return []
     elif lto_mode == LtoMode("fat") or lto_mode == LtoMode("monolithic"):

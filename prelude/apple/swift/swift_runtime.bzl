@@ -34,7 +34,7 @@ def get_swift_runtime_linker_flags(ctx: AnalysisContext, linkable: [SwiftRuntime
 
     return args
 
-def extract_swift_runtime_linkables(link_infos: [[LinkInfo.type], None]) -> [SwiftRuntimeLinkable.type]:
+def extract_swift_runtime_linkables(link_infos: [list[LinkInfo.type], None]) -> list[SwiftRuntimeLinkable.type]:
     swift_runtime_type = LinkableType("swift_runtime")
 
     linkables = []

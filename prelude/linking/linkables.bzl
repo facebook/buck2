@@ -49,5 +49,5 @@ def linkable(dep: Dependency) -> LinkableProviders.type:
         linkable_root_info = dep.get(LinkableRootInfo),
     )
 
-def linkables(deps: [Dependency]) -> [LinkableProviders.type]:
+def linkables(deps: list[Dependency]) -> list[LinkableProviders.type]:
     return [linkable(dep) for dep in deps if MergedLinkInfo in dep]

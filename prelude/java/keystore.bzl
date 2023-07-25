@@ -7,7 +7,7 @@
 
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 
-def keystore_impl(ctx: AnalysisContext) -> ["provider"]:
+def keystore_impl(ctx: AnalysisContext) -> list["provider"]:
     sub_targets = {}
     sub_targets["keystore"] = [DefaultInfo(default_output = ctx.attrs.store)]
     sub_targets["properties"] = [DefaultInfo(default_output = ctx.attrs.properties)]

@@ -71,17 +71,17 @@ def _serialize_link_args(link: LinkArgs.type):
 
     fail("cannot serialize link args")
 
-def _serialize_links(links: [LinkArgs.type]):
+def _serialize_links(links: list[LinkArgs.type]):
     return [_serialize_link_args(link) for link in links]
 
 def serialize_anon_attrs(
-        links: [LinkArgs.type],
+        links: list[LinkArgs.type],
         output: str.type,
         import_library: ["artifact", None] = None,
         link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
         enable_distributed_thinlto: bool.type = False,
         identifier: [str.type, None] = None,
-        category_suffix: [str.type, None] = None) -> {str.type: ""}:
+        category_suffix: [str.type, None] = None) -> dict[str.type, ""]:
     return dict(
         links = _serialize_links(links),
         output = output,
@@ -154,7 +154,7 @@ def _deserialize_link_args(
 
     fail("invalid link args type: {}".format(typ))
 
-def deserialize_anon_attrs(actions: "actions", label: "label", attrs: "struct") -> {str.type: ""}:
+def deserialize_anon_attrs(actions: "actions", label: "label", attrs: "struct") -> dict[str.type, ""]:
     return dict(
         output = attrs.output,
         links = [_deserialize_link_args(actions, label, link) for link in attrs.links],

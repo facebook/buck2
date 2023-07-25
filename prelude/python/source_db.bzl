@@ -23,7 +23,7 @@ def create_python_source_db_info(manifests: [PythonLibraryManifestsTSet.type, No
 def create_source_db(
         ctx: AnalysisContext,
         srcs: [ManifestInfo.type, None],
-        python_deps: ["PythonLibraryInfo"]) -> DefaultInfo.type:
+        python_deps: list["PythonLibraryInfo"]) -> DefaultInfo.type:
     output = ctx.actions.declare_output("db.json")
     artifacts = []
 
@@ -53,7 +53,7 @@ def create_source_db(
 def create_dbg_source_db(
         ctx: AnalysisContext,
         srcs: [ManifestInfo.type, None],
-        python_deps: ["PythonLibraryInfo"]) -> DefaultInfo.type:
+        python_deps: list["PythonLibraryInfo"]) -> DefaultInfo.type:
     output = ctx.actions.declare_output("dbg-db.json")
     artifacts = []
 
@@ -80,7 +80,7 @@ def create_dbg_source_db(
 
 def create_source_db_no_deps(
         ctx: AnalysisContext,
-        srcs: [{str: "artifact"}, None]) -> DefaultInfo.type:
+        srcs: [dict[str, "artifact"], None]) -> DefaultInfo.type:
     content = {} if srcs == None else srcs
     output = ctx.actions.write_json("db_no_deps.json", content)
     return DefaultInfo(default_output = output, other_outputs = content.values())

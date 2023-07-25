@@ -18,7 +18,7 @@ GroupedSource = record(
     additional_sources = ["artifact"],
 )
 
-def _get_grouped_srcs(ctx: AnalysisContext) -> [GroupedSource.type]:
+def _get_grouped_srcs(ctx: AnalysisContext) -> list[GroupedSource.type]:
     grouped_srcs = {}
     for src in ctx.attrs.srcs:
         # TODO(ianc) also support sources with an "inner path".
@@ -48,8 +48,8 @@ def _get_virtual_path(ctx: AnalysisContext, src: "artifact", base_path: [str, No
 def _build_js_files(
         ctx: AnalysisContext,
         transform_profile: str,
-        flavors: [str],
-        grouped_srcs: [GroupedSource.type]) -> ["artifact"]:
+        flavors: list[str],
+        grouped_srcs: list[GroupedSource.type]) -> list["artifact"]:
     if not grouped_srcs:
         return []
 
@@ -103,8 +103,8 @@ def _build_js_files(
 def _build_library_files(
         ctx: AnalysisContext,
         transform_profile: str,
-        flavors: [str],
-        js_files: ["artifact"]) -> "artifact":
+        flavors: list[str],
+        js_files: list["artifact"]) -> "artifact":
     output_path = ctx.actions.declare_output("{}/library_files".format(transform_profile))
     command_args_file = ctx.actions.write_json(
         "library_files_{}_command_args".format(transform_profile),
@@ -132,8 +132,8 @@ def _build_js_library(
         ctx: AnalysisContext,
         transform_profile: str,
         library_files: "artifact",
-        flavors: [str],
-        js_library_deps: ["artifact"]) -> "artifact":
+        flavors: list[str],
+        js_library_deps: list["artifact"]) -> "artifact":
     output_path = ctx.actions.declare_output("{}.jslib".format(transform_profile))
     job_args = {
         "aggregatedSourceFilesFilePath": library_files,
@@ -167,7 +167,7 @@ def _build_js_library(
 
     return output_path
 
-def js_library_impl(ctx: AnalysisContext) -> ["provider"]:
+def js_library_impl(ctx: AnalysisContext) -> list["provider"]:
     if ctx.attrs._build_only_native_code:
         sub_targets = {}
         unused_output = ctx.actions.write("unused.js", [])

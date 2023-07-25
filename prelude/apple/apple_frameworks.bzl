@@ -61,14 +61,14 @@ def get_framework_search_path_flags(ctx: AnalysisContext) -> cmd_args:
     expanded_framework_dirs = _expand_sdk_framework_paths(ctx, unresolved_framework_dirs)
     return _get_framework_search_path_flags(expanded_framework_dirs)
 
-def _get_framework_search_path_flags(frameworks: [cmd_args]) -> cmd_args:
+def _get_framework_search_path_flags(frameworks: list[cmd_args]) -> cmd_args:
     flags = cmd_args()
     for directory in frameworks:
         flags.add(cmd_args(directory, format = "-F{}"))
 
     return flags
 
-def _get_non_sdk_unresolved_framework_directories(frameworks: [""]) -> [""]:
+def _get_non_sdk_unresolved_framework_directories(frameworks: list[""]) -> list[""]:
     # We don't want to include SDK directories as those are already added via `isysroot` flag in toolchain definition.
     # Adding those directly via `-F` will break building Catalyst applications as frameworks from support directory
     # won't be found and those for macOS platform will be used.
@@ -88,7 +88,7 @@ def _library_name(library: str) -> str:
         fail("unexpected library: {}".format(library))
     return paths.split_extension(name[3:])[0]
 
-def _expand_sdk_framework_paths(ctx: AnalysisContext, unresolved_framework_paths: [str]) -> [cmd_args]:
+def _expand_sdk_framework_paths(ctx: AnalysisContext, unresolved_framework_paths: list[str]) -> list[cmd_args]:
     return [_expand_sdk_framework_path(ctx, unresolved_framework_path) for unresolved_framework_path in unresolved_framework_paths]
 
 def _expand_sdk_framework_path(ctx: AnalysisContext, framework_path: str) -> cmd_args:
@@ -154,7 +154,7 @@ def apple_build_link_args_with_deduped_flags(
 
 def apple_get_link_info_by_deduping_link_infos(
         ctx: AnalysisContext,
-        infos: [[LinkInfo.type, None]],
+        infos: list[[LinkInfo.type, None]],
         framework_linkable: [FrameworksLinkable.type, None] = None,
         swiftmodule_linkable: [SwiftmoduleLinkable.type, None] = None,
         swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> [LinkInfo.type, None]:
@@ -175,7 +175,7 @@ def apple_get_link_info_by_deduping_link_infos(
 
     return _link_info_from_linkables(ctx, framework_linkables, swiftmodule_linkables, swift_runtime_linkables)
 
-def _extract_framework_linkables(link_infos: [[LinkInfo.type], None]) -> [FrameworksLinkable.type]:
+def _extract_framework_linkables(link_infos: [list[LinkInfo.type], None]) -> list[FrameworksLinkable.type]:
     frameworks_type = LinkableType("frameworks")
 
     linkables = []
@@ -188,9 +188,9 @@ def _extract_framework_linkables(link_infos: [[LinkInfo.type], None]) -> [Framew
 
 def _link_info_from_linkables(
         ctx: AnalysisContext,
-        framework_linkables: [[FrameworksLinkable.type, None]],
-        swiftmodule_linkables: [[SwiftmoduleLinkable.type, None]] = [],
-        swift_runtime_linkables: [[SwiftRuntimeLinkable.type, None]] = []) -> [LinkInfo.type, None]:
+        framework_linkables: list[[FrameworksLinkable.type, None]],
+        swiftmodule_linkables: list[[SwiftmoduleLinkable.type, None]] = [],
+        swift_runtime_linkables: list[[SwiftRuntimeLinkable.type, None]] = []) -> [LinkInfo.type, None]:
     framework_link_args = _get_apple_frameworks_linker_flags(ctx, merge_framework_linkables(framework_linkables))
     swift_module_link_args = get_swiftmodule_linker_flags(merge_swiftmodule_linkables(ctx, swiftmodule_linkables))
     swift_runtime_link_args = get_swift_runtime_linker_flags(ctx, merge_swift_runtime_linkables(swift_runtime_linkables))

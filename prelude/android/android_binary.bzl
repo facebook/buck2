@@ -166,7 +166,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         resources_info = resources_info,
     )
 
-def _get_build_config_java_libraries(ctx: AnalysisContext, build_config_infos: ["AndroidBuildConfigInfo"]) -> ["JavaPackagingInfo"]:
+def _get_build_config_java_libraries(ctx: AnalysisContext, build_config_infos: list["AndroidBuildConfigInfo"]) -> list["JavaPackagingInfo"]:
     # BuildConfig deps should not be added for instrumented APKs because BuildConfig.class has
     # already been added to the APK under test.
     if ctx.attrs.package_type == "instrumented":

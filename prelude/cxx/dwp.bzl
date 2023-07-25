@@ -20,7 +20,7 @@ def run_dwp_action(
         obj: "artifact",
         identifier: [str, None],
         category_suffix: [str, None],
-        referenced_objects: ["_arglike", ["artifact"]],
+        referenced_objects: ["_arglike", list["artifact"]],
         dwp_output: "artifact",
         local_only: bool):
     args = cmd_args()
@@ -60,7 +60,7 @@ def dwp(
         # but currently we don't track them properly.  So, we just pass in the full
         # link line and extract all inputs from that, which is a bit of an
         # overspecification.
-        referenced_objects: ["_arglike", ["artifact"]]) -> "artifact":
+        referenced_objects: ["_arglike", list["artifact"]]) -> "artifact":
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + ".dwp")
     run_dwp_action(

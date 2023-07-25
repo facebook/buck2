@@ -59,7 +59,7 @@ ASSET_EXTENSIONS = [
 # Matches the default value for resolver.platforms in metro-config
 ASSET_PLATFORMS = ["ios", "android", "windows", "web"]
 
-def get_apple_resource_providers_for_js_bundle(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, platform: str, skip_resources: bool) -> [ResourceGraph.type]:
+def get_apple_resource_providers_for_js_bundle(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, platform: str, skip_resources: bool) -> list[ResourceGraph.type]:
     if platform != "ios":
         return []
 
@@ -113,7 +113,7 @@ def get_canonical_src_name(src: str) -> str:
 
     return paths.join(dirname, filename + extension)
 
-def get_flavors(ctx: AnalysisContext) -> [str]:
+def get_flavors(ctx: AnalysisContext) -> list[str]:
     flavors = [ctx.attrs._platform]
     if ctx.attrs._is_release:
         flavors.append("release")
@@ -138,7 +138,7 @@ def get_bundle_name(ctx: AnalysisContext, default_bundle_name: str) -> str:
 def run_worker_commands(
         ctx: AnalysisContext,
         worker_tool: Dependency,
-        command_args_files: ["artifact"],
+        command_args_files: list["artifact"],
         identifier: str,
         category: str,
         hidden_artifacts = [cmd_args]):

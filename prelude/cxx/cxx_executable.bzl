@@ -608,8 +608,8 @@ _CxxLinkExecutableResult = record(
 
 def _link_into_executable(
         ctx: AnalysisContext,
-        links: [LinkArgs.type],
-        shared_libs: {str: LinkedObject.type},
+        links: list[LinkArgs.type],
+        shared_libs: dict[str, LinkedObject.type],
         link_weight: int,
         binary_extension: str,
         link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),

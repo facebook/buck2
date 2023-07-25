@@ -37,7 +37,7 @@ JsBundleInfo = provider(
 def get_transitive_outputs(
         actions: "actions",
         value: ["artifact", None] = None,
-        deps: [JsLibraryInfo.type] = []) -> TransitiveOutputsTSet.type:
+        deps: list[JsLibraryInfo.type] = []) -> TransitiveOutputsTSet.type:
     kwargs = {}
     if value:
         kwargs["value"] = value

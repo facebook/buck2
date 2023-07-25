@@ -131,8 +131,8 @@ def _merge_extensions(
         extensions[extension_name] = (incoming_artifact, incoming_label)
 
 def _get_root_link_group_specs(
-        libs: [LinkableProviders.type],
-        extensions: {str: LinkableProviders.type}) -> [LinkGroupLibSpec.type]:
+        libs: list[LinkableProviders.type],
+        extensions: dict[str, LinkableProviders.type]) -> list[LinkGroupLibSpec.type]:
     """
     Walk the linkable graph finding dlopen-able C++ libs.
     """
@@ -190,7 +190,7 @@ def _get_root_link_group_specs(
 
     return specs
 
-def _get_shared_only_groups(shared_only_libs: [LinkableProviders.type]) -> [Group.type]:
+def _get_shared_only_groups(shared_only_libs: list[LinkableProviders.type]) -> list[Group.type]:
     """
     Create link group mappings for shared-only libs that'll force the link to
     link them dynamically.
@@ -222,10 +222,10 @@ def _get_shared_only_groups(shared_only_libs: [LinkableProviders.type]) -> [Grou
 
 def _get_link_group_info(
         ctx: AnalysisContext,
-        link_deps: [LinkableProviders.type],
-        libs: [LinkableProviders.type],
-        extensions: {str: LinkableProviders.type},
-        shared_only_libs: [LinkableProviders.type]) -> (LinkGroupInfo.type, [LinkGroupLibSpec.type]):
+        link_deps: list[LinkableProviders.type],
+        libs: list[LinkableProviders.type],
+        extensions: dict[str, LinkableProviders.type],
+        shared_only_libs: list[LinkableProviders.type]) -> (LinkGroupInfo.type, list[LinkGroupLibSpec.type]):
     """
     Return the `LinkGroupInfo` and link group lib specs to use for this binary.
     This will handle parsing the various user-specific parameters and automatic
@@ -286,8 +286,8 @@ def _get_link_group_info(
 def python_executable(
         ctx: AnalysisContext,
         main_module: str,
-        srcs: {str: "artifact"},
-        resources: {str: ("artifact", ["_arglike"])},
+        srcs: dict[str, "artifact"],
+        resources: dict[str, ("artifact", list["_arglike"])],
         compile: bool = False) -> PexProviders.type:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
@@ -380,7 +380,7 @@ def convert_python_library_to_executable(
         ctx: AnalysisContext,
         main_module: "string",
         library: PythonLibraryInterface.type,
-        deps: [Dependency],
+        deps: list[Dependency],
         compile: bool = False,
         dbg_source_db: [DefaultInfo.type, None] = None) -> PexProviders.type:
     extra = {}
@@ -643,7 +643,7 @@ def convert_python_library_to_executable(
 
     return pex
 
-def python_binary_impl(ctx: AnalysisContext) -> ["provider"]:
+def python_binary_impl(ctx: AnalysisContext) -> list["provider"]:
     main_module = ctx.attrs.main_module
     if ctx.attrs.main_module != None and ctx.attrs.main != None:
         fail("Only one of main_module or main may be set. Prefer main_module as main is considered deprecated")

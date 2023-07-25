@@ -51,7 +51,7 @@ load("@prelude//:paths.bzl", "paths")
 # This mapping reflects the dependency requirements that don't admit cross
 # module inlining (cutting down significantly on recompilations when only a
 # module implementation and not its interface is changed).
-def parse_makefile(makefile: str, srcs: ["artifact"], opaque_enabled: bool) -> ({"artifact": ["artifact"]}, {"artifact": ["artifact"]}):
+def parse_makefile(makefile: str, srcs: list["artifact"], opaque_enabled: bool) -> (dict["artifact", list["artifact"]], dict["artifact", list["artifact"]]):
     # ocamldep is always invoked with '-native' so compiled modules are always
     # reported as '.cmx' files
     contents = _parse(makefile)
@@ -94,7 +94,7 @@ def parse_makefile(makefile: str, srcs: ["artifact"], opaque_enabled: bool) -> (
 
     return (result, result2)
 
-def _resolve(entries: [str], srcs: ["artifact"]) -> {str: "artifact"}:
+def _resolve(entries: list[str], srcs: list["artifact"]) -> dict[str, "artifact"]:
     # O(n^2), alas - switch to a prefix map if that turns out to be too slow.
     result = {}
     for x in entries:
@@ -124,7 +124,7 @@ def _resolve(entries: [str], srcs: ["artifact"]) -> {str: "artifact"}:
 
 # Do the low level parse, returning the strings that are in the makefile as
 # dependencies
-def _parse(makefile: str) -> [([str], [str])]:
+def _parse(makefile: str) -> list[(list[str], list[str])]:
     # For the OCaml makefile, it's a series of lines, often with a '\' line
     # continuation.
     lines = []
@@ -145,7 +145,7 @@ def _parse(makefile: str) -> [([str], [str])]:
 
 # If 'f.cmi' appears on the LHS of a rule, change occurrences of 'f.cmx' to
 # 'f.cmi' in all RHS's in the results of a parsed makefile.
-def _replace_rhs_cmx_with_cmi(contents: [([str], [str])], p: ([str], [str])) -> ([str], [str]):
+def _replace_rhs_cmx_with_cmi(contents: list[(list[str], list[str])], p: (list[str], list[str])) -> (list[str], list[str]):
     def replace_in(p):
         pre, ext = paths.split_extension(p)
 

@@ -8,7 +8,7 @@
 load(":apple_resource_types.bzl", "AppleResourceDestination", "AppleResourceSpec")
 load(":resource_groups.bzl", "create_resource_graph")
 
-def apple_resource_impl(ctx: AnalysisContext) -> ["provider"]:
+def apple_resource_impl(ctx: AnalysisContext) -> list["provider"]:
     destination = ctx.attrs.destination or "resources"
     resource_spec = AppleResourceSpec(
         files = ctx.attrs.files,

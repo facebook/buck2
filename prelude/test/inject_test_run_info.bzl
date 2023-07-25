@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo.type) -> ["provider"]:
+def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo.type) -> list["provider"]:
     # Access this here so we get failures in CI if we forget to inject it
     # anywhere, regardless of whether an `env` is used.
     inject_test_env = ctx.attrs._inject_test_env[RunInfo]

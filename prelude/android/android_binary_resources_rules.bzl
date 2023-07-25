@@ -19,11 +19,11 @@ load("@prelude//decls/android_rules.bzl", "RType")
 
 def get_android_binary_resources_info(
         ctx: AnalysisContext,
-        deps: [Dependency],
+        deps: list[Dependency],
         android_packageable_info: "AndroidPackageableInfo",
-        java_packaging_deps: ["JavaPackagingDep"],
+        java_packaging_deps: list["JavaPackagingDep"],
         use_proto_format: bool,
-        referenced_resources_lists: ["artifact"],
+        referenced_resources_lists: list["artifact"],
         apk_module_graph_file: ["artifact", None] = None,
         manifest_entries: dict = {},
         resource_infos_to_exclude: [set_type, None] = None,
@@ -178,8 +178,8 @@ def get_android_binary_resources_info(
 
 def _maybe_filter_resources(
         ctx: AnalysisContext,
-        resources: [AndroidResourceInfo.type],
-        android_toolchain: AndroidToolchainInfo.type) -> ([AndroidResourceInfo.type], ["artifact", None], ["artifact", None], ["artifact"]):
+        resources: list[AndroidResourceInfo.type],
+        android_toolchain: AndroidToolchainInfo.type) -> (list[AndroidResourceInfo.type], ["artifact", None], ["artifact", None], list["artifact"]):
     resources_filter_strings = getattr(ctx.attrs, "resource_filter", [])
     resources_filter = _get_resources_filter(resources_filter_strings)
     resource_compression_mode = getattr(ctx.attrs, "resource_compression", "disabled")
@@ -330,7 +330,7 @@ ResourcesFilter = record(
     downscale = bool,
 )
 
-def _get_resources_filter(resources_filter_strings: [str]) -> [ResourcesFilter.type, None]:
+def _get_resources_filter(resources_filter_strings: list[str]) -> [ResourcesFilter.type, None]:
     if not resources_filter_strings:
         return None
 
@@ -344,7 +344,7 @@ def _get_resources_filter(resources_filter_strings: [str]) -> [ResourcesFilter.t
 def _maybe_generate_string_source_map(
         actions: "actions",
         should_build_source_string_map: bool,
-        resource_infos: [AndroidResourceInfo.type],
+        resource_infos: list[AndroidResourceInfo.type],
         android_toolchain: AndroidToolchainInfo.type,
         is_voltron_string_source_map: bool = False) -> ["artifact", None]:
     if not should_build_source_string_map or len(resource_infos) == 0:
@@ -372,7 +372,7 @@ def _maybe_generate_string_source_map(
 def _maybe_package_strings_as_assets(
         ctx: AnalysisContext,
         string_files_list: ["artifact", None],
-        string_files_res_dirs: ["artifact"],
+        string_files_res_dirs: list["artifact"],
         r_dot_txt: "artifact",
         android_toolchain: AndroidToolchainInfo.type) -> ["artifact", None]:
     resource_compression_mode = getattr(ctx.attrs, "resource_compression", "disabled")
@@ -463,7 +463,7 @@ def _get_module_manifests(
         manifest_entries: dict,
         apk_module_graph_file: ["artifact", None],
         use_proto_format: bool,
-        primary_resources_apk: "artifact") -> ["artifact"]:
+        primary_resources_apk: "artifact") -> list["artifact"]:
     if not apk_module_graph_file:
         return []
 
@@ -531,7 +531,7 @@ def _merge_assets(
         ctx: AnalysisContext,
         is_exopackaged_enabled_for_resources: bool,
         base_apk: "artifact",
-        resource_infos: ["AndroidResourceInfo"],
+        resource_infos: list["AndroidResourceInfo"],
         cxx_resources: ["artifact", None]) -> ("artifact", ["artifact", None], ["artifact", None]):
     assets_dirs = [resource_info.assets for resource_info in resource_infos if resource_info.assets]
     if cxx_resources != None:
@@ -564,8 +564,8 @@ def _merge_assets(
 
 def get_effective_banned_duplicate_resource_types(
         duplicate_resource_behavior: str,
-        allowed_duplicate_resource_types: [str],
-        banned_duplicate_resource_types: [str]) -> [str]:
+        allowed_duplicate_resource_types: list[str],
+        banned_duplicate_resource_types: list[str]) -> list[str]:
     if duplicate_resource_behavior == "allow_by_default":
         expect(
             len(allowed_duplicate_resource_types) == 0,
@@ -581,7 +581,7 @@ def get_effective_banned_duplicate_resource_types(
     else:
         fail("Unrecognized duplicate_resource_behavior: {}".format(duplicate_resource_behavior))
 
-def _get_cxx_resources(ctx: AnalysisContext, deps: [Dependency]) -> ["artifact", None]:
+def _get_cxx_resources(ctx: AnalysisContext, deps: list[Dependency]) -> ["artifact", None]:
     cxx_resources = gather_resources(
         label = ctx.label,
         resources = {},

@@ -16,7 +16,7 @@ ArtifactInfo = record(
     artifacts = field(["artifact"]),
 )
 
-def _get_artifacts(entries: [ArtifactInfo.type]) -> ["artifact"]:
+def _get_artifacts(entries: list[ArtifactInfo.type]) -> list["artifact"]:
     return flatten([entry.artifacts for entry in entries])
 
 _ArtifactTSet = transitive_set(
@@ -35,9 +35,9 @@ def make_artifact_tset(
         actions: "actions",
         # Must be non-`None` if artifacts are passed in to `artifacts`.
         label: ["label", None] = None,
-        artifacts: ["artifact"] = [],
-        infos: [ArtifactInfo.type] = [],
-        children: [ArtifactTSet.type] = []) -> ArtifactTSet.type:
+        artifacts: list["artifact"] = [],
+        infos: list[ArtifactInfo.type] = [],
+        children: list[ArtifactTSet.type] = []) -> ArtifactTSet.type:
     expect(
         label != None or not artifacts,
         "must pass in `label` to associate with artifacts",
@@ -68,7 +68,7 @@ def make_artifact_tset(
 
 def project_artifacts(
         actions: "actions",
-        tsets: [ArtifactTSet.type] = []) -> [ArtifactProjection]:
+        tsets: list[ArtifactTSet.type] = []) -> list[ArtifactProjection]:
     """
     Helper to project a list of optional tsets.
     """

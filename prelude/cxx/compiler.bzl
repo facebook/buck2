@@ -10,7 +10,7 @@ load(":cxx_toolchain_types.bzl", "DepTrackingMode")
 
 # TODO(T110378132): Added here for compat with v1, but this might make more
 # sense on the toolchain definition.
-def get_flags_for_reproducible_build(compiler_type: str) -> [str]:
+def get_flags_for_reproducible_build(compiler_type: str) -> list[str]:
     """
     Return flags needed to make compilations reproducible (e.g. avoiding
     embedding the working directory into debug info.
@@ -29,7 +29,7 @@ def get_flags_for_reproducible_build(compiler_type: str) -> [str]:
 
     return flags
 
-def get_flags_for_colorful_output(compiler_type: str) -> [str]:
+def get_flags_for_colorful_output(compiler_type: str) -> list[str]:
     """
     Return flags for enabling colorful diagnostic output.
     """
@@ -78,13 +78,13 @@ def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode.type)
 
     return None
 
-def get_pic_flags(compiler_type: str) -> [str]:
+def get_pic_flags(compiler_type: str) -> list[str]:
     if compiler_type in ["clang", "gcc"]:
         return ["-fPIC"]
     else:
         return []
 
-def get_output_flags(compiler_type: str, output: "artifact") -> [""]:
+def get_output_flags(compiler_type: str, output: "artifact") -> list[""]:
     if compiler_type in ["windows", "clang_cl", "windows_ml64"]:
         return [cmd_args(output.as_output(), format = "/Fo{}")]
     else:

@@ -158,18 +158,18 @@ HaskellLibraryInfo = record(
 
 # --
 
-def _by_platform(ctx: AnalysisContext, xs: [(str, ["_a"])]) -> ["_a"]:
+def _by_platform(ctx: AnalysisContext, xs: list[(str, list["_a"])]) -> list["_a"]:
     platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
     return flatten(by_platform([platform], xs))
 
-def attr_deps(ctx: AnalysisContext) -> [Dependency]:
+def attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     return ctx.attrs.deps + _by_platform(ctx, ctx.attrs.platform_deps)
 
 # Disable until we have a need to call this.
 # def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> ["MergedLinkInfo"]:
 #     return filter(None, [d[MergedLinkInfo] for d in attr_deps(ctx)])
 
-def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> ["HaskellLinkInfo"]:
+def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list["HaskellLinkInfo"]:
     return filter(
         None,
         [
@@ -180,7 +180,7 @@ def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> ["HaskellLinkInfo"]:
 
 def _attr_deps_haskell_lib_infos(
         ctx: AnalysisContext,
-        link_style: LinkStyle.type) -> ["HaskellLibraryInfo"]:
+        link_style: LinkStyle.type) -> list["HaskellLibraryInfo"]:
     return [
         x.lib[link_style]
         for x in filter(None, [
@@ -217,7 +217,7 @@ def _src_to_module_name(x: str) -> str:
     base, _ext = paths.split_extension(x)
     return base.replace("/", ".")
 
-def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> ["provider"]:
+def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list["provider"]:
     native_infos = []
     haskell_infos = []
     shared_library_infos = []
@@ -339,7 +339,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> ["provider"]:
         linkable_graph,
     ]
 
-def merge_haskell_link_infos(deps: [HaskellLinkInfo.type]) -> HaskellLinkInfo.type:
+def merge_haskell_link_infos(deps: list[HaskellLinkInfo.type]) -> HaskellLinkInfo.type:
     merged = {}
     for link_style in LinkStyle:
         children = []
@@ -569,7 +569,7 @@ def _make_package(
         link_style: LinkStyle.type,
         pkgname: str,
         libname: str,
-        hlis: [HaskellLibraryInfo.type],
+        hlis: list[HaskellLibraryInfo.type],
         hi: "artifact",
         lib: "artifact") -> "artifact":
     # Don't expose boot sources, as they're only meant to be used for compiling.
@@ -623,7 +623,7 @@ def _make_package(
 
     return db
 
-def haskell_library_impl(ctx: AnalysisContext) -> ["provider"]:
+def haskell_library_impl(ctx: AnalysisContext) -> list["provider"]:
     linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
     libname = repr(ctx.label.path).replace("//", "_").replace("/", "_") + "_" + ctx.label.name
     pkgname = libname.replace("_", "-")
@@ -841,7 +841,7 @@ def derive_indexing_tset(
         actions: "actions",
         link_style: LinkStyle.type,
         value: ["artifact", None],
-        children: [Dependency]) -> "HaskellIndexingTSet":
+        children: list[Dependency]) -> "HaskellIndexingTSet":
     index_children = []
     for dep in children:
         li = dep.get(HaskellIndexInfo)
@@ -855,7 +855,7 @@ def derive_indexing_tset(
         children = index_children,
     )
 
-def haskell_binary_impl(ctx: AnalysisContext) -> ["provider"]:
+def haskell_binary_impl(ctx: AnalysisContext) -> list["provider"]:
     # Decide what kind of linking we're doing
     link_style = _attr_link_style(ctx)
 

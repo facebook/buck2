@@ -89,7 +89,7 @@ def get_split_dex_merge_config(
 def get_single_primary_dex(
         ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
-        java_library_jars: ["artifact"],
+        java_library_jars: list["artifact"],
         is_optimized: bool = False) -> "DexFilesInfo":
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
@@ -122,8 +122,8 @@ def get_single_primary_dex(
 def get_multi_dex(
         ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
-        java_library_jars_to_owners: {"artifact": "target_label"},
-        primary_dex_patterns: [str],
+        java_library_jars_to_owners: dict["artifact", "target_label"],
+        primary_dex_patterns: list[str],
         proguard_configuration_output_file: ["artifact", None] = None,
         proguard_mapping_output_file: ["artifact", None] = None,
         is_optimized: bool = False,
@@ -229,12 +229,12 @@ def get_multi_dex(
 
 def _get_primary_dex_and_secondary_dex_jars(
         ctx: AnalysisContext,
-        jars: ["artifact"],
-        java_library_jars_to_owners: {"artifact": "target_label"},
+        jars: list["artifact"],
+        java_library_jars_to_owners: dict["artifact", "target_label"],
         primary_dex_patterns_file: "artifact",
         proguard_configuration_output_file: ["artifact", None],
         proguard_mapping_output_file: ["artifact", None],
-        android_toolchain: "AndroidToolchainInfo") -> (["artifact"], ["artifact"]):
+        android_toolchain: "AndroidToolchainInfo") -> (list["artifact"], list["artifact"]):
     primary_dex_jars = []
     secondary_dex_jars = []
     for jar in jars:
@@ -267,7 +267,7 @@ def _get_primary_dex_and_secondary_dex_jars(
 def merge_to_single_dex(
         ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
-        pre_dexed_libs: ["DexLibraryInfo"]) -> "DexFilesInfo":
+        pre_dexed_libs: list["DexLibraryInfo"]) -> "DexFilesInfo":
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
         "It doesn't make sense to enable secondary dex exopackage for single dex builds!",
@@ -355,7 +355,7 @@ def _filter_pre_dexed_libs(
         actions: "actions",
         android_toolchain: "AndroidToolchainInfo",
         primary_dex_patterns_file: "artifact",
-        pre_dexed_libs: ["DexLibraryInfo"],
+        pre_dexed_libs: list["DexLibraryInfo"],
         batch_number: int) -> DexInputsWithClassNamesAndWeightEstimatesFile.type:
     weight_estimate_and_filtered_class_names_file = actions.declare_output("class_names_and_weight_estimates_for_batch_{}".format(batch_number))
 
@@ -385,7 +385,7 @@ _SortedPreDexedInputs = record(
 def merge_to_split_dex(
         ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
-        pre_dexed_libs: ["DexLibraryInfo"],
+        pre_dexed_libs: list["DexLibraryInfo"],
         split_dex_merge_config: "SplitDexMergeConfig",
         apk_module_graph_file: ["artifact", None] = None) -> "DexFilesInfo":
     is_exopackage_enabled_for_secondary_dex = _is_exopackage_enabled_for_secondary_dex(ctx)
@@ -579,7 +579,7 @@ def _merge_dexes(
         ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
         output_dex_file: "artifact",
-        pre_dexed_artifacts: ["artifact"],
+        pre_dexed_artifacts: list["artifact"],
         pre_dexed_artifacts_file: "artifact",
         class_names_to_include: ["artifact", None] = None,
         secondary_output_dex_file: ["artifact", None] = None,
@@ -616,10 +616,10 @@ def _merge_dexes(
 def _sort_pre_dexed_files(
         ctx: AnalysisContext,
         artifacts,
-        pre_dexed_libs_with_class_names_and_weight_estimates_files: ["DexInputsWithClassNamesAndWeightEstimatesFile"],
+        pre_dexed_libs_with_class_names_and_weight_estimates_files: list["DexInputsWithClassNamesAndWeightEstimatesFile"],
         split_dex_merge_config: "SplitDexMergeConfig",
         get_module_from_target: "function",
-        module_to_canary_class_name_function: "function") -> [_SortedPreDexedInputs.type]:
+        module_to_canary_class_name_function: "function") -> list[_SortedPreDexedInputs.type]:
     sorted_pre_dexed_inputs_map = {}
     current_secondary_dex_size_map = {}
     current_secondary_dex_inputs_map = {}

@@ -50,5 +50,5 @@ def _parse_python_needed_coverage_spec(
     )
 
 def parse_python_needed_coverage_specs(
-        raw_specs: [(int, Dependency, [str, None])]) -> [PythonNeededCoverage.type]:
+        raw_specs: list[(int, Dependency, [str, None])]) -> list[PythonNeededCoverage.type]:
     return [_parse_python_needed_coverage_spec(raw_spec) for raw_spec in raw_specs]

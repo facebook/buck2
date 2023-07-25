@@ -36,7 +36,7 @@ def _find_first_variable(string: str) -> [(str, (str, str)), None]:
     suffix = string[variable_end + 1:]
     return (variable, (prefix, suffix))
 
-def _expand_codesign_entitlements_path(info_plist_substitutions: {str: str}, path: str) -> str:
+def _expand_codesign_entitlements_path(info_plist_substitutions: dict[str, str], path: str) -> str:
     path = path.strip()
     for _ in range(100):
         if path.startswith(_SOURCE_ROOT_PREFIX):
@@ -51,7 +51,7 @@ def _expand_codesign_entitlements_path(info_plist_substitutions: {str: str}, pat
         path = prefix + maybe_value + suffix
     fail("Too many iteration (loop might be present) to expand `{}` with substitutions `{}`".format(path, info_plist_substitutions))
 
-def parse_codesign_entitlements(info_plist_substitutions: [{str: str}, None]) -> [str, None]:
+def parse_codesign_entitlements(info_plist_substitutions: [dict[str, str], None]) -> [str, None]:
     if not info_plist_substitutions:
         return None
     maybe_path = info_plist_substitutions.get(_CODE_SIGN_ENTITLEMENTS_KEY)

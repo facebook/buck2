@@ -110,7 +110,7 @@ Group = record(
 def create_group(
         group: Group.type,
         name: [None, str] = None,
-        mappings: [None, [GroupMapping.type]] = None,
+        mappings: [None, list[GroupMapping.type]] = None,
         attrs: [None, GroupAttrs.type] = None):
     return Group(
         name = value_or(name, group.name),
@@ -122,7 +122,7 @@ def parse_groups_definitions(
         map: list,
         # Function to parse a root label from the input type, allowing different
         # callers to have different top-level types for the `root`s.
-        parse_root: "function" = lambda d: d) -> [Group.type]:
+        parse_root: "function" = lambda d: d) -> list[Group.type]:
     groups = []
     for map_entry in map:
         name = map_entry[0]
@@ -183,14 +183,14 @@ def _parse_filter(entry: str) -> [BuildTargetFilter.type, LabelFilter.type]:
 
     fail("Invalid group mapping filter: {}\nFilter must begin with `label:`, `tag:`, or `pattern:`.".format(entry))
 
-def _parse_filter_from_mapping(entry: [[str], str, None]) -> [[BuildTargetFilter.type, LabelFilter.type]]:
+def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[[BuildTargetFilter.type, LabelFilter.type]]:
     if type(entry) == type([]):
         return [_parse_filter(e) for e in entry]
     if type(entry) == type(""):
         return [_parse_filter(entry)]
     return []
 
-def compute_mappings(groups: [Group.type], graph_map: {"label": "_b"}) -> {"label": str}:
+def compute_mappings(groups: list[Group.type], graph_map: dict["label", "_b"]) -> dict["label", str]:
     """
     Returns the group mappings {target label -> group name} based on the provided groups and graph.
     """
@@ -212,8 +212,8 @@ def compute_mappings(groups: [Group.type], graph_map: {"label": "_b"}) -> {"labe
     return target_to_group_map
 
 def _find_targets_in_mapping(
-        graph_map: {Label: "_b"},
-        mapping: GroupMapping.type) -> [Label]:
+        graph_map: dict[Label, "_b"],
+        mapping: GroupMapping.type) -> list[Label]:
     # If we have no filtering, we don't need to do any traversal to find targets to include.
     if not mapping.filters:
         if mapping.root == None:
@@ -282,7 +282,7 @@ def _update_target_to_group_mapping(
         else:
             return True
 
-    def transitively_add_targets_to_group_mapping(node: Label) -> [Label]:
+    def transitively_add_targets_to_group_mapping(node: Label) -> list[Label]:
         previously_processed = assign_target_to_group(target = node, node_traversal = False)
 
         # If the node has been previously processed, and it was via tree (not node), all child nodes have been assigned

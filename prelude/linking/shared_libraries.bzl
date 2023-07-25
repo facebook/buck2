@@ -45,7 +45,7 @@ def _get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo.type) -> "list":
 
 def create_shared_libraries(
         ctx: AnalysisContext,
-        libraries: {str: LinkedObject.type}) -> SharedLibraries.type:
+        libraries: dict[str, LinkedObject.type]) -> SharedLibraries.type:
     """
     Take a mapping of dest -> src and turn it into a mapping that will be
     passed around in providers. Used for both srcs, and resources.
@@ -103,7 +103,7 @@ def _merge_lib_map(
 def merge_shared_libraries(
         actions: "actions",
         node: ["SharedLibraries", None] = None,
-        deps: ["SharedLibraryInfo"] = []) -> "SharedLibraryInfo":
+        deps: list["SharedLibraryInfo"] = []) -> "SharedLibraryInfo":
     kwargs = {}
 
     children = filter(None, [dep.set for dep in deps])

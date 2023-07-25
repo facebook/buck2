@@ -83,12 +83,12 @@ def _extra_include_name(name: "string") -> "string":
 def erlang_tests(
         erlang_app_rule,
         erlang_test_rule,
-        suites: ["string"] = [],
-        deps: ["string"] = [],
-        resources: ["string"] = [],
-        srcs: ["string"] = [],
-        property_tests: ["string"] = [],
-        config_files: ["string"] = [],
+        suites: list["string"] = [],
+        deps: list["string"] = [],
+        resources: list["string"] = [],
+        srcs: list["string"] = [],
+        property_tests: list["string"] = [],
+        config_files: list["string"] = [],
         use_default_configs: "bool" = True,
         use_default_deps: "bool" = True,
         **common_attributes):

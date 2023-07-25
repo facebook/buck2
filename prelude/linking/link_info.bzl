@@ -177,8 +177,8 @@ def set_linkable_link_whole(
 # Helper to wrap a LinkInfo with additional pre/post-flags.
 def wrap_link_info(
         inner: LinkInfo.type,
-        pre_flags: [""] = [],
-        post_flags: [""] = []) -> LinkInfo.type:
+        pre_flags: list[""] = [],
+        post_flags: list[""] = []) -> LinkInfo.type:
     pre_flags = pre_flags + inner.pre_flags
     post_flags = inner.post_flags + post_flags
     return LinkInfo(
@@ -243,7 +243,7 @@ def link_info_to_args(value: LinkInfo.type) -> cmd_args:
 # platform-specific details from this level.
 # NOTE(agallagher): Using filelist out-of-band means objects/archives get
 # linked out of order of their corresponding flags.
-def link_info_filelist(value: LinkInfo.type) -> ["artifact"]:
+def link_info_filelist(value: LinkInfo.type) -> list["artifact"]:
     filelists = []
     for linkable in value.linkables:
         if linkable._type == LinkableType("archive"):
@@ -326,14 +326,14 @@ def _link_info_stripped_filelist(infos: "LinkInfos"):
     info = infos.stripped or infos.default
     return link_info_filelist(info)
 
-def _link_info_has_default_filelist(children: [bool], infos: ["LinkInfos", None]) -> bool:
+def _link_info_has_default_filelist(children: list[bool], infos: ["LinkInfos", None]) -> bool:
     if infos:
         info = infos.default
         if link_info_filelist(info):
             return True
     return any(children)
 
-def _link_info_has_stripped_filelist(children: [bool], infos: ["LinkInfos", None]) -> bool:
+def _link_info_has_stripped_filelist(children: list[bool], infos: ["LinkInfos", None]) -> bool:
     if infos:
         info = infos.stripped or infos.default
         if link_info_filelist(info):
@@ -378,8 +378,8 @@ _LINK_STYLE_FOR_LINKAGE = {
 # Helper to wrap a LinkInfos with additional pre/post-flags.
 def wrap_link_infos(
         inner: LinkInfos.type,
-        pre_flags: [""] = [],
-        post_flags: [""] = []) -> LinkInfos.type:
+        pre_flags: list[""] = [],
+        post_flags: list[""] = []) -> LinkInfos.type:
     return LinkInfos(
         default = wrap_link_info(
             inner.default,
@@ -399,14 +399,14 @@ def create_merged_link_info(
         pic_behavior: PicBehavior.type,
         # The link infos provided by this rule, as a map from link style (as
         # used by dependents) to `LinkInfo`.
-        link_infos: {LinkStyle.type: LinkInfos.type} = {},
+        link_infos: dict[LinkStyle.type, LinkInfos.type] = {},
         # How the rule requests to be linked.  This will be used to determine
         # which actual link style to propagate for each "requested" link style.
         preferred_linkage: Linkage.type = Linkage("any"),
         # Link info to propagate from non-exported deps for static link styles.
-        deps: ["MergedLinkInfo"] = [],
+        deps: list["MergedLinkInfo"] = [],
         # Link info to always propagate from exported deps.
-        exported_deps: ["MergedLinkInfo"] = [],
+        exported_deps: list["MergedLinkInfo"] = [],
         frameworks_linkable: [FrameworksLinkable.type, None] = None,
         swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> "MergedLinkInfo":
     """
@@ -479,7 +479,7 @@ def create_merged_link_info(
 
 def merge_link_infos(
         ctx: AnalysisContext,
-        xs: ["MergedLinkInfo"]) -> "MergedLinkInfo":
+        xs: list["MergedLinkInfo"]) -> "MergedLinkInfo":
     merged = {}
     merged_external_debug_info = {}
     frameworks = {}
@@ -598,7 +598,7 @@ def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> Artif
 
     fail("Unpacked invalid empty link args")
 
-def map_to_link_infos(links: [LinkArgs.type]) -> ["LinkInfo"]:
+def map_to_link_infos(links: list[LinkArgs.type]) -> list["LinkInfo"]:
     res = []
 
     def append(v):
@@ -687,19 +687,19 @@ def process_link_style_for_pic_behavior(link_style: LinkStyle.type, behavior: Pi
     else:
         fail("Unknown pic_behavior: {}".format(behavior))
 
-def get_link_styles_for_linkage(linkage: Linkage.type) -> [LinkStyle.type]:
+def get_link_styles_for_linkage(linkage: Linkage.type) -> list[LinkStyle.type]:
     """
     Return all possible `LinkStyle`s that apply for the given `Linkage`.
     """
     return _LINK_STYLE_FOR_LINKAGE[linkage]
 
-def merge_swift_runtime_linkables(linkables: [[SwiftRuntimeLinkable.type, None]]) -> SwiftRuntimeLinkable.type:
+def merge_swift_runtime_linkables(linkables: list[[SwiftRuntimeLinkable.type, None]]) -> SwiftRuntimeLinkable.type:
     for linkable in linkables:
         if linkable and linkable.runtime_required:
             return SwiftRuntimeLinkable(runtime_required = True)
     return SwiftRuntimeLinkable(runtime_required = False)
 
-def merge_framework_linkables(linkables: [[FrameworksLinkable.type, None]]) -> FrameworksLinkable.type:
+def merge_framework_linkables(linkables: list[[FrameworksLinkable.type, None]]) -> FrameworksLinkable.type:
     unique_framework_names = {}
     unique_framework_paths = {}
     unique_library_names = {}

@@ -61,7 +61,7 @@ def _requires_no_srcs_environment(ctx: AnalysisContext) -> bool:
 _USE_CACHE_MODE = not is_open_source()
 
 # Extra attributes required by every genrule based on genrule_impl
-def genrule_attributes() -> {str: "attribute"}:
+def genrule_attributes() -> dict[str, "attribute"]:
     attributes = {
         "metadata_env_var": attrs.option(attrs.string(), default = None),
         "metadata_path": attrs.option(attrs.string(), default = None),
@@ -81,7 +81,7 @@ def _get_cache_mode(ctx: AnalysisContext) -> CacheModeInfo.type:
     else:
         return CacheModeInfo(allow_cache_uploads = False, cache_bust_genrules = False)
 
-def genrule_impl(ctx: AnalysisContext) -> ["provider"]:
+def genrule_impl(ctx: AnalysisContext) -> list["provider"]:
     # Directories:
     #   sh - sh file
     #   src - sources files
@@ -112,7 +112,7 @@ def process_genrule(
         out_attr: [str, None],
         outs_attr: [dict, None],
         extra_env_vars: dict = {},
-        identifier: [str, None] = None) -> ["provider"]:
+        identifier: [str, None] = None) -> list["provider"]:
     if (out_attr != None) and (outs_attr != None):
         fail("Only one of `out` and `outs` should be set. Got out=`%s`, outs=`%s`" % (repr(out_attr), repr(outs_attr)))
 

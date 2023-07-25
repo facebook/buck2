@@ -134,7 +134,7 @@ OmnibusSharedLibraries = record(
     dispositions = field({"label": Disposition.type}),
 )
 
-def get_omnibus_graph(graph: LinkableGraph.type, roots: {"label": AnnotatedLinkableRoot.type}, excluded: {"label": None}) -> OmnibusGraph.type:
+def get_omnibus_graph(graph: LinkableGraph.type, roots: dict["label", AnnotatedLinkableRoot.type], excluded: dict["label", None]) -> OmnibusGraph.type:
     graph_nodes = graph.nodes.traverse()
     nodes = {}
     for node in filter(None, graph_nodes):
@@ -155,7 +155,7 @@ def get_omnibus_graph(graph: LinkableGraph.type, roots: {"label": AnnotatedLinka
 
     return OmnibusGraph(nodes = nodes, roots = roots, excluded = excluded)
 
-def get_roots(label: "label", deps: [Dependency]) -> {"label": AnnotatedLinkableRoot.type}:
+def get_roots(label: "label", deps: list[Dependency]) -> dict["label", AnnotatedLinkableRoot.type]:
     roots = {}
     for dep in deps:
         if LinkableRootInfo in dep:
@@ -165,7 +165,7 @@ def get_roots(label: "label", deps: [Dependency]) -> {"label": AnnotatedLinkable
             )
     return roots
 
-def get_excluded(deps: [Dependency] = []) -> {"label": None}:
+def get_excluded(deps: list[Dependency] = []) -> dict["label", None]:
     excluded_nodes = {}
     for dep in deps:
         dep_info = linkable_graph(dep)
@@ -178,7 +178,7 @@ def create_linkable_root(
         graph: LinkableGraph.type,
         link_infos: LinkInfos.type,
         name: [str, None] = None,
-        deps: [Dependency] = [],
+        deps: list[Dependency] = [],
         create_shared_root: bool = False) -> LinkableRootInfo.type:
     # Only include dependencies that are linkable.
     deps = linkable_deps(deps)
@@ -325,7 +325,7 @@ def _omnibus_soname(ctx):
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     return get_shared_library_name(linker_info, "omnibus")
 
-def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: [""] = []) -> "artifact":
+def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: list[""] = []) -> "artifact":
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     link_result = cxx_link_shared_library(
         ctx = ctx,
@@ -337,9 +337,9 @@ def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: [""] = []) -> "art
     return link_result.linked_object.output
 
 def _link_deps(
-        link_infos: {"label": LinkableNode.type},
-        deps: ["label"],
-        pic_behavior: PicBehavior.type) -> ["label"]:
+        link_infos: dict["label", LinkableNode.type],
+        deps: list["label"],
+        pic_behavior: PicBehavior.type) -> list["label"]:
     """
     Return transitive deps required to link dynamically against the given deps.
     This will following through deps of statically linked inputs and exported
@@ -352,8 +352,8 @@ def _link_deps(
     return breadth_first_traversal_by(link_infos, deps, find_deps)
 
 def all_deps(
-        link_infos: {"label": LinkableNode.type},
-        roots: ["label"]) -> ["label"]:
+        link_infos: dict["label", LinkableNode.type],
+        roots: list["label"]) -> list["label"]:
     """
     Return all transitive deps from following the given nodes.
     """
@@ -371,10 +371,10 @@ def _create_root(
         annotated_root_products,
         root: LinkableRootInfo.type,
         label: "label",
-        link_deps: ["label"],
+        link_deps: list["label"],
         omnibus: "artifact",
         pic_behavior: PicBehavior.type,
-        extra_ldflags: [""] = [],
+        extra_ldflags: list[""] = [],
         prefer_stripped_objects: bool = False) -> OmnibusRootProduct.type:
     """
     Link a root omnibus node.
@@ -530,7 +530,7 @@ def _requires_private_root(
 def _extract_global_symbols_from_link_args(
         ctx: AnalysisContext,
         name: str,
-        link_args: [["artifact", "resolved_macro", cmd_args, str]],
+        link_args: list[["artifact", "resolved_macro", cmd_args, str]],
         prefer_local: bool = False) -> "artifact":
     """
     Extract global symbols explicitly set in the given linker args (e.g.
@@ -576,9 +576,9 @@ def _extract_global_symbols_from_link_args(
 
 def _create_global_symbols_version_script(
         ctx: AnalysisContext,
-        roots: [AnnotatedOmnibusRootProduct.type],
-        excluded: ["artifact"],
-        link_args: [["artifact", "resolved_macro", cmd_args, str]]) -> "artifact":
+        roots: list[AnnotatedOmnibusRootProduct.type],
+        excluded: list["artifact"],
+        link_args: list[["artifact", "resolved_macro", cmd_args, str]]) -> "artifact":
     """
     Generate a version script exporting symbols from from the given objects and
     link args.
@@ -635,7 +635,7 @@ def _create_omnibus(
         spec: OmnibusSpec.type,
         annotated_root_products,
         pic_behavior: PicBehavior.type,
-        extra_ldflags: [""] = [],
+        extra_ldflags: list[""] = [],
         prefer_stripped_objects: bool = False) -> CxxLinkResult.type:
     inputs = []
 
@@ -833,7 +833,7 @@ def _build_omnibus_spec(
         dispositions = dispositions,
     )
 
-def _implicit_exclusion_roots(ctx: AnalysisContext, graph: OmnibusGraph.type) -> ["label"]:
+def _implicit_exclusion_roots(ctx: AnalysisContext, graph: OmnibusGraph.type) -> list["label"]:
     env = ctx.attrs._omnibus_environment
     if not env:
         return []
@@ -847,7 +847,7 @@ def _implicit_exclusion_roots(ctx: AnalysisContext, graph: OmnibusGraph.type) ->
 
 def _ordered_roots(
         spec: OmnibusSpec.type,
-        pic_behavior: PicBehavior.type) -> [("label", AnnotatedLinkableRoot.type, ["label"])]:
+        pic_behavior: PicBehavior.type) -> list[("label", AnnotatedLinkableRoot.type, list["label"])]:
     """
     Return information needed to link the roots nodes.
     """
@@ -877,7 +877,7 @@ def _ordered_roots(
 def create_omnibus_libraries(
         ctx: AnalysisContext,
         graph: OmnibusGraph.type,
-        extra_ldflags: [""] = [],
+        extra_ldflags: list[""] = [],
         prefer_stripped_objects: bool = False) -> OmnibusSharedLibraries.type:
     spec = _build_omnibus_spec(ctx, graph)
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior

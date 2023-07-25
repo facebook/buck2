@@ -18,7 +18,7 @@ load("@prelude//java:java_library.bzl", "build_java_library")
 load("@prelude//java:java_providers.bzl", "create_native_providers", "to_list")
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 
-def android_library_impl(ctx: AnalysisContext) -> ["provider"]:
+def android_library_impl(ctx: AnalysisContext) -> list["provider"]:
     packaging_deps = ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
     if ctx.attrs._build_only_native_code:
         shared_library_info, cxx_resource_info = create_native_providers(ctx.actions, ctx.label, packaging_deps)

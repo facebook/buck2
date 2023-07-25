@@ -75,7 +75,7 @@ _PrePostFlags = record(
 
 def cxx_dist_link(
         ctx: AnalysisContext,
-        links: ["LinkArgs"],
+        links: list["LinkArgs"],
         # The destination for the link output.
         output: "artifact",
         linker_map: ["artifact", None] = None,
@@ -405,7 +405,7 @@ def cxx_dist_link(
     link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
 
-    def prepare_opt_flags(link_infos: ["LinkInfo"]) -> cmd_args:
+    def prepare_opt_flags(link_infos: list["LinkInfo"]) -> cmd_args:
         opt_args = cmd_args()
         opt_args.add(cxx_link_cmd(ctx))
 

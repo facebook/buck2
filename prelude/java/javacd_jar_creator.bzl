@@ -48,22 +48,22 @@ def create_jar_artifact_javacd(
         label,
         output: ["artifact", None],
         javac_tool: ["", None],
-        srcs: ["artifact"],
-        remove_classes: [str],
-        resources: ["artifact"],
+        srcs: list["artifact"],
+        remove_classes: list[str],
+        resources: list["artifact"],
         resources_root: [str, None],
         manifest_file: ["artifact", None],
-        ap_params: ["AnnotationProcessorParams"],
+        ap_params: list["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
         source_level: int,
         target_level: int,
-        deps: [Dependency],
+        deps: list[Dependency],
         required_for_source_only_abi: bool,
-        source_only_abi_deps: [Dependency],
+        source_only_abi_deps: list[Dependency],
         extra_arguments: cmd_args,
-        additional_classpath_entries: ["artifact"],
+        additional_classpath_entries: list["artifact"],
         additional_compiled_srcs: ["artifact", None],
-        bootclasspath_entries: ["artifact"],
+        bootclasspath_entries: list["artifact"],
         is_building_android_binary: bool,
         is_creating_subtarget: bool = False) -> "JavaCompileOutputs":
     if javac_tool != None:
@@ -138,7 +138,7 @@ def create_jar_artifact_javacd(
             output_paths: OutputPaths.type,
             target_type: TargetType.type,
             classpath_jars_tag: "artifact_tag",
-            source_only_abi_compiling_deps: ["JavaClasspathEntry"] = []) -> struct.type:
+            source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []) -> struct.type:
         base_jar_command = encode_base_jar_command(
             javac_tool,
             target_type,
@@ -183,7 +183,7 @@ def create_jar_artifact_javacd(
             target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None],
             is_creating_subtarget: bool = False,
-            source_only_abi_compiling_deps: ["JavaClasspathEntry"] = []):
+            source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)

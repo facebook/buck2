@@ -44,25 +44,25 @@ def create_jar_artifact_kotlincd(
         kotlin_toolchain: "KotlinToolchainInfo",
         javac_tool: [str, "RunInfo", "artifact", None],
         label: "label",
-        srcs: ["artifact"],
-        remove_classes: [str],
-        resources: ["artifact"],
+        srcs: list["artifact"],
+        remove_classes: list[str],
+        resources: list["artifact"],
         resources_root: [str, None],
-        ap_params: ["AnnotationProcessorParams"],
+        ap_params: list["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
         source_level: int,
         target_level: int,
-        deps: [Dependency],
+        deps: list[Dependency],
         required_for_source_only_abi: bool,
-        source_only_abi_deps: [Dependency],
-        extra_arguments: ["string"],
-        additional_classpath_entries: ["artifact"],
-        bootclasspath_entries: ["artifact"],
+        source_only_abi_deps: list[Dependency],
+        extra_arguments: list["string"],
+        additional_classpath_entries: list["artifact"],
+        bootclasspath_entries: list["artifact"],
         is_building_android_binary: bool,
-        friend_paths: [Dependency],
+        friend_paths: list[Dependency],
         kotlin_compiler_plugins: dict,
-        extra_kotlinc_arguments: [str],
-        extra_non_source_only_abi_kotlinc_arguments: [str]) -> "JavaCompileOutputs":
+        extra_kotlinc_arguments: list[str],
+        extra_non_source_only_abi_kotlinc_arguments: list[str]) -> "JavaCompileOutputs":
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -171,7 +171,7 @@ def create_jar_artifact_kotlincd(
             output_paths: OutputPaths.type,
             target_type: TargetType.type,
             classpath_jars_tag: "artifact_tag",
-            source_only_abi_compiling_deps: ["JavaClasspathEntry"] = []) -> struct.type:
+            source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []) -> struct.type:
         base_jar_command = encode_base_jar_command(
             javac_tool,
             target_type,
@@ -218,7 +218,7 @@ def create_jar_artifact_kotlincd(
             abi_dir: ["artifact", None],
             target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None],
-            source_only_abi_compiling_deps: ["JavaClasspathEntry"] = []):
+            source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []):
         _unused = source_only_abi_compiling_deps
 
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")

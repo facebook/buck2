@@ -36,12 +36,12 @@ load(
 def erlang_tests_macro(
         erlang_app_rule,
         erlang_test_rule,
-        suites: ["string"],
-        deps: ["string"] = [],
-        resources: ["string"] = [],
-        property_tests: ["string"] = [],
-        config_files: ["string"] = [],
-        srcs: ["string"] = [],
+        suites: list["string"],
+        deps: list["string"] = [],
+        resources: list["string"] = [],
+        property_tests: list["string"] = [],
+        config_files: list["string"] = [],
+        srcs: list["string"] = [],
         use_default_configs: "bool" = True,
         use_default_deps: "bool" = True,
         **common_attributes: "dict") -> None:
@@ -125,7 +125,7 @@ def erlang_tests_macro(
             **common_attributes
         )
 
-def erlang_test_impl(ctx: AnalysisContext) -> ["provider"]:
+def erlang_test_impl(ctx: AnalysisContext) -> list["provider"]:
     toolchains = select_toolchains(ctx)
     primary_toolchain_name = get_primary(ctx)
     primary_toolchain = toolchains[primary_toolchain_name]
@@ -278,7 +278,7 @@ def _write_test_info_file(
         test_suite: "string",
         dependencies: ErlAppDependencies,
         test_dir: "artifact",
-        config_files: ["artifact"],
+        config_files: list["artifact"],
         erl_cmd: [cmd_args, "artifact"]) -> "artifact":
     tests_info = {
         "config_files": config_files,
@@ -297,7 +297,7 @@ def _write_test_info_file(
     )
     return test_info_file
 
-def _list_code_paths(dependencies: ErlAppDependencies) -> [cmd_args]:
+def _list_code_paths(dependencies: ErlAppDependencies) -> list[cmd_args]:
     """lists all ebin/ dirs from the test targets dependencies"""
     folders = []
     for dependency in dependencies.values():

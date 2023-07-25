@@ -43,7 +43,7 @@ for min_sdk in get_min_sdk_version_range():
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
-        attrs: struct.type) -> {str: PlatformInfo.type}:
+        attrs: struct.type) -> dict[str, PlatformInfo.type]:
     cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
     if attrs._is_force_single_cpu:
         cpu_filters = [CPU_FILTER_FOR_PRIMARY_PLATFORM]
@@ -60,8 +60,8 @@ def _cpu_split_transition_impl(
 def _cpu_split_transition(
         platform: PlatformInfo.type,
         refs: struct.type,
-        cpu_filters: [str],
-        min_sdk_version: [int, None]) -> {str.type: PlatformInfo.type}:
+        cpu_filters: list[str],
+        min_sdk_version: [int, None]) -> dict[str.type, PlatformInfo.type]:
     cpu = refs.cpu
     x86 = refs.x86[ConstraintValueInfo]
     x86_64 = refs.x86_64[ConstraintValueInfo]
@@ -151,7 +151,7 @@ cpu_transition = transition(
     ],
 )
 
-def get_deps_by_platform(ctx: AnalysisContext) -> {str: [Dependency]}:
+def get_deps_by_platform(ctx: AnalysisContext) -> dict[str, list[Dependency]]:
     deps_by_platform = {}
     for dep_dict in ctx.attrs.deps:
         for platform, dep in dep_dict.items():

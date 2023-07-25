@@ -30,10 +30,10 @@ GoTestInfo = provider(fields = [
 def _out_root(shared: bool = False):
     return "__shared__" if shared else "__static__"
 
-def get_inherited_compile_pkgs(deps: [Dependency]) -> {str: GoPkg.type}:
+def get_inherited_compile_pkgs(deps: list[Dependency]) -> dict[str, GoPkg.type]:
     return merge_pkgs([d[GoPkgCompileInfo].pkgs for d in deps if GoPkgCompileInfo in d])
 
-def get_filtered_srcs(ctx: AnalysisContext, srcs: ["artifact"], tests: bool = False) -> cmd_args:
+def get_filtered_srcs(ctx: AnalysisContext, srcs: list["artifact"], tests: bool = False) -> cmd_args:
     """
     Filter the input sources based on build pragma
     """
@@ -60,7 +60,7 @@ def get_filtered_srcs(ctx: AnalysisContext, srcs: ["artifact"], tests: bool = Fa
     # Add filtered srcs to compile command.
     return cmd_args(filtered_srcs, format = "@{}").hidden(srcs).hidden(srcs_dir)
 
-def _get_import_map(pkgs: [str]) -> {str: str}:
+def _get_import_map(pkgs: list[str]) -> dict[str, str]:
     """
     Return the import remappings for vendor paths.
     """
@@ -83,7 +83,7 @@ def _get_import_map(pkgs: [str]) -> {str: str}:
 def _assemble_cmd(
         ctx: AnalysisContext,
         pkg_name: str,
-        flags: [str] = [],
+        flags: list[str] = [],
         shared: bool = False) -> cmd_args:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     cmd = cmd_args()
@@ -98,9 +98,9 @@ def _assemble_cmd(
 def _compile_cmd(
         ctx: AnalysisContext,
         pkg_name: str,
-        pkgs: {str: "artifact"} = {},
-        deps: [Dependency] = [],
-        flags: [str] = [],
+        pkgs: dict[str, "artifact"] = {},
+        deps: list[Dependency] = [],
+        flags: list[str] = [],
         shared: bool = False) -> cmd_args:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
@@ -140,10 +140,10 @@ def compile(
         ctx: AnalysisContext,
         pkg_name: str,
         srcs: cmd_args,
-        pkgs: {str: "artifact"} = {},
-        deps: [Dependency] = [],
-        compile_flags: [str] = [],
-        assemble_flags: [str] = [],
+        pkgs: dict[str, "artifact"] = {},
+        deps: list[Dependency] = [],
+        compile_flags: list[str] = [],
+        assemble_flags: list[str] = [],
         shared: bool = False) -> "artifact":
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     root = _out_root(shared)

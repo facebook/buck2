@@ -10,7 +10,7 @@ load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo", "create_java_packaging_dep", "derive_compiling_deps")
 load(":android_providers.bzl", "AndroidBuildConfigInfo", "BuildConfigField", "merge_android_packageable_info")
 
-def android_build_config_impl(ctx: AnalysisContext) -> ["provider"]:
+def android_build_config_impl(ctx: AnalysisContext) -> list["provider"]:
     providers = []
 
     default_build_config_fields = get_build_config_fields(ctx.attrs.values)
@@ -38,7 +38,7 @@ def generate_android_build_config(
         source: str,
         java_package: str,
         use_constant_expressions: bool,
-        default_values: ["BuildConfigField"],
+        default_values: list["BuildConfigField"],
         values_file: ["artifact", None]) -> ("JavaLibraryInfo", "JavaPackagingInfo"):
     build_config_dot_java = _generate_build_config_dot_java(ctx, source, java_package, use_constant_expressions, default_values, values_file)
 
@@ -60,7 +60,7 @@ def _generate_build_config_dot_java(
         source: str,
         java_package: str,
         use_constant_expressions: bool,
-        default_values: ["BuildConfigField"],
+        default_values: list["BuildConfigField"],
         values_file: ["artifact", None]) -> "artifact":
     generate_build_config_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].generate_build_config[RunInfo])
     generate_build_config_cmd.add([
@@ -101,7 +101,7 @@ def _compile_and_package_build_config_dot_java(
         srcs = [build_config_dot_java],
     )
 
-def get_build_config_fields(lines: [str]) -> ["BuildConfigField"]:
+def get_build_config_fields(lines: list[str]) -> list["BuildConfigField"]:
     return [_get_build_config_field(line) for line in lines]
 
 def _get_build_config_field(line: str) -> "BuildConfigField":

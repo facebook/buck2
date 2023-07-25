@@ -44,12 +44,12 @@ CxxExtensionLinkInfo = provider(
 
 def merge_cxx_extension_info(
         actions: "actions",
-        deps: [Dependency],
+        deps: list[Dependency],
         linkable_providers: [LinkableProviders.type, None] = None,
-        artifacts: {str: "_a"} = {},
-        python_module_names: {str: str} = {},
-        unembeddable_extensions: {str: LinkableProviders.type} = {},
-        shared_deps: [Dependency] = []) -> CxxExtensionLinkInfo.type:
+        artifacts: dict[str, "_a"] = {},
+        python_module_names: dict[str, str] = {},
+        unembeddable_extensions: dict[str, LinkableProviders.type] = {},
+        shared_deps: list[Dependency] = []) -> CxxExtensionLinkInfo.type:
     linkable_provider_children = []
     artifacts = dict(artifacts)
     python_module_names = dict(python_module_names)
@@ -97,11 +97,11 @@ def merge_cxx_extension_info(
 def rewrite_static_symbols(
         ctx: AnalysisContext,
         suffix: str,
-        pic_objects: ["artifact"],
-        non_pic_objects: ["artifact"],
-        libraries: {LinkStyle.type: LinkInfos.type},
+        pic_objects: list["artifact"],
+        non_pic_objects: list["artifact"],
+        libraries: dict[LinkStyle.type, LinkInfos.type],
         cxx_toolchain: "CxxToolchainInfo",
-        suffix_all: bool = False) -> {LinkStyle.type: LinkInfos.type}:
+        suffix_all: bool = False) -> dict[LinkStyle.type, LinkInfos.type]:
     symbols_file = _write_syms_file(
         ctx = ctx,
         name = ctx.label.name + "_rename_syms",
@@ -166,7 +166,7 @@ def rewrite_static_symbols(
 def _write_syms_file(
         ctx: AnalysisContext,
         name: str,
-        objects: ["artifact"],
+        objects: list["artifact"],
         suffix: str,
         cxx_toolchain: "CxxToolchainInfo",
         suffix_all: bool = False) -> "artifact":
@@ -228,7 +228,7 @@ def _write_syms_file(
 def suffix_symbols(
         ctx: AnalysisContext,
         suffix: str,
-        objects: ["artifact"],
+        objects: list["artifact"],
         symbols_file: "artifact",
         cxx_toolchain: "CxxToolchainInfo") -> (ObjectsLinkable.type, ObjectsLinkable.type):
     """

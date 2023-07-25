@@ -140,7 +140,7 @@ def get_link_group(ctx: AnalysisContext) -> [str, None]:
 
 def build_link_group_info(
         graph: LinkableGraph.type,
-        groups: [Group.type],
+        groups: list[Group.type],
         min_node_count: [int, None] = None) -> LinkGroupInfo.type:
     linkable_graph_node_map = get_linkable_graph_node_map_func(graph)()
 
@@ -170,7 +170,7 @@ def build_link_group_info(
 
 def get_link_group_info(
         ctx: AnalysisContext,
-        executable_deps: [[LinkableGraph.type], None] = None) -> [LinkGroupInfo.type, None]:
+        executable_deps: [list[LinkableGraph.type], None] = None) -> [LinkGroupInfo.type, None]:
     """
     Parses the currently analyzed context for any link group definitions
     and returns a list of all link groups with their mappings.
@@ -197,7 +197,7 @@ def get_link_group_info(
         min_node_count = getattr(ctx.attrs, "link_group_min_binary_node_count", 0),
     )
 
-def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {Label: Linkage.type}:
+def get_link_group_preferred_linkage(link_groups: list[Group.type]) -> dict[Label, Linkage.type]:
     return {
         mapping.root: mapping.preferred_linkage
         for group in link_groups
@@ -206,11 +206,11 @@ def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {Label: Linka
     }
 
 def _transitively_update_shared_linkage(
-        linkable_graph_node_map: {"label": LinkableNode.type},
+        linkable_graph_node_map: dict["label", LinkableNode.type],
         link_group: [str, None],
         link_style: LinkStyle.type,
-        link_group_preferred_linkage: {"label": Linkage.type},
-        link_group_roots: {"label": str},
+        link_group_preferred_linkage: dict["label", Linkage.type],
+        link_group_roots: dict["label", str],
         pic_behavior: PicBehavior.type):
     # Identify targets whose shared linkage style may be propagated to
     # dependencies. Implicitly created root libraries are skipped.
@@ -227,7 +227,7 @@ def _transitively_update_shared_linkage(
                 shared_lib_roots.append(target)
 
     # buildifier: disable=uninitialized
-    def process_dependency(node: Label) -> ["label"]:
+    def process_dependency(node: Label) -> list["label"]:
         linkable_node = linkable_graph_node_map[node]
         if linkable_node.preferred_linkage == Linkage("any"):
             link_group_preferred_linkage[node] = Linkage("shared")
@@ -240,18 +240,18 @@ def _transitively_update_shared_linkage(
     )
 
 def get_filtered_labels_to_links_map(
-        linkable_graph_node_map: {"label": LinkableNode.type},
+        linkable_graph_node_map: dict["label", LinkableNode.type],
         link_group: [str.type, None],
-        link_groups: {str.type: Group.type},
-        link_group_mappings: [{"label": str.type}, None],
-        link_group_preferred_linkage: {"label": Linkage.type},
+        link_groups: dict[str.type, Group.type],
+        link_group_mappings: [dict["label", str.type], None],
+        link_group_preferred_linkage: dict["label", Linkage.type],
         link_style: LinkStyle.type,
-        roots: ["label"],
+        roots: list["label"],
         pic_behavior: PicBehavior.type,
-        link_group_libs: {str: (["label", None], LinkInfos.type)} = {},
+        link_group_libs: dict[str, (["label", None], LinkInfos.type)] = {},
         prefer_stripped: bool = False,
         is_executable_link: bool = False,
-        force_static_follows_dependents: bool = True) -> {"label": LinkGroupLinkInfo.type}:
+        force_static_follows_dependents: bool = True) -> dict["label", LinkGroupLinkInfo.type]:
     """
     Given a linkable graph, link style and link group mappings, finds all links
     to consider for linking traversing the graph as necessary and then
@@ -259,7 +259,7 @@ def get_filtered_labels_to_links_map(
     If no link group is provided, all unmatched link infos are returned.
     """
 
-    def get_traversed_deps(node: Label) -> [Label]:
+    def get_traversed_deps(node: Label) -> list[Label]:
         linkable_node = linkable_graph_node_map[node]  # buildifier: disable=uninitialized
 
         # Always link against exported deps
@@ -383,9 +383,9 @@ def get_filtered_labels_to_links_map(
 # Find all link group libraries that are first order deps or exported deps of
 # the exectuble or another link group's libs
 def get_public_link_group_nodes(
-        linkable_graph_node_map: {"label": LinkableNode.type},
-        link_group_mappings: [{"label": str}, None],
-        executable_deps: ["label"],
+        linkable_graph_node_map: dict["label", LinkableNode.type],
+        link_group_mappings: [dict["label", str], None],
+        executable_deps: list["label"],
         root_link_group: [str, None]) -> set_record.type:
     external_link_group_nodes = set()
 
@@ -428,7 +428,7 @@ def get_public_link_group_nodes(
     SPECIAL_LINK_GROUPS = [MATCH_ALL_LABEL, NO_MATCH_LABEL]
 
     # buildifier: disable=uninitialized
-    def get_traversed_deps(node: Label) -> [Label]:
+    def get_traversed_deps(node: Label) -> list[Label]:
         exported_deps = []
         for exported_dep in linkable_graph_node_map[node].exported_deps:
             group = link_group_mappings.get(exported_dep)
@@ -448,7 +448,7 @@ def get_public_link_group_nodes(
     return external_link_group_nodes
 
 def get_filtered_links(
-        labels_to_links_map: {Label: LinkGroupLinkInfo.type},
+        labels_to_links_map: dict[Label, LinkGroupLinkInfo.type],
         public_link_group_nodes: [set_record.type, None] = None):
     if public_link_group_nodes == None:
         return [link_group_info.link_info for link_group_info in labels_to_links_map.values()]
@@ -470,18 +470,18 @@ def get_filtered_links(
             infos.append(info)
     return infos
 
-def get_filtered_targets(labels_to_links_map: {Label: LinkGroupLinkInfo.type}):
+def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo.type]):
     return [label.raw_target() for label in labels_to_links_map.keys()]
 
-def get_link_group_map_json(ctx: AnalysisContext, targets: ["target_label"]) -> DefaultInfo.type:
+def get_link_group_map_json(ctx: AnalysisContext, targets: list["target_label"]) -> DefaultInfo.type:
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets))
     return DefaultInfo(default_output = json_map)
 
 def find_relevant_roots(
         link_group: [str, None] = None,
-        linkable_graph_node_map: {"label": LinkableNode.type} = {},
-        link_group_mappings: {"label": str} = {},
-        roots: ["label"] = []):
+        linkable_graph_node_map: dict["label", LinkableNode.type] = {},
+        link_group_mappings: dict["label", str] = {},
+        roots: list["label"] = []):
     # Walk through roots looking for the first node which maps to the current
     # link group.
     def collect_and_traverse_roots(roots, node_target):
@@ -511,17 +511,17 @@ def _create_link_group(
         ctx: AnalysisContext,
         spec: LinkGroupLibSpec.type,
         # The deps of the top-level executable.
-        executable_deps: [Label] = [],
+        executable_deps: list[Label] = [],
         # Additional roots involved in the link.
-        other_roots: [Label] = [],
+        other_roots: list[Label] = [],
         public_nodes: set_record.type = set(),
-        linkable_graph_node_map: {Label: LinkableNode.type} = {},
-        linker_flags: [""] = [],
-        link_groups: {str.type: Group.type} = {},
-        link_group_mappings: {"label": str.type} = {},
-        link_group_preferred_linkage: {"label": Linkage.type} = {},
+        linkable_graph_node_map: dict[Label, LinkableNode.type] = {},
+        linker_flags: list[""] = [],
+        link_groups: dict[str.type, Group.type] = {},
+        link_group_mappings: dict["label", str.type] = {},
+        link_group_preferred_linkage: dict["label", Linkage.type] = {},
         link_style: LinkStyle.type = LinkStyle("static_pic"),
-        link_group_libs: {str: (["label", None], LinkInfos.type)} = {},
+        link_group_libs: dict[str, (["label", None], LinkInfos.type)] = {},
         prefer_stripped_objects: bool = False,
         category_suffix: [str, None] = None,
         anonymous: bool = False) -> LinkedObject.type:
@@ -611,7 +611,7 @@ def _create_link_group(
 def _stub_library(
         ctx: AnalysisContext,
         name: str,
-        extra_ldflags: [""] = [],
+        extra_ldflags: list[""] = [],
         anonymous: bool = False) -> LinkInfos.type:
     link_result = cxx_link_shared_library(
         ctx = ctx,
@@ -669,8 +669,8 @@ def _symbol_files_for_link_group(
 
 def _symbol_flags_for_link_groups(
         ctx: AnalysisContext,
-        undefined_symfiles: ["artifact"] = [],
-        global_symfiles: ["artifact"] = []) -> ["_arglike"]:
+        undefined_symfiles: list["artifact"] = [],
+        global_symfiles: list["artifact"] = []) -> list["_arglike"]:
     """
     Generate linker flags which, when applied to the main executable, make sure
     required symbols are included in the link *and* exported to the dynamic
@@ -707,16 +707,16 @@ def _symbol_flags_for_link_groups(
 
 def create_link_groups(
         ctx: AnalysisContext,
-        link_groups: {str.type: Group.type} = {},
-        link_group_specs: [LinkGroupLibSpec.type] = [],
-        executable_deps: ["label"] = [],
-        other_roots: ["label"] = [],
+        link_groups: dict[str.type, Group.type] = {},
+        link_group_specs: list[LinkGroupLibSpec.type] = [],
+        executable_deps: list["label"] = [],
+        other_roots: list["label"] = [],
         root_link_group = [str, None],
-        linker_flags: [""] = [],
+        linker_flags: list[""] = [],
         prefer_stripped_objects: bool = False,
-        linkable_graph_node_map: {"label": LinkableNode.type} = {},
-        link_group_preferred_linkage: {"label": Linkage.type} = {},
-        link_group_mappings: [{"label": str}, None] = None,
+        linkable_graph_node_map: dict["label", LinkableNode.type] = {},
+        link_group_preferred_linkage: dict["label", Linkage.type] = {},
+        link_group_mappings: [dict["label", str], None] = None,
         anonymous: bool = False) -> _LinkedLinkGroups.type:
     # Generate stubs first, so that subsequent links can link against them.
     link_group_shared_links = {}

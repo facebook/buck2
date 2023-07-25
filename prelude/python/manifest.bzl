@@ -23,7 +23,7 @@ ManifestInfo = record(
 def create_dep_manifest_for_source_map(
         ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo.type,
-        srcs: {str: "artifact"}) -> ManifestInfo.type:
+        srcs: dict[str, "artifact"]) -> ManifestInfo.type:
     entries = []
     artifacts = []
     for path, artifact in srcs.items():
@@ -48,7 +48,7 @@ def create_dep_manifest_for_source_map(
 def _write_manifest(
         ctx: AnalysisContext,
         name: str,
-        entries: [(str, "artifact", str)]) -> "artifact":
+        entries: list[(str, "artifact", str)]) -> "artifact":
     """
     Serialize the given source manifest entries to a JSON file.
     """
@@ -57,7 +57,7 @@ def _write_manifest(
 def create_manifest_for_entries(
         ctx: AnalysisContext,
         name: str,
-        entries: [(str, "artifact", str)]) -> ManifestInfo.type:
+        entries: list[(str, "artifact", str)]) -> ManifestInfo.type:
     """
     Generate a source manifest for the given list of sources.
     """
@@ -69,7 +69,7 @@ def create_manifest_for_entries(
 def create_manifest_for_source_map(
         ctx: AnalysisContext,
         param: str,
-        srcs: {str: "artifact"}) -> ManifestInfo.type:
+        srcs: dict[str, "artifact"]) -> ManifestInfo.type:
     """
     Generate a source manifest for the given map of sources from the given rule.
     """
@@ -103,7 +103,7 @@ def create_manifest_for_source_dir(
 
 def create_manifest_for_extensions(
         ctx: AnalysisContext,
-        extensions: {str: ("_a", "label")},
+        extensions: dict[str, ("_a", "label")],
         # Whether to include DWP files.
         dwp: bool = False) -> ManifestInfo.type:
     entries = []

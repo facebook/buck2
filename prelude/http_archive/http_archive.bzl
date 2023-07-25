@@ -98,14 +98,14 @@ def _unarchive_cmd(
     else:
         fail()
 
-def _tar_strip_prefix_flags(strip_prefix: [str, None]) -> [str]:
+def _tar_strip_prefix_flags(strip_prefix: [str, None]) -> list[str]:
     if strip_prefix:
         # count nonempty path components in the prefix
         count = len(filter(lambda c: c != "", strip_prefix.split("/")))
         return ["--strip-components=" + str(count), strip_prefix]
     return []
 
-def http_archive_impl(ctx: AnalysisContext) -> ["provider"]:
+def http_archive_impl(ctx: AnalysisContext) -> list["provider"]:
     expect(len(ctx.attrs.urls) == 1, "multiple `urls` not supported: {}".format(ctx.attrs.urls))
     expect(len(ctx.attrs.vpnless_urls) < 2, "multiple `vpnless_urls` not supported: {}".format(ctx.attrs.vpnless_urls))
 

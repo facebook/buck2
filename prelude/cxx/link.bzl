@@ -80,7 +80,7 @@ CxxLinkResult = record(
 
 def link_external_debug_info(
         ctx: AnalysisContext,
-        links: [LinkArgs.type],
+        links: list[LinkArgs.type],
         split_debug_output: ["artifact", None] = None,
         pdb: ["artifact", None] = None) -> ArtifactTSet.type:
     external_debug_artifacts = []
@@ -112,7 +112,7 @@ def cxx_link_into(
         ctx: AnalysisContext,
         # The destination for the link output.
         output: "artifact",
-        links: [LinkArgs.type],
+        links: list[LinkArgs.type],
         result_type: CxxLinkResultType.type,
         link_execution_preference: LinkExecutionPreference.type,
         link_weight: int = 1,
@@ -328,7 +328,7 @@ def _anon_cxx_link(
         ctx: AnalysisContext,
         output: str.type,
         result_type: CxxLinkResultType.type,
-        links: [LinkArgs.type] = [],
+        links: list[LinkArgs.type] = [],
         **kwargs) -> CxxLinkResult.type:
     anon_providers = ctx.actions.anon_target(
         _anon_link_rule,
@@ -400,7 +400,7 @@ def cxx_link_shared_library(
         output: str.type,
         # Optional soname to link into shared library.
         name: [str, None] = None,
-        links: [LinkArgs.type] = [],
+        links: list[LinkArgs.type] = [],
         link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
         # Overrides the default flags used to specify building shared libraries
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,

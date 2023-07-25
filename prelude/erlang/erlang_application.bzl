@@ -49,7 +49,7 @@ StartSpec = record(
     start_type = field("StartType"),
 )
 
-def erlang_application_impl(ctx: AnalysisContext) -> ["provider"]:
+def erlang_application_impl(ctx: AnalysisContext) -> list["provider"]:
     # select the correct tools from the toolchain
     toolchains = select_toolchains(ctx)
 
@@ -61,7 +61,7 @@ def erlang_application_impl(ctx: AnalysisContext) -> ["provider"]:
 
     return build_application(ctx, toolchains, dependencies, _build_erlang_application)
 
-def build_application(ctx, toolchains, dependencies, build_fun) -> ["provider"]:
+def build_application(ctx, toolchains, dependencies, build_fun) -> list["provider"]:
     name = ctx.attrs.name
 
     build_environments = {}
@@ -222,7 +222,7 @@ def _generate_app_file(
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         name: "string",
-        srcs: ["artifact"]) -> "BuildEnvironment":
+        srcs: list["artifact"]) -> "BuildEnvironment":
     """ rule for generating the .app files
 
     NOTE: We are using the .erl files as input to avoid dependencies on
@@ -266,7 +266,7 @@ def _app_info_content(
         ctx: AnalysisContext,
         toolchain: "Toolchain",
         name: "string",
-        srcs: ["artifact"],
+        srcs: list["artifact"],
         output: "artifact") -> "artifact":
     """build an app_info.term file that contains the meta information for building the .app file"""
     sources_args = convert(srcs)
@@ -342,7 +342,7 @@ def link_output(
 
     return ctx.actions.symlinked_dir(link_path, link_spec)
 
-def _link_srcs_folder(ctx: AnalysisContext) -> {"string": "artifact"}:
+def _link_srcs_folder(ctx: AnalysisContext) -> dict["string", "artifact"]:
     """Build mapping for the src folder if erlang.include_src is set"""
     if not str_to_bool(read_root_config("erlang", "include_src", "False")):
         return {}
@@ -354,7 +354,7 @@ def _link_srcs_folder(ctx: AnalysisContext) -> {"string": "artifact"}:
         srcs[paths.join("src", ctx.attrs.app_src.basename)] = ctx.attrs.app_src
     return srcs
 
-def _build_start_dependencies(ctx: AnalysisContext, toolchain: "Toolchain") -> ["StartDependencySet"]:
+def _build_start_dependencies(ctx: AnalysisContext, toolchain: "Toolchain") -> list["StartDependencySet"]:
     return build_apps_start_dependencies(
         ctx,
         toolchain,
@@ -365,7 +365,7 @@ def _build_start_dependencies(ctx: AnalysisContext, toolchain: "Toolchain") -> [
         [(app, StartType("load")) for app in ctx.attrs.included_applications],
     )
 
-def build_apps_start_dependencies(ctx: AnalysisContext, toolchain: "Toolchain", apps: [(Dependency, "StartType")]) -> ["StartDependencySet"]:
+def build_apps_start_dependencies(ctx: AnalysisContext, toolchain: "Toolchain", apps: list[(Dependency, "StartType")]) -> list["StartDependencySet"]:
     start_dependencies = []
     for app, start_type in apps[::-1]:
         app_spec = _build_start_spec(toolchain, app[ErlangAppInfo], start_type)
@@ -414,10 +414,10 @@ def _build_default_info(dependencies: ErlAppDependencies, app_dir: "artifact") -
 def build_app_info(
         ctx: AnalysisContext,
         dependencies: ErlAppDependencies,
-        build_environments: {"string": "BuildEnvironment"},
-        app_folders: {"string": "artifact"},
+        build_environments: dict["string", "BuildEnvironment"],
+        app_folders: dict["string", "artifact"],
         primary_app_folder: "artifact",
-        start_dependencies: {"string": ["StartDependencySet"]}) -> "provider":
+        start_dependencies: dict["string", list["StartDependencySet"]]) -> "provider":
     name = ctx.attrs.name
 
     version = {

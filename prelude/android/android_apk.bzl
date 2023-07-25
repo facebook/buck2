@@ -12,7 +12,7 @@ load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//utils:set.bzl", "set")
 
-def android_apk_impl(ctx: AnalysisContext) -> ["provider"]:
+def android_apk_impl(ctx: AnalysisContext) -> list["provider"]:
     android_binary_info = get_binary_info(ctx, use_proto_format = False)
     java_packaging_deps = android_binary_info.java_packaging_deps
     sub_targets = android_binary_info.sub_targets
@@ -162,7 +162,7 @@ def get_install_info(ctx: AnalysisContext, output_apk: "artifact", manifest: "ar
         files = files,
     )
 
-def _get_exopackage_outputs(exopackage_info: ExopackageInfo.type) -> ["artifact"]:
+def _get_exopackage_outputs(exopackage_info: ExopackageInfo.type) -> list["artifact"]:
     outputs = []
     secondary_dex_exopackage_info = exopackage_info.secondary_dex_info
     if secondary_dex_exopackage_info:
@@ -189,7 +189,7 @@ def generate_install_config(ctx: AnalysisContext) -> "artifact":
     data = get_install_config()
     return ctx.actions.write_json("install_android_options.json", data)
 
-def get_install_config() -> {str: ""}:
+def get_install_config() -> dict[str, ""]:
     # TODO: read from toolchains
     install_config = {
         "adb_restart_on_failure": read_root_config("adb", "adb_restart_on_failure", "true"),

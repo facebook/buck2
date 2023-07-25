@@ -18,7 +18,7 @@ VisualStudio = provider(fields = [
     "link_exe",
 ])
 
-def _find_msvc_tools_impl(ctx: AnalysisContext) -> ["provider"]:
+def _find_msvc_tools_impl(ctx: AnalysisContext) -> list["provider"]:
     cl_exe_json = ctx.actions.declare_output("cl.exe.json")
     lib_exe_json = ctx.actions.declare_output("lib.exe.json")
     ml64_exe_json = ctx.actions.declare_output("ml64.exe.json")

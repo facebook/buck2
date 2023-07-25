@@ -5,5 +5,5 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def haskell_ide_impl(_ctx: AnalysisContext) -> ["provider"]:
+def haskell_ide_impl(_ctx: AnalysisContext) -> list["provider"]:
     return [DefaultInfo()]

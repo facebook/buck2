@@ -74,7 +74,7 @@ def expand_relative_prefixed_sdk_path(
 
     return expanded_cmd
 
-def get_disable_pch_validation_flags() -> [str]:
+def get_disable_pch_validation_flags() -> list[str]:
     """
     We need to disable PCH validation for some actions like Swift compilation and Swift PCM generation.
     Currently, we don't have a mechanism to compile with enabled pch validation and Swift explicit modules,

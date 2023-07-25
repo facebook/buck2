@@ -7,7 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 
-def normalise_metadata(data: ["string", ["string"]]) -> [cmd_args, [cmd_args]]:
+def normalise_metadata(data: ["string", list["string"]]) -> [cmd_args, list[cmd_args]]:
     if type(data) == type([]):
         return [cmd_args(item) for item in data]
     else:
@@ -118,13 +118,13 @@ def convert_bool(bl: "bool") -> cmd_args:
     else:
         return cmd_args(["false"])
 
-def multidict_projection(build_environments: {"string": "BuildEnvironment"}, field_name: "string") -> "dict":
+def multidict_projection(build_environments: dict["string", "BuildEnvironment"], field_name: "string") -> "dict":
     field = {}
     for name, env in build_environments.items():
         field[name] = getattr(env, field_name)
     return field
 
-def multidict_projection_key(build_environments: {"string": "BuildEnvironment"}, field_name: "string", key: "string") -> "dict":
+def multidict_projection_key(build_environments: dict["string", "BuildEnvironment"], field_name: "string", key: "string") -> "dict":
     field = {}
     for name, env in build_environments.items():
         dict_val = getattr(env, field_name)
@@ -144,7 +144,7 @@ def str_to_bool(value: "string") -> "bool":
     else:
         fail("{} is not a valid boolean value")
 
-def preserve_structure(path: "string") -> {"string": ["string"]}:
+def preserve_structure(path: "string") -> dict["string", list["string"]]:
     """Return a mapping from a path that preserves the filestructure relative to the path."""
     all_files = glob([paths.join(path, "**")])
     mapping = {}
@@ -154,7 +154,7 @@ def preserve_structure(path: "string") -> {"string": ["string"]}:
         mapping[dirname] = mapping.get(dirname, []) + [filename]
     return mapping
 
-def _file_mapping_impl(ctx: AnalysisContext) -> ["provider"]:
+def _file_mapping_impl(ctx: AnalysisContext) -> list["provider"]:
     outputs = []
     for target_path, files in ctx.attrs.mapping.items():
         for file in files:

@@ -37,36 +37,36 @@ load(":platform.bzl", "cxx_by_platform")
 OBJECTS_SUBTARGET = "objects"
 
 # The dependencies
-def cxx_attr_deps(ctx: AnalysisContext) -> [Dependency]:
+def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     return (
         ctx.attrs.deps +
         flatten(cxx_by_platform(ctx, getattr(ctx.attrs, "platform_deps", []))) +
         (getattr(ctx.attrs, "deps_query", []) or [])
     )
 
-def cxx_attr_exported_deps(ctx: AnalysisContext) -> [Dependency]:
+def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
     return ctx.attrs.exported_deps + flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_deps))
 
-def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> [""]:
+def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[""]:
     return (
         ctx.attrs.exported_linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_linker_flags))
     )
 
-def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> [""]:
+def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[""]:
     return (
         ctx.attrs.exported_post_linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.exported_post_platform_linker_flags))
     )
 
-def cxx_inherited_link_info(ctx, first_order_deps: [Dependency]) -> MergedLinkInfo.type:
+def cxx_inherited_link_info(ctx, first_order_deps: list[Dependency]) -> MergedLinkInfo.type:
     # We filter out nones because some non-cxx rule without such providers could be a dependency, for example
     # cxx_binary "fbcode//one_world/cli/util/process_wrapper:process_wrapper" depends on
     # python_library "fbcode//third-party-buck/$platform/build/glibc:__project__"
     return merge_link_infos(ctx, filter(None, [x.get(MergedLinkInfo) for x in first_order_deps]))
 
 # Linker flags
-def cxx_attr_linker_flags(ctx: AnalysisContext) -> [""]:
+def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[""]:
     return (
         ctx.attrs.linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.platform_linker_flags))
@@ -93,7 +93,7 @@ def cxx_attr_preferred_linkage(ctx: AnalysisContext) -> Linkage.type:
 
     return Linkage(preferred_linkage)
 
-def cxx_attr_resources(ctx: AnalysisContext) -> {str: ("artifact", ["_arglike"])}:
+def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, ("artifact", list["_arglike"])]:
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
@@ -171,7 +171,7 @@ def cxx_platform_supported(ctx: AnalysisContext) -> bool:
         get_cxx_platform_info(ctx).name,
     )
 
-def cxx_objects_sub_target(outs: [CxxCompileOutput.type]) -> ["provider"]:
+def cxx_objects_sub_target(outs: list[CxxCompileOutput.type]) -> list["provider"]:
     objects_sub_targets = {}
     for obj in outs:
         sub_targets = {}

@@ -44,7 +44,7 @@ def _gen_test_main(
     ctx.actions.run(cmd, category = "go_test_main_gen")
     return output
 
-def go_test_impl(ctx: AnalysisContext) -> ["provider"]:
+def go_test_impl(ctx: AnalysisContext) -> list["provider"]:
     deps = ctx.attrs.deps
     srcs = ctx.attrs.srcs
     pkg_name = go_attr_pkg_name(ctx)

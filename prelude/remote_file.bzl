@@ -50,7 +50,7 @@ def _from_mvn_url(url: str) -> str:
     )
 
 # Implementation of the `remote_file` build rule.
-def remote_file_impl(ctx: AnalysisContext) -> ["provider"]:
+def remote_file_impl(ctx: AnalysisContext) -> list["provider"]:
     url = ctx.attrs.url
     if url.startswith("mvn:"):
         url = _from_mvn_url(url)

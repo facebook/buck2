@@ -13,7 +13,7 @@ def _archive_flags(
         archiver_type: str,
         linker_type: str,
         use_archiver_flags: bool,
-        thin: bool) -> [str]:
+        thin: bool) -> list[str]:
     if not use_archiver_flags:
         return []
 
@@ -88,7 +88,7 @@ def _archive_locally(ctx: AnalysisContext, linker_info: "LinkerInfo") -> bool:
 def make_archive(
         ctx: AnalysisContext,
         name: str,
-        objects: ["artifact"],
+        objects: list["artifact"],
         args: [cmd_args, None] = None) -> Archive.type:
     if len(objects) == 0:
         fail("no objects to archive")

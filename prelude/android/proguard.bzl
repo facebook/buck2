@@ -22,14 +22,14 @@ ProguardOutput = record(
 
 def _get_proguard_command_line_args(
         ctx: AnalysisContext,
-        inputs_to_unscrubbed_outputs: {"artifact": "artifact"},
-        proguard_configs: ["artifact"],
-        additional_library_jars: ["artifact"],
+        inputs_to_unscrubbed_outputs: dict["artifact", "artifact"],
+        proguard_configs: list["artifact"],
+        additional_library_jars: list["artifact"],
         mapping: "artifact",
         configuration: ["artifact", None],
         seeds: ["artifact", None],
         usage: ["artifact", None],
-        android_toolchain: "AndroidToolchainInfo") -> (cmd_args, ["artifact"]):
+        android_toolchain: "AndroidToolchainInfo") -> (cmd_args, list["artifact"]):
     cmd = cmd_args()
     hidden = []
     cmd.add("-basedirectory", "<user.dir>")
@@ -104,10 +104,10 @@ def run_proguard(
 # e.g. Redex might want to consume it) but we don't actually run the proguard command.
 def get_proguard_output(
         ctx: AnalysisContext,
-        input_jars: {"artifact": "target_label"},
-        java_packaging_deps: ["JavaPackagingDep"],
+        input_jars: dict["artifact", "target_label"],
+        java_packaging_deps: list["JavaPackagingDep"],
         aapt_generated_proguard_config: ["artifact", None],
-        additional_library_jars: ["artifact"]) -> ProguardOutput.type:
+        additional_library_jars: list["artifact"]) -> ProguardOutput.type:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
     if ctx.attrs.proguard_config:
         proguard_configs.append(ctx.attrs.proguard_config)

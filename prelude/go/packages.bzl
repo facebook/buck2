@@ -20,7 +20,7 @@ def go_attr_pkg_name(ctx: AnalysisContext) -> str:
     """
     return value_or(ctx.attrs.package_name, ctx.label.package)
 
-def merge_pkgs(pkgss: [{str: "_pkg"}]) -> {str: "_pkg"}:
+def merge_pkgs(pkgss: list[dict[str, "_pkg"]]) -> dict[str, "_pkg"]:
     """
     Merge mappings of packages into a single mapping, throwing an error on
     conflicts.
@@ -36,7 +36,7 @@ def merge_pkgs(pkgss: [{str: "_pkg"}]) -> {str: "_pkg"}:
 
     return all_pkgs
 
-def pkg_artifacts(pkgs: {str: GoPkg.type}, shared: bool = False) -> {str: "artifact"}:
+def pkg_artifacts(pkgs: dict[str, GoPkg.type], shared: bool = False) -> dict[str, "artifact"]:
     """
     Return a map package name to a `shared` or `static` package artifact.
     """

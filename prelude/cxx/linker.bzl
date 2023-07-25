@@ -122,7 +122,7 @@ def get_default_shared_library_name(linker_info: LinkerInfo.type, label: Label):
     short_name = "{}_{}".format(_sanitize(label.package), _sanitize(label.name))
     return get_shared_library_name(linker_info, short_name)
 
-def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> [str]:
+def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> list[str]:
     """
     Arguments to pass to the linker to set the given soname.
     """
@@ -136,7 +136,7 @@ def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_ove
         for f in shared_library_name_linker_flags_format
     ]
 
-def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> [str]:
+def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> list[str]:
     """
     Arguments to pass to the linker to link a shared library.
     """
@@ -145,7 +145,7 @@ def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFla
 
     return LINKERS[linker_type].shared_library_flags
 
-def get_link_whole_args(linker_type: str, inputs: ["artifact"]) -> [""]:
+def get_link_whole_args(linker_type: str, inputs: list["artifact"]) -> list[""]:
     """
     Return linker args used to always link all the given inputs.
     """
@@ -171,7 +171,7 @@ def get_link_whole_args(linker_type: str, inputs: ["artifact"]) -> [""]:
 
     return args
 
-def get_objects_as_library_args(linker_type: str, objects: ["artifact"]) -> [""]:
+def get_objects_as_library_args(linker_type: str, objects: list["artifact"]) -> list[""]:
     """
     Return linker args used to link the given objects as a library.
     """
@@ -189,7 +189,7 @@ def get_objects_as_library_args(linker_type: str, objects: ["artifact"]) -> [""]
 
     return args
 
-def get_ignore_undefined_symbols_flags(linker_type: str) -> [str]:
+def get_ignore_undefined_symbols_flags(linker_type: str) -> list[str]:
     """
     Return linker args used to suppress undefined symbol errors.
     """
@@ -206,7 +206,7 @@ def get_ignore_undefined_symbols_flags(linker_type: str) -> [str]:
 
     return args
 
-def get_no_as_needed_shared_libs_flags(linker_type: str) -> [str]:
+def get_no_as_needed_shared_libs_flags(linker_type: str) -> list[str]:
     """
     Return linker args used to prevent linkers from dropping unused shared
     library dependencies from the e.g. DT_NEEDED tags of the link.
@@ -223,7 +223,7 @@ def get_no_as_needed_shared_libs_flags(linker_type: str) -> [str]:
 
     return args
 
-def get_output_flags(linker_type: str, output: "artifact") -> ["_argslike"]:
+def get_output_flags(linker_type: str, output: "artifact") -> list["_argslike"]:
     if linker_type == "windows":
         return ["/Brepro", cmd_args(output.as_output(), format = "/OUT:{}")]
     else:
@@ -232,7 +232,7 @@ def get_output_flags(linker_type: str, output: "artifact") -> ["_argslike"]:
 def get_import_library(
         ctx: AnalysisContext,
         linker_type: str,
-        output_short_path: str) -> (["artifact", None], ["_argslike"]):
+        output_short_path: str) -> (["artifact", None], list["_argslike"]):
     if linker_type == "windows":
         import_library = ctx.actions.declare_output(output_short_path + ".imp.lib")
         return import_library, [cmd_args(import_library.as_output(), format = "/IMPLIB:{}")]
@@ -255,7 +255,7 @@ def get_rpath_origin(
 
 def is_pdb_generated(
         linker_type: str,
-        linker_flags: [[str, "resolved_macro"]]) -> bool:
+        linker_flags: list[[str, "resolved_macro"]]) -> bool:
     if linker_type != "windows":
         return False
     for flag in reversed(linker_flags):

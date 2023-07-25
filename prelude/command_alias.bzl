@@ -189,12 +189,12 @@ def _relativize_path_windows(
 
     return trampoline
 
-def _add_platform_case_to_trampoline_args(trampoline_args: cmd_args, platform_name: str, base: RunInfo.type, args: ["_arglike"]):
+def _add_platform_case_to_trampoline_args(trampoline_args: cmd_args, platform_name: str, base: RunInfo.type, args: list["_arglike"]):
     trampoline_args.add("    {})".format(platform_name))
     _add_args_declaration_to_trampoline_args(trampoline_args, base, args)
     trampoline_args.add("        ;;")
 
-def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo.type, args: ["_arglike"]):
+def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo.type, args: list["_arglike"]):
     trampoline_args.add("ARGS=(")
 
     # FIXME (T111687922): We cannot preserve BUCK_COMMAND_ALIAS_ABSOLUTE *and*

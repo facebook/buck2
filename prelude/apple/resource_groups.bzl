@@ -58,9 +58,9 @@ ResourceGraph = provider(fields = [
 
 def create_resource_graph(
         ctx: AnalysisContext,
-        labels: [str],
-        deps: [Dependency],
-        exported_deps: [Dependency],
+        labels: list[str],
+        deps: list[Dependency],
+        exported_deps: list[Dependency],
         resource_spec: [AppleResourceSpec.type, None] = None,
         asset_catalog_spec: [AppleAssetCatalogSpec.type, None] = None,
         core_data_spec: [AppleCoreDataSpec.type, None] = None,
@@ -83,13 +83,13 @@ def create_resource_graph(
     )
 
 def get_resource_graph_node_map_func(graph: ResourceGraph.type):
-    def get_resource_graph_node_map() -> {Label: ResourceGraphNode.type}:
+    def get_resource_graph_node_map() -> dict[Label, ResourceGraphNode.type]:
         nodes = graph.nodes.traverse()
         return {node.label: node for node in filter(None, nodes)}
 
     return get_resource_graph_node_map
 
-def _with_resources_deps(deps: [Dependency]) -> [Label]:
+def _with_resources_deps(deps: list[Dependency]) -> list[Label]:
     """
     Filters dependencies and returns only those which are relevant
     to working with resources i.e. those which contains resource graph provider.
@@ -116,14 +116,14 @@ def get_filtered_resources(
         root: Label,
         resource_graph_node_map_func,
         resource_group: [str, None],
-        resource_group_mappings: [{"label": str}, None]) -> ([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type], [SceneKitAssetsSpec.type]):
+        resource_group_mappings: [dict["label", str], None]) -> (list[AppleResourceSpec.type], list[AppleAssetCatalogSpec.type], list[AppleCoreDataSpec.type], list[SceneKitAssetsSpec.type]):
     """
     Walks the provided DAG and collects resources matching resource groups definition.
     """
 
     resource_graph_node_map = resource_graph_node_map_func()
 
-    def get_traversed_deps(target: Label) -> [Label]:
+    def get_traversed_deps(target: Label) -> list[Label]:
         node = resource_graph_node_map[target]  # buildifier: disable=uninitialized
         return node.exported_deps + node.deps
 

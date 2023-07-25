@@ -204,7 +204,7 @@ def _symlink_ghci_binary(ctx, ghci_bin: "artifact"):
     src = ghci_bin_dep[DefaultInfo].default_outputs[0]
     ctx.actions.symlink_file(ghci_bin.as_output(), src)
 
-def _first_order_haskell_deps(ctx: AnalysisContext) -> ["HaskellLibraryInfo"]:
+def _first_order_haskell_deps(ctx: AnalysisContext) -> list["HaskellLibraryInfo"]:
     return dedupe(
         flatten(
             [
@@ -256,7 +256,7 @@ def _write_start_ghci(ctx: AnalysisContext, script_file: "artifact"):
     else:
         ctx.actions.copy_file(script_file, header_ghci)
 
-def haskell_ghci_impl(ctx: AnalysisContext) -> ["provider"]:
+def haskell_ghci_impl(ctx: AnalysisContext) -> list["provider"]:
     start_ghci_file = ctx.actions.declare_output("start.ghci")
     _write_start_ghci(ctx, start_ghci_file)
 

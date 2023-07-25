@@ -9,7 +9,7 @@ load("@prelude//:paths.bzl", "paths")
 
 # Infer the likely package name for the given path based on conventional
 # source root components.
-def get_src_package(src_root_prefixes: [str], src_root_elements: [str], path: str) -> str:
+def get_src_package(src_root_prefixes: list[str], src_root_elements: list[str], path: str) -> str:
     for prefix in src_root_prefixes:
         if path.startswith(prefix):
             return paths.relativize(
@@ -27,8 +27,8 @@ def get_src_package(src_root_prefixes: [str], src_root_elements: [str], path: st
 def get_resources_map(
         java_toolchain: "JavaToolchainInfo",
         package: str,
-        resources: ["artifact"],
-        resources_root: [str, None]) -> {str: "artifact"}:
+        resources: list["artifact"],
+        resources_root: [str, None]) -> dict[str, "artifact"]:
     # As in v1, root the resource root via the current package.
     if resources_root != None:
         resources_root = paths.normalize(paths.join(package, resources_root))

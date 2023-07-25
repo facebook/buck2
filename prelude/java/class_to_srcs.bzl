@@ -45,7 +45,7 @@ def create_class_to_source_map_from_jar(
         name: str,
         java_toolchain: JavaToolchainInfo.type,
         jar: "artifact",
-        srcs: ["artifact"]) -> "artifact":
+        srcs: list["artifact"]) -> "artifact":
     output = actions.declare_output(name)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map[RunInfo])
     cmd.add("-o", output.as_output())

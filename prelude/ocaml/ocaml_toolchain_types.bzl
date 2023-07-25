@@ -95,16 +95,16 @@ OCamlLibraryInfo = record(
     bytecode_c_libs = ["artifact"],
 )
 
-def merge_ocaml_link_infos(lis: ["OCamlLinkInfo"]) -> "OCamlLinkInfo":
+def merge_ocaml_link_infos(lis: list["OCamlLinkInfo"]) -> "OCamlLinkInfo":
     return OCamlLinkInfo(info = dedupe(flatten([li.info for li in lis])))
 
-def project_expand(value: {str: ["artifact"]}):
+def project_expand(value: dict[str, list["artifact"]]):
     return value["expand"]
 
-def project_ide(value: {str: ["artifact"]}):
+def project_ide(value: dict[str, list["artifact"]]):
     return value["ide"]
 
-def project_bytecode(value: {str: ["artifact"]}):
+def project_bytecode(value: dict[str, list["artifact"]]):
     return value["bytecode"]
 
 OtherOutputsTSet = transitive_set(
@@ -115,7 +115,7 @@ OtherOutputsInfo = provider(
     fields = ["info"],  # :OtherOutputsTSet
 )
 
-def merge_other_outputs_info(ctx: AnalysisContext, value: {str: ["artifact"]}, infos: ["OtherOutputsInfo"]) -> "OtherOutputsInfo":
+def merge_other_outputs_info(ctx: AnalysisContext, value: dict[str, list["artifact"]], infos: list["OtherOutputsInfo"]) -> "OtherOutputsInfo":
     return OtherOutputsInfo(
         info =
             ctx.actions.tset(

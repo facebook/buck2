@@ -42,8 +42,8 @@ load(
 load(":debug.bzl", "DEBUGINFO_SUBTARGET")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
-def apple_test_impl(ctx: AnalysisContext) -> [["provider"], "promise"]:
-    def get_apple_test_providers(deps_providers) -> ["provider"]:
+def apple_test_impl(ctx: AnalysisContext) -> [list["provider"], "promise"]:
+    def get_apple_test_providers(deps_providers) -> list["provider"]:
         xctest_bundle = bundle_output(ctx)
 
         test_host_app_bundle = _get_test_host_app_bundle(ctx)
@@ -209,7 +209,7 @@ def _get_test_host_app_binary(ctx: AnalysisContext, test_host_app_bundle: ["arti
 
     return None
 
-def _get_bundle_loader_flags(binary: [cmd_args, None]) -> [""]:
+def _get_bundle_loader_flags(binary: [cmd_args, None]) -> list[""]:
     if binary:
         # During linking we need to link the test shared lib against the test host binary. The
         # test host binary doesn't need to be embedded in an `apple_bundle`.
@@ -219,11 +219,11 @@ def _get_bundle_loader_flags(binary: [cmd_args, None]) -> [""]:
 
 def _xcode_populate_attributes(
         ctx: AnalysisContext,
-        srcs: [CxxSrcWithFlags.type],
-        argsfiles: {str: CompileArgsfile.type},
+        srcs: list[CxxSrcWithFlags.type],
+        argsfiles: dict[str, CompileArgsfile.type],
         xctest_bundle: "artifact",
         test_host_app_binary: [cmd_args, None],
-        **_kwargs) -> {str: ""}:
+        **_kwargs) -> dict[str, ""]:
     data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     data["output"] = xctest_bundle
     if test_host_app_binary:
@@ -236,7 +236,7 @@ def _get_xctest_framework_search_paths(ctx: AnalysisContext) -> (cmd_args, cmd_a
     xctest_framework_search_path = cmd_args([toolchain.platform_path, "Developer/Library/Frameworks"], delimiter = "/")
     return (xctest_swiftmodule_search_path, xctest_framework_search_path)
 
-def _get_xctest_framework_search_paths_flags(ctx: AnalysisContext) -> [[cmd_args, str]]:
+def _get_xctest_framework_search_paths_flags(ctx: AnalysisContext) -> list[[cmd_args, str]]:
     xctest_swiftmodule_search_path, xctest_framework_search_path = _get_xctest_framework_search_paths(ctx)
     return [
         "-I",
@@ -245,7 +245,7 @@ def _get_xctest_framework_search_paths_flags(ctx: AnalysisContext) -> [[cmd_args
         xctest_framework_search_path,
     ]
 
-def _get_xctest_framework_linker_flags(ctx: AnalysisContext) -> [[cmd_args, str]]:
+def _get_xctest_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, str]]:
     xctest_swiftmodule_search_path, xctest_framework_search_path = _get_xctest_framework_search_paths(ctx)
     return [
         "-L",

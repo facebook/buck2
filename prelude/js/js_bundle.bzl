@@ -15,7 +15,7 @@ load("@prelude//utils:utils.bzl", "expect", "map_idx")
 def _build_dependencies_file(
         ctx: AnalysisContext,
         transform_profile: str,
-        flavors: [str],
+        flavors: list[str],
         transitive_js_library_outputs: "transitive_set_args_projection") -> "artifact":
     dependencies_file = ctx.actions.declare_output("{}/dependencies_file", transform_profile)
 
@@ -61,7 +61,7 @@ def _build_js_bundle(
         ram_bundle_name: str,
         ram_bundle_command: str,
         transform_profile: str,
-        flavors: [str],
+        flavors: list[str],
         transitive_js_library_outputs: "transitive_set_args_projection",
         dependencies_file: "artifact") -> JsBundleInfo.type:
     base_dir = "{}_{}".format(ram_bundle_name, transform_profile) if ram_bundle_name else transform_profile
@@ -136,7 +136,7 @@ def _get_fallback_transform_profile(ctx: AnalysisContext) -> str:
 
     fail("Invalid fallback_transform_profile attribute {}!".format(ctx.attrs.fallback_transform_profile))
 
-def _get_default_providers(js_bundle_info: JsBundleInfo.type) -> ["provider"]:
+def _get_default_providers(js_bundle_info: JsBundleInfo.type) -> list["provider"]:
     return [DefaultInfo(default_output = js_bundle_info.built_js)]
 
 def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, identifier: str) -> "AndroidResourceInfo":
@@ -160,7 +160,7 @@ def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInf
         text_symbols = get_text_symbols(ctx, js_bundle_info.res, [], identifier),
     )
 
-def _get_extra_providers(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, identifier: str) -> ["provider"]:
+def _get_extra_providers(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, identifier: str) -> list["provider"]:
     providers = [js_bundle_info]
     if ctx.attrs._platform == "android":
         resource_info = _get_android_resource_info(ctx, js_bundle_info, identifier)
@@ -171,7 +171,7 @@ def _get_extra_providers(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type
 
     return providers
 
-def js_bundle_impl(ctx: AnalysisContext) -> ["provider"]:
+def js_bundle_impl(ctx: AnalysisContext) -> list["provider"]:
     sub_targets = {}
     default_outputs = []
     extra_unnamed_output_providers = None

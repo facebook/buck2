@@ -12,7 +12,7 @@ BASE_PACKAGE_ID = 0x7f
 def get_aapt2_link(
         ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
-        resource_infos: ["AndroidResourceInfo"],
+        resource_infos: list["AndroidResourceInfo"],
         android_manifest: "artifact",
         includes_vector_drawables: bool,
         no_auto_version: bool,
@@ -25,10 +25,10 @@ def get_aapt2_link(
         preferred_density: [str, None],
         min_sdk: [str, None],
         filter_locales: bool,
-        locales: [str],
-        compiled_resource_apks: ["artifact"],
-        additional_aapt2_params: [str],
-        extra_filtered_resources: [str]) -> (Aapt2LinkInfo.type, Aapt2LinkInfo.type):
+        locales: list[str],
+        compiled_resource_apks: list["artifact"],
+        additional_aapt2_params: list[str],
+        extra_filtered_resources: list[str]) -> (Aapt2LinkInfo.type, Aapt2LinkInfo.type):
     link_infos = []
     for use_proto_format in [False, True]:
         if use_proto_format:

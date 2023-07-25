@@ -88,8 +88,8 @@ def _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, apple_toolchain
 
 def get_swift_sdk_pcm_anon_targets(
         ctx: AnalysisContext,
-        uncompiled_sdk_deps: [Dependency],
-        swift_cxx_args: [str]):
+        uncompiled_sdk_deps: list[Dependency],
+        swift_cxx_args: list[str]):
     deps = [
         {
             "dep": uncompiled_sdk_dep,
@@ -102,8 +102,8 @@ def get_swift_sdk_pcm_anon_targets(
     ]
     return [(_swift_sdk_pcm_compilation, d) for d in deps]
 
-def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", ["provider"]]:
-    def k(sdk_pcm_deps_providers) -> ["provider"]:
+def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list["provider"]]:
+    def k(sdk_pcm_deps_providers) -> list["provider"]:
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
         module_name = uncompiled_sdk_module_info.module_name
         apple_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]

@@ -130,7 +130,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         _external_debug_info: ArtifactTSet.type,
         dwp: ["artifact", None],
         pdb: ["artifact", None],
-        linker_map: [CxxLinkerMapData.type, None]) -> ({str: ["provider"]}, ["provider"]):
+        linker_map: [CxxLinkerMapData.type, None]) -> (dict[str, list["provider"]], list["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
     sub_targets = {}
@@ -143,7 +143,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map.map, other_outputs = [linker_map.binary])]
     return (sub_targets, providers)
 
-def cxx_library_impl(ctx: AnalysisContext) -> ["provider"]:
+def cxx_library_impl(ctx: AnalysisContext) -> list["provider"]:
     if ctx.attrs.can_be_asset and ctx.attrs.used_by_wrap_script:
         fail("Cannot use `can_be_asset` and `used_by_wrap_script` in the same rule")
 
@@ -176,7 +176,7 @@ def _only_shared_mappings(group: Group.type) -> bool:
             return False
     return True
 
-def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: LinkGroupInfo.type) -> [LinkGroupLibSpec.type]:
+def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: LinkGroupInfo.type) -> list[LinkGroupLibSpec.type]:
     specs = []
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     for group in link_group_info.groups.values():
@@ -196,12 +196,12 @@ def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: Li
         )
     return specs
 
-def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: [LinkGroupInfo.type, None]) -> [[LinkGroupLibSpec.type], None]:
+def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: [LinkGroupInfo.type, None]) -> [list[LinkGroupLibSpec.type], None]:
     if link_group_info == None or not ctx.attrs.auto_link_groups:
         return None
     return create_shared_lib_link_group_specs(ctx, link_group_info)
 
-def cxx_binary_impl(ctx: AnalysisContext) -> ["provider"]:
+def cxx_binary_impl(ctx: AnalysisContext) -> list["provider"]:
     link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
     params = CxxRuleConstructorParams(
         rule_type = "cxx_binary",
@@ -227,7 +227,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> ["provider"]:
 def _prebuilt_item(
         ctx: AnalysisContext,
         item: ["", None],
-        platform_items: [[(str, "_a")], None]) -> ["_a", None]:
+        platform_items: [list[(str, "_a")], None]) -> ["_a", None]:
     """
     Parse the given item that can be specified by regular and platform-specific
     parameters.
@@ -261,7 +261,7 @@ def _prebuilt_linkage(ctx: AnalysisContext) -> Linkage.type:
         return Linkage("shared")
     return Linkage("any")
 
-def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> ["provider"]:
+def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list["provider"]:
     # Versioned params should be intercepted and converted away via the stub.
     expect(not ctx.attrs.versioned_exported_lang_platform_preprocessor_flags)
     expect(not ctx.attrs.versioned_exported_lang_preprocessor_flags)
@@ -562,7 +562,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> ["provider"]:
 
     return providers
 
-def cxx_precompiled_header_impl(ctx: AnalysisContext) -> ["provider"]:
+def cxx_precompiled_header_impl(ctx: AnalysisContext) -> list["provider"]:
     inherited_pp_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
     inherited_link = cxx_inherited_link_info(ctx, ctx.attrs.deps)
     return [
@@ -572,7 +572,7 @@ def cxx_precompiled_header_impl(ctx: AnalysisContext) -> ["provider"]:
         CPrecompiledHeaderInfo(header = ctx.attrs.src),
     ]
 
-def cxx_test_impl(ctx: AnalysisContext) -> ["provider"]:
+def cxx_test_impl(ctx: AnalysisContext) -> list["provider"]:
     link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
 
     # TODO(T110378115): have the runinfo contain the correct test running args

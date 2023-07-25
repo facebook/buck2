@@ -14,7 +14,7 @@ def _sdk_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> [No
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
-        attrs: struct.type) -> {str: PlatformInfo.type}:
+        attrs: struct.type) -> dict[str, PlatformInfo.type]:
     universal = attrs.universal if attrs.universal != None else attrs._universal_default
     os = _os_constraint_value(platform, refs)
     if not universal or os == None:

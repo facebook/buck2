@@ -16,7 +16,7 @@ def create_escript(
         ctx: AnalysisContext,
         spec_file: "artifact",
         toolchain: "Toolchain",
-        files: ["artifact"],
+        files: list["artifact"],
         output: "artifact",
         escript_name: "string") -> "NoneType":
     """ build the escript with the escript builder tool
@@ -41,7 +41,7 @@ def create_escript(
     )
     return None
 
-def erlang_escript_impl(ctx: AnalysisContext) -> ["provider"]:
+def erlang_escript_impl(ctx: AnalysisContext) -> list["provider"]:
     # select the correct tools from the toolchain
     toolchain_name = get_primary(ctx)
     toolchain = select_toolchains(ctx)[get_primary(ctx)]

@@ -40,7 +40,7 @@ load("@prelude//utils:utils.bzl", "expect", "flatten")
 #
 # There is also an `android_app_modularity` rule that just prints out details of the Voltron
 # module graph and is used for any subsequent verification.
-def android_app_modularity_impl(ctx: AnalysisContext) -> ["provider"]:
+def android_app_modularity_impl(ctx: AnalysisContext) -> list["provider"]:
     if ctx.attrs._build_only_native_code:
         return [
             # Add an unused default output in case this target is used as an attr.source() anywhere.
@@ -89,7 +89,7 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> ["provider"]:
 
     return [DefaultInfo(default_output = output)]
 
-def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: {str: [Dependency]}) -> ["artifact", None]:
+def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: dict[str, list[Dependency]]) -> ["artifact", None]:
     if not ctx.attrs.application_module_configs:
         return None
 
@@ -123,12 +123,12 @@ def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: {str: [
 def _get_base_cmd_and_output(
         actions: "actions",
         label: Label,
-        android_packageable_infos: ["AndroidPackageableInfo"],
-        shared_libraries: ["SharedLibrary"],
+        android_packageable_infos: list["AndroidPackageableInfo"],
+        shared_libraries: list["SharedLibrary"],
         android_toolchain: "AndroidToolchainInfo",
-        application_module_configs: {str: [Dependency]},
-        application_module_dependencies: [{str: [str]}, None],
-        application_module_blocklist: [[[Dependency]], None]) -> (cmd_args, "artifact"):
+        application_module_configs: dict[str, list[Dependency]],
+        application_module_dependencies: [dict[str, list[str]], None],
+        application_module_blocklist: [list[list[Dependency]], None]) -> (cmd_args, "artifact"):
     deps_map = {}
     for android_packageable_info in android_packageable_infos:
         if android_packageable_info.deps:

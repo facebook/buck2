@@ -43,9 +43,9 @@ def bundle_output(ctx: AnalysisContext) -> "artifact":
 def assemble_bundle(
         ctx: AnalysisContext,
         bundle: "artifact",
-        parts: [AppleBundlePart.type],
+        parts: list[AppleBundlePart.type],
         info_plist_part: [AppleBundlePart.type, None],
-        swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> {str: ["provider"]}:
+        swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> dict[str, list["provider"]]:
     """
     Returns extra subtargets related to bundling.
     """
@@ -194,7 +194,7 @@ def get_apple_bundle_part_relative_destination_path(ctx: AnalysisContext, part: 
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
 
 # Returns JSON to be passed into bundle assembling tool. It should contain a dictionary which maps bundle relative destination paths to source paths."
-def _bundle_spec_json(ctx: AnalysisContext, parts: [AppleBundlePart.type]) -> "artifact":
+def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart.type]) -> "artifact":
     specs = []
 
     for part in parts:
@@ -242,7 +242,7 @@ def _should_include_entitlements(ctx: AnalysisContext, codesign_type: CodeSignTy
 
     return False
 
-def _get_entitlements_codesign_args(ctx: AnalysisContext, codesign_type: CodeSignType.type) -> ["_arglike"]:
+def _get_entitlements_codesign_args(ctx: AnalysisContext, codesign_type: CodeSignType.type) -> list["_arglike"]:
     include_entitlements = _should_include_entitlements(ctx, codesign_type)
     maybe_entitlements = _entitlements_file(ctx) if include_entitlements else None
     entitlements_args = ["--entitlements", maybe_entitlements] if maybe_entitlements else []

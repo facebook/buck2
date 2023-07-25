@@ -9,7 +9,7 @@ load("@prelude//android:android_binary.bzl", "get_binary_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 
-def android_bundle_impl(ctx: AnalysisContext) -> ["provider"]:
+def android_bundle_impl(ctx: AnalysisContext) -> list["provider"]:
     android_binary_info = get_binary_info(ctx, use_proto_format = True)
 
     output_bundle = build_bundle(
