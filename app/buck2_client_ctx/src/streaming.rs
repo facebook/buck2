@@ -56,7 +56,6 @@ fn default_subscribers<'a, T: StreamingCommand>(
         None,
         T::COMMAND_NAME,
         console_opts.superconsole_config(),
-        ctx.paths()?.isolation.clone(),
     )? {
         subscribers.push(v)
     }
@@ -132,12 +131,8 @@ pub trait StreamingCommand: Sized + Send + Sync {
 
     /// Some commands should always be displaying
     /// at least 1 ongoing process in the terminal, aka "spans".
-    /// This distinction has some implications:
-    /// - During waiting periods with no spans, we exhibit a "Waiting for daemon..." message
-    /// exclusively for these commands in the simple console.
-    /// - During extended waiting periods with no spans, we trigger an
-    /// automated `buck2 rage`. We only want this for commands where the constant
-    /// presence of spans is expected
+    /// In the simple console, we want to display a "Waiting for daemon..." message
+    /// exclusively for these commands whenever there are long periods without spans.
     fn should_expect_spans(&self) -> bool {
         true
     }

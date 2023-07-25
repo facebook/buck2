@@ -10,7 +10,6 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 use std::fmt::Write as _;
-use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -18,7 +17,6 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_data::CommandExecutionDetails;
 use buck2_data::TagEvent;
 use buck2_event_observer::display;
@@ -165,9 +163,6 @@ pub(crate) struct SimpleConsole<E> {
     pub(crate) observer: EventObserver<E>,
     action_errors: Vec<ActionError>,
     last_print_time: Instant,
-    last_had_open_spans: Instant, // Used to detect hangs
-    already_raged: bool,
-    isolation_dir: FileNameBuf,
     last_shown_snapshot_ts: Option<SystemTime>,
 }
 
@@ -175,12 +170,7 @@ impl<E> SimpleConsole<E>
 where
     E: EventObserverExtra,
 {
-    pub(crate) fn with_tty(
-        trace_id: TraceId,
-        isolation_dir: FileNameBuf,
-        verbosity: Verbosity,
-        expect_spans: bool,
-    ) -> Self {
+    pub(crate) fn with_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
@@ -188,19 +178,11 @@ where
             observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
-            last_had_open_spans: Instant::now(),
-            already_raged: false,
-            isolation_dir,
             last_shown_snapshot_ts: None,
         }
     }
 
-    pub(crate) fn without_tty(
-        trace_id: TraceId,
-        isolation_dir: FileNameBuf,
-        verbosity: Verbosity,
-        expect_spans: bool,
-    ) -> Self {
+    pub(crate) fn without_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
@@ -208,23 +190,15 @@ where
             observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
-            last_had_open_spans: Instant::now(),
-            already_raged: false,
-            isolation_dir,
             last_shown_snapshot_ts: None,
         }
     }
 
     /// Create a SimpleConsole that auto detects whether it has a TTY or not.
-    pub(crate) fn autodetect(
-        trace_id: TraceId,
-        isolation_dir: FileNameBuf,
-        verbosity: Verbosity,
-        expect_spans: bool,
-    ) -> Self {
+    pub(crate) fn autodetect(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
         match SuperConsole::compatible() {
-            true => Self::with_tty(trace_id, isolation_dir, verbosity, expect_spans),
-            false => Self::without_tty(trace_id, isolation_dir, verbosity, expect_spans),
+            true => Self::with_tty(trace_id, verbosity, expect_spans),
+            false => Self::without_tty(trace_id, verbosity, expect_spans),
         }
     }
 
@@ -293,30 +267,6 @@ where
             self.last_shown_snapshot_ts = last_snapshot_ts;
         }
 
-        Ok(())
-    }
-
-    pub(crate) async fn detect_hangs(&mut self) -> anyhow::Result<()> {
-        if !self.expect_spans {
-            // No open spans are to be expected in this case (D37658796)
-            return Ok(());
-        };
-        if self.observer().spans().iter_roots().len() > 0 {
-            self.last_had_open_spans = Instant::now();
-            return Ok(());
-        }
-        // Do nothing if less than 1 minute since last open span
-        if self.last_had_open_spans.elapsed().as_secs() < 60 {
-            return Ok(());
-        }
-        // When command is stuck we call `rage` to gather debugging information
-        if !self.already_raged {
-            self.already_raged = true;
-            spawn_rage(
-                self.isolation_dir.clone(),
-                self.observer().session_info().trace_id.dupe(),
-            );
-        }
         Ok(())
     }
 }
@@ -593,7 +543,6 @@ where
     }
 
     async fn tick(&mut self, _: &Tick) -> anyhow::Result<()> {
-        self.detect_hangs().await?;
         if self.verbosity.print_status() && self.last_print_time.elapsed() > KEEPALIVE_TIME_LIMIT {
             let mut show_stats = self.expect_spans;
 
@@ -706,34 +655,4 @@ mod tests {
 
         assert_eq!("Foo\tBar\nBaz\r\nQuz", sanitized);
     }
-}
-
-fn spawn_rage(isolation_dir: FileNameBuf, trace_id: TraceId) {
-    match spawn_rage_impl(isolation_dir, trace_id) {
-        Ok(_) => {}
-        Err(e) => tracing::warn!("Error calling buck2 rage: {:#}", e),
-    };
-}
-
-fn spawn_rage_impl(isolation_dir: FileNameBuf, trace_id: TraceId) -> anyhow::Result<()> {
-    let current_exe = std::env::current_exe().context("Not current_exe")?;
-    let mut command = buck2_util::process::async_background_command(current_exe);
-    command
-        .args(["--isolation-dir", isolation_dir.as_str()])
-        .arg("rage")
-        .arg("--timeout")
-        .arg("3600")
-        .arg("--no-paste")
-        .args(["--origin", "hang-detector"])
-        .args(["--invocation-id", &trace_id.to_string()]);
-    let mut spawned = command
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?;
-
-    // Running rage command in an async task. We don't want to block
-    // the main thread while we wait for rage command to finish.
-    tokio::spawn(async move { spawned.wait().await });
-    Ok(())
 }

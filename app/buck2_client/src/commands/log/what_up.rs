@@ -21,7 +21,6 @@ use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleConfig;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleState;
 use buck2_client_ctx::subscribers::superconsole::CUTOFFS;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::BuckEvent;
 use superconsole::components::DrawVertical;
@@ -65,7 +64,6 @@ impl WhatUpCommand {
             let mut super_console_state = SuperConsoleState::new(
                 None,
                 invocation.trace_id,
-                FileNameBuf::unchecked_new("placeholder"),
                 Verbosity::Default,
                 true,
                 SuperConsoleConfig {

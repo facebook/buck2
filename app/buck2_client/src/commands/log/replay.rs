@@ -72,7 +72,6 @@ impl ReplayCommand {
                     speed,
                     "(replay)", // Could be better
                     console_opts.superconsole_config(),
-                    ctx.paths()?.isolation.clone(),
                 )?
                 .context("You must request a console for replay")?;
 

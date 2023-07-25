@@ -171,19 +171,6 @@ where
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-#[derive(clap::ArgEnum)]
-enum Origin {
-    HangDetector,
-    Unspecified,
-}
-
-impl fmt::Display for Origin {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
 #[derive(Debug, clap::Parser)]
 #[clap(
     name = "rage",
@@ -207,9 +194,6 @@ pub struct RageCommand {
     /// or is called in a machine with no pastry command
     #[clap(long)]
     no_paste: bool,
-    /// Where buck2 rage is being called from
-    #[clap(long, arg_enum, default_value_t = Origin::Unspecified)]
-    origin: Origin,
     /// Obtain thread dump for debugging
     #[clap(long)]
     thread_dump: bool,
@@ -396,7 +380,6 @@ impl RageCommand {
                 "daemon_stderr_dump" => daemon_stderr_dump.output(),
                 "hg_snapshot_id" => hg_snapshot_id.output(),
                 "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),
-                "origin" => self.origin.to_string(),
                 "event_log_dump" => event_log_dump.output(),
             )
         );

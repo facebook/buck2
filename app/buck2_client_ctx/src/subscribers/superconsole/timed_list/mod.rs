@@ -344,7 +344,6 @@ mod tests {
     use std::sync::Arc;
     use std::time::UNIX_EPOCH;
 
-    use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_data::FakeStart;
     use buck2_data::SpanStartEvent;
     use buck2_event_observer::action_stats::ActionStats;
@@ -402,7 +401,6 @@ mod tests {
         let mut state = SuperConsoleState::new(
             None,
             TraceId::null(),
-            FileNameBuf::unchecked_new("ignore"),
             Verbosity::Default,
             false,
             timed_list_state,
@@ -581,7 +579,6 @@ mod tests {
         let mut state = SuperConsoleState::new(
             None,
             TraceId::null(),
-            FileNameBuf::unchecked_new("ignore"),
             Verbosity::Default,
             false,
             SuperConsoleConfig {

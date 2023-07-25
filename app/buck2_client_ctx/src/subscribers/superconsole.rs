@@ -15,7 +15,6 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_data::CommandExecutionDetails;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
@@ -236,7 +235,6 @@ impl StatefulSuperConsole {
         replay_speed: Option<f64>,
         stream: Option<Box<dyn Write + Send + 'static + Sync>>,
         config: SuperConsoleConfig,
-        isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Self> {
         let mut builder = Self::console_builder();
         if let Some(stream) = stream {
@@ -250,7 +248,6 @@ impl StatefulSuperConsole {
             expect_spans,
             replay_speed,
             config,
-            isolation_dir,
         )
     }
 
@@ -261,7 +258,6 @@ impl StatefulSuperConsole {
         expect_spans: bool,
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
-        isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Option<Self>> {
         match Self::console_builder().build()? {
             None => Ok(None),
@@ -273,7 +269,6 @@ impl StatefulSuperConsole {
                 expect_spans,
                 replay_speed,
                 config,
-                isolation_dir,
             )?)),
         }
     }
@@ -286,19 +281,11 @@ impl StatefulSuperConsole {
         expect_spans: bool,
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
-        isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Self> {
         let header = format!("Command: {}.", command_name);
         Ok(Self {
             header,
-            state: SuperConsoleState::new(
-                replay_speed,
-                trace_id,
-                isolation_dir,
-                verbosity,
-                expect_spans,
-                config,
-            )?,
+            state: SuperConsoleState::new(replay_speed, trace_id, verbosity, expect_spans, config)?,
             super_console: Some(super_console),
             verbosity,
         })
@@ -343,7 +330,6 @@ impl SuperConsoleState {
     pub fn new(
         replay_speed: Option<f64>,
         trace_id: TraceId,
-        isolation_dir: FileNameBuf,
         verbosity: Verbosity,
         expect_spans: bool,
         config: SuperConsoleConfig,
@@ -351,12 +337,7 @@ impl SuperConsoleState {
         Ok(SuperConsoleState {
             current_tick: Tick::now(),
             time_speed: TimeSpeed::new(replay_speed)?,
-            simple_console: SimpleConsole::with_tty(
-                trace_id,
-                isolation_dir,
-                verbosity,
-                expect_spans,
-            ),
+            simple_console: SimpleConsole::with_tty(trace_id, verbosity, expect_spans),
             config,
         })
     }
@@ -570,7 +551,6 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
     }
 
     async fn tick(&mut self, tick: &Tick) -> anyhow::Result<()> {
-        self.state.simple_console.detect_hangs().await?;
         match &mut self.super_console {
             Some(super_console) => {
                 self.state.current_tick = tick.dupe();
@@ -886,7 +866,6 @@ mod tests {
             None,
             None,
             Default::default(),
-            FileNameBuf::unchecked_new("placeholder"),
         )
         .unwrap();
 
@@ -952,7 +931,6 @@ mod tests {
             true,
             Default::default(),
             Default::default(),
-            FileNameBuf::unchecked_new("placeholder"),
         )?;
 
         console

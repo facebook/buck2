@@ -10,7 +10,6 @@
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -39,32 +38,16 @@ pub fn get_console_with_root(
     replay_speed: Option<f64>,
     command_name: &str,
     config: SuperConsoleConfig,
-    isolation_dir: FileNameBuf,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     match console_type {
         ConsoleType::Simple => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::<NoopEventObserverExtra>::autodetect(
-                trace_id,
-                isolation_dir,
-                verbosity,
-                expect_spans,
-            ),
+            SimpleConsole::<NoopEventObserverExtra>::autodetect(trace_id, verbosity, expect_spans),
         )))),
         ConsoleType::SimpleNoTty => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::<NoopEventObserverExtra>::without_tty(
-                trace_id,
-                isolation_dir,
-                verbosity,
-                expect_spans,
-            ),
+            SimpleConsole::<NoopEventObserverExtra>::without_tty(trace_id, verbosity, expect_spans),
         )))),
         ConsoleType::SimpleTty => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::<NoopEventObserverExtra>::with_tty(
-                trace_id,
-                isolation_dir,
-                verbosity,
-                expect_spans,
-            ),
+            SimpleConsole::<NoopEventObserverExtra>::with_tty(trace_id, verbosity, expect_spans),
         )))),
         ConsoleType::Super => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             StatefulSuperConsole::new_with_root_forced(
@@ -75,7 +58,6 @@ pub fn get_console_with_root(
                 replay_speed,
                 None,
                 config,
-                isolation_dir,
             )?,
         )))),
         ConsoleType::Auto => {
@@ -86,7 +68,6 @@ pub fn get_console_with_root(
                 expect_spans,
                 replay_speed,
                 config,
-                isolation_dir.clone(),
             )? {
                 Some(super_console) => Ok(Some(Box::new(
                     UnpackingEventSubscriberAsEventSubscriber(super_console),
@@ -94,7 +75,6 @@ pub fn get_console_with_root(
                 None => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
                     SimpleConsole::<NoopEventObserverExtra>::autodetect(
                         trace_id,
-                        isolation_dir,
                         verbosity,
                         expect_spans,
                     ),
