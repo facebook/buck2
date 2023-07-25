@@ -103,7 +103,7 @@ def _parse_macro(arg: str) -> [(str, str), None]:
     return macro, param
 
 def _get_static_link_info(
-        linker_type: str.type,
+        linker_type: str,
         libs: list["artifact"],
         args: list[str]) -> LinkInfo.type:
     """

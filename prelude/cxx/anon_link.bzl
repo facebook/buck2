@@ -76,12 +76,12 @@ def _serialize_links(links: list[LinkArgs.type]):
 
 def serialize_anon_attrs(
         links: list[LinkArgs.type],
-        output: str.type,
+        output: str,
         import_library: ["artifact", None] = None,
         link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
-        enable_distributed_thinlto: bool.type = False,
-        identifier: [str.type, None] = None,
-        category_suffix: [str.type, None] = None) -> dict[str.type, ""]:
+        enable_distributed_thinlto: bool = False,
+        identifier: [str, None] = None,
+        category_suffix: [str, None] = None) -> dict[str, ""]:
     return dict(
         links = _serialize_links(links),
         output = output,
@@ -92,7 +92,7 @@ def serialize_anon_attrs(
         category_suffix = category_suffix,
     )
 
-def _deserialize_linkable(linkable: (str.type, "_payload")) -> "_Linkable":
+def _deserialize_linkable(linkable: (str, "_payload")) -> "_Linkable":
     typ, payload = linkable
 
     if typ == "archive":
@@ -143,7 +143,7 @@ def _deserialize_link_info(actions: "actions", label: "label", info) -> LinkInfo
 def _deserialize_link_args(
         actions: "actions",
         label: "label",
-        link: (str.type, "_payload")) -> LinkArgs.type:
+        link: (str, "_payload")) -> LinkArgs.type:
     typ, payload = link
 
     if typ == "flags":
@@ -154,7 +154,7 @@ def _deserialize_link_args(
 
     fail("invalid link args type: {}".format(typ))
 
-def deserialize_anon_attrs(actions: "actions", label: "label", attrs: "struct") -> dict[str.type, ""]:
+def deserialize_anon_attrs(actions: "actions", label: "label", attrs: "struct") -> dict[str, ""]:
     return dict(
         output = attrs.output,
         links = [_deserialize_link_args(actions, label, link) for link in attrs.links],

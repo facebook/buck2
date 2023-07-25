@@ -326,7 +326,7 @@ _anon_link_rule = rule(
 
 def _anon_cxx_link(
         ctx: AnalysisContext,
-        output: str.type,
+        output: str,
         result_type: CxxLinkResultType.type,
         links: list[LinkArgs.type] = [],
         **kwargs) -> CxxLinkResult.type:
@@ -379,8 +379,8 @@ def _anon_cxx_link(
 
 def cxx_link(
         ctx: AnalysisContext,
-        output: str.type,
-        anonymous: bool.type = False,
+        output: str,
+        anonymous: bool = False,
         **kwargs):
     if anonymous:
         return _anon_cxx_link(
@@ -397,7 +397,7 @@ def cxx_link(
 def cxx_link_shared_library(
         ctx: AnalysisContext,
         # The destination for the link output.
-        output: str.type,
+        output: str,
         # Optional soname to link into shared library.
         name: [str, None] = None,
         links: list[LinkArgs.type] = [],

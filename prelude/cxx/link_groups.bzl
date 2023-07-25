@@ -241,9 +241,9 @@ def _transitively_update_shared_linkage(
 
 def get_filtered_labels_to_links_map(
         linkable_graph_node_map: dict["label", LinkableNode.type],
-        link_group: [str.type, None],
-        link_groups: dict[str.type, Group.type],
-        link_group_mappings: [dict["label", str.type], None],
+        link_group: [str, None],
+        link_groups: dict[str, Group.type],
+        link_group_mappings: [dict["label", str], None],
         link_group_preferred_linkage: dict["label", Linkage.type],
         link_style: LinkStyle.type,
         roots: list["label"],
@@ -517,8 +517,8 @@ def _create_link_group(
         public_nodes: set_record.type = set(),
         linkable_graph_node_map: dict[Label, LinkableNode.type] = {},
         linker_flags: list[""] = [],
-        link_groups: dict[str.type, Group.type] = {},
-        link_group_mappings: dict["label", str.type] = {},
+        link_groups: dict[str, Group.type] = {},
+        link_group_mappings: dict["label", str] = {},
         link_group_preferred_linkage: dict["label", Linkage.type] = {},
         link_style: LinkStyle.type = LinkStyle("static_pic"),
         link_group_libs: dict[str, (["label", None], LinkInfos.type)] = {},
@@ -707,7 +707,7 @@ def _symbol_flags_for_link_groups(
 
 def create_link_groups(
         ctx: AnalysisContext,
-        link_groups: dict[str.type, Group.type] = {},
+        link_groups: dict[str, Group.type] = {},
         link_group_specs: list[LinkGroupLibSpec.type] = [],
         executable_deps: list["label"] = [],
         other_roots: list["label"] = [],
