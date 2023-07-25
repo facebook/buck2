@@ -73,6 +73,7 @@ use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
+use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::NoOpCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommand;
@@ -100,6 +101,7 @@ use buck2_test_api::data::ConfiguredTargetHandle;
 use buck2_test_api::data::DeclaredOutput;
 use buck2_test_api::data::DisplayMetadata;
 use buck2_test_api::data::ExecuteResponse;
+use buck2_test_api::data::ExecutionDetails;
 use buck2_test_api::data::ExecutionResult2;
 use buck2_test_api::data::ExecutionStatus;
 use buck2_test_api::data::ExecutionStream;
@@ -288,7 +290,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             )
             .await?;
 
-        let (stdout, stderr, status, timing, outputs) = self
+        let (stdout, stderr, status, timing, execution_kind, outputs) = self
             .execute_shared(&test_target, metadata, &test_executor, execution_request)
             .await?;
 
@@ -322,6 +324,11 @@ impl<'a> BuckTestOrchestrator<'a> {
             outputs,
             start_time: timing.start_time,
             execution_time: timing.execution_time,
+            execution_details: ExecutionDetails {
+                execution_kind: execution_kind.map(|k| buck2_data::CommandExecutionKind {
+                    command: Some(k.to_proto(false)),
+                }),
+            },
         })
     }
 }
@@ -536,6 +543,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             ExecutionStream,
             ExecutionStatus,
             CommandExecutionMetadata,
+            Option<CommandExecutionKind>,
             Vec<BuckOutTestPath>,
         ),
         ExecuteError,
@@ -625,29 +633,35 @@ impl<'b> BuckTestOrchestrator<'b> {
         let stderr = ExecutionStream::Inline(std_streams.stderr);
 
         Ok(match status {
-            CommandExecutionStatus::Success { .. } => (
+            CommandExecutionStatus::Success { execution_kind } => (
                 stdout,
                 stderr,
                 ExecutionStatus::Finished {
                     exitcode: exit_code.unwrap_or(0),
                 },
                 timing,
+                Some(execution_kind),
                 outputs,
             ),
-            CommandExecutionStatus::Failure { .. } => (
+            CommandExecutionStatus::Failure { execution_kind } => (
                 stdout,
                 stderr,
                 ExecutionStatus::Finished {
                     exitcode: exit_code.unwrap_or(1),
                 },
                 timing,
+                Some(execution_kind),
                 outputs,
             ),
-            CommandExecutionStatus::TimedOut { duration, .. } => (
+            CommandExecutionStatus::TimedOut {
+                duration,
+                execution_kind,
+            } => (
                 stdout,
                 stderr,
                 ExecutionStatus::TimedOut { duration },
                 timing,
+                Some(execution_kind),
                 outputs,
             ),
             CommandExecutionStatus::Error { stage: _, error } => (
@@ -657,6 +671,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                     exitcode: exit_code.unwrap_or(1),
                 },
                 timing,
+                None,
                 outputs,
             ),
             CommandExecutionStatus::Cancelled => {

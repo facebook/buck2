@@ -620,7 +620,7 @@ impl TryInto<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
                     .try_into()?,
             ),
             execution_time: Some(self.execution_time.try_into()?),
-            execution_details: None,
+            execution_details: Some(self.execution_details),
         })
     }
 }
@@ -636,7 +636,7 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             outputs,
             start_time,
             execution_time,
-            execution_details: _,
+            execution_details,
         } = s;
         let status = status
             .context("Missing `status`")?
@@ -678,6 +678,8 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             convert::to_std_duration(execution_time.context("Missing `execution_time`")?)
                 .context("Invalid `execution_time`")?;
 
+        let execution_details = execution_details.context("Missing `execution_details`")?;
+
         Ok(ExecutionResult2 {
             status,
             stdout,
@@ -685,6 +687,7 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             outputs,
             start_time,
             execution_time,
+            execution_details,
         })
     }
 }
@@ -942,6 +945,7 @@ mod tests {
             .collect(),
             start_time: SystemTime::UNIX_EPOCH + Duration::from_secs(123),
             execution_time: Duration::from_secs(456),
+            execution_details: Default::default(),
         };
         assert_roundtrips::<buck2_test_proto::ExecutionResult2, ExecutionResult2>(&result);
     }

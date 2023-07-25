@@ -21,6 +21,7 @@ use std::time::SystemTime;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+pub use buck2_test_proto::ExecutionDetails;
 use derive_more::From;
 use dupe::Dupe;
 use host_sharing::HostSharingRequirements;
@@ -217,8 +218,12 @@ pub struct ExecutionResult2 {
     pub outputs: HashMap<DeclaredOutput, Output>,
     pub start_time: SystemTime,
     pub execution_time: Duration,
+    /// We don't try to convert this field, mostly because it shares with buck2.data, and that
+    /// seems to have very little value. We just validate it's sent.
+    pub execution_details: ExecutionDetails,
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum ExecuteResponse {
     /// A result is available.
     Result(ExecutionResult2),
