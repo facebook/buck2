@@ -22,5 +22,5 @@ error: Unary operator `~` is not available on the type `bool.type`
 
 Interfaces:
 x: int.type
-y: "never"
+y: typing.Never
 z: int.type

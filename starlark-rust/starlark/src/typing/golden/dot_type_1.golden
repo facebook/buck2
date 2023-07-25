@@ -18,7 +18,7 @@ error: Expected type `list[typing.Any]` but got `bool.type`
   |
 
 Error:
-error: Expected type `list["never"]` but got `str.type`
+error: Expected type `list[typing.Never]` but got `str.type`
  --> filename:3:12
   |
 3 |     return type(x) == []

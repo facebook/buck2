@@ -12,4 +12,4 @@ y = x[44]
 No errors.
 
 Interfaces:
-y: "never"
+y: typing.Never

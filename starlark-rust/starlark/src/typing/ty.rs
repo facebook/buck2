@@ -56,6 +56,7 @@ use crate::values::bool::StarlarkBool;
 use crate::values::float::StarlarkFloat;
 use crate::values::tuple::value::FrozenTuple;
 use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::typing::never::TypingNever;
 use crate::values::typing::type_compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -679,7 +680,7 @@ impl Ty {
 impl Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.alternatives.as_slice() {
-            [] => write!(f, "\"never\""),
+            [] => write!(f, "{}", TypingNever::TYPE),
             xs => {
                 for (i, x) in xs.iter().enumerate() {
                     if i != 0 {

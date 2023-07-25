@@ -17,4 +17,4 @@ error: Expected type `int.type` but got `"float"`
   |
 
 Interfaces:
-x: "never"
+x: typing.Never
