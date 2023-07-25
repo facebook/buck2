@@ -15,6 +15,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::soft_error;
 use thiserror::Error;
 use tokio::fs::File;
 use tokio::fs::OpenOptions;
@@ -50,11 +51,12 @@ pub struct PersistEventLogsCommand {
 impl PersistEventLogsCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_core::facebook_only();
-        ctx.with_runtime(async move |mut ctx| {
+        if let Err(e) = ctx.with_runtime(async move |mut ctx| {
             let mut stdin = io::BufReader::new(ctx.stdin());
             self.write_and_upload(&mut stdin).await
-        })
-        .context("Error writing or uploading event log")?;
+        }) {
+            soft_error!("error_persisting_event_log", e)?;
+        };
         ExitResult::success()
     }
 
