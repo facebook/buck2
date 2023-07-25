@@ -44,7 +44,9 @@ pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError>;
     fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>>;
-    fn union2(x: Box<Self>, other: Box<Self>) -> Result<Box<Self>, (Box<Self>, Box<Self>)>;
+    fn union2(x: Box<Self>, other: Box<Self>) -> Result<Box<Self>, (Box<Self>, Box<Self>)> {
+        if x == other { Ok(x) } else { Err((x, other)) }
+    }
 }
 
 pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {

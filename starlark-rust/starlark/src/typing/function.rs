@@ -201,10 +201,6 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
             None
         }
     }
-
-    fn union2(x: Box<Self>, other: Box<Self>) -> Result<Box<Self>, (Box<Self>, Box<Self>)> {
-        if x == other { Ok(x) } else { Err((x, other)) }
-    }
 }
 
 /// A function.
