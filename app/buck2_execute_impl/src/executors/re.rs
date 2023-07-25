@@ -21,6 +21,7 @@ use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
+use buck2_execute::execute::kind::RemoteCommandExecutionDetails;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::output::CommandStdStreams;
@@ -156,6 +157,13 @@ impl ReExecutor {
             Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
         };
 
+        let remote_details = RemoteCommandExecutionDetails {
+            action_digest: action_digest.dupe(),
+            session_id: self.re_client.get_session_id().await.ok(),
+            use_case: self.re_use_case,
+            platform: platform.clone(),
+        };
+
         let action_result = &response.action_result;
 
         if response.error.code != TCode::OK {
@@ -164,7 +172,7 @@ impl ReExecutor {
                 // NOTE: We don't get stdout / stderr from RE when this happens, so the best we can
                 // do here is just pass on the error.
                 manager.failure(
-                    response.execution_kind(action_digest.dupe()),
+                    response.execution_kind(remote_details),
                     IndexMap::new(),
                     CommandStdStreams::Local {
                         stdout: Vec::new(),
@@ -176,7 +184,7 @@ impl ReExecutor {
                 )
             } else if is_timeout_error(&response.error) && request.timeout().is_some() {
                 manager.timeout(
-                    response.execution_kind(action_digest.dupe()),
+                    response.execution_kind(remote_details),
                     // Checked above: we fallthrough to the error path if we didn't set a timeout
                     // and yet received one.
                     request.timeout().unwrap(),
@@ -222,7 +230,7 @@ impl ReExecutor {
 
         if action_result.exit_code != 0 {
             return ControlFlow::Break(manager.failure(
-                response.execution_kind(action_digest.dupe()),
+                response.execution_kind(remote_details),
                 // TODO: we want to expose RE outputs even when actions fail,
                 //   this will allow tpx to correctly retrieve the output of
                 //   failing tests running on RE. See D34344489 for context.
@@ -296,7 +304,12 @@ impl PreparedCommandExecutor for ReExecutor {
             .into(),
             request.paths(),
             request.outputs(),
-            action_digest,
+            RemoteCommandExecutionDetails {
+                action_digest: action_digest.dupe(),
+                session_id: self.re_client.get_session_id().await.ok(),
+                use_case: self.re_use_case,
+                platform: platform.clone(),
+            },
             &response,
             self.paranoid.as_ref(),
             cancellations,

@@ -23,8 +23,8 @@ use remote_execution::TSubsysPerfCount;
 use remote_execution::TTimestamp;
 
 use crate::digest_config::DigestConfig;
-use crate::execute::action_digest::ActionDigest;
 use crate::execute::kind::CommandExecutionKind;
+use crate::execute::kind::RemoteCommandExecutionDetails;
 use crate::execute::result::CommandExecutionMetadata;
 use crate::re::manager::ManagedRemoteExecutionClient;
 use crate::re::streams::RemoteCommandStdStreams;
@@ -33,7 +33,7 @@ pub trait RemoteActionResult: Send + Sync {
     fn output_files(&self) -> &[TFile];
     fn output_directories(&self) -> &[TDirectory2];
 
-    fn execution_kind(&self, digest: ActionDigest) -> CommandExecutionKind;
+    fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind;
 
     fn timing(&self) -> CommandExecutionMetadata;
 
@@ -57,13 +57,16 @@ impl RemoteActionResult for ExecuteResponse {
         &self.action_result.output_directories
     }
 
-    fn execution_kind(&self, digest: ActionDigest) -> CommandExecutionKind {
+    fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
         let meta = &self.action_result.execution_metadata;
         let queue_time = meta
             .last_queued_timestamp
             .saturating_duration_since(&meta.queued_timestamp);
 
-        CommandExecutionKind::Remote { digest, queue_time }
+        CommandExecutionKind::Remote {
+            details,
+            queue_time,
+        }
     }
 
     fn timing(&self) -> CommandExecutionMetadata {
@@ -93,8 +96,8 @@ impl RemoteActionResult for ActionResultResponse {
         &self.action_result.output_directories
     }
 
-    fn execution_kind(&self, digest: ActionDigest) -> CommandExecutionKind {
-        CommandExecutionKind::ActionCache { digest }
+    fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
+        CommandExecutionKind::ActionCache { details }
     }
 
     fn timing(&self) -> CommandExecutionMetadata {

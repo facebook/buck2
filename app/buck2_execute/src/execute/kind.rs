@@ -9,7 +9,9 @@
 
 use std::time::Duration;
 
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use derive_more::Display;
+use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
 
 use crate::execute::action_digest::ActionDigest;
@@ -28,7 +30,7 @@ pub enum CommandExecutionKind {
     /// This action was executed via a remote executor.
     #[display(fmt = "remote")]
     Remote {
-        digest: ActionDigest,
+        details: RemoteCommandExecutionDetails,
 
         /// How long this command queued in RE. This value excludes execution time, i.e. for action cache hit,
         /// this value represents how long a request has to wait for server to handle.
@@ -36,7 +38,9 @@ pub enum CommandExecutionKind {
     },
     /// This action was served by the action cache and not executed.
     #[display(fmt = "action_cache")]
-    ActionCache { digest: ActionDigest },
+    ActionCache {
+        details: RemoteCommandExecutionDetails,
+    },
     /// This action would have executed via a local worker but failed during worker initialization.
     #[display(fmt = "worker_init")]
     LocalWorkerInit {
@@ -99,14 +103,17 @@ impl CommandExecutionKind {
                     .into()
                 }
             }
-            Self::Remote { digest, queue_time } => buck2_data::RemoteCommand {
-                action_digest: digest.to_string(),
+            Self::Remote {
+                details,
+                queue_time,
+            } => buck2_data::RemoteCommand {
+                action_digest: details.action_digest.to_string(),
                 cache_hit: false,
                 queue_time: (*queue_time).try_into().ok(),
             }
             .into(),
-            Self::ActionCache { digest } => buck2_data::RemoteCommand {
-                action_digest: digest.to_string(),
+            Self::ActionCache { details } => buck2_data::RemoteCommand {
+                action_digest: details.action_digest.to_string(),
                 cache_hit: true,
                 queue_time: None,
             }
@@ -142,4 +149,13 @@ impl CommandExecutionKind {
             .into(),
         }
     }
+}
+
+/// Structured data for a RE request.
+#[derive(Debug, Clone)]
+pub struct RemoteCommandExecutionDetails {
+    pub action_digest: ActionDigest,
+    pub session_id: Option<String>,
+    pub use_case: RemoteExecutorUseCase,
+    pub platform: RE::Platform,
 }

@@ -15,6 +15,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_execute::execute::executor_stage_async;
+use buck2_execute::execute::kind::RemoteCommandExecutionDetails;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::prepared::PreparedCommand;
@@ -53,6 +54,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let request = command.request;
         let action_digest = &command.prepared_action.action;
+        let platform = &command.prepared_action.platform;
         let action_blobs = &command.prepared_action.blobs;
         let digest_config = command.digest_config;
         let re_client = &self.re_client;
@@ -127,7 +129,12 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             .into(),
             request.paths(),
             request.outputs(),
-            action_digest,
+            RemoteCommandExecutionDetails {
+                action_digest: action_digest.dupe(),
+                session_id: self.re_client.get_session_id().await.ok(),
+                use_case: self.re_use_case,
+                platform: platform.clone(),
+            },
             &response,
             self.paranoid.as_ref(),
             cancellations,

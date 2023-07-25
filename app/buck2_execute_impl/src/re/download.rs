@@ -29,6 +29,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::action_digest::TrackedActionDigest;
 use buck2_execute::execute::executor_stage_async;
+use buck2_execute::execute::kind::RemoteCommandExecutionDetails;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
@@ -66,7 +67,7 @@ pub async fn download_action_results<'a>(
     stage: buck2_data::executor_stage_start::Stage,
     paths: &CommandExecutionPaths,
     requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
-    action_digest: &ActionDigest,
+    details: RemoteCommandExecutionDetails,
     response: &dyn RemoteActionResult,
     paranoid: Option<&ParanoidDownloader>,
     cancellations: &CancellationContext<'_>,
@@ -84,7 +85,7 @@ pub async fn download_action_results<'a>(
         stage,
         paths,
         requested_outputs,
-        action_digest,
+        &details.action_digest,
         response,
         cancellations,
     );
@@ -102,7 +103,7 @@ pub async fn download_action_results<'a>(
     let (manager, outputs) = download?;
 
     DownloadResult::Result(manager.success(
-        response.execution_kind(action_digest.dupe()),
+        response.execution_kind(details),
         outputs,
         CommandStdStreams::Remote(std_streams),
         response.timing(),
