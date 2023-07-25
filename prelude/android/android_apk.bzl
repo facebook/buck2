@@ -68,7 +68,7 @@ def build_apk(
         dex_files_info: "DexFilesInfo",
         native_library_info: "AndroidBinaryNativeLibsInfo",
         resources_info: "AndroidBinaryResourcesInfo",
-        compress_resources_dot_arsc: bool = False) -> "artifact":
+        compress_resources_dot_arsc: bool = False) -> Artifact:
     output_apk = actions.declare_output("{}.apk".format(label.name))
 
     apk_builder_args = cmd_args([
@@ -122,7 +122,7 @@ def build_apk(
 
     return output_apk
 
-def get_install_info(ctx: AnalysisContext, output_apk: "artifact", manifest: "artifact", exopackage_info: [ExopackageInfo.type, None]) -> InstallInfo.type:
+def get_install_info(ctx: AnalysisContext, output_apk: Artifact, manifest: Artifact, exopackage_info: [ExopackageInfo.type, None]) -> InstallInfo.type:
     files = {
         ctx.attrs.name: output_apk,
         "manifest": manifest,
@@ -162,7 +162,7 @@ def get_install_info(ctx: AnalysisContext, output_apk: "artifact", manifest: "ar
         files = files,
     )
 
-def _get_exopackage_outputs(exopackage_info: ExopackageInfo.type) -> list["artifact"]:
+def _get_exopackage_outputs(exopackage_info: ExopackageInfo.type) -> list[Artifact]:
     outputs = []
     secondary_dex_exopackage_info = exopackage_info.secondary_dex_info
     if secondary_dex_exopackage_info:
@@ -185,7 +185,7 @@ def _get_exopackage_outputs(exopackage_info: ExopackageInfo.type) -> list["artif
 
     return outputs
 
-def generate_install_config(ctx: AnalysisContext) -> "artifact":
+def generate_install_config(ctx: AnalysisContext) -> Artifact:
     data = get_install_config()
     return ctx.actions.write_json("install_android_options.json", data)
 

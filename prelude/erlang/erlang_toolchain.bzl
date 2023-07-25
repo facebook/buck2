@@ -225,7 +225,7 @@ configured_otp_binaries = rule(
     },
 )
 
-def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: list[Dependency]) -> dict[str, ("artifact", "artifact")]:
+def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: list[Dependency]) -> dict[str, (Artifact, Artifact)]:
     transforms = {}
     for dep in parse_transforms:
         src = dep[ErlangParseTransformInfo].source
@@ -238,9 +238,9 @@ def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: li
 
 def _gen_parse_transform_beam(
         ctx: AnalysisContext,
-        src: "artifact",
-        extra: list["artifact"],
-        erlc: Tool) -> ("artifact", "artifact"):
+        src: Artifact,
+        extra: list[Artifact],
+        erlc: Tool) -> (Artifact, Artifact):
     name, _ext = paths.split_extension(src.basename)
 
     # install resources
@@ -284,8 +284,8 @@ config_erlang_toolchain_rule = rule(
 
 def _gen_util_beams(
         ctx: AnalysisContext,
-        sources: list["artifact"],
-        erlc: Tool) -> "artifact":
+        sources: list[Artifact],
+        erlc: Tool) -> Artifact:
     beams = []
     for src in sources:
         output = ctx.actions.declare_output(paths.join(

@@ -325,7 +325,7 @@ def _omnibus_soname(ctx):
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     return get_shared_library_name(linker_info, "omnibus")
 
-def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: list[""] = []) -> "artifact":
+def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: list[""] = []) -> Artifact:
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     link_result = cxx_link_shared_library(
         ctx = ctx,
@@ -372,7 +372,7 @@ def _create_root(
         root: LinkableRootInfo.type,
         label: Label,
         link_deps: list[Label],
-        omnibus: "artifact",
+        omnibus: Artifact,
         pic_behavior: PicBehavior.type,
         extra_ldflags: list[""] = [],
         prefer_stripped_objects: bool = False) -> OmnibusRootProduct.type:
@@ -530,8 +530,8 @@ def _requires_private_root(
 def _extract_global_symbols_from_link_args(
         ctx: AnalysisContext,
         name: str,
-        link_args: list[["artifact", "resolved_macro", cmd_args, str]],
-        prefer_local: bool = False) -> "artifact":
+        link_args: list[[Artifact, "resolved_macro", cmd_args, str]],
+        prefer_local: bool = False) -> Artifact:
     """
     Extract global symbols explicitly set in the given linker args (e.g.
     `-Wl,--export-dynamic-symbol=<sym>`).
@@ -577,8 +577,8 @@ def _extract_global_symbols_from_link_args(
 def _create_global_symbols_version_script(
         ctx: AnalysisContext,
         roots: list[AnnotatedOmnibusRootProduct.type],
-        excluded: list["artifact"],
-        link_args: list[["artifact", "resolved_macro", cmd_args, str]]) -> "artifact":
+        excluded: list[Artifact],
+        link_args: list[[Artifact, "resolved_macro", cmd_args, str]]) -> Artifact:
     """
     Generate a version script exporting symbols from from the given objects and
     link args.

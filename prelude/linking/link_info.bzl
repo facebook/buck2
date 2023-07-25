@@ -243,7 +243,7 @@ def link_info_to_args(value: LinkInfo.type) -> cmd_args:
 # platform-specific details from this level.
 # NOTE(agallagher): Using filelist out-of-band means objects/archives get
 # linked out of order of their corresponding flags.
-def link_info_filelist(value: LinkInfo.type) -> list["artifact"]:
+def link_info_filelist(value: LinkInfo.type) -> list[Artifact]:
     filelists = []
     for linkable in value.linkables:
         if linkable._type == LinkableType("archive"):

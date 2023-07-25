@@ -415,11 +415,11 @@ def _default_providers(
         ctx: AnalysisContext,
         lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
         param_artifact: dict[BuildParams.type, RustLinkStyleInfo.type],
-        rustdoc: "artifact",
+        rustdoc: Artifact,
         rustdoc_test: [cmd_args, None],
-        check_artifacts: dict[str, "artifact"],
-        expand: "artifact",
-        sources: "artifact") -> list["provider"]:
+        check_artifacts: dict[str, Artifact],
+        expand: Artifact,
+        sources: Artifact) -> list["provider"]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
@@ -521,7 +521,7 @@ def _native_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
-        param_artifact: dict[BuildParams.type, "artifact"]) -> list["provider"]:
+        param_artifact: dict[BuildParams.type, Artifact]) -> list["provider"]:
     """
     Return the set of providers needed to link Rust as a dependency for native
     (ie C/C++) code, along with relevant dependencies.
@@ -637,7 +637,7 @@ def _native_providers(
     return providers
 
 # Compute transitive deps. Caller decides whether this is necessary.
-def _compute_transitive_deps(ctx: AnalysisContext, link_style: LinkStyle.type) -> (dict["artifact", CrateName.type], dict["artifact", CrateName.type]):
+def _compute_transitive_deps(ctx: AnalysisContext, link_style: LinkStyle.type) -> (dict[Artifact, CrateName.type], dict[Artifact, CrateName.type]):
     transitive_deps = {}
     transitive_rmeta_deps = {}
     for dep in resolve_deps(ctx):

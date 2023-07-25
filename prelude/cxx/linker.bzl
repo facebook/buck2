@@ -145,7 +145,7 @@ def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFla
 
     return LINKERS[linker_type].shared_library_flags
 
-def get_link_whole_args(linker_type: str, inputs: list["artifact"]) -> list[""]:
+def get_link_whole_args(linker_type: str, inputs: list[Artifact]) -> list[""]:
     """
     Return linker args used to always link all the given inputs.
     """
@@ -171,7 +171,7 @@ def get_link_whole_args(linker_type: str, inputs: list["artifact"]) -> list[""]:
 
     return args
 
-def get_objects_as_library_args(linker_type: str, objects: list["artifact"]) -> list[""]:
+def get_objects_as_library_args(linker_type: str, objects: list[Artifact]) -> list[""]:
     """
     Return linker args used to link the given objects as a library.
     """
@@ -223,7 +223,7 @@ def get_no_as_needed_shared_libs_flags(linker_type: str) -> list[str]:
 
     return args
 
-def get_output_flags(linker_type: str, output: "artifact") -> list["_argslike"]:
+def get_output_flags(linker_type: str, output: Artifact) -> list["_argslike"]:
     if linker_type == "windows":
         return ["/Brepro", cmd_args(output.as_output(), format = "/OUT:{}")]
     else:
@@ -232,7 +232,7 @@ def get_output_flags(linker_type: str, output: "artifact") -> list["_argslike"]:
 def get_import_library(
         ctx: AnalysisContext,
         linker_type: str,
-        output_short_path: str) -> (["artifact", None], list["_argslike"]):
+        output_short_path: str) -> ([Artifact, None], list["_argslike"]):
     if linker_type == "windows":
         import_library = ctx.actions.declare_output(output_short_path + ".imp.lib")
         return import_library, [cmd_args(import_library.as_output(), format = "/IMPLIB:{}")]

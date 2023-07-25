@@ -11,7 +11,7 @@ load("@prelude//cxx:preprocessor.bzl", "CPreprocessorInfo", "cxx_merge_cpreproce
 load("@prelude//utils:utils.bzl", "expect")
 load(":rule_spec.bzl", "RuleRegistrationSpec")
 
-def _headers(ctx: AnalysisContext, deps: list[Dependency]) -> dict[str, "artifact"]:
+def _headers(ctx: AnalysisContext, deps: list[Dependency]) -> dict[str, Artifact]:
     headers = {}
 
     pp_info = cxx_merge_cpreprocessors(ctx, [], [d[CPreprocessorInfo] for d in deps])

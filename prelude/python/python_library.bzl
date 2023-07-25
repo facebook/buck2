@@ -171,7 +171,7 @@ def gather_dep_libraries(raw_deps: list[list[Dependency]]) -> (list["PythonLibra
 
 def _exclude_deps_from_omnibus(
         ctx: AnalysisContext,
-        srcs: dict[str, "artifact"]) -> bool:
+        srcs: dict[str, Artifact]) -> bool:
     # User-specified parameter.
     if ctx.attrs.exclude_deps_from_merged_linking:
         return True
@@ -187,7 +187,7 @@ def _exclude_deps_from_omnibus(
 
     return False
 
-def _attr_srcs(ctx: AnalysisContext) -> dict[str, "artifact"]:
+def _attr_srcs(ctx: AnalysisContext) -> dict[str, Artifact]:
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     all_srcs = {}
@@ -196,7 +196,7 @@ def _attr_srcs(ctx: AnalysisContext) -> dict[str, "artifact"]:
         all_srcs.update(from_named_set(srcs))
     return all_srcs
 
-def _attr_resources(ctx: AnalysisContext) -> dict[str, [Dependency, "artifact"]]:
+def _attr_resources(ctx: AnalysisContext) -> dict[str, [Dependency, Artifact]]:
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     all_resources = {}
@@ -205,7 +205,7 @@ def _attr_resources(ctx: AnalysisContext) -> dict[str, [Dependency, "artifact"]]
         all_resources.update(from_named_set(resources))
     return all_resources
 
-def py_attr_resources(ctx: AnalysisContext) -> dict[str, ("artifact", list["_arglike"])]:
+def py_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list["_arglike"])]:
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
@@ -215,7 +215,7 @@ def py_attr_resources(ctx: AnalysisContext) -> dict[str, ("artifact", list["_arg
 
 def py_resources(
         ctx: AnalysisContext,
-        resources: dict[str, ("artifact", list["_arglike"])]) -> (ManifestInfo.type, list["_arglike"]):
+        resources: dict[str, (Artifact, list["_arglike"])]) -> (ManifestInfo.type, list["_arglike"]):
     """
     Generate a manifest to wrap this rules resources.
     """
@@ -232,7 +232,7 @@ def py_resources(
     manifest = create_manifest_for_source_map(ctx, "resources", d)
     return manifest, dedupe(hidden)
 
-def _src_types(srcs: dict[str, "artifact"], type_stubs: dict[str, "artifact"]) -> dict[str, "artifact"]:
+def _src_types(srcs: dict[str, Artifact], type_stubs: dict[str, Artifact]) -> dict[str, Artifact]:
     src_types = {}
 
     # First, add all `.py` files.

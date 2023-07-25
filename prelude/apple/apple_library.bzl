@@ -280,10 +280,10 @@ def _filter_swift_srcs(ctx: AnalysisContext) -> (list["CxxSrcWithFlags"], list["
 def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         ctx: AnalysisContext,
-        executable: "artifact",
+        executable: Artifact,
         debug_info_tset: ArtifactTSet.type,
-        _dwp: ["artifact", None],
-        _pdb: ["artifact", None],
+        _dwp: [Artifact, None],
+        _pdb: [Artifact, None],
         linker_map: [CxxLinkerMapData.type, None]) -> (dict[str, list["provider"]], list["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
@@ -313,7 +313,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         providers += [AppleBundleLinkerMapInfo(linker_maps = [linker_map.map])]
     return (subtargets, providers)
 
-def _get_swift_static_debug_info(ctx: AnalysisContext, swiftmodule: "artifact") -> list[ArtifactTSet.type]:
+def _get_swift_static_debug_info(ctx: AnalysisContext, swiftmodule: Artifact) -> list[ArtifactTSet.type]:
     return [make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,

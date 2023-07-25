@@ -40,7 +40,7 @@ def build_bundle(
         android_toolchain: AndroidToolchainInfo.type,
         dex_files_info: "DexFilesInfo",
         native_library_info: "AndroidBinaryNativeLibsInfo",
-        resources_info: "AndroidBinaryResourcesInfo") -> "artifact":
+        resources_info: "AndroidBinaryResourcesInfo") -> Artifact:
     output_bundle = actions.declare_output("{}.aab".format(label.name))
 
     bundle_builder_args = cmd_args([

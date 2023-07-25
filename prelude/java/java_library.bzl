@@ -111,7 +111,7 @@ def _process_plugins(
             "--javac_processors_classpath_file",
         )
 
-def _build_classpath(actions: "actions", deps: list[Dependency], additional_classpath_entries: list["artifact"], classpath_args_projection: str) -> [cmd_args, None]:
+def _build_classpath(actions: "actions", deps: list[Dependency], additional_classpath_entries: list[Artifact], classpath_args_projection: str) -> [cmd_args, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
 
     if additional_classpath_entries or compiling_deps_tset:
@@ -123,7 +123,7 @@ def _build_classpath(actions: "actions", deps: list[Dependency], additional_clas
 
     return None
 
-def _build_bootclasspath(bootclasspath_entries: list["artifact"], source_level: int, java_toolchain: "JavaToolchainInfo") -> list["artifact"]:
+def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: int, java_toolchain: "JavaToolchainInfo") -> list[Artifact]:
     bootclasspath_list = []
     if source_level in [7, 8]:
         if bootclasspath_entries:
@@ -138,7 +138,7 @@ def _append_javac_params(
         actions: "actions",
         actions_identifier: [str, None],
         java_toolchain: "JavaToolchainInfo",
-        srcs: list["artifact"],
+        srcs: list[Artifact],
         remove_classes: list[str],
         annotation_processor_params: list["AnnotationProcessorParams"],
         javac_plugin_params: ["PluginParams", None],
@@ -146,10 +146,10 @@ def _append_javac_params(
         target_level: int,
         deps: list[Dependency],
         extra_arguments: cmd_args,
-        additional_classpath_entries: list["artifact"],
-        bootclasspath_entries: list["artifact"],
+        additional_classpath_entries: list[Artifact],
+        bootclasspath_entries: list[Artifact],
         cmd: cmd_args,
-        generated_sources_dir: "artifact"):
+        generated_sources_dir: Artifact):
     javac_args = cmd_args(
         "-encoding",
         "utf-8",
@@ -220,8 +220,8 @@ def _append_javac_params(
         cmd.add("--remove_classes", actions.write(declare_prefixed_name("remove_classes_args", actions_identifier), remove_classes))
 
 def split_on_archives_and_plain_files(
-        srcs: list["artifact"],
-        plain_file_extensions: list[str]) -> (list["artifact"], list["artifact"]):
+        srcs: list[Artifact],
+        plain_file_extensions: list[str]) -> (list[Artifact], list[Artifact]):
     archives = []
     plain_sources = []
 
@@ -235,7 +235,7 @@ def split_on_archives_and_plain_files(
 
     return (archives, plain_sources)
 
-def _is_supported_archive(src: "artifact") -> bool:
+def _is_supported_archive(src: Artifact) -> bool:
     basename = src.basename
     for supported_suffix in _SUPPORTED_ARCHIVE_SUFFIXES:
         if basename.endswith(supported_suffix):
@@ -247,8 +247,8 @@ def _copy_resources(
         actions_identifier: [str, None],
         java_toolchain: JavaToolchainInfo.type,
         package: str,
-        resources: list["artifact"],
-        resources_root: [str, None]) -> "artifact":
+        resources: list[Artifact],
+        resources_root: [str, None]) -> Artifact:
     resources_to_copy = get_resources_map(java_toolchain, package, resources, resources_root)
     resource_output = actions.symlinked_dir(declare_prefixed_name("resources", actions_identifier), resources_to_copy)
     return resource_output
@@ -265,16 +265,16 @@ def _jar_creator(
 
 def compile_to_jar(
         ctx: AnalysisContext,
-        srcs: list["artifact"],
+        srcs: list[Artifact],
         *,
         abi_generation_mode: ["AbiGenerationMode", None] = None,
-        output: ["artifact", None] = None,
+        output: [Artifact, None] = None,
         actions_identifier: [str, None] = None,
         javac_tool: ["", None] = None,
-        resources: [list["artifact"], None] = None,
+        resources: [list[Artifact], None] = None,
         resources_root: [str, None] = None,
         remove_classes: [list[str], None] = None,
-        manifest_file: ["artifact", None] = None,
+        manifest_file: [Artifact, None] = None,
         ap_params: [list["AnnotationProcessorParams"], None] = None,
         plugin_params: ["PluginParams", None] = None,
         source_level: [int, None] = None,
@@ -283,9 +283,9 @@ def compile_to_jar(
         required_for_source_only_abi: bool = False,
         source_only_abi_deps: [list[Dependency], None] = None,
         extra_arguments: [cmd_args, None] = None,
-        additional_classpath_entries: [list["artifact"], None] = None,
-        additional_compiled_srcs: ["artifact", None] = None,
-        bootclasspath_entries: [list["artifact"], None] = None,
+        additional_classpath_entries: [list[Artifact], None] = None,
+        additional_compiled_srcs: [Artifact, None] = None,
+        bootclasspath_entries: [list[Artifact], None] = None,
         is_creating_subtarget: bool = False) -> "JavaCompileOutputs":
     if not additional_classpath_entries:
         additional_classpath_entries = []
@@ -348,13 +348,13 @@ def _create_jar_artifact(
         abi_generation_mode: ["AbiGenerationMode", None],
         java_toolchain: JavaToolchainInfo.type,
         label: Label,
-        output: ["artifact", None],
+        output: [Artifact, None],
         javac_tool: ["", None],
-        srcs: list["artifact"],
+        srcs: list[Artifact],
         remove_classes: list[str],
-        resources: list["artifact"],
+        resources: list[Artifact],
         resources_root: [str, None],
-        manifest_file: ["artifact", None],
+        manifest_file: [Artifact, None],
         ap_params: list["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
         source_level: int,
@@ -363,9 +363,9 @@ def _create_jar_artifact(
         required_for_source_only_abi: bool,
         _source_only_abi_deps: list[Dependency],
         extra_arguments: cmd_args,
-        additional_classpath_entries: list["artifact"],
-        additional_compiled_srcs: ["artifact", None],
-        bootclasspath_entries: list["artifact"],
+        additional_classpath_entries: list[Artifact],
+        additional_compiled_srcs: [Artifact, None],
+        bootclasspath_entries: list[Artifact],
         _is_building_android_binary: bool,
         _is_creating_subtarget: bool = False) -> "JavaCompileOutputs":
     """
@@ -497,12 +497,12 @@ def java_library_impl(ctx: AnalysisContext) -> list["provider"]:
 
 def build_java_library(
         ctx: AnalysisContext,
-        srcs: list["artifact"],
+        srcs: list[Artifact],
         run_annotation_processors = True,
-        additional_classpath_entries: list["artifact"] = [],
-        bootclasspath_entries: list["artifact"] = [],
-        additional_compiled_srcs: ["artifact", None] = None,
-        generated_sources: list["artifact"] = [],
+        additional_classpath_entries: list[Artifact] = [],
+        bootclasspath_entries: list[Artifact] = [],
+        additional_compiled_srcs: [Artifact, None] = None,
+        generated_sources: list[Artifact] = [],
         override_abi_generation_mode: ["AbiGenerationMode", None] = None,
         extra_sub_targets: dict = {}) -> JavaProviders.type:
     expect(

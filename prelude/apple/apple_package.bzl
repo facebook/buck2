@@ -25,7 +25,7 @@ def apple_package_impl(ctx: AnalysisContext) -> list["provider"]:
 
     return [DefaultInfo(default_output = package)]
 
-def _get_ipa_contents(ctx) -> "artifact":
+def _get_ipa_contents(ctx) -> Artifact:
     bundle = ctx.attrs.bundle
     app = bundle[DefaultInfo].default_outputs[0]
 
@@ -45,7 +45,7 @@ def _get_ipa_contents(ctx) -> "artifact":
         contents,
     )
 
-def _build_symbols_dir(ctx) -> "artifact":
+def _build_symbols_dir(ctx) -> Artifact:
     symbols_dir = ctx.actions.declare_output("__symbols__", dir = True)
     ctx.actions.run(
         cmd_args(["mkdir", "-p", symbols_dir.as_output()]),
@@ -54,7 +54,7 @@ def _build_symbols_dir(ctx) -> "artifact":
 
     return symbols_dir
 
-def _get_swift_support_dir(ctx, bundle_output: "artifact", bundle_info: AppleBundleInfo.type) -> "artifact":
+def _get_swift_support_dir(ctx, bundle_output: Artifact, bundle_info: AppleBundleInfo.type) -> Artifact:
     stdlib_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.swift_stdlib_tool
     sdk_name = get_apple_sdk_name(ctx)
 
@@ -99,7 +99,7 @@ def _get_swift_support_dir(ctx, bundle_output: "artifact", bundle_info: AppleBun
 
     return swift_support_dir
 
-def _get_scan_folder_args(dest: AppleBundleDestination.type, bundle_output: "artifact", sdk_name, extension) -> "_arglike":
+def _get_scan_folder_args(dest: AppleBundleDestination.type, bundle_output: Artifact, sdk_name, extension) -> "_arglike":
     return cmd_args(
         [
             "--scan-folder",

@@ -261,7 +261,7 @@ def _get_base_pcm_flags(
         uncompiled_pcm_info: SwiftPCMUncompiledInfo.type,
         sdk_deps_tset: SDKDepTSet.type,
         pcm_deps_tset: PcmDepTSet.type,
-        swift_cxx_args: list[str]) -> (cmd_args, cmd_args, "artifact"):
+        swift_cxx_args: list[str]) -> (cmd_args, cmd_args, Artifact):
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     cmd = cmd_args()

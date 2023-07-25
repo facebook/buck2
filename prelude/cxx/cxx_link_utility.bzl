@@ -60,7 +60,7 @@ def make_link_args(
         suffix = None,
         output_short_path: [str, None] = None,
         is_shared: [bool, None] = None,
-        link_ordering: ["LinkOrdering", None] = None) -> ("_arglike", list["_hidden"], ["artifact", None]):
+        link_ordering: ["LinkOrdering", None] = None) -> ("_arglike", list["_hidden"], [Artifact, None]):
     """
     Merges LinkArgs. Returns the args, files that must be present for those
     args to work when passed to a linker, and optionally an artifact where DWO
@@ -121,7 +121,7 @@ def make_link_args(
 
     return (args, [args] + hidden, pdb_artifact)
 
-def shared_libs_symlink_tree_name(output: "artifact") -> str:
+def shared_libs_symlink_tree_name(output: Artifact) -> str:
     return "__{}__shared_libs_symlink_tree".format(output.short_path)
 
 # Returns a tuple of:
@@ -131,8 +131,8 @@ def shared_libs_symlink_tree_name(output: "artifact") -> str:
 def executable_shared_lib_arguments(
         actions: "actions",
         cxx_toolchain: CxxToolchainInfo.type,
-        output: "artifact",
-        shared_libs: dict[str, "LinkedObject"]) -> (list[""], list["_arglike"], ["artifact", None]):
+        output: Artifact,
+        shared_libs: dict[str, "LinkedObject"]) -> (list[""], list["_arglike"], [Artifact, None]):
     extra_args = []
     runtime_files = []
     shared_libs_symlink_tree = None
