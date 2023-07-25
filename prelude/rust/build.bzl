@@ -71,10 +71,10 @@ load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "RustToolchainInfo", "ctx_toolchain_info")
 
 RustcOutput = record(
-    outputs = field({Emit.type: "artifact"}),
+    output = field("artifact"),
     diag = field({str: "artifact"}),
     pdb = field(["artifact", None]),
-    dwp_outputs = field({Emit.type: "artifact"}),
+    dwp_output = field(["artifact", None]),
 )
 
 def compile_context(ctx: AnalysisContext) -> CompileContext.type:
@@ -509,10 +509,10 @@ def rust_compile(
         filtered_dwp_output = None
 
     return RustcOutput(
-        outputs = {emit: filtered_output},
+        output = filtered_output,
         diag = diag,
         pdb = pdb_artifact,
-        dwp_outputs = {emit: filtered_dwp_output} if filtered_dwp_output else {},
+        dwp_output = filtered_dwp_output,
     )
 
 # --extern <crate>=<path> for direct dependencies

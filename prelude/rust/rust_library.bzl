@@ -190,12 +190,12 @@ def rust_library_impl(ctx: AnalysisContext) -> list["provider"]:
             # in the check subtarget. The link style doesn't matter
             # so pick the first.
             if check_artifacts == None:
-                check_artifacts = {"check": meta.outputs[Emit("metadata")]}
+                check_artifacts = {"check": meta.output}
                 check_artifacts.update(meta.diag)
 
             rust_param_artifact[params] = _handle_rust_artifact(ctx, params, link, meta)
         elif lang == LinkageLang("c++"):
-            native_param_artifact[params] = link.outputs[Emit("link")]
+            native_param_artifact[params] = link.output
         else:
             fail("Unhandled lang {}".format(lang))
 
@@ -272,7 +272,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list["provider"]:
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
         check_artifacts = check_artifacts,
-        expand = expand.outputs[Emit("expand")],
+        expand = expand.output,
         sources = compile_ctx.symlinked_srcs,
     )
     providers += _rust_providers(
@@ -395,18 +395,18 @@ def _handle_rust_artifact(
 
     if not ctx.attrs.proc_macro:
         return RustLinkStyleInfo(
-            rlib = link.outputs[Emit("link")],
+            rlib = link.output,
             transitive_deps = tdeps,
-            rmeta = meta.outputs[Emit("metadata")],
+            rmeta = meta.output,
             transitive_rmeta_deps = tmetadeps,
             pdb = link.pdb,
         )
     else:
         # Proc macro deps are always the real thing
         return RustLinkStyleInfo(
-            rlib = link.outputs[Emit("link")],
+            rlib = link.output,
             transitive_deps = tdeps,
-            rmeta = link.outputs[Emit("link")],
+            rmeta = link.output,
             transitive_rmeta_deps = tdeps,
             pdb = link.pdb,
         )

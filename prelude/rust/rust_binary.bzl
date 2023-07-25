@@ -128,8 +128,8 @@ def _rust_binary_common(
             is_binary = True,
         )
 
-        args = cmd_args(link.outputs[Emit("link")]).hidden(runtime_files)
-        extra_targets = [("check", meta.outputs[Emit("metadata")])] + meta.diag.items()
+        args = cmd_args(link.output).hidden(runtime_files)
+        extra_targets = [("check", meta.output)] + meta.diag.items()
         if link.pdb:
             extra_targets.append((PDB_SUB_TARGET, link.pdb))
 
@@ -149,9 +149,9 @@ def _rust_binary_common(
             args.hidden(resources_hidden)
             runtime_files.extend(resources_hidden)
 
-        styles[link_style] = (link.outputs[Emit("link")], args, extra_targets, runtime_files)
-        if link_style == specified_link_style and link.dwp_outputs:
-            dwp_target = link.dwp_outputs[Emit("link")]
+        styles[link_style] = (link.output, args, extra_targets, runtime_files)
+        if link_style == specified_link_style and link.dwp_output:
+            dwp_target = link.dwp_output
 
     expand = rust_compile(
         ctx = ctx,
@@ -172,7 +172,7 @@ def _rust_binary_common(
             default_roots = default_roots,
             document_private_items = True,
         )),
-        ("expand", expand.outputs[Emit("expand")]),
+        ("expand", expand.output),
         ("sources", compile_ctx.symlinked_srcs),
     ]
     sub_targets = {k: [DefaultInfo(default_output = v)] for k, v in extra_targets}
