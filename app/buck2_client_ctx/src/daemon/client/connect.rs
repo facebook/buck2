@@ -474,7 +474,7 @@ impl BootstrapBuckdClient {
         };
         let error_message = format!(
             "Failed to connect to buck daemon.
-        Try running `buck2 clean` and your command afterwards.
+        Try running `buck2 kill` and your command afterwards.
         Alternatively, try running `{}` and your command afterwards",
             delete_commad
         );
