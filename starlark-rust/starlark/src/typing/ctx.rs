@@ -181,7 +181,7 @@ impl TypingContext<'_> {
             BindExpr::Expr(x) => self.expression_type(x),
             BindExpr::GetIndex(i, x) => self.expression_bind_type(x).indexed(*i),
             BindExpr::Iter(x) => self.from_iterated(&self.expression_bind_type(x), x.span()),
-            BindExpr::AssignOp(lhs, op, rhs) => {
+            BindExpr::AssignModify(lhs, op, rhs) => {
                 let span = lhs.span;
                 let rhs_ty = self.expression_type(rhs);
                 let lhs = self.expression_assign(lhs);

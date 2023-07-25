@@ -52,7 +52,7 @@ pub(crate) enum BindExpr<'a> {
     /// Get this position from the expression
     GetIndex(usize, Box<BindExpr<'a>>),
     Iter(Box<BindExpr<'a>>),
-    AssignOp(&'a CstAssign, AssignOp, &'a CstExpr),
+    AssignModify(&'a CstAssign, AssignOp, &'a CstExpr),
     /// Set this index in the variable
     SetIndex(BindingId, &'a CstExpr, Box<BindExpr<'a>>),
     ListAppend(BindingId, &'a CstExpr),
@@ -65,7 +65,7 @@ impl<'a> BindExpr<'a> {
             BindExpr::Expr(x) => x.span,
             BindExpr::GetIndex(_, x) => x.span(),
             BindExpr::Iter(x) => x.span(),
-            BindExpr::AssignOp(x, _, _) => x.span,
+            BindExpr::AssignModify(x, _, _) => x.span,
             BindExpr::SetIndex(_, x, _) => x.span,
             BindExpr::ListAppend(_, x) => x.span,
             BindExpr::ListExtend(_, x) => x.span,
@@ -204,9 +204,12 @@ impl<'a> BindingsCollect<'a> {
                         }
                         assign(lhs, BindExpr::Expr(&ty_rhs.1), bindings, codemap)?
                     }
-                    StmtP::AssignModify(lhs, op, rhs) => {
-                        assign(lhs, BindExpr::AssignOp(lhs, *op, rhs), bindings, codemap)?
-                    }
+                    StmtP::AssignModify(lhs, op, rhs) => assign(
+                        lhs,
+                        BindExpr::AssignModify(lhs, *op, rhs),
+                        bindings,
+                        codemap,
+                    )?,
                     StmtP::For(lhs, iter_body) => assign(
                         lhs,
                         BindExpr::Iter(Box::new(BindExpr::Expr(&iter_body.0))),
