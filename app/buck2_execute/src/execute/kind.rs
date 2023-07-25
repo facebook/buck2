@@ -15,6 +15,7 @@ use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
 
 use crate::execute::action_digest::ActionDigest;
+use crate::re::convert::platform_to_proto;
 
 #[derive(Debug, Display, Clone)]
 pub enum CommandExecutionKind {
@@ -110,12 +111,14 @@ impl CommandExecutionKind {
                 action_digest: details.action_digest.to_string(),
                 cache_hit: false,
                 queue_time: (*queue_time).try_into().ok(),
+                details: details.to_proto(omit_details),
             }
             .into(),
             Self::ActionCache { details } => buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
                 cache_hit: true,
                 queue_time: None,
+                details: details.to_proto(omit_details),
             }
             .into(),
             Self::LocalWorkerInit { command, env } => buck2_data::WorkerInitCommand {
@@ -158,4 +161,18 @@ pub struct RemoteCommandExecutionDetails {
     pub session_id: Option<String>,
     pub use_case: RemoteExecutorUseCase,
     pub platform: RE::Platform,
+}
+
+impl RemoteCommandExecutionDetails {
+    fn to_proto(&self, omit_details: bool) -> Option<buck2_data::RemoteCommandDetails> {
+        if omit_details {
+            return None;
+        }
+
+        Some(buck2_data::RemoteCommandDetails {
+            session_id: self.session_id.clone(),
+            use_case: self.use_case.to_string(),
+            platform: Some(platform_to_proto(&self.platform)),
+        })
+    }
 }

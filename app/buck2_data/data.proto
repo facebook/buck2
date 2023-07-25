@@ -1483,6 +1483,15 @@ message RemoteCommand {
 
   /// How long this build waited in queue.
   google.protobuf.Duration queue_time = 3;
+
+  // Potentially more details about this command.
+  optional RemoteCommandDetails details = 4;
+}
+
+message RemoteCommandDetails {
+  optional string session_id = 1;
+  string use_case = 2;
+  RePlatform platform = 3;
 }
 
 // Header in binary event log.
