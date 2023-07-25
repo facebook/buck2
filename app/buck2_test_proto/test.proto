@@ -12,6 +12,7 @@ syntax = "proto3";
 package buck.test;
 
 import "google/protobuf/duration.proto";
+import "data.proto";
 
 // Message sent when a TestSuite is discovered.
 message Testing {
@@ -250,6 +251,11 @@ message ExecutionResult2 {
   repeated OutputEntry outputs = 4;
   google.protobuf.Duration start_time = 5; // Duration since the epoch
   google.protobuf.Duration execution_time = 6;
+  ExecutionDetails execution_details = 7;
+}
+
+message ExecutionDetails {
+  optional buck.data.CommandExecutionKind execution_kind = 1;
 }
 
 message Cancelled {}

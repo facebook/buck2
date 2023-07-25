@@ -983,18 +983,12 @@ message CommandExecutionDetails {
   // The stderr of the command.
   string stderr = 3;
 
+  // TODO: Use CommandExecutionKind for this.
   oneof command {
-    // The command, if it was local.
     LocalCommand local_command = 7;
-    // The command, if it was remote.
     RemoteCommand remote_command = 8;
-    // The command, if it was local and omitted from this log record for
-    // brevity.
     OmittedLocalCommand omitted_local_command = 9;
-    // The command used to initialize the worker, if the action failed at this
-    // step.
     WorkerInitCommand worker_init_command = 11;
-    // The command, if executed by a local worker.
     WorkerCommand worker_command = 12;
   }
 
@@ -1009,6 +1003,25 @@ message CommandExecutionDetails {
   // own protobuf message, so that we could reuse them in test.proto, even if
   // we don't want to reuse CommandExecutionDetails there (which we don't,
   // because it returns exit code, stdout and stderr in a different format).
+}
+
+// This isn't used here yet, but ideally it would be (it's used in tests). It's
+// here because aspirationally, CommandExecutionDetails would use it.
+message CommandExecutionKind {
+  oneof command {
+    // The command, if it was local.
+    LocalCommand local_command = 1;
+    // The command, if it was remote.
+    RemoteCommand remote_command = 2;
+    // The command, if it was local and omitted from this log record for
+    // brevity.
+    OmittedLocalCommand omitted_local_command = 3;
+    // The command used to initialize the worker, if the action failed at this
+    // step.
+    WorkerInitCommand worker_init_command = 4;
+    // The command, if executed by a local worker.
+    WorkerCommand worker_command = 5;
+  }
 }
 
 message CommandOutputsMissing {

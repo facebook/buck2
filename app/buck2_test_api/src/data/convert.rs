@@ -620,6 +620,7 @@ impl TryInto<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
                     .try_into()?,
             ),
             execution_time: Some(self.execution_time.try_into()?),
+            execution_details: None,
         })
     }
 }
@@ -635,6 +636,7 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             outputs,
             start_time,
             execution_time,
+            execution_details: _,
         } = s;
         let status = status
             .context("Missing `status`")?

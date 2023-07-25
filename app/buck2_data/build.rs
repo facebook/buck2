@@ -209,6 +209,10 @@ fn main() -> io::Result<()> {
             "buck.data.StarlarkUserMetadataValue.value",
             "#[serde(untagged)]",
         )
+        .type_attribute(
+            "buck.data.CommandExecutionKind.command",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")
         .boxed("SpanEndEvent.data.cache_upload")

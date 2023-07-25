@@ -6,10 +6,14 @@ oncall("buck2")
 rust_protobuf_library(
     name = "buck2_test_proto",
     srcs = glob(["src/**/*.rs"]),
+    build_env = {
+        "BUCK_HACK_DATA_PROTOC_INCLUDE": "$(location //buck2/app/buck2_data:data.proto)",
+    },
     build_script = "build.rs",
     doctests = False,  # FIXME
     protos = ["test.proto"],
     deps = [
         "fbsource//third-party/rust:prost-types",
+        "//buck2/app/buck2_data:buck2_data",
     ],
 )
