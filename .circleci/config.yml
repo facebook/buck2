@@ -79,11 +79,9 @@ commands:
           name: Write Powershell profile
           command: |
             $psProfileContent = @'
-            $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-            $msvcVersion = (Get-Content -raw (Join-Path $vsPath "VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt")).Trim()
-            $msvcBinPath = Join-Path $vsPath "VC\Tools\MSVC\$msvcVersion\bin\Hostx64\x64"
+            $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Llvm.Clang -property installationPath
             $llvmPath = Join-Path $vsPath "VC\Tools\Llvm\x64\bin"
-            $env:PATH = "$env:USERPROFILE\.cargo\bin;$msvcBinPath;$llvmPath;" + $env:PATH
+            $env:PATH = "$env:USERPROFILE\.cargo\bin;$llvmPath;" + $env:PATH
             # In CircleCI username here is shortened and this breaks some tests.
             $env:TEMP = "$env:USERPROFILE\AppData\Local\Temp"
             $env:TMP = $env:TEMP
