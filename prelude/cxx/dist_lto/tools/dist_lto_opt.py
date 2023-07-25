@@ -83,9 +83,12 @@ def _filter_flags(clang_flags: List[str]) -> List[str]:  # noqa: C901
                 return flag.replace(k, v)
         return None
 
-    for raw_flag in clang_flags:
+    index = 0
+    while index < len(clang_flags):
+        raw_flag = clang_flags[index]
         flag = raw_flag.replace('"', "")
         if flag in IGNORE_OPT_FLAGS:
+            index += 1
             continue
         if _find_plugin_opt_prefix(flag):
             # Convert "-Wl,-plugin-opt,...".
@@ -110,6 +113,42 @@ def _filter_flags(clang_flags: List[str]) -> List[str]:  # noqa: C901
         elif flag.startswith("-f"):
             # Always pass in -f flags which are presumed to be Clang flags.
             opt_flags.append(flag)
+        elif flag == "-Xlinker":
+            # Handle -Xlinker -xxxx flags. -Xlinker flags are passed in two
+            # lines, the first line being just "-Xlinker" and the second line
+            # being the actual arg.
+            if index + 1 >= len(clang_flags):
+                print(
+                    f"error: cannot handle -Xlinker flags {clang_flags}, "
+                    "-Xlinker should be followed by an option"
+                )
+                return EXIT_FAILURE
+            if clang_flags[index + 1] == "-mllvm":
+                # Validate -Xlinker
+                #          -mllvm
+                #          -Xlinker
+                #          -xxxx    structure
+                # This assumes -mllvm and its arg are provided consecutively,
+                # mostly to handle the case where they come from Buck's
+                # linker_flags.
+                # TODO(T159109840): Generalize this logic to handle -Xlinker
+                #       -mllvm -unrelated-flag -Xlinker -actual-mllvm-arg
+                if (
+                    index + 2 >= len(clang_flags)
+                    or index + 3 >= len(clang_flags)
+                    or clang_flags[index + 2] != "-Xlinker"
+                ):
+                    print(
+                        f"error: cannot handle -Xlinker flags {clang_flags}, "
+                        "-mllvm should be followed by an llvm option"
+                    )
+                    return EXIT_FAILURE
+                opt_flags.extend(["-mllvm", clang_flags[index + 3]])
+                index += 3
+            else:
+                # Otherwise skip this -Xlinker flag and its arg
+                index += 1
+        index += 1
     return opt_flags
 
 
