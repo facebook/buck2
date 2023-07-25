@@ -513,16 +513,6 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn invoke(
-        self,
-        me: Value<'v>,
-        args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        (self.vtable.starlark_value.invoke)(self.value, me, args, eval)
-    }
-
-    #[inline]
     pub(crate) fn invoke_method(
         self,
         this: Value<'v>,
@@ -585,5 +575,27 @@ impl<'v> AValueDyn<'v> {
     #[inline]
     pub(crate) fn provide(self, demand: &mut Demand<'_, 'v>) {
         (self.vtable.starlark_value.provide)(self.value, demand)
+    }
+}
+
+/// Raw pointer, vtable and `Value`.
+pub(crate) struct AValueDynFull<'v> {
+    avalue: AValueDyn<'v>,
+    value: Value<'v>,
+}
+
+impl<'v> AValueDynFull<'v> {
+    #[inline]
+    pub(crate) unsafe fn new(avalue: AValueDyn<'v>, value: Value<'v>) -> AValueDynFull<'v> {
+        AValueDynFull { avalue, value }
+    }
+
+    #[inline]
+    pub(crate) fn invoke(
+        self,
+        args: &Arguments<'v, '_>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        (self.avalue.vtable.starlark_value.invoke)(self.avalue.value, self.value, args, eval)
     }
 }

@@ -88,6 +88,7 @@ use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::layout::vtable::AValueDyn;
+use crate::values::layout::vtable::AValueDynFull;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::num::NumRef;
 use crate::values::range::Range;
@@ -426,6 +427,11 @@ impl<'v> Value<'v> {
     }
 
     #[inline]
+    fn get_ref_full(self) -> AValueDynFull<'v> {
+        unsafe { AValueDynFull::new(self.get_ref(), self) }
+    }
+
+    #[inline]
     pub(crate) fn vtable(self) -> &'static AValueVTable {
         unsafe {
             match self.0.unpack() {
@@ -620,7 +626,7 @@ impl<'v> Value<'v> {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         eval.with_call_stack(self, location, |eval| {
-            self.get_ref().invoke(self, args, eval)
+            self.get_ref_full().invoke(args, eval)
         })
     }
 
