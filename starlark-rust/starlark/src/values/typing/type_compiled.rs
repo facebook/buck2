@@ -1114,7 +1114,6 @@ def foo(f: int.type = None):
         );
     }
 
-    #[ignore] // TODO(nga): depends on D46848632.
     #[test]
     fn test_new_syntax_without_dot_type_compile_time() {
         assert::pass(r"def f() -> int: return 17");
