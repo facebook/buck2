@@ -77,6 +77,13 @@ impl<'a> BindExpr<'a> {
 pub(crate) struct Bindings<'a> {
     pub(crate) expressions: SmallMap<BindingId, Vec<BindExpr<'a>>>,
     pub(crate) types: HashMap<BindingId, Ty>,
+    /// Expressions which need to be typechecked, but which are not used
+    /// in assignments or in other expressions.
+    /// For example `expr` in:
+    ///
+    /// ```python
+    /// if expr: ...
+    /// ```
     pub(crate) check: Vec<&'a CstExpr>,
     pub(crate) check_type: Vec<(Span, Option<&'a CstExpr>, Ty)>,
 }
