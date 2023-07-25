@@ -30,7 +30,7 @@ def generate_android_manifest(
         manifest_skeleton: "artifact",
         module_name: str,
         manifests: ["ManifestTSet", list["artifact"], None],
-        placeholder_entries: "dict") -> ("artifact", "artifact"):
+        placeholder_entries: dict) -> ("artifact", "artifact"):
     generate_manifest_cmd = cmd_args(generate_manifest)
     generate_manifest_cmd.add([
         "--skeleton-manifest",

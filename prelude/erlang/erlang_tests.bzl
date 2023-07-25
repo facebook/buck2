@@ -36,15 +36,15 @@ load(
 def erlang_tests_macro(
         erlang_app_rule,
         erlang_test_rule,
-        suites: list["string"],
-        deps: list["string"] = [],
-        resources: list["string"] = [],
-        property_tests: list["string"] = [],
-        config_files: list["string"] = [],
-        srcs: list["string"] = [],
-        use_default_configs: "bool" = True,
-        use_default_deps: "bool" = True,
-        **common_attributes: "dict") -> None:
+        suites: list[str],
+        deps: list[str] = [],
+        resources: list[str] = [],
+        property_tests: list[str] = [],
+        config_files: list[str] = [],
+        srcs: list[str] = [],
+        use_default_configs: bool = True,
+        use_default_deps: bool = True,
+        **common_attributes: dict) -> None:
     """
     Generate multiple erlang_test targets based on the `suites` field.
     Also adds the default 'config' and 'deps' from the buck2 config.
@@ -275,7 +275,7 @@ def _build_default_info(dependencies: ErlAppDependencies, output_dir: "artifact"
 
 def _write_test_info_file(
         ctx: AnalysisContext,
-        test_suite: "string",
+        test_suite: str,
         dependencies: ErlAppDependencies,
         test_dir: "artifact",
         config_files: list["artifact"],
@@ -314,7 +314,7 @@ def _list_code_paths(dependencies: ErlAppDependencies) -> list[cmd_args]:
             folders.append(cmd_args(dep_info.output_dir, format = '"{}"'))
     return folders
 
-def _build_resource_dir(ctx, resources: "list", target_dir: "string") -> "artifact":
+def _build_resource_dir(ctx, resources: list, target_dir: str) -> "artifact":
     """ build mapping for suite data directory
 
     generating the necessary mapping information for the suite data directory
@@ -332,7 +332,7 @@ def _build_resource_dir(ctx, resources: "list", target_dir: "string") -> "artifa
 
 def link_output(
         ctx: AnalysisContext,
-        test_suite: "string",
+        test_suite: str,
         build_environment: "BuildEnvironment",
         data_dir: "artifact",
         property_dir: "artifact") -> "artifact":
@@ -345,7 +345,7 @@ def link_output(
     link_spec[ctx.attrs.suite.basename] = ctx.attrs.suite
     return ctx.actions.symlinked_dir(ctx.attrs.name, link_spec)
 
-def generate_file_map_target(suite: "string", dir_name: "string") -> "string":
+def generate_file_map_target(suite: str, dir_name: str) -> str:
     suite_dir = paths.dirname(suite)
     suite_name = paths.basename(suite)
     files = glob([paths.join(suite_dir, dir_name, "**")])

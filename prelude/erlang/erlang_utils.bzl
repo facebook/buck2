@@ -7,7 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 
-def normalise_metadata(data: ["string", list["string"]]) -> [cmd_args, list[cmd_args]]:
+def normalise_metadata(data: [str, list[str]]) -> [cmd_args, list[cmd_args]]:
     if type(data) == type([]):
         return [cmd_args(item) for item in data]
     else:
@@ -25,16 +25,16 @@ def to_term_args(data: "") -> cmd_args:
     return args
 
 # paths
-def app_file(ctx: AnalysisContext) -> "string":
+def app_file(ctx: AnalysisContext) -> str:
     return paths.join(beam_dir(ctx), ctx.attrs.name + ".app")
 
-def beam_dir(ctx: AnalysisContext) -> "string":
+def beam_dir(ctx: AnalysisContext) -> str:
     return paths.join(ctx.attrs.name, "ebin")
 
-def beam_path(ctx: AnalysisContext, src: "artifact") -> "string":
+def beam_path(ctx: AnalysisContext, src: "artifact") -> str:
     return paths.join(beam_dir(ctx), paths.replace_extension(src.basename, ".beam"))
 
-def linktree() -> "string":
+def linktree() -> str:
     return "linktree"
 
 build_paths = struct(
@@ -65,7 +65,7 @@ def convert(data: "") -> cmd_args:
     return args
 
 # internal
-def convert_list(ls: "list", ob: "string" = "[", cb: "string" = "]") -> cmd_args:
+def convert_list(ls: list, ob: str = "[", cb: str = "]") -> cmd_args:
     args = cmd_args([])
     args.add(ob)
     if len(ls) >= 1:
@@ -80,7 +80,7 @@ def convert_list(ls: "list", ob: "string" = "[", cb: "string" = "]") -> cmd_args
     args.add(cb)
     return args
 
-def convert_dict(dt: "dict") -> cmd_args:
+def convert_dict(dt: dict) -> cmd_args:
     args = cmd_args([])
     args.add("#{")
     items = list(dt.items())
@@ -108,34 +108,34 @@ def convert_args(data: cmd_args) -> cmd_args:
     args.add("\"")
     return args
 
-def convert_string(st: "string") -> cmd_args:
+def convert_string(st: str) -> cmd_args:
     args = cmd_args()
     return args.add(cmd_args(["\"", st.replace("\"", "\\\""), "\""], delimiter = ""))
 
-def convert_bool(bl: "bool") -> cmd_args:
+def convert_bool(bl: bool) -> cmd_args:
     if bl:
         return cmd_args(["true"])
     else:
         return cmd_args(["false"])
 
-def multidict_projection(build_environments: dict["string", "BuildEnvironment"], field_name: "string") -> "dict":
+def multidict_projection(build_environments: dict[str, "BuildEnvironment"], field_name: str) -> dict:
     field = {}
     for name, env in build_environments.items():
         field[name] = getattr(env, field_name)
     return field
 
-def multidict_projection_key(build_environments: dict["string", "BuildEnvironment"], field_name: "string", key: "string") -> "dict":
+def multidict_projection_key(build_environments: dict[str, "BuildEnvironment"], field_name: str, key: str) -> dict:
     field = {}
     for name, env in build_environments.items():
         dict_val = getattr(env, field_name)
         field[name] = dict_val[key]
     return field
 
-def action_identifier(toolchain: "Toolchain", name: "string") -> "string":
+def action_identifier(toolchain: "Toolchain", name: str) -> str:
     """builds an action identifier parameterized by the toolchain"""
     return "%s(%s)" % (name, toolchain.name)
 
-def str_to_bool(value: "string") -> "bool":
+def str_to_bool(value: str) -> bool:
     """convert string representation of bool to bool"""
     if value == "True":
         return True
@@ -144,7 +144,7 @@ def str_to_bool(value: "string") -> "bool":
     else:
         fail("{} is not a valid boolean value")
 
-def preserve_structure(path: "string") -> dict["string", list["string"]]:
+def preserve_structure(path: str) -> dict[str, list[str]]:
     """Return a mapping from a path that preserves the filestructure relative to the path."""
     all_files = glob([paths.join(path, "**")])
     mapping = {}

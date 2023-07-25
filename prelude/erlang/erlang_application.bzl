@@ -221,7 +221,7 @@ def _generate_app_file(
         ctx: AnalysisContext,
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
-        name: "string",
+        name: str,
         srcs: list["artifact"]) -> "BuildEnvironment":
     """ rule for generating the .app files
 
@@ -265,7 +265,7 @@ def _generate_app_file(
 def _app_info_content(
         ctx: AnalysisContext,
         toolchain: "Toolchain",
-        name: "string",
+        name: str,
         srcs: list["artifact"],
         output: "artifact") -> "artifact":
     """build an app_info.term file that contains the meta information for building the .app file"""
@@ -303,7 +303,7 @@ def _app_info_content(
 
 def link_output(
         ctx: AnalysisContext,
-        link_path: "string",
+        link_path: str,
         build_environment: "BuildEnvironment") -> "artifact":
     """Link application output folder in working dir root folder."""
     name = ctx.attrs.name
@@ -342,7 +342,7 @@ def link_output(
 
     return ctx.actions.symlinked_dir(link_path, link_spec)
 
-def _link_srcs_folder(ctx: AnalysisContext) -> dict["string", "artifact"]:
+def _link_srcs_folder(ctx: AnalysisContext) -> dict[str, "artifact"]:
     """Build mapping for the src folder if erlang.include_src is set"""
     if not str_to_bool(read_root_config("erlang", "include_src", "False")):
         return {}
@@ -414,10 +414,10 @@ def _build_default_info(dependencies: ErlAppDependencies, app_dir: "artifact") -
 def build_app_info(
         ctx: AnalysisContext,
         dependencies: ErlAppDependencies,
-        build_environments: dict["string", "BuildEnvironment"],
-        app_folders: dict["string", "artifact"],
+        build_environments: dict[str, "BuildEnvironment"],
+        app_folders: dict[str, "artifact"],
         primary_app_folder: "artifact",
-        start_dependencies: dict["string", list["StartDependencySet"]]) -> "provider":
+        start_dependencies: dict[str, list["StartDependencySet"]]) -> "provider":
     name = ctx.attrs.name
 
     version = {

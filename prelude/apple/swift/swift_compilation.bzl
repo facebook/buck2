@@ -252,7 +252,7 @@ def compile_swift(
 # supported, this postprocessing should be removed.
 def _perform_swift_postprocessing(
         ctx: AnalysisContext,
-        module_name: "string",
+        module_name: str,
         unprocessed_header: "artifact",
         output_header: "artifact"):
     transitive_exported_headers = {
@@ -583,7 +583,7 @@ def _get_external_debug_info_tsets(deps: list[Dependency]) -> list[ArtifactTSet.
         if SwiftDependencyInfo in d
     ]
 
-def _get_exported_headers_tset(ctx: AnalysisContext, exported_headers: [list["string"], None] = None) -> ExportedHeadersTSet.type:
+def _get_exported_headers_tset(ctx: AnalysisContext, exported_headers: [list[str], None] = None) -> ExportedHeadersTSet.type:
     return ctx.actions.tset(
         ExportedHeadersTSet,
         value = {get_module_name(ctx): exported_headers} if exported_headers else None,
@@ -646,7 +646,7 @@ def get_swift_dependency_info(
         debug_info_tset = debug_info_tset,
     )
 
-def _header_basename(header: ["artifact", "string"]) -> "string":
+def _header_basename(header: ["artifact", str]) -> str:
     if type(header) == type(""):
         return paths.basename(header)
     else:

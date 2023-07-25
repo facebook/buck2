@@ -68,11 +68,11 @@ ToolchainUtillInfo = provider(
     ],
 )
 
-def select_toolchains(ctx: AnalysisContext) -> dict["string", "Toolchain"]:
+def select_toolchains(ctx: AnalysisContext) -> dict[str, "Toolchain"]:
     """helper returning toolchains"""
     return ctx.attrs._toolchain[ErlangMultiVersionToolchainInfo].toolchains
 
-def get_primary(ctx: AnalysisContext) -> "string":
+def get_primary(ctx: AnalysisContext) -> str:
     return ctx.attrs._toolchain[ErlangMultiVersionToolchainInfo].primary
 
 def get_primary_tools(ctx: AnalysisContext) -> "Tools":
@@ -120,7 +120,7 @@ multi_version_toolchain_rule = rule(
     is_toolchain_rule = True,
 )
 
-def as_target(name: "string") -> "string":
+def as_target(name: str) -> str:
     return ":" + name
 
 def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list["provider"]:
@@ -225,7 +225,7 @@ configured_otp_binaries = rule(
     },
 )
 
-def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: list[Dependency]) -> dict["string", ("artifact", "artifact")]:
+def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: list[Dependency]) -> dict[str, ("artifact", "artifact")]:
     transforms = {}
     for dep in parse_transforms:
         src = dep[ErlangParseTransformInfo].source

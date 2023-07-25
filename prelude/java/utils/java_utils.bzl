@@ -14,7 +14,7 @@ load(
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
-def get_path_separator() -> "string":
+def get_path_separator() -> str:
     # TODO: msemko : replace with system-dependent path-separator character
     # On UNIX systems, this character is ':'; on Microsoft Windows systems it is ';'.
     return ":"

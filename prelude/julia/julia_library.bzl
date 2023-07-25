@@ -21,7 +21,7 @@ def gather_dep_libraries(raw_deps: list[Dependency]):
             fail("Dependency {} is not a julia_library or julia_jll_library!".format(dep.label))
     return clean_libs
 
-def strip_srcs_path(ctx: AnalysisContext) -> list["string"]:
+def strip_srcs_path(ctx: AnalysisContext) -> list[str]:
     """Strip the src path to include just the module folder.
 
     By default, the short path will list the path of the src file relative to

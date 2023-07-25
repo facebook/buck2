@@ -378,7 +378,7 @@ def create_dep_report(
 
 def convert_python_library_to_executable(
         ctx: AnalysisContext,
-        main_module: "string",
+        main_module: str,
         library: PythonLibraryInterface.type,
         deps: list[Dependency],
         compile: bool = False,

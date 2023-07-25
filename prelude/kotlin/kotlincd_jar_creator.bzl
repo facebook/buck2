@@ -55,7 +55,7 @@ def create_jar_artifact_kotlincd(
         deps: list[Dependency],
         required_for_source_only_abi: bool,
         source_only_abi_deps: list[Dependency],
-        extra_arguments: list["string"],
+        extra_arguments: list[str],
         additional_classpath_entries: list["artifact"],
         bootclasspath_entries: list["artifact"],
         is_building_android_binary: bool,

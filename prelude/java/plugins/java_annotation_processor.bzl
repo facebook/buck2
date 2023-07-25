@@ -53,8 +53,8 @@ def derive_transitive_deps(ctx: AnalysisContext, deps: list[Dependency]) -> ["Ja
 def create_ap_params(
         ctx: AnalysisContext,
         plugins: list[Dependency],
-        annotation_processors: list["string"],
-        annotation_processor_params: list["string"],
+        annotation_processors: list[str],
+        annotation_processor_params: list[str],
         annotation_processor_deps: list[Dependency]) -> list[AnnotationProcessorParams.type]:
     ap_params = []
 

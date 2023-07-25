@@ -129,8 +129,8 @@ ZigReleaseInfo = provider(fields = [
 ])
 
 def _get_zig_release(
-        version: "string",
-        platform: "string") -> ZigReleaseInfo.type:
+        version: str,
+        platform: str) -> ZigReleaseInfo.type:
     if not version in releases:
         fail("Unknown zig release version '{}'. Available versions: {}".format(
             version,
@@ -229,7 +229,7 @@ _http_archive = rule(
     },
 )
 
-def _host_arch() -> "string":
+def _host_arch() -> str:
     arch = host_info().arch
     if arch.is_x86_64:
         return "x86_64"
@@ -244,7 +244,7 @@ def _host_arch() -> "string":
     else:
         fail("Unsupported host architecture.")
 
-def _host_os() -> "string":
+def _host_os() -> str:
     os = host_info().os
     if os.is_freebsd:
         return "freebsd"
@@ -258,10 +258,10 @@ def _host_os() -> "string":
         fail("Unsupported host os.")
 
 def download_zig_distribution(
-        name: "string",
-        version: "string",
-        arch: [None, "string"] = None,
-        os: [None, "string"] = None):
+        name: str,
+        version: str,
+        arch: [None, str] = None,
+        os: [None, str] = None):
     if arch == None:
         arch = _host_arch()
     if os == None:
@@ -283,7 +283,7 @@ def download_zig_distribution(
         os = os,
     )
 
-def _get_linker_type(os: "string") -> "string":
+def _get_linker_type(os: str) -> str:
     if os == "linux":
         return "gnu"
     elif os == "macos" or os == "freebsd":

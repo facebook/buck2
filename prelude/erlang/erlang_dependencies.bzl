@@ -14,7 +14,7 @@ load(
 
 ErlAppDependencies = {"string": Dependency}
 
-def check_dependencies(in_deps: list[Dependency], allowlist: "list") -> list[Dependency]:
+def check_dependencies(in_deps: list[Dependency], allowlist: list) -> list[Dependency]:
     """ filter valid dependencies
 
     check all dependencies for validity and collect only the relevant ones

@@ -12,7 +12,7 @@ load(":android_toolchain.bzl", "AndroidToolchainInfo")
 
 JAVA_PACKAGE_FILENAME = "java_package.txt"
 
-def _convert_to_artifact_dir(ctx: AnalysisContext, attr: [Dependency, "dict", "artifact", None], attr_name: str) -> ["artifact", None]:
+def _convert_to_artifact_dir(ctx: AnalysisContext, attr: [Dependency, dict, "artifact", None], attr_name: str) -> ["artifact", None]:
     if type(attr) == "dependency":
         expect(len(attr[DefaultInfo].default_outputs) == 1, "Expect one default output from build dep of attr {}!".format(attr_name))
         return attr[DefaultInfo].default_outputs[0]

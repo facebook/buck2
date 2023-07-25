@@ -35,8 +35,8 @@ def _process_classpath(
         actions: "actions",
         classpath_args: cmd_args,
         cmd: cmd_args,
-        args_file_name: "string",
-        option_name: "string"):
+        args_file_name: str,
+        option_name: str):
     # write joined classpath string into args file
     classpath_args_file, _ = actions.write(
         args_file_name,
@@ -111,7 +111,7 @@ def _process_plugins(
             "--javac_processors_classpath_file",
         )
 
-def _build_classpath(actions: "actions", deps: list[Dependency], additional_classpath_entries: list["artifact"], classpath_args_projection: "string") -> [cmd_args, None]:
+def _build_classpath(actions: "actions", deps: list[Dependency], additional_classpath_entries: list["artifact"], classpath_args_projection: str) -> [cmd_args, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
 
     if additional_classpath_entries or compiling_deps_tset:

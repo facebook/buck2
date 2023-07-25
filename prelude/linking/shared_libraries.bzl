@@ -37,7 +37,7 @@ SharedLibraryInfo = provider(fields = [
     "set",  # [SharedLibrariesTSet.type, None]
 ])
 
-def _get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo.type) -> "list":
+def _get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo.type) -> list:
     if cxx_toolchain.strip_flags_info and cxx_toolchain.strip_flags_info.strip_non_global_flags:
         return cxx_toolchain.strip_flags_info.strip_non_global_flags
 

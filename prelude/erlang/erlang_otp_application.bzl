@@ -49,12 +49,12 @@ otp_applications = [
     "erts",
 ]
 
-def gen_otp_applications() -> "NoneType":
+def gen_otp_applications() -> None:
     for name in otp_applications:
         _erlang_otp_application_rule(name = name, version = "dynamic", visibility = ["PUBLIC"])
     return None
 
-def normalize_application(name: "string") -> "string":
+def normalize_application(name: str) -> str:
     """Translate OPT application names to internal targets so users can write
     `kernel` instead of `prelude//erlang/applications:kernel`
     """
