@@ -202,7 +202,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// ```text
     /// def _impl_resolved_attrs_lazy(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
-    ///     attrs = node.resolved_attrs_lazy() # cache once
+    ///     attrs = node.resolved_attrs_lazy(ctx) # cache once
     ///     ctx.output.print(attrs.get("some_attributes").value())
     ///     ctx.output.print(attrs.get("some_attribute").label)
     /// ```
@@ -592,7 +592,7 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
     ///
     /// def _impl_resolved_attrs_lazy(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
-    ///     attrs = node.resolved_attrs_lazy() # cache once
+    ///     attrs = node.resolved_attrs_lazy(ctx) # cache once
     ///     ctx.output.print(attrs.get("some_attribute").value())
     ///     ctx.output.print(attrs.get("some_attribute").label)
     /// ```
