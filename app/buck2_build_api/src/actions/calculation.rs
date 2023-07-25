@@ -395,16 +395,16 @@ pub async fn command_details(
                 .into()
             }
         }
-        CommandExecutionKind::Remote { digest } => buck2_data::RemoteCommand {
+        CommandExecutionKind::Remote { digest, queue_time } => buck2_data::RemoteCommand {
             action_digest: digest.to_string(),
             cache_hit: false,
-            queue_time: command.timing.re_queue_time.and_then(|d| d.try_into().ok()),
+            queue_time: (*queue_time).try_into().ok(),
         }
         .into(),
         CommandExecutionKind::ActionCache { digest } => buck2_data::RemoteCommand {
             action_digest: digest.to_string(),
             cache_hit: true,
-            queue_time: command.timing.re_queue_time.and_then(|d| d.try_into().ok()),
+            queue_time: None,
         }
         .into(),
         CommandExecutionKind::LocalWorkerInit { command, env } => buck2_data::WorkerInitCommand {

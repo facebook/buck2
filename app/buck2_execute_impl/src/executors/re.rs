@@ -21,7 +21,6 @@ use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
-use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::output::CommandStdStreams;
@@ -165,9 +164,7 @@ impl ReExecutor {
                 // NOTE: We don't get stdout / stderr from RE when this happens, so the best we can
                 // do here is just pass on the error.
                 manager.failure(
-                    CommandExecutionKind::Remote {
-                        digest: action_digest.dupe(),
-                    },
+                    response.execution_kind(action_digest.dupe()),
                     IndexMap::new(),
                     CommandStdStreams::Local {
                         stdout: Vec::new(),
@@ -179,9 +176,7 @@ impl ReExecutor {
                 )
             } else if is_timeout_error(&response.error) && request.timeout().is_some() {
                 manager.timeout(
-                    CommandExecutionKind::Remote {
-                        digest: action_digest.dupe(),
-                    },
+                    response.execution_kind(action_digest.dupe()),
                     // Checked above: we fallthrough to the error path if we didn't set a timeout
                     // and yet received one.
                     request.timeout().unwrap(),
@@ -227,9 +222,7 @@ impl ReExecutor {
 
         if action_result.exit_code != 0 {
             return ControlFlow::Break(manager.failure(
-                CommandExecutionKind::Remote {
-                    digest: action_digest.dupe(),
-                },
+                response.execution_kind(action_digest.dupe()),
                 // TODO: we want to expose RE outputs even when actions fail,
                 //   this will allow tpx to correctly retrieve the output of
                 //   failing tests running on RE. See D34344489 for context.

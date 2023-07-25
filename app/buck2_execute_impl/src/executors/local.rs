@@ -443,7 +443,6 @@ impl LocalExecutor {
 
                 let timing = CommandExecutionMetadata {
                     wall_time: execution_time,
-                    re_queue_time: None,
                     execution_time,
                     start_time,
                     execution_stats: None, // We fill this in later if available.

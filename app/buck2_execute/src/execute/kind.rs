@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::time::Duration;
+
 use derive_more::Display;
 use sorted_vector_map::SortedVectorMap;
 
@@ -25,7 +27,13 @@ pub enum CommandExecutionKind {
     },
     /// This action was executed via a remote executor.
     #[display(fmt = "remote")]
-    Remote { digest: ActionDigest },
+    Remote {
+        digest: ActionDigest,
+
+        /// How long this command queued in RE. This value excludes execution time, i.e. for action cache hit,
+        /// this value represents how long a request has to wait for server to handle.
+        queue_time: Duration,
+    },
     /// This action was served by the action cache and not executed.
     #[display(fmt = "action_cache")]
     ActionCache { digest: ActionDigest },
