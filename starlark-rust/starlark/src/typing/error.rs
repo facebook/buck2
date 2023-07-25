@@ -22,6 +22,7 @@ use crate::codemap::Span;
 use crate::eval::compiler::EvalException;
 
 /// Internal error, bug in the typechecker.
+#[derive(Debug)]
 pub(crate) struct InternalError(EvalException);
 
 impl InternalError {

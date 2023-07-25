@@ -423,9 +423,7 @@ impl Compiler<'_, '_, '_> {
                     .1
                     .unwrap_or_else(|| panic!("unresolved binding: `{}`", name));
                 let binding = self.scope_data.get_binding(binding_id);
-                let slot = binding
-                    .slot
-                    .unwrap_or_else(|| panic!("unresolved binding: `{}`", name));
+                let slot = binding.resolved_slot(&self.codemap).unwrap();
                 match (slot, binding.captured) {
                     (Slot::Local(slot), Captured::No) => {
                         AssignCompiledValue::Local(LocalSlotId(slot.0))
@@ -471,7 +469,7 @@ impl Compiler<'_, '_, '_> {
                 })
             }
             AssignP::Identifier(ident) => {
-                let (slot, captured) = self.scope_data.get_assign_ident_slot(ident);
+                let (slot, captured) = self.scope_data.get_assign_ident_slot(ident, &self.codemap);
                 match (slot, captured) {
                     (Slot::Local(slot), Captured::No) => {
                         let lhs = IrSpanned {

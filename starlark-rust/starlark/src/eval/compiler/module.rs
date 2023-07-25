@@ -72,7 +72,9 @@ impl<'v> Compiler<'v, '_, '_> {
         };
 
         for (our_name, their_name) in &load.node.args {
-            let (slot, _captured) = self.scope_data.get_assign_ident_slot(our_name);
+            let (slot, _captured) = self
+                .scope_data
+                .get_assign_ident_slot(our_name, &self.codemap);
             let slot = match slot {
                 Slot::Local(..) => unreachable!("symbol need to be resolved to module"),
                 Slot::Module(slot) => slot,

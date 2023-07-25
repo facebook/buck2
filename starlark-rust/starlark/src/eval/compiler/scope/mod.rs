@@ -62,6 +62,7 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::ast::Visibility;
 use crate::syntax::uniplate::VisitMut;
 use crate::syntax::Dialect;
+use crate::typing::error::InternalError;
 use crate::typing::Interface;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
@@ -317,8 +318,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         for (x, binding_id) in locals {
             let binding = scope_data.mut_binding(binding_id);
             let slot = module.add_name_visibility(x, binding.vis);
-            let old_slot = mem::replace(&mut binding.slot, Some(Slot::Module(slot)));
-            assert!(old_slot.is_none());
+            binding.init_slot(Slot::Module(slot), &codemap).unwrap();
             let old_binding = module_bindings.insert_hashed(x.get_hashed(), binding_id);
             assert!(old_binding.is_none());
         }
@@ -331,6 +331,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                 TopLevelStmtIndex(i),
                 frozen_heap,
                 dialect,
+                &codemap,
             );
         }
         let mut scope = ModuleScopeBuilder {
@@ -439,6 +440,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         top_level_stmt_index: TopLevelStmtIndex,
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
+        codemap: &CodeMap,
     ) {
         let params: Vec<&mut AstAssignIdentP<_>> = params
             .iter_mut()
@@ -478,8 +480,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         for (name, binding_id) in locals.into_iter() {
             let slot = scope_data.mut_scope(scope_id).add_name(name, binding_id);
             let binding = scope_data.mut_binding(binding_id);
-            let old_slot = mem::replace(&mut binding.slot, Some(Slot::Local(slot)));
-            assert!(old_slot.is_none());
+            binding.init_slot(Slot::Local(slot), codemap).unwrap();
         }
     }
 
@@ -489,6 +490,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         top_level_stmt_index: TopLevelStmtIndex,
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
+        codemap: &CodeMap,
     ) {
         if let StmtP::Def(DefP {
             name: _,
@@ -508,6 +510,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                 top_level_stmt_index,
                 frozen_heap,
                 dialect,
+                codemap,
             );
         }
 
@@ -518,6 +521,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                 top_level_stmt_index,
                 frozen_heap,
                 dialect,
+                codemap,
             ),
             VisitMut::Stmt(s) => Self::collect_defines_recursively(
                 scope_data,
@@ -525,6 +529,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                 top_level_stmt_index,
                 frozen_heap,
                 dialect,
+                codemap,
             ),
         });
     }
@@ -535,6 +540,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         top_level_stmt_index: TopLevelStmtIndex,
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
+        codemap: &CodeMap,
     ) {
         if let ExprP::Lambda(LambdaP {
             params,
@@ -550,6 +556,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                 top_level_stmt_index,
                 frozen_heap,
                 dialect,
+                codemap,
             );
         }
 
@@ -560,6 +567,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                 top_level_stmt_index,
                 frozen_heap,
                 dialect,
+                codemap,
             )
         });
     }
@@ -857,7 +865,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                 self.unscopes.last_mut().unwrap(),
             );
             let binding = self.scope_data.mut_binding(binding_id);
-            assert!(mem::replace(&mut binding.slot, Some(Slot::Local(slot))).is_none());
+            binding.init_slot(Slot::Local(slot), &self.codemap).unwrap();
         }
     }
 
@@ -891,7 +899,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                 if self.locals.len() > 1 {
                     binding.captured = Captured::Yes;
                 }
-                Some((binding.slot.unwrap(), binding_id))
+                Some((binding.resolved_slot(&self.codemap).unwrap(), binding_id))
             }
             None => None,
         }
@@ -1131,7 +1139,7 @@ pub(crate) struct Binding<'f> {
     pub(crate) vis: Visibility,
     /// `slot` is `None` when it is not initialized yet.
     /// When analysis is completed, `slot` is always `Some`.
-    pub(crate) slot: Option<Slot>,
+    slot: Option<Slot>,
     pub(crate) assign_count: AssignCount,
     // Whether a variable defined in a scope gets captured in nested def or lambda scope.
     // (Comprehension scopes do not count, because they are considered
@@ -1155,6 +1163,37 @@ impl<'f> Binding<'f> {
             assign_count,
             captured: Captured::No,
             _marker: PhantomData,
+        }
+    }
+
+    fn span(&self) -> Span {
+        match self.source {
+            BindingSource::Source(span, _) => span,
+            BindingSource::FromModule => Span::default(),
+        }
+    }
+
+    /// Get resolved slot after analysis is completed.
+    pub(crate) fn resolved_slot(&self, codemap: &CodeMap) -> Result<Slot, InternalError> {
+        match self.slot {
+            Some(slot) => Ok(slot),
+            None => Err(InternalError::msg(
+                "slot is not resolved",
+                self.span(),
+                codemap,
+            )),
+        }
+    }
+
+    /// Initialize the slot during analysis.
+    pub(crate) fn init_slot(&mut self, slot: Slot, codemap: &CodeMap) -> Result<(), InternalError> {
+        match mem::replace(&mut self.slot, Some(slot)) {
+            Some(_) => Err(InternalError::msg(
+                "slot is already assigned",
+                self.span(),
+                codemap,
+            )),
+            None => Ok(()),
         }
     }
 }
@@ -1218,14 +1257,15 @@ impl<'f> ModuleScopeData<'f> {
     }
 
     /// Get resolved slot for assigning identifier.
-    pub(crate) fn get_assign_ident_slot(&self, ident: &CstAssignIdent) -> (Slot, Captured) {
+    pub(crate) fn get_assign_ident_slot(
+        &self,
+        ident: &CstAssignIdent,
+        codemap: &CodeMap,
+    ) -> (Slot, Captured) {
         let binding_id = ident.1.expect("binding not assigned for ident");
         let binding = self.get_binding(binding_id);
-        let slot = binding.slot;
-        (
-            slot.expect("binding slot is not initialized"),
-            binding.captured,
-        )
+        let slot = binding.resolved_slot(codemap).unwrap();
+        (slot, binding.captured)
     }
 }
 
