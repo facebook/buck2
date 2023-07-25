@@ -48,7 +48,7 @@ load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibrar
 load(":source_db.bzl", "create_python_source_db_info", "create_source_db", "create_source_db_no_deps")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
-def dest_prefix(label: "label", base_module: [None, str]) -> str:
+def dest_prefix(label: Label, base_module: [None, str]) -> str:
     """
     Find the prefix to use for placing files inside of the python link tree
 
@@ -68,7 +68,7 @@ def dest_prefix(label: "label", base_module: [None, str]) -> str:
     return prefix
 
 def qualify_srcs(
-        label: "label",
+        label: Label,
         base_module: [None, str],
         srcs: dict[str, "_a"]) -> dict[str, "_a"]:
     """
@@ -90,7 +90,7 @@ def qualify_srcs(
     return {paths.normalize(prefix + dest): src for dest, src in srcs.items()}
 
 def create_python_needed_coverage_info(
-        label: "label",
+        label: Label,
         base_module: [None, str],
         srcs: list[str]) -> PythonNeededCoverageInfo.type:
     prefix = dest_prefix(label, base_module)

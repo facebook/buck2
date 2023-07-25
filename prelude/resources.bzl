@@ -14,9 +14,9 @@ ResourceInfo = provider(fields = [
 ])
 
 def gather_resources(
-        label: "label",
+        label: Label,
         resources: dict[str, ("artifact", list["_arglike"])] = {},
-        deps: list[Dependency] = []) -> dict["label", dict[str, ("artifact", list["_arglike"])]]:
+        deps: list[Dependency] = []) -> dict[Label, dict[str, ("artifact", list["_arglike"])]]:
     """
     Return the resources for this rule and its transitive deps.
     """

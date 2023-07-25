@@ -52,7 +52,7 @@ JuliaLibraryInfo = provider(fields = [
 
 def create_julia_library_info(
         actions: "actions",
-        label: "label",
+        label: Label,
         uuid: str = "",
         src_labels: "" = [],
         project_toml: "" = None,

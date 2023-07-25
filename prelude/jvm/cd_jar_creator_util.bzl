@@ -95,16 +95,16 @@ OutputPaths = record(
     scratch = "artifact",
 )
 
-def qualified_name_with_subtarget(label: "label") -> str:
+def qualified_name_with_subtarget(label: Label) -> str:
     if label.sub_target:
         return "{}:{}[{}]".format(label.path, label.name, label.sub_target[0])
     return "{}:{}".format(label.path, label.name)
 
 # Converted to str so that we get the right result when written as json.
-def base_qualified_name(label: "label") -> str:
+def base_qualified_name(label: Label) -> str:
     return "{}:{}".format(label.path, label.name)
 
-def get_qualified_name(label: "label", target_type: TargetType.type) -> str:
+def get_qualified_name(label: Label, target_type: TargetType.type) -> str:
     # These should match the names for subtargets in java_library.bzl
     return {
         TargetType("library"): base_qualified_name(label),
@@ -112,7 +112,7 @@ def get_qualified_name(label: "label", target_type: TargetType.type) -> str:
         TargetType("source_only_abi"): base_qualified_name(label) + "[source-only-abi]",
     }[target_type]
 
-def define_output_paths(actions: "actions", prefix: [str, None], label: "label") -> OutputPaths.type:
+def define_output_paths(actions: "actions", prefix: [str, None], label: Label) -> OutputPaths.type:
     # currently, javacd requires that at least some outputs are in the root
     # output dir. so we put all of them there. If javacd is updated we
     # could consolidate some of these into one subdir.
@@ -267,7 +267,7 @@ def encode_base_jar_command(
         target_type: TargetType.type,
         output_paths: OutputPaths.type,
         remove_classes: list[str],
-        label: "label",
+        label: Label,
         compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
         classpath_jars_tag: "artifact_tag",
         bootclasspath_entries: list["artifact"],
@@ -387,9 +387,9 @@ def prepare_cd_exe(
         main_class: str,
         worker: WorkerInfo.type,
         debug_port: [int, None],
-        debug_target: ["label", None],
+        debug_target: [Label, None],
         extra_jvm_args: list[str],
-        extra_jvm_args_target: ["label", None]) -> tuple.type:
+        extra_jvm_args_target: [Label, None]) -> tuple.type:
     local_only = False
     jvm_args = ["-XX:-MaxFDLimit"]
 
@@ -456,7 +456,7 @@ def prepare_final_jar(
 def generate_abi_jars(
         actions: "actions",
         actions_identifier: [str, None],
-        label: "label",
+        label: Label,
         abi_generation_mode: [AbiGenerationMode.type, None],
         additional_compiled_srcs: ["artifact", None],
         is_building_android_binary: bool,

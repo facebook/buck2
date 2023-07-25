@@ -528,7 +528,7 @@ def _dependency_args(
         link_style: LinkStyle.type,
         is_check: bool,
         is_rustdoc_test: bool,
-        extra_transitive_deps: dict["artifact", CrateName.type]) -> (cmd_args, list[(CrateName.type, "label")]):
+        extra_transitive_deps: dict["artifact", CrateName.type]) -> (cmd_args, list[(CrateName.type, Label)]):
     args = cmd_args()
     transitive_deps = {}
     deps = []
@@ -821,7 +821,7 @@ def _linker_args(
 # which provided the primary disambiguator for two otherwise identically named
 # crates. The hash is added to the filename to give them a lower likelihood of
 # duplicate names, but it doesn't matter if they collide.
-def _metadata(label: "label") -> (str, str):
+def _metadata(label: Label) -> (str, str):
     label = str(label.raw_target())
     h = hash(label)
     if h < 0:
@@ -930,7 +930,7 @@ def _rustc_invoke(
         outputs: list["artifact"],
         short_cmd: str,
         is_binary: bool,
-        crate_map: list[(CrateName.type, "label")],
+        crate_map: list[(CrateName.type, Label)],
         env: dict[str, ["resolved_macro", "artifact"]] = {}) -> (dict[str, "artifact"], ["artifact", None]):
     toolchain_info = compile_ctx.toolchain_info
 

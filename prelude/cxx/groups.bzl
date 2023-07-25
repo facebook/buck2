@@ -190,7 +190,7 @@ def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[[BuildTarg
         return [_parse_filter(entry)]
     return []
 
-def compute_mappings(groups: list[Group.type], graph_map: dict["label", "_b"]) -> dict["label", str]:
+def compute_mappings(groups: list[Group.type], graph_map: dict[Label, "_b"]) -> dict[Label, str]:
     """
     Returns the group mappings {target label -> group name} based on the provided groups and graph.
     """
@@ -270,7 +270,7 @@ def _update_target_to_group_mapping(
         mapping,  # GroupMapping.type,
         target):  # Label
     def assign_target_to_group(
-            target: "label",
+            target: Label,
             node_traversal: bool) -> bool:
         # If the target hasn't already been assigned to a group, assign it to the
         # first group claiming the target. Return whether the target was already assigned.

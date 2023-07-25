@@ -134,7 +134,7 @@ OmnibusSharedLibraries = record(
     dispositions = field({"label": Disposition.type}),
 )
 
-def get_omnibus_graph(graph: LinkableGraph.type, roots: dict["label", AnnotatedLinkableRoot.type], excluded: dict["label", None]) -> OmnibusGraph.type:
+def get_omnibus_graph(graph: LinkableGraph.type, roots: dict[Label, AnnotatedLinkableRoot.type], excluded: dict[Label, None]) -> OmnibusGraph.type:
     graph_nodes = graph.nodes.traverse()
     nodes = {}
     for node in filter(None, graph_nodes):
@@ -155,7 +155,7 @@ def get_omnibus_graph(graph: LinkableGraph.type, roots: dict["label", AnnotatedL
 
     return OmnibusGraph(nodes = nodes, roots = roots, excluded = excluded)
 
-def get_roots(label: "label", deps: list[Dependency]) -> dict["label", AnnotatedLinkableRoot.type]:
+def get_roots(label: Label, deps: list[Dependency]) -> dict[Label, AnnotatedLinkableRoot.type]:
     roots = {}
     for dep in deps:
         if LinkableRootInfo in dep:
@@ -165,7 +165,7 @@ def get_roots(label: "label", deps: list[Dependency]) -> dict["label", Annotated
             )
     return roots
 
-def get_excluded(deps: list[Dependency] = []) -> dict["label", None]:
+def get_excluded(deps: list[Dependency] = []) -> dict[Label, None]:
     excluded_nodes = {}
     for dep in deps:
         dep_info = linkable_graph(dep)
@@ -318,7 +318,7 @@ def _exclusions_from_env(env: OmnibusEnvironment.type, graph: OmnibusGraph.type)
 
     return {label: None for label in excluded}
 
-def _is_excluded_by_environment(label: "label", env: OmnibusEnvironment.type) -> bool:
+def _is_excluded_by_environment(label: Label, env: OmnibusEnvironment.type) -> bool:
     return label.raw_target() in env.exclusions
 
 def _omnibus_soname(ctx):
@@ -337,28 +337,28 @@ def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: list[""] = []) -> 
     return link_result.linked_object.output
 
 def _link_deps(
-        link_infos: dict["label", LinkableNode.type],
-        deps: list["label"],
-        pic_behavior: PicBehavior.type) -> list["label"]:
+        link_infos: dict[Label, LinkableNode.type],
+        deps: list[Label],
+        pic_behavior: PicBehavior.type) -> list[Label]:
     """
     Return transitive deps required to link dynamically against the given deps.
     This will following through deps of statically linked inputs and exported
     deps of everything else (see https://fburl.com/diffusion/rartsbkw from v1).
     """
 
-    def find_deps(node: "label"):
+    def find_deps(node: Label):
         return get_deps_for_link(link_infos[node], LinkStyle("shared"), pic_behavior)
 
     return breadth_first_traversal_by(link_infos, deps, find_deps)
 
 def all_deps(
-        link_infos: dict["label", LinkableNode.type],
-        roots: list["label"]) -> list["label"]:
+        link_infos: dict[Label, LinkableNode.type],
+        roots: list[Label]) -> list[Label]:
     """
     Return all transitive deps from following the given nodes.
     """
 
-    def find_transitive_deps(node: "label"):
+    def find_transitive_deps(node: Label):
         return link_infos[node].deps + link_infos[node].exported_deps
 
     all_deps = breadth_first_traversal_by(link_infos, roots, find_transitive_deps)
@@ -370,8 +370,8 @@ def _create_root(
         spec: OmnibusSpec.type,
         annotated_root_products,
         root: LinkableRootInfo.type,
-        label: "label",
-        link_deps: list["label"],
+        label: Label,
+        link_deps: list[Label],
         omnibus: "artifact",
         pic_behavior: PicBehavior.type,
         extra_ldflags: list[""] = [],
@@ -833,7 +833,7 @@ def _build_omnibus_spec(
         dispositions = dispositions,
     )
 
-def _implicit_exclusion_roots(ctx: AnalysisContext, graph: OmnibusGraph.type) -> list["label"]:
+def _implicit_exclusion_roots(ctx: AnalysisContext, graph: OmnibusGraph.type) -> list[Label]:
     env = ctx.attrs._omnibus_environment
     if not env:
         return []
@@ -847,7 +847,7 @@ def _implicit_exclusion_roots(ctx: AnalysisContext, graph: OmnibusGraph.type) ->
 
 def _ordered_roots(
         spec: OmnibusSpec.type,
-        pic_behavior: PicBehavior.type) -> list[("label", AnnotatedLinkableRoot.type, list["label"])]:
+        pic_behavior: PicBehavior.type) -> list[(Label, AnnotatedLinkableRoot.type, list[Label])]:
     """
     Return information needed to link the roots nodes.
     """

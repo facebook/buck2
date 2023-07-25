@@ -46,7 +46,7 @@ def gather_link_group_libs(
     )
 
 def merge_link_group_lib_info(
-        label: ["label", None] = None,
+        label: [Label, None] = None,
         name: [str, None] = None,
         shared_libs: [dict[str, LinkedObject.type], None] = None,
         shared_link_infos: [LinkInfos.type, None] = None,

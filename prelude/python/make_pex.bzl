@@ -486,7 +486,7 @@ def _pex_modules_args(
 
     return cmd
 
-def _hidden_resources_error_message(current_target: "label", hidden_resources) -> str:
+def _hidden_resources_error_message(current_target: Label, hidden_resources) -> str:
     """
     Friendlier error message about putting non-python resources into standalone bins
     """

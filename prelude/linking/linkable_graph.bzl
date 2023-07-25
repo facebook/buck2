@@ -205,7 +205,7 @@ def get_link_info(
 def get_deps_for_link(
         node: LinkableNode.type,
         link_style: LinkStyle.type,
-        pic_behavior: PicBehavior.type) -> list["label"]:
+        pic_behavior: PicBehavior.type) -> list[Label]:
     """
     Return deps to follow when linking against this node with the given link
     style.

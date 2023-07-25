@@ -124,7 +124,7 @@ def _deserialize_linkable(linkable: (str, "_payload")) -> "_Linkable":
 
     fail("Invalid linkable type: {}".format(typ))
 
-def _deserialize_link_info(actions: "actions", label: "label", info) -> LinkInfo.type:
+def _deserialize_link_info(actions: "actions", label: Label, info) -> LinkInfo.type:
     name, pre_flags, post_flags, linkables, external_debug_info = info
     return LinkInfo(
         name = name,
@@ -142,7 +142,7 @@ def _deserialize_link_info(actions: "actions", label: "label", info) -> LinkInfo
 
 def _deserialize_link_args(
         actions: "actions",
-        label: "label",
+        label: Label,
         link: (str, "_payload")) -> LinkArgs.type:
     typ, payload = link
 
@@ -154,7 +154,7 @@ def _deserialize_link_args(
 
     fail("invalid link args type: {}".format(typ))
 
-def deserialize_anon_attrs(actions: "actions", label: "label", attrs: "struct") -> dict[str, ""]:
+def deserialize_anon_attrs(actions: "actions", label: Label, attrs: "struct") -> dict[str, ""]:
     return dict(
         output = attrs.output,
         links = [_deserialize_link_args(actions, label, link) for link in attrs.links],

@@ -43,7 +43,7 @@ def create_jar_artifact_kotlincd(
         java_toolchain: "JavaToolchainInfo",
         kotlin_toolchain: "KotlinToolchainInfo",
         javac_tool: [str, "RunInfo", "artifact", None],
-        label: "label",
+        label: Label,
         srcs: list["artifact"],
         remove_classes: list[str],
         resources: list["artifact"],

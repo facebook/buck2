@@ -116,7 +116,7 @@ def get_filtered_resources(
         root: Label,
         resource_graph_node_map_func,
         resource_group: [str, None],
-        resource_group_mappings: [dict["label", str], None]) -> (list[AppleResourceSpec.type], list[AppleAssetCatalogSpec.type], list[AppleCoreDataSpec.type], list[SceneKitAssetsSpec.type]):
+        resource_group_mappings: [dict[Label, str], None]) -> (list[AppleResourceSpec.type], list[AppleAssetCatalogSpec.type], list[AppleCoreDataSpec.type], list[SceneKitAssetsSpec.type]):
     """
     Walks the provided DAG and collects resources matching resource groups definition.
     """
