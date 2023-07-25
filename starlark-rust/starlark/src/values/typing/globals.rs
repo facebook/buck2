@@ -17,11 +17,13 @@
 
 use crate::environment::GlobalsBuilder;
 use crate::values::typing::any::TypingAny;
+use crate::values::typing::never::TypingNever;
 use crate::values::typing::type_compiled::register_eval_type;
 
 pub(crate) fn register_typing(globals: &mut GlobalsBuilder) {
     register_eval_type(globals);
     globals.struct_("typing", |globals| {
         globals.set("Any", TypingAny);
+        globals.set("Never", TypingNever);
     });
 }

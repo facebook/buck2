@@ -18,4 +18,5 @@
 pub(crate) mod any;
 pub(crate) mod globals;
 pub(crate) mod macro_refs;
+pub(crate) mod never;
 pub(crate) mod type_compiled;
