@@ -68,6 +68,7 @@ use crate::execute::manager::CommandExecutionManager;
 use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
+use crate::re::convert::platform_to_proto;
 use crate::re::metadata::RemoteExecutionMetadataExt;
 use crate::re::stats::OpStats;
 use crate::re::stats::RemoteExecutionClientOpStats;
@@ -808,7 +809,7 @@ impl RemoteExecutionClientImpl {
                 }
                 Stage::EXECUTING => re_stage::Stage::Execute(ReExecute {
                     action_digest,
-                    platform: Some(transform_platform(platform)),
+                    platform: Some(platform_to_proto(platform)),
                     action_key: action_key.clone(),
                 }),
                 Stage::UPLOADING_OUTPUT => {
@@ -1092,19 +1093,6 @@ impl RemoteExecutionClientImpl {
             .await?;
 
         Ok(())
-    }
-}
-
-fn transform_platform(platform: &remote_execution::Platform) -> buck2_data::RePlatform {
-    buck2_data::RePlatform {
-        properties: platform
-            .properties
-            .iter()
-            .map(|property| buck2_data::re_platform::Property {
-                name: property.name.clone(),
-                value: property.value.clone(),
-            })
-            .collect(),
     }
 }
 
