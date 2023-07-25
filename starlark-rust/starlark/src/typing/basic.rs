@@ -28,6 +28,7 @@ use crate::typing::TypingAttr;
 use crate::typing::TypingOracleCtx;
 use crate::values::none::NoneType;
 use crate::values::string::StarlarkStr;
+use crate::values::typing::any::TypingAny;
 use crate::values::StarlarkValue;
 
 /// Type that is not a union.
@@ -124,7 +125,7 @@ impl TyBasic {
 impl Display for TyBasic {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TyBasic::Any => write!(f, "\"\""),
+            TyBasic::Any => write!(f, "{}", TypingAny::TYPE),
             TyBasic::Name(x) => write!(f, "{}", x),
             TyBasic::StarlarkValue(x) => write!(f, "{}", x),
             TyBasic::Iter(x) => write!(f, "iter({})", x),

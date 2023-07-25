@@ -10,7 +10,7 @@ def foo(**kwargs):
 foo(**{1: "x"})
 
 Error:
-error: Expected type `dict[str.type, ""]` but got `dict[int.type, str.type]`
+error: Expected type `dict[str.type, typing.Any]` but got `dict[int.type, str.type]`
  --> filename:4:7
   |
 4 | foo(**{1: "x"})

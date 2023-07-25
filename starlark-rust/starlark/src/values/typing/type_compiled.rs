@@ -1153,9 +1153,9 @@ f()
             assert_eq!(expected, ty.to_string(), "for `{}`", ty0);
         }
 
-        t("\"\"", "\"\"");
-        t("list[\"\"]", "list.type");
-        t("list[\"\"]", "[\"\"]");
+        t("typing.Any", "\"\"");
+        t("list[typing.Any]", "list.type");
+        t("list[typing.Any]", "[\"\"]");
         t("None", "None");
         t("\"a\" | \"b\"", "[\"a\", \"b\"]");
     }

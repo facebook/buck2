@@ -39,7 +39,7 @@ use crate::values::StarlarkValue;
     ProvidesStaticType,
     NoSerialize
 )]
-#[display(fmt = "typing.Any")]
+#[display(fmt = "{}", Self::TYPE)]
 pub(crate) struct TypingAny;
 
 #[starlark_value(type = "typing.Any")]
