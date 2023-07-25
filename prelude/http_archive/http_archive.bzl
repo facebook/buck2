@@ -110,8 +110,14 @@ def http_archive_impl(ctx: AnalysisContext) -> list["provider"]:
     expect(len(ctx.attrs.vpnless_urls) < 2, "multiple `vpnless_urls` not supported: {}".format(ctx.attrs.vpnless_urls))
 
     # The HTTP download is local so it makes little sense to run actions
-    # remotely, unless we can defer them.
-    local_only = ctx.attrs.sha1 == None
+    # remotely, unless we can defer them. We'll be able to defer if we provide
+    # a digest that the daemon's digest config natively supports.
+    digest_config = ctx.actions.digest_config()
+    prefer_local = True
+    if ctx.attrs.sha1 != None and digest_config.allows_sha1():
+        prefer_local = False
+    elif ctx.attrs.sha256 != None and digest_config.allows_sha256():
+        prefer_local = False
 
     ext_type = _type(ctx)
 
@@ -154,7 +160,7 @@ def http_archive_impl(ctx: AnalysisContext) -> list["provider"]:
         for exclusion in ctx.attrs.excludes:
             create_exclusion_list.append(cmd_args(exclusion, format = "--exclude={}"))
 
-        ctx.actions.run(create_exclusion_list, category = "process_exclusions", local_only = local_only)
+        ctx.actions.run(create_exclusion_list, category = "process_exclusions", prefer_local = prefer_local)
         exclude_flags.append(cmd_args(exclusions, format = "--exclude-from={}"))
         exclude_hidden.append(exclusions)
 
@@ -184,7 +190,7 @@ def http_archive_impl(ctx: AnalysisContext) -> list["provider"]:
     ctx.actions.run(
         cmd_args(interpreter + [script]).hidden(exclude_hidden + [archive, output.as_output()]),
         category = "http_archive",
-        local_only = local_only,
+        prefer_local = prefer_local,
     )
 
     return [DefaultInfo(
