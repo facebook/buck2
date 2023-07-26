@@ -123,11 +123,7 @@ def with_arguments(*args, **kwargs) -> int.type: pass
     }
 
     fn cleanup_types(x: &str) -> String {
-        x.replace("\\\"int\\\"", "int.type")
-            .replace("\\\"bool\\\"", "bool.type")
-            .replace("\\\"string\\\"", "str.type")
-            .replace("Some(Any)", "None")
-            .replace("\\\"_\\\"", "_")
+        x.replace("Some(Any)", "None").replace("\\\"_\\\"", "_")
     }
 
     let expected = expected.documentation().members;
