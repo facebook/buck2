@@ -390,6 +390,11 @@ pub trait StarlarkValue<'v>:
 
     /// Directly invoke a function.
     /// The number of `named` and `names` arguments are guaranteed to be equal.
+    ///
+    /// # Parameters
+    ///
+    /// * `me` - self, but as `Value`, meaning it has unfrozen flag,
+    ///   so it can be stored in a heap.
     fn invoke(
         &self,
         _me: Value<'v>,
@@ -399,10 +404,14 @@ pub trait StarlarkValue<'v>:
         ValueError::unsupported(self, "call()")
     }
 
-    /// Invoke this function as a method (after getattr, so this object might be unbound).
+    /// Invoke this object as a method (after getattr, so this object is unbound).
     ///
-    /// This is an internal operation, and does not need to be implemented
-    /// or used outside of the Starlark crate.
+    /// This is an internal operation, it cannot be used or implemented
+    /// outside of the Starlark crate.
+    ///
+    /// # Parameters
+    ///
+    /// * `this` - the object to invoke the unbound method on
     #[doc(hidden)]
     fn invoke_method(
         &self,
