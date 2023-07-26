@@ -93,7 +93,7 @@ impl TargetName {
         }
 
         if name == "..." {
-            soft_error!("label_is_dot_dot_dot", TargetNameError::DotDotDot.into())?;
+            return Err(TargetNameError::DotDotDot.into());
         }
         if name.contains(',') {
             soft_error!(
