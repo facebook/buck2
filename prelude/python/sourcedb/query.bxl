@@ -60,7 +60,7 @@ def _get_python_library_manifests_from_analysis_result(
 
 def _get_python_library_manifests_from_targets(
         ctx: "bxl_ctx",
-        targets: "target_set") -> [PythonLibraryManifestsTSet.type]:
+        targets: "target_set") -> list[PythonLibraryManifestsTSet.type]:
     return filter(None, [
         _get_python_library_manifests_from_analysis_result(analysis_result)
         for analysis_result in ctx.analysis(targets).values()
@@ -87,7 +87,7 @@ def do_query(
         ctx: "bxl_ctx",
         query: "cqueryctx",
         actions: "actions",
-        target_patterns: "_iterable_of_target_pattern") -> ["configured_target_label"]:
+        target_patterns: "_iterable_of_target_pattern") -> list["configured_target_label"]:
     manifests_of_transitive_dependencies = get_python_library_manifests_tset_from_target_patterns(
         ctx,
         query,

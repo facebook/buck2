@@ -21,7 +21,7 @@ def _abort_on_build_failure(target_label: "target_label", result: "bxl_build_res
 # to the corresponding sourcedb JSON file location.
 def do_build(
         ctx: "bxl_ctx",
-        targets: ["configured_target_label"]) -> {"target_label": "artifact"}:
+        targets: list["configured_target_label"]) -> dict["target_label", "artifact"]:
     # Build sourcedbs of all targets
     configured_sub_targets = [
         configured_sub_target(target, ["source-db-no-deps"])
