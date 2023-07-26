@@ -262,6 +262,7 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
 #[starlark_module]
 pub(crate) fn register_analysis_context(builder: &mut GlobalsBuilder) {
     const AnalysisContext: StarlarkValueAsType<AnalysisContext> = StarlarkValueAsType::new();
+    const AnalysisActions: StarlarkValueAsType<AnalysisActions> = StarlarkValueAsType::new();
 }
 
 pub static ANALYSIS_ACTIONS_METHODS_ACTIONS: LateBinding<fn(&mut MethodsBuilder)> =
