@@ -335,8 +335,19 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list["provider"]:
     outputs.extend(package_symlinks)
     outputs.extend(script_templates)
 
+    # As default output (e.g. used in `$(location )` buck macros), the rule
+    # should output a directory containing symlinks to all scripts and resources
+    # (e.g. shared objects, package configs)
+    output_artifacts = {o.short_path: o for o in outputs}
+    root_output_dir = ctx.actions.symlinked_dir(
+        "__{}__".format(ctx.label.name),
+        output_artifacts,
+    )
+
+    run = cmd_args()
     return [
-        DefaultInfo(default_outputs = outputs),
+        DefaultInfo(default_outputs = [root_output_dir]),
+        RunInfo(args = run),
     ]
 
 # TODO(gustavoavena): parameterize header to print correct error msg
