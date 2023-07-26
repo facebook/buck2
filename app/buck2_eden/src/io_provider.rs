@@ -21,6 +21,7 @@ use buck2_common::file_ops::RawDirEntry;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::io::fs::FsIoProvider;
+use buck2_common::io::fs::ReadUncheckedOptions;
 use buck2_common::io::IoProvider;
 use buck2_core;
 use buck2_core::env_helper::EnvHelper;
@@ -175,9 +176,17 @@ impl IoProvider for EdenIoProvider {
                 };
 
                 if source_control_type == SourceControlType::SYMLINK {
+                    let options = if cfg!(windows) {
+                        // On Windows, Eden will tell us something's a symlink but maybe expose it
+                        // as a file on disk.
+                        ReadUncheckedOptions::Anything
+                    } else {
+                        ReadUncheckedOptions::Symlink
+                    };
+
                     let meta = self
                         .fs
-                        .read_unchecked_symlink(path.clone())
+                        .read_unchecked(path.clone(), options)
                         .await
                         .with_context(|| {
                             format!(

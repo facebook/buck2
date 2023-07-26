@@ -71,14 +71,19 @@ impl FsIoProvider {
     /// Read a symlink at a given path. This method DOES NOT check whether there are any symlinks
     /// somewhere on intermediary components of `path`, so the expectation is that the caller
     /// already has ascertained that there are not.
-    pub async fn read_unchecked_symlink(
+    pub async fn read_unchecked(
         &self,
         path: ProjectRelativePathBuf,
+        options: ReadUncheckedOptions,
     ) -> anyhow::Result<RawPathMetadata<ProjectRelativePathBuf>> {
         let fs = self.fs.dupe();
         let path = path.into_forward_relative_path_buf();
+        let file_digest_config = FileDigestConfig::source(self.cas_digest_config);
         tokio::task::spawn_blocking(move || {
-            Ok(read_unchecked_symlink(fs.root(), path)?.map(ProjectRelativePathBuf::from))
+            Ok(
+                read_unchecked(fs.root(), path, file_digest_config, options)?
+                    .map(ProjectRelativePathBuf::from),
+            )
         })
         .await?
     }
@@ -238,18 +243,7 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
 
     // If we get here that means we never hit a symlink. So, the metadata we have
     let meta = meta.context("Attempted to access empty path")?;
-
-    let meta = if meta.is_dir() {
-        RawPathMetadata::Directory
-    } else {
-        let digest = FileDigest::from_file(&curr.abspath, file_digest_config)
-            .with_context(|| format!("Error collecting file digest for `{}`", curr.path))?;
-        let digest = TrackedFileDigest::new(digest, file_digest_config.as_cas_digest_config());
-        RawPathMetadata::File(FileMetadata {
-            digest,
-            is_executable: is_executable(&meta),
-        })
-    };
+    let meta = convert_metadata(&curr, meta, file_digest_config)?;
 
     if cfg!(test) {
         assert!(curr.abspath.as_os_str().len() <= curr_abspath_capacity);
@@ -257,6 +251,26 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
     }
 
     Ok(Some(meta))
+}
+
+fn convert_metadata(
+    path: &PathAndAbsPath,
+    meta: std::fs::Metadata,
+    file_digest_config: FileDigestConfig,
+) -> anyhow::Result<RawPathMetadata<ForwardRelativePathBuf>> {
+    let meta = if meta.is_dir() {
+        RawPathMetadata::Directory
+    } else {
+        let digest = FileDigest::from_file(&path.abspath, file_digest_config)
+            .with_context(|| format!("Error collecting file digest for `{}`", path.path))?;
+        let digest = TrackedFileDigest::new(digest, file_digest_config.as_cas_digest_config());
+        RawPathMetadata::File(FileMetadata {
+            digest,
+            is_executable: is_executable(&meta),
+        })
+    };
+
+    Ok(meta)
 }
 
 enum ExactPathMetadata {
@@ -324,9 +338,19 @@ impl ExactPathSymlinkMetadata {
     }
 }
 
-fn read_unchecked_symlink<P: AsRef<AbsPath>>(
+#[derive(Clone, Copy, Dupe, Debug)]
+pub enum ReadUncheckedOptions {
+    /// I am trying to read a symlink and nothing else.
+    Symlink,
+    /// I'm happy reading anything.
+    Anything,
+}
+
+fn read_unchecked<P: AsRef<AbsPath>>(
     root: P,
     relpath: ForwardRelativePathBuf,
+    file_digest_config: FileDigestConfig,
+    options: ReadUncheckedOptions,
 ) -> anyhow::Result<RawPathMetadata<ForwardRelativePathBuf>> {
     let abspath = root.as_ref().join(relpath.as_path());
 
@@ -337,9 +361,10 @@ fn read_unchecked_symlink<P: AsRef<AbsPath>>(
 
     match ExactPathMetadata::from_exact_path(&curr)? {
         ExactPathMetadata::DoesNotExist => Err(ReadSymlinkAtExactPathError::DoesNotExist.into()),
-        ExactPathMetadata::FileOrDirectory(..) => {
-            Err(ReadSymlinkAtExactPathError::NotASymlink.into())
-        }
+        ExactPathMetadata::FileOrDirectory(meta) => match options {
+            ReadUncheckedOptions::Symlink => Err(ReadSymlinkAtExactPathError::NotASymlink.into()),
+            ReadUncheckedOptions::Anything => convert_metadata(&curr, meta, file_digest_config),
+        },
         ExactPathMetadata::Symlink(link) => link.to_raw_path_metadata(curr, None),
     }
 }
@@ -454,13 +479,19 @@ mod tests {
     fn test_read_unchecked_symlink() -> anyhow::Result<()> {
         let t = TempDir::new()?;
         let root = AbsPath::new(t.path())?;
+        let digest_config = FileDigestConfig::source(CasDigestConfig::testing_default());
 
         unix::fs::symlink("x", t.path().join("link"))?;
         unix::fs::symlink("/x", t.path().join("abs_link"))?;
         fs_util::write(root.join("file"), "xx")?;
 
         assert_matches!(
-            read_unchecked_symlink(root, ForwardRelativePathBuf::new("link".to_owned())?),
+            read_unchecked(
+                root,
+                ForwardRelativePathBuf::new("link".to_owned())?,
+                digest_config,
+                ReadUncheckedOptions::Symlink
+            ),
             Ok(RawPathMetadata::Symlink {
                 to: RawSymlink::Relative(..),
                 ..
@@ -468,7 +499,12 @@ mod tests {
         );
 
         assert_matches!(
-            read_unchecked_symlink(root, ForwardRelativePathBuf::new("abs_link".to_owned())?),
+            read_unchecked(
+                root,
+                ForwardRelativePathBuf::new("abs_link".to_owned())?,
+                digest_config,
+                ReadUncheckedOptions::Symlink
+            ),
             Ok(RawPathMetadata::Symlink {
                 to: RawSymlink::External(..),
                 ..
@@ -476,14 +512,31 @@ mod tests {
         );
 
         assert_matches!(
-            read_unchecked_symlink(root, ForwardRelativePathBuf::new("file".to_owned())?),
+            read_unchecked(
+                root,
+                ForwardRelativePathBuf::new("file".to_owned())?,
+                digest_config,
+                ReadUncheckedOptions::Symlink
+            ),
             Err(..)
         );
 
         assert_matches!(
-            read_unchecked_symlink(
+            read_unchecked(
                 root,
-                ForwardRelativePathBuf::new("does_not_exist".to_owned())?
+                ForwardRelativePathBuf::new("file".to_owned())?,
+                digest_config,
+                ReadUncheckedOptions::Anything
+            ),
+            Ok(..)
+        );
+
+        assert_matches!(
+            read_unchecked(
+                root,
+                ForwardRelativePathBuf::new("does_not_exist".to_owned())?,
+                digest_config,
+                ReadUncheckedOptions::Symlink,
             ),
             Err(..)
         );
