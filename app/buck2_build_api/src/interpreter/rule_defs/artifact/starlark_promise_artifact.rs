@@ -14,7 +14,7 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -256,7 +256,9 @@ fn promise_artifact_methods(builder: &mut MethodsBuilder) {
     /// the case of source files, or if the artifact has not be used in an action, or if the
     /// action was not created by a rule.
     #[starlark(attribute)]
-    fn owner<'v>(this: &StarlarkPromiseArtifact) -> anyhow::Result<Option<Label>> {
+    fn owner<'v>(
+        this: &StarlarkPromiseArtifact,
+    ) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>> {
         match this.artifact.get() {
             Some(v) => StarlarkArtifactHelpers::owner(v),
             None => Err(PromiseArtifactError::MethodUnsupported(this.clone(), "owner").into()),

@@ -62,7 +62,7 @@ use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::attr_type::AttrType;
@@ -232,7 +232,7 @@ impl AnonTargetKey {
     }
 
     fn coerce_name(x: Value) -> anyhow::Result<TargetLabel> {
-        if let Some(x) = Label::from_value(x) {
+        if let Some(x) = StarlarkConfiguredProvidersLabel::from_value(x) {
             Ok(x.label().target().unconfigured().dupe())
         } else if let Some(x) = x.unpack_str() {
             Self::parse_target_label(x)
@@ -384,12 +384,15 @@ impl AnonTargetKey {
                         let ctx = env.heap().alloc_typed(AnalysisContext::new(
                             eval.heap(),
                             attributes,
-                            Some(eval.heap().alloc_typed(Label::new(
-                                ConfiguredProvidersLabel::new(
-                                    self.0.configured_label(),
-                                    ProvidersName::Default,
-                                ),
-                            ))),
+                            Some(
+                                eval.heap()
+                                    .alloc_typed(StarlarkConfiguredProvidersLabel::new(
+                                        ConfiguredProvidersLabel::new(
+                                            self.0.configured_label(),
+                                            ProvidersName::Default,
+                                        ),
+                                    )),
+                            ),
                             registry,
                             dice.global_data().get_digest_config(),
                         ));

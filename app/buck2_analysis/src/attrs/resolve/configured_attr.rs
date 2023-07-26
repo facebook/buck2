@@ -13,7 +13,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen;
 use buck2_core::buck_path::path::BuckPath;
 use buck2_core::package::PackageLabel;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
@@ -138,7 +138,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
             ConfiguredAttr::SourceLabel(s) => SourceAttrType::resolve_single_label(ctx, s),
             ConfiguredAttr::Label(label) => {
-                let label = Label::new(*label.clone());
+                let label = StarlarkConfiguredProvidersLabel::new(*label.clone());
                 Ok(ctx.heap().alloc(label))
             }
             ConfiguredAttr::Arg(arg) => arg.resolve(ctx),
@@ -171,9 +171,15 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             }
             ConfiguredAttr::SplitTransitionDep(_) => Ok(Dict::TYPE),
             ConfiguredAttr::ConfigurationDep(_) => Ok(starlark::values::string::STRING_TYPE),
-            ConfiguredAttr::Dep(_) => Ok(Label::get_type_value_static().as_str()),
-            ConfiguredAttr::SourceLabel(_) => Ok(Label::get_type_value_static().as_str()),
-            ConfiguredAttr::Label(_) => Ok(Label::get_type_value_static().as_str()),
+            ConfiguredAttr::Dep(_) => {
+                Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
+            }
+            ConfiguredAttr::SourceLabel(_) => {
+                Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
+            }
+            ConfiguredAttr::Label(_) => {
+                Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
+            }
             ConfiguredAttr::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
             ConfiguredAttr::Query(_) => Ok(starlark::values::string::STRING_TYPE),
             ConfiguredAttr::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
@@ -214,16 +220,16 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                     heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
                 }
             },
-            ConfiguredAttr::ExplicitConfiguredDep(d) => {
-                heap.alloc(Label::new(d.as_ref().label.clone()))
-            }
+            ConfiguredAttr::ExplicitConfiguredDep(d) => heap.alloc(
+                StarlarkConfiguredProvidersLabel::new(d.as_ref().label.clone()),
+            ),
             ConfiguredAttr::SplitTransitionDep(t) => {
                 let mut map = SmallMap::with_capacity(t.deps.len());
 
                 for (trans, p) in t.deps.iter() {
                     map.insert_hashed(
                         heap.alloc(trans).get_hashed()?,
-                        heap.alloc(Label::new(p.clone())),
+                        heap.alloc(StarlarkConfiguredProvidersLabel::new(p.clone())),
                     );
                 }
 
@@ -232,9 +238,15 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::ConfigurationDep(c) => {
                 heap.alloc(StarlarkTargetLabel::new(c.as_ref().dupe()))
             }
-            ConfiguredAttr::Dep(d) => heap.alloc(Label::new(d.label.clone())),
-            ConfiguredAttr::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),
-            ConfiguredAttr::Label(l) => heap.alloc(Label::new(*l.clone())),
+            ConfiguredAttr::Dep(d) => {
+                heap.alloc(StarlarkConfiguredProvidersLabel::new(d.label.clone()))
+            }
+            ConfiguredAttr::SourceLabel(s) => {
+                heap.alloc(StarlarkConfiguredProvidersLabel::new(*s.clone()))
+            }
+            ConfiguredAttr::Label(l) => {
+                heap.alloc(StarlarkConfiguredProvidersLabel::new(*l.clone()))
+            }
             ConfiguredAttr::Arg(arg) => heap.alloc(arg.to_string()),
             ConfiguredAttr::Query(query) => heap.alloc(query.query.query()),
             ConfiguredAttr::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(

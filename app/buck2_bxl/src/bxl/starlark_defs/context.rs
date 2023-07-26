@@ -40,8 +40,8 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
-use buck2_interpreter::types::label::Label;
-use buck2_interpreter::types::label::StarlarkProvidersLabel;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -592,7 +592,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
                 many.into_iter()
                     .map(|(t, v)| {
                         Ok((
-                            eval.heap().alloc(Label::new(t)).get_hashed()?,
+                            eval.heap()
+                                .alloc(StarlarkConfiguredProvidersLabel::new(t))
+                                .get_hashed()?,
                             eval.heap().alloc(v),
                         ))
                     })

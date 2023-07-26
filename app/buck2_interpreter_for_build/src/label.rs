@@ -13,7 +13,7 @@ pub mod testing {
     use buck2_core::pattern::pattern_type::TargetPatternExtra;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::target::label::TargetLabel;
-    use buck2_interpreter::types::label::Label;
+    use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
     use buck2_interpreter::types::target_label::StarlarkTargetLabel;
     use starlark::environment::GlobalsBuilder;
     use starlark::eval::Evaluator;
@@ -31,7 +31,10 @@ pub mod testing {
 
     #[starlark_module]
     pub fn label_creator(builder: &mut GlobalsBuilder) {
-        fn label<'v>(s: &str, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Label> {
+        fn label<'v>(
+            s: &str,
+            eval: &mut Evaluator<'v, '_>,
+        ) -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
             let c = BuildContext::from_context(eval)?;
             let target = match ParsedPattern::<ProvidersPatternExtra>::parse_precise(
                 s,
@@ -43,7 +46,7 @@ pub mod testing {
                 }
                 _ => return Err(LabelCreatorError::ExpectedProvider(s.to_owned()).into()),
             };
-            Ok(Label::new(
+            Ok(StarlarkConfiguredProvidersLabel::new(
                 target.configure(ConfigurationData::testing_new()),
             ))
         }

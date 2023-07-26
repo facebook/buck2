@@ -20,7 +20,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_execute::path::artifact_path::ArtifactPath;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -271,14 +271,15 @@ fn declared_artifact_methods(builder: &mut MethodsBuilder) {
     /// the case of source files, or if the artifact has not be used in an action, or if the
     /// action was not created by a rule.
     #[starlark(attribute)]
-    fn owner<'v>(this: &StarlarkDeclaredArtifact) -> anyhow::Result<Option<Label>> {
+    fn owner<'v>(
+        this: &StarlarkDeclaredArtifact,
+    ) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>> {
         match this.artifact.owner() {
             None => Ok(None),
             Some(x) => Ok(match x {
-                BaseDeferredKey::TargetLabel(t) => Some(Label::new(ConfiguredProvidersLabel::new(
-                    t,
-                    ProvidersName::Default,
-                ))),
+                BaseDeferredKey::TargetLabel(t) => Some(StarlarkConfiguredProvidersLabel::new(
+                    ConfiguredProvidersLabel::new(t, ProvidersName::Default),
+                )),
                 BaseDeferredKey::AnonTarget(_) | BaseDeferredKey::BxlLabel(_) => None,
             }),
         }

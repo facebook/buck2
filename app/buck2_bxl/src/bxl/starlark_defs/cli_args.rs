@@ -23,7 +23,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_interpreter::types::label::StarlarkProvidersLabel;
+use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -647,7 +647,7 @@ mod tests {
     use buck2_core::provider::label::testing::ProvidersLabelTestExt;
     use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::target::label::TargetLabel;
-    use buck2_interpreter::types::label::StarlarkProvidersLabel;
+    use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
     use buck2_interpreter::types::target_label::StarlarkTargetLabel;
     use starlark::values::Heap;
     use starlark::values::Value;

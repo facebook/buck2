@@ -15,7 +15,7 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -140,7 +140,7 @@ pub struct AnalysisContext<'v> {
     attrs: ValueOfUnchecked<'v, StructRef<'v>>,
     pub actions: ValueTyped<'v, AnalysisActions<'v>>,
     /// Only `None` when running a `dynamic_output` action from Bxl.
-    label: Option<ValueTyped<'v, Label>>,
+    label: Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>,
 }
 
 impl<'v> Display for AnalysisContext<'v> {
@@ -161,7 +161,7 @@ impl<'v> AnalysisContext<'v> {
     pub fn new(
         heap: &'v Heap,
         attrs: Value<'v>,
-        label: Option<ValueTyped<'v, Label>>,
+        label: Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>,
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
     ) -> Self {
@@ -252,7 +252,9 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     /// Returns a `label` representing the target, or `None` if being invoked from a
     /// `dynamic_output` in Bxl.
     #[starlark(attribute)]
-    fn label<'v>(this: RefAnalysisContext) -> anyhow::Result<Option<ValueTyped<'v, Label>>> {
+    fn label<'v>(
+        this: RefAnalysisContext,
+    ) -> anyhow::Result<Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>> {
         Ok(this.0.label)
     }
 }

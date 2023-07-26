@@ -23,7 +23,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::indexset;
@@ -264,15 +264,19 @@ impl Deferred for DynamicLambda {
                 heap,
                 attributes,
                 match &self.owner {
-                    BaseDeferredKey::TargetLabel(target) => Some(heap.alloc_typed(Label::new(
-                        ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
-                    ))),
+                    BaseDeferredKey::TargetLabel(target) => {
+                        Some(heap.alloc_typed(StarlarkConfiguredProvidersLabel::new(
+                            ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
+                        )))
+                    }
                     BaseDeferredKey::BxlLabel(target) | BaseDeferredKey::AnonTarget(target) => {
                         target.configured_label().map(|configured_target_label| {
-                            heap.alloc_typed(Label::new(ConfiguredProvidersLabel::new(
-                                configured_target_label,
-                                ProvidersName::Default,
-                            )))
+                            heap.alloc_typed(StarlarkConfiguredProvidersLabel::new(
+                                ConfiguredProvidersLabel::new(
+                                    configured_target_label,
+                                    ProvidersName::Default,
+                                ),
+                            ))
                         })
                     }
                 },

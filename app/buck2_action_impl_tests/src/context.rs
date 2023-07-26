@@ -17,7 +17,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dupe::Dupe;
 use indoc::indoc;
 use maplit::hashmap;
@@ -74,10 +74,9 @@ fn run_ctx_test(
         attributes,
         Some(
             eval.heap()
-                .alloc_typed(Label::new(ConfiguredProvidersLabel::new(
-                    label,
-                    ProvidersName::Default,
-                ))),
+                .alloc_typed(StarlarkConfiguredProvidersLabel::new(
+                    ConfiguredProvidersLabel::new(label, ProvidersName::Default),
+                )),
         ),
         registry,
         DigestConfig::testing_default(),

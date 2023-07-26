@@ -34,7 +34,7 @@ use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -280,10 +280,12 @@ async fn run_analysis_with_env_underlying(
                 attributes,
                 Some(
                     eval.heap()
-                        .alloc_typed(Label::new(ConfiguredProvidersLabel::new(
-                            analysis_env.label,
-                            ProvidersName::Default,
-                        ))),
+                        .alloc_typed(StarlarkConfiguredProvidersLabel::new(
+                            ConfiguredProvidersLabel::new(
+                                analysis_env.label,
+                                ProvidersName::Default,
+                            ),
+                        )),
                 ),
                 registry,
                 dice.global_data().get_digest_config(),

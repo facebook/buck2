@@ -16,7 +16,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_execute::path::artifact_path::ArtifactPath;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
@@ -274,12 +274,16 @@ impl StarlarkArtifactHelpers {
     /// The `Label` of the rule that originally created this artifact. May also be None in
     /// the case of source files, or if the artifact has not be used in an action, or if the
     /// action was not created by a rule.
-    pub(crate) fn owner(artifact: &Artifact) -> anyhow::Result<Option<Label>> {
+    pub(crate) fn owner(
+        artifact: &Artifact,
+    ) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>> {
         match artifact.owner() {
             None => Ok(None),
-            Some(BaseDeferredKey::TargetLabel(target)) => Ok(Some(Label::new(
-                ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
-            ))),
+            Some(BaseDeferredKey::TargetLabel(target)) => {
+                Ok(Some(StarlarkConfiguredProvidersLabel::new(
+                    ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
+                )))
+            }
             Some(BaseDeferredKey::AnonTarget(_) | BaseDeferredKey::BxlLabel(_)) => Ok(None),
         }
     }
@@ -325,7 +329,9 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// the case of source files, or if the artifact has not be used in an action, or if the
     /// action was not created by a rule.
     #[starlark(attribute)]
-    fn owner<'v>(this: &StarlarkArtifact) -> anyhow::Result<Option<Label>> {
+    fn owner<'v>(
+        this: &StarlarkArtifact,
+    ) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>> {
         StarlarkArtifactHelpers::owner(&this.artifact)
     }
 

@@ -16,8 +16,8 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
-use buck2_interpreter::types::label::Label;
-use buck2_interpreter::types::label::StarlarkProvidersLabel;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -99,7 +99,9 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
                 configured_target.label().dupe(),
                 ProvidersName::Default,
             ))))
-        } else if let Some(configured_target) = value.downcast_ref::<Label>() {
+        } else if let Some(configured_target) =
+            value.downcast_ref::<StarlarkConfiguredProvidersLabel>()
+        {
             Ok(Some(Self::Literal(configured_target.label().clone())))
         } else {
             Self::unpack_providers_label(value, ctx)?.map_or(Ok(None), |label| {

@@ -40,7 +40,7 @@ use crate::types::label_relative_path::LabelRelativePath;
 use crate::types::target_label::StarlarkConfiguredTargetLabel;
 use crate::types::target_label::StarlarkTargetLabel;
 
-impl Label {
+impl StarlarkConfiguredProvidersLabel {
     pub fn label(&self) -> &ConfiguredProvidersLabel {
         &self.label
     }
@@ -60,14 +60,14 @@ impl Label {
 )]
 #[display(fmt = "{}", label)]
 #[repr(C)]
-pub struct Label {
+pub struct StarlarkConfiguredProvidersLabel {
     #[freeze(identity)]
     label: ConfiguredProvidersLabel,
 }
 
-starlark_simple_value!(Label);
+starlark_simple_value!(StarlarkConfiguredProvidersLabel);
 
-impl Serialize for Label {
+impl Serialize for StarlarkConfiguredProvidersLabel {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -76,9 +76,9 @@ impl Serialize for Label {
     }
 }
 
-impl Label {
+impl StarlarkConfiguredProvidersLabel {
     pub fn new(label: ConfiguredProvidersLabel) -> Self {
-        Label { label }
+        StarlarkConfiguredProvidersLabel { label }
     }
 
     pub fn inner(&self) -> &ConfiguredProvidersLabel {
@@ -87,7 +87,7 @@ impl Label {
 }
 
 #[starlark_value(type = "label")]
-impl<'v> StarlarkValue<'v> for Label
+impl<'v> StarlarkValue<'v> for StarlarkConfiguredProvidersLabel
 where
     Self: ProvidesStaticType<'v>,
 {
@@ -97,7 +97,7 @@ where
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        Ok(match Label::from_value(other) {
+        Ok(match StarlarkConfiguredProvidersLabel::from_value(other) {
             Some(other) => self.label == other.label,
             None => false,
         })
@@ -114,18 +114,20 @@ where
 fn configured_label_methods(builder: &mut MethodsBuilder) {
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `buck2/hello`
     #[starlark(attribute)]
-    fn package<'v>(this: &'v Label) -> anyhow::Result<&'v str> {
+    fn package<'v>(this: &'v StarlarkConfiguredProvidersLabel) -> anyhow::Result<&'v str> {
         Ok(this.label.target().pkg().cell_relative_path().as_str())
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `world`
     #[starlark(attribute)]
-    fn name<'v>(this: &'v Label) -> anyhow::Result<&'v str> {
+    fn name<'v>(this: &'v StarlarkConfiguredProvidersLabel) -> anyhow::Result<&'v str> {
         Ok(this.label.target().name().as_str())
     }
 
     #[starlark(attribute)]
-    fn sub_target<'v>(this: &'v Label) -> anyhow::Result<Option<Vec<&'v str>>> {
+    fn sub_target<'v>(
+        this: &'v StarlarkConfiguredProvidersLabel,
+    ) -> anyhow::Result<Option<Vec<&'v str>>> {
         Ok(match this.label.name() {
             ProvidersName::Default => None,
             ProvidersName::NonDefault(box NonDefaultProvidersName::Named(s)) => {
@@ -142,30 +144,32 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode/buck2/hello`
     #[starlark(attribute)]
-    fn path<'v>(this: &Label) -> anyhow::Result<LabelRelativePath> {
+    fn path<'v>(this: &StarlarkConfiguredProvidersLabel) -> anyhow::Result<LabelRelativePath> {
         Ok(LabelRelativePath(this.label.target().pkg().to_cell_path()))
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode`
     #[starlark(attribute)]
-    fn cell<'v>(this: &'v Label) -> anyhow::Result<&'v str> {
+    fn cell<'v>(this: &'v StarlarkConfiguredProvidersLabel) -> anyhow::Result<&'v str> {
         Ok(this.label.target().pkg().cell_name().as_str())
     }
 
     #[starlark(attribute)]
-    fn cell_root<'v>(this: &Label) -> anyhow::Result<CellRoot> {
+    fn cell_root<'v>(this: &StarlarkConfiguredProvidersLabel) -> anyhow::Result<CellRoot> {
         Ok(CellRoot::new(this.label.target().pkg().cell_name()))
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this returns the unconfigured underlying target label (`fbcode//buck2/hello:world`)
-    fn raw_target(this: &Label) -> anyhow::Result<StarlarkTargetLabel> {
+    fn raw_target(this: &StarlarkConfiguredProvidersLabel) -> anyhow::Result<StarlarkTargetLabel> {
         Ok(StarlarkTargetLabel::new(
             (*this.label.target().unconfigured()).dupe(),
         ))
     }
 
     /// Returns the underlying configured target label, dropping the sub target
-    fn configured_target(this: &Label) -> anyhow::Result<StarlarkConfiguredTargetLabel> {
+    fn configured_target(
+        this: &StarlarkConfiguredProvidersLabel,
+    ) -> anyhow::Result<StarlarkConfiguredTargetLabel> {
         Ok(StarlarkConfiguredTargetLabel::new(
             (*this.label.target()).dupe(),
         ))
@@ -272,8 +276,8 @@ fn label_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub fn register_label(globals: &mut GlobalsBuilder) {
-    const Label: StarlarkValueAsType<Label> = StarlarkValueAsType::new();
+pub fn register_configured_providers_label(globals: &mut GlobalsBuilder) {
+    const Label: StarlarkValueAsType<StarlarkConfiguredProvidersLabel> = StarlarkValueAsType::new();
 }
 
 #[cfg(test)]

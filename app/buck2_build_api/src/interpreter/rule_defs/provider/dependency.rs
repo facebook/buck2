@@ -14,7 +14,7 @@ use allocative::Allocative;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -87,14 +87,14 @@ impl<'v> Dependency<'v> {
             None => NoneOr::None,
         };
         Dependency {
-            label: heap.alloc(Label::new(label)),
+            label: heap.alloc(StarlarkConfiguredProvidersLabel::new(label)),
             providers_collection,
             execution_platform: heap.alloc(execution_platform),
         }
     }
 
-    pub fn label(&self) -> &Label {
-        Label::from_value(self.label).unwrap()
+    pub fn label(&self) -> &StarlarkConfiguredProvidersLabel {
+        StarlarkConfiguredProvidersLabel::from_value(self.label).unwrap()
     }
 
     pub fn execution_platform(&self) -> Option<&ExecutionPlatformResolution> {
@@ -167,7 +167,9 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         let providers = di
             .get_sub_target_providers(subtarget)
             .ok_or_else(|| DependencyError::UnknownSubtarget(subtarget.to_owned()))?;
-        let lbl = Label::from_value(this.label).unwrap().inner();
+        let lbl = StarlarkConfiguredProvidersLabel::from_value(this.label)
+            .unwrap()
+            .inner();
         let lbl = ConfiguredProvidersLabel::new(
             lbl.target().clone(),
             lbl.name().push(ProviderName::new(subtarget.to_owned())?),

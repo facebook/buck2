@@ -20,7 +20,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::result::SharedError;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
@@ -214,7 +214,10 @@ pub(crate) fn build<'v>(
         .into_iter()
         .map(|(target, result)| {
             Ok((
-                eval.heap().alloc(Label::new(target)).get_hashed().unwrap(),
+                eval.heap()
+                    .alloc(StarlarkConfiguredProvidersLabel::new(target))
+                    .get_hashed()
+                    .unwrap(),
                 eval.heap()
                     .alloc(StarlarkBxlBuildResult(BxlBuildResult::new(result))),
             ))

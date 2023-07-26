@@ -14,7 +14,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use either::Either;
 use indexmap::IndexMap;
 use starlark::any::ProvidesStaticType;
@@ -101,7 +101,7 @@ pub struct ExternalRunnerTestInfoGen<V> {
     /// Required types are passed from test runner.
     /// If the value for a corresponding type is omitted it means local resource
     /// should be ignored when executing tests even if those are passed as required from test runner.
-    #[provider(field_type = "DictType<String, Option<Label>>")]
+    #[provider(field_type = "DictType<String, Option<StarlarkConfiguredProvidersLabel>>")]
     local_resources: V,
 }
 
@@ -374,7 +374,7 @@ fn iter_local_resources<'v>(
             None
         } else {
             Some(
-                Label::from_value(value)
+                StarlarkConfiguredProvidersLabel::from_value(value)
                     .ok_or_else(|| {
                         anyhow::anyhow!(format!(
                             "Invalid value in `local_resources` for key `{}`",

@@ -17,8 +17,8 @@ use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_interpreter::types::label::Label;
-use buck2_interpreter::types::label::StarlarkProvidersLabel;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -89,13 +89,12 @@ pub fn register_label_function(builder: &mut GlobalsBuilder) {
     fn configured_sub_target<'v>(
         target: &StarlarkConfiguredTargetLabel,
         #[starlark(default = AllocList::EMPTY)] subtarget_name: Value<'v>,
-    ) -> anyhow::Result<Label> {
+    ) -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
         let providers_name = value_to_providers_name(subtarget_name)?;
 
-        Ok(Label::new(ConfiguredProvidersLabel::new(
-            target.label().dupe(),
-            providers_name,
-        )))
+        Ok(StarlarkConfiguredProvidersLabel::new(
+            ConfiguredProvidersLabel::new(target.label().dupe(), providers_name),
+        ))
     }
 }
 

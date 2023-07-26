@@ -9,7 +9,7 @@
 
 pub mod cell_root;
 pub mod configuration;
-pub mod label;
+pub mod configured_providers_label;
 pub mod label_relative_path;
 pub mod opaque_metadata;
 pub mod provider;

@@ -14,7 +14,7 @@ use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use serde::Serialize;
@@ -96,7 +96,7 @@ enum JsonUnpack<'v> {
     Enum(&'v EnumValue<'v>),
     TransitiveSetJsonProjection(&'v TransitiveSetJsonProjection<'v>),
     TargetLabel(&'v StarlarkTargetLabel),
-    Label(&'v Label),
+    ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
     Artifact(Box<dyn FnOnce() -> anyhow::Result<Artifact> + 'v>),
     CommandLine(&'v dyn CommandLineArgLike),
     Provider(&'v dyn ProviderLike<'v>),
@@ -129,8 +129,8 @@ fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
         JsonUnpack::TransitiveSetJsonProjection(x)
     } else if let Some(x) = StarlarkTargetLabel::from_value(value) {
         JsonUnpack::TargetLabel(x)
-    } else if let Some(x) = Label::from_value(value) {
-        JsonUnpack::Label(x)
+    } else if let Some(x) = StarlarkConfiguredProvidersLabel::from_value(value) {
+        JsonUnpack::ConfiguredProvidersLabel(x)
     } else if let Some(x) = get_artifact(value) {
         JsonUnpack::Artifact(x)
     } else if let Some(x) = value.as_command_line() {
@@ -175,7 +175,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                 // a lot of additional memory to be retained for all those strings
                 x.serialize(serializer)
             }
-            JsonUnpack::Label(x) => {
+            JsonUnpack::ConfiguredProvidersLabel(x) => {
                 // Users could do this with `str(ctx.label)`, but a bit wasteful
                 x.serialize(serializer)
             }
@@ -262,7 +262,7 @@ pub fn visit_json_artifacts(
         | JsonUnpack::Bool(_)
         | JsonUnpack::TargetLabel(_)
         | JsonUnpack::Enum(_)
-        | JsonUnpack::Label(_) => {}
+        | JsonUnpack::ConfiguredProvidersLabel(_) => {}
 
         JsonUnpack::List(x) => {
             for x in x.iter() {

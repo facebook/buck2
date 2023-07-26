@@ -12,7 +12,7 @@ use anyhow::Context as _;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
@@ -49,7 +49,7 @@ enum InstallInfoProviderErrors {
 #[freeze(validator = validate_install_info, bounds = "V: ValueLike<'freeze>")]
 pub struct InstallInfoGen<V> {
     // Label for the installer
-    #[provider(field_type = "Label")]
+    #[provider(field_type = "StarlarkConfiguredProvidersLabel")]
     installer: V,
     // list of files that need to be installed
     #[provider(field_type = "DictType<String, StarlarkArtifact>")]
@@ -58,7 +58,7 @@ pub struct InstallInfoGen<V> {
 
 impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
     pub fn get_installer(&self) -> anyhow::Result<ConfiguredProvidersLabel> {
-        let label = Label::from_value(self.installer.to_value())
+        let label = StarlarkConfiguredProvidersLabel::from_value(self.installer.to_value())
             .ok_or_else(|| {
                 InstallInfoProviderErrors::ExpectedLabel(
                     self.installer.to_value().to_repr(),
@@ -110,7 +110,7 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
 #[starlark_module]
 fn install_info_creator(globals: &mut GlobalsBuilder) {
     fn InstallInfo<'v>(
-        installer: ValueOf<'v, &'v Label>,
+        installer: ValueOf<'v, &'v StarlarkConfiguredProvidersLabel>,
         files: ValueOf<'v, SmallMap<&'v str, Value<'v>>>,
     ) -> anyhow::Result<InstallInfo<'v>> {
         let info = InstallInfo {
