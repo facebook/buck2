@@ -18,10 +18,12 @@ use dupe::Dupe;
 use serde::Serialize;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
@@ -201,4 +203,9 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
             (*this.label.unconfigured()).dupe(),
         ))
     }
+}
+
+#[starlark_module]
+pub fn register_target_label(globals: &mut GlobalsBuilder) {
+    const TargetLabel: StarlarkValueAsType<StarlarkTargetLabel> = StarlarkValueAsType::new();
 }
