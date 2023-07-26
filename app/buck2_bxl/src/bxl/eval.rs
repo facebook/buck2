@@ -61,9 +61,9 @@ use starlark::values::ValueTyped;
 use thiserror::Error;
 
 use crate::bxl::key::BxlKey;
+use crate::bxl::starlark_defs::bxl_function::FrozenBxlFunction;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
 use crate::bxl::starlark_defs::context::BxlContext;
-use crate::bxl::starlark_defs::FrozenBxlFunction;
 
 pub(crate) async fn eval(
     ctx: &DiceComputations,
