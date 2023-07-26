@@ -56,8 +56,10 @@ pub fn resolve_buckconfig_sysroot(
             project_root.join(sysroot_src)
         };
 
+        // TODO(diliopoulos): remove hardcoded path to toolchain sysroot and replace with:
+        // buck2 run fbcode//third-party-buck/platform010/build/rust:bin/rustc -- --print sysroot
         let sysroot = Sysroot {
-            sysroot: base.join("fbcode/third-party-buck/platform010/build/rust"),
+            sysroot: base.join("fbcode/third-party-buck/platform010/build/rust/llvm-fb-12"),
             sysroot_src: Some(sysroot_src),
         };
 
