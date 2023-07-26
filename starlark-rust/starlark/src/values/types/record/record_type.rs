@@ -208,8 +208,6 @@ where
     fn eval_type(&self, _private: Private) -> Option<Ty> {
         // Very basic type, only checks the name.
         // Should also behave like a function.
-        //
-        // If record is not assigned to a variable (`typ` is unset), this code is unreachable.
 
         self.typ.borrow().as_ref().map(|t| Ty::name(t.as_str()))
     }
