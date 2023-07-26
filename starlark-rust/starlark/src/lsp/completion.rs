@@ -307,7 +307,7 @@ impl<T: LspContext> Backend<T> {
     }
 
     pub(crate) fn type_completion_options() -> impl Iterator<Item = CompletionItem> {
-        ["str.type", "int.type", "bool.type", "None", "\"float\""]
+        ["str", "int", "bool", "None", "float"]
             .into_iter()
             .map(|type_| CompletionItem {
                 label: type_.to_owned(),
