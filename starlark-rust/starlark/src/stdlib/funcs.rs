@@ -51,7 +51,7 @@ use crate::values::list::AllocList;
 use crate::values::list::ListRef;
 use crate::values::never::StarlarkNever;
 use crate::values::none::NoneType;
-use crate::values::num::NumRef;
+use crate::values::num::value::NumRef;
 use crate::values::range::Range;
 use crate::values::string::repr::string_repr;
 use crate::values::string::StarlarkStr;

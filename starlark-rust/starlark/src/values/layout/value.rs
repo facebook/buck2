@@ -90,7 +90,7 @@ use crate::values::layout::typed::string::StringValueLike;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueDynFull;
 use crate::values::layout::vtable::AValueVTable;
-use crate::values::num::NumRef;
+use crate::values::num::value::NumRef;
 use crate::values::range::Range;
 use crate::values::record::instance::FrozenRecord;
 use crate::values::record::record_type::RecordType;

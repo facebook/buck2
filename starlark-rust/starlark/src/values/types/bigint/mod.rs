@@ -32,7 +32,7 @@ use starlark_derive::starlark_value;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
-use crate::values::num::NumRef;
+use crate::values::num::value::NumRef;
 use crate::values::types::inline_int::InlineInt;
 use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::types::int_or_big::StarlarkIntRef;

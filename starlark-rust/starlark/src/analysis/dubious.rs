@@ -31,7 +31,7 @@ use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
-use crate::values::num::NumRef;
+use crate::values::num::value::NumRef;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::int_or_big::StarlarkInt;
 

@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-//! Helpers for numerical values.
-
 use std::cmp::Ordering;
 use std::ops::Add;
 use std::ops::Mul;

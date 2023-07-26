@@ -24,8 +24,7 @@ use dupe::Dupe;
 use thiserror::Error;
 
 use crate::values::float;
-use crate::values::num;
-use crate::values::num::NumRef;
+use crate::values::num::value::NumRef;
 use crate::values::string::dot_format::format_one;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::Heap;
@@ -219,8 +218,8 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
             Some(PercentSFormat::Repr) => next_value()?.collect_repr(&mut res),
             Some(PercentSFormat::Dec) => {
                 let value = next_value()?;
-                if let Some(num::NumRef::Float(v)) = value.unpack_num() {
-                    match num::NumRef::Float(v.trunc()).as_int() {
+                if let Some(NumRef::Float(v)) = value.unpack_num() {
+                    match NumRef::Float(v.trunc()).as_int() {
                         None => {
                             return ValueError::unsupported(&float::StarlarkFloat(v), "%d");
                         }

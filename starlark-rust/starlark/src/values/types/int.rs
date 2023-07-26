@@ -52,7 +52,7 @@ use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
-use crate::values::num::NumRef;
+use crate::values::num::value::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::inline_int::InlineInt;
 use crate::values::types::int_or_big::StarlarkInt;
