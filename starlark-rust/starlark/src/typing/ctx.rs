@@ -49,6 +49,7 @@ use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::typing::unordered_map::UnorderedMap;
 use crate::typing::OracleDocs;
+use crate::typing::TypingOracle;
 
 #[derive(Error, Debug)]
 enum TypingContextError {
@@ -58,6 +59,12 @@ enum TypingContextError {
     UnknownBuiltin { name: String },
     #[error("Unary operator `{un_op}` is not available on the type `{ty}`")]
     UnaryOperatorNotAvailable { un_op: TypingUnOp, ty: Ty },
+    #[error("Binary operator `{bin_op}` is not available on the types `{left}` and `{right}`")]
+    BinaryOperatorNotAvailable {
+        bin_op: TypingBinOp,
+        left: Ty,
+        right: Ty,
+    },
 }
 
 pub(crate) struct TypingContext<'a> {
@@ -291,14 +298,68 @@ impl TypingContext<'_> {
         }
     }
 
+    fn expr_bin_op_ty_basic(
+        &self,
+        span: Span,
+        lhs: Spanned<&TyBasic>,
+        bin_op: TypingBinOp,
+        rhs: Spanned<&TyBasic>,
+    ) -> Result<Ty, ()> {
+        let fun = match self.oracle.attribute(&lhs.node, TypingAttr::BinOp(bin_op)) {
+            Some(Ok(fun)) => fun,
+            Some(Err(())) => return Err(()),
+            None => return Ok(Ty::any()),
+        };
+        self.oracle
+            .validate_call(
+                span,
+                &fun,
+                &[rhs.into_map(|t| Arg::Pos(Ty::basic(t.clone())))],
+            )
+            .map_err(|_| ())
+    }
+
     fn expr_bin_op_ty(
         &self,
         span: Span,
         lhs: Spanned<Ty>,
-        op: TypingBinOp,
+        bin_op: TypingBinOp,
         rhs: Spanned<Ty>,
     ) -> Ty {
-        self.expression_primitive_ty(TypingAttr::BinOp(op), lhs.node, vec![rhs], span)
+        if lhs.is_never() || rhs.is_never() {
+            return Ty::never();
+        }
+
+        let mut good = Vec::new();
+        for lhs_i in lhs.node.iter_union() {
+            for rhs_i in rhs.node.iter_union() {
+                let lhs_i = Spanned {
+                    span: lhs.span,
+                    node: lhs_i,
+                };
+                let rhs_i = Spanned {
+                    span: rhs.span,
+                    node: rhs_i,
+                };
+                if let Ok(ty) = self.expr_bin_op_ty_basic(span, lhs_i, bin_op, rhs_i) {
+                    good.push(ty);
+                }
+            }
+        }
+
+        if good.is_empty() {
+            self.add_error(
+                span,
+                TypingContextError::BinaryOperatorNotAvailable {
+                    left: lhs.node,
+                    right: rhs.node,
+                    bin_op,
+                },
+            );
+            Ty::never()
+        } else {
+            Ty::unions(good)
+        }
     }
 
     fn expr_bin_op(&self, span: Span, lhs: &CstExpr, op: BinOp, rhs: &CstExpr) -> Ty {

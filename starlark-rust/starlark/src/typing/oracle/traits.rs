@@ -40,7 +40,7 @@ pub enum TypingUnOp {
 }
 
 /// Binary operator for [`TypingOracle::attribute`].
-#[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display)]
+#[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display, Debug)]
 pub enum TypingBinOp {
     /// `+`.
     #[display(fmt = "+")]
