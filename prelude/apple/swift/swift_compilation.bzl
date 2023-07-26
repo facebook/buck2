@@ -452,6 +452,12 @@ def _get_shared_flags(
             "-emit-clang-header-nonmodular-includes",
         ])
 
+    if toolchain.supports_cxx_interop_requirement_at_import:
+        cmd.add([
+            "-Xfrontend",
+            "-disable-cxx-interop-requirement-at-import",
+        ])
+
     pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, deps_providers)
     sdk_deps_tset = get_compiled_sdk_deps_tset(ctx, deps_providers)
 
