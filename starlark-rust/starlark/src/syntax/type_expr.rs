@@ -23,6 +23,7 @@ use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstIdentP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstPayload;
+use crate::syntax::ast::BinOp;
 use crate::syntax::ast::ExprP;
 
 #[derive(Debug, thiserror::Error)]
@@ -155,7 +156,15 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             ExprP::Minus(..) => err("minus"),
             ExprP::Plus(..) => err("plus"),
             ExprP::BitNot(..) => err("bit not"),
-            ExprP::Op(..) => err("bin op"),
+            ExprP::Op(a, op, b) if op == &BinOp::BitOr => {
+                let a = TypeExprUnpackP::unpack(a, codemap)?;
+                let b = TypeExprUnpackP::unpack(b, codemap)?;
+                Ok(Spanned {
+                    span,
+                    node: TypeExprUnpackP::Any(vec![a, b]),
+                })
+            }
+            ExprP::Op(..) => err("bin op except `|`"),
             ExprP::If(..) => err("if"),
             ExprP::List(xs) => {
                 if xs.is_empty() {

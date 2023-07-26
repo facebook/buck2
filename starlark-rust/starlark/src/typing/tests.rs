@@ -443,3 +443,19 @@ z = -(1 if True else "")
 "#,
     );
 }
+
+#[test]
+fn test_union() {
+    TypeCheck::new().check(
+        "union",
+        r#"
+def func_which_returns_union(p) -> str | int:
+    if p == 56:
+        return "a"
+    elif p == 57:
+        return 1
+    else:
+        return []
+"#,
+    );
+}
