@@ -240,6 +240,94 @@ impl<'a> ImplStarlarkValue<'a> {
         self.find_fn(name).is_some()
     }
 
+    fn bin_op_arm(&self, bin_op: &str, impl_name: &str) -> Option<syn::Arm> {
+        let bin_op = syn::Ident::new(bin_op, self.span());
+        if self.has_fn(impl_name) {
+            Some(syn::parse_quote_spanned! {
+                self.span()=>
+                starlark::typing::TypingBinOp::#bin_op => {
+                    Some(starlark::typing::Ty::any())
+                }
+            })
+        } else {
+            None
+        }
+    }
+
+    fn bin_op_ty_impl(&self) -> syn::Result<Option<syn::ImplItem>> {
+        let arms = [
+            self.bin_op_arm("Add", "add"),
+            self.bin_op_arm("Sub", "sub"),
+            self.bin_op_arm("Mul", "mul"),
+            self.bin_op_arm("Div", "div"),
+            self.bin_op_arm("FloorDiv", "floor_div"),
+            self.bin_op_arm("Percent", "percent"),
+            self.bin_op_arm("In", "is_in"),
+            self.bin_op_arm("BitOr", "bit_or"),
+            self.bin_op_arm("BitAnd", "bit_and"),
+            self.bin_op_arm("BitXor", "bit_xor"),
+            self.bin_op_arm("Less", "compare"),
+            self.bin_op_arm("LeftShift", "left_shift"),
+            self.bin_op_arm("RightShift", "right_shift"),
+        ];
+        if arms.iter().all(Option::is_none) {
+            // Use default implementation.
+            return Ok(None);
+        }
+        let default_arm: Option<syn::Arm> = if arms.iter().all(Option::is_some) {
+            None
+        } else {
+            Some(syn::parse_quote_spanned! {self.span()=>
+                _ => { None }
+            })
+        };
+        let arms = arms.into_iter().flatten();
+        Ok(Some(syn::parse_quote_spanned! {self.span()=>
+            fn bin_op_ty(op: starlark::typing::TypingBinOp, _rhs: &starlark::typing::TyBasic) -> Option<starlark::typing::Ty> {
+                match op {
+                    #( #arms )*
+                    #default_arm
+                }
+            }
+        }))
+    }
+
+    fn rbin_op_ty_impl(&self) -> syn::Result<Option<syn::ImplItem>> {
+        let radd = self.bin_op_arm("Add", "radd");
+        if radd.is_none() {
+            return Ok(None);
+        }
+        Ok(Some(syn::parse_quote_spanned! {self.span()=>
+            fn rbin_op_ty(_lhs: &starlark::typing::TyBasic, op: starlark::typing::TypingBinOp) -> Option<starlark::typing::Ty> {
+                match op {
+                    #radd
+                    _ => {
+                        // Unreachable, because we only support radd at the moment.
+                        None
+                    }
+                }
+            }
+        }))
+    }
+
+    /// Generate `fn bin_op_ty()`.
+    fn bin_op_ty(&self) -> syn::Result<Option<syn::ImplItem>> {
+        if self.has_fn("bin_op_ty") {
+            Ok(None)
+        } else {
+            self.bin_op_ty_impl()
+        }
+    }
+
+    /// Generate `fn rbin_op_ty()`.
+    fn rbin_op_ty(&self) -> syn::Result<Option<syn::ImplItem>> {
+        if self.has_fn("rbin_op_ty") {
+            Ok(None)
+        } else {
+            self.rbin_op_ty_impl()
+        }
+    }
+
     /// `fn attr_ty()`.
     fn attr_ty(&self) -> syn::Result<Option<syn::ImplItem>> {
         if self.has_fn("attr_ty") {
@@ -290,6 +378,8 @@ fn derive_starlark_value_impl(
     let has_plus = impl_starlark_value.has_unop("HAS_PLUS", "plus")?;
     let has_minus = impl_starlark_value.has_unop("HAS_MINUS", "minus")?;
     let has_bit_not = impl_starlark_value.has_unop("HAS_BIT_NOT", "bit_not")?;
+    let bin_op_ty = impl_starlark_value.bin_op_ty()?;
+    let rbin_op_ty = impl_starlark_value.rbin_op_ty()?;
     let attr_ty = impl_starlark_value.attr_ty()?;
     let bit_or = impl_starlark_value.bit_or()?;
 
@@ -305,7 +395,9 @@ fn derive_starlark_value_impl(
         ]
         .into_iter()
         .chain(attr_ty)
-        .chain(bit_or),
+        .chain(bit_or)
+        .chain(bin_op_ty)
+        .chain(rbin_op_ty),
     );
 
     Ok(quote_spanned! {

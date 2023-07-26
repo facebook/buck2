@@ -53,9 +53,7 @@ use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::structs::TyStruct;
 use crate::typing::TypingOracle;
 use crate::values::bool::StarlarkBool;
-use crate::values::float::StarlarkFloat;
 use crate::values::tuple::value::FrozenTuple;
-use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::typing::never::TypingNever;
 use crate::values::typing::type_compiled::TypeCompiled;
 use crate::values::FrozenValue;
@@ -257,12 +255,12 @@ impl Ty {
 
     /// Create the int type.
     pub fn int() -> Self {
-        Ty::starlark_value::<StarlarkBigInt>()
+        Ty::basic(TyBasic::int())
     }
 
     /// Create a float type.
     pub fn float() -> Self {
-        Ty::starlark_value::<StarlarkFloat>()
+        Ty::basic(TyBasic::float())
     }
 
     /// Create a string type.

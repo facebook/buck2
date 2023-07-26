@@ -35,6 +35,10 @@ use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
+use crate::typing::TypingBinOp;
+use crate::values::num::typecheck::typecheck_num_bin_op;
+use crate::values::num::typecheck::NumTy;
 use crate::values::num::value::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
@@ -326,6 +330,10 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
             None => ValueError::unsupported_with(self, "//", other),
             Some(other) => Ok(heap.alloc(NumRef::Float(self.0).floor_div(other)?)),
         }
+    }
+
+    fn bin_op_ty(op: TypingBinOp, rhs: &TyBasic) -> Option<Ty> {
+        typecheck_num_bin_op(NumTy::Float, op, rhs)
     }
 
     fn compare(&self, other: Value) -> anyhow::Result<Ordering> {

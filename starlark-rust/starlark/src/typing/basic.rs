@@ -26,8 +26,10 @@ use crate::typing::Ty;
 use crate::typing::TyName;
 use crate::typing::TypingAttr;
 use crate::typing::TypingOracleCtx;
+use crate::values::float::StarlarkFloat;
 use crate::values::none::NoneType;
 use crate::values::string::StarlarkStr;
+use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::typing::any::TypingAny;
 use crate::values::StarlarkValue;
 
@@ -66,6 +68,14 @@ impl TyBasic {
 
     pub(crate) fn string() -> Self {
         TyBasic::starlark_value::<StarlarkStr>()
+    }
+
+    pub(crate) fn int() -> Self {
+        TyBasic::starlark_value::<StarlarkBigInt>()
+    }
+
+    pub(crate) fn float() -> Self {
+        TyBasic::starlark_value::<StarlarkFloat>()
     }
 
     /// Create a list type.

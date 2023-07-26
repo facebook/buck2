@@ -29,7 +29,9 @@ use dupe::Dupe;
 
 use crate::docs::DocItem;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
 use crate::typing::TyName;
+use crate::typing::TypingBinOp;
 use crate::typing::TypingUnOp;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
@@ -129,6 +131,15 @@ impl TyStarlarkValue {
             TypingUnOp::BitNot => self.vtable.has_bit_not,
         };
         if has { Ok(self) } else { Err(()) }
+    }
+
+    pub(crate) fn bin_op(self, op: TypingBinOp, rhs: &TyBasic) -> Result<Ty, ()> {
+        // TODO(nga): use `rbin_op_ty` too.
+        let _todo_use_rbin_op_ty_too = self.vtable.vtable.rbin_op_ty;
+        match (self.vtable.vtable.bin_op_ty)(op, rhs) {
+            Some(ty) => Ok(ty),
+            None => Err(()),
+        }
     }
 
     pub(crate) fn attr(self, name: &str) -> Result<Ty, ()> {

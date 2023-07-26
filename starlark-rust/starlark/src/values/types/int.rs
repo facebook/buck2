@@ -45,6 +45,8 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
+use crate::typing::TypingBinOp;
 use crate::values::error::ValueError;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::Basic;
@@ -52,6 +54,8 @@ use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
+use crate::values::num::typecheck::typecheck_num_bin_op;
+use crate::values::num::typecheck::NumTy;
 use crate::values::num::value::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::inline_int::InlineInt;
@@ -301,6 +305,12 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
             None => ValueError::unsupported_with(self, ">>", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Small(self.get()).right_shift(other)?)),
         }
+    }
+
+    fn bin_op_ty(op: TypingBinOp, rhs: &TyBasic) -> Option<Ty> {
+        // This is dead code, because canonical int type is `StarlarkBigInt`,
+        // but keep for consistency.
+        typecheck_num_bin_op(NumTy::Int, op, rhs)
     }
 }
 

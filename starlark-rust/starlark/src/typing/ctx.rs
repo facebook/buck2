@@ -305,6 +305,10 @@ impl TypingContext<'_> {
         bin_op: TypingBinOp,
         rhs: Spanned<&TyBasic>,
     ) -> Result<Ty, ()> {
+        if let TyBasic::StarlarkValue(lhs) = &lhs.node {
+            return lhs.bin_op(bin_op, rhs.node);
+        }
+
         let fun = match self.oracle.attribute(&lhs.node, TypingAttr::BinOp(bin_op)) {
             Some(Ok(fun)) => fun,
             Some(Err(())) => return Err(()),

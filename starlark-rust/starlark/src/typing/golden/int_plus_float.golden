@@ -5,16 +5,9 @@
 # ```
 
 Code:
-# TODO(nga): fix.
 x = 1 + 1.0
 
-Error:
-error: Binary operator `+` is not available on the types `int.type` and `"float"`
- --> filename:3:5
-  |
-3 | x = 1 + 1.0
-  |     ^^^^^^^
-  |
+No errors.
 
 Interfaces:
-x: typing.Never
+x: "float"

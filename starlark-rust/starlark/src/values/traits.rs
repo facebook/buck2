@@ -48,6 +48,8 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::private::Private;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
+use crate::typing::TypingBinOp;
 use crate::values::demand::Demand;
 use crate::values::error::ControlError;
 use crate::values::function::FUNCTION_TYPE;
@@ -800,6 +802,16 @@ pub trait StarlarkValue<'v>:
     /// Bitwise `>>` operator.
     fn right_shift(&self, other: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         ValueError::unsupported_with(self, ">>", other)
+    }
+
+    /// Typecheck `this op rhs`.
+    fn bin_op_ty(_op: TypingBinOp, _rhs: &TyBasic) -> Option<Ty> {
+        Some(Ty::any())
+    }
+
+    /// Typecheck `lhs op this`.
+    fn rbin_op_ty(_lhs: &TyBasic, _op: TypingBinOp) -> Option<Ty> {
+        Some(Ty::any())
     }
 
     /// Called when exporting a value under a specific name,

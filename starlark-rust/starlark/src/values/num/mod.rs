@@ -17,4 +17,5 @@
 
 //! Helpers for numerical values.
 
+pub(crate) mod typecheck;
 pub(crate) mod value;

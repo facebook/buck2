@@ -32,6 +32,11 @@ use starlark_derive::starlark_value;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
+use crate::typing::Ty;
+use crate::typing::TyBasic;
+use crate::typing::TypingBinOp;
+use crate::values::num::typecheck::typecheck_num_bin_op;
+use crate::values::num::typecheck::NumTy;
 use crate::values::num::value::NumRef;
 use crate::values::types::inline_int::InlineInt;
 use crate::values::types::int_or_big::StarlarkInt;
@@ -260,6 +265,10 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         }
     }
 
+    fn bin_op_ty(op: TypingBinOp, rhs: &TyBasic) -> Option<Ty> {
+        typecheck_num_bin_op(NumTy::Int, op, rhs)
+    }
+
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         NumRef::Int(StarlarkIntRef::Big(self))
             .get_hash_64()
@@ -481,8 +490,16 @@ mod tests {
 
     #[test]
     fn test_bit_and_float() {
-        assert::fail("0x60000000000000000000000 & 1.0", "not supported");
-        assert::fail("1.0 & 0x60000000000000000000000", "not supported");
+        assert::fail_skip_typecheck("0x60000000000000000000000 & 1.0", "not supported");
+        assert::fail_skip_typecheck("1.0 & 0x60000000000000000000000", "not supported");
+        assert::fail(
+            "0x60000000000000000000000 & 1.0",
+            "is not available on the types",
+        );
+        assert::fail(
+            "1.0 & 0x60000000000000000000000",
+            "is not available on the types",
+        );
     }
 
     #[test]
@@ -507,8 +524,16 @@ mod tests {
 
     #[test]
     fn test_bit_or_float() {
-        assert::fail("0x60000000000000000000000 | 1.0", "not supported");
-        assert::fail("1.0 | 0x60000000000000000000000", "not supported");
+        assert::fail_skip_typecheck("0x60000000000000000000000 | 1.0", "not supported");
+        assert::fail_skip_typecheck("1.0 | 0x60000000000000000000000", "not supported");
+        assert::fail(
+            "0x60000000000000000000000 | 1.0",
+            "is not available on the types",
+        );
+        assert::fail(
+            "1.0 | 0x60000000000000000000000",
+            "is not available on the types",
+        );
     }
 
     #[test]
@@ -533,8 +558,16 @@ mod tests {
 
     #[test]
     fn test_bit_xor_float() {
-        assert::fail("0x60000000000000000000000 ^ 1.0", "not supported");
-        assert::fail("1.0 ^ 0x60000000000000000000000", "not supported");
+        assert::fail_skip_typecheck("0x60000000000000000000000 ^ 1.0", "not supported");
+        assert::fail_skip_typecheck("1.0 ^ 0x60000000000000000000000", "not supported");
+        assert::fail(
+            "0x60000000000000000000000 ^ 1.0",
+            "Binary operator `^` is not available",
+        );
+        assert::fail(
+            "1.0 ^ 0x60000000000000000000000",
+            "Binary operator `^` is not available",
+        );
     }
 
     #[test]
@@ -582,8 +615,16 @@ mod tests {
 
     #[test]
     fn test_left_shift_float() {
-        assert::fail("0x10000000000000000000000000000000 << 1.0", "not supported");
-        assert::fail("1.0 << 0x10000000000000000000000000000000", "not supported");
+        assert::fail_skip_typecheck("0x10000000000000000000000000000000 << 1.0", "not supported");
+        assert::fail_skip_typecheck("1.0 << 0x10000000000000000000000000000000", "not supported");
+        assert::fail(
+            "0x10000000000000000000000000000000 << 1.0",
+            "is not available",
+        );
+        assert::fail(
+            "1.0 << 0x10000000000000000000000000000000",
+            "is not available",
+        );
     }
 
     #[test]
@@ -622,8 +663,16 @@ mod tests {
 
     #[test]
     fn test_right_shift_float() {
-        assert::fail("0x20000000000000000000000000000000 >> 1.0", "not supported");
-        assert::fail("1.0 >> 0x20000000000000000000000000000000", "not supported");
+        assert::fail_skip_typecheck("0x20000000000000000000000000000000 >> 1.0", "not supported");
+        assert::fail_skip_typecheck("1.0 >> 0x20000000000000000000000000000000", "not supported");
+        assert::fail(
+            "0x20000000000000000000000000000000 >> 1.0",
+            "is not available",
+        );
+        assert::fail(
+            "1.0 >> 0x20000000000000000000000000000000",
+            "is not available",
+        );
     }
 
     #[test]
