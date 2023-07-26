@@ -21,7 +21,7 @@ Needs to be escaped when rendered in markdown.
 ## name.attr1
 
 ```python
-name.attr1: str.type
+name.attr1: str
 ```
 
 Docs for attr1
@@ -31,7 +31,7 @@ Docs for attr1
 ## name.attr2
 
 ```python
-name.attr2: str.type
+name.attr2: str
 ```
 
 ---
@@ -39,7 +39,7 @@ name.attr2: str.type
 ## name.func1
 
 ```python
-def name.func1(foo: str.type) -> str.type
+def name.func1(foo: str) -> str
 ```
 
 Docs for func1
@@ -58,5 +58,5 @@ The string 'func1'
 ## name.func2
 
 ```python
-def name.func2() -> str.type
+def name.func2() -> str
 ```

@@ -1026,11 +1026,11 @@ f(8) == False"#,
         // Type errors should be caught in arguments
         a.fail(
             "def f_runtime(i: bool.type):\n pass\nf_runtime(noop(1))",
-            "Value `1` of type `int` does not match the type annotation `bool.type` for argument `i`",
+            "Value `1` of type `int` does not match the type annotation `bool` for argument `i`",
         );
         a.fail(
             "def f_compile_time(i: bool.type):\n pass\nf_compile_time(1)",
-            "Expected type `bool.type` but got `int.type`",
+            "Expected type `bool` but got `int`",
         );
         a.pass(
             r#"Foo = record(value=int.type)
@@ -1044,19 +1044,19 @@ def f(v: Bar):
             &[r#"enum("bar")"#],
         );
         // Type errors should be caught in return positions
-        a.fails(
+        a.fail(
             "def f_return_runtime() -> bool.type:\n return noop(1)\nf_return_runtime()",
-            &["type annotation", "`1`", "bool.type", "`int`", "return"],
+            "Value `1` of type `int` does not match the type annotation `bool` for return type",
         );
         a.fail(
             "def f_return_compile_time() -> bool.type:\n return 1\nf_return_compile_time()",
-            "Expected type `bool.type` but got `int.type`",
+            "Expected type `bool` but got `int`",
         );
         // And for functions without return
         // TODO(nga): should be compile-time error.
-        a.fails(
+        a.fail(
             "def f_bool_none() -> bool.type:\n pass\nf_bool_none()",
-            &["type annotation", "`None`", "bool.type", "return"],
+            "Value `None` of type `NoneType` does not match the type annotation `bool` for return type",
         );
         // And for functions that return None implicitly or explicitly
         a.fails(
@@ -1065,7 +1065,7 @@ def f(v: Bar):
         );
         a.fail(
             "def f_none_bool_compile_time() -> None:\n return True\nf_none_bool_compile_time()",
-            "Expected type `None` but got `bool.type`",
+            "Expected type `None` but got `bool`",
         );
         a.pass("def f() -> None:\n pass\nf()");
 
@@ -1110,7 +1110,7 @@ is_type([1,2,"test"], ["_a"])
 def foo(f: int.type = None):
     pass
 "#,
-            "`None` of type `NoneType` does not match the type annotation `int.type`",
+            "`None` of type `NoneType` does not match the type annotation `int`",
         );
     }
 
@@ -1121,7 +1121,7 @@ def foo(f: int.type = None):
             r#"
 def f() -> int: return 'tea'
 "#,
-            "Expected type `int.type` but got `str.type`",
+            "Expected type `int` but got `str`",
         );
     }
 
@@ -1161,13 +1161,13 @@ f()
 
     #[test]
     fn test_type_compiled_starlark_api() {
-        assert::eq("\"eval_type(int.type)\"", "repr(eval_type(int.type))");
+        assert::eq("\"eval_type(int)\"", "repr(eval_type(int.type))");
         assert::is_true("eval_type(int.type).matches(1)");
         assert::is_true("not eval_type(int.type).matches([])");
         assert::pass("eval_type(int.type).check_matches(1)");
         assert::fail(
             "eval_type(int.type).check_matches([])",
-            "Value of type `list` does not match type `int.type`: []",
+            "Value of type `list` does not match type `int`: []",
         );
     }
 
@@ -1196,7 +1196,7 @@ def f(x: ty):
 # Runtime error.
 f(noop("x"))
 "#,
-            "Value `x` of type `string` does not match the type annotation `int.type` for argument `x`",
+            "Value `x` of type `string` does not match the type annotation `int` for argument `x`",
         );
         assert::fail(
             r#"
@@ -1207,7 +1207,7 @@ def f(x: ty):
 # Compile-time error.
 f("x")
 "#,
-            "Expected type `int.type` but got `str.type`",
+            "Expected type `int` but got `str`",
         );
     }
 
@@ -1238,7 +1238,7 @@ def uuu(x: list[int]):
 
 uuu(["mm"])
 "#,
-            "Expected type `list[int.type]` but got `list[str.type]`",
+            "Expected type `list[int]` but got `list[str]`",
         );
     }
 

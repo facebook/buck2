@@ -11,7 +11,7 @@ These are where the module docs go
 ## MAGIC
 
 ```python
-MAGIC: int.type
+MAGIC: int
 ```
 
 ---
@@ -19,7 +19,7 @@ MAGIC: int.type
 ## func1
 
 ```python
-def func1(foo: str.type) -> str.type
+def func1(foo: str) -> str
 ```
 
 Docs for func1
@@ -38,7 +38,7 @@ The string 'func1'
 ## func2
 
 ```python
-def func2() -> str.type
+def func2() -> str
 ```
 
 ---
@@ -47,11 +47,11 @@ def func2() -> str.type
 
 ```python
 def func3(
-    a1: int.type,
-    a2: int.type = _,
-    step: int.type = 1,
+    a1: int,
+    a2: int = _,
+    step: int = 1,
     /
-) -> str.type
+) -> str
 ```
 
 A function with only positional arguments.
@@ -88,11 +88,11 @@ def notypes(a)
 
 ```python
 def pos_either_named(
-    a: int.type,
+    a: int,
     /,
-    b: int.type,
+    b: int,
     *,
-    c: int.type
+    c: int
 ) -> None
 ```
 
@@ -102,8 +102,8 @@ def pos_either_named(
 
 ```python
 def with_defaults(
-    explicit_default: list[str.type] = [],
-    hidden_default: list[str.type] = _,
-    string_default: str.type = "my_default"
+    explicit_default: list[str] = [],
+    hidden_default: list[str] = _,
+    string_default: str = "my_default"
 ) -> None
 ```

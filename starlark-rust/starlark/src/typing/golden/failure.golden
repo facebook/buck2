@@ -8,7 +8,7 @@ Code:
 hash(1)
 
 Error:
-error: Expected type `str.type` but got `int.type`
+error: Expected type `str` but got `int`
  --> filename:1:6
   |
 1 | hash(1)

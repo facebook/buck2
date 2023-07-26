@@ -10,4 +10,4 @@ x = struct(a = 1, b = "test")
 No errors.
 
 Interfaces:
-x: struct(a = int.type, b = str.type)
+x: struct(a = int, b = str)

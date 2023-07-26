@@ -12,4 +12,4 @@ y = hash(foo("magic"))
 No errors.
 
 Interfaces:
-y: int.type
+y: int

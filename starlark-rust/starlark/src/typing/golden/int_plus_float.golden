@@ -10,4 +10,4 @@ x = 1 + 1.0
 No errors.
 
 Interfaces:
-x: "float"
+x: float

@@ -10,4 +10,4 @@ x = zip([1,2], [True, False], ["a", "b"])
 No errors.
 
 Interfaces:
-x: list[(int.type, bool.type, str.type)]
+x: list[(int, bool, str)]

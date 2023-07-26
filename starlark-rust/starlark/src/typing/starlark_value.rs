@@ -30,7 +30,6 @@ use dupe::Dupe;
 use crate::docs::DocItem;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
-use crate::typing::TyName;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingUnOp;
 use crate::values::traits::StarlarkValueVTable;
@@ -77,7 +76,11 @@ impl Debug for TyStarlarkValue {
 
 impl Display for TyStarlarkValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.as_ty_name(), f)
+        match self.vtable.type_name {
+            "string" => write!(f, "str"),
+            "NoneType" => write!(f, "None"),
+            type_name => write!(f, "{}", type_name),
+        }
     }
 }
 
@@ -113,10 +116,6 @@ impl TyStarlarkValue {
         TyStarlarkValue {
             vtable: &TyStarlarkValueVTableGet::<T>::VTABLE,
         }
-    }
-
-    pub(crate) fn as_ty_name(self) -> TyName {
-        TyName::new(self.vtable.type_name)
     }
 
     pub(crate) fn as_name(self) -> &'static str {

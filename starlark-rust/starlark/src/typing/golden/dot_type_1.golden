@@ -10,7 +10,7 @@ def foo(x: list.type) -> bool.type:
 foo(True)
 
 Error:
-error: Expected type `list[typing.Any]` but got `bool.type`
+error: Expected type `list[typing.Any]` but got `bool`
  --> filename:4:5
   |
 4 | foo(True)
@@ -18,7 +18,7 @@ error: Expected type `list[typing.Any]` but got `bool.type`
   |
 
 Error:
-error: Expected type `list[typing.Never]` but got `str.type`
+error: Expected type `list[typing.Never]` but got `str`
  --> filename:3:12
   |
 3 |     return type(x) == []

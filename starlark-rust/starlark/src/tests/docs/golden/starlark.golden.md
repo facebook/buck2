@@ -16,12 +16,12 @@ Some extra details can go here,
 ```python
 def f1(
     a,
-    b: str.type,
-    c: int.type = 5,
+    b: str,
+    c: int = 5,
     *,
-    d: str.type = "some string",
+    d: str = "some string",
     **kwargs
-) -> list[str.type]
+) -> list[str]
 ```
 
 Summary line goes here
@@ -43,7 +43,7 @@ A string repr of the args
 ## f2
 
 ```python
-def f2(a, *args: list[str.type])
+def f2(a, *args: list[str])
 ```
 
 This is a function with *args, and no return type
@@ -58,7 +58,7 @@ This is a function with *args, and no return type
 ## f3
 
 ```python
-def f3(a: str.type) -> str.type
+def f3(a: str) -> str
 ```
 
 ---
@@ -66,7 +66,7 @@ def f3(a: str.type) -> str.type
 ## f4
 
 ```python
-def f4(a: str.type) -> str.type
+def f4(a: str) -> str
 ```
 
 This is a docstring with no 'Args:' section
