@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_interpreter::bxl::BXL_FUNCTIONS;
+use buck2_interpreter::bxl::BXL_SPECIFIC_GLOBALS;
 use buck2_interpreter::functions::more::MORE_FUNCTIONS;
 use buck2_interpreter::functions::transition::REGISTER_TRANSITION;
 use buck2_interpreter::types::configured_providers_label::register_configured_providers_label;
@@ -56,18 +56,9 @@ pub fn configure_package_file_globals(globals_builder: &mut GlobalsBuilder) {
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_base_natives(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_cmd_args)(globals_builder);
-    (BXL_FUNCTIONS.get().unwrap().register_cli_args_struct)(globals_builder);
-    (BXL_FUNCTIONS.get().unwrap().register_bxl_function)(globals_builder);
-    (BXL_FUNCTIONS.get().unwrap().register_artifact_function)(globals_builder);
-    (BXL_FUNCTIONS.get().unwrap().register_label_function)(globals_builder);
-    (BXL_FUNCTIONS.get().unwrap().register_target_function)(globals_builder);
+    (BXL_SPECIFIC_GLOBALS.get().unwrap())(globals_builder);
     register_read_config(globals_builder);
     register_host_info(globals_builder);
-    (BXL_FUNCTIONS.get().unwrap().register_instant_function)(globals_builder);
-    (BXL_FUNCTIONS
-        .get()
-        .unwrap()
-        .register_error_handling_function)(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_builtin_providers)(globals_builder);
 }
 

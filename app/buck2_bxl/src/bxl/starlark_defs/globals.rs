@@ -9,8 +9,7 @@
 
 //! Starlark globals for BXL.
 
-use buck2_interpreter::bxl::BxlFunctions;
-use buck2_interpreter::bxl::BXL_FUNCTIONS;
+use buck2_interpreter::bxl::BXL_SPECIFIC_GLOBALS;
 
 use crate::bxl::starlark_defs::bxl_function::register_bxl_function;
 use crate::bxl::starlark_defs::cli_args;
@@ -20,14 +19,14 @@ use crate::bxl::starlark_defs::functions::register_instant_function;
 use crate::bxl::starlark_defs::functions::register_label_function;
 use crate::bxl::starlark_defs::functions::register_target_function;
 
-pub(crate) fn init_bxl_functions() {
-    BXL_FUNCTIONS.init(BxlFunctions {
-        register_cli_args_struct: |g| g.struct_("cli_args", cli_args::register_cli_args_module),
-        register_bxl_function,
-        register_artifact_function,
-        register_label_function,
-        register_target_function,
-        register_instant_function,
-        register_error_handling_function,
+pub(crate) fn init_bxl_specific_globals() {
+    BXL_SPECIFIC_GLOBALS.init(|g| {
+        g.struct_("cli_args", cli_args::register_cli_args_module);
+        register_bxl_function(g);
+        register_artifact_function(g);
+        register_label_function(g);
+        register_target_function(g);
+        register_instant_function(g);
+        register_error_handling_function(g);
     });
 }

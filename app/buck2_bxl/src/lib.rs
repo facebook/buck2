@@ -22,7 +22,7 @@ pub mod profile_command;
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-        bxl::starlark_defs::globals::init_bxl_functions();
+        bxl::starlark_defs::globals::init_bxl_specific_globals();
         bxl::calculation::init_bxl_calculation_impl();
         commands::init_bxl_server_commands();
     });
