@@ -97,8 +97,8 @@ def merge_cxx_extension_info(
 def rewrite_static_symbols(
         ctx: AnalysisContext,
         suffix: str,
-        pic_objects: list[Artifact],
-        non_pic_objects: list[Artifact],
+        pic_objects: list["artifact"],
+        non_pic_objects: list["artifact"],
         libraries: dict[LinkStyle.type, LinkInfos.type],
         cxx_toolchain: "CxxToolchainInfo",
         suffix_all: bool = False) -> dict[LinkStyle.type, LinkInfos.type]:
@@ -166,10 +166,10 @@ def rewrite_static_symbols(
 def _write_syms_file(
         ctx: AnalysisContext,
         name: str,
-        objects: list[Artifact],
+        objects: list["artifact"],
         suffix: str,
         cxx_toolchain: "CxxToolchainInfo",
-        suffix_all: bool = False) -> Artifact:
+        suffix_all: bool = False) -> "artifact":
     """
     Take a list of objects and append a suffix to all  defined symbols.
     """
@@ -228,8 +228,8 @@ def _write_syms_file(
 def suffix_symbols(
         ctx: AnalysisContext,
         suffix: str,
-        objects: list[Artifact],
-        symbols_file: Artifact,
+        objects: list["artifact"],
+        symbols_file: "artifact",
         cxx_toolchain: "CxxToolchainInfo") -> (ObjectsLinkable.type, ObjectsLinkable.type):
     """
     Take a list of objects and append a suffix to all  defined symbols.

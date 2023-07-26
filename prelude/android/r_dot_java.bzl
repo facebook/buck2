@@ -40,11 +40,11 @@ def generate_r_dot_javas(
         merge_android_resources_tool: RunInfo.type,
         android_resources: list["AndroidResourceInfo"],
         banned_duplicate_resource_types: list[str],
-        uber_r_dot_txt_files: list[Artifact],
-        override_symbols_paths: list[Artifact],
-        duplicate_resources_allowlist: [Artifact, None],
+        uber_r_dot_txt_files: list["artifact"],
+        override_symbols_paths: list["artifact"],
+        duplicate_resources_allowlist: ["artifact", None],
         union_package: [str, None],
-        referenced_resources_lists: list[Artifact],
+        referenced_resources_lists: list["artifact"],
         generate_strings_and_ids_separately: [bool, None] = True) -> list["JavaLibraryInfo"]:
     r_dot_java_source_code = _generate_r_dot_java_source_code(
         ctx,
@@ -97,11 +97,11 @@ def _generate_r_dot_java_source_code(
         force_final_resources_ids = False,
         generate_strings_and_ids_separately = False,
         banned_duplicate_resource_types: list[str] = [],
-        uber_r_dot_txt_files: list[Artifact] = [],
-        override_symbols_paths: list[Artifact] = [],
-        duplicate_resources_allowlist: [Artifact, None] = None,
+        uber_r_dot_txt_files: list["artifact"] = [],
+        override_symbols_paths: list["artifact"] = [],
+        duplicate_resources_allowlist: ["artifact", None] = None,
         union_package: [str, None] = None,
-        referenced_resources_lists: list[Artifact] = []) -> RDotJavaSourceCode.type:
+        referenced_resources_lists: list["artifact"] = []) -> RDotJavaSourceCode.type:
     merge_resources_cmd = cmd_args(merge_android_resources_tool)
 
     r_dot_txt_info = cmd_args()
@@ -175,7 +175,7 @@ def _generate_r_dot_java_source_code(
 
 def _generate_and_compile_r_dot_java(
         ctx: AnalysisContext,
-        r_dot_java_source_code_zipped: Artifact,
+        r_dot_java_source_code_zipped: "artifact",
         identifier: str,
         remove_classes: list[str] = []) -> JavaClasspathEntry.type:
     r_dot_java_out = ctx.actions.declare_output("{}.jar".format(identifier))

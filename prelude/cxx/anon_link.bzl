@@ -77,7 +77,7 @@ def _serialize_links(links: list[LinkArgs.type]):
 def serialize_anon_attrs(
         links: list[LinkArgs.type],
         output: str,
-        import_library: [Artifact, None] = None,
+        import_library: ["artifact", None] = None,
         link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
         enable_distributed_thinlto: bool = False,
         identifier: [str, None] = None,

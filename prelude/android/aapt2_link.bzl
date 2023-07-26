@@ -13,7 +13,7 @@ def get_aapt2_link(
         ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
         resource_infos: list["AndroidResourceInfo"],
-        android_manifest: Artifact,
+        android_manifest: "artifact",
         includes_vector_drawables: bool,
         no_auto_version: bool,
         no_version_transitions: bool,
@@ -21,12 +21,12 @@ def get_aapt2_link(
         no_resource_removal: bool,
         should_keep_raw_values: bool,
         package_id_offset: int,
-        resource_stable_ids: [Artifact, None],
+        resource_stable_ids: ["artifact", None],
         preferred_density: [str, None],
         min_sdk: [str, None],
         filter_locales: bool,
         locales: list[str],
-        compiled_resource_apks: list[Artifact],
+        compiled_resource_apks: list["artifact"],
         additional_aapt2_params: list[str],
         extra_filtered_resources: list[str]) -> (Aapt2LinkInfo.type, Aapt2LinkInfo.type):
     link_infos = []
@@ -135,9 +135,9 @@ def get_aapt2_link(
 def get_module_manifest_in_proto_format(
         ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
-        android_manifest: Artifact,
-        primary_resources_apk: Artifact,
-        module_name: str) -> Artifact:
+        android_manifest: "artifact",
+        primary_resources_apk: "artifact",
+        module_name: str) -> "artifact":
     aapt2_command = cmd_args(android_toolchain.aapt2)
     aapt2_command.add("link")
 

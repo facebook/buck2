@@ -268,7 +268,7 @@ def _compile_cmd(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode
     return cmd
 
 # Run any preprocessors, returning a list of ml/mli/c artifacts you can compile
-def _preprocess(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMode.type) -> list[Artifact]:
+def _preprocess(ctx: AnalysisContext, srcs: list["artifact"], build_mode: BuildMode.type) -> list["artifact"]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     ocamllex = ocaml_toolchain.lex_compiler
     menhir = ocaml_toolchain.menhir_compiler  # We no longer use yacc_compiler, just menhir.
@@ -306,7 +306,7 @@ def _preprocess(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMod
     return result
 
 # Generate the dependencies
-def _depends(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMode.type) -> Artifact:
+def _depends(ctx: AnalysisContext, srcs: list["artifact"], build_mode: BuildMode.type) -> "artifact":
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     ocamldep = ocaml_toolchain.dep_tool
 
@@ -555,7 +555,7 @@ def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode.typ
 
 # The include path directories a client will provide a compile command to use
 # the given artifacts.
-def _include_paths(cmis: list[Artifact], cmos: list[Artifact]) -> cmd_args.type:
+def _include_paths(cmis: list["artifact"], cmos: list["artifact"]) -> cmd_args.type:
     include_paths = []
     seen_dirs = {}
     for f in cmis:

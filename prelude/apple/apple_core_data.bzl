@@ -24,7 +24,7 @@ def apple_core_data_impl(ctx: AnalysisContext) -> list["provider"]:
     )
     return [DefaultInfo(), graph]
 
-def compile_apple_core_data(ctx: AnalysisContext, specs: list[AppleCoreDataSpec.type], product_name: str) -> [Artifact, None]:
+def compile_apple_core_data(ctx: AnalysisContext, specs: list[AppleCoreDataSpec.type], product_name: str) -> ["artifact", None]:
     if len(specs) == 0:
         return None
 

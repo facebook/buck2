@@ -41,12 +41,12 @@ CXX_PATH = "cxx_path"
 
 def _replace_macros_in_script_template(
         ctx: AnalysisContext,
-        script_template: Artifact,
-        ghci_bin: Artifact,
+        script_template: "artifact",
+        ghci_bin: "artifact",
         exposed_package_args: cmd_args,
         packagedb_args: cmd_args,
         prebuilt_packagedb_args: cmd_args,
-        haskell_toolchain: HaskellToolchainInfo.type) -> Artifact:
+        haskell_toolchain: HaskellToolchainInfo.type) -> "artifact":
     toolchain_paths = {
         BINUTILS_PATH: haskell_toolchain.ghci_binutils_path,
         GHCI_LIB_PATH: haskell_toolchain.ghci_lib_path,
@@ -94,7 +94,7 @@ def _replace_macros_in_script_template(
 def _write_iserv_script(
         ctx: AnalysisContext,
         preload_deps_info: GHCiPreloadDepsInfo.type,
-        haskell_toolchain: HaskellToolchainInfo.type) -> Artifact:
+        haskell_toolchain: HaskellToolchainInfo.type) -> "artifact":
     iserv_script_cmd = cmd_args(SCRIPT_HEADER.format("GHCi iserv script"))
 
     preload_libs = ":".join(
@@ -192,7 +192,7 @@ def _build_preload_deps_root(
     )
 
 # Symlink the ghci binary that will be used, e.g. the internal fork in Haxlsh
-def _symlink_ghci_binary(ctx, ghci_bin: Artifact):
+def _symlink_ghci_binary(ctx, ghci_bin: "artifact"):
     # TODO(T155760998): set ghci_ghc_path as a dependency instead of string
     ghci_bin_dep = ctx.attrs.ghci_bin_dep
     if not ghci_bin_dep:
@@ -216,7 +216,7 @@ def _first_order_haskell_deps(ctx: AnalysisContext) -> list["HaskellLibraryInfo"
     )
 
 # Creates the start.ghci script used to load the packages during startup
-def _write_start_ghci(ctx: AnalysisContext, script_file: Artifact):
+def _write_start_ghci(ctx: AnalysisContext, script_file: "artifact"):
     start_cmd = cmd_args()
 
     # Reason for unsetting `LD_PRELOAD` env var obtained from D6255224:

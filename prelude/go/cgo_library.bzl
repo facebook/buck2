@@ -56,9 +56,9 @@ _LINKAGE_FOR_LINK_STYLE = {
 
 def _cgo(
         ctx: AnalysisContext,
-        srcs: list[Artifact],
+        srcs: list["artifact"],
         own_pre: list[CPreprocessor.type],
-        inherited_pre: list["CPreprocessorInfo"]) -> (list[Artifact], list[Artifact], list[Artifact]):
+        inherited_pre: list["CPreprocessorInfo"]) -> (list["artifact"], list["artifact"], list["artifact"]):
     """
     Run `cgo` on `.go` sources to generate Go, C, and C-Header sources.
     """

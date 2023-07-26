@@ -104,7 +104,7 @@ def _parse_macro(arg: str) -> [(str, str), None]:
 
 def _get_static_link_info(
         linker_type: str,
-        libs: list[Artifact],
+        libs: list["artifact"],
         args: list[str]) -> LinkInfo.type:
     """
     Format a pair of static link string args and static libs into args to be
@@ -153,7 +153,7 @@ def _get_static_link_info(
     )
 
 def _get_shared_link_info(
-        shared_libs: dict[str, Artifact],
+        shared_libs: dict[str, "artifact"],
         args: list[str]) -> LinkInfo.type:
     """
     Format a pair of shared link string args and shared libs into args to be

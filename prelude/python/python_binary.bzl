@@ -286,8 +286,8 @@ def _get_link_group_info(
 def python_executable(
         ctx: AnalysisContext,
         main_module: str,
-        srcs: dict[str, Artifact],
-        resources: dict[str, (Artifact, list["_arglike"])],
+        srcs: dict[str, "artifact"],
+        resources: dict[str, ("artifact", list["_arglike"])],
         compile: bool = False) -> PexProviders.type:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.

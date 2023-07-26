@@ -42,11 +42,11 @@ def create_jar_artifact_kotlincd(
         abi_generation_mode: [AbiGenerationMode.type, None],
         java_toolchain: "JavaToolchainInfo",
         kotlin_toolchain: "KotlinToolchainInfo",
-        javac_tool: [str, "RunInfo", Artifact, None],
+        javac_tool: [str, "RunInfo", "artifact", None],
         label: Label,
-        srcs: list[Artifact],
+        srcs: list["artifact"],
         remove_classes: list[str],
-        resources: list[Artifact],
+        resources: list["artifact"],
         resources_root: [str, None],
         ap_params: list["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
@@ -56,8 +56,8 @@ def create_jar_artifact_kotlincd(
         required_for_source_only_abi: bool,
         source_only_abi_deps: list[Dependency],
         extra_arguments: list[str],
-        additional_classpath_entries: list[Artifact],
-        bootclasspath_entries: list[Artifact],
+        additional_classpath_entries: list["artifact"],
+        bootclasspath_entries: list["artifact"],
         is_building_android_binary: bool,
         friend_paths: list[Dependency],
         kotlin_compiler_plugins: dict,
@@ -126,7 +126,7 @@ def create_jar_artifact_kotlincd(
 
     def encode_library_command(
             output_paths: OutputPaths.type,
-            path_to_class_hashes: Artifact,
+            path_to_class_hashes: "artifact",
             classpath_jars_tag: "artifact_tag") -> struct.type:
         target_type = TargetType("library")
         base_jar_command = encode_base_jar_command(
@@ -215,9 +215,9 @@ def create_jar_artifact_kotlincd(
             qualified_name: str,
             output_paths: OutputPaths.type,
             classpath_jars_tag: "artifact_tag",
-            abi_dir: [Artifact, None],
+            abi_dir: ["artifact", None],
             target_type: TargetType.type,
-            path_to_class_hashes: [Artifact, None],
+            path_to_class_hashes: ["artifact", None],
             source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []):
         _unused = source_only_abi_compiling_deps
 

@@ -139,7 +139,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput.
 
     return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
 
-def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTSet.type) -> Artifact:
+def _get_scrubbed_binary_dsym(ctx, binary: "artifact", debug_info_tset: ArtifactTSet.type) -> "artifact":
     debug_info = project_artifacts(
         actions = ctx.actions,
         tsets = [debug_info_tset],
@@ -163,7 +163,7 @@ def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBin
     result.append(primary_binary_part)
     return result, primary_binary_part
 
-def _get_watch_kit_stub_artifact(ctx: AnalysisContext) -> Artifact:
+def _get_watch_kit_stub_artifact(ctx: AnalysisContext) -> "artifact":
     expect(ctx.attrs.binary == None, "Stub is useful only when binary is not set which means watchOS bundle is built.")
     stub_binary = ctx.attrs._apple_toolchain[AppleToolchainInfo].watch_kit_stub_binary
     if stub_binary == None:
@@ -296,7 +296,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list["provider"]:
         extra_output_provider,
     ]
 
-def _xcode_populate_attributes(ctx, processed_info_plist: Artifact) -> dict[str, ""]:
+def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> dict[str, ""]:
     data = {
         "deployment_version": get_bundle_min_target_version(ctx, get_default_binary_dep(ctx)),
         "info_plist": ctx.attrs.info_plist,
@@ -308,7 +308,7 @@ def _xcode_populate_attributes(ctx, processed_info_plist: Artifact) -> dict[str,
     apple_xcode_data_add_xctoolchain(ctx, data)
     return data
 
-def _linker_maps_data(ctx: AnalysisContext) -> (Artifact, AppleBundleLinkerMapInfo.type):
+def _linker_maps_data(ctx: AnalysisContext) -> ("artifact", AppleBundleLinkerMapInfo.type):
     deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx)
     deps_linker_map_infos = filter(
         None,
@@ -346,7 +346,7 @@ def generate_install_data(
         ctx: AnalysisContext,
         plist_path: str,
         populate_rule_specific_attributes_func: ["function", None] = None,
-        **kwargs) -> Artifact:
+        **kwargs) -> "artifact":
     data = {
         "fullyQualifiedName": ctx.label,
         "info_plist": plist_path,

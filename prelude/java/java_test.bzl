@@ -39,7 +39,7 @@ def build_junit_test(
         tests_java_packaging_info: "JavaPackagingInfo",
         tests_class_to_source_info: [JavaClassToSourceMapInfo.type, None] = None,
         extra_cmds: list = [],
-        extra_classpath_entries: list[Artifact] = []) -> ExternalRunnerTestInfo.type:
+        extra_classpath_entries: list["artifact"] = []) -> ExternalRunnerTestInfo.type:
     java_test_toolchain = ctx.attrs._java_test_toolchain[JavaTestToolchainInfo]
 
     java = ctx.attrs.java[RunInfo] if ctx.attrs.java else ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests

@@ -14,10 +14,10 @@ load(":erlang_utils.bzl", "action_identifier", "to_term_args")
 
 def create_escript(
         ctx: AnalysisContext,
-        spec_file: Artifact,
+        spec_file: "artifact",
         toolchain: "Toolchain",
-        files: list[Artifact],
-        output: Artifact,
+        files: list["artifact"],
+        output: "artifact",
         escript_name: str) -> None:
     """ build the escript with the escript builder tool
     """
@@ -111,7 +111,7 @@ def erlang_escript_impl(ctx: AnalysisContext) -> list["provider"]:
         RunInfo(escript_cmd),
     ]
 
-def _ebin_path(file: Artifact, app_name: str) -> str:
+def _ebin_path(file: "artifact", app_name: str) -> str:
     return paths.join(app_name, "ebin", file.basename)
 
 def _priv_path(app_name: str) -> str:
