@@ -50,7 +50,7 @@ pub(crate) enum TypeExprUnpackP<'a, P: AstPayload> {
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
     ),
-    Any(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
+    Union(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     ListOf(Box<Spanned<TypeExprUnpackP<'a, P>>>),
     DictOf(
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
@@ -161,7 +161,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                 let b = TypeExprUnpackP::unpack(b, codemap)?;
                 Ok(Spanned {
                     span,
-                    node: TypeExprUnpackP::Any(vec![a, b]),
+                    node: TypeExprUnpackP::Union(vec![a, b]),
                 })
             }
             ExprP::Op(..) => err("bin op except `|`"),
@@ -184,7 +184,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                     let xs = xs.try_map(|x| TypeExprUnpackP::unpack(x, codemap))?;
                     Ok(Spanned {
                         span,
-                        node: TypeExprUnpackP::Any(xs),
+                        node: TypeExprUnpackP::Union(xs),
                     })
                 }
             }

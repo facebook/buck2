@@ -191,7 +191,7 @@ impl<'v> Compiler<'v, '_, '_> {
                 Ok(TypeCompiled::new(t, self.eval.heap())
                     .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?)
             }
-            TypeExprUnpackP::Any(xs) => {
+            TypeExprUnpackP::Union(xs) => {
                 let xs = xs.into_try_map(|x| self.eval_expr_as_type(x))?;
                 Ok(TypeCompiled::type_any_of(xs, self.eval.heap()))
             }

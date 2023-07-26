@@ -505,7 +505,7 @@ impl Ty {
             TypeExprUnpackP::Tuple(xs) => {
                 Ty::tuple(xs.map(|x| Self::from_expr_impl(x, approximations)))
             }
-            TypeExprUnpackP::Any(xs) => {
+            TypeExprUnpackP::Union(xs) => {
                 Ty::unions(xs.map(|x| Self::from_expr_impl(x, approximations)))
             }
             TypeExprUnpackP::ListOf(x) => Ty::list(Self::from_expr_impl(x, approximations)),
