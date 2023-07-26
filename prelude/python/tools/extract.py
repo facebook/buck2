@@ -13,8 +13,29 @@ extract.py my_zip_file.zip --output=output_directory
 """
 
 import argparse
-import shutil
+import os
+import stat
+import zipfile
 from pathlib import Path
+
+
+# shutil.unpack_archive calls zipfile.extract which does *not* preserve file attributes
+# (see https://bugs.python.org/issue15795, https://stackoverflow.com/questions/39296101/python-zipfile-removes-execute-permissions-from-binaries).
+#
+# We need to preserve at least the executable bit.
+def extract_zip_with_permissions(src: Path, dst_dir: Path) -> None:
+    z = zipfile.ZipFile(src)
+    for info in z.infolist():
+        outfile = z.extract(info.filename, dst_dir)
+
+        execute_perms = (info.external_attr >> 16) & (
+            stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        )
+        if execute_perms:
+            st = os.stat(outfile)
+            new_mode = stat.S_IMODE(st.st_mode | execute_perms)
+            if new_mode != st.st_mode:
+                os.chmod(outfile, new_mode)
 
 
 def main() -> None:
@@ -28,7 +49,8 @@ def main() -> None:
     args = parser.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
-    shutil.unpack_archive(args.src, args.output, "zip")
+
+    extract_zip_with_permissions(args.src, args.output)
 
 
 if __name__ == "__main__":
