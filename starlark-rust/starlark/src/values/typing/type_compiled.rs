@@ -587,6 +587,10 @@ impl<'v> TypeCompiled<Value<'v>> {
         t: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
+        if t.type_is_wildcard() {
+            return TypeCompiled::type_list();
+        }
+
         #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsListOf<V>(TypeCompiled<V>);
 
@@ -640,6 +644,10 @@ impl<'v> TypeCompiled<Value<'v>> {
         t2: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
+        if t1.type_is_wildcard() || t2.type_is_wildcard() {
+            return TypeCompiled::type_anything();
+        }
+
         #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsAnyOfTwo<V>(TypeCompiled<V>, TypeCompiled<V>);
 
@@ -693,7 +701,9 @@ impl<'v> TypeCompiled<Value<'v>> {
         ts: Vec<TypeCompiled<Value<'v>>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
-        if ts.len() == 1 {
+        if ts.iter().any(|t| t.type_is_wildcard()) {
+            return TypeCompiled::type_anything();
+        } else if ts.len() == 1 {
             return ts.into_iter().next().unwrap();
         } else if ts.len() == 2 {
             let mut it = ts.into_iter();
@@ -753,6 +763,10 @@ impl<'v> TypeCompiled<Value<'v>> {
         vt: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
+        if kt.type_is_wildcard() && vt.type_is_wildcard() {
+            return TypeCompiled::type_dict();
+        }
+
         #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsDictOf<V>(TypeCompiled<V>, TypeCompiled<V>);
 
