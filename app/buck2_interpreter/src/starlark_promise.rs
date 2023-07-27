@@ -392,7 +392,7 @@ mod tests {
 
     fn assert_promise<'v>(modu: &'v Module, content: &str) -> anyhow::Result<Value<'v>> {
         alloc_promises(modu);
-        let globals = GlobalsBuilder::extended().with(helpers).build();
+        let globals = GlobalsBuilder::standard().with(helpers).build();
         let ast = AstModule::parse("test.bzl", content.to_owned(), &Dialect::Extended)?;
         let mut eval = Evaluator::new(modu);
         let res = eval.eval_module(ast, &globals)?;

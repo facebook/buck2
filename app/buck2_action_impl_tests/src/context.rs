@@ -36,7 +36,7 @@ fn run_ctx_test(
     result_handler: impl FnOnce(anyhow::Result<Value>) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
     let func_mod = Module::new();
-    let globals = GlobalsBuilder::extended().with(register_rule_defs).build();
+    let globals = GlobalsBuilder::standard().with(register_rule_defs).build();
     let prelude = indoc!(
         r#"
          def assert_eq(a, b):

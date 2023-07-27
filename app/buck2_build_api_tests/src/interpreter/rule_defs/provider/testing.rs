@@ -23,7 +23,7 @@ pub trait FrozenProviderCollectionValueExt {
 impl FrozenProviderCollectionValueExt for FrozenProviderCollectionValue {
     fn testing_new(providers: &str) -> Self {
         let env = Module::new();
-        let globals = GlobalsBuilder::extended()
+        let globals = GlobalsBuilder::standard()
             .with(register_builtin_providers)
             .with(register_provider)
             .build();

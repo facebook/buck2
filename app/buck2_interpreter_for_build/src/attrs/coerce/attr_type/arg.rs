@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn test_concat() -> anyhow::Result<()> {
         let env = Module::new();
-        let globals = GlobalsBuilder::extended().with(register_select).build();
+        let globals = GlobalsBuilder::standard().with(register_select).build();
         let attr = AttrType::arg(true);
         let value = to_value(
             &env,

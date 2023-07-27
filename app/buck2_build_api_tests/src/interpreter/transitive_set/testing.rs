@@ -65,7 +65,7 @@ pub(crate) fn new_transitive_set(
 ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
     let env = Module::new();
 
-    let globals = GlobalsBuilder::extended()
+    let globals = GlobalsBuilder::standard()
         .with(register_transitive_set)
         .with(tset_factory)
         .with(artifactory)

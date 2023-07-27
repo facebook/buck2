@@ -112,7 +112,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
             SmallMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
             ProviderIdSet,
         ) {
-            let globals = GlobalsBuilder::extended()
+            let globals = GlobalsBuilder::standard()
                 .with(register_builtin_providers)
                 .with(register_provider)
                 .with(artifactory)

@@ -52,7 +52,7 @@ use crate::attrs::resolve::testing::resolution_ctx_with_providers;
 
 #[test]
 fn test() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended().with(register_select).build();
+    let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
     // Check that `x` is captured with the function
@@ -104,7 +104,7 @@ fn test() -> anyhow::Result<()> {
 #[test]
 fn test_string() -> anyhow::Result<()> {
     let env = Module::new();
-    let globals = GlobalsBuilder::extended().with(register_select).build();
+    let globals = GlobalsBuilder::standard().with(register_select).build();
     let attr = AttrType::string();
     let value = to_value(&env, &globals, r#""a" + select({"DEFAULT": "b"})"#);
 
@@ -117,7 +117,7 @@ fn test_string() -> anyhow::Result<()> {
 
 #[test]
 fn test_invalid_concat_coercion_into_one_of() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended().with(register_select).build();
+    let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
     let value = to_value(
@@ -149,7 +149,7 @@ fn test_invalid_concat_coercion_into_one_of() -> anyhow::Result<()> {
 
 #[test]
 fn test_concat_option_one_of() {
-    let globals = GlobalsBuilder::extended().with(register_select).build();
+    let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
     let value = to_value(
@@ -244,7 +244,7 @@ fn test_option() -> anyhow::Result<()> {
 #[test]
 fn test_dict() -> anyhow::Result<()> {
     let env = Module::new();
-    let globals = GlobalsBuilder::extended().with(register_select).build();
+    let globals = GlobalsBuilder::standard().with(register_select).build();
     let value = to_value(&env, &globals, r#"{"b":["1"],"a":[]}"#);
 
     let attr = AttrType::dict(AttrType::string(), AttrType::list(AttrType::string()), true);
@@ -348,7 +348,7 @@ fn test_label() -> anyhow::Result<()> {
 
 #[test]
 fn test_coerced_deps() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended().with(register_select).build();
+    let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
     let content = indoc!(
@@ -398,7 +398,7 @@ fn test_coerced_deps() -> anyhow::Result<()> {
 
 #[test]
 fn test_configured_deps() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended().with(register_select).build();
+    let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
     let content = indoc!(
@@ -459,7 +459,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
 
 #[test]
 fn test_resolved_deps() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended()
+    let globals = GlobalsBuilder::standard()
         .with(register_select)
         .with(buck2_build_api::interpreter::rule_defs::register_rule_defs)
         .build();
@@ -610,7 +610,7 @@ fn test_source_label() -> anyhow::Result<()> {
 
 #[test]
 fn test_source_label_deps() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended().with(register_select).build();
+    let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
     let content = indoc!(
@@ -674,7 +674,7 @@ fn test_source_label_resolution() -> anyhow::Result<()> {
     fn resolve_and_test(content: &str, test_content: &str, files: &[&str]) -> anyhow::Result<()> {
         let env = Module::new();
 
-        let globals = GlobalsBuilder::extended()
+        let globals = GlobalsBuilder::standard()
             .with(register_select)
             .with(register_builtin_providers)
             .build();
@@ -830,7 +830,7 @@ fn test_arg() -> anyhow::Result<()> {
 
 #[test]
 fn test_bool() -> anyhow::Result<()> {
-    let globals = GlobalsBuilder::extended().with(register_select).build();
+    let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
     let value = to_value(
@@ -875,7 +875,7 @@ fn test_bool() -> anyhow::Result<()> {
 fn test_user_placeholders() -> anyhow::Result<()> {
     let env = Module::new();
 
-    let globals = GlobalsBuilder::extended()
+    let globals = GlobalsBuilder::standard()
         .with(register_select)
         .with(register_builtin_providers)
         .build();
