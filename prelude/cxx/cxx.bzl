@@ -413,10 +413,10 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list["provider"]:
                         # Generate a shared library interface if the rule supports it.
                         if ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx):
                             shared_lib_for_linking = cxx_mk_shlib_intf(ctx, ctx.attrs.name, shared_lib.output)
-                        if ctx.attrs._target_os_type[OsLookup].platform == "windows" and ctx.attrs.import_lib != None:
+                        if ctx.attrs._target_os_type[OsLookup].platform == "windows":
                             shared_lib_for_linking = ctx.attrs.import_lib
 
-                        linkable = SharedLibLinkable(lib = shared_lib_for_linking)
+                        linkable = SharedLibLinkable(lib = shared_lib_for_linking) if shared_lib_for_linking else None
 
                     # Provided means something external to the build will provide
                     # the libraries, so we don't need to propagate anything.
