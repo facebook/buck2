@@ -153,6 +153,19 @@ impl TypingContext<'_> {
             span: x.span,
             node: self.expression_type(x),
         });
+
+        // Hack for `list[str]`: list of `list` is just "function", and we don't want
+        // to make it custom type and have overly complex machinery for handling it.
+        // So we just special case it here.
+        if t0.is_function() && name == TypingAttr::Index {
+            if let ExprP::Identifier(v0) = &args[0].node {
+                if v0.0 == "list" {
+                    // TODO: make this "eval_type" or something.
+                    return Ty::any();
+                }
+            }
+        }
+
         self.expression_primitive_ty(name, t0, ts, span)
     }
 

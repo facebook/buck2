@@ -327,6 +327,10 @@ impl Ty {
         matches!(self.alternatives.as_slice(), [TyBasic::List(_)])
     }
 
+    pub(crate) fn is_function(&self) -> bool {
+        self.as_name() == Some("function")
+    }
+
     /// Create a unions type, which will be normalised before being created.
     pub fn unions(xs: Vec<Self>) -> Self {
         let mut xs: Vec<TyBasic> = xs.into_iter().flat_map(|x| x.into_iter_union()).collect();
