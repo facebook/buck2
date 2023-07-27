@@ -10,22 +10,27 @@ load(":apple_bundle_types.bzl", "AppleBundleBinaryOutput")
 load(":apple_toolchain_types.bzl", "AppleToolsInfo")
 load(":debug.bzl", "AppleDebuggableInfo")
 
-def create_universal_binary(ctx: "context", dsym_bundle_name: "string") -> AppleBundleBinaryOutput.type:
-    binary_output = ctx.actions.declare_output("UniversalBinary", dir = False)
+def create_universal_binary(
+        ctx: "context",
+        binary_deps: dict[str, Dependency],
+        binary_name: [str, None],
+        dsym_bundle_name: [str, None],
+        split_arch_dsym: bool) -> AppleBundleBinaryOutput.type:
+    binary_output = ctx.actions.declare_output("UniversalBinary" if binary_name == None else binary_name, dir = False)
     lipo_cmd = cmd_args([ctx.attrs._apple_toolchain[AppleToolchainInfo].lipo])
 
-    for (_, binary) in ctx.attrs.binary.items():
+    for (_, binary) in binary_deps.items():
         lipo_cmd.add(cmd_args(binary[DefaultInfo].default_outputs[0]))
 
     lipo_cmd.add(["-create", "-output", binary_output.as_output()])
     ctx.actions.run(lipo_cmd, category = "universal_binary")
 
     dsym_output = None
-    if ctx.attrs.split_arch_dsym:
-        dsym_output = ctx.actions.declare_output(dsym_bundle_name, dir = True)
+    if split_arch_dsym:
+        dsym_output = ctx.actions.declare_output("UniversalBinary.dSYM" if dsym_bundle_name == None else dsym_bundle_name, dir = True)
         dsym_combine_cmd = cmd_args([ctx.attrs._apple_tools[AppleToolsInfo].split_arch_combine_dsym_bundles_tool])
 
-        for (arch, binary) in ctx.attrs.binary.items():
+        for (arch, binary) in binary_deps.items():
             dsym_combine_cmd.add(["--dsym-bundle", cmd_args(binary.get(AppleDebuggableInfo).dsyms[0]), "--arch", arch])
         dsym_combine_cmd.add(["--output", dsym_output.as_output()])
         ctx.actions.run(dsym_combine_cmd, category = "lipo")

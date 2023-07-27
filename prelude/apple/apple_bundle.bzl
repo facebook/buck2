@@ -85,7 +85,13 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput.type:
     if ctx.attrs.universal:
         if ctx.attrs.selective_debugging != None:
             fail("Selective debugging is not supported for universal binaries.")
-        return create_universal_binary(ctx, _get_bundle_dsym_name(ctx))
+        return create_universal_binary(
+            ctx = ctx,
+            binary_deps = ctx.attrs.binary,
+            binary_name = "{}-UniversalBinary".format(get_product_name(ctx)),
+            dsym_bundle_name = _get_bundle_dsym_name(ctx),
+            split_arch_dsym = ctx.attrs.split_arch_dsym,
+        )
     else:
         binary_dep = get_default_binary_dep(ctx)
         if len(binary_dep[DefaultInfo].default_outputs) != 1:

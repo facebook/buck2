@@ -7,6 +7,7 @@
 
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
+load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
@@ -34,6 +35,7 @@ load(
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
 load(":apple_toolchain_types.bzl", "AppleToolsInfo")
+load(":apple_universal_executable.bzl", "apple_universal_executable_impl")
 load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
 load(":scene_kit_assets.bzl", "scene_kit_assets_impl")
 load(":xcode_postbuild_script.bzl", "xcode_postbuild_script_impl")
@@ -48,6 +50,7 @@ implemented_rules = {
     "apple_resource": apple_resource_impl,
     "apple_test": apple_test_impl,
     "apple_toolchain": apple_toolchain_impl,
+    "apple_universal_executable": apple_universal_executable_impl,
     "core_data_model": apple_core_data_impl,
     "prebuilt_apple_framework": prebuilt_apple_framework_impl,
     "scene_kit_assets": scene_kit_assets_impl,
@@ -156,6 +159,15 @@ extra_attributes = {
         # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
+    },
+    "apple_universal_executable": {
+        "executable": attrs.split_transition_dep(cfg = cpu_split_transition),
+        "labels": attrs.list(attrs.string()),
+        "split_arch_dsym": attrs.bool(default = False),
+        "universal": attrs.option(attrs.bool(), default = None),
+        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_universal_default": attrs.bool(default = False),
     },
     "core_data_model": {
         "path": attrs.source(allow_directory = True),
