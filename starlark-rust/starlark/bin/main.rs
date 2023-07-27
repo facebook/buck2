@@ -28,6 +28,7 @@ use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use anyhow::Context as _;
 use clap::Parser;
 use clap::ValueEnum;
 use dupe::Dupe;
@@ -198,11 +199,18 @@ impl Stats {
     }
 }
 
-fn drain(xs: impl Iterator<Item = EvalMessage>, json: bool, stats: &mut Stats) {
+fn drain(
+    xs: impl Iterator<Item = EvalMessage>,
+    json: bool,
+    stats: &mut Stats,
+) -> anyhow::Result<()> {
     for x in xs {
         stats.increment(x.severity);
         if json {
-            println!("{}", serde_json::to_string(&LintMessage::new(x)).unwrap());
+            println!(
+                "{}",
+                serde_json::to_string(&LintMessage::new(x)).context("serializing lint to JSON")?
+            );
         } else if let Some(error) = x.full_error_with_span {
             let mut error = error.to_owned();
             if !error.is_empty() && !error.ends_with('\n') {
@@ -213,6 +221,7 @@ fn drain(xs: impl Iterator<Item = EvalMessage>, json: bool, stats: &mut Stats) {
             println!("{}", x);
         }
     }
+    Ok(())
 }
 
 fn interactive(ctx: &Context) -> anyhow::Result<()> {
@@ -221,7 +230,7 @@ fn interactive(ctx: &Context) -> anyhow::Result<()> {
         match rl.read_line("$> ")? {
             Some(line) => {
                 let mut stats = Stats::default();
-                drain(ctx.expression(line).messages, false, &mut stats);
+                drain(ctx.expression(line).messages, false, &mut stats)?;
             }
             // User pressed EOF - disconnected terminal, or similar
             None => return Ok(()),
@@ -294,12 +303,12 @@ fn main() -> anyhow::Result<()> {
             let mut stats = Stats::default();
             for e in args.evaluate.clone() {
                 stats.increment_file();
-                drain(ctx.expression(e).messages, args.json, &mut stats);
+                drain(ctx.expression(e).messages, args.json, &mut stats)?;
             }
 
             for file in expand_dirs(ext, args.files.clone()) {
                 stats.increment_file();
-                drain(ctx.file(&file).messages, args.json, &mut stats);
+                drain(ctx.file(&file).messages, args.json, &mut stats)?;
             }
 
             if !args.json {
