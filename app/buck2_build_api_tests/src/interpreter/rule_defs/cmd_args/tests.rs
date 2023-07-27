@@ -59,7 +59,7 @@ fn stringifies_correctly() -> SharedResult<()> {
         arg2 = "string1"
         arg3 = artifact1
         arg4 = artifact2
-        arg5 = str(label("//foo:bar[baz]"))
+        arg5 = label("//foo:bar[baz]")
 
         def test():
             artifact3 = source_artifact("foo", "bar/quz.h")
@@ -67,7 +67,7 @@ fn stringifies_correctly() -> SharedResult<()> {
             arg7 = "string2"
             arg8 = artifact3
             arg9 = artifact4
-            arg10 = str(label("//foo:bar[quz]"))
+            arg10 = label("//foo:bar[quz]")
 
             assert_eq("string1", stringify_cli_arg(arg2))
             assert_eq("foo/bar/baz.h", stringify_cli_arg(arg3))
@@ -228,18 +228,11 @@ fn command_line_builder() -> SharedResult<()> {
     tester.run_starlark_bzl_test(content)?;
 
     let content_invalid_type_1 = r#"cmd_args().add({"not": "an arg"})"#;
-    // TODO(ndmitchel): We claim you can add labels to a command line, but you can't
-    let content_invalid_type_2 = r#"cmd_args().add(label("//:foo"))"#;
     let content_invalid_type_3 = r#"cmd_args().add([{"not": "an arg"}])"#;
 
     expect_error(
         tester.run_starlark_bzl_test(content_invalid_type_1),
         content_invalid_type_1,
-        "expected command line item",
-    );
-    expect_error(
-        tester.run_starlark_bzl_test(content_invalid_type_2),
-        content_invalid_type_2,
         "expected command line item",
     );
     expect_error(

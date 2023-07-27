@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::label_relative_path::LabelRelativePath;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use starlark::values::Value;
@@ -20,8 +21,9 @@ use crate::starlark::values::StarlarkValue;
 #[derive(Debug, thiserror::Error)]
 enum CommandLineArgError {
     #[error(
-        "expected command line item to be a string, artifact, or {}, or list thereof, \
+        "expected command line item to be a string, artifact, {}, or {}, or list thereof, \
         not `{repr}` (`{type_name}`)",
+        StarlarkConfiguredProvidersLabel::TYPE,
         StarlarkTargetLabel::TYPE
     )]
     InvalidItemType {
@@ -59,6 +61,7 @@ impl<'v> ValueAsCommandLineLike<'v> for Value<'v> {
         check!(FrozenRunInfo);
         check!(LabelRelativePath);
         check!(StarlarkTargetLabel);
+        check!(StarlarkConfiguredProvidersLabel);
 
         self.request_value()
     }
