@@ -8,6 +8,7 @@
  */
 
 use buck2_event_observer::dice_state::DiceState;
+use buck2_event_observer::humanized::HumanizedCount;
 use gazebo::prelude::*;
 use superconsole::Component;
 use superconsole::Lines;
@@ -32,23 +33,31 @@ impl<'s> Component for DiceComponent<'s> {
 
         let mut lines = vec!["Dice Key States".to_owned()];
 
-        let header = format!("  {:<42}  {:>12}  {:>12}", "  Key", "Pending", "Finished");
+        let header = format!(
+            "  {:<42}  {:>6}  {:>6}  {:>6}",
+            "  Key", "ChkDeps", "Pending", "Done"
+        );
         let header_len = header.len();
         lines.push(header);
         lines.push("-".repeat(header_len));
         for (k, v) in self.dice_state.key_states() {
             // We aren't guaranteed to get a final DiceStateUpdate and so we just assume all dice nodes that we
             // know about finished so that the final rendering doesn't look silly.
-            let (pending, finished) = match mode {
-                superconsole::DrawMode::Normal => (v.started - v.finished, v.finished),
-                superconsole::DrawMode::Final => (0, v.started),
+            let (check_deps, pending, finished) = match mode {
+                superconsole::DrawMode::Normal => (
+                    v.check_deps_started - v.check_deps_finished,
+                    v.started - v.finished,
+                    v.finished,
+                ),
+                superconsole::DrawMode::Final => (0, 0, v.started),
             };
             lines.push(format!(
-                "    {:<40} |{:>12} |{:>12}",
+                "    {:<40} |  {}  |  {}  |  {}",
                 // Dice key states are all ascii
                 if k.len() > 40 { &k[..40] } else { k },
-                pending,
-                finished
+                HumanizedCount::fixed_width(check_deps.into()),
+                HumanizedCount::fixed_width(pending.into()),
+                HumanizedCount::fixed_width(finished.into())
             ));
         }
         lines.push("-".repeat(header_len));
