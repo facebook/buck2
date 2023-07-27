@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
+load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
 load("@prelude//rust:rust_library.bzl", "prebuilt_rust_library_impl", "rust_library_impl")
 load(":common.bzl", "LinkableDepType", "Linkage", "buck", "prelude_rule")
@@ -145,6 +146,10 @@ rust_binary = prelude_rule(
             "incremental_enabled": attrs.bool(default = False),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
+            # TODO: enable link groups
+            "link_group": attrs.option(attrs.string(), default = None),
+            "link_group_map": link_group_map_attr(),
+            "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
             "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
             "rustdoc_flags": attrs.list(attrs.arg(), default = []),
             "version_universe": attrs.option(attrs.string(), default = None),
