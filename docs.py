@@ -28,7 +28,9 @@ def write_file(path, contents):
 
 
 def buck_command(args):
-    if args.prod:
+    if args.buck2:
+        return args.buck2
+    elif args.prod:
         return "buck2"
     elif args.cargo:
         return "cargo run --bin=buck2 --"
@@ -66,7 +68,12 @@ def main() -> None:
         "--cargo",
         action="store_true",
         default=False,
-        help="Whethern to use a `cargo` built binary.",
+        help="Whether to use a `cargo` built binary.",
+    )
+    parser.add_argument(
+        "--buck2",
+        nargs="?",
+        help="Whether to use provided binary.",
     )
     args = parser.parse_args()
 

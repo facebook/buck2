@@ -118,6 +118,7 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
+          name: buck2-${{ matrix.target.triple }}
           path: ${{ steps.set_variables.outputs.buck2_zst }}
 
   release_latest:
@@ -193,3 +194,36 @@ jobs:
         with:
           tag: ${{ needs.check_for_bi_monthly_release.outputs.tag }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  build_docs_job:
+    name: Publish buck2.build
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Download Buck2
+      uses: actions/download-artifact@v3
+      with:
+        name: buck2-x86_64-unknown-linux-gnu
+        path: artifacts
+    - name: Decompress Buck2
+      run: |
+        zstd -d artifacts/buck2-x86_64-unknown-linux-gnu.zst -o artifacts/buck2-release
+        chmod +x artifacts/buck2-release
+    - name: Install dependencies
+      run: |
+        sudo apt-get install -y yarn
+      id: build
+    - name: Build the Website
+      run: |
+        cd website
+        yarn
+        BUCK2_BIN="$GITHUB_WORKSPACE/artifacts/buck2-release" yarn build_prebuilt
+    - name: Deploy
+      uses: JamesIves/github-pages-deploy-action@releases/v4
+      with:
+        branch: gh-pages # The branch the action should deploy to.
+        folder: website/build # The folder the action should deploy.
+        single-commit: true # Discard history for the gh-pages branch.

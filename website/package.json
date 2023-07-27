@@ -8,6 +8,7 @@
     "build": "../docs.py --prod && docusaurus build",
     "build_local": "../docs.py && docusaurus build",
     "build_cargo": "../docs.py --cargo && docusaurus build",
+    "build_prebuilt": "../docs.py --buck2 $BUCK2_BIN && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
