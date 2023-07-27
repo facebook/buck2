@@ -40,6 +40,7 @@ mod tests {
     use buck2_interpreter::path::BxlFilePath;
     use buck2_util::collections::ordered_map::OrderedMap;
     use dice::testing::DiceBuilder;
+    use dice::DiceComputations;
     use dice::UserComputationData;
     use dupe::Dupe;
     use indexmap::IndexSet;
@@ -66,6 +67,7 @@ mod tests {
         async fn execute(
             &self,
             _ctx: &mut dyn DeferredCtx,
+            _dice: &DiceComputations,
         ) -> anyhow::Result<DeferredValue<Self::Output>> {
             self.2.store(true, Ordering::SeqCst);
             Ok(DeferredValue::Ready(self.0))

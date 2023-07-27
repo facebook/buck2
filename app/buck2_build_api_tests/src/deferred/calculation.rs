@@ -39,6 +39,7 @@ use buck2_execute::digest_config::SetDigestConfig;
 use buck2_execute::execute::dice_data::set_fallback_executor_config;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::testing::DiceBuilder;
+use dice::DiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
 use indexmap::IndexSet;
@@ -64,6 +65,7 @@ impl Deferred for FakeDeferred {
     async fn execute(
         &self,
         _ctx: &mut dyn DeferredCtx,
+        _dice: &DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         self.2.store(true, Ordering::SeqCst);
         Ok(DeferredValue::Ready(self.0))
@@ -159,6 +161,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
         async fn execute(
             &self,
             ctx: &mut dyn DeferredCtx,
+            _dice: &DiceComputations,
         ) -> anyhow::Result<DeferredValue<Self::Output>> {
             let data = ctx
                 .registry()

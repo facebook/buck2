@@ -31,6 +31,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 use indexmap::indexset;
@@ -59,6 +60,7 @@ pub trait Deferred: Allocative + any::Provider {
     async fn execute(
         &self,
         ctx: &mut dyn DeferredCtx,
+        dice: &DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>>;
 
     /// An optional stage to wrap execution in.
@@ -219,7 +221,11 @@ impl DeferredAny for TrivialDeferredValue {
         &INPUTS
     }
 
-    async fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
+    async fn execute(
+        &self,
+        _ctx: &mut dyn DeferredCtx,
+        _dice: &DiceComputations,
+    ) -> anyhow::Result<DeferredValueAny> {
         Ok(DeferredValueAny::Ready(
             DeferredValueAnyReady::TrivialDeferred(self.0.dupe()),
         ))
@@ -263,10 +269,14 @@ impl DeferredAny for DeferredTableEntry {
         }
     }
 
-    async fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
+    async fn execute(
+        &self,
+        ctx: &mut dyn DeferredCtx,
+        dice: &DiceComputations,
+    ) -> anyhow::Result<DeferredValueAny> {
         match self {
-            Self::Trivial(v) => v.execute(ctx).await,
-            Self::Complex(v) => v.execute(ctx).await,
+            Self::Trivial(v) => v.execute(ctx, dice).await,
+            Self::Complex(v) => v.execute(ctx, dice).await,
         }
     }
 
@@ -496,6 +506,7 @@ impl DeferredRegistry {
             async fn execute(
                 &self,
                 ctx: &mut dyn DeferredCtx,
+                _dice: &DiceComputations,
             ) -> anyhow::Result<DeferredValue<Self::Output>> {
                 let orig = match self.orig.iter().exactly_one() {
                     Ok(DeferredInput::Deferred(orig)) => orig,
@@ -751,7 +762,11 @@ pub trait DeferredAny: Allocative + any::Provider + Send + Sync {
     fn inputs(&self) -> &IndexSet<DeferredInput>;
 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
-    async fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny>;
+    async fn execute(
+        &self,
+        ctx: &mut dyn DeferredCtx,
+        dice: &DiceComputations,
+    ) -> anyhow::Result<DeferredValueAny>;
 
     fn as_any(&self) -> &dyn Any;
 
@@ -784,8 +799,12 @@ where
         self.inputs()
     }
 
-    async fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
-        match self.execute(ctx).await? {
+    async fn execute(
+        &self,
+        ctx: &mut dyn DeferredCtx,
+        dice: &DiceComputations,
+    ) -> anyhow::Result<DeferredValueAny> {
+        match self.execute(ctx, dice).await? {
             DeferredValue::Ready(t) => Ok(DeferredValueAny::ready(t)),
             DeferredValue::Deferred(d) => Ok(DeferredValueAny::defer(d)),
         }
@@ -892,6 +911,10 @@ mod tests {
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::digest_config::DigestConfig;
     use dice::CancellationContext;
+    use dice::DetectCycles;
+    use dice::Dice;
+    use dice::DiceComputations;
+    use dice::DiceTransaction;
     use dupe::Dupe;
     use indexmap::indexset;
     use indexmap::IndexSet;
@@ -937,7 +960,11 @@ mod tests {
             &self.inputs
         }
 
-        async fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<T>> {
+        async fn execute(
+            &self,
+            _ctx: &mut dyn DeferredCtx,
+            _dice: &DiceComputations,
+        ) -> anyhow::Result<DeferredValue<T>> {
             Ok(DeferredValue::Ready(self.val.clone()))
         }
     }
@@ -970,7 +997,11 @@ mod tests {
             &self.inputs
         }
 
-        async fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<T>> {
+        async fn execute(
+            &self,
+            ctx: &mut dyn DeferredCtx,
+            _dice: &DiceComputations,
+        ) -> anyhow::Result<DeferredValue<T>> {
             Ok(DeferredValue::Deferred(
                 ctx.registry().defer(self.defer.clone()),
             ))
@@ -1003,6 +1034,12 @@ mod tests {
         ProjectRoot::new_unchecked(cwd)
     }
 
+    async fn dummy_dice_transaction() -> anyhow::Result<DiceTransaction> {
+        let dice = Dice::modern().build(DetectCycles::Enabled);
+        let res = dice.updater().commit().await;
+        Ok(res)
+    }
+
     #[tokio::test]
     async fn register_deferred() -> anyhow::Result<()> {
         let target = dummy_base();
@@ -1021,22 +1058,27 @@ mod tests {
             deferred_data.deferred_key().dupe(),
         )));
 
+        let dummy_dice_transaction = dummy_dice_transaction().await?;
+
         CancellationContext::testing()
             .with_structured_cancellation(|observer| async move {
                 assert_eq!(
                     *result
                         .get(deferred_data.deferred_key().id().as_usize())
                         .unwrap()
-                        .execute(&mut ResolveDeferredCtx::new(
-                            deferred_data.deferred_key().dupe(),
-                            Default::default(),
-                            Default::default(),
-                            Default::default(),
-                            &mut ctx,
-                            dummy_project_filesystem(),
-                            DigestConfig::testing_default(),
-                            observer,
-                        ))
+                        .execute(
+                            &mut ResolveDeferredCtx::new(
+                                deferred_data.deferred_key().dupe(),
+                                Default::default(),
+                                Default::default(),
+                                Default::default(),
+                                &mut ctx,
+                                dummy_project_filesystem(),
+                                DigestConfig::testing_default(),
+                                observer
+                            ),
+                            &dummy_dice_transaction
+                        )
                         .await
                         .unwrap()
                         .assert_ready()
@@ -1076,6 +1118,8 @@ mod tests {
             deferred_data.deferred_key().dupe(),
         )));
 
+        let dummy_dice_transaction = dummy_dice_transaction().await?;
+
         CancellationContext::testing()
             .with_structured_cancellation(|observer| async move {
                 let mut resolved = ResolveDeferredCtx::new(
@@ -1093,7 +1137,7 @@ mod tests {
 
                 assert_eq!(
                     *mapped_deferred
-                        .execute(&mut resolved)
+                        .execute(&mut resolved, &dummy_dice_transaction)
                         .await
                         .unwrap()
                         .assert_ready()
@@ -1134,21 +1178,26 @@ mod tests {
             deferring_deferred_data.deferred_key().dupe(),
         )));
 
+        let dummy_dice_transaction = dummy_dice_transaction().await?;
+
         CancellationContext::testing()
             .with_structured_cancellation(|observer| async move {
                 let exec_result = result
                     .get(deferring_deferred_data.deferred_key().id().as_usize())
                     .unwrap()
-                    .execute(&mut ResolveDeferredCtx::new(
-                        deferring_deferred_data.deferred_key().dupe(),
-                        Default::default(),
-                        Default::default(),
-                        Default::default(),
-                        &mut registry,
-                        dummy_project_filesystem(),
-                        DigestConfig::testing_default(),
-                        observer.dupe(),
-                    ))
+                    .execute(
+                        &mut ResolveDeferredCtx::new(
+                            deferring_deferred_data.deferred_key().dupe(),
+                            Default::default(),
+                            Default::default(),
+                            Default::default(),
+                            &mut registry,
+                            dummy_project_filesystem(),
+                            DigestConfig::testing_default(),
+                            observer.dupe(),
+                        ),
+                        &dummy_dice_transaction,
+                    )
                     .await
                     .unwrap();
 
@@ -1175,16 +1224,19 @@ mod tests {
                     DeferredRegistry::new(BaseKey::Deferred(Arc::new(deferred_key.dupe())));
                 assert_eq!(
                     *deferred
-                        .execute(&mut ResolveDeferredCtx::new(
-                            deferred_key,
-                            Default::default(),
-                            Default::default(),
-                            Default::default(),
-                            &mut registry,
-                            dummy_project_filesystem(),
-                            DigestConfig::testing_default(),
-                            observer,
-                        ))
+                        .execute(
+                            &mut ResolveDeferredCtx::new(
+                                deferred_key,
+                                Default::default(),
+                                Default::default(),
+                                Default::default(),
+                                &mut registry,
+                                dummy_project_filesystem(),
+                                DigestConfig::testing_default(),
+                                observer,
+                            ),
+                            &dummy_dice_transaction
+                        )
                         .await
                         .unwrap()
                         .assert_ready()
@@ -1223,6 +1275,8 @@ mod tests {
             deferred_data.deferred_key().dupe(),
         )));
 
+        let dummy_dice_transaction = dummy_dice_transaction().await?;
+
         let key = deferred_data.deferred_key().dupe();
 
         CancellationContext::testing()
@@ -1231,16 +1285,19 @@ mod tests {
                     *result
                         .get(deferred_data.deferred_key().id().as_usize())
                         .unwrap()
-                        .execute(&mut ResolveDeferredCtx::new(
-                            key,
-                            Default::default(),
-                            Default::default(),
-                            Default::default(),
-                            &mut registry,
-                            dummy_project_filesystem(),
-                            DigestConfig::testing_default(),
-                            observer,
-                        ))
+                        .execute(
+                            &mut ResolveDeferredCtx::new(
+                                key,
+                                Default::default(),
+                                Default::default(),
+                                Default::default(),
+                                &mut registry,
+                                dummy_project_filesystem(),
+                                DigestConfig::testing_default(),
+                                observer,
+                            ),
+                            &dummy_dice_transaction,
+                        )
                         .await
                         .unwrap()
                         .assert_ready()

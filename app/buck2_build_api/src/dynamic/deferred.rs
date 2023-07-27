@@ -25,6 +25,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::indexset;
@@ -142,6 +143,7 @@ impl Deferred for DynamicAction {
     async fn execute(
         &self,
         ctx: &mut dyn DeferredCtx,
+        _dice: &DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         let id = match self.inputs.iter().into_singleton() {
             Some(DeferredInput::Deferred(x)) => x,
@@ -187,6 +189,7 @@ impl Deferred for DynamicLambda {
     async fn execute(
         &self,
         deferred_ctx: &mut dyn DeferredCtx,
+        _dice: &DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         let env = Module::new();
         let heap = env.heap();

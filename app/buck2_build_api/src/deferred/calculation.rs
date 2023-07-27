@@ -257,7 +257,7 @@ async fn compute_deferred(
             cancellation
                 .with_structured_cancellation(|observer| {
                     async move {
-                        let mut ctx = ResolveDeferredCtx::new(
+                        let mut deferred_ctx = ResolveDeferredCtx::new(
                             self.0.dupe(),
                             targets?,
                             deferreds?,
@@ -268,7 +268,7 @@ async fn compute_deferred(
                             observer,
                         );
 
-                        let execute = deferred.execute(&mut ctx);
+                        let execute = deferred.execute(&mut deferred_ctx, ctx);
 
                         let res = match Lazy::into_value(span).unwrap_or_else(|init| init()) {
                             Some(span) => {
