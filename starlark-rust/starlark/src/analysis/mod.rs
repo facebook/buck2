@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 
+//! Linter.
+
 use std::collections::HashSet;
 
+pub use lint_message::LintMessage;
 pub use types::EvalMessage;
 pub use types::EvalSeverity;
 pub use types::Lint;
@@ -28,6 +31,7 @@ mod dubious;
 mod find_call_name;
 mod flow;
 mod incompatible;
+mod lint_message;
 mod names;
 mod performance;
 mod types;

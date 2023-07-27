@@ -16,15 +16,16 @@
  */
 
 use serde::Serialize;
-use starlark::errors::EvalMessage;
-use starlark::errors::EvalSeverity;
+
+use crate::errors::EvalMessage;
+use crate::errors::EvalSeverity;
 
 /// A JSON-deriving type that gives a stable interface to downstream types.
 /// Do NOT change this type, change Message instead.
 ///
 /// [Linter JSON format](https://www.internalfb.com/intern/wiki/Linting/adding-linters/).
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct LintMessage {
+pub struct LintMessage {
     path: String,
     line: Option<usize>,
     char: Option<usize>,
@@ -37,7 +38,8 @@ pub(crate) struct LintMessage {
 }
 
 impl LintMessage {
-    pub(crate) fn new(x: EvalMessage) -> Self {
+    /// Construct from an [`EvalMessage`].
+    pub fn new(x: EvalMessage) -> Self {
         Self {
             path: x.path,
             line: x.span.map(|x| x.begin_line + 1),

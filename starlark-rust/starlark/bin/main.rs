@@ -34,6 +34,7 @@ use dupe::Dupe;
 use eval::Context;
 use itertools::Either;
 use itertools::Itertools;
+use starlark::analysis::LintMessage;
 use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::render_docs_as_code;
 use starlark::docs::Doc;
@@ -48,11 +49,9 @@ use starlark::read_line::ReadLine;
 use walkdir::WalkDir;
 
 use crate::eval::ContextMode;
-use crate::types::LintMessage;
 
 mod dap;
 mod eval;
-mod types;
 
 #[derive(Debug, Parser)]
 #[command(name = "starlark", about = "Evaluate Starlark code")]
