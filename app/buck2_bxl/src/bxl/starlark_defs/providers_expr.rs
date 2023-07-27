@@ -54,7 +54,7 @@ pub(crate) enum ProvidersExpr<P: ProvidersLabelMaybeConfigured> {
 }
 
 impl ProvidersExpr<ConfiguredProvidersLabel> {
-    pub fn unpack<'v>(
+    pub(crate) fn unpack<'v>(
         value: Value<'v>,
         target_platform: Value<'v>,
         ctx: &BxlContext,
@@ -117,7 +117,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
 }
 
 impl ProvidersExpr<ProvidersLabel> {
-    pub fn unpack<'v>(
+    pub(crate) fn unpack<'v>(
         value: Value<'v>,
         ctx: &BxlContext<'_>,
         eval: &Evaluator<'v, '_>,
@@ -142,7 +142,7 @@ impl ProvidersExpr<ProvidersLabel> {
 }
 
 impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
-    pub fn labels(&self) -> impl Iterator<Item = &P> {
+    pub(crate) fn labels(&self) -> impl Iterator<Item = &P> {
         match &self {
             ProvidersExpr::Literal(item) => Either::Left(std::iter::once(item)),
             ProvidersExpr::Iterable(iter) => Either::Right(iter.iter()),

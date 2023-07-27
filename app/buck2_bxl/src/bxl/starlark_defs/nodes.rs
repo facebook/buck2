@@ -7,6 +7,6 @@
  * of this source tree.
  */
 
-pub mod action;
-pub mod configured;
-pub mod unconfigured;
+pub(crate) mod action;
+pub(crate) mod configured;
+pub(crate) mod unconfigured;

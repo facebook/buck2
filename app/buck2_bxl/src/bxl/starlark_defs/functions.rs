@@ -46,7 +46,7 @@ use crate::bxl::starlark_defs::time::StarlarkInstant;
 
 /// Global methods on the target label.
 #[starlark_module]
-pub fn register_label_function(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_label_function(builder: &mut GlobalsBuilder) {
     /// Converts a `TargetLabel` into its corresponding `ProvidersLabel` given the subtarget names,
     /// which is a list for each layer of subtarget
     ///
@@ -100,7 +100,7 @@ pub fn register_label_function(builder: &mut GlobalsBuilder) {
 
 /// Global methods on the target set.
 #[starlark_module]
-pub fn register_target_function(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
     /// Creates an empty target set for configured nodes.
     ///
     /// Sample usage:
@@ -130,7 +130,7 @@ pub fn register_target_function(builder: &mut GlobalsBuilder) {
 
 /// Global methods on artifacts.
 #[starlark_module]
-pub fn register_artifact_function(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
     /// The output path of a source or build artifact. Takes an optional boolean to print the absolute or relative path.
     /// Note that this method returns an artifact path without asking for the artifact to be materialized,
     /// (i.e. it may not actually exist on the disk yet).
@@ -226,7 +226,7 @@ pub fn register_artifact_function(builder: &mut GlobalsBuilder) {
 
 /// Global methods for Instant.
 #[starlark_module]
-pub fn register_instant_function(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_instant_function(builder: &mut GlobalsBuilder) {
     /// Creates an Instant at the current time.
     ///
     /// Sample usage:
@@ -254,7 +254,7 @@ pub(crate) struct BxlErrorWithoutStacktrace(String);
 
 /// Global method for error handling.
 #[starlark_module]
-pub fn register_error_handling_function(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_error_handling_function(builder: &mut GlobalsBuilder) {
     fn fail_no_stacktrace(#[starlark(args)] args: Vec<Value>) -> anyhow::Result<NoneType> {
         let mut s = String::new();
         for x in args {

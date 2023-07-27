@@ -31,12 +31,12 @@ use starlark::values::ValueLike;
 
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 
-pub trait NodeLike = QueryTarget + std::fmt::Debug + Eq + Dupe + AllocNode + Allocative;
+pub(crate) trait NodeLike = QueryTarget + std::fmt::Debug + Eq + Dupe + AllocNode + Allocative;
 
 #[derive(Debug, Display, Clone)]
 #[derive(NoSerialize, Allocative)] // TODO maybe this should be
 /// The StarlarkValue implementation for TargetSet to expose it to starlark.
-pub struct StarlarkTargetSet<Node: QueryTarget>(pub TargetSet<Node>);
+pub(crate) struct StarlarkTargetSet<Node: QueryTarget>(pub(crate) TargetSet<Node>);
 
 // TODO(nga): derive it.
 unsafe impl<'a, Node: QueryTarget + 'static> ProvidesStaticType<'a> for StarlarkTargetSet<Node> {
@@ -137,7 +137,7 @@ impl<Node: QueryTarget> Deref for StarlarkTargetSet<Node> {
 }
 
 impl<Node: NodeLike> StarlarkTargetSet<Node> {
-    pub fn from_value<'v>(x: Value<'v>) -> Option<&'v Self> {
+    pub(crate) fn from_value<'v>(x: Value<'v>) -> Option<&'v Self> {
         ValueLike::downcast_ref::<Self>(x)
     }
 }

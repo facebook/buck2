@@ -32,13 +32,13 @@ use starlark::StarlarkDocs;
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkCoercedAttr;
 
-pub mod attribute;
+pub(crate) mod attribute;
 
 #[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "{:?}", self)]
 #[starlark_docs(directory = "bxl")]
-pub struct StarlarkTargetNode(pub TargetNode);
+pub(crate) struct StarlarkTargetNode(pub(crate) TargetNode);
 
 starlark_simple_value!(StarlarkTargetNode);
 

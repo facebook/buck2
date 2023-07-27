@@ -112,7 +112,7 @@ impl CliArgs {
         })
     }
 
-    pub fn to_clap<'a>(&'a self, arg: clap::Arg<'a>) -> clap::Arg<'a> {
+    pub(crate) fn to_clap<'a>(&'a self, arg: clap::Arg<'a>) -> clap::Arg<'a> {
         let mut arg = self.coercer.to_clap(arg.help(self.doc.as_str()));
         if let Some(short) = self.short {
             arg = arg.short(short);
@@ -125,7 +125,7 @@ impl CliArgs {
         arg
     }
 
-    pub async fn parse_clap<'a>(
+    pub(crate) async fn parse_clap<'a>(
         &self,
         clap: ArgAccessor<'a>,
         ctx: &CliResolutionCtx<'a>,
@@ -368,7 +368,7 @@ impl CliArgType {
     }
 
     #[allow(deprecated)] // TODO(nga): fix.
-    pub fn to_clap<'a>(&'a self, clap: clap::Arg<'a>) -> clap::Arg<'a> {
+    pub(crate) fn to_clap<'a>(&'a self, clap: clap::Arg<'a>) -> clap::Arg<'a> {
         match self {
             CliArgType::Bool => clap.takes_value(true).validator(|x| x.parse::<bool>()),
             CliArgType::Int => clap.takes_value(true).validator(|x| x.parse::<i32>()),
@@ -404,7 +404,7 @@ impl CliArgType {
         }
     }
 
-    pub fn parse_clap<'a>(
+    pub(crate) fn parse_clap<'a>(
         &'a self,
         clap: ArgAccessor<'a>,
         ctx: &'a CliResolutionCtx<'a>,
@@ -636,7 +636,7 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     }
 }
 
-pub fn register_cli_args_module(registry: &mut GlobalsBuilder) {
+pub(crate) fn register_cli_args_module(registry: &mut GlobalsBuilder) {
     cli_args_module(registry)
 }
 

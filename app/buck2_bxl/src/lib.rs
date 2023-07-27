@@ -14,10 +14,10 @@
 
 use std::sync::Once;
 
-pub mod bxl;
-pub mod command;
+pub(crate) mod bxl;
+pub(crate) mod command;
 mod commands;
-pub mod profile_command;
+pub(crate) mod profile_command;
 
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();

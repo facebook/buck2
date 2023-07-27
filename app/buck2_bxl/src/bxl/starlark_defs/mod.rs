@@ -9,24 +9,24 @@
 
 //! Definitions of core functionality just for bxl functions to access
 
-pub mod alloc_node;
-pub mod analysis_result;
-pub mod artifacts;
-pub mod audit;
-pub mod build_result;
+pub(crate) mod alloc_node;
+pub(crate) mod analysis_result;
+pub(crate) mod artifacts;
+pub(crate) mod audit;
+pub(crate) mod build_result;
 pub(crate) mod bxl_function;
-pub mod cli_args;
-pub mod context;
-pub mod cquery;
-pub mod event;
-pub mod file_expr;
-pub mod file_set;
-pub mod functions;
+pub(crate) mod cli_args;
+pub(crate) mod context;
+pub(crate) mod cquery;
+pub(crate) mod event;
+pub(crate) mod file_expr;
+pub(crate) mod file_set;
+pub(crate) mod functions;
 pub(crate) mod globals;
-pub mod nodes;
-pub mod providers_expr;
+pub(crate) mod nodes;
+pub(crate) mod providers_expr;
 mod query_util;
-pub mod target_expr;
-pub mod targetset;
-pub mod time;
-pub mod uquery;
+pub(crate) mod target_expr;
+pub(crate) mod targetset;
+pub(crate) mod time;
+pub(crate) mod uquery;

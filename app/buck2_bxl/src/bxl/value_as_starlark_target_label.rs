@@ -26,7 +26,7 @@ enum ValueAsTargetLabelError {
     NotATarget(String),
 }
 
-pub trait ValueAsStarlarkTargetLabel {
+pub(crate) trait ValueAsStarlarkTargetLabel {
     fn parse_target_platforms(
         self,
         target_alias_resolver: &BuckConfigTargetAliasResolver,

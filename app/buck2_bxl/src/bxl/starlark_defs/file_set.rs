@@ -42,14 +42,14 @@ use crate::bxl::starlark_defs::context::BxlContext;
 /// functions for arguments that should be file sets. It will accept either a
 /// literal (like `//path/to/some/file.txt`) or a FileSet Value (from one of the
 /// bxl functions that return them).
-pub enum FileSetExpr<'a> {
+pub(crate) enum FileSetExpr<'a> {
     Literal(&'a str),
     Literals(Vec<&'a str>),
     FileSet(&'a FileSet),
 }
 
 impl<'a> FileSetExpr<'a> {
-    pub async fn get(self, bxl: &BxlContext<'_>) -> anyhow::Result<Cow<'a, FileSet>> {
+    pub(crate) async fn get(self, bxl: &BxlContext<'_>) -> anyhow::Result<Cow<'a, FileSet>> {
         let set = match self {
             FileSetExpr::Literal(val) => Cow::Owned(FileSet::from_iter([FileNode(
                 bxl.parse_query_file_literal(val)?,
@@ -100,9 +100,9 @@ impl<'v> UnpackValue<'v> for FileSetExpr<'v> {
 #[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)] // TODO maybe this should be
 #[starlark_docs(directory = "bxl")]
-pub struct StarlarkFileSet(
+pub(crate) struct StarlarkFileSet(
     /// Set of files or directories.
-    pub FileSet,
+    pub(crate) FileSet,
 );
 
 starlark_simple_value!(StarlarkFileSet);
@@ -152,9 +152,9 @@ impl Deref for StarlarkFileSet {
 #[derive(Debug, Display, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
 #[starlark_docs(directory = "bxl")]
-pub struct StarlarkFileNode(
+pub(crate) struct StarlarkFileNode(
     /// Cell path to the file or directory.
-    pub CellPath,
+    pub(crate) CellPath,
 );
 
 starlark_simple_value!(StarlarkFileNode);
@@ -165,14 +165,14 @@ impl<'v> StarlarkValue<'v> for StarlarkFileNode {}
 #[derive(Debug, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
 #[starlark_docs(directory = "bxl")]
-pub struct StarlarkReadDirSet {
+pub(crate) struct StarlarkReadDirSet {
     /// Cell path to the directory/files.
-    pub cell_path: CellPath,
+    pub(crate) cell_path: CellPath,
     /// Files that are not ignored within the buckconfig.
     /// Sorted.
-    pub included: Arc<[SimpleDirEntry]>,
+    pub(crate) included: Arc<[SimpleDirEntry]>,
     /// Only return directories when iterating or printing.
-    pub dirs_only: bool,
+    pub(crate) dirs_only: bool,
 }
 
 starlark_simple_value!(StarlarkReadDirSet);

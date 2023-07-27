@@ -36,7 +36,7 @@ use starlark::StarlarkDocs;
 )]
 #[starlark_docs(directory = "bxl")]
 #[display(fmt = "{:?}", _0)]
-pub struct StarlarkInstant(pub(crate) Instant);
+pub(crate) struct StarlarkInstant(pub(crate) Instant);
 
 /// Instant methods, to aid in debugging/timing individual pieces of the bxl script.
 #[starlark_module]

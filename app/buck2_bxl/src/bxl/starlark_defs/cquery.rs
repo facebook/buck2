@@ -62,7 +62,7 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 #[allocative(skip)]
-pub struct StarlarkCQueryCtx<'v> {
+pub(crate) struct StarlarkCQueryCtx<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     ctx: &'v BxlContext<'v>,
@@ -98,7 +98,7 @@ pub(crate) async fn get_cquery_env<'v>(
 }
 
 impl<'v> StarlarkCQueryCtx<'v> {
-    pub async fn new(
+    pub(crate) async fn new(
         ctx: &'v BxlContext<'v>,
         global_target_platform: Value<'v>,
         default_target_platform: &Option<TargetLabel>,

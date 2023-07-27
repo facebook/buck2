@@ -48,7 +48,7 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 #[allocative(skip)]
-pub struct StarlarkAuditCtx<'v> {
+pub(crate) struct StarlarkAuditCtx<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     ctx: &'v BxlContext<'v>,
@@ -76,7 +76,7 @@ impl<'v> AllocValue<'v> for StarlarkAuditCtx<'v> {
 }
 
 impl<'v> StarlarkAuditCtx<'v> {
-    pub fn new(
+    pub(crate) fn new(
         ctx: &'v BxlContext<'v>,
         working_dir: ProjectRelativePathBuf,
         cell_resolver: CellResolver,

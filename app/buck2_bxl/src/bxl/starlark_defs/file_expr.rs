@@ -39,7 +39,7 @@ use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 /// literal (like `//path/to/some/file.txt`) or a `SourceArtifact` via `StarlarkArtifact`
 /// or a `StarlarkFileNode`
 #[derive(Debug, Display, Clone)]
-pub enum FileExpr<'a> {
+pub(crate) enum FileExpr<'a> {
     Literal(&'a str),
     SourceArtifact(SourceArtifact),
     StarlarkFileNode(StarlarkFileNode),
@@ -62,7 +62,7 @@ fn parse_cell_path_as_file_expr_literal(
 }
 
 impl<'a> FileExpr<'a> {
-    pub fn get(
+    pub(crate) fn get(
         self,
         dice: &BxlSafeDiceComputations<'_>,
         cell_instance: &CellInstance,

@@ -321,7 +321,7 @@ fn eval_bxl<'a>(
     result
 }
 
-pub fn get_bxl_callable<'a>(
+pub(crate) fn get_bxl_callable<'a>(
     spec: &BxlFunctionLabel,
     bxl_module: &'a LoadedModule,
 ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenBxlFunction>> {
@@ -337,11 +337,11 @@ pub fn get_bxl_callable<'a>(
         }))
 }
 
-pub struct CliResolutionCtx<'a> {
-    pub target_alias_resolver: BuckConfigTargetAliasResolver,
-    pub cell_resolver: CellResolver,
-    pub relative_dir: PackageLabel,
-    pub dice: &'a DiceTransaction,
+pub(crate) struct CliResolutionCtx<'a> {
+    pub(crate) target_alias_resolver: BuckConfigTargetAliasResolver,
+    pub(crate) cell_resolver: CellResolver,
+    pub(crate) relative_dir: PackageLabel,
+    pub(crate) dice: &'a DiceTransaction,
 }
 
 pub(crate) enum BxlResolvedCliArgs {

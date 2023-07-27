@@ -74,7 +74,7 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
 #[display(fmt = "{:?}", self)]
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
-pub struct OutputStream<'v> {
+pub(crate) struct OutputStream<'v> {
     #[derivative(Debug = "ignore")]
     #[trace(unsafe_ignore)]
     #[allocative(skip)]
@@ -95,13 +95,13 @@ pub struct OutputStream<'v> {
 /// the result of visiting its artifacts is a list of `ArtifactGroup`s. It's convenient to preserve the group rather
 /// than extract the individual `Artifact`s from it, for perf/memory optimizations.
 #[derive(Display, Debug, Allocative, Hash, Eq, PartialEq)]
-pub enum EnsuredArtifactOrGroup {
+pub(crate) enum EnsuredArtifactOrGroup {
     Artifact(EnsuredArtifact),
     ArtifactGroup(ArtifactGroup),
 }
 
 impl<'v> OutputStream<'v> {
-    pub fn new(
+    pub(crate) fn new(
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
         sink: RefCell<Box<dyn Write>>,
@@ -116,7 +116,7 @@ impl<'v> OutputStream<'v> {
         }
     }
 
-    pub fn take_artifacts(&self) -> SmallSet<EnsuredArtifactOrGroup> {
+    pub(crate) fn take_artifacts(&self) -> SmallSet<EnsuredArtifactOrGroup> {
         self.artifacts_to_ensure.borrow_mut().take().unwrap()
     }
 }

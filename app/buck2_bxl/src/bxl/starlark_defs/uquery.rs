@@ -58,7 +58,7 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 #[allocative(skip)]
-pub struct StarlarkUQueryCtx<'v> {
+pub(crate) struct StarlarkUQueryCtx<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     ctx: &'v BxlContext<'v>,
@@ -86,7 +86,7 @@ impl<'v> AllocValue<'v> for StarlarkUQueryCtx<'v> {
 }
 
 impl<'v> StarlarkUQueryCtx<'v> {
-    pub fn new(ctx: &'v BxlContext<'v>) -> anyhow::Result<Self> {
+    pub(crate) fn new(ctx: &'v BxlContext<'v>) -> anyhow::Result<Self> {
         Ok(Self { ctx })
     }
 }

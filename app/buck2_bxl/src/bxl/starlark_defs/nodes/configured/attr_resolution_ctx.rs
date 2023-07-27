@@ -33,13 +33,13 @@ use crate::bxl::starlark_defs::context::BxlContext;
 
 // Contains a `module` that things must live on, and various `FrozenProviderCollectionValue`s
 // that are NOT tied to that module. Must claim ownership of them via `add_reference` before returning them.
-pub struct LazyAttrResolutionContext<'v> {
-    pub module: &'v Module,
-    pub configured_node: &'v ConfiguredTargetNode,
-    pub ctx: &'v BxlContext<'v>,
-    pub dep_analysis_results:
+pub(crate) struct LazyAttrResolutionContext<'v> {
+    pub(crate) module: &'v Module,
+    pub(crate) configured_node: &'v ConfiguredTargetNode,
+    pub(crate) ctx: &'v BxlContext<'v>,
+    pub(crate) dep_analysis_results:
         OnceCell<anyhow::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>>,
-    pub query_results: OnceCell<anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>>>,
+    pub(crate) query_results: OnceCell<anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>>>,
 }
 
 impl<'v> LazyAttrResolutionContext<'v> {

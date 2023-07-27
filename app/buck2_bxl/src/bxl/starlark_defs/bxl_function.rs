@@ -47,7 +47,7 @@ use crate::bxl::starlark_defs::cli_args::CliArgError;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
 
 #[starlark_module]
-pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_bxl_function(builder: &mut GlobalsBuilder) {
     fn bxl<'v>(
         #[starlark(require = named)] r#impl: Value<'v>,
         #[starlark(require = named)] cli_args: DictOf<'v, &'v str, &'v CliArgs>,
@@ -155,7 +155,7 @@ impl<'v> Freeze for BxlFunction<'v> {
 
 #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
 #[display(fmt = "{}()", "bxl_id.name")]
-pub struct FrozenBxlFunction {
+pub(crate) struct FrozenBxlFunction {
     implementation: FrozenValue,
     cli_args: SmallMap<String, CliArgs>,
     bxl_id: Arc<BxlFunctionLabel>,
@@ -167,11 +167,11 @@ starlark_simple_value!(FrozenBxlFunction);
 impl<'v> StarlarkValue<'v> for FrozenBxlFunction {}
 
 impl FrozenBxlFunction {
-    pub fn implementation(&self) -> FrozenValue {
+    pub(crate) fn implementation(&self) -> FrozenValue {
         self.implementation
     }
 
-    pub fn to_clap<'v>(&'v self, mut clap: clap::Command<'v>) -> clap::Command<'v> {
+    pub(crate) fn to_clap<'v>(&'v self, mut clap: clap::Command<'v>) -> clap::Command<'v> {
         if let Some(docs) = self.docs.as_ref() {
             clap = clap.about(docs.as_str())
         }

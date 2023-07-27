@@ -16,7 +16,7 @@ use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 
 /// BXL-specific node allocator.
-pub trait AllocNode {
+pub(crate) trait AllocNode {
     fn alloc(self, heap: &Heap) -> Value;
 }
 

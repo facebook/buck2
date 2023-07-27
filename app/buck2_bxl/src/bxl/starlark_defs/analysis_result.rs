@@ -33,7 +33,7 @@ use starlark::StarlarkDocs;
 )]
 #[display(fmt = "{:?}", self)]
 #[starlark_docs(directory = "bxl")]
-pub struct StarlarkAnalysisResult {
+pub(crate) struct StarlarkAnalysisResult {
     analysis: AnalysisResult,
     label: ConfiguredProvidersLabel,
 }

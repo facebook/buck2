@@ -51,7 +51,7 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 /// literal (like `//some:target`) or list of literals or a TargetSet Value (from one of the
 /// BXL functions that return them). It can be resolved to a `&TargetSet` with
 /// the help of the `targets!()` macro.
-pub enum TargetExpr<'v, Node: QueryTarget> {
+pub(crate) enum TargetExpr<'v, Node: QueryTarget> {
     Node(Node),
     Label(Cow<'v, Node::NodeRef>),
     Iterable(Vec<Either<Node, Cow<'v, Node::NodeRef>>>),
@@ -62,7 +62,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
     /// Get a vector of maybe compatible `ConfiguredTargetNode`s from the `TargetExpr`.
     /// Any callers of this function will need to call `filter_incompatible()` on the result
     /// in order to get the `TargetSet<ConfiguredTargetNode>`.
-    pub async fn get(
+    pub(crate) async fn get(
         self,
         dice: &'v DiceComputations,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
@@ -134,7 +134,7 @@ fn unpack_target_label<'v>(value: Value<'v>) -> Option<&'v TargetLabel> {
 
 impl<'v> TargetExpr<'v, TargetNode> {
     /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
-    pub async fn get(
+    pub(crate) async fn get(
         self,
         ctx: &DiceComputations,
     ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
@@ -171,7 +171,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
 }
 
 #[derive(Debug, Error)]
-pub enum TargetExprError {
+pub(crate) enum TargetExprError {
     #[error(
         "Expected a list of target like items, but was `{0}`. If you have passed in a list of `label`s, make sure to call `configured_target()` to get the underlying configured target label."
     )]
@@ -183,7 +183,7 @@ pub enum TargetExprError {
 }
 
 impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
-    pub async fn unpack(
+    pub(crate) async fn unpack(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContext<'v>,
@@ -312,7 +312,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
 }
 
 impl<'v> TargetExpr<'v, TargetNode> {
-    pub async fn unpack(
+    pub(crate) async fn unpack(
         value: Value<'v>,
         ctx: &BxlContext<'v>,
         eval: &Evaluator<'v, '_>,

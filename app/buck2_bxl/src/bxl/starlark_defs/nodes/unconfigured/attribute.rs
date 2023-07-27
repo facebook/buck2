@@ -28,7 +28,7 @@ use starlark::StarlarkDocs;
 
 #[derive(Debug, ProvidesStaticType, From, Allocative, StarlarkDocs)]
 #[starlark_docs(directory = "bxl")]
-pub struct StarlarkCoercedAttr(pub CoercedAttr, pub PackageLabel);
+pub(crate) struct StarlarkCoercedAttr(pub(crate) CoercedAttr, pub(crate) PackageLabel);
 
 starlark_simple_value!(StarlarkCoercedAttr);
 

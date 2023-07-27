@@ -67,7 +67,7 @@ use crate::bxl::starlark_defs::target_expr::TargetExpr;
 #[starlark_docs(directory = "bxl")]
 #[display(fmt = "{:?}", self)]
 #[allocative(skip)]
-pub struct BxlFilesystem<'v> {
+pub(crate) struct BxlFilesystem<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     ctx: &'v BxlContext<'v>,
@@ -110,7 +110,7 @@ impl<'v> AllocValue<'v> for BxlFilesystem<'v> {
 }
 
 #[derive(Debug, Error)]
-pub enum BxlFilesystemError {
+pub(crate) enum BxlFilesystemError {
     #[error("Inferred package path `{0}` is not a valid package within the given file path `{1}`")]
     PackageMismatch(PackageLabel, CellPath),
     #[error("Expected a single target hint, not an iterable: `{0}`")]

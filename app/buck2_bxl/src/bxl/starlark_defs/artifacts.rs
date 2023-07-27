@@ -49,7 +49,7 @@ use starlark::values::ValueOf;
 #[derive(Clone, Debug, Trace, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[repr(C)]
 #[starlark_docs(directory = "bxl")]
-pub enum EnsuredArtifact {
+pub(crate) enum EnsuredArtifact {
     Artifact {
         artifact: StarlarkArtifact,
         abs: bool,
@@ -62,11 +62,11 @@ pub enum EnsuredArtifact {
 
 #[derive(Clone, Debug, Trace, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[repr(C)]
-pub struct EnsuredArtifactGroupInner {
+pub(crate) struct EnsuredArtifactGroupInner {
     pub(crate) ags: Vec<ArtifactGroup>,
 }
 
-pub async fn visit_artifact_path_without_associated_deduped<'v>(
+pub(crate) async fn visit_artifact_path_without_associated_deduped<'v>(
     ags: &'v [ArtifactGroup],
     abs: bool,
     mut visitor: impl FnMut(ArtifactPath, bool) -> anyhow::Result<()>,
@@ -109,7 +109,7 @@ pub async fn visit_artifact_path_without_associated_deduped<'v>(
 #[derive(Clone, Debug, Trace, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[repr(C)]
 #[starlark_docs(directory = "bxl")]
-pub struct EnsuredArtifactGroup<'v> {
+pub(crate) struct EnsuredArtifactGroup<'v> {
     // Have `EnsuredArtifactGroup` be a wrapper around `EnsuredArtifactGroupInner` as a Starlark `Value`
     // so that we don't have to copy all of its artifact groups whenever we call `abs_path()` or `rel_path()`,
     // and we can instead just copy the `Value` (which is a pointer)
@@ -118,7 +118,7 @@ pub struct EnsuredArtifactGroup<'v> {
 }
 
 impl<'v> EnsuredArtifactGroup<'v> {
-    pub fn new(ags: Vec<ArtifactGroup>, abs: bool, heap: &'v Heap) -> Self {
+    pub(crate) fn new(ags: Vec<ArtifactGroup>, abs: bool, heap: &'v Heap) -> Self {
         EnsuredArtifactGroup {
             inner: heap.alloc(EnsuredArtifactGroupInner { ags }),
 
@@ -126,13 +126,13 @@ impl<'v> EnsuredArtifactGroup<'v> {
         }
     }
 
-    pub fn inner(&self) -> &Vec<ArtifactGroup> {
+    pub(crate) fn inner(&self) -> &Vec<ArtifactGroup> {
         &<&EnsuredArtifactGroupInner>::unpack_value(self.inner)
             .unwrap()
             .ags
     }
 
-    pub async fn visit_artifact_path_without_associated_deduped(
+    pub(crate) async fn visit_artifact_path_without_associated_deduped(
         &self,
         visitor: impl FnMut(ArtifactPath, bool) -> anyhow::Result<()>,
         ctx: &'v DiceComputations,
@@ -185,7 +185,7 @@ impl PartialEq for EnsuredArtifact {
 impl Eq for EnsuredArtifact {}
 
 impl EnsuredArtifact {
-    pub fn new<'v>(artifact: Value<'v>) -> anyhow::Result<Self> {
+    pub(crate) fn new<'v>(artifact: Value<'v>) -> anyhow::Result<Self> {
         let artifact = artifact
             .downcast_ref::<StarlarkArtifact>()
             .map(|o| EnsuredArtifact::Artifact {
@@ -207,7 +207,7 @@ impl EnsuredArtifact {
         }
     }
 
-    pub fn as_artifact(&self) -> &dyn StarlarkArtifactLike {
+    pub(crate) fn as_artifact(&self) -> &dyn StarlarkArtifactLike {
         match self {
             EnsuredArtifact::Artifact { artifact, .. } => artifact as &dyn StarlarkArtifactLike,
             EnsuredArtifact::DeclaredArtifact { artifact, .. } => {
@@ -216,7 +216,7 @@ impl EnsuredArtifact {
         }
     }
 
-    pub fn abs(&self) -> bool {
+    pub(crate) fn abs(&self) -> bool {
         match self {
             EnsuredArtifact::Artifact { abs, .. } => *abs,
             EnsuredArtifact::DeclaredArtifact { abs, .. } => *abs,

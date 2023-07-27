@@ -92,11 +92,11 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
-pub mod actions;
-pub mod analysis;
-pub mod build;
-pub mod fs;
-pub mod output;
+pub(crate) mod actions;
+pub(crate) mod analysis;
+pub(crate) mod build;
+pub(crate) mod fs;
+pub(crate) mod output;
 
 #[derive(
     ProvidesStaticType,
@@ -110,7 +110,7 @@ pub mod output;
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
-pub struct BxlContext<'v> {
+pub(crate) struct BxlContext<'v> {
     pub(crate) current_bxl: BxlKey,
     #[derivative(Debug = "ignore")]
     pub(crate) target_alias_resolver: BuckConfigTargetAliasResolver,

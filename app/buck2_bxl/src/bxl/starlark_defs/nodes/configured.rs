@@ -75,7 +75,7 @@ mod attr_resolution_ctx;
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "configured_target_node(name = {}, ...)", "self.0.label()")]
 #[starlark_docs(directory = "bxl")]
-pub struct StarlarkConfiguredTargetNode(pub ConfiguredTargetNode);
+pub(crate) struct StarlarkConfiguredTargetNode(pub(crate) ConfiguredTargetNode);
 
 starlark_simple_value!(StarlarkConfiguredTargetNode);
 
@@ -389,7 +389,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
 #[derive(Debug, Clone, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[repr(C)]
 #[starlark_docs(directory = "bxl")]
-pub struct StarlarkConfiguredValue(ConfiguredAttr, PackageLabel);
+pub(crate) struct StarlarkConfiguredValue(ConfiguredAttr, PackageLabel);
 
 impl Display for StarlarkConfiguredValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -470,7 +470,7 @@ fn configured_value_methods(builder: &mut MethodsBuilder) {
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
-pub struct StarlarkLazyAttrs<'v> {
+pub(crate) struct StarlarkLazyAttrs<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
@@ -492,7 +492,9 @@ impl<'v> AllocValue<'v> for StarlarkLazyAttrs<'v> {
 }
 
 impl<'v> StarlarkLazyAttrs<'v> {
-    pub fn new(configured_target_node: &'v StarlarkConfiguredTargetNode) -> StarlarkLazyAttrs<'v> {
+    pub(crate) fn new(
+        configured_target_node: &'v StarlarkConfiguredTargetNode,
+    ) -> StarlarkLazyAttrs<'v> {
         Self {
             configured_target_node,
         }
@@ -536,7 +538,7 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
-pub struct StarlarkLazyResolvedAttrs<'v> {
+pub(crate) struct StarlarkLazyResolvedAttrs<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
@@ -562,7 +564,7 @@ impl<'v> AllocValue<'v> for StarlarkLazyResolvedAttrs<'v> {
 }
 
 impl<'v> StarlarkLazyResolvedAttrs<'v> {
-    pub fn new(
+    pub(crate) fn new(
         configured_node: &'v StarlarkConfiguredTargetNode,
         ctx: &'v BxlContext<'v>,
         module: &'v Module,
