@@ -47,8 +47,10 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::tag_result;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
+use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -330,6 +332,7 @@ async fn test(
         cell_resolver,
         working_dir_cell,
         build_opts.skip_incompatible_targets,
+        MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
     )
     .await?;
 
@@ -402,6 +405,7 @@ async fn test_targets(
     cell_resolver: CellResolver,
     working_dir_cell: CellName,
     skip_incompatible_targets: bool,
+    missing_target_behavior: MissingTargetBehavior,
 ) -> anyhow::Result<TestOutcome> {
     let session = Arc::new(session);
     let (liveliness_observer, _guard) = LivelinessGuard::create();
@@ -481,6 +485,7 @@ async fn test_targets(
                     cell_resolver: &cell_resolver,
                     working_dir_cell,
                     resolve_tests_platform_independently,
+                    missing_target_behavior,
                 });
 
                 driver.push_pattern(
@@ -595,6 +600,7 @@ pub(crate) struct TestDriverState<'a, 'e> {
     cell_resolver: &'a CellResolver,
     working_dir_cell: CellName,
     resolve_tests_platform_independently: bool,
+    missing_target_behavior: MissingTargetBehavior,
 }
 
 /// Maintains the state of an ongoing test execution.
@@ -672,8 +678,12 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         self.work.push(
             async move {
                 let res = state.ctx.get_interpreter_results(package.dupe()).await?;
-                let SpecTargets { labels, skippable } =
-                    spec_to_targets(spec, res, skip_incompatible_targets)?;
+                let SpecTargets { labels, skippable } = spec_to_targets(
+                    spec,
+                    res,
+                    skip_incompatible_targets,
+                    state.missing_target_behavior,
+                )?;
 
                 let labels = labels.into_map(|(target_name, providers_pattern)| {
                     providers_pattern.into_providers_label(package.dupe(), target_name.as_ref())
@@ -779,15 +789,24 @@ fn spec_to_targets(
     spec: PackageSpec<ProvidersPatternExtra>,
     res: Arc<EvaluationResult>,
     skip_incompatible_targets: bool,
+    missing_target_behavior: MissingTargetBehavior,
 ) -> anyhow::Result<SpecTargets> {
     let skippable = match spec {
         PackageSpec::Targets(..) => skip_incompatible_targets,
         PackageSpec::All => true,
     };
 
-    let (targets, missing_targets) = res.apply_spec(spec);
-    if let Some(missing_targets) = missing_targets {
-        return Err(missing_targets.into_error());
+    let (targets, missing) = res.apply_spec(spec);
+
+    if let Some(missing) = missing {
+        match missing_target_behavior {
+            MissingTargetBehavior::Fail => {
+                return Err(missing.into_error());
+            }
+            MissingTargetBehavior::Warn => {
+                console_message(missing.missing_targets_warning());
+            }
+        }
     }
 
     Ok(SpecTargets {
