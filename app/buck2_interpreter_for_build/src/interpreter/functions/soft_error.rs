@@ -21,6 +21,8 @@ enum SoftErrorError {
         message: String,
         call_stack: String,
     },
+    #[error("Error produced by Starlark: {category}: {message}")]
+    StarlarkSoftErrorNoStack { category: String, message: String },
     #[error(
         "soft_error originated from starlark should have category starting with `starlark_`, got: `{0}`"
     )]
@@ -48,21 +50,29 @@ pub fn register_soft_error(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] category: &str,
         #[starlark(require = pos)] message: String,
         #[starlark(require = named)] quiet: Option<bool>,
+        #[starlark(require = named)] stack: Option<bool>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
         if !category.starts_with("starlark_") {
             return Err(SoftErrorError::InvalidCategory(category.to_owned()).into());
         }
-        soft_error!(
-            category,
+
+        let err = if stack.unwrap_or(true) {
             SoftErrorError::StarlarkSoftError {
                 category: category.to_owned(),
                 message,
-                call_stack: eval.call_stack().to_string()
+                call_stack: eval.call_stack().to_string(),
             }
-            .into(),
-            quiet: quiet.unwrap_or_default(),
-        )?;
+            .into()
+        } else {
+            SoftErrorError::StarlarkSoftErrorNoStack {
+                category: category.to_owned(),
+                message,
+            }
+            .into()
+        };
+
+        soft_error!(category, err, quiet: quiet.unwrap_or_default(),)?;
         Ok(NoneType)
     }
 }
