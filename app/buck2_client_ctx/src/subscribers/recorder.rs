@@ -130,6 +130,7 @@ mod imp {
         initial_re_upload_bytes: Option<u64>,
         initial_re_download_bytes: Option<u64>,
         concurrent_command_ids: HashSet<String>,
+        daemon_connection_failure: bool,
     }
 
     impl<'a> InvocationRecorder<'a> {
@@ -227,6 +228,7 @@ mod imp {
                 initial_re_upload_bytes: None,
                 initial_re_download_bytes: None,
                 concurrent_command_ids: HashSet::new(),
+                daemon_connection_failure: false,
             }
         }
 
@@ -384,6 +386,7 @@ mod imp {
                 concurrent_command_ids: std::mem::take(&mut self.concurrent_command_ids)
                     .into_iter()
                     .collect(),
+                daemon_connection_failure: Some(self.daemon_connection_failure),
             };
 
             let event = BuckEvent::new(
@@ -1056,6 +1059,10 @@ mod imp {
 
         fn as_error_observer(&self) -> Option<&dyn ErrorObserver> {
             Some(self)
+        }
+
+        fn handle_daemon_connection_failure(&mut self) {
+            self.daemon_connection_failure = true;
         }
     }
 

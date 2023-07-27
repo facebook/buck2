@@ -549,8 +549,15 @@ impl<'a> BuckdConnectOptions<'a> {
         self,
         paths: &InvocationPaths,
     ) -> anyhow::Result<BuckdClientConnector<'a>> {
-        let client = BootstrapBuckdClient::connect(paths, self.constraints).await?;
-        Ok(client.with_subscribers(self.subscribers))
+        match BootstrapBuckdClient::connect(paths, self.constraints).await {
+            Ok(client) => Ok(client.with_subscribers(self.subscribers)),
+            Err(e) => {
+                self.subscribers
+                    .into_iter()
+                    .for_each(|mut s| s.handle_daemon_connection_failure());
+                Err(e)
+            }
+        }
     }
 }
 

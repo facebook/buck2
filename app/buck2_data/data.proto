@@ -1653,6 +1653,8 @@ message InvocationRecord {
   uint64 run_remote_dep_file_cache_count = 73;
   // List of concurrent command trace IDs
   repeated string concurrent_command_ids = 74;
+  // The client has failed to connect to the daemon.
+  optional bool daemon_connection_failure = 75;
 }
 
 enum CacheUploadReason {

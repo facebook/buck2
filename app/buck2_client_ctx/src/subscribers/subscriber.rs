@@ -80,4 +80,6 @@ pub trait EventSubscriber: Send {
     fn as_error_observer(&self) -> Option<&dyn ErrorObserver> {
         None
     }
+
+    fn handle_daemon_connection_failure(&mut self) {}
 }
