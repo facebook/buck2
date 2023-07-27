@@ -157,8 +157,8 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
         let path = get_artifact_path_display(
             this.artifact().get_path(),
             abs,
-            &ctx.output_stream.project_fs,
-            &ctx.output_stream.artifact_fs,
+            &ctx.project_fs,
+            &ctx.artifact_fs,
         )?;
 
         Ok(heap.alloc_str(&path))
@@ -207,8 +207,8 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
                             let path = get_artifact_path_display(
                                 artifact_path,
                                 abs,
-                                &ctx.output_stream.project_fs,
-                                &ctx.output_stream.artifact_fs,
+                                &ctx.project_fs,
+                                &ctx.artifact_fs,
                             )?;
 
                             paths.push(path);

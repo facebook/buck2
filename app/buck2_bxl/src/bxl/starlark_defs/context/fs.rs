@@ -79,11 +79,11 @@ impl<'v> BxlFilesystem<'v> {
     }
 
     fn artifact_fs(&self) -> &ArtifactFs {
-        &self.ctx.output_stream.artifact_fs
+        &self.ctx.artifact_fs
     }
 
     fn project_fs(&self) -> &ProjectRoot {
-        &self.ctx.output_stream.project_fs
+        &self.ctx.project_fs
     }
 
     fn cell(&self) -> anyhow::Result<&CellInstance> {

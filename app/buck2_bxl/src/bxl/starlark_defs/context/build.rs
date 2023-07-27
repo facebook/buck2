@@ -9,8 +9,11 @@
 
 //!
 //! Implements the ability for bxl to build targets
+use std::sync::Arc;
+
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
@@ -21,6 +24,7 @@ use buck2_cli_proto::build_request::Materializations;
 use buck2_common::result::SharedError;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use dashmap::DashMap;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
@@ -166,6 +170,7 @@ where
 
 pub(crate) fn build<'v>(
     ctx: &'v BxlContext<'v>,
+    materializations_map: &Arc<DashMap<BuildArtifact, ()>>,
     spec: Value<'v>,
     target_platform: Value<'v>,
     materializations: Materializations,
@@ -175,7 +180,7 @@ pub(crate) fn build<'v>(
         ProvidersExpr::<ConfiguredProvidersLabel>::unpack(spec, target_platform, ctx, eval)?;
 
     let materializations =
-        ConvertMaterializationContext::with_existing_map(materializations, &ctx.materializations);
+        ConvertMaterializationContext::with_existing_map(materializations, materializations_map);
 
     let build_result = ctx.async_ctx.via_dice(async move |dice| {
         let materializations = &materializations;
