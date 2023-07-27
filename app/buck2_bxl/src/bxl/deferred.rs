@@ -16,6 +16,7 @@ mod tests {
     use std::sync::Arc;
 
     use allocative::Allocative;
+    use async_trait::async_trait;
     use buck2_build_api::bxl::calculation::BxlComputeResult;
     use buck2_build_api::bxl::result::BxlResult;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
@@ -54,6 +55,7 @@ mod tests {
         fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
     }
 
+    #[async_trait]
     impl Deferred for FakeDeferred {
         type Output = usize;
 
@@ -61,7 +63,7 @@ mod tests {
             &self.1
         }
 
-        fn execute(
+        async fn execute(
             &self,
             _ctx: &mut dyn DeferredCtx,
         ) -> anyhow::Result<DeferredValue<Self::Output>> {

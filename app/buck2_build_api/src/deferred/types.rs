@@ -19,6 +19,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::data::DeferredData;
 use buck2_artifact::deferred::id::DeferredId;
@@ -47,6 +48,7 @@ use thiserror::Error;
 ///
 /// `any::Provider` can be used to obtain data for introspection. At the moment of writing,
 /// only `ProvideOutputs` can be extracted from deferreds with outputs.
+#[async_trait]
 pub trait Deferred: Allocative + any::Provider {
     type Output;
 
@@ -54,7 +56,10 @@ pub trait Deferred: Allocative + any::Provider {
     fn inputs(&self) -> &IndexSet<DeferredInput>;
 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
-    fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<Self::Output>>;
+    async fn execute(
+        &self,
+        ctx: &mut dyn DeferredCtx,
+    ) -> anyhow::Result<DeferredValue<Self::Output>>;
 
     /// An optional stage to wrap execution in.
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {
@@ -63,7 +68,7 @@ pub trait Deferred: Allocative + any::Provider {
 }
 
 /// The context for executing a 'Deferred'.
-pub trait DeferredCtx {
+pub trait DeferredCtx: Send {
     fn get_configured_target(&self, label: &ConfiguredTargetLabel)
     -> Option<&ConfiguredTargetNode>;
 
@@ -207,13 +212,14 @@ impl any::Provider for TrivialDeferredValue {
     }
 }
 
+#[async_trait]
 impl DeferredAny for TrivialDeferredValue {
     fn inputs(&self) -> &IndexSet<DeferredInput> {
         static INPUTS: Lazy<IndexSet<DeferredInput>> = Lazy::new(IndexSet::new);
         &INPUTS
     }
 
-    fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
+    async fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
         Ok(DeferredValueAny::Ready(
             DeferredValueAnyReady::TrivialDeferred(self.0.dupe()),
         ))
@@ -248,6 +254,7 @@ impl any::Provider for DeferredTableEntry {
     }
 }
 
+#[async_trait]
 impl DeferredAny for DeferredTableEntry {
     fn inputs(&self) -> &IndexSet<DeferredInput> {
         match self {
@@ -256,10 +263,10 @@ impl DeferredAny for DeferredTableEntry {
         }
     }
 
-    fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
+    async fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
         match self {
-            Self::Trivial(v) => v.execute(ctx),
-            Self::Complex(v) => v.execute(ctx),
+            Self::Trivial(v) => v.execute(ctx).await,
+            Self::Complex(v) => v.execute(ctx).await,
         }
     }
 
@@ -467,17 +474,18 @@ impl DeferredRegistry {
         impl<T, U, F> any::Provider for Map<T, U, F>
         where
             T: Allocative + Send + Sync + 'static,
-            F: Fn(&T, &mut dyn DeferredCtx) -> DeferredValue<U> + 'static,
+            F: Fn(&T, &mut dyn DeferredCtx) -> DeferredValue<U> + Send + Sync + 'static,
             U: Allocative + 'static,
         {
             fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
         }
 
+        #[async_trait]
         impl<T, U, F> Deferred for Map<T, U, F>
         where
             T: Allocative + Send + Sync + 'static,
-            F: Fn(&T, &mut dyn DeferredCtx) -> DeferredValue<U> + 'static,
-            U: Allocative + 'static,
+            F: Fn(&T, &mut dyn DeferredCtx) -> DeferredValue<U> + Send + Sync + 'static,
+            U: Allocative + Send + Sync + 'static,
         {
             type Output = U;
 
@@ -485,7 +493,7 @@ impl DeferredRegistry {
                 &self.orig
             }
 
-            fn execute(
+            async fn execute(
                 &self,
                 ctx: &mut dyn DeferredCtx,
             ) -> anyhow::Result<DeferredValue<Self::Output>> {
@@ -737,12 +745,13 @@ impl dyn AnyValue {
 }
 
 /// untyped deferred
+#[async_trait]
 pub trait DeferredAny: Allocative + any::Provider + Send + Sync {
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
     fn inputs(&self) -> &IndexSet<DeferredInput>;
 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
-    fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny>;
+    async fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny>;
 
     fn as_any(&self) -> &dyn Any;
 
@@ -765,6 +774,7 @@ impl dyn DeferredAny {
     }
 }
 
+#[async_trait]
 impl<D, T> DeferredAny for D
 where
     D: Deferred<Output = T> + Send + Sync + Any + 'static,
@@ -774,8 +784,8 @@ where
         self.inputs()
     }
 
-    fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
-        match self.execute(ctx)? {
+    async fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValueAny> {
+        match self.execute(ctx).await? {
             DeferredValue::Ready(t) => Ok(DeferredValueAny::ready(t)),
             DeferredValue::Deferred(d) => Ok(DeferredValueAny::defer(d)),
         }
@@ -867,9 +877,11 @@ mod tests {
     use std::fmt;
     use std::fmt::Debug;
     use std::fmt::Formatter;
+    use std::marker::Send;
     use std::sync::Arc;
 
     use allocative::Allocative;
+    use async_trait::async_trait;
     use buck2_artifact::deferred::data::DeferredData;
     use buck2_artifact::deferred::id::DeferredId;
     use buck2_artifact::deferred::key::DeferredKey;
@@ -917,14 +929,15 @@ mod tests {
         fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
     }
 
-    impl<T: Clone> Deferred for FakeDeferred<T> {
+    #[async_trait]
+    impl<T: Clone + Send + Sync> Deferred for FakeDeferred<T> {
         type Output = T;
 
         fn inputs(&self) -> &IndexSet<DeferredInput> {
             &self.inputs
         }
 
-        fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<T>> {
+        async fn execute(&self, _ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<T>> {
             Ok(DeferredValue::Ready(self.val.clone()))
         }
     }
@@ -949,6 +962,7 @@ mod tests {
         fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
     }
 
+    #[async_trait]
     impl<T: Clone + Debug + Allocative + Send + Sync + 'static> Deferred for DeferringDeferred<T> {
         type Output = T;
 
@@ -956,7 +970,7 @@ mod tests {
             &self.inputs
         }
 
-        fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<T>> {
+        async fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<T>> {
             Ok(DeferredValue::Deferred(
                 ctx.registry().defer(self.defer.clone()),
             ))
@@ -1023,6 +1037,7 @@ mod tests {
                             DigestConfig::testing_default(),
                             observer,
                         ))
+                        .await
                         .unwrap()
                         .assert_ready()
                         .resolve(&deferred_data)?,
@@ -1079,6 +1094,7 @@ mod tests {
                 assert_eq!(
                     *mapped_deferred
                         .execute(&mut resolved)
+                        .await
                         .unwrap()
                         .assert_ready()
                         .downcast::<i32>()?,
@@ -1133,6 +1149,7 @@ mod tests {
                         DigestConfig::testing_default(),
                         observer.dupe(),
                     ))
+                    .await
                     .unwrap();
 
                 let deferred_key = match exec_result {
@@ -1168,6 +1185,7 @@ mod tests {
                             DigestConfig::testing_default(),
                             observer,
                         ))
+                        .await
                         .unwrap()
                         .assert_ready()
                         .downcast::<i32>()?,
@@ -1223,6 +1241,7 @@ mod tests {
                             DigestConfig::testing_default(),
                             observer,
                         ))
+                        .await
                         .unwrap()
                         .assert_ready()
                         .resolve(&deferred_data)?,

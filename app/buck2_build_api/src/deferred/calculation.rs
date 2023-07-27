@@ -268,12 +268,16 @@ async fn compute_deferred(
                             observer,
                         );
 
-                        let mut execute = move || deferred.execute(&mut ctx);
+                        let execute = deferred.execute(&mut ctx);
 
                         let res = match Lazy::into_value(span).unwrap_or_else(|init| init()) {
-                            Some(span) => span
-                                .wrap_closure(|| (execute(), buck2_data::DeferredEvaluationEnd {})),
-                            None => execute(),
+                            Some(span) => {
+                                span.wrap_future(async {
+                                    (execute.await, buck2_data::DeferredEvaluationEnd {})
+                                })
+                                .await
+                            }
+                            None => execute.await,
                         };
 
                         // TODO populate the deferred map

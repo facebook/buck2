@@ -13,6 +13,7 @@ use std::mem;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
@@ -130,6 +131,7 @@ impl any::Provider for DynamicAction {
     fn provide<'a>(&'a self, _demand: &mut Demand<'a>) {}
 }
 
+#[async_trait]
 impl Deferred for DynamicAction {
     type Output = Arc<RegisteredAction>;
 
@@ -137,7 +139,10 @@ impl Deferred for DynamicAction {
         &self.inputs
     }
 
-    fn execute(&self, ctx: &mut dyn DeferredCtx) -> anyhow::Result<DeferredValue<Self::Output>> {
+    async fn execute(
+        &self,
+        ctx: &mut dyn DeferredCtx,
+    ) -> anyhow::Result<DeferredValue<Self::Output>> {
         let id = match self.inputs.iter().into_singleton() {
             Some(DeferredInput::Deferred(x)) => x,
             _ => unreachable!("DynamicAction must have a single Deferred as as inputs"),
@@ -171,6 +176,7 @@ impl any::Provider for DynamicLambda {
     }
 }
 
+#[async_trait]
 impl Deferred for DynamicLambda {
     type Output = DynamicLambdaOutput;
 
@@ -178,7 +184,7 @@ impl Deferred for DynamicLambda {
         &self.dynamic
     }
 
-    fn execute(
+    async fn execute(
         &self,
         deferred_ctx: &mut dyn DeferredCtx,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
