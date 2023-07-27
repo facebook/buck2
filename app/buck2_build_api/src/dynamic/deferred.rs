@@ -50,6 +50,7 @@ use crate::deferred::types::DeferredCtx;
 use crate::deferred::types::DeferredInput;
 use crate::deferred::types::DeferredRegistry;
 use crate::deferred::types::DeferredValue;
+use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactValue;
@@ -196,9 +197,20 @@ impl Deferred for DynamicLambda {
     async fn execute(
         &self,
         deferred_ctx: &mut dyn DeferredCtx,
-        _dice: &DiceComputations,
+        dice: &DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
-        let output = {
+        let output = if self.with_bxl {
+            match &self.owner {
+                BaseDeferredKey::BxlLabel(key) => {
+                    eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await
+                }
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "`with_bxl` was set to True, but `dynamic_output` was not called from BXL"
+                    ));
+                }
+            }
+        } else {
             let env = Module::new();
 
             let (analysis_registry, declared_outputs) = {
