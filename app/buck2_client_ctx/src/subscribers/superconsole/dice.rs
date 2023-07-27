@@ -23,9 +23,8 @@ pub(crate) struct DiceComponent<'s> {
 impl<'s> Component for DiceComponent<'s> {
     fn draw_unchecked(
         &self,
-
         _dimensions: superconsole::Dimensions,
-        mode: superconsole::DrawMode,
+        _mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
         if !self.super_console_config.enable_dice {
             return Ok(Lines::new());
@@ -41,16 +40,13 @@ impl<'s> Component for DiceComponent<'s> {
         lines.push(header);
         lines.push("-".repeat(header_len));
         for (k, v) in self.dice_state.key_states() {
-            // We aren't guaranteed to get a final DiceStateUpdate and so we just assume all dice nodes that we
-            // know about finished so that the final rendering doesn't look silly.
-            let (check_deps, pending, finished) = match mode {
-                superconsole::DrawMode::Normal => (
-                    v.check_deps_started - v.check_deps_finished,
-                    v.started - v.finished,
-                    v.finished,
-                ),
-                superconsole::DrawMode::Final => (0, 0, v.started),
-            };
+            // We aren't guaranteed to get a final update, the final rendering might look a little
+            // silly with some keys claiming to be in progress, but this is a debug component so
+            // that is probably OK.
+            let check_deps = v.check_deps_started - v.check_deps_finished;
+            let pending = v.started - v.finished;
+            let finished = v.finished;
+
             lines.push(format!(
                 "    {:<40} |  {}  |  {}  |  {}",
                 // Dice key states are all ascii
