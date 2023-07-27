@@ -46,7 +46,8 @@ struct Field {
 
 impl Field {
     fn name(&self) -> String {
-        self.ident.to_string()
+        let value = self.ident.to_string();
+        value.strip_prefix("r#").unwrap_or(&value).to_owned()
     }
 
     /// Owned String fields should not be cloned before alloc-ing on the
@@ -150,7 +151,7 @@ fn expand_attrs_derive(data: Data, name: Ident) -> Result<proc_macro2::TokenStre
         }
     };
 
-    let dir_names = expose_fields.iter().map(|f| f.ident.to_string());
+    let dir_names = expose_fields.iter().map(|f| f.name());
     let dir_attr = quote! {
         pub(crate) fn attrs_dir_attr(&self) -> Vec<String> {
             vec![

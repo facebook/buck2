@@ -45,6 +45,8 @@ fn test_derive_attrs() {
         answer: i64,
         #[starlark(clone)]
         nested: Nested,
+        r#type: i64,
+        r#escaped: String,
     }
     starlark_simple_value!(Example);
 
@@ -83,11 +85,30 @@ fn test_derive_attrs() {
                 nested: Nested {
                     foo: "bar".to_owned(),
                 },
+                r#type: 1,
+                r#escaped: "baz".to_owned(),
             },
         )
     });
+
+    // dir
+    a.eq(
+        "dir(example)",
+        "[\"escaped\", \"hello\", \"nested\", \"type\"]",
+    );
+
+    // getattr
     a.eq("example.hello", "\"world\"");
-    a.eq("dir(example)", "[\"hello\", \"nested\"]");
-    a.is_true("not hasattr(example, \"answer\")");
     a.eq("example.nested.foo", "\"bar\"");
+    a.eq("example.type", "1");
+    a.eq("example.escaped", "\"baz\"");
+
+    // hasattr
+    a.is_true("not hasattr(example, \"answer\")");
+    a.is_true("hasattr(example, \"hello\")");
+    a.is_true("hasattr(example, \"nested\")");
+    a.is_true("hasattr(example, \"type\")");
+    a.is_true("not hasattr(example, \"r#type\")");
+    a.is_true("hasattr(example, \"escaped\")");
+    a.is_true("not hasattr(example, \"r#escaped\")");
 }
