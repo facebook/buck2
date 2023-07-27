@@ -47,6 +47,7 @@ pub fn register_soft_error(builder: &mut GlobalsBuilder) {
     fn soft_error<'v>(
         #[starlark(require = pos)] category: &str,
         #[starlark(require = pos)] message: String,
+        #[starlark(require = named)] quiet: Option<bool>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
         if !category.starts_with("starlark_") {
@@ -59,7 +60,8 @@ pub fn register_soft_error(builder: &mut GlobalsBuilder) {
                 message,
                 call_stack: eval.call_stack().to_string()
             }
-            .into()
+            .into(),
+            quiet: quiet.unwrap_or_default(),
         )?;
         Ok(NoneType)
     }
