@@ -140,6 +140,8 @@ rust_binary = prelude_rule(
             "coverage": attrs.bool(default = False),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
+            # TODO: enable distributed thinlto
+            "enable_distributed_thinlto": attrs.bool(default = False),
             "flagged_deps": attrs.list(attrs.tuple(attrs.dep(), attrs.list(attrs.string())), default = []),
             "framework": attrs.bool(default = False),
             "incremental_build_mode": attrs.option(attrs.string(), default = None),
