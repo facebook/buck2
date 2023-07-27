@@ -88,7 +88,7 @@ pub enum LibraryExtension {
 
 impl LibraryExtension {
     /// A list of all extensions that will be updated as new methods are added.
-    pub fn all() -> &'static [Self] {
+    pub(crate) fn all() -> &'static [Self] {
         use LibraryExtension::*;
         &[
             StructType,
