@@ -1,0 +1,29 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+x = list[str]
+y = dict[int, bool]
+
+Error:
+error: The attribute `[]` is not available on the type `"function"`
+ --> filename:2:5
+  |
+2 | x = list[str]
+  |     ^^^^^^^^^
+  |
+
+Error:
+error: Call arguments incompatible
+ --> filename:2:5
+  |
+2 | x = list[str]
+  |     ^^^^^^^^^
+  |
+
+Interfaces:
+x: typing.Never
+y: typing.Any

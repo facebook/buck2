@@ -420,6 +420,18 @@ x = new_list_dict_syntax({"a": 1, "b": 2})
 }
 
 #[test]
+fn test_new_list_dict_syntax_as_value() {
+    // TODO(nga): fix.
+    TypeCheck::new().ty("x").ty("y").check(
+        "new_list_dict_syntax_as_value",
+        r#"
+x = list[str]
+y = dict[int, bool]
+"#,
+    );
+}
+
+#[test]
 fn test_int_plus_float() {
     TypeCheck::new().ty("x").check(
         "int_plus_float",
