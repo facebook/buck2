@@ -168,8 +168,8 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                     constraints,
                 };
 
-                let mut buckd = match ctx.start_in_process_daemon.take() {
-                    None => ctx.connect_buckd(connect_options).await?,
+                let buckd = match ctx.start_in_process_daemon.take() {
+                    None => ctx.connect_buckd(connect_options).await,
                     Some(start_in_process_daemon) => {
                         // Start in-process daemon, wait until it is ready to accept connections.
                         start_in_process_daemon()?;
@@ -178,7 +178,14 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                         // Connect should not fail.
                         connect_options.constraints = BuckdConnectConstraints::ExistingOnly;
 
-                        ctx.connect_buckd(connect_options).await?
+                        ctx.connect_buckd(connect_options).await
+                    }
+                };
+
+                let mut buckd = match buckd {
+                    Ok(buckd) => buckd,
+                    Err(e) => {
+                        return ExitResult::from(FailureExitCode::ConnectError(e));
                     }
                 };
 

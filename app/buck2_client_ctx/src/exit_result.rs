@@ -17,9 +17,7 @@ use std::ops::FromResidual;
 use std::process::Command;
 
 use anyhow::Context;
-use dupe::Dupe;
 use gazebo::prelude::*;
-use tokio::time::error::Elapsed;
 
 use crate::subscribers::observer::ErrorCause;
 
@@ -216,7 +214,10 @@ impl ExitResultVariant {
             }
             Self::Err(e) => {
                 match e.downcast_ref::<FailureExitCode>() {
-                    None => categorize_client_error(&e),
+                    None => {
+                        let _ignored = writeln!(io::stderr().lock(), "Command failed: {:?}", e);
+                        1
+                    }
                     Some(FailureExitCode::SignalInterrupt) => {
                         tracing::debug!("Interrupted");
                         130
@@ -236,6 +237,10 @@ impl ExitResultVariant {
                     Some(FailureExitCode::OutputFileBrokenPipe) => {
                         tracing::debug!("--out pipe was broken");
                         141
+                    }
+                    Some(FailureExitCode::ConnectError(e)) => {
+                        let _ignored = writeln!(io::stderr().lock(), "{:?}", e);
+                        11
                     }
                 }
             }
@@ -271,7 +276,7 @@ pub fn gen_error_exit_code(cause: ErrorCause) -> u8 {
 }
 
 /// Common exit codes for buck with stronger semantic meanings
-#[derive(thiserror::Error, Debug, Copy, Clone, Dupe)]
+#[derive(thiserror::Error, Debug)]
 pub enum FailureExitCode {
     // TODO: Fill in more exit codes from ExitCode.java here. Need to determine
     // how many make sense in v2 versus v1. Some are assuredly unnecessary in v2.
@@ -286,17 +291,9 @@ pub enum FailureExitCode {
 
     #[error("Broken pipe writing build artifact to --out")]
     OutputFileBrokenPipe,
-}
 
-fn categorize_client_error(e: &anyhow::Error) -> u8 {
-    let _ignored = writeln!(io::stderr().lock(), "Command failed: {:?}", e);
-    if root_cause_downcast_ref::<Elapsed>(e).is_some() {
-        // Deadline has elapsed
-        11
-    } else {
-        // Uncategorized error
-        1
-    }
+    #[error(transparent)]
+    ConnectError(anyhow::Error),
 }
 
 /// Invokes the given program with the given argv and replaces the program image with the new program. Does not return
@@ -339,11 +336,4 @@ fn execv(args: ExecArgs) -> anyhow::Result<ExitResult> {
 
     // `execv` never returns on success; on failure, it sets errno.
     Err(std::io::Error::last_os_error().into())
-}
-
-fn root_cause_downcast_ref<E>(error: &anyhow::Error) -> Option<&E>
-where
-    E: Display + Debug + Send + Sync + std::error::Error + 'static,
-{
-    error.root_cause().downcast_ref::<E>()
 }
