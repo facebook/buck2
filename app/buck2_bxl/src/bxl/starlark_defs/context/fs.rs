@@ -10,7 +10,6 @@
 use allocative::Allocative;
 use async_recursion::async_recursion;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_build_api::bxl::starlark_async::BxlSafeDiceComputations;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::dice::file_ops::HasFileOps;
@@ -50,6 +49,7 @@ use starlark::StarlarkDocs;
 use thiserror::Error;
 
 use super::BxlContext;
+use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::file_expr::FileExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkReadDirSet;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;

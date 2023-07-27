@@ -11,7 +11,6 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_build_api::bxl::starlark_async::BxlSafeDiceComputations;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_common::dice::cells::HasCellResolver;
@@ -32,6 +31,7 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
+use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 
 /// FileExpr is just a simple type that can be used in starlark_module

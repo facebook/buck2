@@ -20,7 +20,6 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::execution_platform::EXECUTION_PLATFORM;
-use buck2_build_api::bxl::starlark_async::BxlSafeDiceComputations;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
@@ -83,6 +82,7 @@ use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
+use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::event::to_starlark_user_event;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
@@ -97,6 +97,7 @@ pub(crate) mod analysis;
 pub(crate) mod build;
 pub(crate) mod fs;
 pub(crate) mod output;
+pub(crate) mod starlark_async;
 
 #[derive(
     ProvidesStaticType,
