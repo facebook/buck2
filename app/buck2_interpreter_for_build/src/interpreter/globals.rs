@@ -35,6 +35,7 @@ fn register_build_bzl_natives(builder: &mut GlobalsBuilder) {
     register_host_info(builder);
     register_read_config(builder);
     register_read_package_value(builder);
+    register_soft_error(builder);
 }
 
 /// Globals for `BUCK` files.
@@ -70,7 +71,6 @@ pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
     (MORE_FUNCTIONS.get().unwrap().register_cmd_args)(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_rule_defs)(globals_builder);
     register_warning(globals_builder);
-    register_soft_error(globals_builder);
     register_regex(globals_builder);
     register_load_symbols(globals_builder);
     register_rule_function(globals_builder);
