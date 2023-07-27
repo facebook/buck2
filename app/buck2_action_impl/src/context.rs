@@ -925,7 +925,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///   * `artifacts` - using one of the artifacts from `dynamic` (example usage: `artifacts[artifact_from_dynamic])` gives an artifact value containing the methods `read_string`, `read_lines`, and `read_json` to obtain the values from the disk in various formats.  Anything too complex should be piped through a Python script for transformation to JSON.
     /// * The function must call `ctx.actions` (probably `ctx.actions.run`) to bind all outputs. It can examine the values of the dynamic variables and depends on the inputs.
     ///   * The function will usually be a `def`, as `lambda` in Starlark does not allow statements, making it quite underpowered.
-    ///
+    /// * `with_bxl` - Temporary flag for whether or not to evaluate the lambda with a `bxl_ctx`. Requires that the caller is BXL. Eventually, the default context within a dynamic output will be a `bxl_ctx` if `dynamic_output` was called from BXL.
     /// For full details see http://localhost:3000/docs/rule_authors/dynamic_dependencies/.
     fn dynamic_output<'v>(
         this: &'v AnalysisActions<'v>,
@@ -933,6 +933,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] inputs: Vec<StarlarkArtifact>,
         #[starlark(require = named)] outputs: Vec<StarlarkOutputOrDeclaredArtifact>,
         #[starlark(require = named)] f: Value<'v>,
+        #[starlark(require = named, default = false)] with_bxl: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         // Parameter validation
@@ -955,7 +956,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         // Registration
         let attributes_lambda = heap.alloc((this.attributes, f));
         let mut this = this.state();
-        this.register_dynamic_output(dynamic, inputs, outputs, attributes_lambda)?;
+        this.register_dynamic_output(dynamic, inputs, outputs, attributes_lambda, with_bxl)?;
         Ok(NoneType)
     }
 

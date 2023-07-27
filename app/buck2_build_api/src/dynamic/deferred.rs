@@ -87,6 +87,8 @@ pub struct DynamicLambda {
     outputs: Vec<BuildArtifact>,
     /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
     attributes_lambda: OwnedFrozenValue,
+    /// Whether or not to evaluate the lambda with the BxlDynamicContext. Requires that the caller is BXL.
+    with_bxl: bool,
 }
 
 impl DynamicLambda {
@@ -95,6 +97,7 @@ impl DynamicLambda {
         dynamic: IndexSet<Artifact>,
         inputs: IndexSet<Artifact>,
         outputs: Vec<BuildArtifact>,
+        with_bxl: bool,
     ) -> Self {
         let mut depends = IndexSet::with_capacity(dynamic.len() + 1);
         match &owner {
@@ -115,6 +118,7 @@ impl DynamicLambda {
             inputs,
             outputs,
             attributes_lambda: Default::default(),
+            with_bxl,
         }
     }
 

@@ -245,10 +245,11 @@ impl<'v> AnalysisRegistry<'v> {
         inputs: IndexSet<Artifact>,
         outputs: IndexSet<OutputArtifact>,
         attributes_lambda: Value<'v>,
+        with_bxl: bool,
     ) -> anyhow::Result<()> {
         let id = self
             .dynamic
-            .register(dynamic, inputs, outputs, &mut self.deferred)?;
+            .register(dynamic, inputs, outputs, &mut self.deferred, with_bxl)?;
         self.analysis_value_storage.set_value(id, attributes_lambda);
         Ok(())
     }
