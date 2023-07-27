@@ -34,6 +34,7 @@ use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
 use buck2_interpreter_for_build::rule::register_rule_function;
 use buck2_interpreter_for_build::super_package::defs::register_package_natives;
 use buck2_interpreter_for_build::super_package::package_value::register_read_package_value;
+use buck2_interpreter_for_build::super_package::package_value::register_write_package_value;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use dice::DetectCycles;
 use dice::Dice;
@@ -82,11 +83,16 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
             false,
             false,
             register_read_package_value,
-            register_package_natives,
+            |globals| {
+                register_package_natives(globals);
+                register_read_package_value(globals);
+            },
             |globals| {
                 register_rule_defs(globals);
                 register_rule_function(globals);
                 register_attrs(globals);
+                register_read_package_value(globals);
+                register_write_package_value(globals);
             },
             |_| {},
             None,

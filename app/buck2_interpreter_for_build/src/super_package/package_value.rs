@@ -10,6 +10,7 @@
 use anyhow::Context;
 use buck2_core::metadata_key::MetadataKey;
 use buck2_core::metadata_key::MetadataKeyRef;
+use buck2_interpreter::file_type::StarlarkFileType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -17,7 +18,6 @@ use starlark::values::none::NoneType;
 use starlark::values::Value;
 
 use crate::interpreter::build_context::BuildContext;
-use crate::interpreter::module_internals::ModuleInternals;
 
 #[derive(Debug, thiserror::Error)]
 enum PackageValueError {
@@ -28,7 +28,7 @@ enum PackageValueError {
 }
 
 #[starlark_module]
-pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
+pub fn register_write_package_value(globals: &mut GlobalsBuilder) {
     /// Set the value to be accessible in the nested `PACKAGE` files.
     fn write_package_value<'v>(
         #[starlark(require = pos)] key: &str,
@@ -76,8 +76,44 @@ pub fn register_read_package_value(globals: &mut GlobalsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let key = MetadataKeyRef::new(key)?;
 
-        let build_ctx = ModuleInternals::from_context(eval, "read_package_value")?;
+        let build_ctx = BuildContext::from_context(eval)?;
+        let build_ctx = build_ctx
+            .additional
+            .require_build("read_package_value")
+            .map_err(|err| {
+                let file_type = build_ctx.additional.file_type();
+
+                if file_type == StarlarkFileType::Package {
+                    err.context(format!(
+                        "In a {file_type:?} context, consider using `read_parent_package_value`"
+                    ))
+                } else {
+                    err
+                }
+            })?;
+
         match build_ctx.super_package.package_values().get(key) {
+            Some(value) => Ok(eval.heap().alloc(value)),
+            None => Ok(Value::new_none()),
+        }
+    }
+
+    /// Read a package value defined in a parent `PACKAGE` file.
+    ///
+    /// This function can only be called in a Package context.
+    ///
+    /// Returns `None` if value is not set.
+    fn read_parent_package_value<'v>(
+        #[starlark(require = pos)] key: &str,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        let key = MetadataKeyRef::new(key)?;
+
+        let package_ctx = BuildContext::from_context(eval)?
+            .additional
+            .require_package_file("read_parent_package_value")?;
+
+        match package_ctx.parent.package_values().get(key) {
             Some(value) => Ok(eval.heap().alloc(value)),
             None => Ok(Value::new_none()),
         }

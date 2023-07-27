@@ -197,3 +197,190 @@ async fn test_overwrite_package_value_with_flag() {
             .to_string()
     );
 }
+
+#[tokio::test]
+async fn test_read_parent_package_value() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES);
+    fs.write_file("PACKAGE", "write_package_value('aaa.bbb', 'ccc')");
+    fs.write_file(
+        "foo/PACKAGE",
+        "write_package_value('xxx.yyy', read_parent_package_value('aaa.bbb'))",
+    );
+    fs.write_file(
+        "foo/BUCK",
+        indoc!(
+            r#"
+                load("//:rules.bzl", "rrr")
+                rrr(
+                    name = "trackpad",
+                    value = read_package_value("xxx.yyy"),
+                )
+            "#
+        ),
+    );
+
+    let ctx = calculation(&fs).await;
+    let interpreter = ctx
+        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
+        .await
+        .unwrap();
+
+    let result = interpreter
+        .eval_build_file(
+            PackageLabel::testing_parse("root//foo"),
+            &mut StarlarkProfilerOrInstrumentation::disabled(),
+        )
+        .await
+        .unwrap();
+
+    let target_nodes: Vec<_> = result.targets().values().collect();
+    assert_eq!(1, target_nodes.len());
+    let target_node = &target_nodes[0];
+    assert_eq!(
+        "\"ccc\"",
+        target_node
+            .attr("value", AttrInspectOptions::DefinedOnly)
+            .unwrap()
+            .unwrap()
+            .as_display_no_ctx()
+            .to_string()
+    );
+}
+
+#[tokio::test]
+async fn test_read_parent_package_value_from_bzl() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES);
+    fs.write_file("PACKAGE", "write_package_value('aaa.bbb', 'ccc')");
+    fs.write_file(
+        "test.bzl",
+        indoc!(
+            r#"
+            def test():
+                write_package_value('xxx.yyy', read_parent_package_value('aaa.bbb'))
+            "#
+        ),
+    );
+    fs.write_file(
+        "foo/PACKAGE",
+        indoc!(
+            r#"
+            load("//:test.bzl", "test")
+            test()
+            "#
+        ),
+    );
+    fs.write_file(
+        "foo/BUCK",
+        indoc!(
+            r#"
+                load("//:rules.bzl", "rrr")
+                rrr(
+                    name = "trackpad",
+                    value = read_package_value("xxx.yyy"),
+                )
+            "#
+        ),
+    );
+
+    let ctx = calculation(&fs).await;
+    let interpreter = ctx
+        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
+        .await
+        .unwrap();
+
+    let result = interpreter
+        .eval_build_file(
+            PackageLabel::testing_parse("root//foo"),
+            &mut StarlarkProfilerOrInstrumentation::disabled(),
+        )
+        .await
+        .unwrap();
+
+    let target_nodes: Vec<_> = result.targets().values().collect();
+    assert_eq!(1, target_nodes.len());
+    let target_node = &target_nodes[0];
+    assert_eq!(
+        "\"ccc\"",
+        target_node
+            .attr("value", AttrInspectOptions::DefinedOnly)
+            .unwrap()
+            .unwrap()
+            .as_display_no_ctx()
+            .to_string()
+    );
+}
+
+#[tokio::test]
+async fn test_read_parent_package_value_is_suggested_in_package_file() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("PACKAGE", "write_package_value('aaa.bbb', 'ccc')");
+    fs.write_file("foo/PACKAGE", "read_package_value('aaa.bbb')");
+    fs.write_file("foo/BUCK", "");
+
+    let ctx = calculation(&fs).await;
+    let interpreter = ctx
+        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
+        .await
+        .unwrap();
+    let err = interpreter
+        .eval_build_file(
+            PackageLabel::testing_parse("root//foo"),
+            &mut StarlarkProfilerOrInstrumentation::disabled(),
+        )
+        .await;
+    assert!(
+        format!("{:?}", err)
+            .contains("In a Package context, consider using `read_parent_package_value`"),
+        "err = {:?}",
+        err
+    );
+}
+
+#[tokio::test]
+async fn test_read_parent_package_value_is_suggested_in_bzl_file() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("PACKAGE", "write_package_value('aaa.bbb', 'ccc')");
+    fs.write_file(
+        "test.bzl",
+        indoc!(
+            r#"
+            def test():
+                return read_package_value("aaa.bbb")
+            "#
+        ),
+    );
+    fs.write_file(
+        "foo/PACKAGE",
+        indoc!(
+            r#"
+                load("//:test.bzl", "test")
+                test()
+            "#
+        ),
+    );
+    fs.write_file("foo/BUCK", "");
+
+    let ctx = calculation(&fs).await;
+    let interpreter = ctx
+        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
+        .await
+        .unwrap();
+    let err = interpreter
+        .eval_build_file(
+            PackageLabel::testing_parse("root//foo"),
+            &mut StarlarkProfilerOrInstrumentation::disabled(),
+        )
+        .await;
+    assert!(
+        format!("{:?}", err)
+            .contains("In a Package context, consider using `read_parent_package_value`"),
+        "err = {:?}",
+        err
+    );
+}
