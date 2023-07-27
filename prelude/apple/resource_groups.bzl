@@ -54,6 +54,7 @@ ResourceGraphTSet = transitive_set()
 ResourceGraph = provider(fields = [
     "label",  # "label"
     "nodes",  # "ResourceGraphTSet"
+    "should_propagate",  # bool
 ])
 
 def create_resource_graph(
@@ -61,25 +62,41 @@ def create_resource_graph(
         labels: list[str],
         deps: list[Dependency],
         exported_deps: list[Dependency],
+        bundle_binary: [Dependency, None] = None,
         resource_spec: [AppleResourceSpec.type, None] = None,
         asset_catalog_spec: [AppleAssetCatalogSpec.type, None] = None,
         core_data_spec: [AppleCoreDataSpec.type, None] = None,
-        scene_kit_assets_spec: [SceneKitAssetsSpec.type, None] = None) -> ResourceGraph.type:
+        scene_kit_assets_spec: [SceneKitAssetsSpec.type, None] = None,
+        should_propagate: bool = True) -> ResourceGraph.type:
+    # Collect deps and exported_deps with resources that should propagate.
+    dep_labels, dep_graphs = _filtered_labels_and_graphs(deps)
+    exported_dep_labels, exported_dep_graphs = _filtered_labels_and_graphs(exported_deps)
+
+    # Bundle binary targets always propagate resources to their bundle.
+    # The bundle target will not pass up a ResourceGraph provider itself
+    # so the resources do not propagate outside the bundle folder.
+    if bundle_binary and ResourceGraph in bundle_binary:
+        dep_graphs.append(bundle_binary[ResourceGraph])
+
+        # We use ResourceGraph.label here to ensure the graph lookup works
+        # when we have binary targets specified with the [shared] subtarget.
+        dep_labels.append(bundle_binary[ResourceGraph].label)
+
     node = ResourceGraphNode(
         label = ctx.label,
         labels = labels,
-        deps = _with_resources_deps(deps),
-        exported_deps = _with_resources_deps(exported_deps),
+        deps = dep_labels,
+        exported_deps = exported_dep_labels,
         resource_spec = resource_spec,
         asset_catalog_spec = asset_catalog_spec,
         core_data_spec = core_data_spec,
         scene_kit_assets_spec = scene_kit_assets_spec,
     )
-    all_deps = deps + exported_deps
-    child_nodes = filter(None, [d.get(ResourceGraph) for d in all_deps])
+    children = [child_node.nodes for child_node in dep_graphs + exported_dep_graphs]
     return ResourceGraph(
         label = ctx.label,
-        nodes = ctx.actions.tset(ResourceGraphTSet, value = node, children = [child_node.nodes for child_node in child_nodes]),
+        nodes = ctx.actions.tset(ResourceGraphTSet, value = node, children = children),
+        should_propagate = should_propagate,
     )
 
 def get_resource_graph_node_map_func(graph: ResourceGraph.type):
@@ -89,13 +106,21 @@ def get_resource_graph_node_map_func(graph: ResourceGraph.type):
 
     return get_resource_graph_node_map
 
-def _with_resources_deps(deps: list[Dependency]) -> list[Label]:
+def _filtered_labels_and_graphs(deps: list[Dependency]) -> (list[Label], list[ResourceGraph.type]):
     """
     Filters dependencies and returns only those which are relevant
-    to working with resources i.e. those which contains resource graph provider.
+    to working with resources i.e. those which contains resource graph provider
+    and that should propagate.
     """
-    graphs = filter(None, [d.get(ResourceGraph) for d in deps])
-    return [g.label for g in graphs]
+    resource_labels = []
+    resource_deps = []
+    for d in deps:
+        graph = d.get(ResourceGraph)
+        if graph and graph.should_propagate:
+            resource_deps.append(graph)
+            resource_labels.append(graph.label)
+
+    return resource_labels, resource_deps
 
 def get_resource_group_info(ctx: AnalysisContext) -> [ResourceGroupInfo.type, None]:
     """

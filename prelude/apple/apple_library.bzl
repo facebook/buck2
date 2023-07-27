@@ -117,17 +117,8 @@ def apple_library_impl(ctx: AnalysisContext) -> ["promise", list["provider"]]:
             ),
             deps_providers,
         )
-
-        resource_graph = create_resource_graph(
-            ctx = ctx,
-            labels = ctx.attrs.labels,
-            deps = cxx_attr_deps(ctx),
-            exported_deps = cxx_attr_exported_deps(ctx),
-        )
-
         output = cxx_library_parameterized(ctx, constructor_params)
-
-        return output.providers + [resource_graph]
+        return output.providers
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_library_providers)
@@ -214,7 +205,21 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             exported_pre,
         )
         providers = [swift_pcm_uncompile_info] if swift_pcm_uncompile_info else []
-        return providers + [swift_dependency_info]
+        providers.append(swift_dependency_info)
+
+        # We populate the ResourceGraph provider for each link_style in the
+        # link_style_sub_targets_and_providers_factory function. However,
+        # libraries with no srcs will never call the factory function, but
+        # we still want to propagate resources through them.
+        if len(cxx_srcs) + len(swift_srcs) == 0:
+            providers.append(create_resource_graph(
+                ctx = ctx,
+                labels = ctx.attrs.labels,
+                deps = cxx_attr_deps(ctx),
+                exported_deps = cxx_attr_exported_deps(ctx),
+            ))
+
+        return providers
 
     framework_search_path_pre = CPreprocessor(
         relative_args = CPreprocessorArgs(args = [framework_search_paths_flags]),
@@ -245,7 +250,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             },
             additional_providers_factory = additional_providers_factory,
         ),
-        link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
+        link_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers,
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
         # targets with 'preferred_linkage = "shared"'
@@ -277,7 +282,7 @@ def _filter_swift_srcs(ctx: AnalysisContext) -> (list["CxxSrcWithFlags"], list["
 
     return cxx_srcs, swift_srcs
 
-def _get_shared_link_style_sub_targets_and_providers(
+def _get_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         ctx: AnalysisContext,
         executable: "artifact",
@@ -286,7 +291,16 @@ def _get_shared_link_style_sub_targets_and_providers(
         _pdb: ["artifact", None],
         linker_map: [CxxLinkerMapData.type, None]) -> (dict[str, list["provider"]], list["provider"]):
     if link_style != LinkStyle("shared"):
-        return ({}, [])
+        return ({}, [
+            create_resource_graph(
+                ctx = ctx,
+                labels = ctx.attrs.labels,
+                deps = cxx_attr_deps(ctx),
+                exported_deps = cxx_attr_exported_deps(ctx),
+                # static link styles should always propagate their resources.
+                should_propagate = True,
+            ),
+        ])
 
     min_version = get_min_deployment_version_for_node(ctx)
     min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
@@ -307,6 +321,15 @@ def _get_shared_link_style_sub_targets_and_providers(
     }
     providers = [
         AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = debug_info_tset),
+        create_resource_graph(
+            ctx = ctx,
+            labels = ctx.attrs.labels,
+            deps = cxx_attr_deps(ctx),
+            exported_deps = cxx_attr_exported_deps(ctx),
+            # Shared libraries should not propagate their resources to rdeps,
+            # they should only be contained in their frameworks apple_bundle.
+            should_propagate = False,
+        ),
     ] + min_version_providers
     if linker_map != None:
         subtargets["linker-map"] = [DefaultInfo(default_output = linker_map.map, other_outputs = [linker_map.binary])]

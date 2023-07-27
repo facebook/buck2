@@ -138,11 +138,12 @@ def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec.type], l
     else:
         resource_groups_deps = []
         resource_group_mappings = {}
-    deps = ctx.attrs.deps + filter(None, [ctx.attrs.binary])
+
     resource_graph = create_resource_graph(
         ctx = ctx,
         labels = [],
-        deps = deps + resource_groups_deps,
+        bundle_binary = ctx.attrs.binary,
+        deps = ctx.attrs.deps + resource_groups_deps,
         exported_deps = [],
     )
     resource_graph_node_map_func = get_resource_graph_node_map_func(resource_graph)
