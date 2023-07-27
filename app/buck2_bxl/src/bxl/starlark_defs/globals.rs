@@ -18,6 +18,7 @@ use crate::bxl::starlark_defs::functions::register_error_handling_function;
 use crate::bxl::starlark_defs::functions::register_instant_function;
 use crate::bxl::starlark_defs::functions::register_label_function;
 use crate::bxl::starlark_defs::functions::register_target_function;
+use crate::bxl::starlark_defs::type_names::register_bxl_type_names;
 
 pub(crate) fn init_bxl_specific_globals() {
     BXL_SPECIFIC_GLOBALS.init(|g| {
@@ -28,5 +29,6 @@ pub(crate) fn init_bxl_specific_globals() {
         register_target_function(g);
         register_instant_function(g);
         register_error_handling_function(g);
+        register_bxl_type_names(g);
     });
 }

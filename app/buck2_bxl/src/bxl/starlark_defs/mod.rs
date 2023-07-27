@@ -29,4 +29,5 @@ mod query_util;
 pub(crate) mod target_expr;
 pub(crate) mod targetset;
 pub(crate) mod time;
+pub(crate) mod type_names;
 pub(crate) mod uquery;
