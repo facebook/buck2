@@ -16,6 +16,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::data::DeferredData;
@@ -23,6 +24,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dice::DiceComputations;
@@ -36,6 +38,7 @@ use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
 use starlark::values::tuple::TupleRef;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::Value;
 use thiserror::Error;
 
 use crate::actions::key::ActionKeyExt;
@@ -73,7 +76,7 @@ impl DynamicAction {
 
 /// The lambda captured by `dynamic_output`, alongside the other required data.
 #[derive(Clone, Debug, Allocative)]
-pub(crate) struct DynamicLambda {
+pub struct DynamicLambda {
     /// the owner that defined this lambda
     owner: BaseDeferredKey,
     /// Things required by the lambda (wrapped in DeferredInput)
@@ -122,7 +125,7 @@ impl DynamicLambda {
 
 /// The `Output` from `DynamicLambda`.
 #[derive(Clone, Debug, Allocative)]
-pub(crate) struct DynamicLambdaOutput {
+pub struct DynamicLambdaOutput {
     /// The actions the DynamicLambda produces, in the right order.
     /// `DynamicAction.index` is an index into this Vec.
     output: Vec<ActionKey>,
@@ -191,127 +194,65 @@ impl Deferred for DynamicLambda {
         deferred_ctx: &mut dyn DeferredCtx,
         _dice: &DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
-        let env = Module::new();
-        let heap = env.heap();
-        let print = EventDispatcherPrintHandler(get_dispatcher());
-        let mut outputs = SmallMap::with_capacity(self.outputs.len());
-        let mut declared_outputs = IndexSet::with_capacity(self.outputs.len());
+        let output = {
+            let env = Module::new();
 
-        let analysis_registry = {
-            let mut eval = Evaluator::new(&env);
-            eval.set_print_handler(&print);
+            let (analysis_registry, declared_outputs) = {
+                let heap = env.heap();
+                let print = EventDispatcherPrintHandler(get_dispatcher());
+                let mut eval = Evaluator::new(&env);
+                eval.set_print_handler(&print);
+                let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(self, deferred_ctx, &env)?;
+                let ctx = heap.alloc_typed(AnalysisContext::new(
+                    heap,
+                    dynamic_lambda_ctx_data.attributes,
+                    match &self.owner {
+                        BaseDeferredKey::TargetLabel(target) => Some(heap.alloc_typed(
+                            StarlarkConfiguredProvidersLabel::new(ConfiguredProvidersLabel::new(
+                                target.dupe(),
+                                ProvidersName::Default,
+                            )),
+                        )),
+                        BaseDeferredKey::BxlLabel(target) | BaseDeferredKey::AnonTarget(target) => {
+                            target.configured_label().map(|configured_target_label| {
+                                heap.alloc_typed(StarlarkConfiguredProvidersLabel::new(
+                                    ConfiguredProvidersLabel::new(
+                                        configured_target_label,
+                                        ProvidersName::Default,
+                                    ),
+                                ))
+                            })
+                        }
+                    },
+                    dynamic_lambda_ctx_data.registry,
+                    dynamic_lambda_ctx_data.digest_config,
+                ));
 
-            let data = TupleRef::from_value(self.attributes_lambda.owned_value(env.frozen_heap()))
-                .unwrap();
-            assert_eq!(data.len(), 2);
-            let attributes = data.content()[0];
-            let lambda = data.content()[1];
+                eval.eval_function(
+                    dynamic_lambda_ctx_data.lambda,
+                    &[
+                        ctx.to_value(),
+                        dynamic_lambda_ctx_data.artifacts,
+                        dynamic_lambda_ctx_data.outputs,
+                    ],
+                    &[],
+                )?;
+                ctx.assert_no_promises()?;
 
-            let execution_platform = {
-                match &self.owner {
-                    BaseDeferredKey::TargetLabel(target) => {
-                        let configured_target = deferred_ctx.get_configured_target(target).unwrap();
-
-                        configured_target.execution_platform_resolution().dupe()
-                    }
-                    BaseDeferredKey::BxlLabel(k) => k.execution_platform_resolution().clone(),
-                    BaseDeferredKey::AnonTarget(_) => {
-                        return Err(DynamicLambdaError::AnonTargetIncompatible.into());
-                    }
-                }
+                (ctx.take_state(), dynamic_lambda_ctx_data.declared_outputs)
             };
 
-            // The DeferredCtx has a registry it wants us to use as &mut.
-            // The AnalysisRegistry wants ownership of a registry.
-            // To overcome the difference, we create a fake registry, swap it with the one in deferred,
-            // and swap back after AnalysisRegistry completes.
-            let fake_registry = DeferredRegistry::new(BaseKey::Base(self.owner.dupe()));
+            let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
+            let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
 
-            let deferred = mem::replace(deferred_ctx.registry(), fake_registry);
-            let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
-                self.owner.dupe(),
-                execution_platform,
-                deferred,
-            )?;
-            registry.set_action_key(Arc::from(deferred_ctx.get_action_key()));
+            // TODO(ndmitchell): Check we don't use anything not in `inputs`
 
-            let mut artifacts = SmallMap::with_capacity(self.inputs.len());
-            let fs = deferred_ctx.project_filesystem();
-            for x in &self.dynamic {
-                let x = match x {
-                    DeferredInput::MaterializedArtifact(x) => x,
-                    DeferredInput::ConfiguredTarget(_) => continue,
-                    _ => unreachable!("DynamicLambda only depends on artifact and target"),
-                };
-                let k = heap.alloc(StarlarkArtifact::new(x.dupe()));
-                let path = deferred_ctx.get_materialized_artifact(x).unwrap();
-                let v = heap.alloc(StarlarkArtifactValue::new(
-                    x.dupe(),
-                    path.to_owned(),
-                    fs.dupe(),
-                ));
-                artifacts.insert_hashed(k.get_hashed()?, v);
-            }
-
-            for x in &self.outputs {
-                let k = heap.alloc(StarlarkArtifact::new(Artifact::from(x.dupe())));
-                let declared =
-                    registry.declare_dynamic_output(x.get_path().dupe(), x.output_type());
-                declared_outputs.insert(declared.dupe());
-                let v = heap.alloc(StarlarkDeclaredArtifact::new(
-                    None,
-                    declared,
-                    AssociatedArtifacts::new(),
-                ));
-                outputs.insert_hashed(k.get_hashed()?, v);
-            }
-
-            let artifacts = Dict::new(artifacts);
-            let outputs = Dict::new(outputs);
-
-            let ctx = heap.alloc_typed(AnalysisContext::new(
-                heap,
-                attributes,
-                match &self.owner {
-                    BaseDeferredKey::TargetLabel(target) => {
-                        Some(heap.alloc_typed(StarlarkConfiguredProvidersLabel::new(
-                            ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
-                        )))
-                    }
-                    BaseDeferredKey::BxlLabel(target) | BaseDeferredKey::AnonTarget(target) => {
-                        target.configured_label().map(|configured_target_label| {
-                            heap.alloc_typed(StarlarkConfiguredProvidersLabel::new(
-                                ConfiguredProvidersLabel::new(
-                                    configured_target_label,
-                                    ProvidersName::Default,
-                                ),
-                            ))
-                        })
-                    }
-                },
-                registry,
-                deferred_ctx.digest_config(),
-            ));
-
-            eval.eval_function(
-                lambda,
-                &[ctx.to_value(), heap.alloc(artifacts), heap.alloc(outputs)],
-                &[],
-            )?;
-            ctx.assert_no_promises()?;
-
-            ctx.take_state()
+            let output: anyhow::Result<Vec<_>> = declared_outputs
+                .into_iter()
+                .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
+                .collect();
+            output
         };
-
-        let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
-        let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
-
-        // TODO(ndmitchell): Check we don't use anything not in `inputs`
-
-        let output: anyhow::Result<Vec<_>> = declared_outputs
-            .into_iter()
-            .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
-            .collect();
         Ok(DeferredValue::Ready(DynamicLambdaOutput {
             output: output?,
         }))
@@ -321,4 +262,110 @@ impl Deferred for DynamicLambda {
         let owner = self.owner.to_proto().into();
         Some(buck2_data::DynamicLambdaStart { owner: Some(owner) }.into())
     }
+}
+
+/// Data used to construct an `AnalysisContext` or `BxlContext` for the dynamic lambda.
+pub struct DynamicLambdaCtxData<'v> {
+    pub attributes: Value<'v>,
+    pub lambda: Value<'v>,
+    pub outputs: Value<'v>,
+    pub artifacts: Value<'v>,
+    pub key: &'v BaseDeferredKey,
+    pub digest_config: DigestConfig,
+    pub declared_outputs: IndexSet<DeclaredArtifact>,
+    pub registry: AnalysisRegistry<'v>,
+}
+
+/// Sets up the data needed to create the dynamic lambda ctx and evaluate the lambda.
+pub fn dynamic_lambda_ctx_data<'v>(
+    dynamic_lambda: &'v DynamicLambda,
+    deferred_ctx: &'v mut dyn DeferredCtx,
+    env: &'v Module,
+) -> anyhow::Result<DynamicLambdaCtxData<'v>> {
+    let heap = env.heap();
+    let mut outputs = SmallMap::with_capacity(dynamic_lambda.outputs.len());
+    let mut declared_outputs = IndexSet::with_capacity(dynamic_lambda.outputs.len());
+
+    let data = TupleRef::from_value(
+        dynamic_lambda
+            .attributes_lambda
+            .owned_value(env.frozen_heap()),
+    )
+    .unwrap();
+    assert_eq!(data.len(), 2);
+    let attributes = data.content()[0];
+    let lambda = data.content()[1];
+
+    let execution_platform = {
+        match &dynamic_lambda.owner {
+            BaseDeferredKey::TargetLabel(target) => {
+                let configured_target = deferred_ctx.get_configured_target(target).unwrap();
+
+                configured_target.execution_platform_resolution().dupe()
+            }
+            BaseDeferredKey::BxlLabel(k) => k.execution_platform_resolution().clone(),
+            BaseDeferredKey::AnonTarget(_) => {
+                return Err(DynamicLambdaError::AnonTargetIncompatible.into());
+            }
+        }
+    };
+
+    // The DeferredCtx has a registry it wants us to use as &mut.
+    // The AnalysisRegistry wants ownership of a registry.
+    // To overcome the difference, we create a fake registry, swap it with the one in deferred,
+    // and swap back after AnalysisRegistry completes.
+
+    let fake_registry = DeferredRegistry::new(BaseKey::Base(dynamic_lambda.owner.dupe()));
+
+    let deferred = mem::replace(deferred_ctx.registry(), fake_registry);
+    let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
+        dynamic_lambda.owner.dupe(),
+        execution_platform,
+        deferred,
+    )?;
+    registry.set_action_key(Arc::from(deferred_ctx.get_action_key()));
+
+    let mut artifacts = SmallMap::with_capacity(dynamic_lambda.inputs.len());
+    let fs = deferred_ctx.project_filesystem();
+    for x in &dynamic_lambda.dynamic {
+        let x = match x {
+            DeferredInput::MaterializedArtifact(x) => x,
+            DeferredInput::ConfiguredTarget(_) => continue,
+            _ => unreachable!("DynamicLambda only depends on artifact and target"),
+        };
+        let k = heap.alloc(StarlarkArtifact::new(x.dupe()));
+        let path = deferred_ctx.get_materialized_artifact(x).unwrap();
+        let v = heap.alloc(StarlarkArtifactValue::new(
+            x.dupe(),
+            path.to_owned(),
+            fs.dupe(),
+        ));
+        artifacts.insert_hashed(k.get_hashed()?, v);
+    }
+
+    for x in &dynamic_lambda.outputs {
+        let k = heap.alloc(StarlarkArtifact::new(Artifact::from(x.dupe())));
+        let declared = registry.declare_dynamic_output(x.get_path().dupe(), x.output_type());
+        declared_outputs.insert(declared.dupe());
+        let v = heap.alloc(StarlarkDeclaredArtifact::new(
+            None,
+            declared,
+            AssociatedArtifacts::new(),
+        ));
+        outputs.insert_hashed(k.get_hashed()?, v);
+    }
+
+    let artifacts = Dict::new(artifacts);
+    let outputs = Dict::new(outputs);
+
+    Ok(DynamicLambdaCtxData {
+        attributes,
+        lambda,
+        outputs: heap.alloc(outputs),
+        artifacts: heap.alloc(artifacts),
+        key: &dynamic_lambda.owner,
+        digest_config: deferred_ctx.digest_config(),
+        declared_outputs,
+        registry,
+    })
 }
