@@ -7,7 +7,7 @@ When implementing a rule, you are given a value of type `context` and are expect
 
 ## Providers
 
-* `DefaultInfo(default_outputs : ["artifact"], other_outputs : [["artifact", "cmd_args"]] = [], sub_targets : {str.type: ["provider"]} = {})` - the provider that is used for:
+* `DefaultInfo(default_outputs : ["artifact"], other_outputs : [["artifact", "cmd_args"]] = [], sub_targets : {str: ["provider"]} = {})` - the provider that is used for:
   * `buck2 build` - builds everything in `default_outputs` and `other_outputs`.
   * `$(location)` - uses the `default_outputs`.
   * `buck2 build my_target[foo]` - selects the `foo` value from `sub_targets`.
@@ -31,7 +31,7 @@ Most output filenames can either be artifacts created with `declare_output` or s
   * `prefix` (optional) - provides a silent part of the filename, which can be used to disambiguate but whose presence will not be visible to anyone using the `artifact`. By default, outputs are considered files; pass `dir = True` to indicate it is a directory.
   * `declare_output` - mainly used to produce an unbound artifact for passing to `ctx.actions.run`.
 
-* `ctx.actions.write(filename, content, is_executable : bool.type = false, allow_args : bool.type = false)` - returns an `artifact` whose contents are `content`.
+* `ctx.actions.write(filename, content, is_executable : bool = false, allow_args : bool = false)` - returns an `artifact` whose contents are `content`.
   * `filename` - can be a string or an existing artifact created with `declare_output`.
   * `is_executable` (optional) - indicates whether the resulting file should be marked with executable permissions.
   * `allow_args` (optional) - must be set to `True` if you want to write parameter arguments to the file (in particular, macros that write to file).
@@ -48,13 +48,13 @@ Most output filenames can either be artifacts created with `declare_output` or s
 
 * `ctx.actions.symlink_file(dest, src)` - creates a symlink to the source `artifact` at the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`. The symlink works for files or directories.
 
-* `ctx.actions.symlinked_dir(output, srcs : {str.type: "artifact"})` - returns an artifact that is a directory containing symlinks. The `srcs` must be a dictionary of path (as string, relative to the result directory) to bound `artifact,` which will be laid out in the directory.
+* `ctx.actions.symlinked_dir(output, srcs : {str: "artifact"})` - returns an artifact that is a directory containing symlinks. The `srcs` must be a dictionary of path (as string, relative to the result directory) to bound `artifact,` which will be laid out in the directory.
 
-* `ctx.actions.copied_dir(output, srcs : {str.type: "artifact"}, copy : bool.type = false)` - returns an artifact which is a directory containing copied files. The `srcs` must be a dictionary of path (as string, relative to the result directory) to the bound `artifact`, which will be laid out in the directory.
+* `ctx.actions.copied_dir(output, srcs : {str: "artifact"}, copy : bool = false)` - returns an artifact which is a directory containing copied files. The `srcs` must be a dictionary of path (as string, relative to the result directory) to the bound `artifact`, which will be laid out in the directory.
 
-* `ctx.actions.download_file(output, url : str.type, sha1: str.type, is_executable : bool.type = false)` - downloads a URL to an output (filename as string or output `artifact`). The file at the URL must have the given `sha1` or the command will fail. The optional parameter `is_executable` indicates whether the resulting file should be marked with executable permissions.
+* `ctx.actions.download_file(output, url : str, sha1: str, is_executable : bool = false)` - downloads a URL to an output (filename as string or output `artifact`). The file at the URL must have the given `sha1` or the command will fail. The optional parameter `is_executable` indicates whether the resulting file should be marked with executable permissions.
 
-* `ctx.actions.run(arguments, category : str.type, identifier : str.type = "", env : {str.type: str.type} = {}, local_only : bool.type = false, always_print_stderr : bool.type = false, weight : int.type = 1, metadata_env_var: str.type = None, metadata_path: str.type = None, no_outputs_cleanup: bool.type = false)` - runs a command.
+* `ctx.actions.run(arguments, category : str, identifier : str = "", env : {str: str} = {}, local_only : bool = false, always_print_stderr : bool = false, weight : int = 1, metadata_env_var: str = None, metadata_path: str = None, no_outputs_cleanup: bool = false)` - runs a command.
   * `arguments` - must be of type `cmd_args`, or a type convertible to such (such as a list of strings and artifacts) and must contain at least one `.as_output()` artifact.
   * `category` and `identifier` - when used together, identify the action in Buck2's event stream, and must be unique for a given target.
   * `weight` is used to note how heavy the command is and will typically be set to a higher value to indicate that less such commands should be run in parallel (if running locally).
@@ -66,7 +66,7 @@ Most output filenames can either be artifacts created with `declare_output` or s
 
 * `ctx.actions.tset(type, value = None, children = None)` - creates a new transitive set (for details, see [Transitive Sets](./transitive_sets.md)).
 
-* `ctx.actions.cas_artifact(output, digest : str.type, use_case: str.type, expires_after_timestamp: int.type, is_executable : bool.type = false)` - downloads a CAS artifact to an output.
+* `ctx.actions.cas_artifact(output, digest : str, use_case: str, expires_after_timestamp: int, is_executable : bool = false)` - downloads a CAS artifact to an output.
   * `digest` - must look like `SHA1:SIZE`.
   * `use_case` - your RE use case.
   * `expires_after_timestamp` - must be a UNIX timestamp. Your digest's TTL must exceed this timestamp. Your build *will* break once the digest expires, so make sure the expiry is long enough (preferably, in years).
@@ -76,7 +76,7 @@ Most output filenames can either be artifacts created with `declare_output` or s
 
 The `cmd_args` type is created by `cmd_args` and is consumed by `ctx.actions.run`. The type is a mutable collection of strings and `artifact` values. In general, command lines, artifacts, strings, `RunInfo` and lists thereof can be added to or used to construct a `cmd_args` value. All these methods operate mutably on `cmd` and return that value too.
 
-* `cmd_args(*args, format: str.type = "", delimiter: str.type = None, prepend: str.type = None, quote: str.type = None)` - creates and returns a `cmd_args` type.
+* `cmd_args(*args, format: str = "", delimiter: str = None, prepend: str = None, quote: str = None)` - creates and returns a `cmd_args` type.
   * `*args` - a list of things to add to the command line, each of which must be coercible to a command line. Further items can be added with `cmd.add`.
   * `format` (optional) - a string that provides a format to apply to the argument. for example, `cmd_args(x, format="--args={}")` would prepend `--args=` before `x`, or if `x` was a list, before each element in `x`.
   * `delimiter` (optional) - added between arguments to join them together. For example,  `cmd_args(["--args=",x], delimiter="")` would produce a single argument to the underlying tool.
@@ -91,15 +91,15 @@ The `cmd_args` type is created by `cmd_args` and is consumed by `ctx.actions.run
   * Use this if you need the path to an artifact but *not* the artifact itself.
   * Note:  if you do find yourself needing any of the inputs referenced by this command, you will hit build errors due to missing dependencies.
 
-* `cmd.relative_to(directory, parent : int.type = 0)` - complex magic. Before using this, please contact Meta's Buck2 team.
+* `cmd.relative_to(directory, parent : int = 0)` - complex magic. Before using this, please contact Meta's Buck2 team.
 
-* `cmd.absolute_prefix(prefix : str.type)`- adds a prefix to the front of every artifact.
+* `cmd.absolute_prefix(prefix : str)`- adds a prefix to the front of every artifact.
 
-* `cmd.absolute_suffix(suffix : str.type)` - adds a suffix to the end of every artifact.
+* `cmd.absolute_suffix(suffix : str)` - adds a suffix to the end of every artifact.
 
-* `cmd.parent(count : int.type = 1)` - uses the parent of all given artifacts. Often used as `cmd_args(artifact, format="-L{}").parent()`.
+* `cmd.parent(count : int = 1)` - uses the parent of all given artifacts. Often used as `cmd_args(artifact, format="-L{}").parent()`.
 
-* `cmd.replace_regex(pattern : str.type, replacement : str.type)` - replaces all parts matching `pattern` regular expression in each argument with `replacement` string. Several replacements can be added by multiple `replace_regex` calls.
+* `cmd.replace_regex(pattern : str, replacement : str)` - replaces all parts matching `pattern` regular expression in each argument with `replacement` string. Several replacements can be added by multiple `replace_regex` calls.
 
 * `cmd.copy()` - returns a copy of the `cmd_args` such that any modifications to the original or the returned value will not impact each other.
 

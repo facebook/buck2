@@ -57,9 +57,9 @@ they are loaded from `PACKAGE` or `BUCK` file.
 
 ```python
 def write_package_value(
-    name: str.type,
+    name: str,
     value: "",
-    overwrite: bool.type = False,
+    overwrite: bool = False,
 ): ...
 ```
 
@@ -90,7 +90,7 @@ being projection keys).
 
 ```python
 def read_package_value(
-    name: str.type,
+    name: str,
 ): ...
 ```
 

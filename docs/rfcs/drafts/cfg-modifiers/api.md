@@ -370,8 +370,8 @@ KEY_CONSTRAINT_SETTINGS = [
 
 def _name(
   # Keys and values in `constraints_map` are fully qualified target label strings.
-  constraint_map,   # {str.type: str.type}
-) -> str.type:
+  constraint_map,   # {str: str}
+) -> str:
   name_builder = []
   for constraint_setting in KEY_CONSTRAINT_SETTINGS:
     constraint_value = constraint_map.get(constraint_setting)

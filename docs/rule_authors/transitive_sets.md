@@ -39,7 +39,7 @@ Following is an example:
 
 ```starlark
 # Declare the projection
-def project_as_define(value: str.type):
+def project_as_define(value: str):
   return cmd_args(value, format = "-D{}")
 
 # Add it to the set definition
@@ -68,7 +68,7 @@ Following is an example:
 
 ```starlark
 # Declare the projection
-def project_as_json(value: str.type):
+def project_as_json(value: str):
   return struct(key = "foo", value = value)
 
 # Add it to the set definition

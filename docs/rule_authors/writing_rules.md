@@ -106,7 +106,7 @@ In many cases, it becomes apparent you need the transitive closure of all librar
 ```python
 PascalLibraryInfo = provider(fields=["links"]) # a list of LinkData
 
-LinkData = record(name = str.type, object = "artifact")
+LinkData = record(name = str, object = "artifact")
 ```
 
 And then consuming it:
