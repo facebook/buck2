@@ -27,6 +27,7 @@ use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::prelude_path::prelude_path;
+use buck2_interpreter_for_build::interpreter::build_defs::starlark_library_extensions_for_buck2;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::GlobalInterpreterState;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -97,7 +98,7 @@ pub(crate) fn builtin_doc<S: ToString>(name: S, directory: &str, item: DocItem) 
 }
 
 fn get_builtin_global_starlark_docs() -> Doc {
-    let globals = Globals::extended();
+    let globals = Globals::extended_by(starlark_library_extensions_for_buck2());
     builtin_doc(
         "globals",
         "standard",
@@ -108,7 +109,7 @@ fn get_builtin_global_starlark_docs() -> Doc {
 /// Globals that are in the interpreter, but none of the starlark global symbols.
 fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> anyhow::Result<Doc> {
     let mut b_o = interpreter_state.extension_file_global_env.documentation();
-    let globals = Globals::extended();
+    let globals = Globals::extended_by(starlark_library_extensions_for_buck2());
     let global_symbols: HashSet<_> = globals.names().map(|s| s.as_str()).collect();
     b_o.members = b_o
         .members
