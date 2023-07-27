@@ -119,11 +119,8 @@ pub(crate) fn register_base_natives(registry: &mut GlobalsBuilder) {
     register_sha256(registry);
 }
 
-/// Configure globals for all three possible environments: `BUCK`, `bzl` and `bxl`.
-pub fn configure_base_globals(
-    configure_native_struct: impl FnOnce(&mut GlobalsBuilder),
-) -> GlobalsBuilder {
-    let starlark_extensions = [
+pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
+    &[
         LibraryExtension::Abs,
         LibraryExtension::Breakpoint,
         LibraryExtension::Debug,
@@ -138,7 +135,14 @@ pub fn configure_base_globals(
         LibraryExtension::ExperimentalRegex,
         LibraryExtension::StructType,
         LibraryExtension::Typing,
-    ];
+    ]
+}
+
+/// Configure globals for all three possible environments: `BUCK`, `bzl` and `bxl`.
+pub fn configure_base_globals(
+    configure_native_struct: impl FnOnce(&mut GlobalsBuilder),
+) -> GlobalsBuilder {
+    let starlark_extensions = starlark_library_extensions_for_buck2();
     let mut global_env = GlobalsBuilder::extended_by(&starlark_extensions)
         .with(register_base_natives)
         .with(register_dedupe);

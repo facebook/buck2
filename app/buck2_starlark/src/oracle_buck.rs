@@ -9,9 +9,9 @@
 
 use std::sync::Arc;
 
+use buck2_interpreter_for_build::interpreter::build_defs::starlark_library_extensions_for_buck2;
 use starlark::docs::get_registered_starlark_docs;
 use starlark::environment::Globals;
-use starlark::environment::LibraryExtension;
 use starlark::typing::*;
 
 pub(crate) fn oracle_buck(globals: &Globals) -> Arc<dyn TypingOracle + Send + Sync> {
@@ -24,8 +24,7 @@ pub(crate) fn oracle_buck(globals: &Globals) -> Arc<dyn TypingOracle + Send + Sy
     docs2.add_docs(&registered_docs);
 
     Arc::new(OracleSeq(vec![
-        // TODO(nga): this should only accept globals from enabled extensions, not all extensions.
-        Box::new(OracleStandard::new(LibraryExtension::all()))
+        Box::new(OracleStandard::new(starlark_library_extensions_for_buck2()))
             as Box<dyn TypingOracle + Send + Sync>,
         Box::new(CustomBuck),
         Box::new(docs),
