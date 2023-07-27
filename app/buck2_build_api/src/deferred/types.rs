@@ -35,6 +35,7 @@ use gazebo::variants::VariantName;
 use indexmap::indexset;
 use indexmap::IndexSet;
 use itertools::Itertools;
+use more_futures::cancellable_future::CancellationObserver;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 
@@ -77,6 +78,8 @@ pub trait DeferredCtx {
     fn project_filesystem(&self) -> &ProjectRoot;
 
     fn digest_config(&self) -> DigestConfig;
+
+    fn liveness(&self) -> CancellationObserver;
 }
 
 /// DeferredCtx with already resolved values
@@ -88,6 +91,7 @@ pub struct ResolveDeferredCtx<'a> {
     registry: &'a mut DeferredRegistry,
     project_filesystem: ProjectRoot,
     digest_config: DigestConfig,
+    liveness: CancellationObserver,
 }
 
 impl<'a> ResolveDeferredCtx<'a> {
@@ -99,6 +103,7 @@ impl<'a> ResolveDeferredCtx<'a> {
         registry: &'a mut DeferredRegistry,
         project_filesystem: ProjectRoot,
         digest_config: DigestConfig,
+        liveness: CancellationObserver,
     ) -> Self {
         Self {
             key,
@@ -108,6 +113,7 @@ impl<'a> ResolveDeferredCtx<'a> {
             registry,
             project_filesystem,
             digest_config,
+            liveness,
         }
     }
 }
@@ -144,6 +150,10 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
 
     fn digest_config(&self) -> DigestConfig {
         self.digest_config
+    }
+
+    fn liveness(&self) -> CancellationObserver {
+        self.liveness.dupe()
     }
 }
 
@@ -869,6 +879,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::digest_config::DigestConfig;
+    use dice::CancellationContext;
     use dupe::Dupe;
     use indexmap::indexset;
     use indexmap::IndexSet;
@@ -978,8 +989,8 @@ mod tests {
         ProjectRoot::new_unchecked(cwd)
     }
 
-    #[test]
-    fn register_deferred() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn register_deferred() -> anyhow::Result<()> {
         let target = dummy_base();
         let mut registry = DeferredRegistry::new(BaseKey::Base(target.dupe()));
 
@@ -996,30 +1007,34 @@ mod tests {
             deferred_data.deferred_key().dupe(),
         )));
 
-        assert_eq!(
-            *result
-                .get(deferred_data.deferred_key().id().as_usize())
-                .unwrap()
-                .execute(&mut ResolveDeferredCtx::new(
-                    deferred_data.deferred_key().dupe(),
-                    Default::default(),
-                    Default::default(),
-                    Default::default(),
-                    &mut ctx,
-                    dummy_project_filesystem(),
-                    DigestConfig::testing_default(),
-                ))
-                .unwrap()
-                .assert_ready()
-                .resolve(&deferred_data)?,
-            2
-        );
-
-        Ok(())
+        CancellationContext::testing()
+            .with_structured_cancellation(|observer| async move {
+                assert_eq!(
+                    *result
+                        .get(deferred_data.deferred_key().id().as_usize())
+                        .unwrap()
+                        .execute(&mut ResolveDeferredCtx::new(
+                            deferred_data.deferred_key().dupe(),
+                            Default::default(),
+                            Default::default(),
+                            Default::default(),
+                            &mut ctx,
+                            dummy_project_filesystem(),
+                            DigestConfig::testing_default(),
+                            observer,
+                        ))
+                        .unwrap()
+                        .assert_ready()
+                        .resolve(&deferred_data)?,
+                    2
+                );
+                Ok(())
+            })
+            .await
     }
 
-    #[test]
-    fn mapping_async_data() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn mapping_async_data() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
@@ -1045,32 +1060,37 @@ mod tests {
         let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(
             deferred_data.deferred_key().dupe(),
         )));
-        let mut resolved = ResolveDeferredCtx::new(
-            deferred_data.deferred_key().dupe(),
-            Default::default(),
-            vec![make_resolved(&deferred_data, &deferred)]
-                .into_iter()
-                .collect(),
-            Default::default(),
-            &mut registry,
-            dummy_project_filesystem(),
-            DigestConfig::testing_default(),
-        );
 
-        assert_eq!(
-            *mapped_deferred
-                .execute(&mut resolved)
-                .unwrap()
-                .assert_ready()
-                .downcast::<i32>()?,
-            1
-        );
+        CancellationContext::testing()
+            .with_structured_cancellation(|observer| async move {
+                let mut resolved = ResolveDeferredCtx::new(
+                    deferred_data.deferred_key().dupe(),
+                    Default::default(),
+                    vec![make_resolved(&deferred_data, &deferred)]
+                        .into_iter()
+                        .collect(),
+                    Default::default(),
+                    &mut registry,
+                    dummy_project_filesystem(),
+                    DigestConfig::testing_default(),
+                    observer,
+                );
 
-        Ok(())
+                assert_eq!(
+                    *mapped_deferred
+                        .execute(&mut resolved)
+                        .unwrap()
+                        .assert_ready()
+                        .downcast::<i32>()?,
+                    1
+                );
+                Ok(())
+            })
+            .await
     }
 
-    #[test]
-    fn register_nested_deferred() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn register_nested_deferred() -> anyhow::Result<()> {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let id = DeferredId {
@@ -1097,62 +1117,70 @@ mod tests {
         let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(
             deferring_deferred_data.deferred_key().dupe(),
         )));
-        let exec_result = result
-            .get(deferring_deferred_data.deferred_key().id().as_usize())
-            .unwrap()
-            .execute(&mut ResolveDeferredCtx::new(
-                deferring_deferred_data.deferred_key().dupe(),
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                &mut registry,
-                dummy_project_filesystem(),
-                DigestConfig::testing_default(),
-            ))
-            .unwrap();
 
-        let deferred_key = match exec_result {
-            DeferredValueAny::Ready(_) => panic!("expected a deferred"),
-            DeferredValueAny::Deferred(deferred) => deferred,
-        };
+        CancellationContext::testing()
+            .with_structured_cancellation(|observer| async move {
+                let exec_result = result
+                    .get(deferring_deferred_data.deferred_key().id().as_usize())
+                    .unwrap()
+                    .execute(&mut ResolveDeferredCtx::new(
+                        deferring_deferred_data.deferred_key().dupe(),
+                        Default::default(),
+                        Default::default(),
+                        Default::default(),
+                        &mut registry,
+                        dummy_project_filesystem(),
+                        DigestConfig::testing_default(),
+                        observer.dupe(),
+                    ))
+                    .unwrap();
 
-        assert_eq!(
-            deferred_key,
-            DeferredKey::Deferred(
-                Arc::new(deferring_deferred_data.deferred_key().dupe()),
-                DeferredId {
-                    id: 0,
-                    trivial: false
-                }
-            )
-        );
+                let deferred_key = match exec_result {
+                    DeferredValueAny::Ready(_) => panic!("expected a deferred"),
+                    DeferredValueAny::Deferred(deferred) => deferred,
+                };
 
-        let result = registry.take_result()?;
-        let deferred = result.get(deferred_key.id().as_usize()).unwrap();
-
-        let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(deferred_key.dupe())));
-        assert_eq!(
-            *deferred
-                .execute(&mut ResolveDeferredCtx::new(
+                assert_eq!(
                     deferred_key,
-                    Default::default(),
-                    Default::default(),
-                    Default::default(),
-                    &mut registry,
-                    dummy_project_filesystem(),
-                    DigestConfig::testing_default(),
-                ))
-                .unwrap()
-                .assert_ready()
-                .downcast::<i32>()?,
-            2
-        );
+                    DeferredKey::Deferred(
+                        Arc::new(deferring_deferred_data.deferred_key().dupe()),
+                        DeferredId {
+                            id: 0,
+                            trivial: false
+                        }
+                    )
+                );
 
-        Ok(())
+                let result = registry.take_result()?;
+                let deferred = result.get(deferred_key.id().as_usize()).unwrap();
+
+                let mut registry =
+                    DeferredRegistry::new(BaseKey::Deferred(Arc::new(deferred_key.dupe())));
+                assert_eq!(
+                    *deferred
+                        .execute(&mut ResolveDeferredCtx::new(
+                            deferred_key,
+                            Default::default(),
+                            Default::default(),
+                            Default::default(),
+                            &mut registry,
+                            dummy_project_filesystem(),
+                            DigestConfig::testing_default(),
+                            observer,
+                        ))
+                        .unwrap()
+                        .assert_ready()
+                        .downcast::<i32>()?,
+                    2
+                );
+
+                Ok(())
+            })
+            .await
     }
 
-    #[test]
-    fn reserving_deferred() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn reserving_deferred() -> anyhow::Result<()> {
         let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
@@ -1178,26 +1206,32 @@ mod tests {
         )));
 
         let key = deferred_data.deferred_key().dupe();
-        assert_eq!(
-            *result
-                .get(deferred_data.deferred_key().id().as_usize())
-                .unwrap()
-                .execute(&mut ResolveDeferredCtx::new(
-                    key,
-                    Default::default(),
-                    Default::default(),
-                    Default::default(),
-                    &mut registry,
-                    dummy_project_filesystem(),
-                    DigestConfig::testing_default(),
-                ))
-                .unwrap()
-                .assert_ready()
-                .resolve(&deferred_data)?,
-            2
-        );
 
-        Ok(())
+        CancellationContext::testing()
+            .with_structured_cancellation(|observer| async move {
+                assert_eq!(
+                    *result
+                        .get(deferred_data.deferred_key().id().as_usize())
+                        .unwrap()
+                        .execute(&mut ResolveDeferredCtx::new(
+                            key,
+                            Default::default(),
+                            Default::default(),
+                            Default::default(),
+                            &mut registry,
+                            dummy_project_filesystem(),
+                            DigestConfig::testing_default(),
+                            observer,
+                        ))
+                        .unwrap()
+                        .assert_ready()
+                        .resolve(&deferred_data)?,
+                    2
+                );
+
+                Ok(())
+            })
+            .await
     }
 
     #[test]

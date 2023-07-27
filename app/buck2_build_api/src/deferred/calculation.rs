@@ -215,7 +215,7 @@ async fn compute_deferred(
         async fn compute(
             &self,
             ctx: &DiceComputations,
-            _cancellation: &CancellationContext,
+            cancellation: &CancellationContext,
         ) -> Self::Value {
             let deferred = lookup_deferred(ctx, &self.0).await?;
             let deferred = deferred.get()?.as_complex();
@@ -253,27 +253,35 @@ async fn compute_deferred(
             .await;
 
             let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(self.0.dupe())));
-            let mut ctx = ResolveDeferredCtx::new(
-                self.0.dupe(),
-                targets?,
-                deferreds?,
-                materialized_artifacts?,
-                &mut registry,
-                ctx.global_data().get_io_provider().project_root().dupe(),
-                ctx.global_data().get_digest_config(),
-            );
 
-            let mut execute = move || deferred.execute(&mut ctx);
+            cancellation
+                .with_structured_cancellation(|observer| {
+                    async move {
+                        let mut ctx = ResolveDeferredCtx::new(
+                            self.0.dupe(),
+                            targets?,
+                            deferreds?,
+                            materialized_artifacts?,
+                            &mut registry,
+                            ctx.global_data().get_io_provider().project_root().dupe(),
+                            ctx.global_data().get_digest_config(),
+                            observer,
+                        );
 
-            let res = match Lazy::into_value(span).unwrap_or_else(|init| init()) {
-                Some(span) => {
-                    span.wrap_closure(|| (execute(), buck2_data::DeferredEvaluationEnd {}))
-                }
-                None => execute(),
-            };
+                        let mut execute = move || deferred.execute(&mut ctx);
 
-            // TODO populate the deferred map
-            Ok(DeferredResult::new(res?, registry.take_result()?))
+                        let res = match Lazy::into_value(span).unwrap_or_else(|init| init()) {
+                            Some(span) => span
+                                .wrap_closure(|| (execute(), buck2_data::DeferredEvaluationEnd {})),
+                            None => execute(),
+                        };
+
+                        // TODO populate the deferred map
+                        Ok(DeferredResult::new(res?, registry.take_result()?))
+                    }
+                    .boxed()
+                })
+                .await
         }
 
         fn equality(_: &Self::Value, _: &Self::Value) -> bool {
