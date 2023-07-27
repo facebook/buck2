@@ -39,7 +39,7 @@ pub struct HumanizedBytesPerSecond {
 }
 
 impl HumanizedBytesPerSecond {
-    pub fn _new(bytes_per_second: u64) -> Self {
+    pub fn new(bytes_per_second: u64) -> Self {
         HumanizedBytesPerSecond {
             bytes_per_second,
             fixed_width: false,
