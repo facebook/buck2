@@ -16,6 +16,7 @@ load(
     "@prelude//haskell:haskell.bzl",
     "HaskellLibraryProvider",
     "HaskellToolchainInfo",
+    "PackagesInfo",
     "attr_deps",
     "get_packages_info",
 )
@@ -64,6 +65,69 @@ HaskellOmnibusData = record(
     omnibus = "artifact",
     so_symlinks_root = "artifact",
 )
+
+def _write_final_ghci_script(
+        ctx: "context",
+        omnibus_data: HaskellOmnibusData.type,
+        packages_info: PackagesInfo.type,
+        packagedb_args: "cmd_args",
+        prebuilt_packagedb_args: "cmd_args",
+        iserv_script: "artifact",
+        start_ghci_file: "artifact",
+        ghci_bin: "artifact",
+        haskell_toolchain: HaskellToolchainInfo.type,
+        ghci_script_template: "artifact") -> "artifact":
+    srcs = " ".join(
+        [
+            paths.normalize(
+                paths.join(
+                    paths.relativize(str(ctx.label.path), "fbcode"),
+                    s,
+                ),
+            )
+            for s in ctx.attrs.srcs
+        ],
+    )
+
+    # Collect compiler flags
+    compiler_flags = cmd_args(
+        # TODO(gustavoavena): do I need to filter these flags?
+        filter(lambda x: x == "-O", haskell_toolchain.compiler_flags),
+        delimiter = " ",
+    )
+
+    compiler_flags.add([
+        "-fPIC",
+        "-fexternal-dynamic-refs",
+    ])
+
+    if (ctx.attrs.enable_profiling):
+        compiler_flags.add([
+            "-prof",
+            "-osuf p_o",
+            "-hisuf p_hi",
+        ])
+
+    compiler_flags.add(ctx.attrs.compiler_flags)
+    omnibus_so = omnibus_data.omnibus
+
+    final_ghci_script = _replace_macros_in_script_template(
+        ctx,
+        script_template = ghci_script_template,
+        haskell_toolchain = haskell_toolchain,
+        ghci_bin = ghci_bin,
+        exposed_package_args = packages_info.exposed_package_args,
+        packagedb_args = packagedb_args,
+        prebuilt_packagedb_args = prebuilt_packagedb_args,
+        start_ghci = start_ghci_file,
+        iserv_script = iserv_script,
+        squashed_so = omnibus_so,
+        compiler_flags = compiler_flags,
+        srcs = srcs,
+        output_name = ctx.label.name,
+    )
+
+    return final_ghci_script
 
 def _build_haskell_omnibus_so(
         ctx: "context") -> HaskellOmnibusData.type:
@@ -361,7 +425,6 @@ def _write_iserv_script(
         ghci_iserv_path = ghci_iserv_path,
         preload_libs = preload_libs,
     )
-
     return iserv_script
 
 def _build_preload_deps_root(
@@ -498,6 +561,11 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list["provider"]:
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
     preload_deps_info = _build_preload_deps_root(ctx, haskell_toolchain)
 
+    ghci_script_template = haskell_toolchain.ghci_script_template
+
+    if (not ghci_script_template):
+        fail("ghci_script_template missing in haskell_toolchain")
+
     iserv_script = _write_iserv_script(ctx, preload_deps_info, haskell_toolchain)
 
     link_style = LinkStyle("static_pic")
@@ -560,6 +628,19 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list["provider"]:
 
     omnibus_data = _build_haskell_omnibus_so(ctx)
 
+    final_ghci_script = _write_final_ghci_script(
+        ctx,
+        omnibus_data,
+        packages_info,
+        packagedb_args,
+        prebuilt_packagedb_args,
+        iserv_script,
+        start_ghci_file,
+        ghci_bin,
+        haskell_toolchain,
+        ghci_script_template,
+    )
+
     outputs = [
         start_ghci_file,
         ghci_bin,
@@ -567,6 +648,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list["provider"]:
         iserv_script,
         omnibus_data.omnibus,
         omnibus_data.so_symlinks_root,
+        final_ghci_script,
     ]
     outputs.extend(package_symlinks)
     outputs.extend(script_templates)
@@ -579,8 +661,8 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list["provider"]:
         "__{}__".format(ctx.label.name),
         output_artifacts,
     )
+    run = cmd_args(final_ghci_script).hidden(outputs)
 
-    run = cmd_args()
     return [
         DefaultInfo(default_outputs = [root_output_dir]),
         RunInfo(args = run),
