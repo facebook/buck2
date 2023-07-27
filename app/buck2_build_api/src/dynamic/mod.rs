@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
-pub(crate) mod deferred;
+pub mod bxl;
+pub mod deferred;
 pub(crate) mod registry;

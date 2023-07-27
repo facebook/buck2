@@ -257,7 +257,7 @@ impl<'v> AnalysisRegistry<'v> {
         self.anon_targets.take_promises()
     }
 
-    pub(crate) fn assert_no_promises(&self) -> anyhow::Result<()> {
+    pub fn assert_no_promises(&self) -> anyhow::Result<()> {
         self.anon_targets.assert_no_promises()
     }
 
