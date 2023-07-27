@@ -384,7 +384,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
             }
 
             fn matches(&self, value: Value<'v>) -> bool {
-                value.unpack_str().is_some() || value.get_ref().matches_type("string")
+                value.unpack_str().is_some()
             }
 
             fn to_frozen(&self, _heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
@@ -408,7 +408,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
             }
 
             fn matches(&self, value: Value<'v>) -> bool {
-                value.unpack_inline_int().is_some() || value.get_ref().matches_type("int")
+                value.unpack_inline_int().is_some()
             }
 
             fn to_frozen(&self, _heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
@@ -432,7 +432,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
             }
 
             fn matches(&self, value: Value<'v>) -> bool {
-                value.unpack_bool().is_some() || value.get_ref().matches_type("bool")
+                value.unpack_bool().is_some()
             }
 
             fn to_frozen(&self, _heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
