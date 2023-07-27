@@ -6,24 +6,43 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
+load(
+    "@prelude//cxx:link.bzl",
+    "cxx_link_shared_library",
+)
 load(
     "@prelude//haskell:haskell.bzl",
     "HaskellLibraryProvider",
     "HaskellToolchainInfo",
+    "attr_deps",
     "get_packages_info",
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LinkArgs",
+    "LinkInfo",
     "LinkStyle",
+    "get_actual_link_style",
+    "set_linkable_link_whole",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableRootInfo",
+    "create_linkable_graph",
+    "get_deps_for_link",
+    "get_link_info",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
     "traverse_shared_library_info",
+)
+load(
+    "@prelude//utils:graph_utils.bzl",
+    "breadth_first_traversal",
+    "breadth_first_traversal_by",
 )
 load("@prelude//utils:utils.bzl", "flatten")
 
@@ -38,6 +57,166 @@ GHCI_LIB_PATH = "ghci_lib_path"
 CC_PATH = "cc_path"
 CPP_PATH = "cpp_path"
 CXX_PATH = "cxx_path"
+
+HaskellOmnibusData = record(
+    omnibus = "artifact",
+    so_symlinks_root = "artifact",
+)
+
+def _build_haskell_omnibus_so(
+        ctx: "context") -> HaskellOmnibusData.type:
+    link_style = LinkStyle("static_pic")
+
+    # pic_behavior = PicBehavior("always_enabled")
+    pic_behavior = PicBehavior("supported")
+    preload_deps = ctx.attrs.preload_deps
+
+    all_deps = attr_deps(ctx) + preload_deps + ctx.attrs.template_deps
+
+    linkable_graph_ = create_linkable_graph(
+        ctx,
+        deps = all_deps,
+    )
+
+    # Keep only linkable nodes
+    graph_nodes = {
+        n.label: n.linkable
+        for n in linkable_graph_.nodes.traverse()
+        if n.linkable
+    }
+
+    # Map node label to its dependencies' labels
+    dep_graph = {
+        nlabel: get_deps_for_link(n, link_style, pic_behavior)
+        for nlabel, n in graph_nodes.items()
+    }
+
+    all_direct_deps = [dep.label for dep in all_deps]
+    dep_graph[ctx.label] = all_direct_deps
+
+    # Need to exclude all transitive deps of excluded deps
+    all_nodes_to_exclude = breadth_first_traversal(
+        dep_graph,
+        [dep.label for dep in preload_deps],
+    )
+
+    # Body nodes should support haskell omnibus (e.g. cxx_library)
+    # and can't be prebuilt tp dependencies
+    body_nodes = {}
+
+    # Prebuilt (i.e. third-party) nodes shouldn't be statically linked on
+    # the omnibus, but we need to keep track of them because they're a
+    # dependency of it and are linked dynamically.
+    prebuilt_so_deps = {}
+
+    # Helper to get body nodes and prebuilt dependencies of the
+    # omnibus SO (which should dynamically linked) during BFS traversal
+    def find_deps_for_body(node_label: "label"):
+        deps = dep_graph[node_label]
+
+        final_deps = []
+        for node_label in deps:
+            node = graph_nodes[node_label]
+            if node_label in all_nodes_to_exclude:
+                continue
+
+            if "prebuilt_so_for_haskell_omnibus" in node.labels:
+                prebuilt_so_deps[node_label] = None
+
+            if "supports_haskell_omnibus" in node.labels and "prebuilt_so_for_haskell_omnibus" not in node.labels:
+                body_nodes[node_label] = None
+
+            final_deps.append(node_label)
+
+        return final_deps
+
+    # This is not the final set of body nodes, because it still includes
+    # nodes that don't support omnibus (e.g. haskell_library nodes)
+    breadth_first_traversal_by(
+        dep_graph,
+        [ctx.label],
+        find_deps_for_body,
+    )
+
+    # After collecting all the body nodes, get all their linkables (e.g. `.a`
+    # files) that will be part of the omnibus SO.
+    body_link_infos = {}
+
+    for node_label in body_nodes.keys():
+        node = graph_nodes[node_label]
+
+        node_target = node_label.raw_target()
+        if (node_target in body_link_infos):
+            # Not skipping these leads to duplicate symbol errors
+            continue
+
+        actual_link_style = get_actual_link_style(
+            link_style,
+            node.preferred_linkage,
+            pic_behavior = pic_behavior,
+        )
+
+        li = get_link_info(node, actual_link_style)
+        linkables = [
+            # All symbols need to be included in the omnibus so, even if
+            # they're not being referenced yet, so we should enable
+            # link_whole which passes the `--whole-archive` linker flag.
+            set_linkable_link_whole(linkable)
+            for linkable in li.linkables
+        ]
+        new_li = LinkInfo(
+            name = li.name,
+            pre_flags = li.pre_flags,
+            post_flags = li.post_flags,
+            linkables = linkables,
+            external_debug_info = li.external_debug_info,
+        )
+        body_link_infos[node_target] = new_li
+
+    # Handle third-party dependencies of the omnibus SO
+    tp_deps_shared_link_infos = {}
+    so_symlinks = {}
+
+    for node_label in prebuilt_so_deps.keys():
+        node = graph_nodes[node_label]
+
+        shared_li = node.link_infos.get(LinkStyle("shared"), None)
+        if shared_li != None:
+            tp_deps_shared_link_infos[node_label] = shared_li.default
+        for libname, linkObject in node.shared_libs.items():
+            so_symlinks[libname] = linkObject.output
+
+    # Create symlinks to the TP dependencies' SOs
+    so_symlinks_root_path = ctx.label.name + ".so-symlinks"
+    so_symlinks_root = ctx.actions.symlinked_dir(
+        so_symlinks_root_path,
+        so_symlinks,
+    )
+
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    soname = "libghci_dependencies.so"
+    extra_ldflags = [
+        "-rpath",
+        "$ORIGIN/{}".format(so_symlinks_root_path),
+    ]
+    link_result = cxx_link_shared_library(
+        ctx,
+        soname,
+        links = [
+            LinkArgs(flags = extra_ldflags),
+            LinkArgs(infos = body_link_infos.values()),
+            LinkArgs(infos = tp_deps_shared_link_infos.values()),
+        ],
+        category_suffix = "omnibus",
+        link_weight = linker_info.link_weight,
+        identifier = soname,
+    )
+    omnibus = link_result.linked_object.output
+
+    return HaskellOmnibusData(
+        omnibus = omnibus,
+        so_symlinks_root = so_symlinks_root,
+    )
 
 def _replace_macros_in_script_template(
         ctx: AnalysisContext,
@@ -326,11 +505,15 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list["provider"]:
         )
         script_templates.append(final_script)
 
+    omnibus_data = _build_haskell_omnibus_so(ctx)
+
     outputs = [
         start_ghci_file,
         ghci_bin,
         preload_deps_info.preload_deps_root,
         iserv_script,
+        omnibus_data.omnibus,
+        omnibus_data.so_symlinks_root,
     ]
     outputs.extend(package_symlinks)
     outputs.extend(script_templates)
