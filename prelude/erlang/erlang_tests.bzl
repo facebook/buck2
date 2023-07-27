@@ -322,7 +322,7 @@ def _build_resource_dir(ctx, resources: list, target_dir: str) -> "artifact":
     """
     include_symlinks = {}
     for resource in resources:
-        files = resource[DefaultInfo].default_outputs + resource[DefaultInfo].other_outputs
+        files = resource[DefaultInfo].default_outputs
         for file in files:
             include_symlinks[file.short_path] = file
     return ctx.actions.symlinked_dir(
