@@ -40,6 +40,7 @@ AppleToolchainInfo = provider(fields = [
 
 AppleToolsInfo = provider(fields = [
     "assemble_bundle",  # RunInfo
+    "split_arch_combine_dsym_bundles_tool",  # RunInfo
     "dry_codesign_tool",  # "RunInfo"
     "adhoc_codesign_tool",  # "RunInfo"
     "selective_debugging_scrubber",  # "RunInfo"

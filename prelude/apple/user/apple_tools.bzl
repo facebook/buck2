@@ -13,6 +13,7 @@ def _impl(ctx: AnalysisContext) -> list["provider"]:
         DefaultInfo(),
         AppleToolsInfo(
             assemble_bundle = ctx.attrs.assemble_bundle[RunInfo],
+            split_arch_combine_dsym_bundles_tool = ctx.attrs.split_arch_combine_dsym_bundles_tool[RunInfo],
             dry_codesign_tool = ctx.attrs.dry_codesign_tool[RunInfo],
             adhoc_codesign_tool = ctx.attrs.adhoc_codesign_tool[RunInfo],
             info_plist_processor = ctx.attrs.info_plist_processor[RunInfo],
@@ -37,6 +38,7 @@ registration_spec = RuleRegistrationSpec(
         "make_modulemap": attrs.dep(providers = [RunInfo]),
         "make_vfsoverlay": attrs.dep(providers = [RunInfo]),
         "selective_debugging_scrubber": attrs.dep(providers = [RunInfo]),
+        "split_arch_combine_dsym_bundles_tool": attrs.dep(providers = [RunInfo]),
         "swift_objc_header_postprocess": attrs.dep(providers = [RunInfo]),
     },
 )
