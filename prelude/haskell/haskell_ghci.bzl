@@ -57,6 +57,8 @@ GHCI_LIB_PATH = "ghci_lib_path"
 CC_PATH = "cc_path"
 CPP_PATH = "cpp_path"
 CXX_PATH = "cxx_path"
+GHCI_PACKAGER = "ghc_pkg_path"
+GHCI_GHC_PATH = "ghc_path"
 
 HaskellOmnibusData = record(
     omnibus = "artifact",
@@ -218,54 +220,109 @@ def _build_haskell_omnibus_so(
         so_symlinks_root = so_symlinks_root,
     )
 
+# Use the script_template_processor.py script to generate a script from a
+# script template.
 def _replace_macros_in_script_template(
         ctx: AnalysisContext,
         script_template: "artifact",
-        ghci_bin: "artifact",
-        exposed_package_args: cmd_args,
-        packagedb_args: cmd_args,
-        prebuilt_packagedb_args: cmd_args,
-        haskell_toolchain: HaskellToolchainInfo.type) -> "artifact":
+        haskell_toolchain: HaskellToolchainInfo.type,
+        # Optional artifacts
+        ghci_bin: ["artifact", None] = None,
+        start_ghci: ["artifact", None] = None,
+        iserv_script: ["artifact", None] = None,
+        squashed_so: ["artifact", None] = None,
+        # Optional cmd_args
+        exposed_package_args: ["cmd_args", None] = None,
+        packagedb_args: ["cmd_args", None] = None,
+        prebuilt_packagedb_args: ["cmd_args", None] = None,
+        compiler_flags: ["cmd_args", None] = None,
+        # Optional string args
+        srcs: [str, None] = None,
+        output_name: [str, None] = None,
+        ghci_iserv_path: [str, None] = None,
+        preload_libs: [str, None] = None) -> "artifact":
     toolchain_paths = {
         BINUTILS_PATH: haskell_toolchain.ghci_binutils_path,
         GHCI_LIB_PATH: haskell_toolchain.ghci_lib_path,
         CC_PATH: haskell_toolchain.ghci_cc_path,
         CPP_PATH: haskell_toolchain.ghci_cpp_path,
         CXX_PATH: haskell_toolchain.ghci_cxx_path,
+        GHCI_PACKAGER: haskell_toolchain.ghci_packager,
+        GHCI_GHC_PATH: haskell_toolchain.ghci_ghc_path,
     }
 
-    toolchain_paths[USER_GHCI_PATH] = ghci_bin.short_path
+    if ghci_bin != None:
+        toolchain_paths[USER_GHCI_PATH] = ghci_bin.short_path
 
-    final_script = ctx.actions.declare_output(script_template.basename)
+    final_script = ctx.actions.declare_output(
+        script_template.basename if not output_name else output_name,
+    )
     script_template_processor = haskell_toolchain.script_template_processor[RunInfo]
 
     replace_cmd = cmd_args(script_template_processor)
-    replace_cmd.add(cmd_args(script_template, format = "--script-template={}"))
+    replace_cmd.add(cmd_args(script_template, format = "--script_template={}"))
     for name, path in toolchain_paths.items():
         replace_cmd.add(cmd_args("--{}={}".format(name, path)))
 
     replace_cmd.add(cmd_args(
-        cmd_args(exposed_package_args, delimiter = " "),
-        format = "--exposed_packages={}",
-    ))
-    replace_cmd.add(cmd_args(
-        packagedb_args,
-        format = "--package_dbs={}",
-    ))
-    replace_cmd.add(cmd_args(
-        prebuilt_packagedb_args,
-        format = "--prebuilt_package_dbs={}",
-    ))
-    replace_cmd.add(cmd_args(
         final_script.as_output(),
         format = "--output={}",
     ))
+
+    replace_cmd.add(cmd_args(
+        ctx.label.name,
+        format = "--target_name={}",
+    ))
+
+    exposed_package_args = exposed_package_args if exposed_package_args != None else ""
+    replace_cmd.add(cmd_args(
+        cmd_args(exposed_package_args, delimiter = " "),
+        format = "--exposed_packages={}",
+    ))
+
+    if packagedb_args != None:
+        replace_cmd.add(cmd_args(
+            packagedb_args,
+            format = "--package_dbs={}",
+        ))
+    if prebuilt_packagedb_args != None:
+        replace_cmd.add(cmd_args(
+            prebuilt_packagedb_args,
+            format = "--prebuilt_package_dbs={}",
+        ))
+
+    # Tuple containing orig value (for null check), macro value and flag name
+    optional_flags = [
+        (
+            start_ghci,
+            start_ghci.short_path if start_ghci != None else "",
+            "--start_ghci",
+        ),
+        (iserv_script, "iserv", "--iserv_path"),
+        (
+            squashed_so,
+            squashed_so.short_path if squashed_so != None else "",
+            "--squashed_so",
+        ),
+        (compiler_flags, compiler_flags, "--compiler_flags"),
+        (srcs, srcs, "--srcs"),
+        (ghci_iserv_path, ghci_iserv_path, "--ghci_iserv_path"),
+        (preload_libs, preload_libs, "--preload_libs"),
+    ]
+
+    for (orig_val, macro_value, flag) in optional_flags:
+        if orig_val != None:
+            replace_cmd.add(cmd_args(
+                macro_value,
+                format = flag + "={}",
+            ))
 
     ctx.actions.run(
         replace_cmd,
         category = "replace_template_{}".format(
             script_template.basename.replace("-", "_"),
         ),
+        local_only = True,
     )
 
     return final_script
@@ -274,7 +331,10 @@ def _write_iserv_script(
         ctx: AnalysisContext,
         preload_deps_info: GHCiPreloadDepsInfo.type,
         haskell_toolchain: HaskellToolchainInfo.type) -> "artifact":
-    iserv_script_cmd = cmd_args(SCRIPT_HEADER.format("GHCi iserv script"))
+    ghci_iserv_template = haskell_toolchain.ghci_iserv_template
+
+    if (not ghci_iserv_template):
+        fail("ghci_iserv_template missing in haskell_toolchain")
 
     preload_libs = ":".join(
         [paths.join(
@@ -289,24 +349,17 @@ def _write_iserv_script(
     else:
         ghci_iserv_path = haskell_toolchain.ghci_iserv_path
 
-    run_ghci = "LD_PRELOAD=\"$LD_PRELOAD\":{preload_libs} \
-        PATH={binutils_path}:\"$PATH\" {ghci_iserv_path} \"$@\"".format(
-        binutils_path = haskell_toolchain.ghci_binutils_path,
-        ghci_iserv_path = ghci_iserv_path,
-        preload_libs = preload_libs,
-    )
-    iserv_script_cmd.add(
-        run_ghci,
-    )
-
     iserv_script_name = "iserv"
     if ctx.attrs.enable_profiling:
         iserv_script_name += "-prof"
 
-    iserv_script = ctx.actions.write(
-        iserv_script_name,
-        iserv_script_cmd,
-        is_executable = True,
+    iserv_script = _replace_macros_in_script_template(
+        ctx,
+        script_template = ghci_iserv_template,
+        output_name = iserv_script_name,
+        haskell_toolchain = haskell_toolchain,
+        ghci_iserv_path = ghci_iserv_path,
+        preload_libs = preload_libs,
     )
 
     return iserv_script
@@ -496,12 +549,12 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list["provider"]:
     for script_template in ctx.attrs.extra_script_templates:
         final_script = _replace_macros_in_script_template(
             ctx,
-            script_template,
-            ghci_bin,
-            packages_info.exposed_package_args,
-            packagedb_args,
-            prebuilt_packagedb_args,
-            haskell_toolchain,
+            script_template = script_template,
+            haskell_toolchain = haskell_toolchain,
+            ghci_bin = ghci_bin,
+            exposed_package_args = packages_info.exposed_package_args,
+            packagedb_args = packagedb_args,
+            prebuilt_packagedb_args = prebuilt_packagedb_args,
         )
         script_templates.append(final_script)
 
@@ -532,14 +585,3 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list["provider"]:
         DefaultInfo(default_outputs = [root_output_dir]),
         RunInfo(args = run),
     ]
-
-# TODO(gustavoavena): parameterize header to print correct error msg
-# @lint-ignore-every LICENSELINT
-SCRIPT_HEADER = """\
-#!/usr/bin/env bash
-
-DIR="$(dirname "$(readlink -f "${{BASH_SOURCE[0]}}")")"
-if ! test -d "$DIR"; then
-  echo Cannot locate directory containing {}; exit 1
-fi
-"""
