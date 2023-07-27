@@ -22,7 +22,10 @@ def _select_platform():
 
 def _is_release():
     return select({
-        "DEFAULT": False,
+        "DEFAULT": select({
+            "DEFAULT": False,
+            "fbsource//tools/build_defs/android/config:build_mode_opt": True,
+        }),
         "config//build_mode/constraints:release": True,
     })
 
