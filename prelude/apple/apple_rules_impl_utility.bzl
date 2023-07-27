@@ -93,6 +93,7 @@ def apple_bundle_extra_attrs():
         "binary": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
         "resource_group_map": resource_group_map_attr(),
         "selective_debugging": attrs.option(attrs.dep(providers = [AppleSelectiveDebuggingInfo]), default = None),
+        "split_arch_dsym": attrs.bool(default = False),
         "universal": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _get_apple_bundle_toolchain_attr(),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),

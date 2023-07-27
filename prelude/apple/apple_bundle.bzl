@@ -34,10 +34,11 @@ load(
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
-load(":apple_bundle_types.bzl", "AppleBinaryExtraOutputsInfo", "AppleBundleExtraOutputsInfo", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
+load(":apple_bundle_types.bzl", "AppleBinaryExtraOutputsInfo", "AppleBundleBinaryOutput", "AppleBundleExtraOutputsInfo", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_default_binary_dep", "get_flattened_binary_deps", "get_product_name")
 load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
+load(":apple_universal_binaries.bzl", "create_universal_binary")
 load(
     ":debug.bzl",
     "AppleDebuggableInfo",
@@ -51,13 +52,6 @@ _INSTALL_DATA_FILE_NAME = "install_apple_data.json"
 _PLIST = "plist"
 
 _XCTOOLCHAIN_SUB_TARGET = "xctoolchain"
-
-AppleBundleBinaryOutput = record(
-    binary = field("artifact"),
-    debuggable_info = field([AppleDebuggableInfo.type, None], None),
-    # In the case of watchkit, the `ctx.attrs.binary`'s not set, and we need to create a stub binary.
-    is_watchkit_stub_binary = field(bool, False),
-)
 
 AppleBundleDebuggableInfo = record(
     # Can be `None` for WatchKit stub
@@ -89,7 +83,9 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput.type:
         )
 
     if ctx.attrs.universal:
-        fail("not implemented")
+        if ctx.attrs.selective_debugging != None:
+            fail("Selective debugging is not supported for universal binaries.")
+        return create_universal_binary(ctx, _get_bundle_dsym_name(ctx))
     else:
         binary_dep = get_default_binary_dep(ctx)
         if len(binary_dep[DefaultInfo].default_outputs) != 1:
@@ -185,21 +181,34 @@ def _get_debuggable_deps(ctx: AnalysisContext, binary_output: AppleBundleBinaryO
     )
 
     # We don't care to process the watchkit stub binary.
-    bundle_debuggable_info = None
-    if not binary_output.is_watchkit_stub_binary:
+    if binary_output.is_watchkit_stub_binary:
+        return AppleBundleDebuggableInfo(
+            binary_info = None,
+            dep_infos = deps_debuggable_infos,
+            all_infos = deps_debuggable_infos,
+        )
+
+    if not ctx.attrs.split_arch_dsym:
+        # Calling `dsymutil` on the correctly named binary in the _final bundle_ to yield dsym files
+        # with naming convention compatible with Meta infra.
         binary_debuggable_info = binary_output.debuggable_info
         bundle_binary_dsym_artifact = get_apple_dsym_ext(
             ctx = ctx,
-            # Calling `dsymutil` on the correctly named binary in the _final bundle_
             executable = run_cmd,
             debug_info = project_artifacts(
                 actions = ctx.actions,
-                tsets = [binary_debuggable_info.debug_info_tset] if binary_debuggable_info else [],
+                tsets = filter(None, [binary_debuggable_info.debug_info_tset]) if binary_debuggable_info else [],
             ),
             action_identifier = get_bundle_dir_name(ctx),
             output_path = _get_bundle_dsym_name(ctx),
         )
-        bundle_debuggable_info = AppleDebuggableInfo(dsyms = [bundle_binary_dsym_artifact], debug_info_tset = binary_debuggable_info.debug_info_tset, filtered_map = binary_debuggable_info.filtered_map)
+        bundle_debuggable_info = AppleDebuggableInfo(
+            dsyms = [bundle_binary_dsym_artifact],
+            debug_info_tset = binary_debuggable_info.debug_info_tset if binary_debuggable_info != None else None,
+            filtered_map = binary_debuggable_info.filtered_map if binary_debuggable_info != None else None,
+        )
+    else:
+        bundle_debuggable_info = binary_output.debuggable_info
 
     return AppleBundleDebuggableInfo(
         binary_info = bundle_debuggable_info,

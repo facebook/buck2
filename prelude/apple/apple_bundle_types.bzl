@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(":debug.bzl", "AppleDebuggableInfo")
+
 # Provider flagging that result of the rule contains Apple bundle.
 # It might be copied into main bundle to appropriate place if rule
 # with this provider is a dependency of `apple_bundle`.
@@ -53,3 +55,10 @@ AppleBinaryExtraOutputsInfo = provider(fields = [
 AppleBundleExtraOutputsInfo = provider(fields = [
     "extra_outputs",  # [AppleBinaryExtraOutputsInfo]
 ])
+
+AppleBundleBinaryOutput = record(
+    binary = field("artifact"),
+    debuggable_info = field([AppleDebuggableInfo.type, None], None),
+    # In the case of watchkit, the `ctx.attrs.binary`'s not set, and we need to create a stub binary.
+    is_watchkit_stub_binary = field(bool, False),
+)
