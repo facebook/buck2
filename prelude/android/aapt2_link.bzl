@@ -8,6 +8,7 @@
 load("@prelude//android:android_providers.bzl", "Aapt2LinkInfo", "RESOURCE_PRIORITY_LOW")
 
 BASE_PACKAGE_ID = 0x7f
+ZIP_NOTHING_TO_DO_EXIT_CODE = 12
 
 def get_aapt2_link(
         ctx: AnalysisContext,
@@ -108,16 +109,19 @@ def get_aapt2_link(
         #
         # This is a faster filtering step that just uses zip -d to remove entries from the archive.
         # It's also superbly dangerous.
+        #
+        # If zip -d returns that there was nothing to do, then we don't fail.
         if len(extra_filtered_resources) > 0:
             filtered_resources_apk = ctx.actions.declare_output("{}/filtered-resource-apk.ap_".format(identifier))
             filter_resources_sh_cmd = cmd_args([
                 "sh",
                 "-c",
-                'cp "$1" "$2" && chmod 644 "$2" && zip -d "$2" "$3"',
+                'cp "$1" "$2" && chmod 644 "$2"; zip -d "$2" "$3"; if [$? -eq $4]; then\nexit 0\nfi\nexit $?;',
                 "--",
                 resources_apk,
                 filtered_resources_apk.as_output(),
                 extra_filtered_resources,
+                str(ZIP_NOTHING_TO_DO_EXIT_CODE),
             ])
             ctx.actions.run(filter_resources_sh_cmd, category = "aapt2_filter_resources", identifier = identifier)
             primary_resources_apk = filtered_resources_apk
