@@ -693,6 +693,16 @@ impl<'v> TypeCompiled<Value<'v>> {
         ts: Vec<TypeCompiled<Value<'v>>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
+        if ts.len() == 1 {
+            return ts.into_iter().next().unwrap();
+        } else if ts.len() == 2 {
+            let mut it = ts.into_iter();
+            let t0 = it.next().unwrap();
+            let t1 = it.next().unwrap();
+            assert!(it.next().is_none());
+            return Self::type_any_of_two(t0, t1, heap);
+        }
+
         #[derive(Allocative, Debug, Trace, Freeze, ProvidesStaticType)]
         struct IsAnyOf<V>(Vec<TypeCompiled<V>>);
 
@@ -894,12 +904,6 @@ impl<'v> TypeCompiled<Value<'v>> {
                     let t = TypeCompiled::new(t, heap)?;
                     Ok(TypeCompiled::type_list_of(t, heap))
                 }
-            }
-            2 => {
-                // A union type, can match either - special case of the arbitrary choice to go slightly faster
-                let t1 = TypeCompiled::new(t[0], heap)?;
-                let t2 = TypeCompiled::new(t[1], heap)?;
-                Ok(TypeCompiled::type_any_of_two(t1, t2, heap))
             }
             _ => {
                 // A union type, can match any
