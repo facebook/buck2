@@ -238,9 +238,57 @@ pub struct ConfigSectionAndKey {
 #[derive(Debug)]
 pub enum LegacyConfigCmdArg {
     /// A single config key-value pair (in `a.b=c` format).
-    Flag(String),
+    Flag(LegacyConfigCmdArgFlag),
     /// A file containing additional config values (in `.buckconfig` format).
-    UnresolvedFile(String),
+    File(LegacyConfigCmdArgFile),
+}
+
+impl LegacyConfigCmdArg {
+    pub fn flag(val: &str) -> anyhow::Result<Self> {
+        let (cell, val) = match val.split_once("//") {
+            Some((cell, val)) if !cell.contains('=') => (Some(cell.to_owned()), val),
+            _ => (None, val),
+        };
+
+        let ParsedConfigArg {
+            section,
+            key,
+            value,
+        } = parse_config_arg(val)?;
+
+        Ok(Self::Flag(LegacyConfigCmdArgFlag {
+            cell,
+            section,
+            key,
+            value,
+        }))
+    }
+
+    pub fn file(val: &str) -> anyhow::Result<Self> {
+        let (cell, val) = match val.split_once("//") {
+            Some((cell, val)) => (Some(cell.to_owned()), val), // This should also reject =?
+            _ => (None, val),
+        };
+
+        Ok(LegacyConfigCmdArg::File(LegacyConfigCmdArgFile {
+            cell,
+            path: val.to_owned(),
+        }))
+    }
+}
+
+#[derive(Debug)]
+pub struct LegacyConfigCmdArgFlag {
+    cell: Option<String>,
+    section: String,
+    key: String,
+    value: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct LegacyConfigCmdArgFile {
+    cell: Option<String>,
+    path: String,
 }
 
 /// Private representation of a processed config arg, namely after file
@@ -310,11 +358,14 @@ pub fn parse_config_section_and_key(
     })
 }
 
-// Parses key-value pairs in the format `section.key=value`.
-fn parse_config_argument_pair(
-    raw_arg: &str,
-    cell_path: Option<AbsNormPathBuf>,
-) -> anyhow::Result<ConfigArgumentPair> {
+struct ParsedConfigArg {
+    section: String,
+    key: String,
+    value: Option<String>,
+}
+
+/// Parses key-value pairs in the format `section.key=value` or `section.key=`.
+fn parse_config_arg(raw_arg: &str) -> anyhow::Result<ParsedConfigArg> {
     let (raw_section_and_key, raw_value) = raw_arg
         .split_once('=')
         .ok_or_else(|| ConfigArgumentParseError::NoEqualsSeparator(raw_arg.to_owned()))?;
@@ -325,14 +376,11 @@ fn parse_config_argument_pair(
         v => Some(v.to_owned()),
     };
 
-    let pair = ConfigArgumentPair {
+    Ok(ParsedConfigArg {
         section: config_section_and_key.section,
         key: config_section_and_key.key,
         value,
-        cell_path,
-    };
-
-    Ok(pair)
+    })
 }
 
 #[derive(Debug, Allocative)]
@@ -995,45 +1043,49 @@ impl LegacyBuckConfig {
     }
 
     fn resolve_config_flag_arg(
-        flag_arg: &str,
+        flag_arg: &LegacyConfigCmdArgFlag,
         cell_resolution: Option<&CellResolutionState>,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<ConfigArgumentPair> {
-        let cell_path: Option<AbsNormPathBuf>;
-        let raw_config: &str;
-        match flag_arg.split_once("//") {
-            Some((cell, config)) if !cell.contains('=') => {
-                cell_path = Some(Self::resolve_config_file_arg(
-                    &format!("{}//", cell),
+        let cell_path = flag_arg
+            .cell
+            .as_ref()
+            .map(|cell| {
+                Self::resolve_config_file_arg(
+                    &LegacyConfigCmdArgFile {
+                        cell: Some(cell.clone()),
+                        path: "".to_owned(),
+                    },
                     cell_resolution,
                     file_ops,
-                )?);
-                raw_config = config;
-            }
-            _ => {
-                cell_path = None;
-                raw_config = flag_arg;
-            }
-        }
+                )
+            })
+            .transpose()?;
 
-        parse_config_argument_pair(raw_config, cell_path)
+        Ok(ConfigArgumentPair {
+            section: flag_arg.section.clone(),
+            key: flag_arg.key.clone(),
+            value: flag_arg.value.clone(),
+            cell_path,
+        })
     }
 
     fn resolve_config_file_arg(
-        file_arg: &str,
+        file_arg: &LegacyConfigCmdArgFile,
         cell_resolution: Option<&CellResolutionState>,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<AbsNormPathBuf> {
-        if let Some((cell_alias, cell_relative_path)) = file_arg.split_once("//") {
+        if let Some(cell_alias) = &file_arg.cell {
             let cell_resolution_state = cell_resolution.ok_or_else(|| {
-                anyhow::anyhow!(ConfigError::UnableToResolveCellRelativePath(
-                    file_arg.to_owned()
-                ))
+                anyhow::anyhow!(ConfigError::UnableToResolveCellRelativePath(format!(
+                    "{}//{}",
+                    cell_alias, file_arg.path
+                )))
             })?;
             if let Some(cell_resolver) = cell_resolution_state.cell_resolver.get() {
                 return cell_resolver.resolve_cell_relative_path(
                     cell_alias,
-                    cell_relative_path,
+                    &file_arg.path,
                     cell_resolution_state.project_filesystem,
                     cell_resolution_state.cwd,
                 );
@@ -1051,7 +1103,7 @@ impl LegacyBuckConfig {
                 .cell_resolver;
                 let resolved_path = cell_resolver.resolve_cell_relative_path(
                     cell_alias,
-                    cell_relative_path,
+                    &file_arg.path,
                     cell_resolution_state.project_filesystem,
                     cell_resolution_state.cwd,
                 );
@@ -1062,7 +1114,7 @@ impl LegacyBuckConfig {
         }
 
         // Cargo relative file paths are expanded before they make it into the daemon
-        AbsNormPathBuf::try_from(file_arg.to_owned())
+        AbsNormPathBuf::try_from(file_arg.path.to_owned())
     }
 
     fn process_config_args(
@@ -1076,7 +1128,7 @@ impl LegacyBuckConfig {
                     Self::resolve_config_flag_arg(value, cell_resolution, file_ops)?;
                 Ok(ResolvedLegacyConfigArg::Flag(resolved_flag))
             }
-            LegacyConfigCmdArg::UnresolvedFile(file) => {
+            LegacyConfigCmdArg::File(file) => {
                 let resolved_path = Self::resolve_config_file_arg(file, cell_resolution, file_ops)?;
                 Ok(ResolvedLegacyConfigArg::File(resolved_path))
             }
@@ -1638,8 +1690,8 @@ mod tests {
     #[test]
     fn test_config_args_ordering() -> anyhow::Result<()> {
         let config_args = vec![
-            LegacyConfigCmdArg::Flag("apple.key=value1".to_owned()),
-            LegacyConfigCmdArg::Flag("apple.key=value2".to_owned()),
+            LegacyConfigCmdArg::flag("apple.key=value1")?,
+            LegacyConfigCmdArg::flag("apple.key=value2")?,
         ];
         let config =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
@@ -1650,7 +1702,7 @@ mod tests {
 
     #[test]
     fn test_config_args_empty() -> anyhow::Result<()> {
-        let config_args = vec![LegacyConfigCmdArg::Flag("apple.key=".to_owned())];
+        let config_args = vec![LegacyConfigCmdArg::flag("apple.key=")?];
         let config =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
         assert_config_value_is_empty(&config, "apple", "key");
@@ -1660,7 +1712,7 @@ mod tests {
 
     #[test]
     fn test_config_args_overwrite_config_file() -> anyhow::Result<()> {
-        let config_args = vec![LegacyConfigCmdArg::Flag("apple.key=value2".to_owned())];
+        let config_args = vec![LegacyConfigCmdArg::flag("apple.key=value2")?];
         let config = parse_with_config_args(
             &[(
                 "/config",
@@ -1691,13 +1743,13 @@ mod tests {
     fn test_argument_pair() -> anyhow::Result<()> {
         // Valid Formats
 
-        let normal_pair = parse_config_argument_pair("apple.key=value", None)?;
+        let normal_pair = parse_config_arg("apple.key=value")?;
 
         assert_eq!("apple", normal_pair.section);
         assert_eq!("key", normal_pair.key);
         assert_eq!(Some("value".to_owned()), normal_pair.value);
 
-        let unset_pair = parse_config_argument_pair("apple.key=", None)?;
+        let unset_pair = parse_config_arg("apple.key=")?;
 
         assert_eq!("apple", unset_pair.section);
         assert_eq!("key", unset_pair.key);
@@ -1705,16 +1757,15 @@ mod tests {
 
         // Whitespace
 
-        let section_leading_whitespace = parse_config_argument_pair("  apple.key=value", None)?;
+        let section_leading_whitespace = parse_config_arg("  apple.key=value")?;
         assert_eq!("apple", section_leading_whitespace.section);
         assert_eq!("key", section_leading_whitespace.key);
         assert_eq!(Some("value".to_owned()), section_leading_whitespace.value);
 
-        let pair_with_whitespace_in_key = parse_config_argument_pair("apple. key=value", None);
+        let pair_with_whitespace_in_key = parse_config_arg("apple. key=value");
         assert!(pair_with_whitespace_in_key.is_err());
 
-        let pair_with_whitespace_in_value =
-            parse_config_argument_pair("apple.key= value with whitespace  ", None)?;
+        let pair_with_whitespace_in_value = parse_config_arg("apple.key= value with whitespace  ")?;
         assert_eq!("apple", pair_with_whitespace_in_value.section);
         assert_eq!("key", pair_with_whitespace_in_value.key);
         assert_eq!(
@@ -1724,13 +1775,13 @@ mod tests {
 
         // Invalid Formats
 
-        let pair_without_section = parse_config_argument_pair("key=value", None);
+        let pair_without_section = parse_config_arg("key=value");
         assert!(pair_without_section.is_err());
 
-        let pair_without_equals = parse_config_argument_pair("apple.keyvalue", None);
+        let pair_without_equals = parse_config_arg("apple.keyvalue");
         assert!(pair_without_equals.is_err());
 
-        let pair_without_section_or_equals = parse_config_argument_pair("applekeyvalue", None);
+        let pair_without_section_or_equals = parse_config_arg("applekeyvalue");
         assert!(pair_without_section_or_equals.is_err());
 
         Ok(())
@@ -1765,12 +1816,12 @@ mod tests {
     #[test]
     fn test_config_file_args_overwrite_config_file() -> anyhow::Result<()> {
         #[cfg(not(windows))]
-        let file_arg = "/cli-config".to_owned();
+        let file_arg = "/cli-config";
         #[cfg(windows)]
-        let file_arg = "C:/cli-config".to_owned();
+        let file_arg = "C:/cli-config";
         let config_args = vec![
-            LegacyConfigCmdArg::Flag("apple.key=value3".to_owned()),
-            LegacyConfigCmdArg::UnresolvedFile(file_arg),
+            LegacyConfigCmdArg::flag("apple.key=value3")?,
+            LegacyConfigCmdArg::file(file_arg)?,
         ];
         let config = parse_with_config_args(
             &[
@@ -1812,7 +1863,7 @@ mod tests {
 
     #[test]
     fn test_config_args_cell_in_value() -> anyhow::Result<()> {
-        let config_args = vec![LegacyConfigCmdArg::Flag("apple.key=foo//value1".to_owned())];
+        let config_args = vec![LegacyConfigCmdArg::flag("apple.key=foo//value1")?];
         let config =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
         assert_config_value(&config, "apple", "key", "foo//value1");

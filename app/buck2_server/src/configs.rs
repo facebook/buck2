@@ -36,12 +36,8 @@ fn get_legacy_config_args<'a, Iter: IntoIterator<Item = &'a ConfigOverride>>(
         .into_iter()
         .map(
             |config_arg| match config_type_from_i32(config_arg.config_type)? {
-                ConfigType::Value => Ok(LegacyConfigCmdArg::Flag(
-                    config_arg.config_override.to_owned(),
-                )),
-                ConfigType::File => Ok(LegacyConfigCmdArg::UnresolvedFile(
-                    config_arg.config_override.to_owned(),
-                )),
+                ConfigType::Value => LegacyConfigCmdArg::flag(&config_arg.config_override),
+                ConfigType::File => LegacyConfigCmdArg::file(&config_arg.config_override),
             },
         )
         .collect::<anyhow::Result<Vec<LegacyConfigCmdArg>>>()

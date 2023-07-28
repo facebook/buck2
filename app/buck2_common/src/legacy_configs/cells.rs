@@ -650,13 +650,13 @@ mod tests {
 
         let project_fs = create_project_filesystem();
         #[cfg(not(windows))]
-        let file_arg = "/other/cli-conf".to_owned();
+        let file_arg = "/other/cli-conf";
         #[cfg(windows)]
-        let file_arg = "C:/other/cli-conf".to_owned();
+        let file_arg = "C:/other/cli-conf";
         let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
             &mut file_ops,
-            &[LegacyConfigCmdArg::UnresolvedFile(file_arg)],
+            &[LegacyConfigCmdArg::file(file_arg)?],
             ProjectRelativePath::empty(),
         )?;
 
@@ -763,8 +763,8 @@ mod tests {
             &project_fs,
             &mut file_ops,
             &[
-                LegacyConfigCmdArg::UnresolvedFile("other//app-conf".to_owned()),
-                LegacyConfigCmdArg::UnresolvedFile("//global-conf".to_owned()),
+                LegacyConfigCmdArg::file("other//app-conf")?,
+                LegacyConfigCmdArg::file("//global-conf")?,
             ],
             ProjectRelativePath::empty(),
         )?;

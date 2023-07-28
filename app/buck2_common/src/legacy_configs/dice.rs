@@ -417,7 +417,7 @@ mod tests {
                 LegacyBuckConfig::parse_with_file_ops(
                     path,
                     &mut file_ops,
-                    &[LegacyConfigCmdArg::Flag("sec1.a=c".to_owned())],
+                    &[LegacyConfigCmdArg::flag("sec1.a=c")?],
                 )?
             },
             CellName::testing_new("cell2")
@@ -438,7 +438,7 @@ mod tests {
                 LegacyBuckConfig::parse_with_file_ops(
                     path,
                     &mut file_ops,
-                    &[LegacyConfigCmdArg::Flag("sec1.a=c".to_owned())],
+                    &[LegacyConfigCmdArg::flag("sec1.a=c")?],
                 )?
             },
         ]));
@@ -462,7 +462,7 @@ mod tests {
                 LegacyBuckConfig::parse_with_file_ops(
                     path,
                     &mut file_ops,
-                    &[LegacyConfigCmdArg::Flag("sec1.d=e".to_owned())],
+                    &[LegacyConfigCmdArg::flag("sec1.d=e")?],
                 )?
             },
         ]));
