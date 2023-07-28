@@ -49,51 +49,45 @@ use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 #[repr(C)]
 pub struct ExternalRunnerTestInfoGen<V> {
     /// A Starlark value representing the type of this test.
-    /// This is of type str.type
     #[provider(field_type = "String")]
     test_type: V,
 
     /// A Starlark value representing the command for this test. The external test runner is what
     /// gives meaning to this command.
-    /// This is of type [[str.type, "_arglike"]]
+    /// This is of type `list[str | ArgLike]`.
     #[provider(field_type = "Vec<Either<String, FrozenValue>>")]
     command: V,
 
     /// A Starlark value representing the environment for this test. Here again, the external test
     /// runner is what will this meaning.
-    /// This is of type {str.type: _arglike}
+    /// This is of type `dict[str, ArgLike]`.
     #[provider(field_type = "DictType<String, FrozenValue>")]
     env: V,
 
     /// A starlark value representing the labels for this test.
-    /// This is of type [str.type]
     #[provider(field_type = "Vec<String>")]
     labels: V,
 
     /// A starlark value representing the contacts for this test. This is largely expected to be an
     /// oncall, though it's not validated in any way.
-    /// This is of type [str.type]
     #[provider(field_type = "Vec<String>")]
     contacts: V,
 
     /// Whether this test should use relative paths. The default is not to.
-    /// This is of type [bool.type]
     #[provider(field_type = "Vec<bool>")]
     use_project_relative_paths: V,
 
     /// Whether this test should run from the project root, as opposed to the cell root. The
     /// default is not to.
-    /// This is of type [bool.type]
     #[provider(field_type = "Vec<bool>")]
     run_from_project_root: V,
 
-    /// Default executor to use to run tests.  This is of type CommandExecutorConfig. If none is
+    /// Default executor to use to run tests. If none is
     /// passed we will default to the execution platform.
     #[provider(field_type = "StarlarkCommandExecutorConfig")]
     default_executor: V,
 
     /// Executors that Tpx can use to override the default executor.
-    /// This is of type {str.type: CommandExecutorConfig}
     #[provider(field_type = "DictType<String, StarlarkCommandExecutorConfig>")]
     executor_overrides: V,
 
