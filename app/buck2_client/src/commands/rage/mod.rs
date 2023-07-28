@@ -229,6 +229,30 @@ impl RageCommand {
                 manifold_id = format!("{}_{}", invocation_id, manifold_id);
             }
 
+            buck2_client_ctx::eprintln!("Collecting debug info...")?;
+
+            let thread_dump = {
+                let title = "Thread dump".to_owned();
+                RageSection::get(title, timeout, || {
+                    thread_dump::upload_thread_dump(&buckd, &manifold_id)
+                })
+            };
+            let build_info_command = {
+                let title = "Associated invocation info".to_owned();
+                match selected_invocation.as_ref() {
+                    None => RageSection::get_skipped(title),
+                    Some(invocation) => {
+                        RageSection::get(title, timeout, || build_info::get(invocation))
+                    }
+                }
+            };
+            let (thread_dump, build_info) = tokio::join!(
+                // Get thread dump before making any new connections to daemon (T159606309)
+                thread_dump,
+                // We need the RE session ID from here to upload RE logs
+                build_info_command
+            );
+
             let system_info_command =
                 RageSection::get("System info".to_owned(), timeout, system_info::get);
             let daemon_stderr_command =
@@ -261,22 +285,6 @@ impl RageCommand {
                         MaterializerRageUploadData::Fsck,
                     )
                 });
-            let thread_dump = {
-                let title = "Thread dump".to_owned();
-                RageSection::get(title, timeout, || {
-                    thread_dump::upload_thread_dump(&buckd, &manifold_id)
-                })
-            };
-            let build_info_command = {
-                let title = "Associated invocation info".to_owned();
-                match selected_invocation.as_ref() {
-                    None => RageSection::get_skipped(title),
-                    Some(invocation) => {
-                        RageSection::get(title, timeout, || build_info::get(invocation))
-                    }
-                }
-            };
-
             let event_log_command = {
                 let title = "Event log upload".to_owned();
                 match selected_invocation.as_ref() {
@@ -287,11 +295,6 @@ impl RageCommand {
                 }
             };
 
-            buck2_client_ctx::eprintln!("Collecting debug info...")?;
-
-            // Get thread dump before making any new connections to daemon (T159606309)
-            let thread_dump = thread_dump.await;
-
             let (
                 system_info,
                 daemon_stderr_dump,
@@ -299,7 +302,6 @@ impl RageCommand {
                 dice_dump,
                 materializer_state,
                 materializer_fsck,
-                build_info,
                 event_log_dump,
             ) = tokio::join!(
                 system_info_command,
@@ -308,7 +310,6 @@ impl RageCommand {
                 dice_dump_command,
                 materializer_state,
                 materializer_fsck,
-                build_info_command,
                 event_log_command,
             );
             let sections = vec![
