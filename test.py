@@ -124,6 +124,7 @@ def list_starlark_files(git: bool):
     ]
     excludes = [
         "starlark-rust/starlark/testcases",
+        "tests/e2e/test_starlark_data/bad_warning.bzl",
         "tests/targets/lsp/bad_syntax.bzl",
         "tests/targets/lsp/query.bxl",
         "tests/targets/lsp/globals.bzl",
