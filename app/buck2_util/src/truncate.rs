@@ -36,7 +36,7 @@ pub fn truncate(msg: &str, max_length: usize) -> String {
 /// Truncate a container of strings and return the comma-separated string representation. The end of
 /// the collection is elided if the length is too long.
 /// `max_length` is maximum length of truncated message excluding the truncation placeholder message.
-pub fn truncate_container<'v, Iter: IntoIterator<Item = &'v str>>(
+pub fn truncate_container<T: AsRef<str>, Iter: IntoIterator<Item = T>>(
     iter: Iter,
     max_length: usize,
 ) -> String {
@@ -46,6 +46,7 @@ pub fn truncate_container<'v, Iter: IntoIterator<Item = &'v str>>(
     match items.next() {
         None => (),
         Some(first) => {
+            let first = first.as_ref();
             if first.len() > max_length {
                 result.push_str(&first[0..first.floor_char_boundary(max_length)]);
                 result.push_str(TRUNCATION_MSG);
@@ -54,6 +55,7 @@ pub fn truncate_container<'v, Iter: IntoIterator<Item = &'v str>>(
                 result.push_str(first);
 
                 for v in items {
+                    let v = v.as_ref();
                     if result.len() + TRUNCATION_DELIM.len() + v.len() > max_length {
                         result.push_str(
                             &TRUNCATION_DELIM[0..std::cmp::min(
