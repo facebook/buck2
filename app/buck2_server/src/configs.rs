@@ -29,7 +29,7 @@ fn config_type_from_i32(value: i32) -> anyhow::Result<ConfigType> {
     })
 }
 
-fn get_legacy_config_args<'a, Iter: IntoIterator<Item = &'a ConfigOverride>>(
+pub fn get_legacy_config_args<'a, Iter: IntoIterator<Item = &'a ConfigOverride>>(
     config_overrides: Iter,
 ) -> anyhow::Result<Vec<LegacyConfigCmdArg>> {
     config_overrides
@@ -44,17 +44,16 @@ fn get_legacy_config_args<'a, Iter: IntoIterator<Item = &'a ConfigOverride>>(
 }
 
 /// Read the configs, returning the cell resolver and the legacy configs
-pub fn parse_legacy_cells<'a, Iter: IntoIterator<Item = &'a ConfigOverride>>(
-    config_overrides: Iter,
+pub fn parse_legacy_cells(
+    config_overrides: &[LegacyConfigCmdArg],
     cwd: &ProjectRelativePath,
     fs: &ProjectRoot,
 ) -> anyhow::Result<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)> {
-    let config_values = get_legacy_config_args(config_overrides)?;
     // TODO: We do not need to reparse _all_ configs, instead we just need to
     // overlay any custom configs for the current build command on top of
     // the base configs derived from the config files. This requires us to
     // store the base configs + overlaid ones separately, so we can cheaply
     // recompose.
-    let res = BuckConfigBasedCells::parse_with_config_args(fs, &config_values, cwd)?;
+    let res = BuckConfigBasedCells::parse_with_config_args(fs, config_overrides, cwd)?;
     Ok((res.cell_resolver, res.configs_by_name, res.config_paths))
 }
