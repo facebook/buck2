@@ -37,7 +37,7 @@ pub(crate) enum StdoutOrStderr {
 pub(crate) struct FileTailer {
     // This thread is periodically checking the file for new data. When a message is
     // sent on the end_signaller, the thread will do one final sync of data and then exit.
-    thread: Option<std::thread::JoinHandle<()>>,
+    thread: Option<std::thread::JoinHandle<anyhow::Result<()>>>,
     end_signaller: Option<oneshot::Sender<()>>,
 }
 
@@ -46,8 +46,13 @@ impl Drop for FileTailer {
         // If the thread has exited then don't error here.
         let _ignored = self.end_signaller.take().unwrap().send(());
         match self.thread.take().unwrap().join() {
-            Ok(()) => {}
-            Err(e) => std::panic::resume_unwind(e),
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => {
+                tracing::warn!("Error tailing daemon logs: {:#}", e);
+            }
+            Err(..) => {
+                tracing::warn!("Error tailing daemon logs: panic");
+            }
         }
     }
 }
@@ -71,8 +76,8 @@ impl FileTailer {
         // rather than just repeatedly reading the file, but I tried to use each of
         // https://crates.io/crates/hotwatch and https://crates.io/crates/notify and neither worked.
         let thread = std::thread::spawn(move || {
-            let runtime = client_tokio_runtime().unwrap();
-            runtime.block_on(async move {
+            let runtime = client_tokio_runtime()?;
+            let res = runtime.block_on(async move {
                 let mut interval = tokio::time::interval(Duration::from_millis(200));
                 let mut rx = rx.fuse();
 
@@ -88,7 +93,7 @@ impl FileTailer {
                     }
 
                     let mut line = Vec::new();
-                    while reader.read_until(b'\n', &mut line).unwrap() != 0 {
+                    while reader.read_until(b'\n', &mut line)? != 0 {
                         let event = match stdout_or_stderr {
                             StdoutOrStderr::Stdout => FileTailerEvent::Stdout(line),
                             StdoutOrStderr::Stderr => {
@@ -105,7 +110,11 @@ impl FileTailer {
                         line = Vec::new();
                     }
                 }
-            })
+
+                anyhow::Ok(())
+            });
+
+            res.with_context(|| format!("Failed to read from `{}`", file))
         });
 
         Ok(Self {
