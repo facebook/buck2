@@ -700,6 +700,49 @@ fn context_methods(builder: &mut MethodsBuilder) {
         res
     }
 
+    /// Gets the unconfigured subtargets for the given `labels`
+    ///
+    /// The given `labels` is a providers expression, which is either:
+    ///     - a single string that is a `target pattern`.
+    ///     - a single target node or label, configured or unconfigured
+    ///     - a single subtarget label, configured or unconfigured
+    ///     - a list of the two options above.
+    ///
+    /// This returns either a single [`StarlarkProvidersLabel`] if the given `labels`
+    /// is "singular", or dict of the subtarget string representation to the
+    /// [`StarlarkProvidersLabel`] if the given `labels` is list-like.
+    ///
+    /// Note that this function does not check that this subtarget exists in the repo.
+    fn unconfigured_sub_targets<'v>(
+        this: &'v BxlContext<'v>,
+        labels: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        let providers = ProvidersExpr::<ProvidersLabel>::unpack(labels, this, eval)?;
+
+        let res = match providers {
+            ProvidersExpr::Literal(provider) => {
+                eval.heap().alloc(StarlarkProvidersLabel::new(provider))
+            }
+            ProvidersExpr::Iterable(providers) => eval.heap().alloc(Dict::new(
+                providers
+                    .into_iter()
+                    .map(|p| {
+                        Ok((
+                            eval.heap()
+                                .alloc_str(&p.to_string())
+                                .to_value()
+                                .get_hashed()?,
+                            eval.heap().alloc(StarlarkProvidersLabel::new(p)),
+                        ))
+                    })
+                    .collect::<anyhow::Result<_>>()?,
+            )),
+        };
+
+        Ok(res)
+    }
+
     /// Returns the [`StarlarkUQueryCtx`] that holds all uquery functions.
     fn uquery<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
         StarlarkUQueryCtx::new(this)
