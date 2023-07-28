@@ -206,6 +206,9 @@ pub struct ServerCommandContext<'a> {
     /// Daemon uuid passed in from the client side to detect nested invocation.
     pub(crate) daemon_uuid_from_client: Option<String>,
 
+    /// Command named passed from the CLI
+    pub(crate) command_name: String,
+
     /// Sanitized argument vector from the CLI from the client side.
     pub(crate) sanitized_argv: Vec<String>,
 
@@ -318,6 +321,7 @@ impl<'a> ServerCommandContext<'a> {
             disable_starlark_types: client_context.disable_starlark_types,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
             daemon_uuid_from_client: client_context.daemon_uuid.clone(),
+            command_name: client_context.command_name.clone(),
             sanitized_argv: client_context.sanitized_argv.clone(),
             debugger_handle,
             cancellations,
@@ -727,6 +731,10 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
     fn working_dir_abs(&self) -> &WorkingDir {
         &self.working_dir_abs
+    }
+
+    fn command_name(&self) -> &str {
+        &self.command_name
     }
 
     fn isolation_prefix(&self) -> &FileName {

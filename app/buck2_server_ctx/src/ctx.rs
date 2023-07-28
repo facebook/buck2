@@ -44,6 +44,8 @@ pub trait ServerCommandContextTrait: Send + Sync {
 
     fn working_dir_abs(&self) -> &WorkingDir;
 
+    fn command_name(&self) -> &str;
+
     fn isolation_prefix(&self) -> &FileName;
 
     fn project_root(&self) -> &ProjectRoot;
@@ -162,6 +164,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                                 dice.per_transaction_data()
                                                     .get_critical_path_backend(),
                                                 BuildSignalsContext {
+                                                    command_name: self.command_name().to_owned(),
                                                     metadata: metadata.clone(),
                                                     isolation_prefix: self
                                                         .isolation_prefix()
