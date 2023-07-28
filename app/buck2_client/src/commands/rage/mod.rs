@@ -232,7 +232,7 @@ impl RageCommand {
             let system_info_command =
                 RageSection::get("System info".to_owned(), timeout, system_info::get);
             let daemon_stderr_command =
-                RageSection::get("Daemon stderr Manifold path".to_owned(), timeout, || {
+                RageSection::get("Daemon stderr".to_owned(), timeout, || {
                     upload_daemon_stderr(stderr_path, &manifold_id)
                 });
             let hg_snapshot_id_command = RageSection::get(
@@ -240,36 +240,29 @@ impl RageCommand {
                 timeout,
                 source_control::get_info,
             );
-            let dice_dump_command =
-                RageSection::get("Dice dump Manifold path".to_owned(), timeout, || async {
-                    dice::upload_dice_dump(buckd.clone()?, dice_dump_dir, &manifold_id).await
-                });
-            let materializer_state = RageSection::get(
-                "Materializer state Manifold path".to_owned(),
-                timeout,
-                || {
+            let dice_dump_command = RageSection::get("Dice dump".to_owned(), timeout, || async {
+                dice::upload_dice_dump(buckd.clone()?, dice_dump_dir, &manifold_id).await
+            });
+            let materializer_state =
+                RageSection::get("Materializer state".to_owned(), timeout, || {
                     materializer::upload_materializer_data(
                         &buckd,
                         &client_ctx,
                         &manifold_id,
                         MaterializerRageUploadData::State,
                     )
-                },
-            );
-            let materializer_fsck = RageSection::get(
-                "Materializer fsck Manifold path".to_owned(),
-                timeout,
-                || {
+                });
+            let materializer_fsck =
+                RageSection::get("Materializer fsck".to_owned(), timeout, || {
                     materializer::upload_materializer_data(
                         &buckd,
                         &client_ctx,
                         &manifold_id,
                         MaterializerRageUploadData::Fsck,
                     )
-                },
-            );
+                });
             let thread_dump = {
-                let title = "Thread dump Manifold path".to_owned();
+                let title = "Thread dump".to_owned();
                 RageSection::get(title, timeout, || {
                     thread_dump::upload_thread_dump(&buckd, &manifold_id)
                 })
@@ -285,7 +278,7 @@ impl RageCommand {
             };
 
             let event_log_command = {
-                let title = "Event log upload Manifold path".to_owned();
+                let title = "Event log upload".to_owned();
                 match selected_invocation.as_ref() {
                     None => RageSection::get_skipped(title),
                     Some(path) => {
@@ -443,7 +436,10 @@ async fn upload_daemon_stderr(
         .from_stdio(upload_log_file)?
         .spawn()
         .await?;
-    Ok(format!("buck2_rage_dumps/flat/{}", filename))
+    Ok(format!(
+        "https://www.internalfb.com/manifold/explorer/buck2_rage_dumps/flat/{}",
+        filename
+    ))
 }
 
 async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow::Result<String> {
@@ -454,7 +450,10 @@ async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow:
         .from_file(path.path())?
         .spawn()
         .await?;
-    Ok(format!("{}/flat/{}", bucket.name, filename))
+    Ok(format!(
+        "https://www.internalfb.com/manifold/explorer/{}/flat/{}",
+        bucket.name, filename
+    ))
 }
 
 async fn dispatch_result_event(

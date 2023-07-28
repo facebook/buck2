@@ -45,7 +45,7 @@ pub async fn upload_thread_dump(
             .spawn()
             .await?;
         Ok(format!(
-            "{}/flat/{}",
+            "https://www.internalfb.com/manifold/explorer/{}/flat/{}",
             manifold_bucket.name, manifold_filename
         ))
     } else {

@@ -76,7 +76,7 @@ pub async fn upload_materializer_data(
         .context("Error uploading to Manifold")?;
 
     Ok(format!(
-        "{}/flat/{}",
+        "https://www.internalfb.com/manifold/explorer/{}/flat/{}",
         manifold_bucket.name, manifold_filename
     ))
 }
