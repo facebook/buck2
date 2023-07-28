@@ -118,6 +118,8 @@ message ClientContext {
   optional string host_xcode_version = 15;
   /// Error out concurrent commands after there is a state change.
   bool exit_when_different_state = 16;
+  // The name of the command the client thinks it's running.
+  string command_name = 17;
 
   /// Contents of `BUCK2_HARD_ERROR` environment variable.
   string buck2_hard_error = 20;

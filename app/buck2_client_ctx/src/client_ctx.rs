@@ -182,6 +182,7 @@ impl<'a> ClientCommandContext<'a> {
             sanitized_argv: Vec::new(),
             argfiles: Vec::new(),
             buck2_hard_error: BUCK2_HARD_ERROR_ENV_VAR.get()?.cloned().unwrap_or_default(),
+            command_name: self.command_name.clone(),
             exit_when_different_state: false,
         })
     }
