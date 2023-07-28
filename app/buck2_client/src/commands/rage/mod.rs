@@ -214,10 +214,9 @@ impl RageCommand {
             let sink = create_scribe_sink(&ctx)?;
 
             buck2_client_ctx::eprintln!(
-                "Collection will terminate after {} seconds (override with --timeout param)",
+                "Data collection will terminate after {} seconds (override with --timeout param)",
                 self.timeout
             )?;
-            buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
 
             // If there is a daemon, connect.
             let buckd = BootstrapBuckdClient::connect(paths, BuckdConnectConstraints::ExistingOnly)
@@ -294,6 +293,8 @@ impl RageCommand {
                     }
                 }
             };
+
+            buck2_client_ctx::eprintln!("Collecting debug info...")?;
 
             let (
                 system_info,

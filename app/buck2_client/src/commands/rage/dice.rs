@@ -56,7 +56,6 @@ impl DiceDump {
         mut buckd: BuckdClientConnector<'_>,
         manifold_filename: &str,
     ) -> anyhow::Result<()> {
-        buck2_client_ctx::eprintln!("Generating Buck2 DICE dump...")?;
         create_dir_all(&self.buck_out_dice).with_context(|| {
             format!(
                 "Failed to create directory `{}`, no DICE dump will be created",
@@ -79,11 +78,6 @@ impl DiceDump {
             })?;
 
         // create DICE dump name using the old command being rage on and the trace id of this rage command.
-
-        buck2_client_ctx::eprintln!(
-            "Compressed DICE dump being uploaded to manifold as {}...",
-            &manifold_filename
-        )?;
         upload_to_manifold(&self.dump_folder, manifold_filename)
             .await
             .with_context(|| "Failed during manifold upload!")?;
