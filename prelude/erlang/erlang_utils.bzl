@@ -168,6 +168,9 @@ def _file_mapping_impl(ctx: AnalysisContext) -> list["provider"]:
 
     return [DefaultInfo(default_outputs = outputs)]
 
+def list_dedupe(xs: ["string"]) -> ["string"]:
+    return {x: True for x in xs}.keys()
+
 file_mapping = rule(
     impl = _file_mapping_impl,
     attrs = {

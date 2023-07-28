@@ -29,6 +29,7 @@ load(
 load(
     ":erlang_utils.bzl",
     "file_mapping",
+    "list_dedupe",
     "preserve_structure",
     "to_term_args",
 )
@@ -97,6 +98,8 @@ def erlang_tests_macro(
     additional_labels = read_config("erlang", "test_labels", None)
     if additional_labels != None:
         common_attributes["labels"] += additional_labels.split()
+
+    common_attributes["labels"] = list_dedupe(common_attributes["labels"])
 
     for suite in suites:
         # forward resources and deps fields and generate erlang_test target
