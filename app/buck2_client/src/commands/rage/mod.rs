@@ -194,9 +194,6 @@ pub struct RageCommand {
     /// or is called in a machine with no pastry command
     #[clap(long)]
     no_paste: bool,
-    /// Obtain thread dump for debugging
-    #[clap(long)]
-    thread_dump: bool,
 }
 
 impl RageCommand {
@@ -274,13 +271,9 @@ impl RageCommand {
             );
             let thread_dump = {
                 let title = "Thread dump Manifold path".to_owned();
-                if self.thread_dump {
-                    RageSection::get(title, timeout, || {
-                        thread_dump::upload_thread_dump(&buckd, &manifold_id)
-                    })
-                } else {
-                    RageSection::get_skipped(title)
-                }
+                RageSection::get(title, timeout, || {
+                    thread_dump::upload_thread_dump(&buckd, &manifold_id)
+                })
             };
             let build_info_command = {
                 let title = "Associated invocation info".to_owned();
