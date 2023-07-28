@@ -311,7 +311,8 @@ fn curl_write_command(
     ttl: Option<Duration>,
     cert: &OsString,
 ) -> anyhow::Result<Option<Command>> {
-    let manifold_url = match log_upload_url() {
+    // Don't ask for a vpnless URL here because we don't know what to do with that anyway.
+    let manifold_url = match log_upload_url(false) {
         None => return Ok(None),
         Some(x) => x,
     };
@@ -407,10 +408,12 @@ fn get_cli_path() -> Option<OsString> {
 }
 
 /// Return the place to upload logs, or None to not upload logs at all
-fn log_upload_url() -> Option<&'static str> {
+fn log_upload_url(use_vpnless: bool) -> Option<&'static str> {
     #[cfg(any(fbcode_build, cargo_internal_build))]
     if hostcaps::is_prod() {
         Some("https://manifold.facebook.net")
+    } else if use_vpnless {
+        Some("http://manifold.edge.x2p.facebook.net")
     } else {
         Some("https://manifold.c2p.facebook.net")
     }
@@ -418,7 +421,7 @@ fn log_upload_url() -> Option<&'static str> {
     {
         #[cfg(fbcode_build)]
         compile_error!("this code is not meant to be compiled in fbcode");
-
+        let _unused = use_vpnless;
         None
     }
 }
@@ -430,9 +433,12 @@ pub struct ManifoldClient {
 
 impl ManifoldClient {
     pub fn new(allow_vpnless: bool) -> anyhow::Result<Self> {
+        let client = http::http_client(allow_vpnless)?;
+        let manifold_url = log_upload_url(client.supports_vpnless()).map(|s| s.to_owned());
+
         Ok(Self {
-            client: http::http_client(allow_vpnless)?,
-            manifold_url: log_upload_url().map(|s| s.to_owned()),
+            client,
+            manifold_url,
         })
     }
 
