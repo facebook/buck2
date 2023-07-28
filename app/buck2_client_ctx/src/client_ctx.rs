@@ -145,13 +145,12 @@ impl<'a> ClientCommandContext<'a> {
                 .map(|path| path.to_string())
                 .collect(),
             target_call_stacks: config_opts.target_call_stacks,
-            command_name: T::COMMAND_NAME.to_owned(),
-            ..self.empty_client_context()?
+            ..self.empty_client_context(T::COMMAND_NAME)?
         })
     }
 
     /// A client context for commands where CommonConfigOptions are not provided.
-    pub fn empty_client_context(&self) -> anyhow::Result<ClientContext> {
+    pub fn empty_client_context(&self, command_name: &str) -> anyhow::Result<ClientContext> {
         #[derive(Debug, thiserror::Error)]
         #[error("Current directory is not UTF-8")]
         struct CurrentDirIsNotUtf8;
@@ -183,7 +182,7 @@ impl<'a> ClientCommandContext<'a> {
             sanitized_argv: Vec::new(),
             argfiles: Vec::new(),
             buck2_hard_error: BUCK2_HARD_ERROR_ENV_VAR.get()?.cloned().unwrap_or_default(),
-            command_name: self.command_name.clone(),
+            command_name: command_name.to_owned(),
             exit_when_different_state: false,
         })
     }

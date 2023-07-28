@@ -207,7 +207,7 @@ impl RageCommand {
             let logdir = paths.log_dir();
             let dice_dump_dir = paths.dice_dump_dir();
 
-            let client_ctx = ctx.empty_client_context()?;
+            let client_ctx = ctx.empty_client_context("rage")?;
 
             let rage_id = TraceId::new();
             let mut manifold_id = format!("{}", rage_id);

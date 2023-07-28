@@ -47,7 +47,7 @@ impl StreamingCommand for AllocativeCommand {
         _matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let context = ctx.empty_client_context()?;
+        let context = ctx.empty_client_context("debug-allocative")?;
         buckd
             .with_flushing()
             .allocative(
