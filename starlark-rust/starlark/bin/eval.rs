@@ -369,7 +369,7 @@ impl LspContext for Context {
 }
 
 pub(crate) fn globals() -> Globals {
-    Globals::extended()
+    Globals::extended_internal()
 }
 
 pub(crate) fn dialect() -> Dialect {

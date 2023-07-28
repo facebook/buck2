@@ -280,7 +280,7 @@ fn main() -> anyhow::Result<()> {
             let mut builtin = get_registered_starlark_docs();
             builtin.push(Doc::named_item(
                 "globals".to_owned(),
-                DocItem::Module(Globals::extended().documentation()),
+                DocItem::Module(Globals::extended_internal().documentation()),
             ));
 
             match docs {

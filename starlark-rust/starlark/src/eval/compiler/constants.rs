@@ -73,7 +73,7 @@ mod tests {
             Constants::get().fn_len
         );
         assert_eq!(
-            Globals::extended().get_frozen("len").unwrap(),
+            Globals::extended_internal().get_frozen("len").unwrap(),
             Constants::get().fn_len
         );
     }

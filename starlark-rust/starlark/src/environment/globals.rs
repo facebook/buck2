@@ -112,7 +112,11 @@ impl Globals {
 
     /// Create a [`Globals`] combining those functions in the Starlark standard plus
     /// all those defined in [`LibraryExtension`].
-    pub fn extended() -> Self {
+    ///
+    /// This function is public to use in the `starlark` binary,
+    /// but users of starlark should list the extensions they want explicitly.
+    #[doc(hidden)]
+    pub fn extended_internal() -> Self {
         GlobalsBuilder::extended().build()
     }
 
@@ -231,7 +235,7 @@ impl GlobalsBuilder {
 
     /// Create a [`GlobalsBuilder`] combining those functions in the Starlark standard plus
     /// all those defined in [`LibraryExtension`].
-    pub fn extended() -> Self {
+    pub(crate) fn extended() -> Self {
         Self::extended_by(LibraryExtension::all())
     }
 

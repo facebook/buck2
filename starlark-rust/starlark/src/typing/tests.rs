@@ -50,7 +50,7 @@ fn test_oracle() {
     let o = mk_oracle();
 
     let mut b = OracleDocs::new();
-    b.add_module(&Globals::extended().documentation());
+    b.add_module(&Globals::extended_internal().documentation());
 
     assert_eq!(
         o.attribute(&TyBasic::string(), TypingAttr::Regular("removeprefix")),
@@ -116,7 +116,7 @@ impl TypeCheck {
         let (errors, _, interface, approximations) =
             AstModule::parse("filename", code.to_owned(), &Dialect::Extended)
                 .unwrap()
-                .typecheck(&mk_oracle(), &Globals::extended(), &self.loads);
+                .typecheck(&mk_oracle(), &Globals::extended_internal(), &self.loads);
 
         let mut output = String::new();
         writeln!(output, "Code:").unwrap();

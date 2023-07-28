@@ -245,7 +245,7 @@ pub struct Assert<'a> {
 /// Construction and state management.
 impl<'a> Assert<'a> {
     /// Create a new assert object, which will by default use
-    /// [`Dialect::Extended`] and [`Globals::extended()`],
+    /// [`Dialect::Extended`] and all library extensions,
     /// plus some additional global functions like `assert_eq`.
     /// The usual pattern is to create a `mut` `Assert`, modify some properties
     /// and then execute some tests.

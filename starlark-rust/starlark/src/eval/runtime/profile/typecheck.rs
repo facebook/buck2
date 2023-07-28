@@ -101,7 +101,7 @@ g()
 "#;
         let program = AstModule::parse("test.star", program.to_owned(), &Dialect::Extended)?;
         eval.enable_profile(&ProfileMode::Typecheck)?;
-        eval.eval_module(program, &Globals::extended())?;
+        eval.eval_module(program, &Globals::extended_internal())?;
 
         let csv = eval.typecheck_profile.gen_csv();
         let lines: Vec<&str> = csv.lines().collect();
