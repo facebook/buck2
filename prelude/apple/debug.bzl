@@ -54,7 +54,7 @@ def get_aggregated_debug_info(ctx: "context", debug_infos: list[AppleDebuggableI
     debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
-        children = filter(None, all_debug_info_tsets),
+        children = all_debug_info_tsets,
     )
     sub_targets = {}
     sub_targets[DEBUGINFO_SUBTARGET] = [
@@ -69,7 +69,7 @@ def get_aggregated_debug_info(ctx: "context", debug_infos: list[AppleDebuggableI
     full_debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
-        children = filter(None, full_debug_info_tsets),
+        children = full_debug_info_tsets,
     )
     if full_debug_info_tset._tset:
         debug_info_map.update({str(info.label): info.artifacts for infos in full_debug_info_tset._tset.traverse() for info in infos})

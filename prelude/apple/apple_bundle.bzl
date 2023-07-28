@@ -203,15 +203,15 @@ def _get_debuggable_deps(ctx: AnalysisContext, binary_output: AppleBundleBinaryO
             executable = run_cmd,
             debug_info = project_artifacts(
                 actions = ctx.actions,
-                tsets = filter(None, [binary_debuggable_info.debug_info_tset]) if binary_debuggable_info else [],
+                tsets = [binary_debuggable_info.debug_info_tset] if binary_debuggable_info else [],
             ),
             action_identifier = get_bundle_dir_name(ctx),
             output_path = _get_bundle_dsym_name(ctx),
         )
         bundle_debuggable_info = AppleDebuggableInfo(
             dsyms = [bundle_binary_dsym_artifact],
-            debug_info_tset = binary_debuggable_info.debug_info_tset if binary_debuggable_info != None else None,
-            filtered_map = binary_debuggable_info.filtered_map if binary_debuggable_info != None else None,
+            debug_info_tset = binary_debuggable_info.debug_info_tset,
+            filtered_map = binary_debuggable_info.filtered_map,
         )
     else:
         bundle_debuggable_info = binary_output.debuggable_info
