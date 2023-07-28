@@ -73,11 +73,11 @@ def _write_final_ghci_script(
         packages_info: PackagesInfo.type,
         packagedb_args: "cmd_args",
         prebuilt_packagedb_args: "cmd_args",
-        iserv_script: "artifact",
-        start_ghci_file: "artifact",
-        ghci_bin: "artifact",
+        iserv_script: Artifact,
+        start_ghci_file: Artifact,
+        ghci_bin: Artifact,
         haskell_toolchain: HaskellToolchainInfo.type,
-        ghci_script_template: "artifact") -> "artifact":
+        ghci_script_template: Artifact) -> Artifact:
     srcs = " ".join(
         [
             paths.normalize(
@@ -178,7 +178,7 @@ def _build_haskell_omnibus_so(
 
     # Helper to get body nodes and prebuilt dependencies of the
     # omnibus SO (which should dynamically linked) during BFS traversal
-    def find_deps_for_body(node_label: "label"):
+    def find_deps_for_body(node_label: Label):
         deps = dep_graph[node_label]
 
         final_deps = []
@@ -297,13 +297,13 @@ def _build_haskell_omnibus_so(
 # script template.
 def _replace_macros_in_script_template(
         ctx: AnalysisContext,
-        script_template: "artifact",
+        script_template: Artifact,
         haskell_toolchain: HaskellToolchainInfo.type,
         # Optional artifacts
-        ghci_bin: ["artifact", None] = None,
-        start_ghci: ["artifact", None] = None,
-        iserv_script: ["artifact", None] = None,
-        squashed_so: ["artifact", None] = None,
+        ghci_bin: [Artifact, None] = None,
+        start_ghci: [Artifact, None] = None,
+        iserv_script: [Artifact, None] = None,
+        squashed_so: [Artifact, None] = None,
         # Optional cmd_args
         exposed_package_args: ["cmd_args", None] = None,
         packagedb_args: ["cmd_args", None] = None,
@@ -313,7 +313,7 @@ def _replace_macros_in_script_template(
         srcs: [str, None] = None,
         output_name: [str, None] = None,
         ghci_iserv_path: [str, None] = None,
-        preload_libs: [str, None] = None) -> "artifact":
+        preload_libs: [str, None] = None) -> Artifact:
     toolchain_paths = {
         BINUTILS_PATH: haskell_toolchain.ghci_binutils_path,
         GHCI_LIB_PATH: haskell_toolchain.ghci_lib_path,
@@ -403,7 +403,7 @@ def _replace_macros_in_script_template(
 def _write_iserv_script(
         ctx: AnalysisContext,
         preload_deps_info: GHCiPreloadDepsInfo.type,
-        haskell_toolchain: HaskellToolchainInfo.type) -> "artifact":
+        haskell_toolchain: HaskellToolchainInfo.type) -> Artifact:
     ghci_iserv_template = haskell_toolchain.ghci_iserv_template
 
     if (not ghci_iserv_template):
@@ -496,7 +496,7 @@ def _build_preload_deps_root(
     )
 
 # Symlink the ghci binary that will be used, e.g. the internal fork in Haxlsh
-def _symlink_ghci_binary(ctx, ghci_bin: "artifact"):
+def _symlink_ghci_binary(ctx, ghci_bin: Artifact):
     # TODO(T155760998): set ghci_ghc_path as a dependency instead of string
     ghci_bin_dep = ctx.attrs.ghci_bin_dep
     if not ghci_bin_dep:
@@ -520,7 +520,7 @@ def _first_order_haskell_deps(ctx: AnalysisContext) -> list["HaskellLibraryInfo"
     )
 
 # Creates the start.ghci script used to load the packages during startup
-def _write_start_ghci(ctx: AnalysisContext, script_file: "artifact"):
+def _write_start_ghci(ctx: AnalysisContext, script_file: Artifact):
     start_cmd = cmd_args()
 
     # Reason for unsetting `LD_PRELOAD` env var obtained from D6255224:

@@ -46,7 +46,7 @@ def _archive_flags(
     return [flags]
 
 # Create a static library from a list of object files.
-def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer_local: bool) -> "artifact":
+def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer_local: bool) -> Artifact:
     archive_output = ctx.actions.declare_output(name)
     toolchain = get_cxx_toolchain_info(ctx)
     command = cmd_args(toolchain.linker_info.archiver)
@@ -88,7 +88,7 @@ def _archive_locally(ctx: AnalysisContext, linker_info: "LinkerInfo") -> bool:
 def make_archive(
         ctx: AnalysisContext,
         name: str,
-        objects: list["artifact"],
+        objects: list[Artifact],
         args: [cmd_args, None] = None) -> Archive.type:
     if len(objects) == 0:
         fail("no objects to archive")

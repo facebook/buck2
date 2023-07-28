@@ -17,7 +17,7 @@ load(
 )
 load(":apple_utility.bzl", "get_module_name")
 
-def preprocessor_info_for_modulemap(ctx: AnalysisContext, name: str, headers: list[CHeader.type], swift_header: ["artifact", None]) -> CPreprocessor.type:
+def preprocessor_info_for_modulemap(ctx: AnalysisContext, name: str, headers: list[CHeader.type], swift_header: [Artifact, None]) -> CPreprocessor.type:
     # We don't want to name this module.modulemap to avoid implicit importing
     if name == "module":
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
@@ -76,9 +76,9 @@ def preprocessor_info_for_modulemap(ctx: AnalysisContext, name: str, headers: li
     )
 
 def _args_for_modulemap(
-        modulemap: "artifact",
-        symlink_tree: "artifact",
-        swift_header: ["artifact", None]) -> list[cmd_args]:
+        modulemap: Artifact,
+        symlink_tree: Artifact,
+        swift_header: [Artifact, None]) -> list[cmd_args]:
     cmd = cmd_args(modulemap, format = "-fmodule-map-file={}")
     cmd.hidden(symlink_tree)
     if swift_header:
@@ -86,5 +86,5 @@ def _args_for_modulemap(
 
     return [cmd]
 
-def _exported_preprocessor_args(symlink_tree: "artifact") -> list[cmd_args]:
+def _exported_preprocessor_args(symlink_tree: Artifact) -> list[cmd_args]:
     return [cmd_args(symlink_tree, format = "-I./{}")]

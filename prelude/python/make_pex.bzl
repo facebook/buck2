@@ -335,10 +335,10 @@ def _pex_bootstrap_args(
         python_interpreter_flags: [None, str],
         python_host_interpreter: "_arglike",
         main_module: str,
-        output: "artifact",
+        output: Artifact,
         shared_libraries: dict[str, (LinkedObject.type, bool)],
         preload_libraries: cmd_args,
-        symlink_tree_path: [None, "artifact"],
+        symlink_tree_path: [None, Artifact],
         package_style: PackageStyle.type) -> cmd_args:
     cmd = cmd_args()
     cmd.add(preload_libraries)
@@ -446,7 +446,7 @@ def _pex_modules_args(
         ctx: AnalysisContext,
         common_args: cmd_args,
         dep_artifacts: list[("_arglike", str)],
-        symlink_tree_path: [None, "artifact"],
+        symlink_tree_path: [None, Artifact],
         manifest_module: ["_arglike", None],
         pex_modules: PexModules.type,
         output_suffix: str) -> cmd_args:

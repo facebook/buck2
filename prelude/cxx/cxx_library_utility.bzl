@@ -93,7 +93,7 @@ def cxx_attr_preferred_linkage(ctx: AnalysisContext) -> Linkage.type:
 
     return Linkage(preferred_linkage)
 
-def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, ("artifact", list["_arglike"])]:
+def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list["_arglike"])]:
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
@@ -122,7 +122,7 @@ def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, ("artifact", list["_ar
 def cxx_mk_shlib_intf(
         ctx: AnalysisContext,
         name: str,
-        shared_lib: ["artifact", "promise"]) -> "artifact":
+        shared_lib: [Artifact, "promise"]) -> Artifact:
     """
     Convert the given shared library into an interface used for linking.
     """

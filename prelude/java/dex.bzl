@@ -26,9 +26,9 @@ DexLibraryInfo = provider(
 def get_dex_produced_from_java_library(
         ctx: AnalysisContext,
         dex_toolchain: "DexToolchainInfo",
-        jar_to_dex: "artifact",
+        jar_to_dex: Artifact,
         needs_desugar: bool = False,
-        desugar_deps: list["artifact"] = [],
+        desugar_deps: list[Artifact] = [],
         weight_factor: int = 1) -> "DexLibraryInfo":
     # TODO(T102963008) check whether the java_library actually contains any classes
 

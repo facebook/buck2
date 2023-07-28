@@ -17,11 +17,11 @@ def dwp_available(ctx: AnalysisContext):
 
 def run_dwp_action(
         ctx: AnalysisContext,
-        obj: "artifact",
+        obj: Artifact,
         identifier: [str, None],
         category_suffix: [str, None],
-        referenced_objects: ["_arglike", list["artifact"]],
-        dwp_output: "artifact",
+        referenced_objects: ["_arglike", list[Artifact]],
+        dwp_output: Artifact,
         local_only: bool):
     args = cmd_args()
     dwp = get_cxx_toolchain_info(ctx).binary_utilities_info.dwp
@@ -49,7 +49,7 @@ def run_dwp_action(
 def dwp(
         ctx: AnalysisContext,
         # Executable/library to extra dwo paths from.
-        obj: "artifact",
+        obj: Artifact,
         # An identifier that will uniquely name this link action in the context of a category. Useful for
         # differentiating multiple link actions in the same rule.
         identifier: [str, None],
@@ -60,7 +60,7 @@ def dwp(
         # but currently we don't track them properly.  So, we just pass in the full
         # link line and extract all inputs from that, which is a bit of an
         # overspecification.
-        referenced_objects: ["_arglike", list["artifact"]]) -> "artifact":
+        referenced_objects: ["_arglike", list[Artifact]]) -> Artifact:
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + ".dwp")
     run_dwp_action(

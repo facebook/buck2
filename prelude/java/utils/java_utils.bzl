@@ -19,7 +19,7 @@ def get_path_separator() -> str:
     # On UNIX systems, this character is ':'; on Microsoft Windows systems it is ';'.
     return ":"
 
-def derive_javac(javac_attribute: [str, Dependency, "artifact"]) -> [str, "RunInfo", "artifact"]:
+def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, "RunInfo", Artifact]:
     javac_attr_type = type(javac_attribute)
     if javac_attr_type == "dependency":
         javac_run_info = javac_attribute.get(RunInfo)

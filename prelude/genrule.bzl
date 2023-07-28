@@ -91,7 +91,7 @@ def genrule_impl(ctx: AnalysisContext) -> list["provider"]:
     # Buck2 clears the output directory before execution, and thus src/sh too.
     return process_genrule(ctx, ctx.attrs.out, ctx.attrs.outs)
 
-def _declare_output(ctx: AnalysisContext, path: str) -> "artifact":
+def _declare_output(ctx: AnalysisContext, path: str) -> Artifact:
     if path == ".":
         return ctx.actions.declare_output("out", dir = True)
     elif path.endswith("/"):
@@ -99,7 +99,7 @@ def _declare_output(ctx: AnalysisContext, path: str) -> "artifact":
     else:
         return ctx.actions.declare_output("out", path)
 
-def _project_output(out: "artifact", path: str) -> "artifact":
+def _project_output(out: Artifact, path: str) -> Artifact:
     if path == ".":
         return out
     elif path.endswith("/"):

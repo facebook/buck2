@@ -435,11 +435,11 @@ def _default_providers(
         ctx: AnalysisContext,
         lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
         param_artifact: dict[BuildParams.type, RustLinkStyleInfo.type],
-        rustdoc: "artifact",
+        rustdoc: Artifact,
         rustdoc_test: [cmd_args, None],
-        check_artifacts: dict[str, "artifact"],
-        expand: "artifact",
-        sources: "artifact") -> list["provider"]:
+        check_artifacts: dict[str, Artifact],
+        expand: Artifact,
+        sources: Artifact) -> list["provider"]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
@@ -684,7 +684,7 @@ def _native_providers(
 # Compute transitive deps. Caller decides whether this is necessary.
 def _compute_transitive_deps(
         ctx: AnalysisContext,
-        link_style: LinkStyle.type) -> (dict["artifact", CrateName.type], dict["artifact", CrateName.type], list[ArtifactTSet]):
+        link_style: LinkStyle.type) -> (dict[Artifact, CrateName.type], dict[Artifact, CrateName.type], list[ArtifactTSet]):
     transitive_deps = {}
     transitive_rmeta_deps = {}
     external_debug_info = []

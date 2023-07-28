@@ -22,14 +22,14 @@ ProguardOutput = record(
 
 def _get_proguard_command_line_args(
         ctx: AnalysisContext,
-        inputs_to_unscrubbed_outputs: dict["artifact", "artifact"],
-        proguard_configs: list["artifact"],
-        additional_library_jars: list["artifact"],
-        mapping: "artifact",
-        configuration: ["artifact", None],
-        seeds: ["artifact", None],
-        usage: ["artifact", None],
-        android_toolchain: "AndroidToolchainInfo") -> (cmd_args, list["artifact"]):
+        inputs_to_unscrubbed_outputs: dict[Artifact, Artifact],
+        proguard_configs: list[Artifact],
+        additional_library_jars: list[Artifact],
+        mapping: Artifact,
+        configuration: [Artifact, None],
+        seeds: [Artifact, None],
+        usage: [Artifact, None],
+        android_toolchain: "AndroidToolchainInfo") -> (cmd_args, list[Artifact]):
     cmd = cmd_args()
     hidden = []
     cmd.add("-basedirectory", "<user.dir>")
@@ -72,9 +72,9 @@ def run_proguard(
         ctx: AnalysisContext,
         android_toolchain: "AndroidToolchainInfo",
         java_toolchain: "JavaToolchainInfo",
-        command_line_args_file: "artifact",
+        command_line_args_file: Artifact,
         command_line_args: cmd_args,
-        mapping_file: "artifact"):
+        mapping_file: Artifact):
     run_proguard_cmd = cmd_args()
     run_proguard_cmd.add(
         java_toolchain.java[RunInfo],
@@ -104,10 +104,10 @@ def run_proguard(
 # e.g. Redex might want to consume it) but we don't actually run the proguard command.
 def get_proguard_output(
         ctx: AnalysisContext,
-        input_jars: dict["artifact", "target_label"],
+        input_jars: dict[Artifact, "target_label"],
         java_packaging_deps: list["JavaPackagingDep"],
-        aapt_generated_proguard_config: ["artifact", None],
-        additional_library_jars: list["artifact"]) -> ProguardOutput.type:
+        aapt_generated_proguard_config: [Artifact, None],
+        additional_library_jars: list[Artifact]) -> ProguardOutput.type:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
     if ctx.attrs.proguard_config:
         proguard_configs.append(ctx.attrs.proguard_config)

@@ -990,7 +990,7 @@ def _form_library_outputs(
         solibs = solibs,
     )
 
-def _strip_objects(ctx: AnalysisContext, objects: list["artifact"]) -> list["artifact"]:
+def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifact]:
     """
     Return new objects with debug info stripped.
     """
@@ -1118,13 +1118,13 @@ def _use_pic(link_style: LinkStyle.type) -> bool:
 def _static_library(
         ctx: AnalysisContext,
         impl_params: "CxxRuleConstructorParams",
-        objects: list["artifact"],
+        objects: list[Artifact],
         pic: bool,
         stripped: bool,
         extra_linkables: list[[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         objects_have_external_debug_info: bool = False,
         external_debug_info: ArtifactTSet.type = ArtifactTSet(),
-        bitcode_objects: [list["artifact"], None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
+        bitcode_objects: [list[Artifact], None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -1210,7 +1210,7 @@ def _static_library(
 # inputs, except the output is a combined bitcode file, which is not machine code.
 def _bitcode_bundle(
         ctx: AnalysisContext,
-        objects: [list["artifact"], None],
+        objects: [list[Artifact], None],
         pic: bool = False,
         stripped: bool = False,
         name_extra = "") -> [BitcodeBundle.type, None]:
@@ -1234,7 +1234,7 @@ _CxxSharedLibraryResult = record(
 def _shared_library(
         ctx: AnalysisContext,
         impl_params: "CxxRuleConstructorParams",
-        objects: list["artifact"],
+        objects: list[Artifact],
         external_debug_info: ArtifactTSet.type,
         dep_infos: "LinkArgs",
         gnu_use_link_groups: bool,

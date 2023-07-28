@@ -46,7 +46,7 @@ def _type(ctx: AnalysisContext) -> str:
 def _unarchive_cmd(
         ext_type: str,
         exec_is_windows: bool,
-        archive: "artifact",
+        archive: Artifact,
         strip_prefix: [str, None]) -> cmd_args:
     if exec_is_windows:
         # So many hacks.

@@ -13,8 +13,8 @@ load(":erlang_toolchain.bzl", "get_primary_tools")
 def _build_run_info(
         ctx: AnalysisContext,
         dependencies: list[Dependency],
-        additional_app_paths: list["artifact"] = [],
-        additional_paths: list["artifact"] = [],
+        additional_app_paths: list[Artifact] = [],
+        additional_paths: list[Artifact] = [],
         additional_args: list[cmd_args] = []) -> "provider":
     """Builds an Erlang shell with the dependencies and additional code paths available."""
 
@@ -64,7 +64,7 @@ def _build_run_info(
 
     return RunInfo(shell_cmd)
 
-def _shell_config_files(ctx: AnalysisContext) -> list["artifact"]:
+def _shell_config_files(ctx: AnalysisContext) -> list[Artifact]:
     config_files = []
     for config_dep in ctx.attrs.shell_configs:
         for artifact in config_dep[DefaultInfo].default_outputs + config_dep[DefaultInfo].other_outputs:

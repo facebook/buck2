@@ -24,7 +24,7 @@ def scene_kit_assets_impl(ctx: AnalysisContext) -> list["provider"]:
     )
     return [DefaultInfo(), graph]
 
-def compile_scene_kit_assets(ctx: AnalysisContext, specs: list[SceneKitAssetsSpec.type]) -> ["artifact", None]:
+def compile_scene_kit_assets(ctx: AnalysisContext, specs: list[SceneKitAssetsSpec.type]) -> [Artifact, None]:
     if len(specs) == 0:
         return None
 

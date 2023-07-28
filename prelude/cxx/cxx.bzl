@@ -126,10 +126,10 @@ load(
 def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         _ctx: AnalysisContext,
-        _executable: "artifact",
+        _executable: Artifact,
         _external_debug_info: ArtifactTSet.type,
-        dwp: ["artifact", None],
-        pdb: ["artifact", None],
+        dwp: [Artifact, None],
+        pdb: [Artifact, None],
         linker_map: [CxxLinkerMapData.type, None]) -> (dict[str, list["provider"]], list["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])

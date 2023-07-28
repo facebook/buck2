@@ -51,7 +51,7 @@ load("@prelude//:paths.bzl", "paths")
 # This mapping reflects the dependency requirements that don't admit cross
 # module inlining (cutting down significantly on recompilations when only a
 # module implementation and not its interface is changed).
-def parse_makefile(makefile: str, srcs: list["artifact"], opaque_enabled: bool) -> (dict["artifact", list["artifact"]], dict["artifact", list["artifact"]]):
+def parse_makefile(makefile: str, srcs: list[Artifact], opaque_enabled: bool) -> (dict[Artifact, list[Artifact]], dict[Artifact, list[Artifact]]):
     # ocamldep is always invoked with '-native' so compiled modules are always
     # reported as '.cmx' files
     contents = _parse(makefile)
@@ -94,7 +94,7 @@ def parse_makefile(makefile: str, srcs: list["artifact"], opaque_enabled: bool) 
 
     return (result, result2)
 
-def _resolve(entries: list[str], srcs: list["artifact"]) -> dict[str, "artifact"]:
+def _resolve(entries: list[str], srcs: list[Artifact]) -> dict[str, Artifact]:
     # O(n^2), alas - switch to a prefix map if that turns out to be too slow.
     result = {}
     for x in entries:
