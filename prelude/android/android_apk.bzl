@@ -12,7 +12,7 @@ load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//utils:set.bzl", "set")
 
-def android_apk_impl(ctx: AnalysisContext) -> list["provider"]:
+def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = False)
     java_packaging_deps = android_binary_info.java_packaging_deps
     sub_targets = android_binary_info.sub_targets

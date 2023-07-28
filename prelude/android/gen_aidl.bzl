@@ -12,7 +12,7 @@ _AidlSourceInfo = provider(fields = [
     "srcs",
 ])
 
-def gen_aidl_impl(ctx: AnalysisContext) -> list["provider"]:
+def gen_aidl_impl(ctx: AnalysisContext) -> list[Provider]:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     aidl_cmd = cmd_args(android_toolchain.aidl)
     aidl_cmd.add("-p", android_toolchain.framework_aidl_file)

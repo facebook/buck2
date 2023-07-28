@@ -15,7 +15,7 @@ def _is_40_hex(rev: str) -> bool:
             return False
     return True
 
-def git_fetch_impl(ctx: AnalysisContext) -> list["provider"]:
+def git_fetch_impl(ctx: AnalysisContext) -> list[Provider]:
     rev = ctx.attrs.rev
     if not _is_40_hex(rev):
         fail("git_fetch's `rev` must be a 40-hex-digit commit hash: {}".format(rev))

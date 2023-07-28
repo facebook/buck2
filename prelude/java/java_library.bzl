@@ -458,7 +458,7 @@ def _check_exported_deps(exported_deps: list[Dependency], attr_name: str):
 def _skip_java_library_dep_checks(ctx: AnalysisContext) -> bool:
     return "skip_buck2_java_library_dep_checks" in ctx.attrs.labels
 
-def java_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def java_library_impl(ctx: AnalysisContext) -> list[Provider]:
     """
      java_library() rule implementation
 

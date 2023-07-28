@@ -11,7 +11,7 @@ load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":resource_groups.bzl", "create_resource_graph")
 
-def apple_core_data_impl(ctx: AnalysisContext) -> list["provider"]:
+def apple_core_data_impl(ctx: AnalysisContext) -> list[Provider]:
     spec = AppleCoreDataSpec(
         path = ctx.attrs.path,
     )

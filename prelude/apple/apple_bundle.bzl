@@ -237,7 +237,7 @@ def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartList
         info_plist_part = resource_part_list.info_plist_part,
     )
 
-def apple_bundle_impl(ctx: AnalysisContext) -> list["provider"]:
+def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     _apple_bundle_run_validity_checks(ctx)
 
     binary_outputs = _get_binary(ctx)

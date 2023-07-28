@@ -49,7 +49,7 @@ StartSpec = record(
     start_type = field("StartType"),
 )
 
-def erlang_application_impl(ctx: AnalysisContext) -> list["provider"]:
+def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
     # select the correct tools from the toolchain
     toolchains = select_toolchains(ctx)
 
@@ -61,7 +61,7 @@ def erlang_application_impl(ctx: AnalysisContext) -> list["provider"]:
 
     return build_application(ctx, toolchains, dependencies, _build_erlang_application)
 
-def build_application(ctx, toolchains, dependencies, build_fun) -> list["provider"]:
+def build_application(ctx, toolchains, dependencies, build_fun) -> list[Provider]:
     name = ctx.attrs.name
 
     build_environments = {}
@@ -385,7 +385,7 @@ def build_apps_start_dependencies(ctx: AnalysisContext, toolchain: "Toolchain", 
 
     return start_dependencies
 
-def _build_start_spec(toolchain: "Toolchain", app_info: "provider", start_type: "StartType") -> "StartSpec":
+def _build_start_spec(toolchain: "Toolchain", app_info: Provider, start_type: "StartType") -> "StartSpec":
     if app_info.version == "dynamic":
         version = app_info.version
     else:
@@ -398,7 +398,7 @@ def _build_start_spec(toolchain: "Toolchain", app_info: "provider", start_type: 
         start_type = start_type,
     )
 
-def _build_default_info(dependencies: ErlAppDependencies, app_dir: Artifact) -> "provider":
+def _build_default_info(dependencies: ErlAppDependencies, app_dir: Artifact) -> Provider:
     """ generate default_outputs and DefaultInfo provider
     """
 
@@ -417,7 +417,7 @@ def build_app_info(
         build_environments: dict[str, "BuildEnvironment"],
         app_folders: dict[str, Artifact],
         primary_app_folder: Artifact,
-        start_dependencies: dict[str, list["StartDependencySet"]]) -> "provider":
+        start_dependencies: dict[str, list["StartDependencySet"]]) -> Provider:
     name = ctx.attrs.name
 
     version = {

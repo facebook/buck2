@@ -18,7 +18,7 @@ load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_share
 load("@prelude//utils:utils.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
-def java_test_impl(ctx: AnalysisContext) -> list["provider"]:
+def java_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 

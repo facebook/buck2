@@ -9,7 +9,7 @@ load("@prelude//android:android_providers.bzl", "AndroidManifestInfo", "merge_an
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE")
 
-def android_manifest_impl(ctx: AnalysisContext) -> list["provider"]:
+def android_manifest_impl(ctx: AnalysisContext) -> list[Provider]:
     output, merge_report = generate_android_manifest(
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo].generate_manifest[RunInfo],

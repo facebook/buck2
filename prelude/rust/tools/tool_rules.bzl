@@ -8,7 +8,7 @@
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 
-def _get_rustc_cfg_impl(ctx: AnalysisContext) -> list["provider"]:
+def _get_rustc_cfg_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
     out = ctx.actions.declare_output("rustc.cfg")

@@ -11,7 +11,7 @@ load(
     "merge_android_packageable_info",
 )
 
-def prebuilt_native_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def prebuilt_native_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.is_asset and ctx.attrs.has_wrap_script:
         fail("Cannot use `is_asset` and `has_wrap_script` in the same rule")
 

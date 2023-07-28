@@ -7,7 +7,7 @@
 
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
-def _impl(ctx: AnalysisContext) -> list["provider"]:
+def _impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         LocalResourceInfo(

@@ -218,7 +218,7 @@ JavaProviders = record(
     class_to_src_map = [JavaClassToSourceMapInfo.type, None],
 )
 
-def to_list(java_providers: JavaProviders.type) -> list["provider"]:
+def to_list(java_providers: JavaProviders.type) -> list[Provider]:
     providers = [
         java_providers.java_library_info,
         java_providers.java_library_intellij_info,

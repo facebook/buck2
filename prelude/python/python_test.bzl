@@ -55,7 +55,7 @@ def python_test_executable(ctx: AnalysisContext) -> PexProviders.type:
         compile = value_or(ctx.attrs.compile, False),
     )
 
-def python_test_impl(ctx: AnalysisContext) -> list["provider"]:
+def python_test_impl(ctx: AnalysisContext) -> list[Provider]:
     pex = python_test_executable(ctx)
     test_cmd = pex.run_cmd
 

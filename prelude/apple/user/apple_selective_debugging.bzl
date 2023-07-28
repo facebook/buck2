@@ -53,7 +53,7 @@ _SelectiveDebuggingJsonType = enum(*_SelectiveDebuggingJsonTypes)
 
 _LOCAL_LINK_THRESHOLD = 0.2
 
-def _impl(ctx: AnalysisContext) -> list["provider"]:
+def _impl(ctx: AnalysisContext) -> list[Provider]:
     json_type = _SelectiveDebuggingJsonType(ctx.attrs.json_type)
 
     # process inputs and provide them up the graph with typing

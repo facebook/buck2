@@ -63,7 +63,7 @@ def normalize_application(name: str) -> str:
     else:
         return name
 
-def _erlang_otp_application_impl(ctx: AnalysisContext) -> list["provider"]:
+def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
     """virtual OTP application for referencing only
     """
     return [

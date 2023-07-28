@@ -643,7 +643,7 @@ def convert_python_library_to_executable(
 
     return pex
 
-def python_binary_impl(ctx: AnalysisContext) -> list["provider"]:
+def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     main_module = ctx.attrs.main_module
     if ctx.attrs.main_module != None and ctx.attrs.main != None:
         fail("Only one of main_module or main may be set. Prefer main_module as main is considered deprecated")

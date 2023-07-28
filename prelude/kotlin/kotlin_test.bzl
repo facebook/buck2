@@ -9,7 +9,7 @@ load("@prelude//java:java_test.bzl", "build_junit_test")
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
-def kotlin_test_impl(ctx: AnalysisContext) -> list["provider"]:
+def kotlin_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 

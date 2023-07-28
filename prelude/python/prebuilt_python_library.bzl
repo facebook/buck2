@@ -29,7 +29,7 @@ load(
 )
 load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps_from_manifest")
 
-def prebuilt_python_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
     # Extract prebuilt wheel and wrap in python library provider.

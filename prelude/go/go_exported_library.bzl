@@ -17,7 +17,7 @@ load(
 load(":compile.bzl", "compile", "get_filtered_srcs")
 load(":link.bzl", "GoBuildMode", "link")
 
-def go_exported_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
     lib = compile(
         ctx,
         "main",

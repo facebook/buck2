@@ -9,7 +9,7 @@ PythonBootstrapSources = provider(fields = ["srcs"])
 
 PythonBootstrapToolchainInfo = provider(fields = ["interpreter"])
 
-def python_bootstrap_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def python_bootstrap_library_impl(ctx: AnalysisContext) -> list[Provider]:
     tree = {src.short_path: src for src in ctx.attrs.srcs}
     output = ctx.actions.symlinked_dir("__{}__".format(ctx.attrs.name), tree)
     return [
@@ -17,7 +17,7 @@ def python_bootstrap_library_impl(ctx: AnalysisContext) -> list["provider"]:
         PythonBootstrapSources(srcs = ctx.attrs.srcs),
     ]
 
-def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list["provider"]:
+def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     """
     Declares a Python binary that is intended to be used in scripts that
     bootstrap other aspects of the Buck2 prelude. Python bootstrap binaries do

@@ -226,7 +226,7 @@ def _get_shared_link_info(
 #         "libfoo2.so": "lib/libfoo2.so",
 #     },
 #
-def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list["provider"]:
+def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
     deps = ctx.attrs.deps

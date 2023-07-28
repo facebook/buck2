@@ -46,7 +46,7 @@ def strip_srcs_path(ctx: AnalysisContext) -> list[str]:
     src_labels += [ctx.attrs.project_toml.short_path.split(toml_main_path)[-1]]
     return src_labels
 
-def julia_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def julia_library_impl(ctx: AnalysisContext) -> list[Provider]:
     """Creates rule for julia libraries.
 
     The library rule needs to do a few important things:
@@ -82,7 +82,7 @@ def julia_library_impl(ctx: AnalysisContext) -> list["provider"]:
 
     return providers
 
-def julia_jll_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def julia_jll_library_impl(ctx: AnalysisContext) -> list[Provider]:
     """Creates rule for julia jll libraries.
 
     jll libraries are wrappers for c++ libraries. Normally, these libraries are

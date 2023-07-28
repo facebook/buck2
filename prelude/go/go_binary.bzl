@@ -18,7 +18,7 @@ load(
 load(":compile.bzl", "compile", "get_filtered_srcs")
 load(":link.bzl", "link")
 
-def go_binary_impl(ctx: AnalysisContext) -> list["provider"]:
+def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     lib = compile(
         ctx,
         "main",

@@ -5,5 +5,5 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def cxx_lua_extension_impl(_ctx: AnalysisContext) -> list["provider"]:
+def cxx_lua_extension_impl(_ctx: AnalysisContext) -> list[Provider]:
     return [DefaultInfo()]

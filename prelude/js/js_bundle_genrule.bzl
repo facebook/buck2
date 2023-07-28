@@ -76,7 +76,7 @@ def _get_extra_providers(
         ctx: AnalysisContext,
         skip_resources: bool,
         initial_target: ["provider_collection", Dependency],
-        js_bundle_out: JsBundleInfo.type) -> list["provider"]:
+        js_bundle_out: JsBundleInfo.type) -> list[Provider]:
     providers = []
     android_resource_info = initial_target.get(AndroidResourceInfo)
     if android_resource_info:
@@ -98,7 +98,7 @@ def _get_extra_providers(
 
     return providers
 
-def js_bundle_genrule_impl(ctx: AnalysisContext) -> list["provider"]:
+def js_bundle_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets = {}
     for transform_profile in TRANSFORM_PROFILES:
         for ram_bundle_name in RAM_BUNDLE_TYPES.keys():

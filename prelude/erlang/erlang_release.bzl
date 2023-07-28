@@ -26,7 +26,7 @@ load(":erlang_utils.bzl", "action_identifier", "to_term_args")
 
 # Erlang Releases according to https://www.erlang.org/doc/design_principles/release_structure.html
 
-def erlang_release_impl(ctx: AnalysisContext) -> list["provider"]:
+def erlang_release_impl(ctx: AnalysisContext) -> list[Provider]:
     root_apps = check_dependencies(_dependencies(ctx), [ErlangAppInfo])
     all_apps = flatten_dependencies(ctx, root_apps)
 
@@ -38,7 +38,7 @@ def erlang_release_impl(ctx: AnalysisContext) -> list["provider"]:
 def _build_multi_toolchain_releases(
         ctx: AnalysisContext,
         apps: ErlAppDependencies,
-        configured_toolchains: list[Dependency]) -> list["provider"]:
+        configured_toolchains: list[Dependency]) -> list[Provider]:
     """build the release for all toolchains with the structure being releases/<toolchain>/<relname>"""
     all_toolchains = select_toolchains(ctx)
     toolchains = _get_configured_toolchains(all_toolchains, configured_toolchains)
@@ -60,7 +60,7 @@ def _get_configured_toolchains(
         retval[toolchain_info.name] = toolchains[toolchain_info.name]
     return retval
 
-def _build_primary_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> list["provider"]:
+def _build_primary_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> list[Provider]:
     """build the release only with the primary toolchain with the release folder on the top-level"""
     toolchains = select_toolchains(ctx)
     primary_toolchain = toolchains[get_primary(ctx)]

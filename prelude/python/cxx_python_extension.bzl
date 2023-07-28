@@ -76,7 +76,7 @@ load(":python_library.bzl", "create_python_library_info", "dest_prefix", "gather
 
 # This extension is basically cxx_library, plus base_module.
 # So we augment with default attributes so it has everything cxx_library has, and then call cxx_library_parameterized and work from that.
-def cxx_python_extension_impl(ctx: AnalysisContext) -> list["provider"]:
+def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
     if ctx.attrs._target_os_type[OsLookup].platform == "windows":

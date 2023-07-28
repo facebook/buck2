@@ -137,7 +137,7 @@ def _get_java_tool_artifacts(java_toolchain: JavaToolchainInfo.type) -> list[Art
     default_info = java_toolchain.java[DefaultInfo]
     return default_info.default_outputs + default_info.other_outputs
 
-def java_binary_impl(ctx: AnalysisContext) -> list["provider"]:
+def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     """
      java_binary() rule implementation
 

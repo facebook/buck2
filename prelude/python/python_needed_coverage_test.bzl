@@ -15,7 +15,7 @@ load(
     "parse_python_needed_coverage_specs",
 )
 
-def python_needed_coverage_test_impl(ctx: AnalysisContext) -> list["provider"]:
+def python_needed_coverage_test_impl(ctx: AnalysisContext) -> list[Provider]:
     test_cmd = list(ctx.attrs.test[ExternalRunnerTestInfo].command)
 
     test_env = {}
