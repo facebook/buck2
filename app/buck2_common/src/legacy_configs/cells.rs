@@ -435,7 +435,7 @@ pub struct DaemonStartupConfig {
     pub daemon_buster: Option<String>,
     pub digest_algorithms: Option<String>,
     pub source_digest_algorithm: Option<String>,
-    pub allow_vpnless: Option<String>,
+    pub allow_vpnless: bool,
     pub paranoid: bool,
     pub use_tonic_rt: Option<String>,
 }
@@ -450,6 +450,9 @@ impl DaemonStartupConfig {
             .or(config.parse("buck2", "paranoid")?)
             .unwrap_or_default();
 
+        // Intepreted client side because we need the value here.
+        let allow_vpnless = config.parse("buck2", "allow_vpnless")?.unwrap_or_default();
+
         Ok(Self {
             daemon_buster: config.get("buck2", "daemon_buster").map(ToOwned::to_owned),
             digest_algorithms: config
@@ -458,7 +461,7 @@ impl DaemonStartupConfig {
             source_digest_algorithm: config
                 .get("buck2", "source_digest_algorithm")
                 .map(ToOwned::to_owned),
-            allow_vpnless: config.get("buck2", "allow_vpnless").map(ToOwned::to_owned),
+            allow_vpnless,
             paranoid,
             use_tonic_rt: config.get("buck2", "use_tonic_rt").map(ToOwned::to_owned),
         })
@@ -478,7 +481,7 @@ impl DaemonStartupConfig {
             daemon_buster: None,
             digest_algorithms: None,
             source_digest_algorithm: None,
-            allow_vpnless: None,
+            allow_vpnless: false,
             paranoid: false,
             use_tonic_rt: None,
         }

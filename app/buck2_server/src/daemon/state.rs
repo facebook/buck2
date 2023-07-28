@@ -382,15 +382,7 @@ impl DaemonState {
             )
             .await?;
 
-            let allow_vpnless = init_ctx
-                .daemon_startup_config
-                .allow_vpnless
-                .as_deref()
-                .map(|v| v.parse())
-                .transpose()
-                .context("Invalid allow_vpnless value")?
-                .unwrap_or(false);
-            let http_client = http_client(allow_vpnless)?;
+            let http_client = http_client(init_ctx.daemon_startup_config.allow_vpnless)?;
 
             let materializer_state_identity =
                 materializer_db.as_ref().map(|d| d.identity().clone());
