@@ -66,7 +66,7 @@ def windows_cc_dep_files(
         input_file: Artifact) -> (cmd_args.type, cmd_args.type):
     return (cmd_args(input_file), cmd_args(["/showIncludes"]))
 
-def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode.type) -> ["function", None]:
+def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode.type) -> "function" | None:
     if dep_tracking_mode.value == "makefile":
         return cc_dep_files
 

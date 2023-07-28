@@ -48,7 +48,7 @@ def _hidden_resources(value: PythonLibraryManifests.type):
         return []
     return value.resources[1]
 
-def _has_hidden_resources(children: list[bool], value: [PythonLibraryManifests.type, None]):
+def _has_hidden_resources(children: list[bool], value: PythonLibraryManifests.type | None):
     if value:
         if value.resources and len(value.resources[1]) > 0:
             return True

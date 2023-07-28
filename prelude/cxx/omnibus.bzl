@@ -177,7 +177,7 @@ def create_linkable_root(
         ctx: AnalysisContext,
         graph: LinkableGraph.type,
         link_infos: LinkInfos.type,
-        name: [str, None] = None,
+        name: str | None = None,
         deps: list[Dependency] = [],
         create_shared_root: bool = False) -> LinkableRootInfo.type:
     # Only include dependencies that are linkable.
@@ -502,7 +502,7 @@ def _requires_private_root(
         candidate: SharedOmnibusRoot.type,
         linker_type: str,
         prefer_stripped_objects: bool,
-        spec: OmnibusSpec.type) -> [OmnibusPrivateRootProductCause.type, None]:
+        spec: OmnibusSpec.type) -> OmnibusPrivateRootProductCause.type | None:
     if candidate.linker_type != linker_type:
         return OmnibusPrivateRootProductCause(category = "linker_type")
 
@@ -530,7 +530,7 @@ def _requires_private_root(
 def _extract_global_symbols_from_link_args(
         ctx: AnalysisContext,
         name: str,
-        link_args: list[[Artifact, "resolved_macro", cmd_args, str]],
+        link_args: list[Artifact | "resolved_macro" | cmd_args | str],
         prefer_local: bool = False) -> Artifact:
     """
     Extract global symbols explicitly set in the given linker args (e.g.
@@ -578,7 +578,7 @@ def _create_global_symbols_version_script(
         ctx: AnalysisContext,
         roots: list[AnnotatedOmnibusRootProduct.type],
         excluded: list[Artifact],
-        link_args: list[[Artifact, "resolved_macro", cmd_args, str]]) -> Artifact:
+        link_args: list[Artifact | "resolved_macro" | cmd_args | str]) -> Artifact:
     """
     Generate a version script exporting symbols from from the given objects and
     link args.

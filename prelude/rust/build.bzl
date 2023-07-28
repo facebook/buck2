@@ -312,7 +312,7 @@ def rust_compile_multi(
         default_roots: list[str],
         extra_link_args: list[""] = [],
         predeclared_outputs: dict[Emit.type, Artifact] = {},
-        extra_flags: list[[str, "resolved_macro"]] = [],
+        extra_flags: list[str | "resolved_macro"] = [],
         is_binary: bool = False) -> list[RustcOutput.type]:
     outputs = []
 
@@ -345,7 +345,7 @@ def rust_compile(
         default_roots: list[str],
         extra_link_args: list[""] = [],
         predeclared_outputs: dict[Emit.type, Artifact] = {},
-        extra_flags: list[[str, "resolved_macro"]] = [],
+        extra_flags: list[str | "resolved_macro"] = [],
         is_binary: bool = False) -> RustcOutput.type:
     toolchain_info = compile_ctx.toolchain_info
 
@@ -668,7 +668,7 @@ def _lint_flags(compile_ctx: CompileContext.type) -> (cmd_args, cmd_args):
 
     return (plain, clippy)
 
-def _rustc_flags(flags: list[[str, "resolved_macro"]]) -> list[[str, "resolved_macro"]]:
+def _rustc_flags(flags: list[str | "resolved_macro"]) -> list[str | "resolved_macro"]:
     # Rustc's "-g" flag is documented as being exactly equivalent to
     # "-Cdebuginfo=2". Rustdoc supports the latter, it just doesn't have the
     # "-g" shorthand for it.
@@ -917,7 +917,7 @@ def _rustc_emit(
         emit: Emit.type,
         predeclared_outputs: dict[Emit.type, Artifact],
         subdir: str,
-        params: BuildParams.type) -> (Artifact, cmd_args, [Artifact, None]):
+        params: BuildParams.type) -> (Artifact, cmd_args, Artifact | None):
     toolchain_info = compile_ctx.toolchain_info
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
@@ -994,7 +994,7 @@ def _rustc_invoke(
         short_cmd: str,
         is_binary: bool,
         crate_map: list[(CrateName.type, Label)],
-        env: dict[str, ["resolved_macro", Artifact]] = {}) -> (dict[str, Artifact], [Artifact, None]):
+        env: dict[str, "resolved_macro" | Artifact] = {}) -> (dict[str, Artifact], Artifact | None):
     toolchain_info = compile_ctx.toolchain_info
 
     plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env)
@@ -1080,7 +1080,7 @@ def _long_command(
 # path and non-path content, but we'll burn that bridge when we get to it.)
 def _process_env(
         compile_ctx: CompileContext.type,
-        env: dict[str, ["resolved_macro", Artifact]]) -> (dict[str, cmd_args], dict[str, cmd_args]):
+        env: dict[str, "resolved_macro" | Artifact]) -> (dict[str, cmd_args], dict[str, cmd_args]):
     # Values with inputs (ie artifact references).
     path_env = {}
 

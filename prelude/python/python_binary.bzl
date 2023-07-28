@@ -382,7 +382,7 @@ def convert_python_library_to_executable(
         library: PythonLibraryInterface.type,
         deps: list[Dependency],
         compile: bool = False,
-        dbg_source_db: [DefaultInfo.type, None] = None) -> PexProviders.type:
+        dbg_source_db: DefaultInfo.type | None = None) -> PexProviders.type:
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]

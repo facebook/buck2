@@ -127,7 +127,7 @@ def create_linkable_node(
 
 def create_linkable_graph_node(
         ctx: AnalysisContext,
-        linkable_node: [LinkableNode.type, None] = None,
+        linkable_node: LinkableNode.type | None = None,
         roots: dict[Label, AnnotatedLinkableRoot.type] = {},
         excluded: dict[Label, None] = {}) -> LinkableGraphNode.type:
     return LinkableGraphNode(
@@ -139,7 +139,7 @@ def create_linkable_graph_node(
 
 def create_linkable_graph(
         ctx: AnalysisContext,
-        node: [LinkableGraphNode.type, None] = None,
+        node: LinkableGraphNode.type | None = None,
         deps: list[Dependency] = [],
         children: list[LinkableGraph.type] = []) -> LinkableGraph.type:
     all_children_graphs = filter(None, [x.get(LinkableGraph) for x in deps]) + children
@@ -174,7 +174,7 @@ def linkable_deps(deps: list[Dependency]) -> list[Label]:
 
     return labels
 
-def linkable_graph(dep: Dependency) -> [LinkableGraph.type, None]:
+def linkable_graph(dep: Dependency) -> LinkableGraph.type | None:
     """
     Helper to extract `LinkableGraph` from a dependency which also
     provides `MergedLinkInfo`.

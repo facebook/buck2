@@ -19,7 +19,7 @@ def get_path_separator() -> str:
     # On UNIX systems, this character is ':'; on Microsoft Windows systems it is ';'.
     return ":"
 
-def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, "RunInfo", Artifact]:
+def derive_javac(javac_attribute: str | Dependency | Artifact) -> str | "RunInfo" | Artifact:
     javac_attr_type = type(javac_attribute)
     if javac_attr_type == "dependency":
         javac_run_info = javac_attribute.get(RunInfo)
@@ -83,7 +83,7 @@ def get_abi_generation_mode(abi_generation_mode):
 def get_default_info(
         actions: "actions",
         java_toolchain: "JavaToolchainInfo",
-        outputs: ["JavaCompileOutputs", None],
+        outputs: "JavaCompileOutputs" | None,
         packaging_info: "JavaPackagingInfo",
         extra_sub_targets: dict = {}) -> DefaultInfo.type:
     sub_targets = get_classpath_subtarget(actions, packaging_info)
@@ -107,7 +107,7 @@ def get_default_info(
         )
     return default_info
 
-def declare_prefixed_name(name: str, prefix: [str, None]) -> str:
+def declare_prefixed_name(name: str, prefix: str | None) -> str:
     if not prefix:
         return name
 
@@ -115,7 +115,7 @@ def declare_prefixed_name(name: str, prefix: [str, None]) -> str:
 
 def get_class_to_source_map_info(
         ctx: AnalysisContext,
-        outputs: ["JavaCompileOutputs", None],
+        outputs: "JavaCompileOutputs" | None,
         deps: list[Dependency]) -> (JavaClassToSourceMapInfo.type, dict):
     sub_targets = {}
     class_to_srcs = None

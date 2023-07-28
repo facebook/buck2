@@ -236,13 +236,13 @@ def to_list(java_providers: JavaProviders.type) -> list[Provider]:
 # specific artifact to be used as the abi for the JavaClasspathEntry.
 def make_compile_outputs(
         full_library: Artifact,
-        class_abi: [Artifact, None] = None,
-        source_abi: [Artifact, None] = None,
-        source_only_abi: [Artifact, None] = None,
-        classpath_abi: [Artifact, None] = None,
-        classpath_abi_dir: [Artifact, None] = None,
+        class_abi: Artifact | None = None,
+        source_abi: Artifact | None = None,
+        source_only_abi: Artifact | None = None,
+        classpath_abi: Artifact | None = None,
+        classpath_abi_dir: Artifact | None = None,
         required_for_source_only_abi: bool = False,
-        annotation_processor_output: [Artifact, None] = None) -> JavaCompileOutputs.type:
+        annotation_processor_output: Artifact | None = None) -> JavaCompileOutputs.type:
     expect(classpath_abi != None or classpath_abi_dir == None, "A classpath_abi_dir should only be provided if a classpath_abi is provided!")
     return JavaCompileOutputs(
         full_library = full_library,
@@ -278,8 +278,8 @@ def create_abi(actions: "actions", class_abi_generator: Dependency, library: Art
 # Accumulate deps necessary for compilation, which consist of this library's output and compiling_deps of its exported deps
 def derive_compiling_deps(
         actions: "actions",
-        library_output: [JavaClasspathEntry.type, None],
-        children: list[Dependency]) -> ["JavaCompilingDepsTSet", None]:
+        library_output: JavaClasspathEntry.type | None,
+        children: list[Dependency]) -> "JavaCompilingDepsTSet" | None:
     if children:
         filtered_children = filter(
             None,
@@ -297,14 +297,14 @@ def derive_compiling_deps(
 
 def create_java_packaging_dep(
         ctx: AnalysisContext,
-        library_jar: [Artifact, None] = None,
-        output_for_classpath_macro: [Artifact, None] = None,
+        library_jar: Artifact | None = None,
+        output_for_classpath_macro: Artifact | None = None,
         needs_desugar: bool = False,
         desugar_deps: list[Artifact] = [],
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
         dex_weight_factor: int = 1,
-        proguard_config: [Artifact, None] = None) -> "JavaPackagingDep":
+        proguard_config: Artifact | None = None) -> "JavaPackagingDep":
     dex_toolchain = getattr(ctx.attrs, "_dex_toolchain", None)
     if library_jar != None and has_srcs and dex_toolchain != None and ctx.attrs._dex_toolchain[DexToolchainInfo].d8_command != None:
         dex = get_dex_produced_from_java_library(
@@ -344,7 +344,7 @@ def get_all_java_packaging_deps_from_packaging_infos(ctx: AnalysisContext, infos
 def get_all_java_packaging_deps_tset(
         ctx: AnalysisContext,
         java_packaging_infos: list["JavaPackagingInfo"],
-        java_packaging_dep: [JavaPackagingDep.type, None] = None) -> [JavaPackagingDepTSet.type, None]:
+        java_packaging_dep: JavaPackagingDep.type | None = None) -> JavaPackagingDepTSet.type | None:
     packaging_deps_kwargs = {}
     if java_packaging_dep:
         packaging_deps_kwargs["value"] = java_packaging_dep
@@ -359,7 +359,7 @@ def get_all_java_packaging_deps_tset(
 def get_java_packaging_info(
         ctx: AnalysisContext,
         raw_deps: list[Dependency],
-        java_packaging_dep: [JavaPackagingDep.type, None] = None) -> JavaPackagingInfo.type:
+        java_packaging_dep: JavaPackagingDep.type | None = None) -> JavaPackagingInfo.type:
     java_packaging_infos = filter(None, [x.get(JavaPackagingInfo) for x in raw_deps])
     packaging_deps = get_all_java_packaging_deps_tset(ctx, java_packaging_infos, java_packaging_dep)
     return JavaPackagingInfo(packaging_deps = packaging_deps)
@@ -377,7 +377,7 @@ def create_native_providers(actions: "actions", label: Label, packaging_deps: li
 
 def _create_non_template_providers(
         ctx: AnalysisContext,
-        library_output: [JavaClasspathEntry.type, None],
+        library_output: JavaClasspathEntry.type | None,
         declared_deps: list[Dependency] = [],
         exported_deps: list[Dependency] = [],
         exported_provided_deps: list[Dependency] = [],
@@ -386,7 +386,7 @@ def _create_non_template_providers(
         desugar_classpath: list[Artifact] = [],
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
-        proguard_config: [Artifact, None] = None) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type):
+        proguard_config: Artifact | None = None) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type):
     """Creates java library providers of type `JavaLibraryInfo` and `JavaPackagingInfo`.
 
     Args:
@@ -437,7 +437,7 @@ def create_template_info(packaging_info: JavaPackagingInfo.type, first_order_cla
 
 def create_java_library_providers(
         ctx: AnalysisContext,
-        library_output: [JavaClasspathEntry.type, None],
+        library_output: JavaClasspathEntry.type | None,
         declared_deps: list[Dependency] = [],
         exported_deps: list[Dependency] = [],
         provided_deps: list[Dependency] = [],
@@ -447,8 +447,8 @@ def create_java_library_providers(
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
         generated_sources: list[Artifact] = [],
-        annotation_jars_dir: [Artifact, None] = None,
-        proguard_config: [Artifact, None] = None) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):
+        annotation_jars_dir: Artifact | None = None,
+        proguard_config: Artifact | None = None) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):
     first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 

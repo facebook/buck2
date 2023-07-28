@@ -436,7 +436,7 @@ def _default_providers(
         lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
         param_artifact: dict[BuildParams.type, RustLinkStyleInfo.type],
         rustdoc: Artifact,
-        rustdoc_test: [cmd_args, None],
+        rustdoc_test: cmd_args | None,
         check_artifacts: dict[str, Artifact],
         expand: Artifact,
         sources: Artifact) -> list[Provider]:

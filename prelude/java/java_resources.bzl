@@ -28,7 +28,7 @@ def get_resources_map(
         java_toolchain: "JavaToolchainInfo",
         package: str,
         resources: list[Artifact],
-        resources_root: [str, None]) -> dict[str, Artifact]:
+        resources_root: str | None) -> dict[str, Artifact]:
     # As in v1, root the resource root via the current package.
     if resources_root != None:
         resources_root = paths.normalize(paths.join(package, resources_root))

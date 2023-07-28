@@ -48,7 +48,7 @@ load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibrar
 load(":source_db.bzl", "create_python_source_db_info", "create_source_db", "create_source_db_no_deps")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
-def dest_prefix(label: Label, base_module: [None, str]) -> str:
+def dest_prefix(label: Label, base_module: None | str) -> str:
     """
     Find the prefix to use for placing files inside of the python link tree
 
@@ -69,7 +69,7 @@ def dest_prefix(label: Label, base_module: [None, str]) -> str:
 
 def qualify_srcs(
         label: Label,
-        base_module: [None, str],
+        base_module: None | str,
         srcs: dict[str, "_a"]) -> dict[str, "_a"]:
     """
     Fully qualify package-relative sources with the rule's base module.
@@ -91,7 +91,7 @@ def qualify_srcs(
 
 def create_python_needed_coverage_info(
         label: Label,
-        base_module: [None, str],
+        base_module: None | str,
         srcs: list[str]) -> PythonNeededCoverageInfo.type:
     prefix = dest_prefix(label, base_module)
     return PythonNeededCoverageInfo(
@@ -101,12 +101,12 @@ def create_python_needed_coverage_info(
 def create_python_library_info(
         actions: "actions",
         label: Label,
-        srcs: [ManifestInfo.type, None] = None,
-        src_types: [ManifestInfo.type, None] = None,
-        bytecode: [dict[PycInvalidationMode.type, ManifestInfo.type], None] = None,
-        dep_manifest: [ManifestInfo.type, None] = None,
-        resources: [(ManifestInfo.type, list["_arglike"]), None] = None,
-        extensions: [dict[str, LinkedObject.type], None] = None,
+        srcs: ManifestInfo.type | None = None,
+        src_types: ManifestInfo.type | None = None,
+        bytecode: dict[PycInvalidationMode.type, ManifestInfo.type] | None = None,
+        dep_manifest: ManifestInfo.type | None = None,
+        resources: (ManifestInfo.type, list["_arglike"]) | None = None,
+        extensions: dict[str, LinkedObject.type] | None = None,
         deps: list["PythonLibraryInfo"] = [],
         shared_libraries: list["SharedLibraryInfo"] = []):
     """
@@ -196,7 +196,7 @@ def _attr_srcs(ctx: AnalysisContext) -> dict[str, Artifact]:
         all_srcs.update(from_named_set(srcs))
     return all_srcs
 
-def _attr_resources(ctx: AnalysisContext) -> dict[str, [Dependency, Artifact]]:
+def _attr_resources(ctx: AnalysisContext) -> dict[str, Dependency | Artifact]:
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     all_resources = {}

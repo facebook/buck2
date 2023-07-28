@@ -71,7 +71,7 @@ def _linkage(ctx: AnalysisContext) -> Linkage.type:
     # Otherwise, header only libs use any linkage.
     return Linkage("any")
 
-def _parse_macro(arg: str) -> [(str, str), None]:
+def _parse_macro(arg: str) -> (str, str) | None:
     """
     Parse a lib reference macro (e.g. `$(lib 0)`, `$(rel-lib libfoo.so)`) into
     the format string used to format the arg, the name of the macro parsed, and

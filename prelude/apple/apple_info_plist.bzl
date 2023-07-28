@@ -20,7 +20,7 @@ load(
 )
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
-def process_info_plist(ctx: AnalysisContext, override_input: [Artifact, None]) -> AppleBundlePart.type:
+def process_info_plist(ctx: AnalysisContext, override_input: Artifact | None) -> AppleBundlePart.type:
     input = _preprocess_info_plist(ctx)
     output = ctx.actions.declare_output("Info.plist")
     additional_keys = _additional_keys_as_json_file(ctx)
@@ -64,7 +64,7 @@ def _preprocess_info_plist(ctx: AnalysisContext) -> Artifact:
     ctx.actions.run(command, category = "apple_preprocess_info_plist", **_get_plist_run_options())
     return output
 
-def _plist_substitutions_as_json_file(ctx: AnalysisContext) -> [Artifact, None]:
+def _plist_substitutions_as_json_file(ctx: AnalysisContext) -> Artifact | None:
     info_plist_substitutions = ctx.attrs.info_plist_substitutions
     if not info_plist_substitutions:
         return None
@@ -72,7 +72,7 @@ def _plist_substitutions_as_json_file(ctx: AnalysisContext) -> [Artifact, None]:
     substitutions_json = ctx.actions.write_json("plist_substitutions.json", info_plist_substitutions)
     return substitutions_json
 
-def process_plist(ctx: AnalysisContext, input: Artifact, output: "output_artifact", override_input: [Artifact, None] = None, additional_keys: [Artifact, None] = None, override_keys: [Artifact, None] = None, action_id: [str, None] = None):
+def process_plist(ctx: AnalysisContext, input: Artifact, output: "output_artifact", override_input: Artifact | None = None, additional_keys: Artifact | None = None, override_keys: Artifact | None = None, action_id: str | None = None):
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     processor = apple_tools.info_plist_processor
     override_input_arguments = ["--override-input", override_input] if override_input != None else []

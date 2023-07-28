@@ -101,7 +101,7 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [DefaultInfo(default_output = output)]
 
-def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: dict[str, list[Dependency]]) -> [Artifact, None]:
+def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: dict[str, list[Dependency]]) -> Artifact | None:
     if not ctx.attrs.application_module_configs:
         return None
 
@@ -139,8 +139,8 @@ def _get_base_cmd_and_output(
         shared_libraries: list["SharedLibrary"],
         android_toolchain: "AndroidToolchainInfo",
         application_module_configs: dict[str, list[Dependency]],
-        application_module_dependencies: [dict[str, list[str]], None],
-        application_module_blocklist: [list[list[Dependency]], None]) -> (cmd_args, Artifact):
+        application_module_dependencies: dict[str, list[str]] | None,
+        application_module_blocklist: list[list[Dependency]] | None) -> (cmd_args, Artifact):
     deps_map = {}
     for android_packageable_info in android_packageable_infos:
         if android_packageable_info.deps:

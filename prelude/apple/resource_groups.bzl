@@ -62,11 +62,11 @@ def create_resource_graph(
         labels: list[str],
         deps: list[Dependency],
         exported_deps: list[Dependency],
-        bundle_binary: [Dependency, None] = None,
-        resource_spec: [AppleResourceSpec.type, None] = None,
-        asset_catalog_spec: [AppleAssetCatalogSpec.type, None] = None,
-        core_data_spec: [AppleCoreDataSpec.type, None] = None,
-        scene_kit_assets_spec: [SceneKitAssetsSpec.type, None] = None,
+        bundle_binary: Dependency | None = None,
+        resource_spec: AppleResourceSpec.type | None = None,
+        asset_catalog_spec: AppleAssetCatalogSpec.type | None = None,
+        core_data_spec: AppleCoreDataSpec.type | None = None,
+        scene_kit_assets_spec: SceneKitAssetsSpec.type | None = None,
         should_propagate: bool = True) -> ResourceGraph.type:
     # Collect deps and exported_deps with resources that should propagate.
     dep_labels, dep_graphs = _filtered_labels_and_graphs(deps)
@@ -122,7 +122,7 @@ def _filtered_labels_and_graphs(deps: list[Dependency]) -> (list[Label], list[Re
 
     return resource_labels, resource_deps
 
-def get_resource_group_info(ctx: AnalysisContext) -> [ResourceGroupInfo.type, None]:
+def get_resource_group_info(ctx: AnalysisContext) -> ResourceGroupInfo.type | None:
     """
     Parses the currently analyzed context for any resource group definitions
     and returns a list of all resource groups with their mappings.
@@ -140,8 +140,8 @@ def get_resource_group_info(ctx: AnalysisContext) -> [ResourceGroupInfo.type, No
 def get_filtered_resources(
         root: Label,
         resource_graph_node_map_func,
-        resource_group: [str, None],
-        resource_group_mappings: [dict[Label, str], None]) -> (list[AppleResourceSpec.type], list[AppleAssetCatalogSpec.type], list[AppleCoreDataSpec.type], list[SceneKitAssetsSpec.type]):
+        resource_group: str | None,
+        resource_group_mappings: dict[Label, str] | None) -> (list[AppleResourceSpec.type], list[AppleAssetCatalogSpec.type], list[AppleCoreDataSpec.type], list[SceneKitAssetsSpec.type]):
     """
     Walks the provided DAG and collects resources matching resource groups definition.
     """

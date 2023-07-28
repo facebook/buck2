@@ -260,8 +260,8 @@ def _host_os() -> str:
 def download_zig_distribution(
         name: str,
         version: str,
-        arch: [None, str] = None,
-        os: [None, str] = None):
+        arch: None | str = None,
+        os: None | str = None):
     if arch == None:
         arch = _host_arch()
     if os == None:

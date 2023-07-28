@@ -20,10 +20,10 @@ def _os_and_sdk_unrelated_constraints(platform: PlatformInfo.type, refs: struct.
         if constraint_setting_label not in [refs.os[ConstraintSettingInfo].label, refs.sdk[ConstraintSettingInfo].label]
     }
 
-def _old_os_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> [None, ConstraintValueInfo.type]:
+def _old_os_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> None | ConstraintValueInfo.type:
     return platform.configuration.constraints.get(refs.os[ConstraintSettingInfo].label)
 
-def _old_sdk_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> [None, ConstraintValueInfo.type]:
+def _old_sdk_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> None | ConstraintValueInfo.type:
     return platform.configuration.constraints.get(refs.sdk[ConstraintSettingInfo].label)
 
 def _impl(platform: PlatformInfo.type, refs: struct.type) -> "PlatformInfo":

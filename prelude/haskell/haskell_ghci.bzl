@@ -300,20 +300,20 @@ def _replace_macros_in_script_template(
         script_template: Artifact,
         haskell_toolchain: HaskellToolchainInfo.type,
         # Optional artifacts
-        ghci_bin: [Artifact, None] = None,
-        start_ghci: [Artifact, None] = None,
-        iserv_script: [Artifact, None] = None,
-        squashed_so: [Artifact, None] = None,
+        ghci_bin: Artifact | None = None,
+        start_ghci: Artifact | None = None,
+        iserv_script: Artifact | None = None,
+        squashed_so: Artifact | None = None,
         # Optional cmd_args
-        exposed_package_args: ["cmd_args", None] = None,
-        packagedb_args: ["cmd_args", None] = None,
-        prebuilt_packagedb_args: ["cmd_args", None] = None,
-        compiler_flags: ["cmd_args", None] = None,
+        exposed_package_args: "cmd_args" | None = None,
+        packagedb_args: "cmd_args" | None = None,
+        prebuilt_packagedb_args: "cmd_args" | None = None,
+        compiler_flags: "cmd_args" | None = None,
         # Optional string args
-        srcs: [str, None] = None,
-        output_name: [str, None] = None,
-        ghci_iserv_path: [str, None] = None,
-        preload_libs: [str, None] = None) -> Artifact:
+        srcs: str | None = None,
+        output_name: str | None = None,
+        ghci_iserv_path: str | None = None,
+        preload_libs: str | None = None) -> Artifact:
     toolchain_paths = {
         BINUTILS_PATH: haskell_toolchain.ghci_binutils_path,
         GHCI_LIB_PATH: haskell_toolchain.ghci_lib_path,

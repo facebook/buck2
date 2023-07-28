@@ -46,10 +46,10 @@ def gather_link_group_libs(
     )
 
 def merge_link_group_lib_info(
-        label: [Label, None] = None,
-        name: [str, None] = None,
-        shared_libs: [dict[str, LinkedObject.type], None] = None,
-        shared_link_infos: [LinkInfos.type, None] = None,
+        label: Label | None = None,
+        name: str | None = None,
+        shared_libs: dict[str, LinkedObject.type] | None = None,
+        shared_link_infos: LinkInfos.type | None = None,
         deps: list[Dependency] = []) -> LinkGroupLibInfo.type:
     """
     Merge and return link group info libs from deps and the current rule wrapped

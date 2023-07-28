@@ -81,8 +81,8 @@ CxxLinkResult = record(
 def link_external_debug_info(
         ctx: AnalysisContext,
         links: list[LinkArgs.type],
-        split_debug_output: [Artifact, None] = None,
-        pdb: [Artifact, None] = None) -> ArtifactTSet.type:
+        split_debug_output: Artifact | None = None,
+        pdb: Artifact | None = None) -> ArtifactTSet.type:
     external_debug_artifacts = []
 
     # When using LTO+split-dwarf, the link step will generate externally
@@ -116,17 +116,17 @@ def cxx_link_into(
         result_type: CxxLinkResultType.type,
         link_execution_preference: LinkExecutionPreference.type,
         link_weight: int = 1,
-        link_ordering: [LinkOrdering.type, None] = None,
+        link_ordering: LinkOrdering.type | None = None,
         enable_distributed_thinlto: bool = False,
         # A category suffix that will be added to the category of the link action that is generated.
-        category_suffix: [str, None] = None,
+        category_suffix: str | None = None,
         # An identifier that will uniquely name this link action in the context of a category. Useful for
         # differentiating multiple link actions in the same rule.
-        identifier: [str, None] = None,
+        identifier: str | None = None,
         strip: bool = False,
         # A function/lambda which will generate the strip args using the ctx.
         strip_args_factory = None,
-        import_library: [Artifact, None] = None) -> CxxLinkResult.type:
+        import_library: Artifact | None = None) -> CxxLinkResult.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
@@ -399,11 +399,11 @@ def cxx_link_shared_library(
         # The destination for the link output.
         output: str,
         # Optional soname to link into shared library.
-        name: [str, None] = None,
+        name: str | None = None,
         links: list[LinkArgs.type] = [],
         link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
         # Overrides the default flags used to specify building shared libraries
-        shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
+        shared_library_flags: SharedLibraryFlagOverrides.type | None = None,
         **kwargs) -> CxxLinkResult.type:
     """
     Link a shared library into the supplied output.

@@ -11,11 +11,11 @@ def http_file_shared(
         actions: "actions",
         name: str,
         url: str,
-        vpnless_url: [None, str],
+        vpnless_url: None | str,
         is_executable: bool,
         is_exploded_zip: bool,
-        unzip_tool: [RunInfo.type, None],
-        sha1: [None, str],
+        unzip_tool: RunInfo.type | None,
+        sha1: None | str,
         sha256 = [None, str]) -> list[Provider]:
     output = actions.declare_output(name)
     downloaded_output = actions.declare_output("exploded_zip") if is_exploded_zip else output

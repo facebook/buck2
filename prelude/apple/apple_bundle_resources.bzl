@@ -167,7 +167,7 @@ def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec.type]) -
 
     return result
 
-def _extract_single_artifact(x: [Dependency, Artifact]) -> Artifact:
+def _extract_single_artifact(x: Dependency | Artifact) -> Artifact:
     if type(x) == "artifact":
         return x
     else:
@@ -185,7 +185,7 @@ def _copy_first_level_bundles(ctx: AnalysisContext) -> list[AppleBundlePart.type
     first_level_bundle_infos = filter(None, [dep.get(AppleBundleInfo) for dep in ctx.attrs.deps])
     return filter(None, [_copied_bundle_spec(info) for info in first_level_bundle_infos])
 
-def _copied_bundle_spec(bundle_info: AppleBundleInfo.type) -> [None, AppleBundlePart.type]:
+def _copied_bundle_spec(bundle_info: AppleBundleInfo.type) -> None | AppleBundlePart.type:
     bundle = bundle_info.bundle
     bundle_extension = paths.split_extension(bundle.short_path)[1]
     if bundle_extension == ".framework":
@@ -254,7 +254,7 @@ def _run_ibtool(
         raw_file: Artifact,
         output: "output_artifact",
         action_flags: list[str],
-        target_device: [None, str],
+        target_device: None | str,
         action_identifier: str,
         output_is_dir: bool) -> None:
     # TODO(T110378103): detect and add minimum deployment target automatically
@@ -301,7 +301,7 @@ def _compile_ui_resource(
         ctx: AnalysisContext,
         raw_file: Artifact,
         output: "output_artifact",
-        target_device: [None, str] = None,
+        target_device: None | str = None,
         output_is_dir: bool = False) -> None:
     _run_ibtool(
         ctx = ctx,
@@ -317,7 +317,7 @@ def _link_ui_resource(
         ctx: AnalysisContext,
         raw_file: Artifact,
         output: "output_artifact",
-        target_device: [None, str] = None,
+        target_device: None | str = None,
         output_is_dir: bool = False) -> None:
     _run_ibtool(
         ctx = ctx,
@@ -333,7 +333,7 @@ def _process_apple_resource_file_if_needed(
         ctx: AnalysisContext,
         file: Artifact,
         destination: AppleBundleDestination.type,
-        destination_relative_path: [str, None],
+        destination_relative_path: str | None,
         codesign_on_copy: bool = False) -> AppleBundlePart.type:
     output_dir = "_ProcessedResources"
     basename = paths.basename(file.short_path)

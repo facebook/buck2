@@ -27,7 +27,7 @@ def _url_path(url: str) -> str:
     else:
         return url
 
-def _type_from_url(url: str) -> [str, None]:
+def _type_from_url(url: str) -> str | None:
     url_path = _url_path(url)
     for filename_ext in _ARCHIVE_EXTS:
         if url_path.endswith("." + filename_ext):
@@ -47,7 +47,7 @@ def _unarchive_cmd(
         ext_type: str,
         exec_is_windows: bool,
         archive: Artifact,
-        strip_prefix: [str, None]) -> cmd_args:
+        strip_prefix: str | None) -> cmd_args:
     if exec_is_windows:
         # So many hacks.
         if ext_type == "tar.zst":
@@ -98,7 +98,7 @@ def _unarchive_cmd(
     else:
         fail()
 
-def _tar_strip_prefix_flags(strip_prefix: [str, None]) -> list[str]:
+def _tar_strip_prefix_flags(strip_prefix: str | None) -> list[str]:
     if strip_prefix:
         # count nonempty path components in the prefix
         count = len(filter(lambda c: c != "", strip_prefix.split("/")))

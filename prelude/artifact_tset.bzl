@@ -34,7 +34,7 @@ ArtifactTSet = record(
 def make_artifact_tset(
         actions: "actions",
         # Must be non-`None` if artifacts are passed in to `artifacts`.
-        label: [Label, None] = None,
+        label: Label | None = None,
         artifacts: list[Artifact] = [],
         infos: list[ArtifactInfo.type] = [],
         children: list[ArtifactTSet.type] = []) -> ArtifactTSet.type:

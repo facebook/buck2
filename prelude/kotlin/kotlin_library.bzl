@@ -44,9 +44,9 @@ def _create_kotlin_sources(
         ctx: AnalysisContext,
         srcs: list[Artifact],
         deps: list[Dependency],
-        annotation_processor_params: [list["AnnotationProcessorParams"], None],
-        ksp_annotation_processor_params: ["AnnotationProcessorParams", None],
-        additional_classpath_entries: list[Artifact]) -> (Artifact, [Artifact, None], [Artifact, None]):
+        annotation_processor_params: list["AnnotationProcessorParams"] | None,
+        ksp_annotation_processor_params: "AnnotationProcessorParams" | None,
+        additional_classpath_entries: list[Artifact]) -> (Artifact, Artifact | None, Artifact | None):
     """
     Runs kotlinc on the provided kotlin sources.
     """

@@ -61,7 +61,7 @@ def _cpu_split_transition(
         platform: PlatformInfo.type,
         refs: struct.type,
         cpu_filters: list[str],
-        min_sdk_version: [int, None]) -> dict[str, PlatformInfo.type]:
+        min_sdk_version: int | None) -> dict[str, PlatformInfo.type]:
     cpu = refs.cpu
     x86 = refs.x86[ConstraintValueInfo]
     x86_64 = refs.x86_64[ConstraintValueInfo]

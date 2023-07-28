@@ -14,7 +14,7 @@ def _extract_symbol_names(
         name: str,
         objects: list[Artifact],
         category: str,
-        identifier: [str, None] = None,
+        identifier: str | None = None,
         undefined_only: bool = False,
         dynamic: bool = False,
         prefer_local: bool = False,
@@ -116,7 +116,7 @@ def extract_symbol_names(
         ctx: AnalysisContext,
         name: str,
         anonymous: bool = False,
-        **kwargs) -> [Artifact, "promise_artifact"]:
+        **kwargs) -> Artifact | "promise_artifact":
     """
     Generate a file with a sorted list of symbol names extracted from the given
     native objects.
@@ -187,7 +187,7 @@ def _create_symbols_file_from_script(
         category: str,
         prefer_local: bool,
         weight_percentage: int,
-        identifier: [str, None] = None) -> Artifact:
+        identifier: str | None = None) -> Artifact:
     """
     Generate a symbols file from from the given objects and
     link args.
@@ -218,8 +218,8 @@ def get_undefined_symbols_args(
         ctx: AnalysisContext,
         name: str,
         symbol_files: list[Artifact],
-        category: [str, None] = None,
-        identifier: [str, None] = None,
+        category: str | None = None,
+        identifier: str | None = None,
         prefer_local: bool = False) -> cmd_args.type:
     if get_cxx_toolchain_info(ctx).linker_info.type == "gnu":
         # linker script is only supported in gnu linkers
@@ -246,8 +246,8 @@ def create_undefined_symbols_argsfile(
         actions: "actions",
         name: str,
         symbol_files: list[Artifact],
-        category: [str, None] = None,
-        identifier: [str, None] = None,
+        category: str | None = None,
+        identifier: str | None = None,
         prefer_local: bool = False) -> Artifact:
     """
     Combine files with sorted lists of symbols names into an argsfile to pass
@@ -272,8 +272,8 @@ def create_undefined_symbols_linker_script(
         actions: "actions",
         name: str,
         symbol_files: list[Artifact],
-        category: [str, None] = None,
-        identifier: [str, None] = None,
+        category: str | None = None,
+        identifier: str | None = None,
         prefer_local: bool = False) -> Artifact:
     """
     Combine files with sorted lists of symbols names into a linker script
@@ -300,8 +300,8 @@ def create_global_symbols_version_script(
         actions: "actions",
         name: str,
         symbol_files: list[Artifact],
-        identifier: [str, None] = None,
-        category: [str, None] = None,
+        identifier: str | None = None,
+        category: str | None = None,
         prefer_local: bool = False) -> Artifact:
     """
     Combine files with sorted lists of symbols names into an argsfile to pass
@@ -330,8 +330,8 @@ def create_dynamic_list_version_script(
         actions: "actions",
         name: str,
         symbol_files: list[Artifact],
-        identifier: [str, None] = None,
-        category: [str, None] = None,
+        identifier: str | None = None,
+        category: str | None = None,
         prefer_local: bool = False) -> Artifact:
     """
     Combine files with sorted lists of symbols names into a dynamic list version

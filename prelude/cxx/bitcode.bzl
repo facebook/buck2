@@ -46,7 +46,7 @@ def _bundle(ctx: AnalysisContext, name: str, args: cmd_args, prefer_local: bool)
 def make_bitcode_bundle(
         ctx: AnalysisContext,
         name: str,
-        objects: list[Artifact]) -> [BitcodeBundle.type, None]:
+        objects: list[Artifact]) -> BitcodeBundle.type | None:
     if len(objects) == 0:
         fail("no objects to archive")
 

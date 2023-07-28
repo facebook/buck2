@@ -86,7 +86,7 @@ def link(
         pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
         build_mode: GoBuildMode.type = GoBuildMode("executable"),
-        link_mode: [str, None] = None,
+        link_mode: str | None = None,
         link_style: LinkStyle.type = LinkStyle("static"),
         linker_flags: list[""] = [],
         shared: bool = False):

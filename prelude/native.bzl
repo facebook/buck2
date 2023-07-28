@@ -163,7 +163,7 @@ def _at_most_one(*items):
 
     return res
 
-def _get_valid_cpu_filters(cpu_filters: [list[str], None]) -> list[str]:
+def _get_valid_cpu_filters(cpu_filters: list[str] | None) -> list[str]:
     if read_root_config("buck2", "android_force_single_default_cpu") in ("True", "true"):
         return [CPU_FILTER_FOR_DEFAULT_PLATFORM]
 

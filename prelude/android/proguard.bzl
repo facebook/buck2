@@ -26,9 +26,9 @@ def _get_proguard_command_line_args(
         proguard_configs: list[Artifact],
         additional_library_jars: list[Artifact],
         mapping: Artifact,
-        configuration: [Artifact, None],
-        seeds: [Artifact, None],
-        usage: [Artifact, None],
+        configuration: Artifact | None,
+        seeds: Artifact | None,
+        usage: Artifact | None,
         android_toolchain: "AndroidToolchainInfo") -> (cmd_args, list[Artifact]):
     cmd = cmd_args()
     hidden = []
@@ -106,7 +106,7 @@ def get_proguard_output(
         ctx: AnalysisContext,
         input_jars: dict[Artifact, "target_label"],
         java_packaging_deps: list["JavaPackagingDep"],
-        aapt_generated_proguard_config: [Artifact, None],
+        aapt_generated_proguard_config: Artifact | None,
         additional_library_jars: list[Artifact]) -> ProguardOutput.type:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
     if ctx.attrs.proguard_config:

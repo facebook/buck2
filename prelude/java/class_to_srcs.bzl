@@ -11,7 +11,7 @@ load(
     "JavaToolchainInfo",  # @unused Used as a type
 )
 
-def _class_to_src_map_args(mapping: [Artifact, None]):
+def _class_to_src_map_args(mapping: Artifact | None):
     if mapping != None:
         return cmd_args(mapping)
     return cmd_args()
@@ -30,7 +30,7 @@ JavaClassToSourceMapInfo = provider(
 
 def create_class_to_source_map_info(
         ctx: AnalysisContext,
-        mapping: [Artifact, None] = None,
+        mapping: Artifact | None = None,
         deps = [Dependency]) -> JavaClassToSourceMapInfo.type:
     return JavaClassToSourceMapInfo(
         tset = ctx.actions.tset(
@@ -59,8 +59,8 @@ def merge_class_to_source_map_from_jar(
         actions: "actions",
         name: str,
         java_test_toolchain: JavaTestToolchainInfo.type,
-        mapping: [Artifact, None] = None,
-        relative_to: ["cell_root", None] = None,
+        mapping: Artifact | None = None,
+        relative_to: "cell_root" | None = None,
         deps = [JavaClassToSourceMapInfo.type]) -> Artifact:
     output = actions.declare_output(name)
     cmd = cmd_args(java_test_toolchain.merge_class_to_source_maps[RunInfo])

@@ -18,9 +18,9 @@ def dwp_available(ctx: AnalysisContext):
 def run_dwp_action(
         ctx: AnalysisContext,
         obj: Artifact,
-        identifier: [str, None],
-        category_suffix: [str, None],
-        referenced_objects: ["_arglike", list[Artifact]],
+        identifier: str | None,
+        category_suffix: str | None,
+        referenced_objects: "_arglike" | list[Artifact],
         dwp_output: Artifact,
         local_only: bool):
     args = cmd_args()
@@ -52,15 +52,15 @@ def dwp(
         obj: Artifact,
         # An identifier that will uniquely name this link action in the context of a category. Useful for
         # differentiating multiple link actions in the same rule.
-        identifier: [str, None],
+        identifier: str | None,
         # A category suffix that will be added to the category of the link action that is generated.
-        category_suffix: [str, None],
+        category_suffix: str | None,
         # All `.o`/`.dwo` paths referenced in `obj`.
         # TODO(T110378122): Ideally, referenced objects are a list of artifacts,
         # but currently we don't track them properly.  So, we just pass in the full
         # link line and extract all inputs from that, which is a bit of an
         # overspecification.
-        referenced_objects: ["_arglike", list[Artifact]]) -> Artifact:
+        referenced_objects: "_arglike" | list[Artifact]) -> Artifact:
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + ".dwp")
     run_dwp_action(

@@ -38,18 +38,18 @@ buckPaths = struct(
 
 def create_jar_artifact_kotlincd(
         actions: "actions",
-        actions_identifier: [str, None],
-        abi_generation_mode: [AbiGenerationMode.type, None],
+        actions_identifier: str | None,
+        abi_generation_mode: AbiGenerationMode.type | None,
         java_toolchain: "JavaToolchainInfo",
         kotlin_toolchain: "KotlinToolchainInfo",
-        javac_tool: [str, "RunInfo", Artifact, None],
+        javac_tool: str | "RunInfo" | Artifact | None,
         label: Label,
         srcs: list[Artifact],
         remove_classes: list[str],
         resources: list[Artifact],
-        resources_root: [str, None],
+        resources_root: str | None,
         ap_params: list["AnnotationProcessorParams"],
-        plugin_params: ["PluginParams", None],
+        plugin_params: "PluginParams" | None,
         source_level: int,
         target_level: int,
         deps: list[Dependency],
@@ -210,14 +210,14 @@ def create_jar_artifact_kotlincd(
     # buildifier: disable=unused-variable
     def define_kotlincd_action(
             category_prefix: str,
-            actions_identifier: [str, None],
+            actions_identifier: str | None,
             encoded_command: struct.type,
             qualified_name: str,
             output_paths: OutputPaths.type,
             classpath_jars_tag: "artifact_tag",
-            abi_dir: [Artifact, None],
+            abi_dir: Artifact | None,
             target_type: TargetType.type,
-            path_to_class_hashes: [Artifact, None],
+            path_to_class_hashes: Artifact | None,
             source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []):
         _unused = source_only_abi_compiling_deps
 

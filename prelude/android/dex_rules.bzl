@@ -124,10 +124,10 @@ def get_multi_dex(
         android_toolchain: "AndroidToolchainInfo",
         java_library_jars_to_owners: dict[Artifact, "target_label"],
         primary_dex_patterns: list[str],
-        proguard_configuration_output_file: [Artifact, None] = None,
-        proguard_mapping_output_file: [Artifact, None] = None,
+        proguard_configuration_output_file: Artifact | None = None,
+        proguard_mapping_output_file: Artifact | None = None,
         is_optimized: bool = False,
-        apk_module_graph_file: [Artifact, None] = None) -> "DexFilesInfo":
+        apk_module_graph_file: Artifact | None = None) -> "DexFilesInfo":
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
         "secondary dex exopackage can only be enabled on pre-dexed builds!",
@@ -232,8 +232,8 @@ def _get_primary_dex_and_secondary_dex_jars(
         jars: list[Artifact],
         java_library_jars_to_owners: dict[Artifact, "target_label"],
         primary_dex_patterns_file: Artifact,
-        proguard_configuration_output_file: [Artifact, None],
-        proguard_mapping_output_file: [Artifact, None],
+        proguard_configuration_output_file: Artifact | None,
+        proguard_mapping_output_file: Artifact | None,
         android_toolchain: "AndroidToolchainInfo") -> (list[Artifact], list[Artifact]):
     primary_dex_jars = []
     secondary_dex_jars = []
@@ -387,7 +387,7 @@ def merge_to_split_dex(
         android_toolchain: "AndroidToolchainInfo",
         pre_dexed_libs: list["DexLibraryInfo"],
         split_dex_merge_config: "SplitDexMergeConfig",
-        apk_module_graph_file: [Artifact, None] = None) -> "DexFilesInfo":
+        apk_module_graph_file: Artifact | None = None) -> "DexFilesInfo":
     is_exopackage_enabled_for_secondary_dex = _is_exopackage_enabled_for_secondary_dex(ctx)
     if is_exopackage_enabled_for_secondary_dex:
         expect(
@@ -581,9 +581,9 @@ def _merge_dexes(
         output_dex_file: Artifact,
         pre_dexed_artifacts: list[Artifact],
         pre_dexed_artifacts_file: Artifact,
-        class_names_to_include: [Artifact, None] = None,
-        secondary_output_dex_file: [Artifact, None] = None,
-        secondary_dex_metadata_config: [SecondaryDexMetadataConfig.type, None] = None):
+        class_names_to_include: Artifact | None = None,
+        secondary_output_dex_file: Artifact | None = None,
+        secondary_dex_metadata_config: SecondaryDexMetadataConfig.type | None = None):
     d8_cmd = cmd_args(android_toolchain.d8_command[RunInfo])
     d8_cmd.add(["--output-dex-file", output_dex_file.as_output()])
 

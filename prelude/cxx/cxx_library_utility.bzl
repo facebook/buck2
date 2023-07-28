@@ -122,7 +122,7 @@ def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list["_argl
 def cxx_mk_shlib_intf(
         ctx: AnalysisContext,
         name: str,
-        shared_lib: [Artifact, "promise"]) -> Artifact:
+        shared_lib: Artifact | "promise") -> Artifact:
     """
     Convert the given shared library into an interface used for linking.
     """
