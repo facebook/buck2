@@ -760,7 +760,6 @@ mod imp {
             concurrent_commands: &buck2_data::ConcurrentCommands,
         ) -> anyhow::Result<()> {
             concurrent_commands.trace_ids.iter().for_each(|c| {
-                self.tags.push(format!("concurrent_commands:{}", c));
                 self.concurrent_command_ids.insert(c.clone());
             });
             Ok(())
