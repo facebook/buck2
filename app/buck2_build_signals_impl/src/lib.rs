@@ -477,6 +477,8 @@ where
             critical_path: Vec::new(),
             critical_path2,
             metadata: ctx.metadata,
+            command_name: Some(ctx.command_name),
+            isolation_dir: Some(ctx.isolation_prefix.into_inner().into()),
             num_nodes,
             num_edges,
             uses_total_duration: true,
