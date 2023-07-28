@@ -72,7 +72,7 @@ fn default_subscribers<'a, T: StreamingCommand>(
     let recorder = try_get_invocation_recorder(
         ctx,
         cmd.event_log_opts(),
-        T::COMMAND_NAME,
+        cmd.logging_name(),
         cmd.sanitize_argv(ctx.argv.clone()).argv,
         log_size_counter_bytes,
     )?;
@@ -122,6 +122,10 @@ pub trait StreamingCommand: Sized + Send + Sync {
 
     fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
         argv.no_need_to_sanitize()
+    }
+
+    fn logging_name(&self) -> &'static str {
+        Self::COMMAND_NAME
     }
 
     /// Some commands should always be displaying

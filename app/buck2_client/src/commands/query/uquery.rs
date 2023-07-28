@@ -113,4 +113,9 @@ impl StreamingCommand for UqueryCommand {
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.common_opts.config_opts
     }
+
+    fn logging_name(&self) -> &'static str {
+        // FIXME: Figure out if we can replace this. We used to log this this way in Ingress :/
+        "query"
+    }
 }

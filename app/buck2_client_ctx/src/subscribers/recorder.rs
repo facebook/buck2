@@ -138,7 +138,7 @@ mod imp {
             fb: FacebookInit,
             async_cleanup_context: AsyncCleanupContext<'a>,
             write_to_path: Option<AbsPathBuf>,
-            mut command_name: &'static str,
+            command_name: &'static str,
             sanitized_argv: Vec<String>,
             trace_id: TraceId,
             isolation_dir: String,
@@ -147,11 +147,6 @@ mod imp {
             restarted_trace_id: Option<TraceId>,
             log_size_counter_bytes: Option<Arc<AtomicU64>>,
         ) -> Self {
-            // FIXME: Figure out if we can replace this. We used to log this this way in Ingress :/
-            if command_name == "uquery" {
-                command_name = "query";
-            }
-
             Self {
                 fb,
                 write_to_path,

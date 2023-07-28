@@ -144,7 +144,7 @@ impl<'a> ClientCommandContext<'a> {
                 .map(|path| path.to_string())
                 .collect(),
             target_call_stacks: config_opts.target_call_stacks,
-            ..self.empty_client_context(T::COMMAND_NAME)?
+            ..self.empty_client_context(cmd.logging_name())?
         })
     }
 
