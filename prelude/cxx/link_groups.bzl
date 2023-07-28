@@ -92,9 +92,9 @@ LINK_GROUP_MAPPINGS_SUB_TARGET = "link-group-mappings"
 LINK_GROUP_MAPPINGS_FILENAME_SUFFIX = ".link_group_map.json"
 
 LinkGroupInfo = provider(fields = [
-    "groups",  # {str.type: Group.type}
-    "groups_hash",  # str.type
-    "mappings",  # {"label": str.type}
+    "groups",  # {str: Group.type}
+    "groups_hash",  # str
+    "mappings",  # {"label": str}
     # Additional graphs needed to cover labels referenced by the groups above.
     # This is useful in cases where the consumer of this provider won't already
     # have deps covering these.

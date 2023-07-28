@@ -162,7 +162,7 @@ AndroidResourceInfo = provider(
         # resources defined by this rule. May be empty
         "res",  # ["artifact", None]
         # priority of the resources, may be 'low' or 'normal'
-        "res_priority",  # str.type
+        "res_priority",  # str
         # symbols defined by the resources, if resources are present
         "text_symbols",  # ["artifact", None]
     ],
