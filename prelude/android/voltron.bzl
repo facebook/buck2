@@ -85,6 +85,18 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list["provider"]:
             targets_to_so_names,
         ]).hidden(targets_to_so_names_args)
 
+        traversed_prebuilt_native_library_dirs = android_packageable_info.prebuilt_native_library_dirs.traverse() if android_packageable_info.prebuilt_native_library_dirs else []
+        targets_to_non_assets_prebuilt_native_library_dirs_args = [
+            cmd_args(prebuilt_native_library_dir.raw_target, prebuilt_native_library_dir.dir, delimiter = " ")
+            for prebuilt_native_library_dir in traversed_prebuilt_native_library_dirs
+            if not prebuilt_native_library_dir.is_asset and not prebuilt_native_library_dir.for_primary_apk
+        ]
+        targets_to_non_assets_prebuilt_native_library_dirs = ctx.actions.write("targets_to_non_assets_prebuilt_native_library_dirs.txt", targets_to_non_assets_prebuilt_native_library_dirs_args)
+        cmd.add([
+            "--targets-to-non-asset-prebuilt-native-library-dirs",
+            targets_to_non_assets_prebuilt_native_library_dirs,
+        ]).hidden(targets_to_non_assets_prebuilt_native_library_dirs_args)
+
     ctx.actions.run(cmd, category = "apk_module_graph")
 
     return [DefaultInfo(default_output = output)]
