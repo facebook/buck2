@@ -429,9 +429,9 @@ pub struct ManifoldClient {
 }
 
 impl ManifoldClient {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new(allow_vpnless: bool) -> anyhow::Result<Self> {
         Ok(Self {
-            client: http::http_client(false)?,
+            client: http::http_client(allow_vpnless)?,
             manifold_url: log_upload_url().map(|s| s.to_owned()),
         })
     }

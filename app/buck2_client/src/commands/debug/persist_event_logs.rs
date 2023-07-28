@@ -46,6 +46,8 @@ pub struct PersistEventLogsCommand {
     local_path: AbsPathBuf,
     #[clap(long, help = "If present, only write to disk and don't upload")]
     no_upload: bool,
+    #[clap(long, help = "Allow vpnless")]
+    allow_vpnless: bool,
 }
 
 impl PersistEventLogsCommand {
@@ -65,7 +67,13 @@ impl PersistEventLogsCommand {
         let file = Mutex::new(create_log_file(self.local_path).await?);
 
         let write = write_task(&file, tx, stdin);
-        let upload = upload_task(&file, rx, self.manifold_name, self.no_upload);
+        let upload = upload_task(
+            &file,
+            rx,
+            self.manifold_name,
+            self.no_upload,
+            self.allow_vpnless,
+        );
 
         // Wait for both tasks to finish. If the upload fails we want to keep writing to disk
         let (write_result, upload_result) = tokio::join!(write, upload);
@@ -118,11 +126,12 @@ async fn upload_task(
     mut rx: tokio::sync::mpsc::UnboundedReceiver<u64>,
     manifold_name: String,
     no_upload: bool,
+    allow_vpnless: bool,
 ) -> anyhow::Result<()> {
     if no_upload {
         return Ok(());
     }
-    let manifold_client = manifold::ManifoldClient::new()?;
+    let manifold_client = manifold::ManifoldClient::new(allow_vpnless)?;
     let manifold_path = format!("flat/{}", manifold_name);
     let upload_chunk_size = UPLOAD_CHUNK_SIZE.get_copied()?.unwrap_or(8 * 1024 * 1024);
     let mut read_position = 0;

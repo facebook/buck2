@@ -138,6 +138,7 @@ pub(crate) struct WriteEventLog<'a> {
     /// Allocation cache. Must be cleaned before use.
     buf: Vec<u8>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
+    allow_vpnless: bool,
 }
 
 impl<'a> WriteEventLog<'a> {
@@ -150,6 +151,7 @@ impl<'a> WriteEventLog<'a> {
         async_cleanup_context: AsyncCleanupContext<'a>,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
+        allow_vpnless: bool,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             state: LogWriterState::Unopened {
@@ -163,6 +165,7 @@ impl<'a> WriteEventLog<'a> {
             working_dir,
             buf: Vec::new(),
             log_size_counter_bytes,
+            allow_vpnless,
         })
     }
 
@@ -279,6 +282,7 @@ impl<'a> WriteEventLog<'a> {
             path,
             event.trace_id()?.clone(),
             self.log_size_counter_bytes.clone(),
+            self.allow_vpnless,
         )
         .await?;
         let mut writers = vec![writer];
@@ -368,6 +372,7 @@ async fn start_persist_subprocess(
     path: EventLogPathBuf,
     trace_id: TraceId,
     bytes_written: Option<Arc<AtomicU64>>,
+    allow_vpnless: bool,
 ) -> anyhow::Result<NamedEventLogWriter> {
     let current_exe = std::env::current_exe().context("No current_exe")?;
     let mut command = buck2_util::process::async_background_command(current_exe);
@@ -385,6 +390,9 @@ async fn start_persist_subprocess(
     if !should_upload_log()? {
         command.arg("--no-upload");
     };
+    if allow_vpnless {
+        command.arg("--allow-vpnless");
+    }
     let child = command
         .stderr(Stdio::null())
         .stdin(Stdio::piped())
@@ -602,6 +610,7 @@ mod tests {
                 working_dir: WorkingDir::current_dir()?,
                 buf: Vec::new(),
                 log_size_counter_bytes: None,
+                allow_vpnless: false,
             })
         }
     }

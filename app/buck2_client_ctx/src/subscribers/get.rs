@@ -110,6 +110,7 @@ pub(crate) fn try_get_event_log_subscriber<'a, T: StreamingCommand>(
         ctx.async_cleanup_context().dupe(),
         T::COMMAND_NAME.to_owned(),
         log_size_counter_bytes,
+        ctx.allow_vpnless()?,
     )?;
     Ok(Some(Box::new(log)))
 }
