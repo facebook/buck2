@@ -130,6 +130,8 @@ impl StreamingCommand for InstallCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
+        let context = ctx.client_context(matches, &self)?;
+
         let mut extra_run_args: Vec<String> = self.extra_run_args.clone();
         if self.android_install_opts.run {
             extra_run_args.push("-r".to_owned());
@@ -162,11 +164,6 @@ impl StreamingCommand for InstallCommand {
             extra_run_args.push("-u".to_owned());
         }
 
-        let context = ctx.client_context(
-            &self.common_opts.config_opts,
-            matches,
-            ctx.sanitized_argv.argv.clone(),
-        )?;
         let response = buckd
             .with_flushing()
             .install(

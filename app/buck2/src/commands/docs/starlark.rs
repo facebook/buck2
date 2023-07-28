@@ -86,8 +86,7 @@ impl StreamingCommand for DocsStarlarkCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let client_context =
-            ctx.client_context(&self.config_opts, matches, ctx.sanitized_argv.argv.clone())?;
+        let client_context = ctx.client_context(matches, &self)?;
 
         let response = buckd
             .with_flushing()

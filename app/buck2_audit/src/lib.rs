@@ -127,15 +127,12 @@ impl StreamingCommand for AuditCommand {
     ) -> ExitResult {
         let serialized = serde_json::to_string(&self)?;
 
-        let config_opts = &self.as_subcommand().common_opts().config_opts;
-
         let submatches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
         };
 
-        let context =
-            ctx.client_context(config_opts, submatches, ctx.sanitized_argv.argv.clone())?;
+        let context = ctx.client_context(submatches, &self)?;
 
         buckd
             .with_flushing()

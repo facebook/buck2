@@ -49,11 +49,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let context = Some(ctx.client_context(
-            &self.common_opts.config_opts,
-            matches,
-            ctx.sanitized_argv.argv.clone(),
-        )?);
+        let context = Some(ctx.client_context(matches, &self)?);
         let ConfiguredTargetsResponse {
             serialized_targets_output,
         } = buckd

@@ -257,11 +257,7 @@ impl StreamingCommand for TargetsCommand {
 
         let output_format = self.output_format()?;
 
-        let context = Some(ctx.client_context(
-            &self.common_opts.config_opts,
-            matches,
-            ctx.sanitized_argv.argv.clone(),
-        )?);
+        let context = Some(ctx.client_context(matches, &self)?);
 
         let target_hash_modified_paths = self
             .target_hash_modified_paths

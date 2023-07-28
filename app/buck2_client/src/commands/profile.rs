@@ -187,11 +187,7 @@ impl StreamingCommand for ProfileSubcommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let context = ctx.client_context(
-            &self.profile_common_opts.common_opts.config_opts,
-            matches,
-            ctx.sanitized_argv.argv.clone(),
-        )?;
+        let context = ctx.client_context(matches, &self)?;
 
         let destination_path = self.profile_common_opts.output.resolve(&ctx.working_dir);
 

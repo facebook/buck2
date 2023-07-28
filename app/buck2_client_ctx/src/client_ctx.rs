@@ -24,7 +24,6 @@ use tokio::runtime::Runtime;
 
 use crate::argv::SanitizedArgv;
 use crate::cleanup_ctx::AsyncCleanupContext;
-use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonDaemonCommandOptions;
 use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
@@ -34,6 +33,7 @@ use crate::exit_result::ExitResult;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
 use crate::stdin::Stdin;
+use crate::streaming::StreamingCommand;
 use crate::subscribers::recorder::try_get_invocation_recorder;
 
 pub struct ClientCommandContext<'a> {
@@ -108,13 +108,13 @@ impl<'a> ClientCommandContext<'a> {
             .await
     }
 
-    pub fn client_context(
+    pub fn client_context<T: StreamingCommand>(
         &self,
-        config_opts: &CommonBuildConfigurationOptions,
         arg_matches: &clap::ArgMatches,
-        sanitized_argv: Vec<String>,
+        cmd: &T,
     ) -> anyhow::Result<ClientContext> {
         // TODO(cjhopman): Support non unicode paths?
+        let config_opts = cmd.common_opts();
         Ok(ClientContext {
             config_overrides: config_opts.config_overrides(arg_matches)?,
             target_platform: config_opts.target_platforms.clone().unwrap_or_default(),
@@ -136,7 +136,7 @@ impl<'a> ClientCommandContext<'a> {
             disable_starlark_types: config_opts.disable_starlark_types,
             skip_targets_with_duplicate_names: config_opts.skip_targets_with_duplicate_names,
             reuse_current_config: config_opts.reuse_current_config,
-            sanitized_argv,
+            sanitized_argv: self.sanitized_argv.argv.clone(), // TODO: Use cmd's sanitize_argv here.
             exit_when_different_state: config_opts.exit_when_different_state,
             argfiles: self
                 .immediate_config
@@ -145,6 +145,7 @@ impl<'a> ClientCommandContext<'a> {
                 .map(|path| path.to_string())
                 .collect(),
             target_call_stacks: config_opts.target_call_stacks,
+            command_name: T::COMMAND_NAME.to_owned(),
             ..self.empty_client_context()?
         })
     }

@@ -45,8 +45,7 @@ impl StreamingCommand for LspCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let client_context =
-            ctx.client_context(&self.config_opts, matches, ctx.sanitized_argv.argv.clone())?;
+        let client_context = ctx.client_context(matches, &self)?;
         let stream = ide_message_stream::<_, Message>(ctx.stdin()).filter_map(|m| async move {
             match m {
                 Ok(lsp_json) => Some(LspRequest { lsp_json }),

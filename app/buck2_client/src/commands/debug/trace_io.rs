@@ -85,8 +85,7 @@ impl StreamingCommand for TraceIoCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let context =
-            ctx.client_context(self.common_opts(), matches, ctx.sanitized_argv.argv.clone())?;
+        let context = ctx.client_context(matches, &self)?;
         match &self.trace_io_action {
             Subcommand::Status => {
                 let req = TraceIoRequest {

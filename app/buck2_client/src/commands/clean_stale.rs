@@ -123,11 +123,7 @@ impl StreamingCommand for CleanStaleCommand {
                 .context("Invalid timestamp")?,
         };
 
-        let context = ctx.client_context(
-            &self.common_opts.config_opts,
-            matches,
-            ctx.sanitized_argv.argv.clone(),
-        )?;
+        let context = ctx.client_context(matches, &self)?;
         let response: CleanStaleResponse = buckd
             .with_flushing()
             .clean_stale(

@@ -95,11 +95,7 @@ impl StreamingCommand for RunCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let context = ctx.client_context(
-            &self.common_opts.config_opts,
-            matches,
-            ctx.sanitized_argv.argv.clone(),
-        )?;
+        let context = ctx.client_context(matches, &self)?;
         // TODO(rafaelc): fail fast on the daemon if the target doesn't have RunInfo
         let response = buckd
             .with_flushing()

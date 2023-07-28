@@ -111,8 +111,7 @@ impl StreamingCommand for StarlarkOpaqueCommand {
     ) -> ExitResult {
         let serialized = serde_json::to_string(&self)?;
 
-        let config_opts = &self.as_subcommand().common_opts().config_opts;
-        let context = ctx.client_context(config_opts, matches, ctx.sanitized_argv.argv.clone())?;
+        let context = ctx.client_context(matches, &self)?;
 
         buckd
             .with_flushing()
