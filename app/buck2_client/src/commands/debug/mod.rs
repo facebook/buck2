@@ -51,7 +51,7 @@ mod persist_event_logs;
 mod segfault;
 mod set_log_filter;
 mod trace_io;
-mod upload_re_logs;
+pub(crate) mod upload_re_logs;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Hidden debug commands useful for testing buck2")]

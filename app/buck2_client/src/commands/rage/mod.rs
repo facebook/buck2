@@ -59,6 +59,8 @@ use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
 use tokio::process::Command;
 
+use crate::commands::debug::upload_re_logs;
+
 #[derive(Debug, Error)]
 enum RageError {
     #[error("Failed to get a valid user selection")]
@@ -203,6 +205,7 @@ impl RageCommand {
         ctx.with_runtime(async move |mut ctx| {
             let timeout = Duration::from_secs(self.timeout);
             let paths = ctx.paths.as_ref().map_err(|e| e.dupe())?;
+            let re_logs_dir = ctx.paths()?.re_logs_dir();
             let stderr_path = paths.daemon_dir()?.buckd_stderr();
             let logdir = paths.log_dir();
             let dice_dump_dir = paths.dice_dump_dir();
@@ -294,6 +297,16 @@ impl RageCommand {
                     }
                 }
             };
+            let re_logs_command = {
+                let title = "RE logs upload".to_owned();
+                let re_session_id = build_info.get_field(|o| Some(o.re_session_id.clone()));
+                match re_session_id {
+                    None => RageSection::get_skipped(title),
+                    Some(re_session_id) => RageSection::get(title, timeout, || {
+                        upload_re_logs_impl(re_logs_dir, re_session_id)
+                    }),
+                }
+            };
 
             let (
                 system_info,
@@ -303,6 +316,7 @@ impl RageCommand {
                 materializer_state,
                 materializer_fsck,
                 event_log_dump,
+                re_logs,
             ) = tokio::join!(
                 system_info_command,
                 daemon_stderr_command,
@@ -311,6 +325,7 @@ impl RageCommand {
                 materializer_state,
                 materializer_fsck,
                 event_log_command,
+                re_logs_command
             );
             let sections = vec![
                 system_info.to_string(),
@@ -322,6 +337,7 @@ impl RageCommand {
                 thread_dump.to_string(),
                 build_info.to_string(),
                 event_log_dump.to_string(),
+                re_logs.to_string(),
             ];
             output_rage(self.no_paste, &sections.join("")).await?;
 
@@ -338,6 +354,7 @@ impl RageCommand {
                 thread_dump,
                 event_log_dump,
                 build_info,
+                re_logs,
             )
             .await?;
             ExitResult::success()
@@ -358,6 +375,7 @@ impl RageCommand {
         thread_dump: RageSection<String>,
         event_log_dump: RageSection<String>,
         build_info: RageSection<build_info::BuildInfo>,
+        re_logs: RageSection<String>,
     ) -> anyhow::Result<()> {
         let mut string_data = convert_args!(
             keys = String::from,
@@ -370,6 +388,7 @@ impl RageCommand {
                 "hg_snapshot_id" => hg_snapshot_id.output(),
                 "invocation_id" => invocation_id.map(|inv| inv.to_string()).unwrap_or_default(),
                 "event_log_dump" => event_log_dump.output(),
+                "re_logs" => re_logs.output(),
             )
         );
 
@@ -452,6 +471,20 @@ async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow:
         .from_file(path.path())?
         .spawn()
         .await?;
+    Ok(format!(
+        "https://www.internalfb.com/manifold/explorer/{}/flat/{}",
+        bucket.name, filename
+    ))
+}
+
+async fn upload_re_logs_impl(
+    re_logs_dir: AbsNormPathBuf,
+    re_session_id: String,
+) -> anyhow::Result<String> {
+    let bucket = manifold::Bucket::RAGE_DUMPS;
+    let filename = format!("{}-re_logs.zst", &re_session_id);
+    upload_re_logs::upload_re_logs(bucket, re_logs_dir, &re_session_id, &filename).await?;
+
     Ok(format!(
         "https://www.internalfb.com/manifold/explorer/{}/flat/{}",
         bucket.name, filename
