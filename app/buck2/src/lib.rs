@@ -65,7 +65,6 @@ use clap::Parser;
 use dice::DetectCycles;
 use dice::WhichDice;
 use dupe::Dupe;
-use gazebo::variants::VariantName;
 
 use crate::check_user_allowed::check_user_allowed;
 use crate::commands::daemon::DaemonCommand;
@@ -238,7 +237,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
     opt.exec(process, &immediate_config, &matches, argv)
 }
 
-#[derive(Debug, clap::Subcommand, VariantName)]
+#[derive(Debug, clap::Subcommand)]
 pub(crate) enum CommandKind {
     #[clap(setting(AppSettings::Hidden))]
     Daemon(DaemonCommand),
@@ -285,11 +284,6 @@ pub(crate) enum CommandKind {
 }
 
 impl CommandKind {
-    fn command_name(&self) -> String {
-        // clap derive does not expose command name, so do this with gazebo.
-        self.variant_name().to_lowercase()
-    }
-
     pub(crate) fn exec(
         self,
         process: ProcessContext<'_>,
@@ -378,7 +372,6 @@ impl CommandKind {
             paths,
             verbosity: common_opts.verbosity,
             start_in_process_daemon,
-            command_name: self.command_name(),
             working_dir: process.working_dir.clone(),
             trace_id: process.trace_id.dupe(),
             async_cleanup: async_cleanup.ctx().dupe(),
@@ -465,17 +458,5 @@ impl CommandKind {
             CommandKind::Lsp(cmd) => cmd.sanitize_argv(argv),
             CommandKind::Subscribe(cmd) => cmd.sanitize_argv(argv),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use buck2_client::commands::kill::KillCommand;
-
-    use crate::CommandKind;
-
-    #[test]
-    fn test_command_name() {
-        assert_eq!("kill", CommandKind::Kill(KillCommand {}).command_name());
     }
 }

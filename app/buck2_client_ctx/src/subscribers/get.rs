@@ -15,11 +15,10 @@ use buck2_event_observer::verbosity::Verbosity;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 
-use crate::argv::SanitizedArgv;
 use crate::client_ctx::ClientCommandContext;
 use crate::common::CommonDaemonCommandOptions;
 use crate::common::ConsoleType;
-use crate::path_arg::PathArg;
+use crate::streaming::StreamingCommand;
 use crate::subscribers::build_id_writer::BuildIdWriter;
 use crate::subscribers::event_log::subscriber::EventLog;
 use crate::subscribers::re_log::ReLog;
@@ -86,13 +85,15 @@ pub fn get_console_with_root(
 }
 
 /// Given the command arguments, conditionally create an event log.
-pub(crate) fn try_get_event_log_subscriber<'a>(
-    event_log_opts: &CommonDaemonCommandOptions,
-    sanitized_argv: SanitizedArgv,
+pub(crate) fn try_get_event_log_subscriber<'a, T: StreamingCommand>(
+    cmd: &T,
     ctx: &ClientCommandContext<'a>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    user_event_log: &Option<PathArg>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+    let event_log_opts = cmd.event_log_opts();
+    let sanitized_argv = ctx.sanitized_argv.clone();
+    let user_event_log = cmd.user_event_log();
+
     if event_log_opts.no_event_log {
         return Ok(None);
     }
@@ -107,7 +108,7 @@ pub(crate) fn try_get_event_log_subscriber<'a>(
         user_event_log.as_ref().map(|p| p.resolve(&ctx.working_dir)),
         sanitized_argv,
         ctx.async_cleanup_context().dupe(),
-        ctx.command_name.clone(),
+        T::COMMAND_NAME.to_owned(),
         log_size_counter_bytes,
     )?;
     Ok(Some(Box::new(log)))

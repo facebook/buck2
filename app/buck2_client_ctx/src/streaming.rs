@@ -59,13 +59,8 @@ fn default_subscribers<'a, T: StreamingCommand>(
     )? {
         subscribers.push(v)
     }
-    if let Some(event_log) = try_get_event_log_subscriber(
-        cmd.event_log_opts(),
-        ctx.sanitized_argv.clone(),
-        ctx,
-        log_size_counter_bytes.clone(),
-        cmd.user_event_log(),
-    )? {
+    if let Some(event_log) = try_get_event_log_subscriber(cmd, ctx, log_size_counter_bytes.clone())?
+    {
         subscribers.push(event_log)
     }
     if let Some(re_log) = try_get_re_log_subscriber(ctx)? {

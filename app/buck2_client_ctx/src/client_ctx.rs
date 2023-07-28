@@ -46,7 +46,6 @@ pub struct ClientCommandContext<'a> {
     /// The function returns `Ok` when daemon successfully started
     /// and ready to accept connections.
     pub start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
-    pub command_name: String,
     pub sanitized_argv: SanitizedArgv,
     pub trace_id: TraceId,
     pub async_cleanup: AsyncCleanupContext<'a>,
