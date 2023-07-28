@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:utils.bzl", "expect")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_utility.bzl", "get_default_binary_dep", "get_extension_attr", "get_product_name")
@@ -242,7 +243,7 @@ def _should_include_entitlements(ctx: AnalysisContext, codesign_type: CodeSignTy
 
     return False
 
-def _get_entitlements_codesign_args(ctx: AnalysisContext, codesign_type: CodeSignType.type) -> list["_arglike"]:
+def _get_entitlements_codesign_args(ctx: AnalysisContext, codesign_type: CodeSignType.type) -> list[ArgLike]:
     include_entitlements = _should_include_entitlements(ctx, codesign_type)
     maybe_entitlements = _entitlements_file(ctx) if include_entitlements else None
     entitlements_args = ["--entitlements", maybe_entitlements] if maybe_entitlements else []

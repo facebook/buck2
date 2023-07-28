@@ -17,6 +17,7 @@ load(
     "get_no_as_needed_shared_libs_flags",
     "get_objects_as_library_args",
 )
+load("@prelude//utils:arglike.bzl", "ArgLike")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -533,10 +534,10 @@ LinkArgs = record(
     # A list of LinkInfos
     infos = field([[LinkInfo.type], None], None),
     # A bunch of flags.
-    flags = field(["_arglike", None], None),
+    flags = field([ArgLike, None], None),
 )
 
-def unpack_link_args(args: LinkArgs.type, is_shared: bool | None = None, link_ordering: LinkOrdering.type | None = None) -> "_arglike":
+def unpack_link_args(args: LinkArgs.type, is_shared: bool | None = None, link_ordering: LinkOrdering.type | None = None) -> ArgLike:
     if args.tset != None:
         ordering = link_ordering.value if link_ordering else "preorder"
 
@@ -558,7 +559,7 @@ def unpack_link_args(args: LinkArgs.type, is_shared: bool | None = None, link_or
 
     fail("Unpacked invalid empty link args")
 
-def unpack_link_args_filelist(args: LinkArgs.type) -> "_arglike" | None:
+def unpack_link_args_filelist(args: LinkArgs.type) -> ArgLike | None:
     if args.tset != None:
         tset = args.tset.infos
         stripped = args.tset.prefer_stripped

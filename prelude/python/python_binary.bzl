@@ -60,6 +60,7 @@ load(
     "linkables",
 )
 load("@prelude//linking:shared_libraries.bzl", "merge_shared_libraries", "traverse_shared_library_info")
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load("@prelude//paths.bzl", "paths")
 load("@prelude//resources.bzl", "gather_resources")
@@ -287,7 +288,7 @@ def python_executable(
         ctx: AnalysisContext,
         main_module: str,
         srcs: dict[str, Artifact],
-        resources: dict[str, (Artifact, list["_arglike"])],
+        resources: dict[str, (Artifact, list[ArgLike])],
         compile: bool = False) -> PexProviders.type:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.

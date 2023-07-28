@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
+
 # Resources for transitive deps, shared by C++ and Rust.
 ResourceInfo = provider(fields = [
     # A map containing all resources from transitive dependencies.  The keys
@@ -15,8 +17,8 @@ ResourceInfo = provider(fields = [
 
 def gather_resources(
         label: Label,
-        resources: dict[str, (Artifact, list["_arglike"])] = {},
-        deps: list[Dependency] = []) -> dict[Label, dict[str, (Artifact, list["_arglike"])]]:
+        resources: dict[str, (Artifact, list[ArgLike])] = {},
+        deps: list[Dependency] = []) -> dict[Label, dict[str, (Artifact, list[ArgLike])]]:
     """
     Return the resources for this rule and its transitive deps.
     """
@@ -38,7 +40,7 @@ def create_resource_db(
         ctx: AnalysisContext,
         name: str,
         binary: Artifact,
-        resources: dict[str, (Artifact, list["_arglike"])]) -> Artifact:
+        resources: dict[str, (Artifact, list[ArgLike])]) -> Artifact:
     """
     Generate a resource DB for resources for the given binary, relativized to
     the binary's working directory.

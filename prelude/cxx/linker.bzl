@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
+load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:utils.bzl", "expect")
 
 # Platform-specific linker flags handling.  Modeled after the `Linker` abstraction
@@ -223,7 +224,7 @@ def get_no_as_needed_shared_libs_flags(linker_type: str) -> list[str]:
 
     return args
 
-def get_output_flags(linker_type: str, output: Artifact) -> list["_argslike"]:
+def get_output_flags(linker_type: str, output: Artifact) -> list[ArgLike]:
     if linker_type == "windows":
         return ["/Brepro", cmd_args(output.as_output(), format = "/OUT:{}")]
     else:
@@ -232,7 +233,7 @@ def get_output_flags(linker_type: str, output: Artifact) -> list["_argslike"]:
 def get_import_library(
         ctx: AnalysisContext,
         linker_type: str,
-        output_short_path: str) -> (Artifact | None, list["_argslike"]):
+        output_short_path: str) -> (Artifact | None, list[ArgLike]):
     if linker_type == "windows":
         import_library = ctx.actions.declare_output(output_short_path + ".imp.lib")
         return import_library, [cmd_args(import_library.as_output(), format = "/IMPLIB:{}")]
