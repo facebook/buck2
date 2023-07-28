@@ -428,7 +428,7 @@ impl BuckdServer {
                             req.client_context()?,
                             opts.starlark_profiler_instrumentation_override(&req)?,
                             req.build_options(),
-                            daemon_state.paths.buck_out_dir(),
+                            &daemon_state.paths,
                             snapshot_collector,
                             cancellations,
                         )?;

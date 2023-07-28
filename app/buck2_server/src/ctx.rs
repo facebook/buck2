@@ -40,6 +40,7 @@ use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::SetHttpClient;
+use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -216,7 +217,7 @@ impl<'a> ServerCommandContext<'a> {
         client_context: &ClientContext,
         starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
         build_options: Option<&CommonBuildOptions>,
-        buck_out_dir: ProjectRelativePathBuf,
+        paths: &InvocationPaths,
         snapshot_collector: SnapshotCollector,
         cancellations: &'a ExplicitCancellationContext,
     ) -> anyhow::Result<Self> {
@@ -305,7 +306,7 @@ impl<'a> ServerCommandContext<'a> {
             oncall,
             _re_connection_handle: re_connection_handle,
             starlark_profiler_instrumentation_override,
-            buck_out_dir,
+            buck_out_dir: paths.buck_out_dir(),
             build_options: build_options.cloned(),
             cell_configs_loader,
             record_target_call_stacks: client_context.target_call_stacks,
