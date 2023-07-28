@@ -14,6 +14,7 @@ use std::time::Duration;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
 use dice::UserComputationData;
@@ -71,6 +72,7 @@ impl FromStr for CriticalPathBackendName {
 
 pub struct BuildSignalsContext {
     pub metadata: HashMap<String, String>,
+    pub isolation_prefix: FileNameBuf,
 }
 
 /// Created along with the BuildSignalsInstaller (ideally, BuildSignalsInstaller's definition would

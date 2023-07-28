@@ -16,6 +16,7 @@ use buck2_build_signals::BuildSignalsContext;
 use buck2_build_signals::DeferredBuildSignals;
 use buck2_build_signals::HasCriticalPathBackend;
 use buck2_common::result::SharedResult;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::working_dir::WorkingDir;
@@ -42,6 +43,8 @@ pub trait ServerCommandContextTrait: Send + Sync {
     fn working_dir(&self) -> &ProjectRelativePath;
 
     fn working_dir_abs(&self) -> &WorkingDir;
+
+    fn isolation_prefix(&self) -> &FileName;
 
     fn project_root(&self) -> &ProjectRoot;
 
@@ -160,6 +163,9 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                                     .get_critical_path_backend(),
                                                 BuildSignalsContext {
                                                     metadata: metadata.clone(),
+                                                    isolation_prefix: self
+                                                        .isolation_prefix()
+                                                        .to_owned(),
                                                 },
                                                 || exec(self, dice),
                                             )

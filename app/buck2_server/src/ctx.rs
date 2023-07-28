@@ -55,6 +55,8 @@ use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::facebook_only;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -188,6 +190,7 @@ pub struct ServerCommandContext<'a> {
     disable_starlark_types: bool,
 
     pub buck_out_dir: ProjectRelativePathBuf,
+    isolation_prefix: FileNameBuf,
 
     /// Common build options associated with this command.
     build_options: Option<CommonBuildOptions>,
@@ -307,6 +310,7 @@ impl<'a> ServerCommandContext<'a> {
             _re_connection_handle: re_connection_handle,
             starlark_profiler_instrumentation_override,
             buck_out_dir: paths.buck_out_dir(),
+            isolation_prefix: paths.isolation.clone(),
             build_options: build_options.cloned(),
             cell_configs_loader,
             record_target_call_stacks: client_context.target_call_stacks,
@@ -723,6 +727,10 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
     fn working_dir_abs(&self) -> &WorkingDir {
         &self.working_dir_abs
+    }
+
+    fn isolation_prefix(&self) -> &FileName {
+        &self.isolation_prefix
     }
 
     fn project_root(&self) -> &ProjectRoot {
