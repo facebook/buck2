@@ -12,8 +12,8 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
 use buck2_core::fs::async_fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use tokio::io::AsyncRead;
 use tokio::io::BufReader;
 
 #[derive(Debug, clap::Parser)]
@@ -28,29 +28,37 @@ impl UploadReLogsCommand {
         buck2_core::facebook_only();
 
         ctx.with_runtime(async move |ctx| {
-            let re_logs_location = ctx.paths()?.re_logs_dir();
-            let logs_path = re_logs_location
-                .join(ForwardRelativePath::new(&self.session_id)?)
-                .join(ForwardRelativePath::new("REClientFolly.log")?);
-            let file = async_fs_util::open(&logs_path).await?;
-            let mut encoder =
-                ZstdEncoder::with_quality(BufReader::new(file), async_compression::Level::Default);
-
-            self.upload_file(&mut encoder).await?
+            let re_logs_dir = ctx.paths()?.re_logs_dir();
+            upload_re_logs(
+                manifold::Bucket::RE_LOGS,
+                re_logs_dir,
+                &self.session_id,
+                &format!("{}.log.zst", &self.session_id),
+            )
+            .await?;
+            ExitResult::success()
         })
     }
+}
 
-    async fn upload_file<'a, R>(&self, reader: &'a mut R) -> anyhow::Result<ExitResult>
-    where
-        R: AsyncRead + Unpin,
-    {
-        let bucket_path = &format!("{}.log.zst", self.session_id);
+pub(crate) async fn upload_re_logs(
+    bucket: manifold::Bucket,
+    re_logs_dir: AbsNormPathBuf,
+    session_id: &str,
+    bucket_path: &str,
+) -> anyhow::Result<()> {
+    let logs_path = re_logs_dir
+        .join(ForwardRelativePath::new(session_id)?)
+        .join(ForwardRelativePath::new("REClientFolly.log")?);
+    let file = async_fs_util::open(&logs_path).await?;
+    let mut encoder =
+        ZstdEncoder::with_quality(BufReader::new(file), async_compression::Level::Default);
 
-        manifold::Upload::new(manifold::Bucket::RE_LOGS, bucket_path)
-            .with_default_ttl()
-            .from_async_read(reader)?
-            .spawn()
-            .await?;
-        Ok(ExitResult::success())
-    }
+    manifold::Upload::new(bucket, bucket_path)
+        .with_default_ttl()
+        .from_async_read(&mut encoder)?
+        .spawn()
+        .await?;
+
+    Ok(())
 }
