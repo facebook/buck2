@@ -1090,37 +1090,40 @@ def f(v: Bar):
         // The following are all valid types
         a.all_true(
             r#"
-is_type(1, int.type)
-is_type(True, bool.type)
-is_type(True, "")
-is_type(None, None)
-is_type(assert_type, "function")
-is_type([], [int.type])
-is_type([], [""])
-is_type([1, 2, 3], [int.type])
-is_type(None, [None, int.type])
-is_type('test', [int.type, str.type])
-is_type(('test', None), (str.type, None))
-is_type({"test": 1, "more": 2}, {str.type: int.type})
-is_type({1: 1, 2: 2}, {int.type: int.type})
+isinstance(1, int.type)
+isinstance(True, bool.type)
+isinstance(True, "")
+isinstance(None, None)
+isinstance(assert_type, "function")
+isinstance([], [int.type])
+isinstance([], [""])
+isinstance([1, 2, 3], [int.type])
+isinstance(None, [None, int.type])
+isinstance('test', [int.type, str.type])
+isinstance(('test', None), (str.type, None))
+isinstance({"test": 1, "more": 2}, {str.type: int.type})
+isinstance({1: 1, 2: 2}, {int.type: int.type})
 
-not is_type(1, None)
-not is_type((1, 1), str.type)
-not is_type('test', [int.type, bool.type])
-not is_type([1,2,None], [int.type])
-not is_type({"test": 1, 8: 2}, {str.type: int.type})
-not is_type({"test": 1, "more": None}, {str.type: int.type})
+not isinstance(1, None)
+not isinstance((1, 1), str.type)
+not isinstance('test', [int.type, bool.type])
+not isinstance([1,2,None], [int.type])
+not isinstance({"test": 1, 8: 2}, {str.type: int.type})
+not isinstance({"test": 1, "more": None}, {str.type: int.type})
 
-is_type(1, "")
-is_type([1,2,"test"], ["_a"])
+isinstance(1, "")
+isinstance([1,2,"test"], ["_a"])
 "#,
         );
 
         // Checking types fails for invalid types
-        a.fail("is_type(None, is_type)", "not a valid type");
-        a.fail("is_type(None, [])", "not a valid type");
-        a.fail("is_type(None, {'1': '', '2': ''})", "not a valid type");
-        a.fail("is_type({}, {1: 'string', 2: 'bool'})", "not a valid type");
+        a.fail("isinstance(None, isinstance)", "not a valid type");
+        a.fail("isinstance(None, [])", "not a valid type");
+        a.fail("isinstance(None, {'1': '', '2': ''})", "not a valid type");
+        a.fail(
+            "isinstance({}, {1: 'string', 2: 'bool'})",
+            "not a valid type",
+        );
 
         // Should check the type of default parameters that aren't used
         a.fail(

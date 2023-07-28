@@ -213,10 +213,6 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
         Ok(NoneType)
     }
 
-    fn is_type<'v>(v: Value<'v>, ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<bool> {
-        Ok(TypeCompiled::new(ty, heap)?.matches(v))
-    }
-
     /// Function which consumes arguments and that's it.
     ///
     /// This function is unknown to optimizer, so it can be used in optimizer tests.
