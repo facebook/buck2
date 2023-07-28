@@ -31,6 +31,7 @@ struct LogInfo {
     revision: Option<String>,
     daemon_uptime_s: Option<u64>,
     timestamp_end: Option<SystemTime>,
+    re_session_id: Option<String>,
 }
 
 pub(crate) struct BuildInfo {
@@ -41,6 +42,7 @@ pub(crate) struct BuildInfo {
     pub buck2_revision: String,
     pub command_duration: Option<Duration>,
     pub daemon_uptime_s: Option<u64>,
+    pub re_session_id: String,
 }
 
 impl fmt::Display for BuildInfo {
@@ -54,6 +56,7 @@ working dir: {}
 buck2_revision: {}
 command duration: {}
 daemon uptime: {}
+RE session id: {}
         ",
             self.uuid,
             self.timestamp.format("%c %Z"),
@@ -62,6 +65,7 @@ daemon uptime: {}
             self.buck2_revision,
             seconds_to_string(self.command_duration.map(|d| d.as_secs())),
             seconds_to_string(self.daemon_uptime_s),
+            self.re_session_id,
         )
     }
 }
@@ -86,6 +90,7 @@ pub(crate) async fn get(log: &EventLogPathBuf) -> anyhow::Result<BuildInfo> {
         revision: None,
         daemon_uptime_s: None,
         timestamp_end: None,
+        re_session_id: None,
     };
     loop {
         let res = match filtered_events.try_next().await {
@@ -118,6 +123,7 @@ pub(crate) async fn get(log: &EventLogPathBuf) -> anyhow::Result<BuildInfo> {
         buck2_revision: info.revision.unwrap_or_else(|| "".to_owned()),
         command_duration: duration,
         daemon_uptime_s: info.daemon_uptime_s,
+        re_session_id: info.re_session_id.unwrap_or_else(|| "".to_owned()),
     };
 
     Ok(output)
@@ -138,6 +144,9 @@ fn extract_info(info: &mut LogInfo, event: Box<buck2_data::BuckEvent>) -> anyhow
         Some(buck2_data::buck_event::Data::Instant(span)) => match &span.data {
             Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
                 info.daemon_uptime_s.get_or_insert(snapshot.daemon_uptime_s);
+            }
+            Some(buck2_data::instant_event::Data::ReSession(session)) => {
+                info.re_session_id.get_or_insert(session.session_id.clone());
             }
             _ => (),
         },
