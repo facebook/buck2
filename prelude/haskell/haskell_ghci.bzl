@@ -25,6 +25,7 @@ load(
     "LinkArgs",
     "LinkInfo",
     "LinkStyle",
+    "Linkage",
     "get_actual_link_style",
     "set_linkable_link_whole",
 )
@@ -183,11 +184,19 @@ def _build_haskell_omnibus_so(
         final_deps = []
         for node_label in deps:
             node = graph_nodes[node_label]
+
+            # We process these libs even if they're excluded, as they need to
+            # be added to the link line.
+            if "prebuilt_so_for_haskell_omnibus" in node.labels:
+                # If the library is marked as force-static, then it won't provide
+                # shared libs and we'll have to link is statically.
+                if node.preferred_linkage == Linkage("static"):
+                    body_nodes[node_label] = None
+                else:
+                    prebuilt_so_deps[node_label] = None
+
             if node_label in all_nodes_to_exclude:
                 continue
-
-            if "prebuilt_so_for_haskell_omnibus" in node.labels:
-                prebuilt_so_deps[node_label] = None
 
             if "supports_haskell_omnibus" in node.labels and "prebuilt_so_for_haskell_omnibus" not in node.labels:
                 body_nodes[node_label] = None
