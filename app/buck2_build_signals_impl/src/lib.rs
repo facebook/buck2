@@ -32,6 +32,7 @@ use buck2_build_api::build_signals::BuildSignalsInstaller;
 use buck2_build_api::build_signals::CREATE_BUILD_SIGNALS;
 use buck2_build_api::deferred::calculation::DeferredCompute;
 use buck2_build_api::deferred::calculation::DeferredResolve;
+use buck2_build_signals::BuildSignalsContext;
 use buck2_build_signals::CriticalPathBackendName;
 use buck2_build_signals::DeferredBuildSignals;
 use buck2_build_signals::FinishBuildSignals;
@@ -43,7 +44,6 @@ use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_events::metadata;
 use buck2_events::span::SpanId;
 use buck2_interpreter_for_build::interpreter::calculation::IntepreterResultsKeyActivationData;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
@@ -301,13 +301,14 @@ impl DeferredBuildSignals for DeferredBuildSignalsImpl {
         self: Box<Self>,
         events: EventDispatcher,
         backend: CriticalPathBackendName,
+        ctx: BuildSignalsContext,
     ) -> Box<dyn FinishBuildSignals> {
         let handle = match backend {
             CriticalPathBackendName::LongestPathGraph => {
-                start_backend(events, self.receiver, LongestPathGraphBackend::new())
+                start_backend(events, self.receiver, LongestPathGraphBackend::new(), ctx)
             }
             CriticalPathBackendName::Default => {
-                start_backend(events, self.receiver, DefaultBackend::new())
+                start_backend(events, self.receiver, DefaultBackend::new(), ctx)
             }
         };
 
@@ -338,10 +339,11 @@ fn start_backend(
     events: EventDispatcher,
     receiver: UnboundedReceiver<BuildSignal>,
     backend: impl BuildListenerBackend + Send + 'static,
+    ctx: BuildSignalsContext,
 ) -> JoinHandle<anyhow::Result<()>> {
     let listener = BuildSignalReceiver::new(receiver, backend);
     tokio::spawn(with_dispatcher_async(events.dupe(), async move {
-        listener.run_and_log().await
+        listener.run_and_log(ctx).await
     }))
 }
 
@@ -366,7 +368,7 @@ where
         }
     }
 
-    pub async fn run_and_log(mut self) -> anyhow::Result<()> {
+    pub async fn run_and_log(mut self, ctx: BuildSignalsContext) -> anyhow::Result<()> {
         while let Some(event) = self.receiver.next().await {
             match event {
                 BuildSignal::Evaluation(eval) => self.process_evaluation(eval),
@@ -474,7 +476,7 @@ where
         instant_event(buck2_data::BuildGraphExecutionInfo {
             critical_path: Vec::new(),
             critical_path2,
-            metadata: metadata::collect(),
+            metadata: ctx.metadata,
             num_nodes,
             num_edges,
             uses_total_duration: true,

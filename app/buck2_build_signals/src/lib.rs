@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -68,6 +69,10 @@ impl FromStr for CriticalPathBackendName {
     }
 }
 
+pub struct BuildSignalsContext {
+    pub metadata: HashMap<String, String>,
+}
+
 /// Created along with the BuildSignalsInstaller (ideally, BuildSignalsInstaller's definition would
 /// live here, but that can't be done for now because it has some dependencies on buck2_build_api).
 ///
@@ -77,6 +82,7 @@ pub trait DeferredBuildSignals: Send {
         self: Box<Self>,
         events: EventDispatcher,
         backend: CriticalPathBackendName,
+        ctx: BuildSignalsContext,
     ) -> Box<dyn FinishBuildSignals>;
 }
 
@@ -102,6 +108,7 @@ pub async fn scope<F, R, Fut>(
     deferred: Box<dyn DeferredBuildSignals>,
     events: EventDispatcher,
     backend: CriticalPathBackendName,
+    ctx: BuildSignalsContext,
     func: F,
 ) -> anyhow::Result<R>
 where
@@ -109,7 +116,7 @@ where
     Fut: Future<Output = anyhow::Result<R>> + Send,
     R: Send,
 {
-    let handle = deferred.start(events, backend);
+    let handle = deferred.start(events, backend, ctx);
     let result = func().await;
     let res = handle
         .finish()

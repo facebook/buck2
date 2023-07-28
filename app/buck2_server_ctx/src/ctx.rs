@@ -12,6 +12,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_build_signals::BuildSignalsContext;
 use buck2_build_signals::DeferredBuildSignals;
 use buck2_build_signals::HasCriticalPathBackend;
 use buck2_common::result::SharedResult;
@@ -157,6 +158,9 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                                 self.events().dupe(),
                                                 dice.per_transaction_data()
                                                     .get_critical_path_backend(),
+                                                BuildSignalsContext {
+                                                    metadata: metadata.clone(),
+                                                },
                                                 || exec(self, dice),
                                             )
                                             .await;
