@@ -289,6 +289,9 @@ impl RageCommand {
 
             buck2_client_ctx::eprintln!("Collecting debug info...")?;
 
+            // Get thread dump before making any new connections to daemon (T159606309)
+            let thread_dump = thread_dump.await;
+
             let (
                 system_info,
                 daemon_stderr_dump,
@@ -296,7 +299,6 @@ impl RageCommand {
                 dice_dump,
                 materializer_state,
                 materializer_fsck,
-                thread_dump,
                 build_info,
                 event_log_dump,
             ) = tokio::join!(
@@ -306,7 +308,6 @@ impl RageCommand {
                 dice_dump_command,
                 materializer_state,
                 materializer_fsck,
-                thread_dump,
                 build_info_command,
                 event_log_command,
             );
