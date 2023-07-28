@@ -91,7 +91,7 @@ pub(crate) fn try_get_event_log_subscriber<'a, T: StreamingCommand>(
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
     let event_log_opts = cmd.event_log_opts();
-    let sanitized_argv = ctx.sanitized_argv.clone();
+    let sanitized_argv = cmd.sanitize_argv(ctx.argv.clone());
     let user_event_log = cmd.user_event_log();
 
     if event_log_opts.no_event_log {

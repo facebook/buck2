@@ -22,7 +22,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use tokio::runtime::Runtime;
 
-use crate::argv::SanitizedArgv;
+use crate::argv::Argv;
 use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::common::CommonDaemonCommandOptions;
 use crate::common::HostArchOverride;
@@ -46,7 +46,7 @@ pub struct ClientCommandContext<'a> {
     /// The function returns `Ok` when daemon successfully started
     /// and ready to accept connections.
     pub start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
-    pub sanitized_argv: SanitizedArgv,
+    pub argv: Argv,
     pub trace_id: TraceId,
     pub async_cleanup: AsyncCleanupContext<'a>,
     pub stdin: &'a mut Stdin,
@@ -135,7 +135,7 @@ impl<'a> ClientCommandContext<'a> {
             disable_starlark_types: config_opts.disable_starlark_types,
             skip_targets_with_duplicate_names: config_opts.skip_targets_with_duplicate_names,
             reuse_current_config: config_opts.reuse_current_config,
-            sanitized_argv: self.sanitized_argv.argv.clone(), // TODO: Use cmd's sanitize_argv here.
+            sanitized_argv: cmd.sanitize_argv(self.argv.clone()).argv,
             exit_when_different_state: config_opts.exit_when_different_state,
             argfiles: self
                 .immediate_config

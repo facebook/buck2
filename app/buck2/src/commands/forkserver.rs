@@ -10,8 +10,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use buck2_client_ctx::argv::Argv;
-use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -66,10 +64,6 @@ impl ForkserverCommand {
             let _ignored = log_reload_handle;
             Err(anyhow::anyhow!("The forkserver is only available on UNIX"))
         }
-    }
-
-    pub(crate) fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
-        argv.no_need_to_sanitize()
     }
 }
 

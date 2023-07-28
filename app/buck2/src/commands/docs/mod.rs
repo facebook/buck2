@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use buck2_client_ctx::argv::Argv;
-use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
@@ -53,9 +51,5 @@ impl DocsCommand {
             DocsKind::Query(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Cquery(cmd) => cmd.exec(submatches, ctx),
         }
-    }
-
-    pub(crate) fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
-        argv.no_need_to_sanitize()
     }
 }

@@ -73,7 +73,7 @@ fn default_subscribers<'a, T: StreamingCommand>(
         ctx,
         cmd.event_log_opts(),
         T::COMMAND_NAME,
-        ctx.sanitized_argv.argv.clone(),
+        cmd.sanitize_argv(ctx.argv.clone()).argv,
         log_size_counter_bytes,
     )?;
     subscribers.push(recorder);
