@@ -39,10 +39,15 @@
           Security
         ]);
         packages = [ pkgs.cargo-bloat my-rust-bin pkgs.mold pkgs.reindeer pkgs.lld_16 pkgs.clang_16 ];
-        shellHook = ''
-          export BUCK2_BUILD_PROTOC=${pkgs.protobuf}/bin/protoc
-          export BUCK2_BUILD_PROTOC_INCLUDE=${pkgs.protobuf}/include
-        '';
+        shellHook = 
+          ''
+            export BUCK2_BUILD_PROTOC=${pkgs.protobuf}/bin/protoc
+            export BUCK2_BUILD_PROTOC_INCLUDE=${pkgs.protobuf}/include
+          ''
+          # enable mold for linux users, for more tolerable link times
+          + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+            export RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold $RUSTFLAGS"
+          '';
       };
     });
 }
