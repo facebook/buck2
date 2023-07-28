@@ -12,8 +12,8 @@ load(
 )
 
 ArtifactInfo = record(
-    label = field("label"),
-    artifacts = field(["artifact"]),
+    label = field(Label),
+    artifacts = field([Artifact]),
 )
 
 def _get_artifacts(entries: list[ArtifactInfo.type]) -> list[Artifact]:

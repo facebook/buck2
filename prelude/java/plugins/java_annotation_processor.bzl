@@ -33,8 +33,8 @@ JavaProcessorsInfo = provider(
 AnnotationProcessorParams = record(
     affects_abi = field(bool),
     supports_source_only_abi = field(bool),
-    processors = field(["string"]),
-    params = field(["string"]),
+    processors = field([str]),
+    params = field([str]),
     deps = field(["JavaPackagingDepTSet", None]),
     isolate_class_loader = field(bool),
 )

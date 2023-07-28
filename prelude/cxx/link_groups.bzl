@@ -131,7 +131,7 @@ _LinkedLinkGroup = record(
 )
 
 _LinkedLinkGroups = record(
-    libs = field({str: _LinkedLinkGroup.type}),
+    libs = field(dict[str, _LinkedLinkGroup.type]),
     symbol_ldflags = field([""], []),
 )
 

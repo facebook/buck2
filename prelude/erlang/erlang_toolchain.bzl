@@ -20,13 +20,13 @@ load(
 Tool = "cmd_args"
 
 ToolsBinaries = record(
-    erl = field("artifact"),
-    erlc = field("artifact"),
-    escript = field("artifact"),
+    erl = field(Artifact),
+    erlc = field(Artifact),
+    escript = field(Artifact),
 )
 
 Tools = record(
-    name = field("string"),
+    name = field(str),
     erl = field(Tool),
     erlc = field(Tool),
     escript = field(Tool),
@@ -34,23 +34,23 @@ Tools = record(
 )
 
 Toolchain = record(
-    name = field("string"),
-    erl_opts = field(["string"]),
-    app_file_script = field("artifact"),
-    boot_script_builder = field("artifact"),
-    dependency_analyzer = field("artifact"),
-    erlc_trampoline = field("artifact"),
-    escript_builder = field("artifact"),
+    name = field(str),
+    erl_opts = field([str]),
+    app_file_script = field(Artifact),
+    boot_script_builder = field(Artifact),
+    dependency_analyzer = field(Artifact),
+    erlc_trampoline = field(Artifact),
+    escript_builder = field(Artifact),
     otp_binaries = field("Tools"),
-    release_variables_builder = field("artifact"),
-    include_erts = field("artifact"),
-    core_parse_transforms = field({"string": ("artifact", "artifact")}),
-    parse_transforms = field({"string": ("artifact", "artifact")}),
-    parse_transforms_filters = field({"string": ["string"]}),
-    edoc = field("artifact"),
-    edoc_options = field(["string"]),
-    utility_modules = field("artifact"),
-    env = field({"string": "string"}),
+    release_variables_builder = field(Artifact),
+    include_erts = field(Artifact),
+    core_parse_transforms = field(dict[str, (Artifact, Artifact)]),
+    parse_transforms = field(dict[str, (Artifact, Artifact)]),
+    parse_transforms_filters = field(dict[str, [str]]),
+    edoc = field(Artifact),
+    edoc_options = field([str]),
+    utility_modules = field(Artifact),
+    env = field(dict[str, str]),
 )
 
 ToolchainUtillInfo = provider(

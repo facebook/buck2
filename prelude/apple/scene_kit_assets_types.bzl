@@ -6,5 +6,5 @@
 # of this source tree.
 
 SceneKitAssetsSpec = record(
-    path = field("artifact"),
+    path = field(Artifact),
 )

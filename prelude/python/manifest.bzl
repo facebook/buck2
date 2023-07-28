@@ -14,9 +14,9 @@ load(":toolchain.bzl", "PythonToolchainInfo")
 # origin of this source (used for error messages in tooling that uses these).
 ManifestInfo = record(
     # The actual manifest file (in the form of a JSON file).
-    manifest = field("artifact"),
+    manifest = field(Artifact),
     # All artifacts that are referenced in the manifest.
-    artifacts = field([["artifact", "_arglike"]]),
+    artifacts = field([[Artifact, "_arglike"]]),
 )
 
 # Parse imports from a *.py file to generate a list of required modules

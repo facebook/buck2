@@ -71,10 +71,10 @@ SwiftDependencyInfo = provider(fields = [
 
 SwiftCompilationOutput = record(
     # The object file output from compilation.
-    object_file = field("artifact"),
+    object_file = field(Artifact),
     object_format = field(SwiftObjectFormat.type),
     # The swiftmodule file output from compilation.
-    swiftmodule = field("artifact"),
+    swiftmodule = field(Artifact),
     # The dependency info provider that contains the swiftmodule
     # search paths required for compilation and linking.
     dependency_info = field(SwiftDependencyInfo.type),

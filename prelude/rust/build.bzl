@@ -74,13 +74,13 @@ load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "RustToolchainInfo", "ctx_toolchain_info")
 
 RustcOutput = record(
-    output = field("artifact"),
-    diag = field({str: "artifact"}),
-    pdb = field(["artifact", None]),
-    dwp_output = field(["artifact", None]),
+    output = field(Artifact),
+    diag = field(dict[str, Artifact]),
+    pdb = field([Artifact, None]),
+    dwp_output = field([Artifact, None]),
     # Zero or more Split DWARF debug info files are emitted into this directory
     # with unpredictable filenames.
-    dwo_output_directory = field(["artifact", None]),
+    dwo_output_directory = field([Artifact, None]),
 )
 
 def compile_context(ctx: AnalysisContext) -> CompileContext.type:

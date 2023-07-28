@@ -124,7 +124,7 @@ CxxRuleConstructorParams = record(
     extra_link_flags = field([""], []),
     extra_binary_link_flags = field([""], []),
     # Additional artifacts to be linked together with the cxx compilation output.
-    extra_link_input = field(["artifact"], []),
+    extra_link_input = field([Artifact], []),
     # If True the extra_link_input should be considered as external debug info.
     extra_link_input_has_external_debug_info = field(bool, False),
     # Additional args to be used to link the target.
@@ -173,7 +173,7 @@ CxxRuleConstructorParams = record(
     # shared libs to include in the symlink tree).
     extra_link_roots = field([LinkableProviders.type], []),
     # Additional shared libs to "package".
-    extra_shared_libs = field({str: SharedLibrary.type}, {}),
+    extra_shared_libs = field(dict[str, SharedLibrary.type], {}),
     auto_link_group_specs = field([[LinkGroupLibSpec.type], None], None),
     link_group_info = field([LinkGroupInfo.type, None], None),
     # Whether to use pre-stripped objects when linking.

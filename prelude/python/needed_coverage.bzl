@@ -16,7 +16,7 @@ PythonNeededCoverageInfo = provider(fields = [
 PythonNeededCoverage = record(
     # A value from 0.0 to 1.0 indicating the ratio of coveraged code in the
     # associated modules.
-    ratio = field(float.type),
+    ratio = field(float),
     # Modules that need to be covered.
     modules = field([str]),
 )

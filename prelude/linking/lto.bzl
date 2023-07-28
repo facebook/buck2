@@ -34,7 +34,7 @@ def lto_compiler_flags(lto_mode: "LtoMode") -> list[str]:
 SplitDebugLtoInfo = record(
     # The output that the linker will generate split debug object(s) too.  May
     # be a single object file (e.g. for darwin+monoLTO) or a directory.
-    output = field("artifact"),
+    output = field(Artifact),
     # The flags to add to the link to use the above output.
     linker_flags = field(cmd_args),
 )

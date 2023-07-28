@@ -75,37 +75,37 @@ OmnibusEnvironment = provider(fields = [
 Disposition = enum("root", "excluded", "body", "omitted")
 
 OmnibusGraph = record(
-    nodes = field({"label": LinkableNode.type}),
+    nodes = field(dict[Label, LinkableNode.type]),
     # All potential root notes for an omnibus link (e.g. C++ libraries,
     # C++ Python extensions).
-    roots = field({"label": AnnotatedLinkableRoot.type}),
+    roots = field(dict[Label, AnnotatedLinkableRoot.type]),
     # All nodes that should be excluded from libomnibus.
-    excluded = field({"label": None}),
+    excluded = field(dict[Label, None]),
 )
 
 # Bookkeeping information used to setup omnibus link rules.
 OmnibusSpec = record(
-    body = field({"label": None}, {}),
-    excluded = field({"label": None}, {}),
-    roots = field({"label": AnnotatedLinkableRoot.type}, {}),
-    exclusion_roots = field(["label"]),
+    body = field(dict[Label, None], {}),
+    excluded = field(dict[Label, None], {}),
+    roots = field(dict[Label, AnnotatedLinkableRoot.type], {}),
+    exclusion_roots = field([Label]),
     # All link infos.
-    link_infos = field({"label": LinkableNode.type}, {}),
-    dispositions = field({"label": Disposition.type}),
+    link_infos = field(dict[Label, LinkableNode.type], {}),
+    dispositions = field(dict[Label, Disposition.type]),
 )
 
 OmnibusPrivateRootProductCause = record(
     category = field(str),
     # Miss-assigned label
-    label = field(["label", None], default = None),
+    label = field([Label, None], default = None),
     # Its actual disposiiton
     disposition = field([Disposition.type, None], default = None),
 )
 
 OmnibusRootProduct = record(
     shared_library = field(LinkedObject.type),
-    undefined_syms = field("artifact"),
-    global_syms = field("artifact"),
+    undefined_syms = field(Artifact),
+    global_syms = field(Artifact),
     # If set, this explains why we had to use a private root for this product.
     # If unset, this means the root was a shared root we reused.
     private = field([OmnibusPrivateRootProductCause.type, None]),
@@ -119,19 +119,19 @@ AnnotatedOmnibusRootProduct = record(
 SharedOmnibusRoot = record(
     product = field(OmnibusRootProduct.type),
     linker_type = field(str),
-    required_body = field(["label"]),
-    required_exclusions = field(["label"]),
+    required_body = field([Label]),
+    required_exclusions = field([Label]),
     prefer_stripped_objects = field(bool),
 )
 
 # The result of the omnibus link.
 OmnibusSharedLibraries = record(
     omnibus = field([CxxLinkResult.type, None], None),
-    libraries = field({str: LinkedObject.type}, {}),
-    roots = field({"label": AnnotatedOmnibusRootProduct.type}, {}),
-    exclusion_roots = field(["label"]),
-    excluded = field(["label"]),
-    dispositions = field({"label": Disposition.type}),
+    libraries = field(dict[str, LinkedObject.type], {}),
+    roots = field(dict[Label, AnnotatedOmnibusRootProduct.type], {}),
+    exclusion_roots = field([Label]),
+    excluded = field([Label]),
+    dispositions = field(dict[Label, Disposition.type]),
 )
 
 def get_omnibus_graph(graph: LinkableGraph.type, roots: dict[Label, AnnotatedLinkableRoot.type], excluded: dict[Label, None]) -> OmnibusGraph.type:

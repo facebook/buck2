@@ -66,10 +66,10 @@ LinkableNode = record(
     # and produces more efficient libs (for example, DT_NEEDED stays a manageable size).
     exported_deps = field([Label], []),
     # Link infos for all supported link styles.
-    link_infos = field({LinkStyle.type: LinkInfos.type}, {}),
+    link_infos = field(dict[LinkStyle.type, LinkInfos.type], {}),
     # Shared libraries provided by this target.  Used if this target is
     # excluded.
-    shared_libs = field({str: LinkedObject.type}, {}),
+    shared_libs = field(dict[str, LinkedObject.type], {}),
 )
 
 LinkableGraphNode = record(
@@ -81,10 +81,10 @@ LinkableGraphNode = record(
 
     # All potential root notes for an omnibus link (e.g. C++ libraries,
     # C++ Python extensions).
-    roots = field({"label": AnnotatedLinkableRoot.type}, {}),
+    roots = field(dict[Label, AnnotatedLinkableRoot.type], {}),
 
     # Exclusions this node adds to the Omnibus graph
-    excluded = field({"label": None}, {}),
+    excluded = field(dict[Label, None], {}),
 )
 
 LinkableGraphTSet = transitive_set()

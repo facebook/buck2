@@ -51,7 +51,7 @@ CPreprocessor = record(
     # Header specs
     headers = field([CHeader.type], []),
     # Those should be mutually exclusive with normal headers as per documentation
-    raw_headers = field(["artifact"], []),
+    raw_headers = field([Artifact], []),
     # Directories to be included via -I, [arglike things]
     include_dirs = field(["label_relative_path"], []),
     # Directories to be included via -isystem, [arglike things]

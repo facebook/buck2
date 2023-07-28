@@ -102,25 +102,25 @@ def _is_native(mode: "BuildMode") -> bool:
 # The type of the return value of the `_compile()` function.
 CompileResultInfo = record(
     # The .cmx file names in topological order
-    cmxs_order = field("artifact"),
+    cmxs_order = field(Artifact),
     # .o files (of .c files)
-    stbs = field(["artifact"], []),
+    stbs = field([Artifact], []),
     # .o files (of .ml files)
-    objs = field(["artifact"], []),
+    objs = field([Artifact], []),
     # .cmi files
-    cmis = field(["artifact"], []),
+    cmis = field([Artifact], []),
     # .cmo files
-    cmos = field(["artifact"], []),
+    cmos = field([Artifact], []),
     # .cmx files
-    cmxs = field(["artifact"], []),
+    cmxs = field([Artifact], []),
     # .cmt files
-    cmts = field(["artifact"], []),
+    cmts = field([Artifact], []),
     # .cmti files
-    cmtis = field(["artifact"], []),
+    cmtis = field([Artifact], []),
     # .pp.mli files
-    ppmlis = field(["artifact"], []),
+    ppmlis = field([Artifact], []),
     # .pp.ml files
-    ppmls = field(["artifact"], []),
+    ppmls = field([Artifact], []),
 )
 
 def _compile_result_to_tuple(r):

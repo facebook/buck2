@@ -41,11 +41,11 @@ BuildEnvironment = record(
     beams = field(ModuleArtifactMapping, {}),
     priv_dirs = field(PathArtifactMapping, {}),
     include_dirs = field(PathArtifactMapping, {}),
-    private_include_dir = field(["artifact"], []),
+    private_include_dir = field([Artifact], []),
     ebin_dirs = field(PathArtifactMapping, {}),
     deps_files = field(PathArtifactMapping, {}),
     app_files = field(PathArtifactMapping, {}),
-    full_dependencies = field(["artifact"], []),
+    full_dependencies = field([Artifact], []),
     # convenience storrage
     app_includes = field(IncludesMapping, {}),
     app_beams = field(ModuleArtifactMapping, {}),

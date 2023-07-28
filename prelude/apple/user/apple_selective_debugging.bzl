@@ -37,7 +37,7 @@ AppleSelectiveDebuggingInfo = provider(fields = [
 ])
 
 AppleSelectiveDebuggingFilteredDebugInfo = record(
-    map = field({"label": ["artifact"]}),
+    map = field(dict[Label, [Artifact]]),
 )
 
 # The type of selective debugging json input to utilze.

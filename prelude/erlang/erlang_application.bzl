@@ -43,9 +43,9 @@ StartTypeValues = ["permanent", "transient", "temporary", "load", "none"]
 StartType = enum(*StartTypeValues)
 
 StartSpec = record(
-    name = field("string"),
-    version = field("string"),
-    resolved = field("bool"),
+    name = field(str),
+    version = field(str),
+    resolved = field(bool),
     start_type = field("StartType"),
 )
 

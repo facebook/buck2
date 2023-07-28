@@ -18,7 +18,7 @@ prelude_rule = record(
     docs = field([str, None], None),
     examples = field([str, None], None),
     further = field([str, None], None),
-    attrs = field({str: "attribute"}),
+    attrs = field(dict[str, "attribute"]),
     impl = field(["function", None], None),
 )
 
