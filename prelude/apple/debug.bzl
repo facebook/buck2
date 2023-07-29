@@ -31,7 +31,7 @@ AppleDebuggableInfo = provider(fields = [
 AggregatedAppleDebugInfo = record(
     debug_info = field(AppleDebuggableInfo.type),
     # debug_info_tset = field(ArtifactTSet.type),
-    sub_targets = field(dict[str, ["DefaultInfo"]]),
+    sub_targets = field({str.type: ["DefaultInfo"]}),
 )
 
 def get_aggregated_debug_info(ctx: "context", debug_infos: list[AppleDebuggableInfo.type], dsym_artifacts: list[""]) -> AggregatedAppleDebugInfo.type:

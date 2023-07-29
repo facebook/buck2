@@ -148,7 +148,7 @@ HaskellLibraryInfo = record(
     # support Template Haskell which may need access to the libraries
     # at compile time.  The real library flags are propagated up the
     # dependency graph via MergedLinkInfo.
-    libs = field([Artifact], []),
+    libs = field(["artifact"], []),
     # Package version, used to specify the full package when exposing it,
     # e.g. filepath-1.4.2.1, deepseq-1.4.4.0.
     # Internal packages default to 1.0.0, e.g. `fbcode-dsi-logger-hs-types-1.0.0`.
@@ -410,10 +410,10 @@ def get_packages_info(
 
 # The type of the return value of the `_compile()` function.
 CompileResultInfo = record(
-    objects = field(Artifact),
-    hi = field(Artifact),
-    stubs = field(Artifact),
-    producing_indices = field(bool),
+    objects = field("artifact"),
+    hi = field("artifact"),
+    stubs = field("artifact"),
+    producing_indices = field("bool"),
 )
 
 def _link_style_extensions(link_style: LinkStyle.type) -> (str, str):

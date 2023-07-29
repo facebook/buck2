@@ -9,9 +9,9 @@ load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 BitcodeBundle = record(
-    artifact = field(Artifact),
+    artifact = field("artifact"),
     # For a thin archive, this contains all the referenced .o files
-    external_objects = field([Artifact]),
+    external_objects = field(["artifact"]),
 )
 
 BitcodeTSet = transitive_set()

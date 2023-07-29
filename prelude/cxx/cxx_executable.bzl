@@ -140,8 +140,8 @@ load(
 
 CxxExecutableOutput = record(
     binary = "artifact",
-    bitcode_bundle = field([Artifact, None], None),
-    dwp = field([Artifact, None]),
+    bitcode_bundle = field(["artifact", None], None),
+    dwp = field(["artifact", None]),
     # Files that will likely need to be included as .hidden() arguments
     # when executing the executable (ex. RunInfo())
     runtime_files = ["_arglike"],
@@ -152,7 +152,7 @@ CxxExecutableOutput = record(
     external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
     shared_libs = {str: LinkedObject.type},
     # All link group links that were generated in the executable.
-    auto_link_groups = field(dict[str, LinkedObject.type], {}),
+    auto_link_groups = field({str: LinkedObject.type}, {}),
     compilation_db = CxxCompilationDbInfo.type,
     xcode_data = XcodeDataInfo.type,
     linker_map_data = [CxxLinkerMapData.type, None],

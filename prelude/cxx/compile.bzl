@@ -92,10 +92,10 @@ _CxxCompileCommand = record(
 # Information about how to compile a source file.
 CxxSrcCompileCommand = record(
     # Source file to compile.
-    src = field(Artifact),
+    src = field("artifact"),
     # If we have multiple source entries with same files but different flags,
     # specify an index so we can differentiate them. Otherwise, use None.
-    index = field([int, None], None),
+    index = field(["int", None], None),
     # The CxxCompileCommand to use to compile this file.
     cxx_compile_cmd = field(_CxxCompileCommand.type),
     # Arguments specific to the source file.
@@ -115,24 +115,24 @@ CxxCompileCommandOutput = record(
 # An input to cxx compilation, consisting of a file to compile and optional
 # file specific flags to compile with.
 CxxSrcWithFlags = record(
-    file = field(Artifact),
+    file = field("artifact"),
     flags = field(["resolved_macro"], []),
     # If we have multiple source entries with same files but different flags,
     # specify an index so we can differentiate them. Otherwise, use None.
-    index = field([int, None], None),
+    index = field(["int", None], None),
 )
 
 CxxCompileOutput = record(
     # The compiled `.o` file.
-    object = field(Artifact),
+    object = field("artifact"),
     object_format = field(CxxObjectFormat.type, CxxObjectFormat("native")),
     object_has_external_debug_info = field(bool, False),
     # Externally referenced debug info, which doesn't get linked with the
     # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
     # the `.dwo` when using `-gsplit-dwarf=split`).
-    external_debug_info = field([Artifact, None], None),
-    clang_remarks = field([Artifact, None], None),
-    clang_trace = field([Artifact, None], None),
+    external_debug_info = field(["artifact", None], None),
+    clang_remarks = field(["artifact", None], None),
+    clang_trace = field(["artifact", None], None),
 )
 
 def create_compile_cmds(

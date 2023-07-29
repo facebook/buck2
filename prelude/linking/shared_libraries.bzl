@@ -14,10 +14,10 @@ load("@prelude//linking:strip.bzl", "strip_shared_library")
 
 SharedLibrary = record(
     lib = field(LinkedObject.type),
-    stripped_lib = field([Artifact, None]),
+    stripped_lib = field(["artifact", None]),
     can_be_asset = field(bool),
     for_primary_apk = field(bool),
-    label = field(Label),
+    label = field("label"),
 )
 
 SharedLibraries = record(
@@ -25,7 +25,7 @@ SharedLibraries = record(
     # Since the SONAME is what the dynamic loader uses to uniquely identify
     # libraries, using this as the key allows easily detecting conflicts from
     # dependencies.
-    libraries = field(dict[str, SharedLibrary.type]),
+    libraries = field({str: SharedLibrary.type}),
 )
 
 # T-set of SharedLibraries

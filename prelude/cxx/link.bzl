@@ -67,8 +67,8 @@ CxxLinkResultType = enum(
 )
 
 CxxLinkerMapData = record(
-    map = field(Artifact),
-    binary = field(Artifact),
+    map = field("artifact"),
+    binary = field("artifact"),
 )
 
 CxxLinkResult = record(

@@ -9,9 +9,9 @@ load("@prelude//utils:utils.bzl", "value_or")
 
 GoPkg = record(
     # Built w/ `-shared`.
-    shared = field(Artifact),
+    shared = field("artifact"),
     # Built w/o `-shared`.
-    static = field(Artifact),
+    static = field("artifact"),
 )
 
 def go_attr_pkg_name(ctx: AnalysisContext) -> str:

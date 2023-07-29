@@ -6,5 +6,5 @@
 # of this source tree.
 
 AppleCoreDataSpec = record(
-    path = field(Artifact),
+    path = field("artifact"),
 )

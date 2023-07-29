@@ -85,11 +85,11 @@ load("@prelude//utils:utils.bzl", "expect")
 # `classpath(A, 1)` returns all of the first-order packaging deps of A.
 
 JavaClasspathEntry = record(
-    full_library = field(Artifact),
-    abi = field(Artifact),
+    full_library = field("artifact"),
+    abi = field("artifact"),
     # abi_as_dir is the abi .jar unzipped into a directory. If available, it is used to provide
     # .class level granularity for javacd and kotlincd dep-files.
-    abi_as_dir = field([Artifact, None]),
+    abi_as_dir = field(["artifact", None]),
     required_for_source_only_abi = field(bool),
 )
 

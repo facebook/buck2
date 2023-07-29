@@ -19,12 +19,12 @@ CommonArgsInfo = record(
     tempfile = field(str),
     short_cmd = field(str),
     is_check = field(bool),
-    crate_map = field([(CrateName.type, Label)]),
+    crate_map = field([(CrateName.type, "label")]),
 )
 
 ExternArg = record(
     flags = str,
-    lib = field(Artifact),
+    lib = field("artifact"),
 )
 
 CrateMapArg = record(
@@ -37,14 +37,14 @@ CompileContext = record(
     toolchain_info = field(RustToolchainInfo.type),
     cxx_toolchain_info = field(CxxToolchainInfo.type),
     # Symlink root containing all sources.
-    symlinked_srcs = field(Artifact),
+    symlinked_srcs = field("artifact"),
     # Linker args to pass the linker wrapper to rustc.
     linker_args = field(cmd_args),
     # Clippy wrapper (wrapping clippy-driver so it has the same CLI as rustc).
     clippy_wrapper = field(cmd_args),
     # Memoized common args for reuse.
-    common_args = field(dict[(CrateType.type, Emit.type, LinkStyle.type), CommonArgsInfo.type]),
-    flagfiles_for_extern = field(dict[ExternArg.type, Artifact]),
-    flagfiles_for_crate_map = field(dict[CrateMapArg.type, Artifact]),
-    transitive_dependency_dirs = field(dict[Artifact, None]),
+    common_args = field({(CrateType.type, Emit.type, LinkStyle.type): CommonArgsInfo.type}),
+    flagfiles_for_extern = field({ExternArg.type: "artifact"}),
+    flagfiles_for_crate_map = field({CrateMapArg.type: "artifact"}),
+    transitive_dependency_dirs = field({"artifact": None}),
 )

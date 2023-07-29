@@ -52,23 +52,23 @@ RustLinkInfo = provider(fields = [
 
 CrateName = record(
     simple = field(str),
-    dynamic = field([Artifact, None]),
+    dynamic = field(["artifact", None]),
 )
 
 # Information which is keyed on link_style
 RustLinkStyleInfo = record(
     # Path to library or binary
-    rlib = field(Artifact),
+    rlib = field("artifact"),
     # Transitive dependencies which are relevant to consumer
     # This is a dict from artifact to None (we don't have sets)
-    transitive_deps = field(dict[Artifact, CrateName.type]),
+    transitive_deps = field({"artifact": CrateName.type}),
 
     # Path for library metadata (used for check or pipelining)
-    rmeta = field(Artifact),
+    rmeta = field("artifact"),
     # Transitive rmeta deps
-    transitive_rmeta_deps = field(dict[Artifact, CrateName.type]),
+    transitive_rmeta_deps = field({"artifact": CrateName.type}),
     # Path to PDB file with Windows debug data.
-    pdb = field([Artifact, None]),
+    pdb = field(["artifact", None]),
     # Debug info which is referenced -- but not included -- by the linkable rlib.
     external_debug_info = field(ArtifactTSet.type),
 )

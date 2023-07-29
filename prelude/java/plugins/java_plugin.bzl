@@ -14,8 +14,10 @@ load(
 )
 
 PluginParams = record(
-    processors = field([str]),
-    args = field(dict[str, cmd_args]),
+    processors = field(["string"]),
+    args = field({
+        str: cmd_args,
+    }),
     deps = field(["JavaPackagingDepTSet", None]),
 )
 

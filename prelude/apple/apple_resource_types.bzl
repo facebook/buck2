@@ -17,14 +17,14 @@ AppleResourceDestination = enum(
 
 # Defines _where_ resources need to be placed in an `apple_bundle`
 AppleResourceSpec = record(
-    files = field([[Artifact, Dependency]], []),
-    dirs = field([Artifact], []),
-    content_dirs = field([Artifact], []),
+    files = field([["artifact", Dependency]], []),
+    dirs = field(["artifact"], []),
+    content_dirs = field(["artifact"], []),
     destination = AppleResourceDestination.type,
-    variant_files = field([Artifact], []),
+    variant_files = field(["artifact"], []),
     # Map from locale to list of files for that locale, e.g.
     # `{ "ru.lproj" : ["Localizable.strings"] }`
-    named_variant_files = field(dict[str, [Artifact]], {}),
+    named_variant_files = field({str: ["artifact"]}, {}),
     codesign_files_on_copy = field(bool, False),
 )
 
