@@ -154,7 +154,7 @@ def preserve_structure(path: str) -> dict[str, list[str]]:
         mapping[dirname] = mapping.get(dirname, []) + [filename]
     return mapping
 
-def _file_mapping_impl(ctx: AnalysisContext) -> list[Provider]:
+def _file_mapping_impl(ctx: AnalysisContext) -> list["provider"]:
     outputs = []
     for target_path, files in ctx.attrs.mapping.items():
         for file in files:

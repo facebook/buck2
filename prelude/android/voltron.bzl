@@ -40,7 +40,7 @@ load("@prelude//utils:utils.bzl", "expect", "flatten")
 #
 # There is also an `android_app_modularity` rule that just prints out details of the Voltron
 # module graph and is used for any subsequent verification.
-def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
+def android_app_modularity_impl(ctx: AnalysisContext) -> list["provider"]:
     if ctx.attrs._build_only_native_code:
         return [
             # Add an unused default output in case this target is used as an attr.source() anywhere.

@@ -22,7 +22,7 @@ def _headers(ctx: AnalysisContext, deps: list[Dependency]) -> dict[str, Artifact
 
     return headers
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
+def _impl(ctx: AnalysisContext) -> list["provider"]:
     headers = _headers(ctx, ctx.attrs.deps)
     if ctx.attrs.limit != None:
         expect(

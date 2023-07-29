@@ -128,7 +128,7 @@ def erlang_tests_macro(
             **common_attributes
         )
 
-def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
+def erlang_test_impl(ctx: AnalysisContext) -> list["provider"]:
     toolchains = select_toolchains(ctx)
     primary_toolchain_name = get_primary(ctx)
     primary_toolchain = toolchains[primary_toolchain_name]
@@ -264,7 +264,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
 # Copied from erlang_application.
-def _build_default_info(dependencies: ErlAppDependencies, output_dir: Artifact) -> Provider:
+def _build_default_info(dependencies: ErlAppDependencies, output_dir: Artifact) -> "provider":
     """ generate default_outputs and DefaultInfo provider
     """
     outputs = []

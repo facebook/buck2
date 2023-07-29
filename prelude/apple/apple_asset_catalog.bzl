@@ -14,7 +14,7 @@ load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_sdk_metadata.bzl", "get_apple_sdk_metadata_for_sdk_name")
 load(":resource_groups.bzl", "create_resource_graph")
 
-def apple_asset_catalog_impl(ctx: AnalysisContext) -> list[Provider]:
+def apple_asset_catalog_impl(ctx: AnalysisContext) -> list["provider"]:
     spec = AppleAssetCatalogSpec(
         app_icon = StringWithSourceTarget(source = ctx.label, value = ctx.attrs.app_icon) if ctx.attrs.app_icon != None else None,
         dirs = ctx.attrs.dirs,

@@ -136,7 +136,7 @@ def _get_fallback_transform_profile(ctx: AnalysisContext) -> str:
 
     fail("Invalid fallback_transform_profile attribute {}!".format(ctx.attrs.fallback_transform_profile))
 
-def _get_default_providers(js_bundle_info: JsBundleInfo.type) -> list[Provider]:
+def _get_default_providers(js_bundle_info: JsBundleInfo.type) -> list["provider"]:
     return [DefaultInfo(default_output = js_bundle_info.built_js)]
 
 def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, identifier: str) -> "AndroidResourceInfo":
@@ -160,7 +160,7 @@ def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInf
         text_symbols = get_text_symbols(ctx, js_bundle_info.res, [], identifier),
     )
 
-def _get_extra_providers(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, identifier: str) -> list[Provider]:
+def _get_extra_providers(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, identifier: str) -> list["provider"]:
     providers = [js_bundle_info]
     if ctx.attrs._platform == "android":
         resource_info = _get_android_resource_info(ctx, js_bundle_info, identifier)
@@ -171,7 +171,7 @@ def _get_extra_providers(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type
 
     return providers
 
-def js_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
+def js_bundle_impl(ctx: AnalysisContext) -> list["provider"]:
     sub_targets = {}
     default_outputs = []
     extra_unnamed_output_providers = None

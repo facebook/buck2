@@ -115,7 +115,7 @@ def _cgo(
 
     return go_srcs, c_headers, c_srcs
 
-def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def cgo_library_impl(ctx: AnalysisContext) -> list["provider"]:
     pkg_name = go_attr_pkg_name(ctx)
 
     # Gather preprocessor inputs.

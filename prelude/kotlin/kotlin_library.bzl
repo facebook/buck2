@@ -237,7 +237,7 @@ def _add_plugins(
         if options:
             kotlinc_cmd_args.add(["-P", cmd_args(options, delimiter = ",")])
 
-def kotlin_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def kotlin_library_impl(ctx: AnalysisContext) -> list["provider"]:
     packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
 
     # TODO(T107163344) this shouldn't be in kotlin_library itself, use overlays to remove it.

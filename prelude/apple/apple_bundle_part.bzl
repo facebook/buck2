@@ -45,7 +45,7 @@ def assemble_bundle(
         bundle: Artifact,
         parts: list[AppleBundlePart.type],
         info_plist_part: [AppleBundlePart.type, None],
-        swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> dict[str, list[Provider]]:
+        swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> dict[str, list["provider"]]:
     """
     Returns extra subtargets related to bundling.
     """

@@ -572,7 +572,7 @@ def _include_paths(cmis: list[Artifact], cmos: list[Artifact]) -> cmd_args.type:
     include_paths.hidden(cmis + cmos)
     return include_paths
 
-def ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def ocaml_library_impl(ctx: AnalysisContext) -> list["provider"]:
     opaque_enabled_nat = "-opaque" in _compiler_flags(ctx, BuildMode("native"))
     opaque_enabled_byt = "-opaque" in _compiler_flags(ctx, BuildMode("bytecode"))
 
@@ -690,7 +690,7 @@ def ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+def ocaml_binary_impl(ctx: AnalysisContext) -> list["provider"]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
     env = _mk_env(ctx)
@@ -779,7 +779,7 @@ def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         RunInfo(args = [binary_nat]),
     ]
 
-def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
+def ocaml_object_impl(ctx: AnalysisContext) -> list["provider"]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
     env = _mk_env(ctx)
@@ -869,7 +869,7 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
 # `Dynlink` module. Example use cases include writing compiler plugins for use
 # with the `-plugin` compiler flag & "deriver" plugins for use with the
 # `ppx_deriving` framework.
-def ocaml_shared_impl(ctx: AnalysisContext) -> list[Provider]:
+def ocaml_shared_impl(ctx: AnalysisContext) -> list["provider"]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
 
     env = _mk_env(ctx)
@@ -932,7 +932,7 @@ def ocaml_shared_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(default_output = binary_nat, sub_targets = sub_targets),
     ]
 
-def prebuilt_ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def prebuilt_ocaml_library_impl(ctx: AnalysisContext) -> list["provider"]:
     # examples:
     #   name: 'threads'
     #   bytecode_c_libs: 'libthreads.a'

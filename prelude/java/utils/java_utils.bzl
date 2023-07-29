@@ -135,7 +135,7 @@ def get_class_to_source_map_info(
     )
     return (class_to_src_map_info, sub_targets)
 
-def get_classpath_subtarget(actions: "actions", packaging_info: "JavaPackagingInfo") -> dict[str, list[Provider]]:
+def get_classpath_subtarget(actions: "actions", packaging_info: "JavaPackagingInfo") -> dict[str, list["provider"]]:
     proj = packaging_info.packaging_deps.project_as_args("full_jar_args")
     output = actions.write("classpath", proj)
     return {"classpath": [DefaultInfo(output, other_outputs = [proj])]}

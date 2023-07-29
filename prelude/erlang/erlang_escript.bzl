@@ -41,7 +41,7 @@ def create_escript(
     )
     return None
 
-def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
+def erlang_escript_impl(ctx: AnalysisContext) -> list["provider"]:
     # select the correct tools from the toolchain
     toolchain_name = get_primary(ctx)
     toolchain = select_toolchains(ctx)[get_primary(ctx)]

@@ -81,7 +81,7 @@ def _get_cache_mode(ctx: AnalysisContext) -> CacheModeInfo.type:
     else:
         return CacheModeInfo(allow_cache_uploads = False, cache_bust_genrules = False)
 
-def genrule_impl(ctx: AnalysisContext) -> list[Provider]:
+def genrule_impl(ctx: AnalysisContext) -> list["provider"]:
     # Directories:
     #   sh - sh file
     #   src - sources files
@@ -112,7 +112,7 @@ def process_genrule(
         out_attr: [str, None],
         outs_attr: [dict, None],
         extra_env_vars: dict = {},
-        identifier: [str, None] = None) -> list[Provider]:
+        identifier: [str, None] = None) -> list["provider"]:
     if (out_attr != None) and (outs_attr != None):
         fail("Only one of `out` and `outs` should be set. Got out=`%s`, outs=`%s`" % (repr(out_attr), repr(outs_attr)))
 

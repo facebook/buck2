@@ -560,7 +560,7 @@ def _write_start_ghci(ctx: AnalysisContext, script_file: Artifact):
     else:
         ctx.actions.copy_file(script_file, header_ghci)
 
-def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
+def haskell_ghci_impl(ctx: AnalysisContext) -> list["provider"]:
     start_ghci_file = ctx.actions.declare_output("start.ghci")
     _write_start_ghci(ctx, start_ghci_file)
 

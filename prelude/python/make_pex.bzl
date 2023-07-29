@@ -45,7 +45,7 @@ PexProviders = record(
 
 def make_pex_providers(
         python_toolchain: PythonToolchainInfo.type,
-        pex: PexProviders.type) -> list[Provider]:
+        pex: PexProviders.type) -> list["provider"]:
     providers = [
         make_default_info(pex),
         make_run_info(pex),
@@ -54,7 +54,7 @@ def make_pex_providers(
         providers.append(make_install_info(python_toolchain.installer, pex))
     return providers
 
-def make_install_info(installer: "_arglike", pex: PexProviders.type) -> Provider:
+def make_install_info(installer: "_arglike", pex: PexProviders.type) -> "provider":
     prefix = "{}/".format(pex.other_outputs_prefix) if pex.other_outputs_prefix != None else ""
     files = {
         "{}{}".format(prefix, path): artifact
@@ -68,14 +68,14 @@ def make_install_info(installer: "_arglike", pex: PexProviders.type) -> Provider
         files = files,
     )
 
-def make_default_info(pex: PexProviders.type) -> Provider:
+def make_default_info(pex: PexProviders.type) -> "provider":
     return DefaultInfo(
         default_output = pex.default_output,
         other_outputs = [a for a, _ in pex.other_outputs] + pex.hidden_resources,
         sub_targets = pex.sub_targets,
     )
 
-def make_run_info(pex: PexProviders.type) -> Provider:
+def make_run_info(pex: PexProviders.type) -> "provider":
     return RunInfo(pex.run_cmd)
 
 def _srcs(srcs: list[""], format = "{}") -> cmd_args:

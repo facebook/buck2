@@ -171,7 +171,7 @@ def cxx_platform_supported(ctx: AnalysisContext) -> bool:
         get_cxx_platform_info(ctx).name,
     )
 
-def cxx_objects_sub_target(outs: list[CxxCompileOutput.type]) -> list[Provider]:
+def cxx_objects_sub_target(outs: list[CxxCompileOutput.type]) -> list["provider"]:
     objects_sub_targets = {}
     for obj in outs:
         sub_targets = {}

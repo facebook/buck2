@@ -21,7 +21,7 @@ def _convert_to_artifact_dir(ctx: AnalysisContext, attr: [Dependency, dict, Arti
     else:
         return attr
 
-def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
+def android_resource_impl(ctx: AnalysisContext) -> list["provider"]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 

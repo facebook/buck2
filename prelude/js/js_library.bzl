@@ -167,7 +167,7 @@ def _build_js_library(
 
     return output_path
 
-def js_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def js_library_impl(ctx: AnalysisContext) -> list["provider"]:
     if ctx.attrs._build_only_native_code:
         sub_targets = {}
         unused_output = ctx.actions.write("unused.js", [])

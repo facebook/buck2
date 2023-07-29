@@ -250,7 +250,7 @@ def _src_types(srcs: dict[str, Artifact], type_stubs: dict[str, Artifact]) -> di
 
     return src_types
 
-def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def python_library_impl(ctx: AnalysisContext) -> list["provider"]:
     # Versioned params should be intercepted and converted away via the stub.
     expect(not ctx.attrs.versioned_srcs)
     expect(not ctx.attrs.versioned_resources)

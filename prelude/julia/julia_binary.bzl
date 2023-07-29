@@ -154,6 +154,6 @@ def build_julia_command(ctx):
 
     return cmd
 
-def julia_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+def julia_binary_impl(ctx: AnalysisContext) -> list["provider"]:
     cmd = build_julia_command(ctx)
     return [DefaultInfo(), RunInfo(cmd)]

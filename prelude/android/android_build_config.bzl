@@ -10,7 +10,7 @@ load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo", "create_java_packaging_dep", "derive_compiling_deps")
 load(":android_providers.bzl", "AndroidBuildConfigInfo", "BuildConfigField", "merge_android_packageable_info")
 
-def android_build_config_impl(ctx: AnalysisContext) -> list[Provider]:
+def android_build_config_impl(ctx: AnalysisContext) -> list["provider"]:
     providers = []
 
     default_build_config_fields = get_build_config_fields(ctx.attrs.values)

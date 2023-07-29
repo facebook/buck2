@@ -60,7 +60,7 @@ def make_bitcode_bundle(
 
     return BitcodeBundle(artifact = bundle, external_objects = objects)
 
-def llvm_link_bitcode_impl(ctx: "context") -> list[Provider]:
+def llvm_link_bitcode_impl(ctx: "context") -> list["provider"]:
     llvm_link = get_cxx_toolchain_info(ctx).llvm_link
     if llvm_link == None:
         fail("llvm-link is not provided by toolchain.")

@@ -81,7 +81,7 @@ def get_primary_tools(ctx: AnalysisContext) -> "Tools":
 def get_primary_toolchain(ctx: AnalysisContext) -> "Toolchain":
     return (select_toolchains(ctx)[get_primary(ctx)])
 
-def _multi_version_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
+def _multi_version_toolchain_impl(ctx: AnalysisContext) -> list["provider"]:
     toolchains = {}
     for toolchain in ctx.attrs.targets:
         toolchain_info = toolchain[ErlangToolchainInfo]
@@ -123,7 +123,7 @@ multi_version_toolchain_rule = rule(
 def as_target(name: str) -> str:
     return ":" + name
 
-def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
+def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list["provider"]:
     """ rule for erlang toolchain
     """
 
@@ -196,7 +196,7 @@ def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-def _configured_otp_binaries_impl(ctx: AnalysisContext) -> list[Provider]:
+def _configured_otp_binaries_impl(ctx: AnalysisContext) -> list["provider"]:
     name = ctx.attrs.name
     tools = get_primary_tools(ctx)
     bin_dir = ctx.actions.symlinked_dir(
@@ -341,7 +341,7 @@ erlang_parse_transform = rule(
     },
 )
 
-def _toolchain_utils(ctx: AnalysisContext) -> list[Provider]:
+def _toolchain_utils(ctx: AnalysisContext) -> list["provider"]:
     return [
         DefaultInfo(),
         ToolchainUtillInfo(

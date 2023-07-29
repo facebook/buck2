@@ -42,8 +42,8 @@ load(
 load(":debug.bzl", "DEBUGINFO_SUBTARGET")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
-def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
-    def get_apple_test_providers(deps_providers) -> list[Provider]:
+def apple_test_impl(ctx: AnalysisContext) -> [list["provider"], "promise"]:
+    def get_apple_test_providers(deps_providers) -> list["provider"]:
         xctest_bundle = bundle_output(ctx)
 
         test_host_app_bundle = _get_test_host_app_bundle(ctx)
@@ -136,7 +136,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
     else:
         return get_apple_test_providers([])
 
-def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_bundle: [Artifact, None], dsym_artifact: [Artifact, None] = None) -> Provider:
+def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_bundle: [Artifact, None], dsym_artifact: [Artifact, None] = None) -> "provider":
     # When interacting with Tpx, we just pass our various inputs via env vars,
     # since Tpx basiclaly wants structured output for this.
 

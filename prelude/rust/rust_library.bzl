@@ -99,7 +99,7 @@ load(
 load(":resources.bzl", "rust_attr_resources")
 load(":targets.bzl", "targets")
 
-def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list["provider"]:
     providers = []
 
     # Default output.
@@ -180,7 +180,7 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return providers
 
-def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def rust_library_impl(ctx: AnalysisContext) -> list["provider"]:
     compile_ctx = compile_context(ctx)
     toolchain_info = compile_ctx.toolchain_info
 
@@ -439,7 +439,7 @@ def _default_providers(
         rustdoc_test: [cmd_args, None],
         check_artifacts: dict[str, Artifact],
         expand: Artifact,
-        sources: Artifact) -> list[Provider]:
+        sources: Artifact) -> list["provider"]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
@@ -496,7 +496,7 @@ def _default_providers(
 def _rust_providers(
         ctx: AnalysisContext,
         lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
-        param_artifact: dict[BuildParams.type, RustLinkStyleInfo.type]) -> list[Provider]:
+        param_artifact: dict[BuildParams.type, RustLinkStyleInfo.type]) -> list["provider"]:
     """
     Return the set of providers for Rust linkage.
     """
@@ -541,7 +541,7 @@ def _native_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
-        param_artifact: dict[BuildParams.type, RustcOutput.type]) -> list[Provider]:
+        param_artifact: dict[BuildParams.type, RustcOutput.type]) -> list["provider"]:
     """
     Return the set of providers needed to link Rust as a dependency for native
     (ie C/C++) code, along with relevant dependencies.

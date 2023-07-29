@@ -217,7 +217,7 @@ def _src_to_module_name(x: str) -> str:
     base, _ext = paths.split_extension(x)
     return base.replace("/", ".")
 
-def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list["provider"]:
     native_infos = []
     haskell_infos = []
     shared_library_infos = []
@@ -623,7 +623,7 @@ def _make_package(
 
     return db
 
-def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def haskell_library_impl(ctx: AnalysisContext) -> list["provider"]:
     linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
     libname = repr(ctx.label.path).replace("//", "_").replace("/", "_") + "_" + ctx.label.name
     pkgname = libname.replace("_", "-")
@@ -855,7 +855,7 @@ def derive_indexing_tset(
         children = index_children,
     )
 
-def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+def haskell_binary_impl(ctx: AnalysisContext) -> list["provider"]:
     # Decide what kind of linking we're doing
     link_style = _attr_link_style(ctx)
 

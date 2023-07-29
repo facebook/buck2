@@ -130,7 +130,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         _external_debug_info: ArtifactTSet.type,
         dwp: [Artifact, None],
         pdb: [Artifact, None],
-        linker_map: [CxxLinkerMapData.type, None]) -> (dict[str, list[Provider]], list[Provider]):
+        linker_map: [CxxLinkerMapData.type, None]) -> (dict[str, list["provider"]], list["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
     sub_targets = {}
@@ -143,7 +143,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map.map, other_outputs = [linker_map.binary])]
     return (sub_targets, providers)
 
-def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def cxx_library_impl(ctx: AnalysisContext) -> list["provider"]:
     if ctx.attrs.can_be_asset and ctx.attrs.used_by_wrap_script:
         fail("Cannot use `can_be_asset` and `used_by_wrap_script` in the same rule")
 
@@ -201,7 +201,7 @@ def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: [LinkGroupI
         return None
     return create_shared_lib_link_group_specs(ctx, link_group_info)
 
-def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+def cxx_binary_impl(ctx: AnalysisContext) -> list["provider"]:
     link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
     params = CxxRuleConstructorParams(
         rule_type = "cxx_binary",
@@ -261,7 +261,7 @@ def _prebuilt_linkage(ctx: AnalysisContext) -> Linkage.type:
         return Linkage("shared")
     return Linkage("any")
 
-def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list["provider"]:
     # Versioned params should be intercepted and converted away via the stub.
     expect(not ctx.attrs.versioned_exported_lang_platform_preprocessor_flags)
     expect(not ctx.attrs.versioned_exported_lang_preprocessor_flags)
@@ -564,7 +564,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return providers
 
-def cxx_precompiled_header_impl(ctx: AnalysisContext) -> list[Provider]:
+def cxx_precompiled_header_impl(ctx: AnalysisContext) -> list["provider"]:
     inherited_pp_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
     inherited_link = cxx_inherited_link_info(ctx, ctx.attrs.deps)
     return [
@@ -574,7 +574,7 @@ def cxx_precompiled_header_impl(ctx: AnalysisContext) -> list[Provider]:
         CPrecompiledHeaderInfo(header = ctx.attrs.src),
     ]
 
-def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
+def cxx_test_impl(ctx: AnalysisContext) -> list["provider"]:
     link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
 
     # TODO(T110378115): have the runinfo contain the correct test running args

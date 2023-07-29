@@ -15,7 +15,7 @@ load(
 )
 load(":java_toolchain.bzl", "PrebuiltJarToolchainInfo")
 
-def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
+def prebuilt_jar_impl(ctx: AnalysisContext) -> list["provider"]:
     """
      prebuilt_jar() rule implementation
 

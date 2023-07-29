@@ -11,7 +11,7 @@ load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 
-def scene_kit_assets_impl(ctx: AnalysisContext) -> list[Provider]:
+def scene_kit_assets_impl(ctx: AnalysisContext) -> list["provider"]:
     spec = SceneKitAssetsSpec(
         path = ctx.attrs.path,
     )
