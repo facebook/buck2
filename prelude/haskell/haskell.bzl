@@ -158,7 +158,7 @@ HaskellLibraryInfo = record(
 
 # --
 
-def _by_platform(ctx: AnalysisContext, xs: list[(str, list["_a"])]) -> list["_a"]:
+def _by_platform(ctx: AnalysisContext, xs: list[(str, list[typing.Any])]) -> list[typing.Any]:
     platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
     return flatten(by_platform([platform], xs))
 

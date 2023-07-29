@@ -133,7 +133,7 @@ _LinkedLinkGroup = record(
 
 _LinkedLinkGroups = record(
     libs = field(dict[str, _LinkedLinkGroup.type]),
-    symbol_ldflags = field([""], []),
+    symbol_ldflags = field([typing.Any], []),
 )
 
 def get_link_group(ctx: AnalysisContext) -> str | None:
@@ -517,7 +517,7 @@ def _create_link_group(
         other_roots: list[Label] = [],
         public_nodes: set_record.type = set(),
         linkable_graph_node_map: dict[Label, LinkableNode.type] = {},
-        linker_flags: list[""] = [],
+        linker_flags: list[typing.Any] = [],
         link_groups: dict[str, Group.type] = {},
         link_group_mappings: dict[Label, str] = {},
         link_group_preferred_linkage: dict[Label, Linkage.type] = {},
@@ -612,7 +612,7 @@ def _create_link_group(
 def _stub_library(
         ctx: AnalysisContext,
         name: str,
-        extra_ldflags: list[""] = [],
+        extra_ldflags: list[typing.Any] = [],
         anonymous: bool = False) -> LinkInfos.type:
     link_result = cxx_link_shared_library(
         ctx = ctx,
@@ -713,7 +713,7 @@ def create_link_groups(
         executable_deps: list[Label] = [],
         other_roots: list[Label] = [],
         root_link_group = [str, None],
-        linker_flags: list[""] = [],
+        linker_flags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False,
         linkable_graph_node_map: dict[Label, LinkableNode.type] = {},
         link_group_preferred_linkage: dict[Label, Linkage.type] = {},

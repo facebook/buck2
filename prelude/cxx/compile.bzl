@@ -99,7 +99,7 @@ CxxSrcCompileCommand = record(
     # The CxxCompileCommand to use to compile this file.
     cxx_compile_cmd = field(_CxxCompileCommand.type),
     # Arguments specific to the source file.
-    args = field(["_arg"]),
+    args = field([typing.Any]),
 )
 
 # Output of creating compile commands for Cxx source files.
@@ -376,7 +376,7 @@ def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreproces
         else:
             path_to_artifact[header_path] = header.artifact
 
-def _get_compiler_info(toolchain: "CxxToolchainInfo", ext: CxxExtension.type) -> "_compiler_info":
+def _get_compiler_info(toolchain: "CxxToolchainInfo", ext: CxxExtension.type) -> typing.Any:
     compiler_info = None
     if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp"):
         compiler_info = toolchain.cxx_compiler_info
@@ -399,7 +399,7 @@ def _get_compiler_info(toolchain: "CxxToolchainInfo", ext: CxxExtension.type) ->
 
     return compiler_info
 
-def _get_compile_base(compiler_info: "_compiler_info") -> cmd_args:
+def _get_compile_base(compiler_info: typing.Any) -> cmd_args:
     """
     Given a compiler info returned by _get_compiler_info, form the base compile args.
     """
@@ -430,7 +430,7 @@ def _dep_file_type(ext: CxxExtension.type) -> DepFileType.type | None:
         # This should be unreachable as long as we handle all enum values
         fail("Unknown C++ extension: " + ext.value)
 
-def _add_compiler_info_flags(compiler_info: "_compiler_info", ext: CxxExtension.type, cmd: cmd_args):
+def _add_compiler_info_flags(compiler_info: typing.Any, ext: CxxExtension.type, cmd: cmd_args):
     cmd.add(compiler_info.preprocessor_flags or [])
     cmd.add(compiler_info.compiler_flags or [])
     cmd.add(get_flags_for_reproducible_build(compiler_info.compiler_type))
@@ -441,7 +441,7 @@ def _add_compiler_info_flags(compiler_info: "_compiler_info", ext: CxxExtension.
 
 def _mk_argsfile(
         ctx: AnalysisContext,
-        compiler_info: "_compiler_info",
+        compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo.type,
         ext: CxxExtension.type,
         headers_tag: "artifact_tag",
@@ -506,7 +506,7 @@ def _mk_argsfile(
         args_without_file_prefix_args = args_without_file_prefix_args,
     )
 
-def _attr_compiler_flags(ctx: AnalysisContext, ext: str) -> list[""]:
+def _attr_compiler_flags(ctx: AnalysisContext, ext: str) -> list[typing.Any]:
     return (
         cxx_by_language_ext(ctx.attrs.lang_compiler_flags, ext) +
         flatten(cxx_by_platform(ctx, ctx.attrs.platform_compiler_flags)) +

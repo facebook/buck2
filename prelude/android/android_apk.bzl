@@ -189,7 +189,7 @@ def generate_install_config(ctx: AnalysisContext) -> Artifact:
     data = get_install_config()
     return ctx.actions.write_json("install_android_options.json", data)
 
-def get_install_config() -> dict[str, ""]:
+def get_install_config() -> dict[str, typing.Any]:
     # TODO: read from toolchains
     install_config = {
         "adb_restart_on_failure": read_root_config("adb", "adb_restart_on_failure", "true"),

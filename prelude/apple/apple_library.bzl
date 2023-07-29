@@ -355,7 +355,7 @@ def _xcode_populate_attributes(
         srcs: list["CxxSrcWithFlags"],
         argsfiles: dict[str, CompileArgsfile.type],
         populate_xcode_attributes_func: "function",
-        **_kwargs) -> dict[str, ""]:
+        **_kwargs) -> dict[str, typing.Any]:
     # Overwrite the product name
     data = populate_xcode_attributes_func(ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     return data

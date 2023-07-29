@@ -12,7 +12,7 @@ load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInf
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchainInfo")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 
-def _toolchain(lang: str, providers: list[""]) -> "attribute":
+def _toolchain(lang: str, providers: list[typing.Any]) -> "attribute":
     return attrs.default_only(attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers))
 
 def _cxx_toolchain():

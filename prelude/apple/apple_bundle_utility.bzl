@@ -24,7 +24,7 @@ def _get_bundle_target_name(ctx: AnalysisContext):
 def get_product_name(ctx: AnalysisContext) -> str:
     return ctx.attrs.product_name if hasattr(ctx.attrs, "product_name") and ctx.attrs.product_name != None else _get_bundle_target_name(ctx)
 
-def get_extension_attr(ctx: AnalysisContext) -> "":
+def get_extension_attr(ctx: AnalysisContext) -> typing.Any:
     return ctx.attrs.extension
 
 def get_default_binary_dep(ctx: "context") -> "dependency" | None:

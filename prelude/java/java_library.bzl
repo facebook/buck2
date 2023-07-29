@@ -254,7 +254,7 @@ def _copy_resources(
     return resource_output
 
 def _jar_creator(
-        javac_tool: "" | None,
+        javac_tool: typing.Any | None,
         java_toolchain: JavaToolchainInfo.type) -> "function":
     if javac_tool or java_toolchain.javac_protocol == "classic":
         return _create_jar_artifact
@@ -270,7 +270,7 @@ def compile_to_jar(
         abi_generation_mode: "AbiGenerationMode" | None = None,
         output: Artifact | None = None,
         actions_identifier: str | None = None,
-        javac_tool: "" | None = None,
+        javac_tool: typing.Any | None = None,
         resources: list[Artifact] | None = None,
         resources_root: str | None = None,
         remove_classes: list[str] | None = None,
@@ -349,7 +349,7 @@ def _create_jar_artifact(
         java_toolchain: JavaToolchainInfo.type,
         label: Label,
         output: Artifact | None,
-        javac_tool: "" | None,
+        javac_tool: typing.Any | None,
         srcs: list[Artifact],
         remove_classes: list[str],
         resources: list[Artifact],

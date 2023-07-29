@@ -48,13 +48,13 @@ def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
 def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
     return ctx.attrs.exported_deps + flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_deps))
 
-def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[""]:
+def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.exported_linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_linker_flags))
     )
 
-def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[""]:
+def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.exported_post_linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.exported_post_platform_linker_flags))
@@ -67,7 +67,7 @@ def cxx_inherited_link_info(ctx, first_order_deps: list[Dependency]) -> MergedLi
     return merge_link_infos(ctx, filter(None, [x.get(MergedLinkInfo) for x in first_order_deps]))
 
 # Linker flags
-def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[""]:
+def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.platform_linker_flags))

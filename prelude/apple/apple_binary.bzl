@@ -148,7 +148,7 @@ def _needs_entitlements_in_binary(ctx: AnalysisContext) -> bool:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     return apple_toolchain_info.sdk_name in _SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY
 
-def _entitlements_link_flags(ctx: AnalysisContext) -> list[""]:
+def _entitlements_link_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return [
         "-Xlinker",
         "-sectcreate",

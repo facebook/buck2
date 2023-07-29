@@ -7,7 +7,7 @@
 
 load("@prelude//utils:utils.bzl", "expect")
 
-def topo_sort(graph: dict["_a", list["_a"]]) -> list["_a"]:
+def topo_sort(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any]:
     """
     Topo-sort the given graph.
     """
@@ -41,7 +41,7 @@ def topo_sort(graph: dict["_a", list["_a"]]) -> list["_a"]:
 
     return ordered
 
-def post_order_traversal(graph: dict["_a", list["_a"]]) -> list["_a"]:
+def post_order_traversal(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any]:
     """
     Performs a post-order traversal of `graph`.
     """
@@ -78,8 +78,8 @@ def post_order_traversal(graph: dict["_a", list["_a"]]) -> list["_a"]:
     return ordered
 
 def breadth_first_traversal(
-        graph_nodes: dict["_a", list["_a"]],
-        roots: list["_a"]) -> list["_a"]:
+        graph_nodes: dict[typing.Any, list[typing.Any]],
+        roots: list[typing.Any]) -> list[typing.Any]:
     """
     Like `breadth_first_traversal_by` but the nodes are stored in the graph.
     """
@@ -90,9 +90,9 @@ def breadth_first_traversal(
     return breadth_first_traversal_by(graph_nodes, roots, lookup)
 
 def breadth_first_traversal_by(
-        graph_nodes: dict["_a", ""],
-        roots: list["_a"],
-        get_nodes_to_traverse_func) -> list["_a"]:
+        graph_nodes: dict[typing.Any, typing.Any],
+        roots: list[typing.Any],
+        get_nodes_to_traverse_func) -> list[typing.Any]:
     """
     Performs a breadth first traversal of `graph_nodes`, beginning
     with the `roots` and queuing the nodes returned by`get_nodes_to_traverse_func`.

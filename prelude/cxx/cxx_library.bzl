@@ -1389,7 +1389,7 @@ def use_archives(ctx: AnalysisContext) -> bool:
     # Otherwise, fallback to the rule-specific setting.
     return value_or(ctx.attrs.use_archive, True)
 
-def _attr_post_linker_flags(ctx: AnalysisContext) -> list[""]:
+def _attr_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.post_linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.post_platform_linker_flags))

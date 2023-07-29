@@ -128,7 +128,7 @@ def _compile_result_to_tuple(r):
 
 # ---
 
-def _by_platform(ctx: AnalysisContext, xs: list[(str, list["_a"])]) -> list["_a"]:
+def _by_platform(ctx: AnalysisContext, xs: list[(str, list[typing.Any])]) -> list[typing.Any]:
     platform = get_cxx_platform_info(ctx).name
     return flatten(by_platform([platform], xs))
 
@@ -151,7 +151,7 @@ def _attr_deps_other_outputs_infos(ctx: AnalysisContext) -> list["OtherOutputsIn
 # We want to pass a series of arguments as a command, but the OCaml compiler
 # only lets us pass a single script. Therefore, produce a script that contains
 # many arguments.
-def _mk_script(ctx: AnalysisContext, file: str, args: list[""], env: dict[str, ""]) -> cmd_args:
+def _mk_script(ctx: AnalysisContext, file: str, args: list[typing.Any], env: dict[str, typing.Any]) -> cmd_args:
     lines = ["#!/usr/bin/env bash"]
     for name, val in env.items():
         lines.append(cmd_args(val, format = "export {}={{}}".format(name)))
@@ -190,13 +190,13 @@ def _mk_env(ctx: AnalysisContext) -> dict[str, cmd_args]:
         return {}
 
 # Pass '-cc cc.sh' to ocamlopt to use 'cc.sh' as the C compiler.
-def _mk_cc(ctx: AnalysisContext, cc_args: list[""], cc_sh_filename: "") -> cmd_args:
+def _mk_cc(ctx: AnalysisContext, cc_args: list[typing.Any], cc_sh_filename: typing.Any) -> cmd_args:
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     compiler = cxx_toolchain.c_compiler_info.compiler
     return _mk_script(ctx, cc_sh_filename, [compiler] + cc_args, {})
 
 # Pass '-cc ld.sh' to ocamlopt to use 'ld.sh' as the C linker.
-def _mk_ld(ctx: AnalysisContext, link_args: list[""], ld_sh_filename: "") -> cmd_args:
+def _mk_ld(ctx: AnalysisContext, link_args: list[typing.Any], ld_sh_filename: typing.Any) -> cmd_args:
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     linker = cxx_toolchain.linker_info.linker
     linker_flags = cxx_toolchain.linker_info.linker_flags
@@ -207,7 +207,7 @@ def _mk_ld(ctx: AnalysisContext, link_args: list[""], ld_sh_filename: "") -> cmd
 # `build_mode`. It produces a script that forwards arguments to the ocaml
 # compiler (one of `ocamlopt.opt` vs `ocamlc.opt` consistent with the value of
 # `build_mode`) in the environment of a local 'bin' directory.
-def _mk_ocaml_compiler(ctx: AnalysisContext, env: dict[str, ""], build_mode: BuildMode.type) -> cmd_args:
+def _mk_ocaml_compiler(ctx: AnalysisContext, env: dict[str, typing.Any], build_mode: BuildMode.type) -> cmd_args:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
     compiler = ocaml_toolchain.ocaml_compiler if _is_native(build_mode) else ocaml_toolchain.ocaml_bytecode_compiler
     script_name = "ocamlopt" + build_mode.value + ".sh"

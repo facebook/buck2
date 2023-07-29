@@ -748,7 +748,7 @@ def _merge(a: dict, b: dict) -> dict:
     r.update(b)
     return r
 
-def _add(a: dict, key: "", value: "") -> dict:
+def _add(a: dict, key: typing.Any, value: typing.Any) -> dict:
     """ safely add a value to a dict """
     b = dict(a)
     b[key] = value

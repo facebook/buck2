@@ -71,7 +71,7 @@ def dest_prefix(label: Label, base_module: None | str) -> str:
 def qualify_srcs(
         label: Label,
         base_module: None | str,
-        srcs: dict[str, "_a"]) -> dict[str, "_a"]:
+        srcs: dict[str, typing.Any]) -> dict[str, typing.Any]:
     """
     Fully qualify package-relative sources with the rule's base module.
 

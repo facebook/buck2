@@ -146,7 +146,7 @@ def get_shared_library_flags(linker_type: str, flag_overrides: SharedLibraryFlag
 
     return LINKERS[linker_type].shared_library_flags
 
-def get_link_whole_args(linker_type: str, inputs: list[Artifact]) -> list[""]:
+def get_link_whole_args(linker_type: str, inputs: list[Artifact]) -> list[typing.Any]:
     """
     Return linker args used to always link all the given inputs.
     """
@@ -172,7 +172,7 @@ def get_link_whole_args(linker_type: str, inputs: list[Artifact]) -> list[""]:
 
     return args
 
-def get_objects_as_library_args(linker_type: str, objects: list[Artifact]) -> list[""]:
+def get_objects_as_library_args(linker_type: str, objects: list[Artifact]) -> list[typing.Any]:
     """
     Return linker args used to link the given objects as a library.
     """

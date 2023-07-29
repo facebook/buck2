@@ -84,7 +84,7 @@ def get_pic_flags(compiler_type: str) -> list[str]:
     else:
         return []
 
-def get_output_flags(compiler_type: str, output: Artifact) -> list[""]:
+def get_output_flags(compiler_type: str, output: Artifact) -> list[typing.Any]:
     if compiler_type in ["windows", "clang_cl", "windows_ml64"]:
         return [cmd_args(output.as_output(), format = "/Fo{}")]
     else:

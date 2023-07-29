@@ -20,7 +20,7 @@ def go_attr_pkg_name(ctx: AnalysisContext) -> str:
     """
     return value_or(ctx.attrs.package_name, ctx.label.package)
 
-def merge_pkgs(pkgss: list[dict[str, "_pkg"]]) -> dict[str, "_pkg"]:
+def merge_pkgs(pkgss: list[dict[str, typing.Any]]) -> dict[str, typing.Any]:
     """
     Merge mappings of packages into a single mapping, throwing an error on
     conflicts.

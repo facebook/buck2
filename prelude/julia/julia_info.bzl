@@ -54,9 +54,9 @@ def create_julia_library_info(
         actions: "actions",
         label: Label,
         uuid: str = "",
-        src_labels: "" = [],
-        project_toml: "" = None,
-        srcs: "" = [],
+        src_labels: typing.Any = [],
+        project_toml: typing.Any = None,
+        srcs: typing.Any = [],
         deps: list[JuliaLibraryInfo.type] = [],
         jll: JllInfo.type | None = None,
         shlibs: list[SharedLibraryInfo.type] = []) -> "JuliaLibraryInfo":

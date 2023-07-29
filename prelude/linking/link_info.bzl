@@ -137,8 +137,8 @@ LinkInfo = record(
     # or when constructing intermediate output paths and does not need to be unique.
     name = field([str, None], None),
     # Opaque cmd_arg-likes to be added pre/post this item on a linker command line.
-    pre_flags = field([""], []),
-    post_flags = field([""], []),
+    pre_flags = field([typing.Any], []),
+    post_flags = field([typing.Any], []),
     # Primary input to the linker, one of the Linkable types above.
     linkables = field([LinkableTypes], []),
     # Debug info which is referenced -- but not included -- by linkables in the
@@ -178,8 +178,8 @@ def set_linkable_link_whole(
 # Helper to wrap a LinkInfo with additional pre/post-flags.
 def wrap_link_info(
         inner: LinkInfo.type,
-        pre_flags: list[""] = [],
-        post_flags: list[""] = []) -> LinkInfo.type:
+        pre_flags: list[typing.Any] = [],
+        post_flags: list[typing.Any] = []) -> LinkInfo.type:
     pre_flags = pre_flags + inner.pre_flags
     post_flags = inner.post_flags + post_flags
     return LinkInfo(
@@ -379,8 +379,8 @@ _LINK_STYLE_FOR_LINKAGE = {
 # Helper to wrap a LinkInfos with additional pre/post-flags.
 def wrap_link_infos(
         inner: LinkInfos.type,
-        pre_flags: list[""] = [],
-        post_flags: list[""] = []) -> LinkInfos.type:
+        pre_flags: list[typing.Any] = [],
+        post_flags: list[typing.Any] = []) -> LinkInfos.type:
     return LinkInfos(
         default = wrap_link_info(
             inner.default,

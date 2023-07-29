@@ -23,7 +23,7 @@ def apple_populate_xcode_attributes(
         ctx,
         srcs: list[CxxSrcWithFlags.type],
         argsfiles: dict[str, CompileArgsfile.type],
-        product_name: str) -> dict[str, ""]:
+        product_name: str) -> dict[str, typing.Any]:
     data = cxx_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = product_name)
 
     if has_apple_toolchain(ctx):
@@ -38,17 +38,17 @@ def apple_populate_xcode_attributes(
     apple_xcode_data_add_xctoolchain(ctx, data)
     return data
 
-def apple_xcode_data_add_xctoolchain(ctx: AnalysisContext, data: dict[str, ""]):
+def apple_xcode_data_add_xctoolchain(ctx: AnalysisContext, data: dict[str, typing.Any]):
     _add_label_for_attr(ctx, "_apple_xctoolchain_bundle_id", "xctoolchain_bundle_id_target", data)
     _add_output_for_attr(ctx, "_apple_xctoolchain_bundle_id", "xctoolchain_bundle_id", data)
     _add_label_for_attr(ctx, "_apple_xctoolchain", "xctoolchain_bundle_target", data)
 
-def _add_label_for_attr(ctx: AnalysisContext, attr_name: str, field_name: str, data: dict[str, ""]):
+def _add_label_for_attr(ctx: AnalysisContext, attr_name: str, field_name: str, data: dict[str, typing.Any]):
     xctoolchain_dep = _get_attribute_with_output(ctx, attr_name)
     if xctoolchain_dep:
         data[field_name] = xctoolchain_dep.label
 
-def _add_output_for_attr(ctx: AnalysisContext, attr_name: str, field_name: str, data: dict[str, ""]):
+def _add_output_for_attr(ctx: AnalysisContext, attr_name: str, field_name: str, data: dict[str, typing.Any]):
     xctoolchain_dep = _get_attribute_with_output(ctx, attr_name)
     if xctoolchain_dep:
         default_info = xctoolchain_dep[DefaultInfo]

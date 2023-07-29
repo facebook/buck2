@@ -190,7 +190,7 @@ def _parse_filter_from_mapping(entry: list[str] | str | None) -> list[BuildTarge
         return [_parse_filter(entry)]
     return []
 
-def compute_mappings(groups: list[Group.type], graph_map: dict[Label, "_b"]) -> dict[Label, str]:
+def compute_mappings(groups: list[Group.type], graph_map: dict[Label, typing.Any]) -> dict[Label, str]:
     """
     Returns the group mappings {target label -> group name} based on the provided groups and graph.
     """
@@ -212,7 +212,7 @@ def compute_mappings(groups: list[Group.type], graph_map: dict[Label, "_b"]) -> 
     return target_to_group_map
 
 def _find_targets_in_mapping(
-        graph_map: dict[Label, "_b"],
+        graph_map: dict[Label, typing.Any],
         mapping: GroupMapping.type) -> list[Label]:
     # If we have no filtering, we don't need to do any traversal to find targets to include.
     if not mapping.filters:

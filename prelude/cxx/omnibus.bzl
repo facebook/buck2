@@ -325,7 +325,7 @@ def _omnibus_soname(ctx):
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     return get_shared_library_name(linker_info, "omnibus")
 
-def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: list[""] = []) -> Artifact:
+def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: list[typing.Any] = []) -> Artifact:
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     link_result = cxx_link_shared_library(
         ctx = ctx,
@@ -374,7 +374,7 @@ def _create_root(
         link_deps: list[Label],
         omnibus: Artifact,
         pic_behavior: PicBehavior.type,
-        extra_ldflags: list[""] = [],
+        extra_ldflags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False) -> OmnibusRootProduct.type:
     """
     Link a root omnibus node.
@@ -635,7 +635,7 @@ def _create_omnibus(
         spec: OmnibusSpec.type,
         annotated_root_products,
         pic_behavior: PicBehavior.type,
-        extra_ldflags: list[""] = [],
+        extra_ldflags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False) -> CxxLinkResult.type:
     inputs = []
 
@@ -877,7 +877,7 @@ def _ordered_roots(
 def create_omnibus_libraries(
         ctx: AnalysisContext,
         graph: OmnibusGraph.type,
-        extra_ldflags: list[""] = [],
+        extra_ldflags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False) -> OmnibusSharedLibraries.type:
     spec = _build_omnibus_spec(ctx, graph)
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
