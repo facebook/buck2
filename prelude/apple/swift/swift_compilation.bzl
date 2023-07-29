@@ -35,7 +35,6 @@ load(
     "LinkableType",
     "SwiftmoduleLinkable",
 )
-load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "PcmDepTSet", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
@@ -150,7 +149,7 @@ def compile_swift(
         exported_headers: list[CHeader.type],
         objc_modulemap_pp_info: CPreprocessor.type | None,
         framework_search_paths_flags: cmd_args,
-        extra_search_paths_flags: list[ArgLike] = []) -> SwiftCompilationOutput.type | None:
+        extra_search_paths_flags: list["_arglike"] = []) -> SwiftCompilationOutput.type | None:
     if not srcs:
         return None
 
@@ -376,7 +375,7 @@ def _get_shared_flags(
         module_name: str,
         objc_headers: list[CHeader.type],
         objc_modulemap_pp_info: CPreprocessor.type | None,
-        extra_search_paths_flags: list[ArgLike] = []) -> cmd_args:
+        extra_search_paths_flags: list["_arglike"] = []) -> cmd_args:
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args()
     cmd.add([

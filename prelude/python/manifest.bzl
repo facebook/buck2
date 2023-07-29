@@ -6,7 +6,6 @@
 # of this source tree.
 
 load("@prelude//:artifact_tset.bzl", "project_artifacts")
-load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
 # Manifests are files containing information how to map sources into a package.
@@ -17,7 +16,7 @@ ManifestInfo = record(
     # The actual manifest file (in the form of a JSON file).
     manifest = field(Artifact),
     # All artifacts that are referenced in the manifest.
-    artifacts = field([[Artifact, ArgLike]]),
+    artifacts = field([[Artifact, "_arglike"]]),
 )
 
 # Parse imports from a *.py file to generate a list of required modules

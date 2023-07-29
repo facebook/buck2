@@ -89,7 +89,6 @@ load(
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
-load("@prelude//utils:arglike.bzl", "ArgLike")
 load(
     "@prelude//utils:utils.bzl",
     "expect",
@@ -1239,7 +1238,7 @@ def _shared_library(
         external_debug_info: ArtifactTSet.type,
         dep_infos: "LinkArgs",
         gnu_use_link_groups: bool,
-        extra_linker_flags: list[ArgLike],
+        extra_linker_flags: list["_arglike"],
         link_execution_preference: LinkExecutionPreference.type,
         link_ordering: LinkOrdering.type | None = None) -> _CxxSharedLibraryResult.type:
     """

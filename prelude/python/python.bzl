@@ -7,7 +7,6 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load("@prelude//linking:shared_libraries.bzl", "traverse_shared_library_info")
-load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:utils.bzl", "flatten")
 load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "PythonLibraryInterface", "PythonLibraryManifestsInterface")
@@ -18,7 +17,7 @@ PythonLibraryManifests = record(
     label = field(Label),
     srcs = field([ManifestInfo.type, None]),
     src_types = field([ManifestInfo.type, None], None),
-    resources = field([(ManifestInfo.type, [ArgLike]), None]),
+    resources = field([(ManifestInfo.type, ["_arglike"]), None]),
     bytecode = field([dict[PycInvalidationMode.type, ManifestInfo.type], None]),
     dep_manifest = field([ManifestInfo.type, None]),
     extensions = field([dict[str, "_a"], None]),

@@ -17,7 +17,6 @@ load(
     "LinkedObject",  # @unused Used as a type
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")  # @unused Used as a type
@@ -55,7 +54,7 @@ def make_pex_providers(
         providers.append(make_install_info(python_toolchain.installer, pex))
     return providers
 
-def make_install_info(installer: ArgLike, pex: PexProviders.type) -> Provider:
+def make_install_info(installer: "_arglike", pex: PexProviders.type) -> Provider:
     prefix = "{}/".format(pex.other_outputs_prefix) if pex.other_outputs_prefix != None else ""
     files = {
         "{}{}".format(prefix, path): artifact
@@ -128,11 +127,11 @@ def make_pex(
         # A rule-provided tool to use to build the PEX.
         make_pex_cmd: RunInfo.type | None,
         package_style: PackageStyle.type,
-        build_args: list[ArgLike],
+        build_args: list["_arglike"],
         pex_modules: PexModules.type,
         shared_libraries: dict[str, (LinkedObject.type, bool)],
         main_module: str,
-        hidden_resources: None | list[ArgLike]) -> PexProviders.type:
+        hidden_resources: None | list["_arglike"]) -> PexProviders.type:
     """
     Passes a standardized set of flags to a `make_pex` binary to create a python
     "executable".
@@ -199,14 +198,14 @@ def _make_pex_impl(
         python_toolchain: "PythonToolchainInfo",
         make_pex_cmd: RunInfo.type | None,
         package_style: PackageStyle.type,
-        build_args: list[ArgLike],
+        build_args: list["_arglike"],
         shared_libraries: dict[str, (LinkedObject.type, bool)],
         preload_libraries: cmd_args,
         common_modules_args: cmd_args,
-        dep_artifacts: list[(ArgLike, str)],
+        dep_artifacts: list[("_arglike", str)],
         main_module: str,
-        hidden_resources: None | list[ArgLike],
-        manifest_module: None | ArgLike,
+        hidden_resources: None | list["_arglike"],
+        manifest_module: None | "_arglike",
         pex_modules: PexModules.type,
         output_suffix: str) -> PexProviders.type:
     name = "{}{}".format(ctx.attrs.name, output_suffix)
@@ -332,9 +331,9 @@ def _preload_libraries_args(ctx: AnalysisContext, shared_libraries: dict[str, (L
     return cmd_args(preload_libraries_path, format = "@{}")
 
 def _pex_bootstrap_args(
-        python_interpreter: ArgLike,
+        python_interpreter: "_arglike",
         python_interpreter_flags: None | str,
-        python_host_interpreter: ArgLike,
+        python_host_interpreter: "_arglike",
         main_module: str,
         output: Artifact,
         shared_libraries: dict[str, (LinkedObject.type, bool)],
@@ -366,7 +365,7 @@ def _pex_bootstrap_args(
 def _pex_modules_common_args(
         ctx: AnalysisContext,
         pex_modules: PexModules.type,
-        shared_libraries: dict[str, LinkedObject.type]) -> (cmd_args, list[(ArgLike, str)]):
+        shared_libraries: dict[str, LinkedObject.type]) -> (cmd_args, list[("_arglike", str)]):
     srcs = []
     src_artifacts = []
     deps = []
@@ -446,9 +445,9 @@ def _pex_modules_common_args(
 def _pex_modules_args(
         ctx: AnalysisContext,
         common_args: cmd_args,
-        dep_artifacts: list[(ArgLike, str)],
+        dep_artifacts: list[("_arglike", str)],
         symlink_tree_path: None | Artifact,
-        manifest_module: ArgLike | None,
+        manifest_module: "_arglike" | None,
         pex_modules: PexModules.type,
         output_suffix: str) -> cmd_args:
     """
@@ -523,7 +522,7 @@ def _hidden_resources_error_message(current_target: Label, hidden_resources) -> 
 def generate_manifest_module(
         ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo.type,
-        src_manifests: list[ArgLike]) -> ArgLike | None:
+        src_manifests: list["_arglike"]) -> "_arglike" | None:
     """
     Generates a __manifest__.py module, and an extra entry to add to source manifests.
 

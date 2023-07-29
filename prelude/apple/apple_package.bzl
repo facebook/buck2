@@ -6,7 +6,6 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_package_config.bzl", "IpaCompressionLevel")
@@ -100,7 +99,7 @@ def _get_swift_support_dir(ctx, bundle_output: Artifact, bundle_info: AppleBundl
 
     return swift_support_dir
 
-def _get_scan_folder_args(dest: AppleBundleDestination.type, bundle_output: Artifact, sdk_name, extension) -> ArgLike:
+def _get_scan_folder_args(dest: AppleBundleDestination.type, bundle_output: Artifact, sdk_name, extension) -> "_arglike":
     return cmd_args(
         [
             "--scan-folder",

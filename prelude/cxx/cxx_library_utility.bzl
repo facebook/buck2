@@ -13,7 +13,6 @@ load(
     "MergedLinkInfo",
     "merge_link_infos",
 )
-load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(
     "@prelude//utils:utils.bzl",
     "expect",
@@ -94,7 +93,7 @@ def cxx_attr_preferred_linkage(ctx: AnalysisContext) -> Linkage.type:
 
     return Linkage(preferred_linkage)
 
-def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list[ArgLike])]:
+def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list["_arglike"])]:
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.

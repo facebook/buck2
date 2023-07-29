@@ -67,7 +67,6 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
-load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
@@ -86,9 +85,9 @@ AppleLibraryAdditionalParams = record(
     # Name of the top level rule utilizing the apple_library rule.
     rule_type = str,
     # Extra flags to be passed to the linker.
-    extra_exported_link_flags = field([ArgLike], []),
+    extra_exported_link_flags = field(["_arglike"], []),
     # Extra flags to be passed to the Swift compiler.
-    extra_swift_compiler_flags = field([ArgLike], []),
+    extra_swift_compiler_flags = field(["_arglike"], []),
     # Linker flags that tell the linker to create shared libraries, overriding the default shared library flags.
     # e.g. when building Apple tests, we want to link with `-bundle` instead of `-shared` to allow
     # linking against the bundle loader.
@@ -268,7 +267,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
 
 def _get_extra_linker_flags_and_outputs(
         _ctx: AnalysisContext) -> (["_arglike"], {str: [DefaultInfo.type]}): # @oss-enable
-        # @oss-disable: ctx: AnalysisContext) -> (list[ArgLike], dict[str, list[DefaultInfo.type]]): 
+        # @oss-disable: ctx: AnalysisContext) -> (list["_arglike"], dict[str, list[DefaultInfo.type]]): 
     # @oss-disable: return add_extra_linker_outputs(ctx) 
     return [], {} # @oss-enable
 

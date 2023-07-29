@@ -25,7 +25,6 @@ load(
     "LinkExecutionPreference",
     "LinkExecutionPreferenceInfo",
 )
-load("@prelude//utils:arglike.bzl", "ArgLike")
 load(
     "@prelude//utils:utils.bzl",
     "expect",
@@ -177,7 +176,7 @@ def _apple_bundle_run_validity_checks(ctx: AnalysisContext):
     if ctx.attrs.extension == None:
         fail("`extension` attribute is required")
 
-def _get_debuggable_deps(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput.type, run_cmd: ArgLike) -> AppleBundleDebuggableInfo.type:
+def _get_debuggable_deps(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput.type, run_cmd: "_arglike") -> AppleBundleDebuggableInfo.type:
     # `label` captures configuration as well, so it's safe to use for comparison purposes
     binary_labels = filter(None, [getattr(binary_dep, "label", None) for binary_dep in get_flattened_binary_deps(ctx)])
     deps_debuggable_infos = filter(

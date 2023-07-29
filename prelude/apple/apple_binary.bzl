@@ -35,7 +35,6 @@ load(
     "CPreprocessor",
     "CPreprocessorArgs",
 )
-load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
@@ -170,7 +169,7 @@ def _filter_swift_srcs(ctx: AnalysisContext) -> (list["CxxSrcWithFlags"], list["
             cxx_srcs.append(s)
     return cxx_srcs, swift_srcs
 
-def _get_bridging_header_flags(ctx: AnalysisContext) -> list[ArgLike]:
+def _get_bridging_header_flags(ctx: AnalysisContext) -> list["_arglike"]:
     if ctx.attrs.bridging_header:
         objc_bridging_header_flags = [
             # Disable bridging header -> PCH compilation to mitigate an issue in Xcode 13 beta.
