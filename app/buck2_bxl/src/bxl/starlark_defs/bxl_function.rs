@@ -48,41 +48,62 @@ use crate::bxl::starlark_defs::cli_args::CliArgValue;
 
 #[starlark_module]
 pub(crate) fn register_bxl_function(builder: &mut GlobalsBuilder) {
+    /// Deprecated alias for `bxl_main`.
+    ///
+    /// The goal is to eventually remove this function and make `bxl` a namespace.
     fn bxl<'v>(
         #[starlark(require = named)] r#impl: Value<'v>,
         #[starlark(require = named)] cli_args: DictOf<'v, &'v str, &'v CliArgs>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let implementation = r#impl;
-
-        let bxl_path = (*(STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?
-            .unpack_bxl_file()
-            .ok_or_else(|| anyhow::anyhow!("`bxl` can only be declared in bxl files"))?)
-        .clone();
-
-        let mut unresolved_cli_args = SmallMap::new();
-        let mut short_args = SmallSet::new();
-
-        for (arg, def) in cli_args.to_dict().into_iter() {
-            if let Some(short) = def.short {
-                if short_args.contains(&short) {
-                    return Err(CliArgError::DuplicateShort(short.to_owned()).into());
-                } else {
-                    short_args.insert(short.to_owned());
-                }
-            }
-            unresolved_cli_args.insert(arg.to_owned(), def.clone());
-        }
-
-        Ok(eval.heap().alloc(BxlFunction {
-            bxl_path,
-            id: RefCell::new(None),
-            implementation,
-            cli_args: unresolved_cli_args,
-            docs: Some(doc.to_owned()),
-        }))
+        bxl_impl(r#impl, cli_args, doc, eval)
     }
+
+    fn bxl_main<'v>(
+        #[starlark(require = named)] r#impl: Value<'v>,
+        #[starlark(require = named)] cli_args: DictOf<'v, &'v str, &'v CliArgs>,
+        #[starlark(require = named, default = "")] doc: &str,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        bxl_impl(r#impl, cli_args, doc, eval)
+    }
+}
+
+fn bxl_impl<'v>(
+    r#impl: Value<'v>,
+    cli_args: DictOf<'v, &'v str, &'v CliArgs>,
+    doc: &str,
+    eval: &mut Evaluator<'v, '_>,
+) -> anyhow::Result<Value<'v>> {
+    let implementation = r#impl;
+
+    let bxl_path = (*(STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?
+        .unpack_bxl_file()
+        .ok_or_else(|| anyhow::anyhow!("`bxl` can only be declared in bxl files"))?)
+    .clone();
+
+    let mut unresolved_cli_args = SmallMap::new();
+    let mut short_args = SmallSet::new();
+
+    for (arg, def) in cli_args.to_dict().into_iter() {
+        if let Some(short) = def.short {
+            if short_args.contains(&short) {
+                return Err(CliArgError::DuplicateShort(short.to_owned()).into());
+            } else {
+                short_args.insert(short.to_owned());
+            }
+        }
+        unresolved_cli_args.insert(arg.to_owned(), def.clone());
+    }
+
+    Ok(eval.heap().alloc(BxlFunction {
+        bxl_path,
+        id: RefCell::new(None),
+        implementation,
+        cli_args: unresolved_cli_args,
+        docs: Some(doc.to_owned()),
+    }))
 }
 
 /// Errors around rule declaration, instantiation, validation, etc
