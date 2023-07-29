@@ -14,8 +14,8 @@ load(":debug.bzl", "AppleDebuggableInfo")
 def create_universal_binary(
         ctx: "context",
         binary_deps: dict[str, Dependency],
-        binary_name: str | None,
-        dsym_bundle_name: str | None,
+        binary_name: [str, None],
+        dsym_bundle_name: [str, None],
         split_arch_dsym: bool) -> AppleBundleBinaryOutput.type:
     binary_output = ctx.actions.declare_output("UniversalBinary" if binary_name == None else binary_name, dir = False)
     lipo_cmd = cmd_args([ctx.attrs._apple_toolchain[AppleToolchainInfo].lipo])

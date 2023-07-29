@@ -22,7 +22,7 @@ PythonNeededCoverage = record(
 )
 
 def _parse_python_needed_coverage_spec(
-        raw_spec: (int, Dependency, str | None)) -> PythonNeededCoverage.type:
+        raw_spec: (int, Dependency, [str, None])) -> PythonNeededCoverage.type:
     ratio_percentage, dep, specific_module = raw_spec
 
     if ratio_percentage < 0 or ratio_percentage > 100:
@@ -50,5 +50,5 @@ def _parse_python_needed_coverage_spec(
     )
 
 def parse_python_needed_coverage_specs(
-        raw_specs: list[(int, Dependency, str | None)]) -> list[PythonNeededCoverage.type]:
+        raw_specs: list[(int, Dependency, [str, None])]) -> list[PythonNeededCoverage.type]:
     return [_parse_python_needed_coverage_spec(raw_spec) for raw_spec in raw_specs]

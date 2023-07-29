@@ -78,12 +78,12 @@ def cxx_dist_link(
         links: list["LinkArgs"],
         # The destination for the link output.
         output: Artifact,
-        linker_map: Artifact | None = None,
+        linker_map: [Artifact, None] = None,
         # A category suffix that will be added to the category of the link action that is generated.
-        category_suffix: str | None = None,
+        category_suffix: [str, None] = None,
         # An identifier that will uniquely name this link action in the context of a category. Useful for
         # differentiating multiple link actions in the same rule.
-        identifier: str | None = None,
+        identifier: [str, None] = None,
         # This action will only happen if split_dwarf is enabled via the toolchain.
         generate_dwp: bool = True,
         executable_link: bool = True) -> LinkedObject.type:
@@ -179,7 +179,7 @@ def cxx_dist_link(
     pre_post_flags = {}
 
     # buildifier: disable=uninitialized
-    def add_linkable(idx: int, linkable: ArchiveLinkable.type | SharedLibLinkable.type | ObjectsLinkable.type | FrameworksLinkable.type):
+    def add_linkable(idx: int, linkable: [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type]):
         if idx not in linkables_index:
             linkables_index[idx] = [linkable]
         else:

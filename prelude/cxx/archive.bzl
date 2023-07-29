@@ -89,7 +89,7 @@ def make_archive(
         ctx: AnalysisContext,
         name: str,
         objects: list[Artifact],
-        args: cmd_args | None = None) -> Archive.type:
+        args: [cmd_args, None] = None) -> Archive.type:
     if len(objects) == 0:
         fail("no objects to archive")
 

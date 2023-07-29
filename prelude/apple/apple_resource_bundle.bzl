@@ -55,7 +55,7 @@ _RESOURCE_BUNDLE_FIELDS = [
     "visibility",
 ]
 
-def make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs) -> None | str:
+def make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs) -> [None, str]:
     # The `apple_resource_bundle()` target will _always_ be Xcode-based, so resources can always be used
     # from there. `resources_toolchain_enabled` exists only as a killswitch (or for testing/debugging purposes).
     # By default, we consistently get all resources from `apple_resource_bundle()` target across all OSes and

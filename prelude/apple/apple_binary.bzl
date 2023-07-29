@@ -48,7 +48,7 @@ load(":debug.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
-def apple_binary_impl(ctx: AnalysisContext) -> list[Provider] | "promise":
+def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
     def get_apple_binary_providers(deps_providers) -> list[Provider]:
         # FIXME: Ideally we'd like to remove the support of "bridging header",
         # cause it affects build time and in general considered a bad practise.

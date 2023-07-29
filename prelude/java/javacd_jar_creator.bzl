@@ -42,19 +42,19 @@ base_command_params = struct(
 
 def create_jar_artifact_javacd(
         actions: "actions",
-        actions_identifier: str | None,
-        abi_generation_mode: AbiGenerationMode.type | None,
+        actions_identifier: [str, None],
+        abi_generation_mode: [AbiGenerationMode.type, None],
         java_toolchain: "JavaToolchainInfo",
         label,
-        output: Artifact | None,
-        javac_tool: "" | None,
+        output: [Artifact, None],
+        javac_tool: ["", None],
         srcs: list[Artifact],
         remove_classes: list[str],
         resources: list[Artifact],
-        resources_root: str | None,
-        manifest_file: Artifact | None,
+        resources_root: [str, None],
+        manifest_file: [Artifact, None],
         ap_params: list["AnnotationProcessorParams"],
-        plugin_params: "PluginParams" | None,
+        plugin_params: ["PluginParams", None],
         source_level: int,
         target_level: int,
         deps: list[Dependency],
@@ -62,7 +62,7 @@ def create_jar_artifact_javacd(
         source_only_abi_deps: list[Dependency],
         extra_arguments: cmd_args,
         additional_classpath_entries: list[Artifact],
-        additional_compiled_srcs: Artifact | None,
+        additional_compiled_srcs: [Artifact, None],
         bootclasspath_entries: list[Artifact],
         is_building_android_binary: bool,
         is_creating_subtarget: bool = False) -> "JavaCompileOutputs":
@@ -174,14 +174,14 @@ def create_jar_artifact_javacd(
     # buildifier: disable=uninitialized
     def define_javacd_action(
             category_prefix: str,
-            actions_identifier: str | None,
+            actions_identifier: [str, None],
             encoded_command: struct.type,
             qualified_name: str,
             output_paths: OutputPaths.type,
             classpath_jars_tag: "artifact_tag",
-            abi_dir: Artifact | None,
+            abi_dir: [Artifact, None],
             target_type: TargetType.type,
-            path_to_class_hashes: Artifact | None,
+            path_to_class_hashes: [Artifact, None],
             is_creating_subtarget: bool = False,
             source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")

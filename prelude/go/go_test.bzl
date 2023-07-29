@@ -23,8 +23,8 @@ load(":packages.bzl", "go_attr_pkg_name")
 def _gen_test_main(
         ctx: AnalysisContext,
         pkg_name: str,
-        coverage_mode: GoCoverageMode.type | None,
-        coverage_vars: cmd_args | None,
+        coverage_mode: [GoCoverageMode.type, None],
+        coverage_vars: [cmd_args, None],
         srcs: cmd_args) -> Artifact:
     """
     Generate a `main.go` which calls tests from the given sources.

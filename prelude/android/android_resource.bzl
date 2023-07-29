@@ -12,7 +12,7 @@ load(":android_toolchain.bzl", "AndroidToolchainInfo")
 
 JAVA_PACKAGE_FILENAME = "java_package.txt"
 
-def _convert_to_artifact_dir(ctx: AnalysisContext, attr: Dependency | dict | Artifact | None, attr_name: str) -> Artifact | None:
+def _convert_to_artifact_dir(ctx: AnalysisContext, attr: [Dependency, dict, Artifact, None], attr_name: str) -> [Artifact, None]:
     if type(attr) == "dependency":
         expect(len(attr[DefaultInfo].default_outputs) == 1, "Expect one default output from build dep of attr {}!".format(attr_name))
         return attr[DefaultInfo].default_outputs[0]
@@ -77,7 +77,7 @@ def aapt2_compile(
         resources_dir: Artifact,
         android_toolchain: "AndroidToolchainInfo",
         skip_crunch_pngs: bool = False,
-        identifier: str | None = None) -> Artifact:
+        identifier: [str, None] = None) -> Artifact:
     aapt2_command = cmd_args(android_toolchain.aapt2)
     aapt2_command.add("compile")
     aapt2_command.add("--legacy")
@@ -91,7 +91,7 @@ def aapt2_compile(
 
     return aapt2_output
 
-def _get_package(ctx: AnalysisContext, package: str | None, manifest: Artifact | None) -> Artifact:
+def _get_package(ctx: AnalysisContext, package: [str, None], manifest: [Artifact, None]) -> Artifact:
     if package:
         return ctx.actions.write(JAVA_PACKAGE_FILENAME, package)
     else:
@@ -112,7 +112,7 @@ def get_text_symbols(
         ctx: AnalysisContext,
         res: Artifact,
         deps: list[Dependency],
-        identifier: str | None = None):
+        identifier: [str, None] = None):
     mini_aapt_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mini_aapt[RunInfo])
 
     mini_aapt_cmd.add(["--resource-paths", res])

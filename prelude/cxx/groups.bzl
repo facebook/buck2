@@ -109,9 +109,9 @@ Group = record(
 # Creates a group from an existing group, overwriting any properties provided
 def create_group(
         group: Group.type,
-        name: None | str = None,
-        mappings: None | list[GroupMapping.type] = None,
-        attrs: None | GroupAttrs.type = None):
+        name: [None, str] = None,
+        mappings: [None, list[GroupMapping.type]] = None,
+        attrs: [None, GroupAttrs.type] = None):
     return Group(
         name = value_or(name, group.name),
         mappings = value_or(mappings, group.mappings),
@@ -164,7 +164,7 @@ def _parse_traversal_from_mapping(entry: str) -> Traversal.type:
     else:
         fail("Unrecognized group traversal type: " + entry)
 
-def _parse_filter(entry: str) -> BuildTargetFilter.type | LabelFilter.type:
+def _parse_filter(entry: str) -> [BuildTargetFilter.type, LabelFilter.type]:
     for prefix in ("label:", "tag:"):
         label_regex = strip_prefix(prefix, entry)
         if label_regex != None:
@@ -183,7 +183,7 @@ def _parse_filter(entry: str) -> BuildTargetFilter.type | LabelFilter.type:
 
     fail("Invalid group mapping filter: {}\nFilter must begin with `label:`, `tag:`, or `pattern:`.".format(entry))
 
-def _parse_filter_from_mapping(entry: list[str] | str | None) -> list[BuildTargetFilter.type | LabelFilter.type]:
+def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[[BuildTargetFilter.type, LabelFilter.type]]:
     if type(entry) == type([]):
         return [_parse_filter(e) for e in entry]
     if type(entry) == type(""):

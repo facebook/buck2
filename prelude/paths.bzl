@@ -228,7 +228,7 @@ def _split_extension(p: str) -> (str, str):
     dot_distance_from_end = len(b) - last_dot_in_basename
     return (p[:-dot_distance_from_end], p[-dot_distance_from_end:])
 
-def _strip_suffix(a: str, b: str) -> str | None:
+def _strip_suffix(a: str, b: str) -> [str, None]:
     """Strip suffix `b` from path `a`, returning the resulting path.
 
     Args:

@@ -44,8 +44,8 @@ def assemble_bundle(
         ctx: AnalysisContext,
         bundle: Artifact,
         parts: list[AppleBundlePart.type],
-        info_plist_part: AppleBundlePart.type | None,
-        swift_stdlib_args: SwiftStdlibArguments.type | None) -> dict[str, list[Provider]]:
+        info_plist_part: [AppleBundlePart.type, None],
+        swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> dict[str, list[Provider]]:
     """
     Returns extra subtargets related to bundling.
     """
@@ -219,7 +219,7 @@ def _detect_codesign_type(ctx: AnalysisContext) -> CodeSignType.type:
     is_ad_hoc_sufficient = get_apple_sdk_metadata_for_sdk_name(sdk_name).is_ad_hoc_code_sign_sufficient
     return CodeSignType("adhoc" if is_ad_hoc_sufficient else "distribution")
 
-def _entitlements_file(ctx: AnalysisContext) -> Artifact | None:
+def _entitlements_file(ctx: AnalysisContext) -> [Artifact, None]:
     if not ctx.attrs.binary:
         return None
 

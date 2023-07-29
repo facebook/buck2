@@ -234,7 +234,7 @@ def _generate_include_artifacts(
         input_mapping = build_environment.input_mapping,
     )
 
-def _header_key(hrl: Artifact, name: str, is_private: bool) -> (str, str) | str:
+def _header_key(hrl: Artifact, name: str, is_private: bool) -> [(str, str), str]:
     """Return the key for either public `("string", "string")` or private `"string"` include """
     return hrl.basename if is_private else (name, hrl.basename)
 
@@ -244,7 +244,7 @@ def _generate_beam_artifacts(
         build_environment: "BuildEnvironment",
         name: str,
         src_artifacts: list[Artifact],
-        output_mapping: None | dict[Artifact, str] = None) -> "BuildEnvironment":
+        output_mapping: [None, dict[Artifact, str]] = None) -> "BuildEnvironment":
     # anchor for ebin dir
     anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "ebin"))
 
@@ -347,7 +347,7 @@ def _get_deps_files(
         toolchain: "Toolchain",
         anchor: Artifact,
         srcs: list[Artifact],
-        output_mapping: None | dict[Artifact, str] = None) -> dict[str, Artifact]:
+        output_mapping: [None, dict[Artifact, str]] = None) -> dict[str, Artifact]:
     """Mapping from the output path to the deps file artifact for each srcs artifact."""
 
     def output_path(src: Artifact) -> str:
@@ -512,9 +512,9 @@ def _add_dependencies_to_args(
         artifacts,
         queue: list[str],
         done: dict[str, bool],
-        input_mapping: dict[str, (bool, str | Artifact)],
+        input_mapping: dict[str, (bool, [str, Artifact])],
         args: cmd_args,
-        build_environment: "BuildEnvironment") -> (cmd_args, dict[str, (bool, str | Artifact)]):
+        build_environment: "BuildEnvironment") -> (cmd_args, dict[str, (bool, [str, Artifact])]):
     """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden.
 
     This function traverses the deps specified in the deps files and adds all discovered dependencies.
@@ -757,7 +757,7 @@ def _add(a: dict, key: "", value: "") -> dict:
 def _build_dir(toolchain: "Toolchain") -> str:
     return paths.join("__build", toolchain.name)
 
-def _generate_file_mapping_string(mapping: dict[str, (bool, str | Artifact)]) -> cmd_args:
+def _generate_file_mapping_string(mapping: dict[str, (bool, [str, Artifact])]) -> cmd_args:
     """produces an easily parsable string for the file mapping"""
     items = {}
     for file, (if_found, artifact) in mapping.items():

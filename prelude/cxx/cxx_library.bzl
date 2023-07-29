@@ -787,7 +787,7 @@ def cxx_compile_srcs(
         own_preprocessors: list[CPreprocessor.type],
         inherited_non_exported_preprocessor_infos: list[CPreprocessorInfo.type],
         inherited_exported_preprocessor_infos: list[CPreprocessorInfo.type],
-        absolute_path_prefix: str | None,
+        absolute_path_prefix: [str, None],
         preferred_linkage: Linkage.type) -> _CxxCompiledSourcesOutput.type:
     """
     Compile objects we'll need for archives and shared libraries.
@@ -871,7 +871,7 @@ def _form_library_outputs(
         compiled_srcs: _CxxCompiledSourcesOutput.type,
         preferred_linkage: Linkage.type,
         shared_links: LinkArgs.type,
-        extra_static_linkables: list[FrameworksLinkable.type | SwiftmoduleLinkable.type | SwiftRuntimeLinkable.type],
+        extra_static_linkables: list[[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         gnu_use_link_groups: bool,
         link_execution_preference: LinkExecutionPreference.type) -> _CxxAllLibraryOutputs.type:
     # Build static/shared libs and the link info we use to export them to dependents.
@@ -1012,17 +1012,17 @@ def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifa
 def _get_shared_library_links(
         ctx: AnalysisContext,
         linkable_graph_node_map_func,
-        link_group: str | None,
-        link_group_mappings: dict[Label, str] | None,
+        link_group: [str, None],
+        link_group_mappings: [dict[Label, str], None],
         link_group_preferred_linkage: dict[Label, Linkage.type],
         link_group_libs: dict[str, LinkGroupLib.type],
         exported_deps: list[Dependency],
         non_exported_deps: list[Dependency],
         force_link_group_linking,
-        frameworks_linkable: FrameworksLinkable.type | None,
+        frameworks_linkable: [FrameworksLinkable.type, None],
         force_static_follows_dependents: bool = True,
-        swiftmodule_linkable: SwiftmoduleLinkable.type | None = None,
-        swift_runtime_linkable: SwiftRuntimeLinkable.type | None = None) -> ("LinkArgs", DefaultInfo.type | None, LinkExecutionPreference.type):
+        swiftmodule_linkable: [SwiftmoduleLinkable.type, None] = None,
+        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> ("LinkArgs", [DefaultInfo.type, None], LinkExecutionPreference.type):
     """
     Returns LinkArgs with the content to link, and a link group map json output if applicable.
 
@@ -1121,10 +1121,10 @@ def _static_library(
         objects: list[Artifact],
         pic: bool,
         stripped: bool,
-        extra_linkables: list[FrameworksLinkable.type | SwiftmoduleLinkable.type | SwiftRuntimeLinkable.type],
+        extra_linkables: list[[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         objects_have_external_debug_info: bool = False,
         external_debug_info: ArtifactTSet.type = ArtifactTSet(),
-        bitcode_objects: list[Artifact] | None = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
+        bitcode_objects: [list[Artifact], None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -1210,10 +1210,10 @@ def _static_library(
 # inputs, except the output is a combined bitcode file, which is not machine code.
 def _bitcode_bundle(
         ctx: AnalysisContext,
-        objects: list[Artifact] | None,
+        objects: [list[Artifact], None],
         pic: bool = False,
         stripped: bool = False,
-        name_extra = "") -> BitcodeBundle.type | None:
+        name_extra = "") -> [BitcodeBundle.type, None]:
     if objects == None or len(objects) == 0:
         return None
 
@@ -1240,7 +1240,7 @@ def _shared_library(
         gnu_use_link_groups: bool,
         extra_linker_flags: list["_arglike"],
         link_execution_preference: LinkExecutionPreference.type,
-        link_ordering: LinkOrdering.type | None = None) -> _CxxSharedLibraryResult.type:
+        link_ordering: [LinkOrdering.type, None] = None) -> _CxxSharedLibraryResult.type:
     """
     Generate a shared library and the associated native link info used by
     dependents to link against it.

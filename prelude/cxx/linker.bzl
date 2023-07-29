@@ -64,7 +64,7 @@ def _sanitize(s: str) -> str:
 def get_shared_library_name(
         linker_info: LinkerInfo.type,
         short_name: str,
-        version: str | None = None):
+        version: [str, None] = None):
     """
     Generate a platform-specific shared library name based for the given rule.
     """
@@ -73,7 +73,7 @@ def get_shared_library_name(
     else:
         return linker_info.shared_library_versioned_name_format.format(short_name, version)
 
-def _parse_ext_macro(name: str) -> (str, str | None) | None:
+def _parse_ext_macro(name: str) -> [(str, [str, None]), None]:
     """
     Parse the `$(ext[ <version>])` macro from a user-specific library name,
     which expands to a platform-specific suffix (e.g. `.so`, `.dylib`).  If an
@@ -122,7 +122,7 @@ def get_default_shared_library_name(linker_info: LinkerInfo.type, label: Label):
     short_name = "{}_{}".format(_sanitize(label.package), _sanitize(label.name))
     return get_shared_library_name(linker_info, short_name)
 
-def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_overrides: SharedLibraryFlagOverrides.type | None = None) -> list[str]:
+def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> list[str]:
     """
     Arguments to pass to the linker to set the given soname.
     """
@@ -136,7 +136,7 @@ def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_ove
         for f in shared_library_name_linker_flags_format
     ]
 
-def get_shared_library_flags(linker_type: str, flag_overrides: SharedLibraryFlagOverrides.type | None = None) -> list[str]:
+def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFlagOverrides.type, None] = None) -> list[str]:
     """
     Arguments to pass to the linker to link a shared library.
     """
@@ -232,7 +232,7 @@ def get_output_flags(linker_type: str, output: Artifact) -> list["_argslike"]:
 def get_import_library(
         ctx: AnalysisContext,
         linker_type: str,
-        output_short_path: str) -> (Artifact | None, list["_argslike"]):
+        output_short_path: str) -> ([Artifact, None], list["_argslike"]):
     if linker_type == "windows":
         import_library = ctx.actions.declare_output(output_short_path + ".imp.lib")
         return import_library, [cmd_args(import_library.as_output(), format = "/IMPLIB:{}")]
@@ -255,7 +255,7 @@ def get_rpath_origin(
 
 def is_pdb_generated(
         linker_type: str,
-        linker_flags: list[str | "resolved_macro"]) -> bool:
+        linker_flags: list[[str, "resolved_macro"]]) -> bool:
     if linker_type != "windows":
         return False
     for flag in reversed(linker_flags):

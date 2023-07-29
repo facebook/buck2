@@ -102,7 +102,7 @@ def _merge_lib_map(
 # all the inherited shared libraries for this target.
 def merge_shared_libraries(
         actions: "actions",
-        node: "SharedLibraries" | None = None,
+        node: ["SharedLibraries", None] = None,
         deps: list["SharedLibraryInfo"] = []) -> "SharedLibraryInfo":
     kwargs = {}
 

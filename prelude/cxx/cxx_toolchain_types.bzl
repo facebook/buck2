@@ -211,7 +211,7 @@ def cxx_toolchain_infos(
         cpp_dep_tracking_mode = DepTrackingMode("none"),
         cuda_dep_tracking_mode = DepTrackingMode("none"),
         strip_flags_info = None,
-        dist_lto_tools_info: DistLtoToolsInfo.type | None = None,
+        dist_lto_tools_info: [DistLtoToolsInfo.type, None] = None,
         split_debug_mode = SplitDebugMode("none"),
         bolt_enabled = False,
         llvm_link = None,

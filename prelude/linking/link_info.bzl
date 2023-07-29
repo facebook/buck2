@@ -156,7 +156,7 @@ LinkOrdering = enum(
 )
 
 def set_linkable_link_whole(
-        linkable: ArchiveLinkable.type | ObjectsLinkable.type | SharedLibLinkable.type | FrameworksLinkable.type) -> ArchiveLinkable.type | ObjectsLinkable.type | SharedLibLinkable.type | FrameworksLinkable.type:
+        linkable: [ArchiveLinkable.type, ObjectsLinkable.type, SharedLibLinkable.type, FrameworksLinkable.type]) -> [ArchiveLinkable.type, ObjectsLinkable.type, SharedLibLinkable.type, FrameworksLinkable.type]:
     if linkable._type == LinkableType("archive"):
         return ArchiveLinkable(
             archive = linkable.archive,
@@ -326,14 +326,14 @@ def _link_info_stripped_filelist(infos: "LinkInfos"):
     info = infos.stripped or infos.default
     return link_info_filelist(info)
 
-def _link_info_has_default_filelist(children: list[bool], infos: "LinkInfos" | None) -> bool:
+def _link_info_has_default_filelist(children: list[bool], infos: ["LinkInfos", None]) -> bool:
     if infos:
         info = infos.default
         if link_info_filelist(info):
             return True
     return any(children)
 
-def _link_info_has_stripped_filelist(children: list[bool], infos: "LinkInfos" | None) -> bool:
+def _link_info_has_stripped_filelist(children: list[bool], infos: ["LinkInfos", None]) -> bool:
     if infos:
         info = infos.stripped or infos.default
         if link_info_filelist(info):
@@ -407,8 +407,8 @@ def create_merged_link_info(
         deps: list["MergedLinkInfo"] = [],
         # Link info to always propagate from exported deps.
         exported_deps: list["MergedLinkInfo"] = [],
-        frameworks_linkable: FrameworksLinkable.type | None = None,
-        swift_runtime_linkable: SwiftRuntimeLinkable.type | None = None) -> "MergedLinkInfo":
+        frameworks_linkable: [FrameworksLinkable.type, None] = None,
+        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> "MergedLinkInfo":
     """
     Create a `MergedLinkInfo` provider.
     """
@@ -536,7 +536,7 @@ LinkArgs = record(
     flags = field(["_arglike", None], None),
 )
 
-def unpack_link_args(args: LinkArgs.type, is_shared: bool | None = None, link_ordering: LinkOrdering.type | None = None) -> "_arglike":
+def unpack_link_args(args: LinkArgs.type, is_shared: [bool, None] = None, link_ordering: [LinkOrdering.type, None] = None) -> "_arglike":
     if args.tset != None:
         ordering = link_ordering.value if link_ordering else "preorder"
 
@@ -558,7 +558,7 @@ def unpack_link_args(args: LinkArgs.type, is_shared: bool | None = None, link_or
 
     fail("Unpacked invalid empty link args")
 
-def unpack_link_args_filelist(args: LinkArgs.type) -> "_arglike" | None:
+def unpack_link_args_filelist(args: LinkArgs.type) -> ["_arglike", None]:
     if args.tset != None:
         tset = args.tset.infos
         stripped = args.tset.prefer_stripped
@@ -693,13 +693,13 @@ def get_link_styles_for_linkage(linkage: Linkage.type) -> list[LinkStyle.type]:
     """
     return _LINK_STYLE_FOR_LINKAGE[linkage]
 
-def merge_swift_runtime_linkables(linkables: list[SwiftRuntimeLinkable.type | None]) -> SwiftRuntimeLinkable.type:
+def merge_swift_runtime_linkables(linkables: list[[SwiftRuntimeLinkable.type, None]]) -> SwiftRuntimeLinkable.type:
     for linkable in linkables:
         if linkable and linkable.runtime_required:
             return SwiftRuntimeLinkable(runtime_required = True)
     return SwiftRuntimeLinkable(runtime_required = False)
 
-def merge_framework_linkables(linkables: list[FrameworksLinkable.type | None]) -> FrameworksLinkable.type:
+def merge_framework_linkables(linkables: list[[FrameworksLinkable.type, None]]) -> FrameworksLinkable.type:
     unique_framework_names = {}
     unique_framework_paths = {}
     unique_library_names = {}

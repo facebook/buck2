@@ -90,7 +90,7 @@ def _compile_with_argsfile(
         allow_cache_upload = local_only,
     )
 
-def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> "promise" | list[Provider]:
+def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Provider]]:
     def k(compiled_pcm_deps_providers) -> list[Provider]:
         uncompiled_pcm_info = ctx.attrs.dep[SwiftPCMUncompiledInfo]
 

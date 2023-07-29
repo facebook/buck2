@@ -140,7 +140,7 @@ def _headers_by_platform(ctx: AnalysisContext, xs: list[(str, "")]) -> "":
 def as_raw_headers(
         ctx: AnalysisContext,
         headers: dict[str, Artifact],
-        mode: HeadersAsRawHeadersMode.type) -> list["label_relative_path"] | None:
+        mode: HeadersAsRawHeadersMode.type) -> [list["label_relative_path"], None]:
     """
     Return the include directories needed to treat the given headers as raw
     headers, depending on the given `HeadersAsRawHeadersMode` mode.
@@ -169,7 +169,7 @@ def _header_mode(ctx: AnalysisContext) -> HeaderMode.type:
         return header_mode
     return get_cxx_toolchain_info(ctx).header_mode
 
-def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, absolute_path_prefix: str | None) -> Headers.type | None:
+def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, absolute_path_prefix: [str, None]) -> [Headers.type, None]:
     """
     Prepare all the headers we want to use, depending on the header_mode
     set on the target's toolchain.
@@ -234,7 +234,7 @@ def _as_raw_headers(
         ctx: AnalysisContext,
         headers: dict[str, Artifact],
         # Return `None` instead of failing.
-        no_fail: bool = False) -> list["label_relative_path"] | None:
+        no_fail: bool = False) -> [list["label_relative_path"], None]:
     """
     Return the include directories needed to treat the given headers as raw
     headers.
@@ -265,7 +265,7 @@ def _as_raw_header(
         name: str,
         header: Artifact,
         # Return `None` instead of failing.
-        no_fail: bool = False) -> str | None:
+        no_fail: bool = False) -> [str, None]:
     """
     Return path to pass to `include_directories` to treat the given header as
     a raw header.
@@ -318,7 +318,7 @@ def _get_dict_header_namespace(namespace: str, naming: CxxHeadersNaming.type) ->
     else:
         fail("Unsupported header naming: {}".format(naming))
 
-def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> cmd_args.type | None:
+def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> [cmd_args.type, None]:
     # NOTE(@christylee): Do we need to enable debug-prefix-map for darwin and windows?
     if get_cxx_toolchain_info(ctx).linker_info.type != "gnu":
         return None
@@ -330,7 +330,7 @@ def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> cmd_ar
     )
     return debug_prefix_args
 
-def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)], absolute_path_prefix: str | None) -> Artifact:
+def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)], absolute_path_prefix: [str, None]) -> Artifact:
     output = ctx.actions.declare_output(name + ".hmap")
     cmd = cmd_args(get_cxx_toolchain_info(ctx).mk_hmap)
     cmd.add(["--output", output.as_output()])

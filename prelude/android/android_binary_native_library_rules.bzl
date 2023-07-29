@@ -44,9 +44,9 @@ def get_android_binary_native_library_info(
         ctx: AnalysisContext,
         android_packageable_info: "AndroidPackageableInfo",
         deps_by_platform: dict[str, list[Dependency]],
-        apk_module_graph_file: Artifact | None = None,
-        prebuilt_native_library_dirs_to_exclude: set_type | None = None,
-        shared_libraries_to_exclude: set_type | None = None) -> AndroidBinaryNativeLibsInfo.type:
+        apk_module_graph_file: [Artifact, None] = None,
+        prebuilt_native_library_dirs_to_exclude: [set_type, None] = None,
+        shared_libraries_to_exclude: [set_type, None] = None) -> AndroidBinaryNativeLibsInfo.type:
     traversed_prebuilt_native_library_dirs = android_packageable_info.prebuilt_native_library_dirs.traverse() if android_packageable_info.prebuilt_native_library_dirs else []
     all_prebuilt_native_library_dirs = [
         native_lib
@@ -180,7 +180,7 @@ def _get_exopackage_info(
         ctx: AnalysisContext,
         native_libs_always_in_primary_apk: Artifact,
         native_libs: Artifact,
-        native_libs_metadata: Artifact) -> (list[Artifact], ExopackageNativeInfo.type | None):
+        native_libs_metadata: Artifact) -> (list[Artifact], [ExopackageNativeInfo.type, None]):
     is_exopackage_enabled_for_native_libs = "native_library" in getattr(ctx.attrs, "exopackage_modes", [])
     if is_exopackage_enabled_for_native_libs:
         return [native_libs_always_in_primary_apk], ExopackageNativeInfo(directory = native_libs, metadata = native_libs_metadata)
@@ -331,7 +331,7 @@ def _get_native_linkables(
         ctx: AnalysisContext,
         platform_to_native_linkables: dict[str, dict[str, "SharedLibrary"]],
         get_module_from_target: "function",
-        package_native_libs_as_assets_enabled: bool) -> (Artifact, Artifact, Artifact | None, dict[str, Artifact]):
+        package_native_libs_as_assets_enabled: bool) -> (Artifact, Artifact, [Artifact, None], dict[str, Artifact]):
     stripped_native_linkables_srcs = {}
     stripped_native_linkables_always_in_primary_apk_srcs = {}
     stripped_native_linkable_assets_for_primary_apk_srcs = {}

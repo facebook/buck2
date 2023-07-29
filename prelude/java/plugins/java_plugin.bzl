@@ -21,7 +21,7 @@ PluginParams = record(
     deps = field(["JavaPackagingDepTSet", None]),
 )
 
-def create_plugin_params(ctx: AnalysisContext, plugins: list[Dependency]) -> PluginParams.type | None:
+def create_plugin_params(ctx: AnalysisContext, plugins: list[Dependency]) -> [PluginParams.type, None]:
     processors = []
     plugin_deps = []
 

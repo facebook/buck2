@@ -55,7 +55,7 @@ def _add_output_for_attr(ctx: AnalysisContext, attr_name: str, field_name: str, 
         expect(len(default_info.default_outputs) == 1, "Expected only one output, got {}", len(default_info.default_outputs))
         data[field_name] = default_info.default_outputs[0]
 
-def _get_attribute_with_output(ctx: AnalysisContext, attr_name: str) -> Dependency | None:
+def _get_attribute_with_output(ctx: AnalysisContext, attr_name: str) -> [Dependency, None]:
     if hasattr(ctx.attrs, attr_name):
         dep = getattr(ctx.attrs, attr_name)
         default_info = dep[DefaultInfo]
@@ -65,5 +65,5 @@ def _get_attribute_with_output(ctx: AnalysisContext, attr_name: str) -> Dependen
             return dep
     return None
 
-def apple_get_xcode_absolute_path_prefix() -> str | None:
+def apple_get_xcode_absolute_path_prefix() -> [str, None]:
     return read_root_config("xcode", "absolute_path_prefix", None)

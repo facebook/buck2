@@ -128,9 +128,9 @@ def _get_shared_link_style_sub_targets_and_providers(
         _ctx: AnalysisContext,
         _executable: Artifact,
         _external_debug_info: ArtifactTSet.type,
-        dwp: Artifact | None,
-        pdb: Artifact | None,
-        linker_map: CxxLinkerMapData.type | None) -> (dict[str, list[Provider]], list[Provider]):
+        dwp: [Artifact, None],
+        pdb: [Artifact, None],
+        linker_map: [CxxLinkerMapData.type, None]) -> (dict[str, list[Provider]], list[Provider]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
     sub_targets = {}
@@ -196,7 +196,7 @@ def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: Li
         )
     return specs
 
-def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: LinkGroupInfo.type | None) -> list[LinkGroupLibSpec.type] | None:
+def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: [LinkGroupInfo.type, None]) -> [list[LinkGroupLibSpec.type], None]:
     if link_group_info == None or not ctx.attrs.auto_link_groups:
         return None
     return create_shared_lib_link_group_specs(ctx, link_group_info)
@@ -226,8 +226,8 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def _prebuilt_item(
         ctx: AnalysisContext,
-        item: "" | None,
-        platform_items: list[(str, "_a")] | None) -> "_a" | None:
+        item: ["", None],
+        platform_items: [list[(str, "_a")], None]) -> ["_a", None]:
     """
     Parse the given item that can be specified by regular and platform-specific
     parameters.

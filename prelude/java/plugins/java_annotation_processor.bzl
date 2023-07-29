@@ -40,7 +40,7 @@ AnnotationProcessorParams = record(
 )
 
 # Every transitive java annotation processors dependency has to be included into processor classpath for AP/Java Plugin run
-def derive_transitive_deps(ctx: AnalysisContext, deps: list[Dependency]) -> "JavaPackagingDepTSet" | None:
+def derive_transitive_deps(ctx: AnalysisContext, deps: list[Dependency]) -> ["JavaPackagingDepTSet", None]:
     for dep in deps:
         if not dep[JavaLibraryInfo]:
             fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(deps))
@@ -91,7 +91,7 @@ def create_ap_params(
 
     return ap_params
 
-def create_ksp_ap_params(ctx: AnalysisContext, plugins: list[Dependency]) -> AnnotationProcessorParams.type | None:
+def create_ksp_ap_params(ctx: AnalysisContext, plugins: list[Dependency]) -> [AnnotationProcessorParams.type, None]:
     ap_processors = []
     ap_processor_deps = []
 

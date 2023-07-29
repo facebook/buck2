@@ -109,10 +109,10 @@ def _project_output(out: Artifact, path: str) -> Artifact:
 
 def process_genrule(
         ctx: AnalysisContext,
-        out_attr: str | None,
-        outs_attr: dict | None,
+        out_attr: [str, None],
+        outs_attr: [dict, None],
         extra_env_vars: dict = {},
-        identifier: str | None = None) -> list[Provider]:
+        identifier: [str, None] = None) -> list[Provider]:
     if (out_attr != None) and (outs_attr != None):
         fail("Only one of `out` and `outs` should be set. Got out=`%s`, outs=`%s`" % (repr(out_attr), repr(outs_attr)))
 

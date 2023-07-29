@@ -84,7 +84,7 @@ def create_manifest_for_source_dir(
         ctx: AnalysisContext,
         param: str,
         extracted: Artifact,
-        exclude: str | None) -> ManifestInfo.type:
+        exclude: [str, None]) -> ManifestInfo.type:
     """
     Generate a source manifest for the given directory of sources from the given
     rule.

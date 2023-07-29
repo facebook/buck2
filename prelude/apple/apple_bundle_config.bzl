@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _maybe_get_bool(config: str, default: None | bool) -> None | bool:
+def _maybe_get_bool(config: str, default: [None, bool]) -> [None, bool]:
     result = read_root_config("apple", config, None)
     if result == None:
         return default

@@ -110,7 +110,7 @@ _EMIT_PREFIX_SUFFIX = {
 }
 
 # Return the filename for a particular emitted artifact type
-def output_filename(cratename: str, emit: Emit.type, buildparams: BuildParams.type, extra: str | None = None) -> str:
+def output_filename(cratename: str, emit: Emit.type, buildparams: BuildParams.type, extra: [str, None] = None) -> str:
     epfx, esfx = _EMIT_PREFIX_SUFFIX[emit]
     prefix = epfx if epfx != None else buildparams.prefix
     suffix = esfx if esfx != None else buildparams.suffix

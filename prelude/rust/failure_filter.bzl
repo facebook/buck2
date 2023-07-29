@@ -25,7 +25,7 @@ def failure_filter(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         prefix: str,
-        predecl_out: Artifact | None,
+        predecl_out: [Artifact, None],
         failprov: "RustFailureFilter",
         short_cmd: str) -> Artifact:
     toolchain_info = compile_ctx.toolchain_info

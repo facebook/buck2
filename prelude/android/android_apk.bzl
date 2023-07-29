@@ -122,7 +122,7 @@ def build_apk(
 
     return output_apk
 
-def get_install_info(ctx: AnalysisContext, output_apk: Artifact, manifest: Artifact, exopackage_info: ExopackageInfo.type | None) -> InstallInfo.type:
+def get_install_info(ctx: AnalysisContext, output_apk: Artifact, manifest: Artifact, exopackage_info: [ExopackageInfo.type, None]) -> InstallInfo.type:
     files = {
         ctx.attrs.name: output_apk,
         "manifest": manifest,

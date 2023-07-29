@@ -29,7 +29,7 @@ def generate_android_manifest(
         generate_manifest: RunInfo.type,
         manifest_skeleton: Artifact,
         module_name: str,
-        manifests: "ManifestTSet" | list[Artifact] | None,
+        manifests: ["ManifestTSet", list[Artifact], None],
         placeholder_entries: dict) -> (Artifact, Artifact):
     generate_manifest_cmd = cmd_args(generate_manifest)
     generate_manifest_cmd.add([
@@ -69,7 +69,7 @@ def generate_android_manifest(
 
     return (output, merge_report)
 
-def _get_manifests_from_deps(ctx: AnalysisContext) -> "ManifestTSet" | None:
+def _get_manifests_from_deps(ctx: AnalysisContext) -> ["ManifestTSet", None]:
     if len(ctx.attrs.deps) == 0:
         return None
 

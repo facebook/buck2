@@ -27,7 +27,7 @@ def get_product_name(ctx: AnalysisContext) -> str:
 def get_extension_attr(ctx: AnalysisContext) -> "":
     return ctx.attrs.extension
 
-def get_default_binary_dep(ctx: "context") -> "dependency" | None:
+def get_default_binary_dep(ctx: "context") -> ["dependency", None]:
     if ctx.attrs.binary == None:
         return None
 
@@ -42,7 +42,7 @@ def get_flattened_binary_deps(ctx: "context") -> list["dependency"]:
 # Derives the effective deployment target for the bundle. It's
 # usually the deployment target of the binary if present,
 # otherwise it falls back to other values (see implementation).
-def get_bundle_min_target_version(ctx: AnalysisContext, binary: Dependency | None) -> str:
+def get_bundle_min_target_version(ctx: AnalysisContext, binary: [Dependency, None]) -> str:
     binary_min_version = None
 
     # Could be not set for e.g. watchOS bundles which have a stub

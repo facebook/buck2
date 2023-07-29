@@ -5,10 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _os_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> None | ConstraintValueInfo.type:
+def _os_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> [None, ConstraintValueInfo.type]:
     return platform.configuration.constraints.get(refs.os[ConstraintSettingInfo].label)
 
-def _sdk_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> None | ConstraintValueInfo.type:
+def _sdk_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> [None, ConstraintValueInfo.type]:
     return platform.configuration.constraints.get(refs.sdk[ConstraintSettingInfo].label)
 
 def _cpu_split_transition_impl(

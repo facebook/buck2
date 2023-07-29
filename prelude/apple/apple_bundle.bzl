@@ -360,7 +360,7 @@ def _extra_output_provider(ctx: AnalysisContext) -> AppleBundleExtraOutputsInfo.
 def generate_install_data(
         ctx: AnalysisContext,
         plist_path: str,
-        populate_rule_specific_attributes_func: "function" | None = None,
+        populate_rule_specific_attributes_func: ["function", None] = None,
         **kwargs) -> Artifact:
     data = {
         "fullyQualifiedName": ctx.label,

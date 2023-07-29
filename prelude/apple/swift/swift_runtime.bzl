@@ -15,13 +15,13 @@ load(
     "SwiftRuntimeLinkable",
 )
 
-def create_swift_runtime_linkable(ctx: AnalysisContext) -> SwiftRuntimeLinkable.type | None:
+def create_swift_runtime_linkable(ctx: AnalysisContext) -> [SwiftRuntimeLinkable.type, None]:
     for s in get_srcs_with_flags(ctx):
         if s.file.extension == SWIFT_EXTENSION:
             return SwiftRuntimeLinkable(runtime_required = True)
     return None
 
-def get_swift_runtime_linker_flags(ctx: AnalysisContext, linkable: SwiftRuntimeLinkable.type | None) -> cmd_args:
+def get_swift_runtime_linker_flags(ctx: AnalysisContext, linkable: [SwiftRuntimeLinkable.type, None]) -> cmd_args:
     if not linkable or not linkable.runtime_required:
         return cmd_args()
 
@@ -34,7 +34,7 @@ def get_swift_runtime_linker_flags(ctx: AnalysisContext, linkable: SwiftRuntimeL
 
     return args
 
-def extract_swift_runtime_linkables(link_infos: list[LinkInfo.type] | None) -> list[SwiftRuntimeLinkable.type]:
+def extract_swift_runtime_linkables(link_infos: [list[LinkInfo.type], None]) -> list[SwiftRuntimeLinkable.type]:
     swift_runtime_type = LinkableType("swift_runtime")
 
     linkables = []

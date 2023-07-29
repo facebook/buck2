@@ -38,7 +38,7 @@ def _get_grouped_srcs(ctx: AnalysisContext) -> list[GroupedSource.type]:
 
     return grouped_srcs.values()
 
-def _get_virtual_path(ctx: AnalysisContext, src: Artifact, base_path: str | None) -> str:
+def _get_virtual_path(ctx: AnalysisContext, src: Artifact, base_path: [str, None]) -> str:
     package = ctx.label.package
     if base_path and base_path not in ["", "."]:
         package = paths.join(package, base_path)

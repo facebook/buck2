@@ -615,9 +615,9 @@ def _link_into_executable(
         link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
         enable_distributed_thinlto: bool = False,
         strip: bool = False,
-        link_ordering: LinkOrdering.type | None = None,
+        link_ordering: [LinkOrdering.type, None] = None,
         strip_args_factory = None,
-        category_suffix: str | None = None) -> _CxxLinkExecutableResult.type:
+        category_suffix: [str, None] = None) -> _CxxLinkExecutableResult.type:
     output = ctx.actions.declare_output("{}{}".format(get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
         ctx.actions,

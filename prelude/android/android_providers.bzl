@@ -219,10 +219,10 @@ def merge_android_packageable_info(
         label: Label,
         actions: "actions",
         deps: list[Dependency],
-        build_config_info: "AndroidBuildConfigInfo" | None = None,
-        manifest: Artifact | None = None,
-        prebuilt_native_library_dir: PrebuiltNativeLibraryDir.type | None = None,
-        resource_info: "AndroidResourceInfo" | None = None) -> "AndroidPackageableInfo":
+        build_config_info: ["AndroidBuildConfigInfo", None] = None,
+        manifest: [Artifact, None] = None,
+        prebuilt_native_library_dir: [PrebuiltNativeLibraryDir.type, None] = None,
+        resource_info: ["AndroidResourceInfo", None] = None) -> "AndroidPackageableInfo":
     android_packageable_deps = filter(None, [x.get(AndroidPackageableInfo) for x in deps])
 
     build_config_infos = _get_transitive_set(
@@ -279,7 +279,7 @@ def _get_transitive_set(
         actions: "actions",
         children: list["transitive_set"],
         node: "_a",
-        transitive_set_definition: "transitive_set_definition") -> "transitive_set" | None:
+        transitive_set_definition: "transitive_set_definition") -> ["transitive_set", None]:
     kwargs = {}
     if children:
         kwargs["children"] = children

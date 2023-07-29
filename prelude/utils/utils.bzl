@@ -49,7 +49,7 @@ def is_all(predicate: "function", iterable: list["_a"]) -> bool:
             return False
     return True
 
-def value_or(x: None | "_a", default: "_a") -> "_a":
+def value_or(x: [None, "_a"], default: "_a") -> "_a":
     return default if x == None else x
 
 # Flatten a list of lists into a list
@@ -74,7 +74,7 @@ def expect_non_none(val, msg: str = "unexpected none", *fmt_args, **fmt_kwargs):
         fail(msg.format(*fmt_args, **fmt_kwargs))
     return val
 
-def from_named_set(srcs: dict[str, Artifact | "dependency"] | list[Artifact | "dependency"]) -> dict[str, Artifact | "dependency"]:
+def from_named_set(srcs: [dict[str, [Artifact, "dependency"]], list[[Artifact, "dependency"]]]) -> dict[str, [Artifact, "dependency"]]:
     """
     Normalize parameters of optionally named sources to a dictionary mapping
     names to sources, deriving the name from the short path when it's not
@@ -110,14 +110,14 @@ def filter_idx(key: "_a", vals: list["_b"]) -> list["_b"]:
 def filter_and_map_idx(key: "_a", vals: list["_b"]) -> list["_c"]:
     return [x[key] for x in vals if key in x]
 
-def idx(x: "_a" | None, key: "_b") -> "_c" | None:
+def idx(x: ["_a", None], key: "_b") -> ["_c", None]:
     return x[key] if x != None else None
 
 # TODO(T127134666) remove this once we have a native function that does this
 def dedupe_by_value(vals: list["_a"]) -> list["_a"]:
     return {val: None for val in vals}.keys()
 
-def map_val(func: "function", val: "_a" | None) -> "_b" | None:
+def map_val(func: "function", val: ["_a", None]) -> ["_b", None]:
     """
     If `val` if `None`, return `None`, else apply `func` to `val` and return the
     result.

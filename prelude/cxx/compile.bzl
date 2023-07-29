@@ -140,7 +140,7 @@ def create_compile_cmds(
         impl_params: "CxxRuleConstructorParams",
         own_preprocessors: list[CPreprocessor.type],
         inherited_preprocessor_infos: list[CPreprocessorInfo.type],
-        absolute_path_prefix: str | None) -> CxxCompileCommandOutput.type:
+        absolute_path_prefix: [str, None]) -> CxxCompileCommandOutput.type:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
     and optional source file flags. Returns CxxCompileCommandOutput containing an array
@@ -408,7 +408,7 @@ def _get_compile_base(compiler_info: "_compiler_info") -> cmd_args:
 
     return cmd
 
-def _dep_file_type(ext: CxxExtension.type) -> DepFileType.type | None:
+def _dep_file_type(ext: CxxExtension.type) -> [DepFileType.type, None]:
     # Raw assembly doesn't make sense to capture dep files for.
     if ext.value in (".s", ".S", ".asm"):
         return None
@@ -445,7 +445,7 @@ def _mk_argsfile(
         preprocessor: CPreprocessorInfo.type,
         ext: CxxExtension.type,
         headers_tag: "artifact_tag",
-        absolute_path_prefix: str | None) -> CompileArgsfile.type:
+        absolute_path_prefix: [str, None]) -> CompileArgsfile.type:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """

@@ -21,7 +21,7 @@ _OS_TRIPLES = {
     (_platform("windows"), _cpu("x86_64")): "x86_64-pc-windows-msvc",
 }
 
-def _exec_triple(ctx: AnalysisContext) -> str | None:
+def _exec_triple(ctx: AnalysisContext) -> [str, None]:
     exec_os = ctx.attrs._exec_os_type[OsLookup]
     if exec_os.platform and exec_os.cpu:
         return _OS_TRIPLES.get((_platform(exec_os.platform), _cpu(exec_os.cpu)))

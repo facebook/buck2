@@ -282,7 +282,7 @@ def _write_test_info_file(
         dependencies: ErlAppDependencies,
         test_dir: Artifact,
         config_files: list[Artifact],
-        erl_cmd: cmd_args | Artifact) -> Artifact:
+        erl_cmd: [cmd_args, Artifact]) -> Artifact:
     tests_info = {
         "config_files": config_files,
         "ct_opts": ctx.attrs._ct_opts,
