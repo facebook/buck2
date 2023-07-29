@@ -206,7 +206,7 @@ def inherited_non_rust_shared_libs(
 
 def inherited_external_debug_info(
         ctx: AnalysisContext,
-        dwo_output_directory: [Artifact, None],
+        dwo_output_directory: ["artifact", None],
         dep_link_style: LinkStyle.type) -> ArtifactTSet:
     inherited_debug_infos = []
     inherited_non_rust_link_infos = []

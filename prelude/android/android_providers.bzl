@@ -220,7 +220,7 @@ def merge_android_packageable_info(
         actions: "actions",
         deps: list[Dependency],
         build_config_info: ["AndroidBuildConfigInfo", None] = None,
-        manifest: [Artifact, None] = None,
+        manifest: ["artifact", None] = None,
         prebuilt_native_library_dir: [PrebuiltNativeLibraryDir.type, None] = None,
         resource_info: ["AndroidResourceInfo", None] = None) -> "AndroidPackageableInfo":
     android_packageable_deps = filter(None, [x.get(AndroidPackageableInfo) for x in deps])

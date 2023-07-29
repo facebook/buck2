@@ -436,7 +436,7 @@ def _output_extensions(
 
 def _srcs_to_objfiles(
         ctx: AnalysisContext,
-        odir: Artifact,
+        odir: "artifact",
         osuf: str) -> cmd_args:
     objfiles = cmd_args()
     for src in ctx.attrs.srcs:
@@ -570,8 +570,8 @@ def _make_package(
         pkgname: str,
         libname: str,
         hlis: list[HaskellLibraryInfo.type],
-        hi: Artifact,
-        lib: Artifact) -> Artifact:
+        hi: "artifact",
+        lib: "artifact") -> "artifact":
     # Don't expose boot sources, as they're only meant to be used for compiling.
     modules = [_src_to_module_name(x) for x in ctx.attrs.srcs if _is_haskell_src(x)]
 
@@ -840,7 +840,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list["provider"]:
 def derive_indexing_tset(
         actions: "actions",
         link_style: LinkStyle.type,
-        value: [Artifact, None],
+        value: ["artifact", None],
         children: list[Dependency]) -> "HaskellIndexingTSet":
     index_children = []
     for dep in children:

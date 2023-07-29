@@ -27,8 +27,8 @@ def get_src_package(src_root_prefixes: list[str], src_root_elements: list[str], 
 def get_resources_map(
         java_toolchain: "JavaToolchainInfo",
         package: str,
-        resources: list[Artifact],
-        resources_root: [str, None]) -> dict[str, Artifact]:
+        resources: list["artifact"],
+        resources_root: [str, None]) -> dict[str, "artifact"]:
     # As in v1, root the resource root via the current package.
     if resources_root != None:
         resources_root = paths.normalize(paths.join(package, resources_root))

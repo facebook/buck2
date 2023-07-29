@@ -12,7 +12,7 @@ load(
 load(":apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym_ext")
 load(":apple_universal_binaries.bzl", "create_universal_binary")
 
-def apple_universal_executable_impl(ctx: AnalysisContext) -> list["provider"]:
+def apple_universal_executable_impl(ctx: AnalysisContext) -> ["provider"]:
     dsym_name = ctx.attrs.name + ".dSYM"
     binary_outputs = create_universal_binary(
         ctx = ctx,

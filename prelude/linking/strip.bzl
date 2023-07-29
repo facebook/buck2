@@ -7,7 +7,7 @@
 
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
-def strip_debug_info(ctx: AnalysisContext, name: str, obj: Artifact) -> Artifact:
+def strip_debug_info(ctx: AnalysisContext, name: str, obj: "artifact") -> "artifact":
     """
     Strip debug information from an object.
     """
@@ -17,7 +17,7 @@ def strip_debug_info(ctx: AnalysisContext, name: str, obj: Artifact) -> Artifact
     ctx.actions.run(cmd, category = "strip_debug", identifier = name)
     return output
 
-def strip_shared_library(ctx: "context", cxx_toolchain: "CxxToolchainInfo", shared_lib: Artifact, strip_flags: cmd_args, category_suffix: [str, None] = None) -> Artifact:
+def strip_shared_library(ctx: "context", cxx_toolchain: "CxxToolchainInfo", shared_lib: "artifact", strip_flags: cmd_args, category_suffix: [str, None] = None) -> "artifact":
     """
     Strip unneeded information from a shared library.
     """

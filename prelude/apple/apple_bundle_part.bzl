@@ -35,14 +35,14 @@ SwiftStdlibArguments = record(
     primary_binary_rel_path = field(str),
 )
 
-def bundle_output(ctx: AnalysisContext) -> Artifact:
+def bundle_output(ctx: AnalysisContext) -> "artifact":
     bundle_dir_name = get_bundle_dir_name(ctx)
     output = ctx.actions.declare_output(bundle_dir_name)
     return output
 
 def assemble_bundle(
         ctx: AnalysisContext,
-        bundle: Artifact,
+        bundle: "artifact",
         parts: list[AppleBundlePart.type],
         info_plist_part: [AppleBundlePart.type, None],
         swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> dict[str, list["provider"]]:
@@ -194,7 +194,7 @@ def get_apple_bundle_part_relative_destination_path(ctx: AnalysisContext, part: 
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
 
 # Returns JSON to be passed into bundle assembling tool. It should contain a dictionary which maps bundle relative destination paths to source paths."
-def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart.type]) -> Artifact:
+def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart.type]) -> "artifact":
     specs = []
 
     for part in parts:
@@ -219,7 +219,7 @@ def _detect_codesign_type(ctx: AnalysisContext) -> CodeSignType.type:
     is_ad_hoc_sufficient = get_apple_sdk_metadata_for_sdk_name(sdk_name).is_ad_hoc_code_sign_sufficient
     return CodeSignType("adhoc" if is_ad_hoc_sufficient else "distribution")
 
-def _entitlements_file(ctx: AnalysisContext) -> [Artifact, None]:
+def _entitlements_file(ctx: AnalysisContext) -> ["artifact", None]:
     if not ctx.attrs.binary:
         return None
 

@@ -77,8 +77,8 @@ def cxx_dist_link(
         ctx: AnalysisContext,
         links: list["LinkArgs"],
         # The destination for the link output.
-        output: Artifact,
-        linker_map: [Artifact, None] = None,
+        output: "artifact",
+        linker_map: ["artifact", None] = None,
         # A category suffix that will be added to the category of the link action that is generated.
         category_suffix: [str, None] = None,
         # An identifier that will uniquely name this link action in the context of a category. Useful for
@@ -116,7 +116,7 @@ def cxx_dist_link(
 
     recorded_outputs = {}
 
-    def name_for_obj(link_name: str, object_artifact: Artifact) -> str:
+    def name_for_obj(link_name: str, object_artifact: "artifact") -> str:
         """ Creates a unique name/path we can use for a particular object file input """
         prefix = "{}/{}".format(link_name, object_artifact.short_path)
 
@@ -286,7 +286,7 @@ def cxx_dist_link(
     index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto.index.argsfile")
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
 
-    def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact):
+    def dynamic_plan(link_plan: "artifact", index_argsfile_out: "artifact", final_link_index: "artifact"):
         def plan(ctx, artifacts, outputs):
             # buildifier: disable=uninitialized
             def add_pre_flags(idx: int):
@@ -422,7 +422,7 @@ def cxx_dist_link(
     # opt actions, but an action needs to re-run whenever the analysis that
     # produced it re-runs. And so, with a single dynamic_output, we'd need to
     # re-run all actions when any of the plans changed.
-    def dynamic_optimize(name: str, initial_object: Artifact, bc_file: Artifact, plan: Artifact, opt_object: Artifact):
+    def dynamic_optimize(name: str, initial_object: "artifact", bc_file: "artifact", plan: "artifact", opt_object: "artifact"):
         def optimize_object(ctx, artifacts, outputs):
             plan_json = artifacts[plan].read_json()
 

@@ -642,7 +642,7 @@ def _symbol_files_for_link_group(
         ctx: AnalysisContext,
         lib: LinkedObject.type,
         prefer_local: bool = False,
-        anonymous: bool = False) -> (Artifact, Artifact):
+        anonymous: bool = False) -> ("artifact", "artifact"):
     """
     Find and return all undefined and global symbols form the given library.
     """
@@ -669,8 +669,8 @@ def _symbol_files_for_link_group(
 
 def _symbol_flags_for_link_groups(
         ctx: AnalysisContext,
-        undefined_symfiles: list[Artifact] = [],
-        global_symfiles: list[Artifact] = []) -> list["_arglike"]:
+        undefined_symfiles: list["artifact"] = [],
+        global_symfiles: list["artifact"] = []) -> list["_arglike"]:
     """
     Generate linker flags which, when applied to the main executable, make sure
     required symbols are included in the link *and* exported to the dynamic

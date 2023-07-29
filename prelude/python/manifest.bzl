@@ -23,7 +23,7 @@ ManifestInfo = record(
 def create_dep_manifest_for_source_map(
         ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo.type,
-        srcs: dict[str, Artifact]) -> ManifestInfo.type:
+        srcs: dict[str, "artifact"]) -> ManifestInfo.type:
     entries = []
     artifacts = []
     for path, artifact in srcs.items():
@@ -48,7 +48,7 @@ def create_dep_manifest_for_source_map(
 def _write_manifest(
         ctx: AnalysisContext,
         name: str,
-        entries: list[(str, Artifact, str)]) -> Artifact:
+        entries: list[(str, "artifact", str)]) -> "artifact":
     """
     Serialize the given source manifest entries to a JSON file.
     """
@@ -57,7 +57,7 @@ def _write_manifest(
 def create_manifest_for_entries(
         ctx: AnalysisContext,
         name: str,
-        entries: list[(str, Artifact, str)]) -> ManifestInfo.type:
+        entries: list[(str, "artifact", str)]) -> ManifestInfo.type:
     """
     Generate a source manifest for the given list of sources.
     """
@@ -69,7 +69,7 @@ def create_manifest_for_entries(
 def create_manifest_for_source_map(
         ctx: AnalysisContext,
         param: str,
-        srcs: dict[str, Artifact]) -> ManifestInfo.type:
+        srcs: dict[str, "artifact"]) -> ManifestInfo.type:
     """
     Generate a source manifest for the given map of sources from the given rule.
     """
@@ -83,7 +83,7 @@ def create_manifest_for_source_map(
 def create_manifest_for_source_dir(
         ctx: AnalysisContext,
         param: str,
-        extracted: Artifact,
+        extracted: "artifact",
         exclude: [str, None]) -> ManifestInfo.type:
     """
     Generate a source manifest for the given directory of sources from the given
