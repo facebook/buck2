@@ -290,7 +290,8 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         self.to_value().0.write_hash(hasher)
     }
 
-    pub(crate) fn equals(self, other: Self) -> anyhow::Result<bool> {
+    // Dead code, but may become useful in the future.
+    pub(crate) fn _equals(self, other: Self) -> anyhow::Result<bool> {
         self.to_value().0.equals(other.to_value().0)
     }
 }

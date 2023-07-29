@@ -209,7 +209,7 @@ rt = record(host=str.type)
 load('m', r1='rt')
 rt = record(host=str.type)
 diff = record(host=str.type)
-assert_eq(r1(host="test"), rt(host="test"))
+assert_ne(r1(host="test"), rt(host="test"))
 assert_ne(r1(host="test"), diff(host="test"))
 "#,
         );

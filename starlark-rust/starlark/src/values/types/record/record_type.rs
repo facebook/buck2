@@ -212,36 +212,6 @@ where
         self.typ.borrow().as_ref().map(|t| Ty::name(t.as_str()))
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        fn eq<'v>(
-            a: &RecordTypeGen<impl ValueLike<'v>, impl ExportedName>,
-            b: &RecordTypeGen<impl ValueLike<'v>, impl ExportedName>,
-        ) -> anyhow::Result<bool> {
-            if a.typ.borrow() != b.typ.borrow() {
-                return Ok(false);
-            };
-            if a.fields.len() != b.fields.len() {
-                return Ok(false);
-            };
-            for ((k1, t1), (k2, t2)) in a.fields.iter().zip(b.fields.iter()) {
-                // We require that the types and defaults are both equal.
-                if k1 != k2
-                    || !t1.typ.to_value().equals(t2.typ.to_value())?
-                    || t1.default.map(ValueLike::to_value) != t2.default.map(ValueLike::to_value)
-                {
-                    return Ok(false);
-                }
-            }
-            Ok(true)
-        }
-
-        match RecordType::from_value(other) {
-            Some(Either::Left(other)) => eq(self, other),
-            Some(Either::Right(other)) => eq(self, other),
-            _ => Ok(false),
-        }
-    }
-
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
         self.typ.try_export_as(variable_name);
     }
