@@ -312,7 +312,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         extra_output_provider,
     ]
 
-def _xcode_populate_attributes(ctx, processed_info_plist: Artifact) -> dict[str, typing.Any]:
+def _xcode_populate_attributes(ctx, processed_info_plist: Artifact) -> dict[str, ""]:
     data = {
         "deployment_version": get_bundle_min_target_version(ctx, get_default_binary_dep(ctx)),
         "info_plist": ctx.attrs.info_plist,

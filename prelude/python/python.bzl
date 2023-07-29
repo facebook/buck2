@@ -21,7 +21,7 @@ PythonLibraryManifests = record(
     resources = field([(ManifestInfo.type, [ArgLike]), None]),
     bytecode = field([dict[PycInvalidationMode.type, ManifestInfo.type], None]),
     dep_manifest = field([ManifestInfo.type, None]),
-    extensions = field([dict[str, typing.Any], None]),
+    extensions = field([dict[str, "_a"], None]),
 )
 
 def _bytecode_artifacts(invalidation_mode: PycInvalidationMode.type):

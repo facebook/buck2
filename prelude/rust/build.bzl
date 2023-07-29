@@ -310,7 +310,7 @@ def rust_compile_multi(
         params: BuildParams.type,
         link_style: LinkStyle.type,
         default_roots: list[str],
-        extra_link_args: list[typing.Any] = [],
+        extra_link_args: list[""] = [],
         predeclared_outputs: dict[Emit.type, Artifact] = {},
         extra_flags: list[str | "resolved_macro"] = [],
         is_binary: bool = False) -> list[RustcOutput.type]:
@@ -343,7 +343,7 @@ def rust_compile(
         params: BuildParams.type,
         link_style: LinkStyle.type,
         default_roots: list[str],
-        extra_link_args: list[typing.Any] = [],
+        extra_link_args: list[""] = [],
         predeclared_outputs: dict[Emit.type, Artifact] = {},
         extra_flags: list[str | "resolved_macro"] = [],
         is_binary: bool = False) -> RustcOutput.type:

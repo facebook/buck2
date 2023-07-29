@@ -88,7 +88,7 @@ def link(
         build_mode: GoBuildMode.type = GoBuildMode("executable"),
         link_mode: str | None = None,
         link_style: LinkStyle.type = LinkStyle("static"),
-        linker_flags: list[typing.Any] = [],
+        linker_flags: list[""] = [],
         shared: bool = False):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     if go_toolchain.env_go_os == "windows":

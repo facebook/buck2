@@ -47,7 +47,7 @@ def create_jar_artifact_javacd(
         java_toolchain: "JavaToolchainInfo",
         label,
         output: Artifact | None,
-        javac_tool: typing.Any | None,
+        javac_tool: "" | None,
         srcs: list[Artifact],
         remove_classes: list[str],
         resources: list[Artifact],

@@ -46,7 +46,7 @@ def merge_cxx_extension_info(
         actions: "actions",
         deps: list[Dependency],
         linkable_providers: LinkableProviders.type | None = None,
-        artifacts: dict[str, typing.Any] = {},
+        artifacts: dict[str, "_a"] = {},
         python_module_names: dict[str, str] = {},
         unembeddable_extensions: dict[str, LinkableProviders.type] = {},
         shared_deps: list[Dependency] = []) -> CxxExtensionLinkInfo.type:

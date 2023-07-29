@@ -209,7 +209,7 @@ def _get_test_host_app_binary(ctx: AnalysisContext, test_host_app_bundle: Artifa
 
     return None
 
-def _get_bundle_loader_flags(binary: cmd_args | None) -> list[typing.Any]:
+def _get_bundle_loader_flags(binary: cmd_args | None) -> list[""]:
     if binary:
         # During linking we need to link the test shared lib against the test host binary. The
         # test host binary doesn't need to be embedded in an `apple_bundle`.
@@ -223,7 +223,7 @@ def _xcode_populate_attributes(
         argsfiles: dict[str, CompileArgsfile.type],
         xctest_bundle: Artifact,
         test_host_app_binary: cmd_args | None,
-        **_kwargs) -> dict[str, typing.Any]:
+        **_kwargs) -> dict[str, ""]:
     data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     data["output"] = xctest_bundle
     if test_host_app_binary:

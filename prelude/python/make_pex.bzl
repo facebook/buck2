@@ -79,7 +79,7 @@ def make_default_info(pex: PexProviders.type) -> Provider:
 def make_run_info(pex: PexProviders.type) -> Provider:
     return RunInfo(pex.run_cmd)
 
-def _srcs(srcs: list[typing.Any], format = "{}") -> cmd_args:
+def _srcs(srcs: list[""], format = "{}") -> cmd_args:
     args = cmd_args()
     for src in srcs:
         args.add(cmd_args(src, format = format))

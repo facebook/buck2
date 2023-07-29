@@ -125,13 +125,13 @@ def cxx_get_regular_cxx_headers_layout(ctx: AnalysisContext) -> CxxHeadersLayout
 def cxx_attr_exported_header_style(ctx: AnalysisContext) -> HeaderStyle.type:
     return HeaderStyle(ctx.attrs.exported_header_style)
 
-def _get_attr_headers(xs: typing.Any, namespace: str, naming: CxxHeadersNaming.type) -> list[CHeader.type]:
+def _get_attr_headers(xs: "", namespace: str, naming: CxxHeadersNaming.type) -> list[CHeader.type]:
     if type(xs) == type([]):
         return [CHeader(artifact = x, name = _get_list_header_name(x, naming), namespace = namespace, named = False) for x in xs]
     else:
         return [CHeader(artifact = xs[x], name = x, namespace = _get_dict_header_namespace(namespace, naming), named = True) for x in xs]
 
-def _headers_by_platform(ctx: AnalysisContext, xs: list[(str, typing.Any)]) -> typing.Any:
+def _headers_by_platform(ctx: AnalysisContext, xs: list[(str, "")]) -> "":
     res = {}
     for deps in cxx_by_platform(ctx, xs):
         res.update(from_named_set(deps))

@@ -21,7 +21,7 @@ def _unimplemented_impl(name):
     # some features disabled.
     return partial(_unimplemented, name)
 
-def _mk_rule(rule_spec: typing.Any) -> "rule":
+def _mk_rule(rule_spec: "") -> "rule":
     name = rule_spec.name
     attributes = rule_spec.attrs
 
@@ -90,7 +90,7 @@ def _flatten_decls():
             decls[rule] = getattr(decl_set, rule)
     return decls
 
-def _update_rules(rules: dict[str, typing.Any], extra_attributes: typing.Any):
+def _update_rules(rules: dict[str, ""], extra_attributes: ""):
     for k in dir(extra_attributes):
         v = getattr(extra_attributes, k)
         if k in rules:

@@ -46,26 +46,26 @@ set_record = record(
 # encouraged to avoid leaking the underlying implementation.
 set_type = set_record.type
 
-def set(initial_entries: list[typing.Any] = []) -> set_type:
+def set(initial_entries: list[""] = []) -> set_type:
     def set_list():
         return self._entries.keys()
 
-    def set_add(v: typing.Any) -> bool:
+    def set_add(v: "") -> bool:
         if self.contains(v):
             return True
         self._entries[v] = None
         return False
 
-    def set_contains(v: typing.Any) -> bool:
+    def set_contains(v: "") -> bool:
         return v in self._entries
 
-    def set_remove(v: typing.Any) -> bool:
+    def set_remove(v: "") -> bool:
         if self.contains(v):
             self._entries.pop(v)
             return True
         return False
 
-    def set_update(values: list[typing.Any]) -> list[typing.Any]:
+    def set_update(values: list[""]) -> list[""]:
         return filter(None, [v for v in values if not self.add(v)])
 
     def set_size() -> int:

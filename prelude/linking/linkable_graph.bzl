@@ -37,7 +37,7 @@ LinkableRootInfo = provider(fields = [
 # if Python library A depends on C++ library B, then in the
 # AnnotatedLinkableRoot for B, we'll have A as the dependent.
 LinkableRootAnnotation = record(
-    dependent = field(typing.Any),
+    dependent = field(""),
 )
 
 AnnotatedLinkableRoot = record(

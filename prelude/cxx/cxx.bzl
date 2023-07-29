@@ -226,8 +226,8 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def _prebuilt_item(
         ctx: AnalysisContext,
-        item: typing.Any | None,
-        platform_items: list[(str, typing.Any)] | None) -> typing.Any | None:
+        item: "" | None,
+        platform_items: list[(str, "_a")] | None) -> "_a" | None:
     """
     Parse the given item that can be specified by regular and platform-specific
     parameters.

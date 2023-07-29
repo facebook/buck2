@@ -13,7 +13,7 @@ def normalise_metadata(data: str | list[str]) -> cmd_args | list[cmd_args]:
     else:
         return cmd_args(data)
 
-def to_term_args(data: typing.Any) -> cmd_args:
+def to_term_args(data: "") -> cmd_args:
     """ convert nested lists/tuple/map data structure to Erlang Term cmd_args
     """
     args = cmd_args([])
@@ -44,7 +44,7 @@ build_paths = struct(
     linktree = linktree,
 )
 
-def convert(data: typing.Any) -> cmd_args:
+def convert(data: "") -> cmd_args:
     """ converts a lists/tuple/map data structure to a sub-term that can be embedded in another to_term_args or convert
     """
     if type(data) == "list":
@@ -168,7 +168,7 @@ def _file_mapping_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [DefaultInfo(default_outputs = outputs)]
 
-def list_dedupe(xs: list[str]) -> list[str]:
+def list_dedupe(xs: ["string"]) -> ["string"]:
     return {x: True for x in xs}.keys()
 
 file_mapping = rule(

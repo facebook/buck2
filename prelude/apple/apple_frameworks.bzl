@@ -68,7 +68,7 @@ def _get_framework_search_path_flags(frameworks: list[cmd_args]) -> cmd_args:
 
     return flags
 
-def _get_non_sdk_unresolved_framework_directories(frameworks: list[typing.Any]) -> list[typing.Any]:
+def _get_non_sdk_unresolved_framework_directories(frameworks: list[""]) -> list[""]:
     # We don't want to include SDK directories as those are already added via `isysroot` flag in toolchain definition.
     # Adding those directly via `-F` will break building Catalyst applications as frameworks from support directory
     # won't be found and those for macOS platform will be used.

@@ -37,9 +37,9 @@ SystemIncludeDirs = record(
 
 CPreprocessorArgs = record(
     # The arguments, [arglike things]
-    args = field([typing.Any], []),
+    args = field([""], []),
     # File prefix args maps symlinks to source file location
-    file_prefix_args = field([typing.Any], []),
+    file_prefix_args = field([""], []),
 )
 
 # Note: Any generic attributes are assumed to be relative.
@@ -59,8 +59,8 @@ CPreprocessor = record(
     # Whether to compile with modules support
     uses_modules = field(bool, False),
     # Modular args to set when modules are in use, [arglike things]
-    modular_args = field([typing.Any], []),
-    modulemap_path = field(typing.Any, None),
+    modular_args = field([""], []),
+    modulemap_path = field("", None),
 )
 
 # Methods for transitive_sets must be declared prior to their use.
@@ -147,7 +147,7 @@ CPreprocessorForTestsInfo = provider(fields = [
 ])
 
 # Preprocessor flags
-def cxx_attr_preprocessor_flags(ctx: AnalysisContext, ext: str) -> list[typing.Any]:
+def cxx_attr_preprocessor_flags(ctx: AnalysisContext, ext: str) -> list[""]:
     return (
         ctx.attrs.preprocessor_flags +
         cxx_by_language_ext(ctx.attrs.lang_preprocessor_flags, ext) +
@@ -155,7 +155,7 @@ def cxx_attr_preprocessor_flags(ctx: AnalysisContext, ext: str) -> list[typing.A
         flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_preprocessor_flags, ext)))
     )
 
-def cxx_attr_exported_preprocessor_flags(ctx: AnalysisContext) -> list[typing.Any]:
+def cxx_attr_exported_preprocessor_flags(ctx: AnalysisContext) -> list[""]:
     return (
         ctx.attrs.exported_preprocessor_flags +
         _by_language_cxx(ctx.attrs.exported_lang_preprocessor_flags) +
@@ -380,7 +380,7 @@ def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Arti
 
     return CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args)
 
-def _by_language_cxx(x: dict[typing.Any, typing.Any]) -> list[typing.Any]:
+def _by_language_cxx(x: dict["", ""]) -> list[""]:
     return cxx_by_language_ext(x, ".cpp")
 
 def _header_style_args(style: HeaderStyle.type, path: cmd_args, compiler_type: str) -> list[cmd_args]:
@@ -408,7 +408,7 @@ def _attr_headers_as_raw_headers_mode(ctx: AnalysisContext) -> HeadersAsRawHeade
     # Fallback to platform default.
     return mode
 
-def _needs_cxx_header_tree_hack(arg: typing.Any) -> bool:
+def _needs_cxx_header_tree_hack(arg: "") -> bool:
     # The macro $(cxx-header-tree) is used in exactly once place, and its a place which isn't very
     # Buck v2 compatible. We replace $(cxx-header-tree) with HACK-CXX-HEADER-TREE at attribute time,
     # then here we substitute in the real header tree.
