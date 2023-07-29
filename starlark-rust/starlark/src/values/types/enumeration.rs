@@ -267,32 +267,6 @@ where
         RES.methods(enum_type_methods)
     }
 
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        fn eq<'v>(
-            a: &EnumTypeGen<impl ValueLike<'v>, impl ExportedName>,
-            b: &EnumTypeGen<impl ValueLike<'v>, impl ExportedName>,
-        ) -> anyhow::Result<bool> {
-            if a.typ.borrow() != b.typ.borrow() {
-                return Ok(false);
-            }
-            if a.elements().len() != b.elements().len() {
-                return Ok(false);
-            }
-            for (k1, k2) in a.elements().keys().zip(b.elements().keys()) {
-                if !k1.to_value().equals(k2.to_value())? {
-                    return Ok(false);
-                }
-            }
-            Ok(true)
-        }
-
-        match EnumType::from_value(other) {
-            Some(Either::Left(other)) => eq(self, other),
-            Some(Either::Right(other)) => eq(self, other),
-            _ => Ok(false),
-        }
-    }
-
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
         self.typ.try_export_as(variable_name);
     }

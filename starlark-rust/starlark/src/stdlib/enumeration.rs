@@ -174,7 +174,7 @@ load('m1', r1='rt')
 load('m2', r2='rt')
 rt = enum(1)
 diff = enum(1)
-assert_eq(r1(1), rt(1))
+assert_ne(r1(1), rt(1))
 assert_ne(rt(1), r2(1))
 assert_ne(rt(1), diff(1))
 "#,
