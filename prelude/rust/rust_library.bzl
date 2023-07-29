@@ -5,11 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(
-    "@prelude//:artifact_tset.bzl",
-    "ArtifactTSet",
-    "make_artifact_tset",
-)
 load("@prelude//:resources.bzl", "ResourceInfo", "gather_resources")
 load(
     "@prelude//android:android_providers.bzl",
@@ -89,7 +84,6 @@ load(
     "RustLinkInfo",
     "RustLinkStyleInfo",
     "attr_crate",
-    "inherited_external_debug_info",
     "inherited_non_rust_exported_link_deps",
     "inherited_non_rust_link_info",
     "inherited_non_rust_shared_libs",
@@ -113,18 +107,13 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list["provider"]:
     crate = attr_crate(ctx)
     styles = {}
     for style in LinkStyle:
-        tdeps, tmetadeps, external_debug_info = _compute_transitive_deps(ctx, style)
-        external_debug_info = make_artifact_tset(
-            actions = ctx.actions,
-            children = external_debug_info,
-        )
+        tdeps, tmetadeps = _compute_transitive_deps(ctx, style)
         styles[style] = RustLinkStyleInfo(
             rlib = ctx.attrs.rlib,
             transitive_deps = tdeps,
             rmeta = ctx.attrs.rlib,
             transitive_rmeta_deps = tmetadeps,
             pdb = None,
-            external_debug_info = external_debug_info,
         )
     providers.append(
         RustLinkInfo(
@@ -206,7 +195,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list["provider"]:
 
             rust_param_artifact[params] = _handle_rust_artifact(ctx, params, link, meta)
         elif lang == LinkageLang("c++"):
-            native_param_artifact[params] = link
+            native_param_artifact[params] = link.output
         else:
             fail("Unhandled lang {}".format(lang))
 
@@ -400,25 +389,17 @@ def _handle_rust_artifact(
 
     # If we're a crate where our consumers should care about transitive deps,
     # then compute them (specifically, not proc-macro).
+    tdeps, tmetadeps = ({}, {})
     if crate_type_transitive_deps(params.crate_type):
-        tdeps, tmetadeps, external_debug_info = _compute_transitive_deps(ctx, link_style)
-    else:
-        tdeps, tmetadeps, external_debug_info = {}, {}, []
+        tdeps, tmetadeps = _compute_transitive_deps(ctx, link_style)
 
     if not ctx.attrs.proc_macro:
-        external_debug_info = make_artifact_tset(
-            actions = ctx.actions,
-            label = ctx.label,
-            artifacts = filter(None, [link.dwo_output_directory]),
-            children = external_debug_info,
-        )
         return RustLinkStyleInfo(
             rlib = link.output,
             transitive_deps = tdeps,
             rmeta = meta.output,
             transitive_rmeta_deps = tmetadeps,
             pdb = link.pdb,
-            external_debug_info = external_debug_info,
         )
     else:
         # Proc macro deps are always the real thing
@@ -428,7 +409,6 @@ def _handle_rust_artifact(
             rmeta = link.output,
             transitive_rmeta_deps = tdeps,
             pdb = link.pdb,
-            external_debug_info = ArtifactTSet(),
         )
 
 def _default_providers(
@@ -541,7 +521,7 @@ def _native_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         lang_style_param: dict[(LinkageLang.type, LinkStyle.type), BuildParams.type],
-        param_artifact: dict[BuildParams.type, RustcOutput.type]) -> list["provider"]:
+        param_artifact: dict[BuildParams.type, "artifact"]) -> list["provider"]:
     """
     Return the set of providers needed to link Rust as a dependency for native
     (ie C/C++) code, along with relevant dependencies.
@@ -562,34 +542,17 @@ def _native_providers(
         # Proc-macros never have a native form
         return providers
 
-    libraries = {}
+    libraries = {
+        link_style: param_artifact[lang_style_param[(LinkageLang("c++"), link_style)]]
+        for link_style in LinkStyle
+    }
+
     link_infos = {}
-    for link_style in LinkStyle:
-        params = lang_style_param[(LinkageLang("c++"), link_style)]
-        lib = param_artifact[params]
-        libraries[link_style] = lib
-        external_debug_info = inherited_external_debug_info(
-            ctx = ctx,
-            dwo_output_directory = lib.dwo_output_directory,
-            dep_link_style = params.dep_link_style,
-        )
+    for link_style, arg in libraries.items():
         if link_style in STATIC_LINK_STYLES:
-            link_infos[link_style] = LinkInfos(
-                default = LinkInfo(
-                    linkables = [ArchiveLinkable(
-                        archive = Archive(artifact = lib.output),
-                        linker_type = linker_type,
-                    )],
-                    external_debug_info = external_debug_info,
-                ),
-            )
+            link_infos[link_style] = LinkInfos(default = LinkInfo(linkables = [ArchiveLinkable(archive = Archive(artifact = arg), linker_type = linker_type)]))
         else:
-            link_infos[link_style] = LinkInfos(
-                default = LinkInfo(
-                    linkables = [SharedLibLinkable(lib = lib.output)],
-                    external_debug_info = external_debug_info,
-                ),
-            )
+            link_infos[link_style] = LinkInfos(default = LinkInfo(linkables = [SharedLibLinkable(lib = arg)]))
 
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
@@ -610,9 +573,7 @@ def _native_providers(
 
     # Only add a shared library if we generated one.
     if get_actual_link_style(LinkStyle("shared"), preferred_linkage, compile_ctx.cxx_toolchain_info.pic_behavior) == LinkStyle("shared"):
-        solibs[shlib_name] = LinkedObject(
-            output = libraries[LinkStyle("shared")].output,
-        )
+        solibs[shlib_name] = LinkedObject(output = libraries[LinkStyle("shared")])
 
     # Native shared library provider.
     providers.append(merge_shared_libraries(
@@ -635,13 +596,7 @@ def _native_providers(
         name = get_default_shared_library_name(linker_info, ctx.label),
         link_infos = LinkInfos(
             default = LinkInfo(
-                linkables = [ArchiveLinkable(
-                    archive = Archive(
-                        artifact = libraries[LinkStyle("static_pic")].output,
-                    ),
-                    linker_type = linker_type,
-                    link_whole = True,
-                )],
+                linkables = [ArchiveLinkable(archive = Archive(artifact = libraries[LinkStyle("static_pic")]), linker_type = linker_type, link_whole = True)],
             ),
         ),
         deps = inherited_non_rust_link_deps,
@@ -682,13 +637,9 @@ def _native_providers(
     return providers
 
 # Compute transitive deps. Caller decides whether this is necessary.
-def _compute_transitive_deps(
-        ctx: AnalysisContext,
-        link_style: LinkStyle.type) -> (dict["artifact", CrateName.type], dict["artifact", CrateName.type], list[ArtifactTSet]):
+def _compute_transitive_deps(ctx: AnalysisContext, link_style: LinkStyle.type) -> (dict["artifact", CrateName.type], dict["artifact", CrateName.type]):
     transitive_deps = {}
     transitive_rmeta_deps = {}
-    external_debug_info = []
-
     for dep in resolve_deps(ctx):
         info = dep.dep.get(RustLinkInfo)
         if info == None:
@@ -701,6 +652,4 @@ def _compute_transitive_deps(
         transitive_rmeta_deps[style.rmeta] = info.crate
         transitive_rmeta_deps.update(style.transitive_rmeta_deps)
 
-        external_debug_info.append(style.external_debug_info)
-
-    return transitive_deps, transitive_rmeta_deps, external_debug_info
+    return (transitive_deps, transitive_rmeta_deps)
