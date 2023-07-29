@@ -11,6 +11,18 @@ def _os_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> [Non
 def _sdk_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> [None, ConstraintValueInfo.type]:
     return platform.configuration.constraints.get(refs.sdk[ConstraintSettingInfo].label)
 
+def _cpu_constraint_readable_value(platform: PlatformInfo.type, refs: struct.type) -> [None, str]:
+    cpu = platform.configuration.constraints.get(refs.cpu[ConstraintSettingInfo].label)
+    if cpu == None:
+        return platform.label
+
+    if cpu.label == refs.arm64[ConstraintValueInfo].label:
+        return "arm64"
+    elif cpu.label == refs.x86_64[ConstraintValueInfo].label:
+        return "x86_64"
+    else:
+        return platform.label
+
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
@@ -19,7 +31,7 @@ def _cpu_split_transition_impl(
     os = _os_constraint_value(platform, refs)
     if not universal or os == None:
         # Don't do the splitting, since we don't know what OS type this is.
-        return {platform.label: platform}
+        return {_cpu_constraint_readable_value(platform, refs): platform}
 
     os_label = os.label
     sdk = _sdk_constraint_value(platform, refs)
@@ -32,7 +44,7 @@ def _cpu_split_transition_impl(
             cpu_name_to_cpu_constraint["arm64"] = refs.arm64[ConstraintValueInfo]
             cpu_name_to_cpu_constraint["x86_64"] = refs.x86_64[ConstraintValueInfo]
         elif sdk_label == refs.ios_device_sdk[ConstraintValueInfo].label:
-            return {platform.label: platform}
+            return {"arm64": platform}
         else:
             fail("Unsupported SDK {} for IPhoneOS".format(sdk_label))
     elif os_label == refs.watchos[ConstraintValueInfo].label:
