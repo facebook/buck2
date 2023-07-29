@@ -36,10 +36,10 @@ pub(crate) fn register_record(builder: &mut GlobalsBuilder) {
     /// For example:
     ///
     /// ```python
-    /// MyRecord = record(host=str.type, port=int.type)
+    /// MyRecord = record(host=str, port=int)
     /// ```
     ///
-    /// This above statement defines a record `MyRecord` with 2 fields, the first named `host` that must be of type `str.type`, and the second named `port` that must be of type `int.type`.
+    /// This above statement defines a record `MyRecord` with 2 fields, the first named `host` that must be of type `str`, and the second named `port` that must be of type `int`.
     ///
     /// Now `MyRecord` is defined, it's possible to do the following:
     ///
@@ -52,7 +52,7 @@ pub(crate) fn register_record(builder: &mut GlobalsBuilder) {
     /// For example:
     ///
     /// ```python
-    /// MyRecord = record(host=str.type, port=field(int.type, 80))
+    /// MyRecord = record(host=str, port=field(int, 80))
     /// ```
     ///
     /// Now the `port` field can be omitted, defaulting to `80` is not present (for example, `MyRecord(host="localhost").port == 80`).
@@ -78,7 +78,7 @@ pub(crate) fn register_record(builder: &mut GlobalsBuilder) {
     ///
     /// ```
     /// # starlark::assert::is_true(r#"
-    /// rec_type = record(host=field(str.type), port=field(int.type), mask=field(int.type, default=255))
+    /// rec_type = record(host=field(str), port=field(int), mask=field(int, default=255))
     /// rec = rec_type(host="localhost", port=80)
     /// rec.port == 80
     /// rec.mask == 255
