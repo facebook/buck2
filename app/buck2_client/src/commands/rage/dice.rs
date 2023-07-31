@@ -29,13 +29,17 @@ pub async fn upload_dice_dump(
     manifold_id: &String,
 ) -> anyhow::Result<String> {
     let buckd = buckd.with_subscribers(Default::default());
+    let manifold_bucket = Bucket::RAGE_DUMPS;
     let manifold_filename = format!("flat/{}_dice-dump.tar", manifold_id);
     let this_dump_folder_name = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     DiceDump::new(buck_out_dice, &this_dump_folder_name)
-        .upload(buckd, manifold, &manifold_filename)
+        .upload(buckd, manifold, manifold_bucket, &manifold_filename)
         .await?;
 
-    Ok(format!("buck2_rage_dumps/{}", manifold_filename))
+    Ok(format!(
+        "https://www.internalfb.com/manifold/explorer/{}/{}",
+        manifold_bucket.name, manifold_filename
+    ))
 }
 
 struct DiceDump {
@@ -57,6 +61,7 @@ impl DiceDump {
         &self,
         mut buckd: BuckdClientConnector<'_>,
         manifold: &ManifoldClient,
+        manifold_bucket: Bucket,
         manifold_filename: &str,
     ) -> anyhow::Result<()> {
         create_dir_all(&self.buck_out_dice).with_context(|| {
@@ -81,9 +86,14 @@ impl DiceDump {
             })?;
 
         // create DICE dump name using the old command being rage on and the trace id of this rage command.
-        upload_to_manifold(&self.dump_folder, manifold, manifold_filename)
-            .await
-            .with_context(|| "Failed during manifold upload!")?;
+        upload_to_manifold(
+            &self.dump_folder,
+            manifold,
+            manifold_bucket,
+            manifold_filename,
+        )
+        .await
+        .with_context(|| "Failed during manifold upload!")?;
 
         Ok(())
     }
@@ -92,6 +102,7 @@ impl DiceDump {
 async fn upload_to_manifold(
     dump_folder: &Path,
     manifold: &ManifoldClient,
+    manifold_bucket: Bucket,
     manifold_filename: &str,
 ) -> anyhow::Result<()> {
     if !cfg!(target_os = "windows") {
@@ -107,7 +118,7 @@ async fn upload_to_manifold(
 
         manifold
             .read_and_upload(
-                Bucket::RAGE_DUMPS,
+                manifold_bucket,
                 manifold_filename,
                 Default::default(),
                 &mut tar.stdout.unwrap(),
