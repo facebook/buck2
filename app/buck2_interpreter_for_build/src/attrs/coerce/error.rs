@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_core::provider::label::ProvidersLabel;
 use gazebo::prelude::*;
 use starlark::values::Value;
 
@@ -23,8 +22,6 @@ pub(crate) enum CoercionError {
     DefaultOnly(String),
     #[error("enum called with `{0}`, only allowed: {}", .1.map(|x| format!("`{}`", x)).join(", "))]
     InvalidEnumVariant(String, Vec<String>),
-    #[error("attrs.configuration_dep() attributes shouldn't have any subtargets, but got `{0}`")]
-    UnexpectedSubTarget(ProvidersLabel),
 }
 
 impl CoercionError {
