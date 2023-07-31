@@ -627,7 +627,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     .eval_cquery(
                         ctx,
                         &this.ctx.working_dir()?,
-                        CqueryOwnerBehavior::Deprecated,
+                        CqueryOwnerBehavior::Correct,
                         query,
                         &query_args,
                         this.target_platform.dupe(),
