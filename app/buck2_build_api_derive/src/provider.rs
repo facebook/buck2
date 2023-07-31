@@ -15,6 +15,7 @@ use quote::format_ident;
 use quote::quote;
 use quote::ToTokens;
 use syn::parse::ParseStream;
+use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::Fields;
 use syn::LitStr;
@@ -37,12 +38,13 @@ struct FieldDoc {
     /// The name of the field
     name: syn::Ident,
     /// The docstring for the field, if present
-    docstring: proc_macro2::TokenStream,
+    docstring: syn::Expr,
     /// The implementation to generate the field type documentation.
-    field_type: proc_macro2::TokenStream,
+    field_type: syn::Expr,
 }
 
 struct ProviderCodegen {
+    span: proc_macro2::Span,
     input: syn::ItemStruct,
     args: InternalProviderArgs,
     field_attr_providers: HashMap<syn::Ident, Attribute>,
@@ -77,6 +79,7 @@ impl ProviderCodegen {
             }
         };
         Ok(Self {
+            span: input.ident.span(),
             input,
             args,
             field_attr_providers: provider_attrs,
@@ -138,7 +141,7 @@ impl ProviderCodegen {
 
     /// Parse the "doc" attribute and return a tokenstream that is either None if "doc" is not
     /// present, or the result of DocString::parse_docstring if present.
-    fn get_docstring_impl(&self, attrs: &Vec<syn::Attribute>) -> proc_macro2::TokenStream {
+    fn get_docstring_impl(&self, attrs: &Vec<syn::Attribute>) -> syn::Expr {
         let mut doc_lines = vec![];
 
         for attr in attrs {
@@ -158,10 +161,10 @@ impl ProviderCodegen {
         }
 
         if doc_lines.is_empty() {
-            quote! { None }
+            syn::parse_quote_spanned! { self.span=> None }
         } else {
             let docstring = Some(doc_lines.join("\n"));
-            quote! {
+            syn::parse_quote_spanned! { self.span=>
                 starlark::docs::DocString::from_docstring(
                     starlark::docs::DocStringKind::Rust,
                     #docstring,
@@ -178,27 +181,31 @@ impl ProviderCodegen {
             ));
         }
 
+        let span = field.span();
+
         syn::custom_keyword!(field_type);
 
         let name = field.ident.as_ref().unwrap().to_owned();
 
-        let field_type = if let Some(attr) = self.field_attr_providers.get(&name) {
+        let field_type: syn::Expr = if let Some(attr) = self.field_attr_providers.get(&name) {
             attr.parse_args_with(
-                |input: ParseStream| -> syn::Result<proc_macro2::TokenStream> {
+                |input: ParseStream| -> syn::Result<syn::Expr> {
                     if input.parse::<field_type>().is_ok() {
                         input.parse::<syn::Token![=]>()?;
+                        // TODO(nga): no need to use string literal here.
                         let rust_type = input.parse::<LitStr>()?.value();
                         let rust_type: proc_macro2::TokenStream = rust_type.parse()?;
-                        Ok(quote! {
-                            Some(<#rust_type>::starlark_type_repr())
+                        let rust_type: syn::Type = syn::parse2(rust_type)?;
+                        Ok(syn::parse_quote_spanned! { span =>
+                            Some(<#rust_type as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr())
                         })
                     } else {
-                        Ok(quote! { None })
+                        Ok(syn::parse_quote_spanned! { span => None })
                     }
                 },
             )?
         } else {
-            quote! { None }
+            syn::parse_quote_spanned! { span => None }
         };
 
         let docstring = self.get_docstring_impl(&field.attrs);
@@ -212,7 +219,7 @@ impl ProviderCodegen {
 
     /// Grab the information for all fields on the struct, and create the
     /// documentation() function for StarlarkValue.
-    fn documentation_function(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn documentation_function(&self) -> syn::Result<syn::ImplItemFn> {
         let provider_docstring = self.get_docstring_impl(&self.input.attrs);
         let create_func = &self.args.creator_func;
 
@@ -242,7 +249,7 @@ impl ProviderCodegen {
             field_types.push(doc.field_type);
         }
 
-        Ok(quote! {
+        Ok(syn::parse_quote_spanned! {self.span=>
             fn documentation(&self) -> Option<starlark::docs::DocItem> {
                 let docstring = #provider_docstring;
                 let field_names = [
@@ -254,18 +261,23 @@ impl ProviderCodegen {
                 let field_types = [
                     #(#field_types),*
                 ];
-                use starlark::values::type_repr::StarlarkTypeRepr;
-                use buck2_interpreter::types::provider::callable::ProviderCallableLike;
-                self.provider_callable_documentation(Some(#create_func), &docstring, &field_names, &field_docs, &field_types)
+                buck2_interpreter::types::provider::callable::ProviderCallableLike::provider_callable_documentation(
+                    self,
+                    Some(#create_func),
+                    &docstring,
+                    &field_names,
+                    &field_docs,
+                    &field_types,
+                )
             }
         })
     }
 
-    fn impl_display(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn impl_display(&self) -> syn::Result<syn::Item> {
         let gen_name = &self.input.ident;
         let name_str = self.name_str()?;
         let field_names = self.field_names()?;
-        Ok(quote! {
+        Ok(syn::parse_quote_spanned! { self.span=>
             impl<V: std::fmt::Display> std::fmt::Display for #gen_name<V> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     display_container::fmt_keyed_container(
@@ -282,66 +294,69 @@ impl ProviderCodegen {
         })
     }
 
-    fn impl_starlark_value(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn impl_starlark_value(&self) -> syn::Result<Vec<syn::Item>> {
         let vis = &self.input.vis;
         let gen_name = &self.input.ident;
         let name = self.name()?;
         let name_str = self.name_str()?;
         let provider_methods_func_name = self.provider_methods_func_name()?;
         let field_names = self.field_names()?;
-        Ok(quote! {
-            starlark::starlark_complex_value!(#vis #name);
+        Ok(vec![
+            syn::parse_quote_spanned! { self.span=>
+                starlark::starlark_complex_value!(#vis #name);
+            },
+            syn::parse_quote_spanned! { self.span=>
+                #[starlark::values::starlark_value(type = #name_str)]
+                impl<'v, V: starlark::values::ValueLike<'v> + 'v> starlark::values::StarlarkValue<'v>
+                    for #gen_name<V>
+                where
+                    Self: starlark::any::ProvidesStaticType<'v>,
+                {
+                    fn matches_type(&self, ty: &str) -> bool {
+                        ty == #name_str || ty == "provider"
+                    }
 
-            #[starlark::values::starlark_value(type = #name_str)]
-            impl<'v, V: starlark::values::ValueLike<'v> + 'v> starlark::values::StarlarkValue<'v>
-                for #gen_name<V>
-            where
-                Self: starlark::any::ProvidesStaticType<'v>,
-            {
-                fn matches_type(&self, ty: &str) -> bool {
-                    ty == #name_str || ty == "provider"
+                    fn get_methods() -> Option<&'static starlark::environment::Methods> {
+                        static RES: starlark::environment::MethodsStatic =
+                            starlark::environment::MethodsStatic::new();
+
+                        RES.methods(|x| {
+                            crate::interpreter::rule_defs::provider::provider_methods(x);
+                            _register::#provider_methods_func_name(x);
+                        })
+                    }
+
+                    fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
+                        demand.provide_value::<
+                            &dyn crate::interpreter::rule_defs::provider::ProviderLike>(self);
+                    }
+
+                    fn equals(&self, other: starlark::values::Value<'v>) -> anyhow::Result<bool> {
+                        let this: &#name = starlark::coerce::coerce(self);
+                        let other: &#name = match #name::from_value(other) {
+                            Some(other) => other,
+                            None => return Ok(false),
+                        };
+
+                        #(
+                            if !this.#field_names.equals(other.#field_names)? {
+                                return Ok(false);
+                            }
+                        )*
+                        Ok(true)
+                    }
+
+                    // TODO(cjhopman): UserProvider implements more of the starlark functions. We should probably match them.
                 }
-
-                fn get_methods() -> Option<&'static starlark::environment::Methods> {
-                    static RES: starlark::environment::MethodsStatic =
-                        starlark::environment::MethodsStatic::new();
-
-                    RES.methods(|x| {
-                        crate::interpreter::rule_defs::provider::provider_methods(x);
-                        _register::#provider_methods_func_name(x);
-                    })
-                }
-
-                fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
-                    demand.provide_value::<
-                        &dyn crate::interpreter::rule_defs::provider::ProviderLike>(self);
-                }
-
-                fn equals(&self, other: starlark::values::Value<'v>) -> anyhow::Result<bool> {
-                    let this: &#name = starlark::coerce::coerce(self);
-                    let other: &#name = match #name::from_value(other) {
-                        Some(other) => other,
-                        None => return Ok(false),
-                    };
-
-                    #(
-                        if !this.#field_names.equals(other.#field_names)? {
-                            return Ok(false);
-                        }
-                    )*
-                    Ok(true)
-                }
-
-                // TODO(cjhopman): UserProvider implements more of the starlark functions. We should probably match them.
-            }
-        })
+            },
+        ])
     }
 
-    fn impl_serializable_value(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn impl_serializable_value(&self) -> syn::Result<syn::Item> {
         let gen_name = &self.input.ident;
         let field_names = self.field_names()?;
         let field_len = field_names.len();
-        Ok(quote! {
+        Ok(syn::parse_quote_spanned! { self.span=>
             impl<'v, V: starlark::values::ValueLike<'v>> serde::Serialize
                 for #gen_name<V>
             {
@@ -361,11 +376,11 @@ impl ProviderCodegen {
         })
     }
 
-    fn from_providers(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn from_providers(&self) -> syn::Result<syn::Item> {
         let gen_name = &self.input.ident;
         let frozen_name = self.frozen_name()?;
         let callable_name = self.callable_name()?;
-        Ok(quote! {
+        Ok(syn::parse_quote_spanned! { self.span=>
             impl<'v, V: starlark::values::ValueLike<'v>> #gen_name<V> {
                 pub fn from_providers(
                     providers: &crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection,
@@ -376,11 +391,11 @@ impl ProviderCodegen {
         })
     }
 
-    fn impl_provider_like(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn impl_provider_like(&self) -> syn::Result<syn::Item> {
         let gen_name = &self.input.ident;
         let field_names = self.field_names()?;
         let callable_name = self.callable_name()?;
-        Ok(quote! {
+        Ok(syn::parse_quote_spanned! { self.span=>
             impl<'v, V: starlark::values::ValueLike<'v> + 'v> crate::interpreter::rule_defs::provider::ProviderLike<'v> for #gen_name<V>
             where
                 Self: std::fmt::Debug,
@@ -405,10 +420,10 @@ impl ProviderCodegen {
         })
     }
 
-    fn callable_struct(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn callable_struct(&self) -> syn::Result<syn::Item> {
         let vis = &self.input.vis;
         let callable_name = self.callable_name()?;
-        Ok(quote! {
+        Ok(syn::parse_quote_spanned! { self.span=>
             #[derive(Debug, Clone, dupe::Dupe, starlark::any::ProvidesStaticType, starlark::values::NoSerialize, allocative::Allocative)]
             #vis struct #callable_name {
                 id: &'static std::sync::Arc<buck2_core::provider::id::ProviderId>,
@@ -416,52 +431,55 @@ impl ProviderCodegen {
         })
     }
 
-    fn callable_impl_starlark_value(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn callable_impl_starlark_value(&self) -> syn::Result<Vec<syn::Item>> {
         let name_str = self.name_str()?;
         let callable_name = self.callable_name()?;
         let documentation_function = self.documentation_function()?;
         let create_func = &self.args.creator_func;
         let callable_name_snake_str = callable_name.to_string().to_case(Case::Snake);
 
-        Ok(quote! {
-            starlark::starlark_simple_value!(#callable_name);
+        Ok(vec![
+            syn::parse_quote_spanned! {self.span=>
+                starlark::starlark_simple_value!(#callable_name);
+            },
+            syn::parse_quote_spanned! {self.span=>
+                #[starlark::values::starlark_value(type = #callable_name_snake_str)]
+                impl<'v> starlark::values::StarlarkValue<'v> for #callable_name
+                {
+                    fn get_methods() -> Option<&'static starlark::environment::Methods> {
+                        static RES: starlark::environment::MethodsStatic =
+                            starlark::environment::MethodsStatic::new();
+                        // TODO(nmj): This should use the docstring from the attribute, rather than
+                        //            None
+                        RES.methods(|x| x.set_attribute("type", #name_str, None))
+                    }
 
-            #[starlark::values::starlark_value(type = #callable_name_snake_str)]
-            impl<'v> starlark::values::StarlarkValue<'v> for #callable_name
-            {
-                fn get_methods() -> Option<&'static starlark::environment::Methods> {
-                    static RES: starlark::environment::MethodsStatic =
-                        starlark::environment::MethodsStatic::new();
-                    // TODO(nmj): This should use the docstring from the attribute, rather than
-                    //            None
-                    RES.methods(|x| x.set_attribute("type", #name_str, None))
+                    fn invoke(
+                        &self,
+                        _me: starlark::values::Value<'v>,
+                        args: &starlark::eval::Arguments<'v, '_>,
+                        eval: &mut starlark::eval::Evaluator<'v, '_>,
+                    ) -> anyhow::Result<starlark::values::Value<'v>> {
+                        static RES: starlark::environment::GlobalsStatic =
+                            starlark::environment::GlobalsStatic::new();
+                        starlark::values::ValueLike::invoke(
+                            RES.function(#create_func), args, eval)
+                    }
+
+                    fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
+                        demand.provide_value::<
+                            &dyn buck2_interpreter::types::provider::callable::ProviderCallableLike>(self);
+                    }
+
+                    #documentation_function
                 }
-
-                fn invoke(
-                    &self,
-                    _me: starlark::values::Value<'v>,
-                    args: &starlark::eval::Arguments<'v, '_>,
-                    eval: &mut starlark::eval::Evaluator<'v, '_>,
-                ) -> anyhow::Result<starlark::values::Value<'v>> {
-                    static RES: starlark::environment::GlobalsStatic =
-                        starlark::environment::GlobalsStatic::new();
-                    starlark::values::ValueLike::invoke(
-                        RES.function(#create_func), args, eval)
-                }
-
-                fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
-                    demand.provide_value::<
-                        &dyn buck2_interpreter::types::provider::callable::ProviderCallableLike>(self);
-                }
-
-                #documentation_function
-            }
-        })
+            },
+        ])
     }
 
-    fn callable_impl_provider_callable_like(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn callable_impl_provider_callable_like(&self) -> syn::Result<syn::Item> {
         let callable_name = self.callable_name()?;
-        Ok(quote! {
+        Ok(syn::parse_quote_spanned! { self.span=>
             impl buck2_interpreter::types::provider::callable::ProviderCallableLike for #callable_name {
                 fn id(&self) -> Option<&std::sync::Arc<buck2_core::provider::id::ProviderId>> {
                     Some(self.id)
@@ -470,13 +488,13 @@ impl ProviderCodegen {
         })
     }
 
-    fn callable_impl(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn callable_impl(&self) -> syn::Result<syn::Item> {
         let callable_name = self.callable_name()?;
         let vis = &self.input.vis;
         let name_str = self.name_str()?;
         let frozen_name = self.frozen_name()?;
 
-        Ok(quote! {
+        Ok(syn::parse_quote_spanned! { self.span=>
             impl #callable_name {
                 #vis fn provider_id()
                 -> &'static std::sync::Arc<buck2_core::provider::id::ProviderId> {
@@ -510,10 +528,10 @@ impl ProviderCodegen {
         })
     }
 
-    fn callable_impl_display(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn callable_impl_display(&self) -> syn::Result<syn::Item> {
         let callable_name = self.callable_name()?;
         let name_str = self.name_str()?;
-        Ok(quote! {
+        Ok(syn::parse_quote_spanned! { self.span=>
             impl std::fmt::Display for #callable_name {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     write!(f, "{}()", #name_str)
@@ -522,28 +540,28 @@ impl ProviderCodegen {
         })
     }
 
-    fn callable(&self) -> syn::Result<proc_macro2::TokenStream> {
-        let gen = vec![
-            self.callable_struct()?,
-            self.callable_impl()?,
-            self.callable_impl_display()?,
+    fn callable(&self) -> syn::Result<Vec<syn::Item>> {
+        Ok([
+            vec![self.callable_struct()?],
+            vec![self.callable_impl()?],
+            vec![self.callable_impl_display()?],
             self.callable_impl_starlark_value()?,
-            self.callable_impl_provider_callable_like()?,
-        ];
-
-        Ok(quote! {
-            #(#gen)*
-        })
+            vec![self.callable_impl_provider_callable_like()?],
+        ]
+        .into_iter()
+        .flatten()
+        .collect())
     }
 
-    fn register(&self) -> syn::Result<proc_macro2::TokenStream> {
+    fn register(&self) -> syn::Result<Vec<syn::Item>> {
         let provider_methods_func_name = self.provider_methods_func_name()?;
         let field_names = self.field_names()?;
         let name = self.name()?;
         let name_str = self.name_str()?;
         let callable_name = self.callable_name()?;
 
-        Ok(quote! {
+        Ok(vec![
+            syn::parse_quote_spanned! { self.span=>
             // workaround starlark requiring that GlobalsBuilder is unqualified
             mod _register {
                 use super::*;
@@ -559,15 +577,17 @@ impl ProviderCodegen {
                     )*
                 }
             }
-
-            fn register_provider(builder: &mut starlark::environment::GlobalsBuilder) {
-                builder.set(#name_str, #callable_name::new());
-            }
-        })
+            },
+            syn::parse_quote_spanned! { self.span=>
+                fn register_provider(builder: &mut starlark::environment::GlobalsBuilder) {
+                    builder.set(#name_str, #callable_name::new());
+                }
+            },
+        ])
     }
 
-    fn inventory(&self) -> syn::Result<proc_macro2::TokenStream> {
-        Ok(quote! {
+    fn inventory(&self) -> syn::Result<syn::Item> {
+        Ok(syn::parse_quote_spanned! { self.span=>
             inventory::submit! {
                 crate::interpreter::rule_defs::provider::registration::ProviderRegistration {
                     register_globals: |globals| {
@@ -622,19 +642,27 @@ pub(crate) fn define_provider(
     // TODO(cjhopman): Verify all fields are type `V`
 
     let input = &codegen.input;
-
-    let gen = vec![
-        quote! { #input },
-        codegen.impl_display()?,
+    let input: syn::Item = syn::parse_quote_spanned! { codegen.span=>
+        #input
+    };
+    let gen: Vec<syn::Item> = [
+        vec![input],
+        vec![codegen.impl_display()?],
         codegen.impl_starlark_value()?,
-        codegen.impl_serializable_value()?,
-        codegen.from_providers()?,
-        codegen.impl_provider_like()?,
+        vec![codegen.impl_serializable_value()?],
+        vec![codegen.from_providers()?],
+        vec![codegen.impl_provider_like()?],
         codegen.callable()?,
         codegen.register()?,
-        codegen.inventory()?,
-    ];
-    let gen = quote! { #(#gen)* };
+        vec![codegen.inventory()?],
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    let gen = quote! {
+        #( #gen )*
+    };
 
     Ok(gen.into())
 }
