@@ -45,7 +45,7 @@ def _impl(ctx: AnalysisContext) -> list["provider"]:
             create_group(
                 group = group,
                 # User provided mappings may contain entries that don't support
-                # ResourceGraph, which `create_resource_graph` removes above.
+                # ResourceGraphInfo, which `create_resource_graph` removes above.
                 # So make sure we remove them from the mappings too, otherwise
                 # `compute_mappings` crashes on the inconsistency.
                 mappings = [

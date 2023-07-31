@@ -10,7 +10,7 @@ load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentV
 load(":apple_resource_types.bzl", "AppleResourceProcessingOptions")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
-load(":resource_groups.bzl", "ResourceGraph")
+load(":resource_groups.bzl", "ResourceGraphInfo")
 
 # `ctx` in all functions below is expected to be of `apple_bundle` or `apple_test` rule
 
@@ -74,7 +74,7 @@ def get_bundle_resource_processing_options(ctx: AnalysisContext) -> AppleResourc
     compile_resources_locally = value_or(ctx.attrs._compile_resources_locally_override, ctx.attrs._apple_toolchain[AppleToolchainInfo].compile_resources_locally)
     return AppleResourceProcessingOptions(prefer_local = compile_resources_locally, allow_cache_upload = compile_resources_locally)
 
-def get_bundle_infos_from_graph(graph: ResourceGraph.type) -> list[AppleBundleLinkerMapInfo.type]:
+def get_bundle_infos_from_graph(graph: ResourceGraphInfo.type) -> list[AppleBundleLinkerMapInfo.type]:
     bundle_infos = []
     for node in graph.nodes.traverse():
         if not node.resource_spec:

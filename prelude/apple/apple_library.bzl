@@ -207,7 +207,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         providers = [swift_pcm_uncompile_info] if swift_pcm_uncompile_info else []
         providers.append(swift_dependency_info)
 
-        # We populate the ResourceGraph provider for each link_style in the
+        # We populate the ResourceGraphInfo provider for each link_style in the
         # link_style_sub_targets_and_providers_factory function. However,
         # libraries with no srcs will never call the factory function, but
         # we still want to propagate resources through them.

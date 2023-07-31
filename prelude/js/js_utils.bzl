@@ -8,7 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:worker_tool.bzl", "WorkerToolInfo")
 load("@prelude//apple:apple_resource_types.bzl", "AppleResourceDestination", "AppleResourceSpec")
-load("@prelude//apple:resource_groups.bzl", "ResourceGraph", "create_resource_graph")  # @unused `ResourceGraph` used as a type
+load("@prelude//apple:resource_groups.bzl", "ResourceGraphInfo", "create_resource_graph")  # @unused `ResourceGraphInfo` used as a type
 load("@prelude//js:js_providers.bzl", "JsBundleInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
@@ -59,7 +59,7 @@ ASSET_EXTENSIONS = [
 # Matches the default value for resolver.platforms in metro-config
 ASSET_PLATFORMS = ["ios", "android", "windows", "web"]
 
-def get_apple_resource_providers_for_js_bundle(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, platform: str, skip_resources: bool) -> list[ResourceGraph.type]:
+def get_apple_resource_providers_for_js_bundle(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, platform: str, skip_resources: bool) -> list[ResourceGraphInfo.type]:
     if platform != "ios":
         return []
 
