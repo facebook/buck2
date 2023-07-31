@@ -136,7 +136,7 @@ pub trait DapAdapter: Debug + Send + 'static {
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub struct Breakpoint {
+pub(crate) struct Breakpoint {
     span: FileSpan,
     condition: Option<String>,
 }
