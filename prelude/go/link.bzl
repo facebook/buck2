@@ -31,6 +31,7 @@ load(
     "GoPkg",  # @Unused used as type
     "merge_pkgs",
     "pkg_artifacts",
+    "stdlib_pkg_artifacts",
 )
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
@@ -116,12 +117,19 @@ def link(
     all_pkgs = merge_pkgs([
         pkgs,
         pkg_artifacts(get_inherited_link_pkgs(deps), shared = shared),
+        stdlib_pkg_artifacts(go_toolchain, shared = shared),
     ])
-    pkgs_dir = ctx.actions.symlinked_dir(
-        "__link_pkgs__",
-        {name + path.extension: path for name, path in all_pkgs.items()},
-    )
-    cmd.add("-L", pkgs_dir)
+
+    importcfg_content = []
+    for name_, pkg_ in all_pkgs.items():
+        # Hack: we use cmd_args get "artifact" valid path and write it to a file.
+        importcfg_content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
+
+    importcfg = ctx.actions.declare_output("importcfg")
+    ctx.actions.write(importcfg.as_output(), importcfg_content)
+
+    cmd.add("-importcfg", importcfg)
+    cmd.hidden(all_pkgs.values())
 
     runtime_files, extra_link_args = _process_shared_dependencies(ctx, output, deps, link_style)
 

@@ -27,6 +27,8 @@ GoToolchainInfo = provider(fields = [
     "linker_flags_shared",
     "linker_flags_static",
     "packer",
+    "prebuilt_stdlib",
+    "prebuilt_stdlib_shared",
     "tags",
 ])
 

@@ -11,6 +11,7 @@ load(
     "GoPkg",  # @Unused used as type
     "merge_pkgs",
     "pkg_artifacts",
+    "stdlib_pkg_artifacts",
 )
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
@@ -60,26 +61,6 @@ def get_filtered_srcs(ctx: AnalysisContext, srcs: list["artifact"], tests: bool 
     # Add filtered srcs to compile command.
     return cmd_args(filtered_srcs, format = "@{}").hidden(srcs).hidden(srcs_dir)
 
-def _get_import_map(pkgs: list[str]) -> dict[str, str]:
-    """
-    Return the import remappings for vendor paths.
-    """
-
-    vendor_prefixes = []
-    vendor_prefixes.append("third-party-source/go")
-
-    # TODO: add in implicit vendor prefixes inferred from project name.
-    vendor_prefixes = reversed(sorted(vendor_prefixes))
-
-    mappings = {}
-    for pkg in pkgs:
-        for prefix in vendor_prefixes:
-            if paths.starts_with(pkg, prefix):
-                mappings[paths.relativize(pkg, prefix)] = pkg
-                break
-
-    return mappings
-
 def _assemble_cmd(
         ctx: AnalysisContext,
         pkg_name: str,
@@ -123,16 +104,25 @@ def _compile_cmd(
     all_pkgs = merge_pkgs([
         pkgs,
         pkg_artifacts(get_inherited_compile_pkgs(deps), shared = shared),
+        stdlib_pkg_artifacts(go_toolchain, shared = shared),
     ])
-    if all_pkgs:
-        pkg_dir = ctx.actions.symlinked_dir(
-            paths.join(_out_root(shared), "__{}_compile_pkgs__".format(paths.basename(pkg_name))),
-            {name + path.extension: path for name, path in all_pkgs.items()},
-        )
-        cmd.add("-I", pkg_dir)
 
-    for mapping in _get_import_map(all_pkgs.keys()).items():
-        cmd.add("-importmap", "{}={}".format(*mapping))
+    importcfg_content = []
+    for name_, pkg_ in all_pkgs.items():
+        # Hack: we use cmd_args get "artifact" valid path and write it to a file.
+        importcfg_content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
+
+        # Future work: support importmap in buck rules insted of hacking here.
+        if name_.startswith("third-party-source/go/"):
+            real_name_ = name_.removeprefix("third-party-source/go/")
+            importcfg_content.append(cmd_args("importmap ", real_name_, "=", name_, delimiter = ""))
+
+    root = _out_root(shared)
+    importcfg = ctx.actions.declare_output(root, paths.basename(pkg_name) + "-importcfg")
+    ctx.actions.write(importcfg.as_output(), importcfg_content)
+
+    cmd.add("-importcfg", importcfg)
+    cmd.hidden(all_pkgs.values())
 
     return cmd
 
