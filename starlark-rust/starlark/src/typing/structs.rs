@@ -53,18 +53,18 @@ impl TyCustomImpl for TyStruct {
         Some("struct")
     }
 
-    fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
         match attr {
             TypingAttr::Regular(attr) => match self.fields.get(attr) {
-                Some(ty) => Some(Ok(ty.clone())),
-                None if self.extra => Some(Ok(Ty::any())),
-                _ => Some(Err(())),
+                Some(ty) => Ok(ty.clone()),
+                None if self.extra => Ok(Ty::any()),
+                _ => Err(()),
             },
-            TypingAttr::BinOp(TypingBinOp::Less) => Some(Ok(Ty::function(
+            TypingAttr::BinOp(TypingBinOp::Less) => Ok(Ty::function(
                 vec![Param::pos_only(Ty::custom(TyStruct::any()))],
                 Ty::bool(),
-            ))),
-            _ => Some(Err(())),
+            )),
+            _ => Err(()),
         }
     }
 

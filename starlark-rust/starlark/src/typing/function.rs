@@ -193,18 +193,18 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         self.0.validate_call(span, args, oracle)
     }
 
-    fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()> {
         if attr == TypingAttr::Regular("type") && self.0.has_type_attr() {
-            Some(Ok(Ty::string()))
+            Ok(Ty::string())
         } else if attr == TypingAttr::BinOp(TypingBinOp::BitOr) && self.0.has_type_attr() {
             // `str | list`.
-            Some(Ok(Ty::function(
+            Ok(Ty::function(
                 vec![Param::pos_only(Ty::any())],
                 // TODO(nga): result is type, but we don't have a type for type yet.
                 Ty::any(),
-            )))
+            ))
         } else {
-            Some(Err(()))
+            Err(())
         }
     }
 }

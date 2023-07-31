@@ -87,7 +87,7 @@ impl<'a> TypingOracle for TypingOracleCtx<'a> {
                 TypingAttr::Index => Ty::function(vec![Param::pos_only(Ty::int())], Ty::any()),
                 _ => return Some(Err(())),
             },
-            TyBasic::Custom(c) => return c.0.attribute_dyn(attr),
+            TyBasic::Custom(c) => return Some(c.0.attribute_dyn(attr)),
             ty => return self.oracle.attribute(ty, attr),
         }))
     }

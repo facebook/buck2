@@ -45,7 +45,7 @@ pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync
     ) -> Result<Ty, TypingError> {
         Err(oracle.msg_error(span, format!("Value of type `{}` is not callable", self)))
     }
-    fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>>;
+    fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()>;
     fn union2(x: Box<Self>, other: Box<Self>) -> Result<Box<Self>, (Box<Self>, Box<Self>)> {
         if x == other { Ok(x) } else { Err((x, other)) }
     }
@@ -64,7 +64,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingError>;
-    fn attribute_dyn(&self, attr: TypingAttr) -> Option<Result<Ty, ()>>;
+    fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()>;
     fn union2_dyn(
         self: Box<Self>,
         other: Box<dyn TyCustomDyn>,
@@ -101,7 +101,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self.validate_call(span, args, oracle)
     }
 
-    fn attribute_dyn(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()> {
         self.attribute(attr)
     }
 
