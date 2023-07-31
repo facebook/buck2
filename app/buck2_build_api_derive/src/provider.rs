@@ -536,7 +536,7 @@ impl ProviderCodegen {
         Ok(syn::parse_quote_spanned! { self.span=>
             impl std::fmt::Display for #callable_name {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    write!(f, "{}()", #name_str)
+                    write!(f, "{}", #name_str)
                 }
             }
         })
