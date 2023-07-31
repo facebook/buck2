@@ -35,8 +35,8 @@ use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::slice_vec_ext::SliceExt;
-use crate::slice_vec_ext::VecExt;
 use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::typing::basic::TyBasic;
 use crate::typing::custom::TyCustom;
@@ -102,7 +102,7 @@ pub struct Ty {
     ///
     /// This is different handling of union types than in TypeScript for example,
     /// TypeScript would consider such expression to be an error.
-    alternatives: Vec<TyBasic>,
+    alternatives: SmallVec1<TyBasic>,
 }
 
 impl Serialize for Ty {
@@ -156,8 +156,8 @@ impl TyUnion {
     }
 }
 
-fn merge_adjacent<T>(xs: Vec<T>, f: impl Fn(T, T) -> Either<T, (T, T)>) -> Vec<T> {
-    let mut res = Vec::new();
+fn merge_adjacent<T>(xs: Vec<T>, f: impl Fn(T, T) -> Either<T, (T, T)>) -> SmallVec1<T> {
+    let mut res = SmallVec1::new();
     let mut last = None;
     for x in xs {
         match last {
@@ -215,7 +215,7 @@ impl Ty {
 
     pub(crate) fn basic(basic: TyBasic) -> Self {
         Ty {
-            alternatives: vec![basic],
+            alternatives: SmallVec1::One(basic),
         }
     }
 
@@ -226,7 +226,7 @@ impl Ty {
 
     pub(crate) fn never() -> Self {
         Ty {
-            alternatives: Vec::new(),
+            alternatives: SmallVec1::new(),
         }
     }
 
@@ -380,7 +380,12 @@ impl Ty {
 
     /// If I do `self[i]` what will the resulting type be.
     pub(crate) fn indexed(self, i: usize) -> Ty {
-        Ty::unions(self.alternatives.into_map(|x| x.indexed(i)))
+        Ty::unions(
+            self.alternatives
+                .into_iter()
+                .map(|x| x.indexed(i))
+                .collect(),
+        )
     }
 
     pub(crate) fn from_type_expr_opt(
