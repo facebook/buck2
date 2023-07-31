@@ -290,6 +290,9 @@ pub struct CommandExecutionRequest {
     required_local_resources: SortedSet<LocalResourceState>,
     /// Persistent worker to use for execution
     worker: Option<WorkerSpec>,
+    /// Whether the executor should guarantee that the inodes for all inputs are unique (i.e. avoid
+    /// hardlinking identical input files, for example)
+    unique_input_inodes: bool,
 }
 
 impl CommandExecutionRequest {
@@ -317,6 +320,7 @@ impl CommandExecutionRequest {
             disable_miniperf: false,
             required_local_resources: SortedSet::new(),
             worker: None,
+            unique_input_inodes: false,
         }
     }
 
@@ -486,6 +490,15 @@ impl CommandExecutionRequest {
 
     pub fn required_local_resources(&self) -> &SortedSet<LocalResourceState> {
         &self.required_local_resources
+    }
+
+    pub fn with_unique_input_inodes(mut self, unique_input_inodes: bool) -> Self {
+        self.unique_input_inodes = unique_input_inodes;
+        self
+    }
+
+    pub fn unique_input_inodes(&self) -> bool {
+        self.unique_input_inodes
     }
 }
 

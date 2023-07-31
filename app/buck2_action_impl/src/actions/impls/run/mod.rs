@@ -160,6 +160,7 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) no_outputs_cleanup: bool,
     pub(crate) allow_cache_upload: bool,
     pub(crate) force_full_hybrid_if_capable: bool,
+    pub(crate) unique_input_inodes: bool,
 }
 
 impl UnregisteredAction for UnregisteredRunAction {
@@ -557,7 +558,8 @@ impl IncrementalActionExecutable for RunAction {
             .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
             .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions())
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
-            .with_custom_tmpdir(ctx.target().custom_tmpdir());
+            .with_custom_tmpdir(ctx.target().custom_tmpdir())
+            .with_unique_input_inodes(self.inner.unique_input_inodes);
 
         // First prepare the action, check the action cache, check dep_files if needed, and execute the command
         let prepared_action = ctx.prepare_action(&req)?;

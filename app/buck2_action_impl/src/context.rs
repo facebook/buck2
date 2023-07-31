@@ -602,6 +602,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] exe: Option<
             Either<ValueOf<'v, &'v WorkerRunInfo<'v>>, ValueOf<'v, &'v RunInfo<'v>>>,
         >,
+        #[starlark(require = named, default = false)] unique_input_inodes: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
@@ -778,6 +779,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             no_outputs_cleanup,
             allow_cache_upload,
             force_full_hybrid_if_capable,
+            unique_input_inodes,
         };
         this.state().register_action(
             artifacts.inputs,

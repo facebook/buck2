@@ -184,6 +184,7 @@ impl CommandExecutor {
                 false,
                 digest_config,
                 self.0.options.output_paths_behavior,
+                request.unique_input_inodes(),
             )?;
 
             anyhow::Ok(action)
@@ -203,6 +204,7 @@ fn re_create_action(
     do_not_cache: bool,
     digest_config: DigestConfig,
     output_paths_behavior: OutputPathsBehavior,
+    unique_input_inodes: bool,
 ) -> anyhow::Result<PreparedAction> {
     let mut command = RE::Command {
         arguments: args,
@@ -267,7 +269,8 @@ fn re_create_action(
     for (data, digest) in blobs {
         prepared_blobs.add_blob(digest, data);
     }
-    let action = RE::Action {
+
+    let mut action = RE::Action {
         input_root_digest: Some(input_digest.to_grpc()),
         command_digest: Some(
             prepared_blobs
@@ -281,6 +284,18 @@ fn re_create_action(
         do_not_cache,
         ..Default::default()
     };
+
+    if unique_input_inodes {
+        #[cfg(fbcode_build)]
+        {
+            action.copy_policy_resolver = RE::CopyPolicyResolver::SingleHardLinking.into();
+        }
+
+        #[cfg(not(fbcode_build))]
+        {
+            let _unused = &mut action;
+        }
+    }
 
     let action = prepared_blobs.add_protobuf_message(&action, digest_config);
     Ok(PreparedAction {
