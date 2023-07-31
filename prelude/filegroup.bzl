@@ -18,7 +18,16 @@ def filegroup_impl(ctx):
     if type(ctx.attrs.srcs) == type({}):
         srcs = ctx.attrs.srcs
     else:
-        srcs = {src.short_path: src for src in ctx.attrs.srcs}
+        srcs = {}
+        for src in ctx.attrs.srcs:
+            if src.short_path in srcs:
+                soft_error(
+                    "starlark_filegroup_duplicate_srcs",
+                    "filegroup has srcs with duplicate names: {} and {}".format(src, srcs[src.short_path]),
+                    quiet = True,
+                    stack = False,
+                )
+            srcs[src.short_path] = src
 
     # It seems that buck1 always copies, and that's important for Python rules
     if ctx.attrs.copy:
