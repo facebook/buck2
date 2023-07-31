@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "ArtifactTSet")  # @unused Used as a type
 load(
     "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
@@ -56,7 +55,11 @@ load(
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_executable.bzl", "cxx_executable")
-load(":cxx_library.bzl", "cxx_library_parameterized")
+load(
+    ":cxx_library.bzl",
+    "CxxLibraryOutput",  # @unused Used as a type
+    "cxx_library_parameterized",
+)
 load(
     ":cxx_library_utility.bzl",
     "cxx_attr_deps",
@@ -88,7 +91,6 @@ load(
 )
 load(
     ":link.bzl",
-    "CxxLinkerMapData",  # @unused Used as a type
     "cxx_link_shared_library",
 )
 load(
@@ -126,21 +128,17 @@ load(
 def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         _ctx: AnalysisContext,
-        _executable: "artifact",
-        _external_debug_info: ArtifactTSet.type,
-        dwp: ["artifact", None],
-        pdb: ["artifact", None],
-        linker_map: [CxxLinkerMapData.type, None]) -> (dict[str, list["provider"]], list["provider"]):
+        output: CxxLibraryOutput.type) -> (dict[str, list["provider"]], list["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
     sub_targets = {}
     providers = []
-    if dwp != None:
-        sub_targets["dwp"] = [DefaultInfo(default_output = dwp)]
-    if pdb != None:
-        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = pdb)]
-    if linker_map != None:
-        sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map.map, other_outputs = [linker_map.binary])]
+    if output.dwp != None:
+        sub_targets["dwp"] = [DefaultInfo(default_output = output.dwp)]
+    if output.pdb != None:
+        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = output.pdb)]
+    if output.linker_map != None:
+        sub_targets["linker-map"] = [DefaultInfo(default_output = output.linker_map.map, other_outputs = [output.linker_map.binary])]
     return (sub_targets, providers)
 
 def cxx_library_impl(ctx: AnalysisContext) -> list["provider"]:

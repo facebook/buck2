@@ -183,7 +183,7 @@ load(
 
 # An output of a `cxx_library`, consisting of required `default` artifact and optional
 # `other` outputs that should also be materialized along with it.
-_CxxLibraryOutput = record(
+CxxLibraryOutput = record(
     default = field("artifact"),
     # The object files used to create the artifact in `default`.
     object_files = field(["artifact"], []),
@@ -210,7 +210,7 @@ _CxxLibraryOutput = record(
 # The outputs of either archiving or linking the outputs of the library
 _CxxAllLibraryOutputs = record(
     # The outputs for each type of link style.
-    outputs = field({LinkStyle.type: [_CxxLibraryOutput.type, None]}),
+    outputs = field({LinkStyle.type: [CxxLibraryOutput.type, None]}),
     # The link infos that are part of each output based on link style.
     libraries = field({LinkStyle.type: LinkInfos.type}),
     # Extra sub targets to be returned as outputs of this rule, by link style.
@@ -257,7 +257,7 @@ _CxxCompiledSourcesOutput = record(
 # The outputs of a cxx_library_parameterized rule.
 _CxxLibraryParameterizedOutput = record(
     # The default output of a cxx library rule
-    default_output = field([_CxxLibraryOutput.type, None], None),
+    default_output = field([CxxLibraryOutput.type, None], None),
     # The other outputs available
     all_outputs = field([_CxxAllLibraryOutputs.type, None], None),
     # Any generated sub targets as requested by impl_params
@@ -469,11 +469,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
             link_style_sub_targets, link_style_providers = impl_params.link_style_sub_targets_and_providers_factory(
                 link_style,
                 ctx,
-                output.default,
-                output.external_debug_info,
-                output.dwp,
-                output.pdb,
-                output.linker_map,
+                output,
             )
 
             # Add any subtargets for this link style.
@@ -962,7 +958,7 @@ def _form_library_outputs(
                 )
                 shlib = result.link_result.linked_object
                 info = result.info
-                output = _CxxLibraryOutput(
+                output = CxxLibraryOutput(
                     default = shlib.output,
                     object_files = compiled_srcs.pic_objects,
                     external_debug_info = shlib.external_debug_info,
@@ -1124,7 +1120,7 @@ def _static_library(
         extra_linkables: list[[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         objects_have_external_debug_info: bool = False,
         external_debug_info: ArtifactTSet.type = ArtifactTSet(),
-        bitcode_objects: [list["artifact"], None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
+        bitcode_objects: [list["artifact"], None] = None) -> (CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -1186,7 +1182,7 @@ def _static_library(
     )
 
     return (
-        _CxxLibraryOutput(
+        CxxLibraryOutput(
             default = archive.artifact,
             object_files = objects,
             bitcode_bundle = bitcode_bundle,

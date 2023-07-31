@@ -30,7 +30,11 @@ load(
     "CompileArgsfile",  # @unused Used as a type
     "CompileArgsfiles",
 )
-load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
+load(
+    "@prelude//cxx:cxx_library.bzl",
+    "CxxLibraryOutput",  # @unused Used as a type
+    "cxx_library_parameterized",
+)
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_attr_deps",
@@ -45,10 +49,6 @@ load(
     "CxxRuleSubTargetParams",
 )
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers")
-load(
-    "@prelude//cxx:link.bzl",
-    "CxxLinkerMapData",  # @unused Used as a type
-)
 load(
     "@prelude//cxx:link_groups.bzl",
     "get_link_group",
@@ -285,11 +285,7 @@ def _filter_swift_srcs(ctx: AnalysisContext) -> (list["CxxSrcWithFlags"], list["
 def _get_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         ctx: AnalysisContext,
-        executable: "artifact",
-        debug_info_tset: ArtifactTSet.type,
-        _dwp: ["artifact", None],
-        _pdb: ["artifact", None],
-        linker_map: [CxxLinkerMapData.type, None]) -> (dict[str, list["provider"]], list["provider"]):
+        output: CxxLibraryOutput.type) -> (dict[str, list["provider"]], list["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [
             create_resource_graph(
@@ -307,20 +303,20 @@ def _get_link_style_sub_targets_and_providers(
 
     debug_info = project_artifacts(
         actions = ctx.actions,
-        tsets = [debug_info_tset],
+        tsets = [output.external_debug_info],
     )
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
-        executable = executable,
+        executable = output.default,
         debug_info = debug_info,
-        action_identifier = executable.short_path,
+        action_identifier = output.default.short_path,
     )
     subtargets = {
         DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
         DEBUGINFO_SUBTARGET: [DefaultInfo(other_outputs = debug_info)],
     }
     providers = [
-        AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = debug_info_tset),
+        AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = output.external_debug_info),
         create_resource_graph(
             ctx = ctx,
             labels = ctx.attrs.labels,
@@ -331,9 +327,9 @@ def _get_link_style_sub_targets_and_providers(
             should_propagate = False,
         ),
     ] + min_version_providers
-    if linker_map != None:
-        subtargets["linker-map"] = [DefaultInfo(default_output = linker_map.map, other_outputs = [linker_map.binary])]
-        providers += [AppleBundleLinkerMapInfo(linker_maps = [linker_map.map])]
+    if output.linker_map != None:
+        subtargets["linker-map"] = [DefaultInfo(default_output = output.linker_map.map, other_outputs = [output.linker_map.binary])]
+        providers += [AppleBundleLinkerMapInfo(linker_maps = [output.linker_map.map])]
     return (subtargets, providers)
 
 def _get_swift_static_debug_info(ctx: AnalysisContext, swiftmodule: "artifact") -> list[ArtifactTSet.type]:
