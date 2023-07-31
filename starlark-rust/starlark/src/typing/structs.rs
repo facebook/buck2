@@ -29,7 +29,7 @@ use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
 
 /// Struct type.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct TyStruct {
     /// The fields that are definitely present in the struct, with their types.
     pub(crate) fields: BTreeMap<String, Ty>,

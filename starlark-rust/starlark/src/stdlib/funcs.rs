@@ -143,7 +143,7 @@ fn min_max<'v>(
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
 struct ZipType;
 
 impl TyCustomFunctionImpl for ZipType {

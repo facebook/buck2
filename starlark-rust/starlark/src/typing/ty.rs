@@ -84,7 +84,7 @@ impl Display for Approximation {
 }
 
 /// A Starlark type.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct Ty {
     /// A series of alternative types.
     ///
@@ -116,7 +116,7 @@ impl Serialize for Ty {
 }
 
 /// The name of an atomic type.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct TyName(String);
 
 impl Display for TyName {

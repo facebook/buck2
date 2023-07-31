@@ -19,6 +19,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::hash::Hash;
 
 use allocative::Allocative;
 
@@ -45,7 +46,7 @@ pub enum Arg {
 }
 
 /// The type of a parameter - can be positional, by name, `*args` or `**kwargs`.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub enum ParamMode {
     /// Parameter can only be passed by position.
     PosOnly,
@@ -60,7 +61,7 @@ pub enum ParamMode {
 }
 
 /// A parameter argument to a function
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct Param {
     /// The type of parameter
     pub mode: ParamMode,
@@ -152,7 +153,7 @@ impl Param {
 
 /// Custom function typechecker.
 pub trait TyCustomFunctionImpl:
-    Clone + Debug + Eq + Ord + Allocative + Send + Sync + 'static
+    Clone + Debug + Eq + Ord + Hash + Allocative + Send + Sync + 'static
 {
     fn has_type_attr(&self) -> bool {
         false
@@ -170,6 +171,7 @@ pub trait TyCustomFunctionImpl:
     Allocative,
     Eq,
     PartialEq,
+    Hash,
     Ord,
     PartialOrd,
     Debug,
@@ -210,7 +212,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 }
 
 /// A function.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct TyFunction {
     /// The `.type` property of the function, often `""`.
     pub type_attr: Option<Ty>,

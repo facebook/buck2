@@ -34,7 +34,7 @@ use crate::values::typing::any::TypingAny;
 use crate::values::StarlarkValue;
 
 /// Type that is not a union.
-#[derive(Eq, PartialEq, Clone, Debug, Ord, PartialOrd, Allocative)]
+#[derive(Eq, PartialEq, Hash, Clone, Debug, Ord, PartialOrd, Allocative)]
 pub enum TyBasic {
     /// Type that contain anything
     Any,

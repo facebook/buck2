@@ -37,7 +37,9 @@ use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
 use crate::values::Heap;
 
-#[derive(Allocative, Clone, Copy, Dupe, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(
+    Allocative, Clone, Copy, Dupe, Debug, Eq, PartialEq, Hash, Ord, PartialOrd
+)]
 struct StructType;
 
 impl TyCustomFunctionImpl for StructType {

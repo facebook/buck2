@@ -21,10 +21,13 @@ use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use allocative::Allocative;
 use cmp_any::OrdAny;
 use cmp_any::PartialEqAny;
+use starlark_map::StarlarkHasher;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -35,7 +38,9 @@ use crate::typing::TypingAttr;
 use crate::typing::TypingOracleCtx;
 
 /// Custom type implementation. [`Display`] must implement the representation of the type.
-pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync + 'static {
+pub trait TyCustomImpl:
+    Debug + Display + Clone + Hash + Ord + Allocative + Send + Sync + 'static
+{
     fn as_name(&self) -> Option<&str>;
     fn validate_call(
         &self,
@@ -53,6 +58,7 @@ pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync
 
 pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {
     fn eq_token(&self) -> PartialEqAny;
+    fn hash_code(&self) -> u64;
     fn cmp_token(&self) -> (OrdAny, &'static str);
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
@@ -74,6 +80,12 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
 impl<T: TyCustomImpl> TyCustomDyn for T {
     fn eq_token(&self) -> PartialEqAny {
         PartialEqAny::new(self)
+    }
+
+    fn hash_code(&self) -> u64 {
+        let mut hasher = StarlarkHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
     }
 
     fn cmp_token(&self) -> (OrdAny, &'static str) {
@@ -154,6 +166,12 @@ impl PartialEq for TyCustom {
 }
 
 impl Eq for TyCustom {}
+
+impl Hash for TyCustom {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash_code().hash(state)
+    }
+}
 
 impl PartialOrd for TyCustom {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {

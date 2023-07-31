@@ -591,17 +591,10 @@ impl<'v> TypeCompiled<Value<'v>> {
 
     /// Hold `Ty`, but only check name if it is provided.
     fn ty_other(ty: TyBasic, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        #[derive(Clone, Eq, PartialEq, Allocative, Debug, ProvidesStaticType)]
+        #[derive(Clone, Eq, PartialEq, Hash, Allocative, Debug, ProvidesStaticType)]
         struct Erased {
             ty: TyBasic,
             name: Option<String>,
-        }
-
-        impl Hash for Erased {
-            fn hash<H: Hasher>(&self, state: &mut H) {
-                // TODO(nga): implement `Hash` for `Ty`.
-                self.ty.as_name().hash(state)
-            }
         }
 
         impl TypeCompiledImpl for Erased {

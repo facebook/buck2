@@ -18,6 +18,8 @@
 //! Small `Vec`.
 
 use std::fmt::Debug;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::iter;
 use std::mem;
 use std::ops::Deref;
@@ -47,6 +49,12 @@ impl<T: PartialEq> PartialEq for SmallVec1<T> {
 }
 
 impl<T: Eq> Eq for SmallVec1<T> {}
+
+impl<T: Hash> Hash for SmallVec1<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_slice().hash(state)
+    }
+}
 
 impl<T: PartialOrd> PartialOrd for SmallVec1<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
