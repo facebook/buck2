@@ -44,7 +44,7 @@ struct BxlCqueryFunctionsImpl<'c> {
 }
 
 impl<'c> BxlCqueryFunctionsImpl<'c> {
-    async fn cquery_env(&self) -> anyhow::Result<CqueryEnvironment<'c>> {
+    async fn setup_dice_query_delegate(&self) -> anyhow::Result<Arc<DiceQueryDelegate<'c>>> {
         let cell_resolver = self.ctx.get_cell_resolver().await?;
 
         let package_boundary_exceptions = self.ctx.get_package_boundary_exceptions().await?;
@@ -53,7 +53,7 @@ impl<'c> BxlCqueryFunctionsImpl<'c> {
             .target_alias_resolver_for_working_dir(&self.working_dir)
             .await?;
 
-        let dice_query_delegate = Arc::new(DiceQueryDelegate::new(
+        Ok(Arc::new(DiceQueryDelegate::new(
             self.ctx,
             &self.working_dir,
             self.project_root.dupe(),
@@ -61,7 +61,22 @@ impl<'c> BxlCqueryFunctionsImpl<'c> {
             self.target_platform.dupe(),
             package_boundary_exceptions,
             target_alias_resolver,
-        )?);
+        )?))
+    }
+
+    async fn cquery_env(&self) -> anyhow::Result<CqueryEnvironment<'c>> {
+        let dice_query_delegate = self.setup_dice_query_delegate().await?;
+        Ok(CqueryEnvironment::new(
+            dice_query_delegate.dupe(),
+            dice_query_delegate,
+            // TODO(nga): add universe.
+            None,
+            CqueryOwnerBehavior::Correct,
+        ))
+    }
+
+    async fn cquery_env_legacy(&self) -> anyhow::Result<CqueryEnvironment<'c>> {
+        let dice_query_delegate = self.setup_dice_query_delegate().await?;
         Ok(CqueryEnvironment::new(
             dice_query_delegate.dupe(),
             dice_query_delegate,
@@ -95,10 +110,17 @@ impl<'c> BxlCqueryFunctions<'c> for BxlCqueryFunctionsImpl<'c> {
             .await?)
     }
 
-    async fn owner(&self, file_set: &FileSet) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
-        Ok(cquery_functions()
-            .owner(&self.cquery_env().await?, file_set)
-            .await?)
+    async fn owner(
+        &self,
+        file_set: &FileSet,
+        is_legacy: bool,
+    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+        let cquery_env = if is_legacy {
+            self.cquery_env_legacy().await?
+        } else {
+            self.cquery_env().await?
+        };
+        Ok(cquery_functions().owner(&cquery_env, file_set).await?)
     }
 
     async fn deps(

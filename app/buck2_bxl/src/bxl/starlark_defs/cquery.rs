@@ -321,7 +321,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             .via(|| async {
                 get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
-                    .owner(files.get(this.ctx).await?.as_ref())
+                    // TODO(@wendyy) - `is_legacy` = false after moving existing uses to `owner_legacy`
+                    .owner(files.get(this.ctx).await?.as_ref(), true)
                     .await
             })
             .map(StarlarkTargetSet::from)
@@ -337,7 +338,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             .via(|| async {
                 get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
-                    .owner(files.get(this.ctx).await?.as_ref())
+                    .owner(files.get(this.ctx).await?.as_ref(), true)
                     .await
             })
             .map(StarlarkTargetSet::from)
