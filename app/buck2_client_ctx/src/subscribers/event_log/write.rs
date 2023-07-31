@@ -46,7 +46,10 @@ use crate::subscribers::event_log::utils::EventLogErrors;
 use crate::subscribers::event_log::utils::Invocation;
 use crate::subscribers::event_log::utils::LogMode;
 use crate::subscribers::event_log::utils::NoInference;
+use crate::subscribers::should_block_on_log_upload;
 use crate::subscribers::should_upload_log;
+use crate::subscribers::wait_for_child_and_log;
+use crate::subscribers::FutureChildOutput;
 
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
 
@@ -115,6 +118,9 @@ pub(crate) struct NamedEventLogWriter {
     path: EventLogPathBuf,
     file: EventLogWriter,
     event_log_type: EventLogType,
+    /// If this writing is done by a subprocess, that process's output, assuming we intend to wait
+    /// for it to exit.
+    process_to_wait_for: Option<FutureChildOutput>,
 }
 
 pub(crate) enum LogWriterState {
@@ -343,6 +349,17 @@ impl<'a> WriteEventLog<'a> {
             for writer in writers.iter_mut() {
                 writer.file.shutdown().await?;
             }
+
+            // NOTE: We call `into_iter()` here and that implicitly drops the `writer.file`, which
+            // is necessary for an actual `close` call to be send to the child FD (it is a bit of
+            // an odd behavior in Tokio that `shutdown` doesn't do that).
+            let futs = writers
+                .into_iter()
+                .filter_map(|mut w| w.process_to_wait_for.take())
+                .map(|proc| wait_for_child_and_log(proc, "Event Log"));
+
+            futures::future::join_all(futs).await;
+
             Ok(())
         }
     }
@@ -393,18 +410,30 @@ async fn start_persist_subprocess(
     if allow_vpnless {
         command.arg("--allow-vpnless");
     }
-    let child = command
-        .stderr(Stdio::null())
-        .stdin(Stdio::piped())
-        .spawn()
-        .with_context(|| {
-            format!(
-                "Failed to open event log subprocess for writing at `{}`",
-                path.path.display()
-            )
-        })?;
-    let pipe = child.stdin.expect("stdin was piped");
-    get_writer(path, pipe, bytes_written, EventLogType::System)
+    command.stdin(Stdio::piped());
+
+    let block = should_block_on_log_upload()?;
+    if block {
+        command.stderr(Stdio::piped());
+    } else {
+        command.stderr(Stdio::null());
+    }
+
+    let mut child = command.spawn().with_context(|| {
+        format!(
+            "Failed to open event log subprocess for writing at `{}`",
+            path.path.display()
+        )
+    })?;
+    let pipe = child.stdin.take().expect("stdin was piped");
+    let mut writer = get_writer(path, pipe, bytes_written, EventLogType::System)?;
+
+    // Only spawn this if we are going to wait.
+    if block {
+        writer.process_to_wait_for = Some(FutureChildOutput::new(child));
+    }
+
+    Ok(writer)
 }
 
 async fn open_event_log_for_writing(
@@ -448,6 +477,7 @@ fn get_writer(
         path,
         file,
         event_log_type,
+        process_to_wait_for: None,
     })
 }
 
