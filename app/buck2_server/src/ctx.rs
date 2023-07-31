@@ -809,6 +809,15 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
             metadata.insert("oncall".to_owned(), oncall.clone());
         }
 
+        metadata.insert(
+            "vpnless".to_owned(),
+            self.base_context
+                .daemon
+                .http_client
+                .supports_vpnless()
+                .to_string(),
+        );
+
         Ok(metadata)
     }
 
