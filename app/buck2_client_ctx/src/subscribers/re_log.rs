@@ -9,9 +9,7 @@
 
 use std::process::Stdio;
 use std::sync::Arc;
-use std::time::Duration;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::unpack_event::unpack_event;
@@ -19,11 +17,13 @@ use buck2_event_observer::unpack_event::UnpackedBuckEvent;
 use buck2_events::BuckEvent;
 use futures::Future;
 use futures::FutureExt;
-use tokio::process::Child;
 
 use crate::cleanup_ctx::AsyncCleanupContext;
+use crate::subscribers::should_block_on_log_upload;
 use crate::subscribers::should_upload_log;
 use crate::subscribers::subscriber::EventSubscriber;
+use crate::subscribers::wait_for_child_and_log;
+use crate::subscribers::FutureChildOutput;
 
 pub(crate) struct ReLog<'a> {
     re_session_id: Option<String>,
@@ -123,34 +123,12 @@ async fn log_upload_impl(
         command.arg("--allow-vpnless");
     }
 
-    let block_on_upload = std::env::var_os("SANDCASTLE").is_some();
-    if block_on_upload {
+    if should_block_on_log_upload()? {
         let child = command.stderr(Stdio::piped()).spawn()?;
-        match blocking_upload(child).await {
-            Ok(_) => {}
-            Err(e) => {
-                tracing::warn!("Error uploading RE logs: {:#}", e);
-            }
-        }
+        wait_for_child_and_log(FutureChildOutput::new(child), "RE Log").await;
     } else {
         command.stderr(Stdio::null()).spawn()?;
     };
 
-    Ok(())
-}
-
-async fn blocking_upload(child: Child) -> anyhow::Result<()> {
-    let res = child.wait_with_output();
-    let timeout = tokio::time::timeout(Duration::from_secs(20), res)
-        .await
-        .context("Timed out waiting for RE log upload to manifold")??;
-    if !timeout.status.success() {
-        let stderr = String::from_utf8_lossy(&timeout.stderr);
-        return Err(anyhow::anyhow!(
-            "RE log upload exited with {}. Stderr: `{}`",
-            timeout.status,
-            stderr.trim(),
-        ));
-    };
     Ok(())
 }
