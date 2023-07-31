@@ -21,6 +21,7 @@ use starlark::starlark_module;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -212,7 +213,7 @@ impl StarlarkSelectorBase<'_> for FrozenStarlarkSelector {
     type Item = FrozenValue;
 }
 
-#[starlark_value(type = "selector")]
+#[starlark_value(type = "selector")] // TODO(nga): rename to `"Select"` to match constant name.
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkSelectorGen<V>
 where
     Self: ProvidesStaticType<'v> + StarlarkSelectorBase<'v, Item = V>,
@@ -248,6 +249,8 @@ where
 
 #[starlark_module]
 pub fn register_select(globals: &mut GlobalsBuilder) {
+    const Select: StarlarkValueAsType<StarlarkSelector> = StarlarkValueAsType::new();
+
     fn select<'v>(#[starlark(require = pos)] d: Value<'v>) -> anyhow::Result<StarlarkSelector<'v>> {
         Ok(StarlarkSelector::new(d))
     }
