@@ -410,7 +410,7 @@ async fn start_persist_subprocess(
     if allow_vpnless {
         command.arg("--allow-vpnless");
     }
-    command.stdin(Stdio::piped());
+    command.stdout(Stdio::null()).stdin(Stdio::piped());
 
     let block = should_block_on_log_upload()?;
     if block {
