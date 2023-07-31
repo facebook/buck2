@@ -110,7 +110,7 @@ pub(crate) fn try_get_event_log_subscriber<'a, T: StreamingCommand>(
         ctx.async_cleanup_context().dupe(),
         T::COMMAND_NAME.to_owned(),
         log_size_counter_bytes,
-        ctx.allow_vpnless()?,
+        ctx.allow_vpnless_for_logging()?,
     )?;
     Ok(Some(Box::new(log)))
 }
@@ -121,7 +121,7 @@ pub(crate) fn try_get_re_log_subscriber<'a>(
     let log = ReLog::new(
         ctx.paths()?.isolation.clone(),
         ctx.async_cleanup_context().dupe(),
-        ctx.allow_vpnless()?,
+        ctx.allow_vpnless_for_logging()?,
     );
     Ok(Some(Box::new(log)))
 }
