@@ -231,7 +231,7 @@ where
 
 impl<T: TypeCompiledImpl> Display for TypeCompiledImplAsStarlarkValue<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "eval_type({})", self.ty)
+        write!(f, "{}", self.ty)
     }
 }
 
@@ -1112,7 +1112,8 @@ f()
 
     #[test]
     fn test_type_compiled_starlark_api() {
-        assert::eq("\"eval_type(int)\"", "repr(eval_type(int.type))");
+        assert::eq("\"int\"", "repr(eval_type(int.type))");
+        assert::eq("\"int | str\"", "repr(eval_type(int | str))");
         assert::is_true("eval_type(int.type).matches(1)");
         assert::is_true("not eval_type(int.type).matches([])");
         assert::pass("eval_type(int.type).check_matches(1)");
