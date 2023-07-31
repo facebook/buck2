@@ -62,8 +62,8 @@ use crate::values::ValueLike;
     Allocative
 )]
 #[starlark_docs(builtin = "extension")]
-pub struct RecordTypeGen<V, Typ: ExportedName> {
-    pub(crate) typ: Typ,
+pub struct RecordTypeGen<V, Name: ExportedName> {
+    pub(crate) typ: Name,
     /// The V is the type the field must satisfy (e.g. `"string"`)
     fields: SmallMap<String, FieldGen<V>>,
     /// Creating these on every invoke is pretty expensive (profiling shows)
