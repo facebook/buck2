@@ -40,9 +40,11 @@ pub trait TyCustomImpl: Debug + Display + Clone + Ord + Allocative + Send + Sync
     fn validate_call(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        _args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingError>;
+    ) -> Result<Ty, TypingError> {
+        Err(oracle.msg_error(span, format!("Value of type `{}` is not callable", self)))
+    }
     fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>>;
     fn union2(x: Box<Self>, other: Box<Self>) -> Result<Box<Self>, (Box<Self>, Box<Self>)> {
         if x == other { Ok(x) } else { Err((x, other)) }

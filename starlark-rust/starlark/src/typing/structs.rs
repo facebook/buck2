@@ -22,16 +22,11 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 
-use crate::codemap::Span;
-use crate::codemap::Spanned;
 use crate::typing::custom::TyCustomImpl;
-use crate::typing::error::TypingError;
-use crate::typing::Arg;
 use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
-use crate::typing::TypingOracleCtx;
 
 /// Struct type.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
@@ -56,15 +51,6 @@ impl TyStruct {
 impl TyCustomImpl for TyStruct {
     fn as_name(&self) -> Option<&str> {
         Some("struct")
-    }
-
-    fn validate_call(
-        &self,
-        span: Span,
-        _args: &[Spanned<Arg>],
-        oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingError> {
-        Err(oracle.msg_error(span, "struct instances are not callable"))
     }
 
     fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
