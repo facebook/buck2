@@ -186,23 +186,29 @@ impl ProviderCodegen {
 
         let name = field.ident.as_ref().unwrap().to_owned();
 
-        let field_type: syn::Expr = if let Some(attr) = self.field_attr_providers.get(&name) {
-            attr.parse_args_with(
+        let Some(field_type_attr) = self.field_attr_providers.get(&name) else {
+            return Err(syn::Error::new_spanned(
+                field,
+                "field should have a `#[provider(field_type = SomeType)]` attribute",
+            ));
+        };
+
+        let field_type: syn::Expr = field_type_attr.parse_args_with(
                 |input: ParseStream| -> syn::Result<syn::Expr> {
                     if input.parse::<field_type>().is_ok() {
                         input.parse::<syn::Token![=]>()?;
                         let rust_type: syn::Type = input.parse::<syn::Type>()?;
                         Ok(syn::parse_quote_spanned! { span =>
-                            Some(<#rust_type as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr())
+                            <#rust_type as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
                         })
                     } else {
-                        Ok(syn::parse_quote_spanned! { span => None })
+                        Err(syn::Error::new_spanned(
+                            field_type_attr,
+                            "expected `field_type = SomeType`",
+                        ))
                     }
                 },
-            )?
-        } else {
-            syn::parse_quote_spanned! { span => None }
-        };
+            )?;
 
         let docstring = self.get_docstring_impl(&field.attrs);
 

@@ -32,6 +32,7 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
+use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
@@ -253,7 +254,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        let return_types = vec![None; self.fields.len()];
+        let return_types = vec![Ty::any(); self.fields.len()];
         self.provider_callable_documentation(
             None,
             &self.docs,
@@ -345,7 +346,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        let return_types = vec![None; self.fields.len()];
+        let return_types = vec![Ty::any(); self.fields.len()];
         self.provider_callable_documentation(
             None,
             &self.docs,

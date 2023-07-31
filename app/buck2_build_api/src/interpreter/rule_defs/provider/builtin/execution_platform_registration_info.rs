@@ -45,6 +45,8 @@ pub struct ExecutionPlatformRegistrationInfoGen<V> {
     #[provider(field_type = Vec<FrozenExecutionPlatformInfo>)]
     platforms: V,
     // OneOf<ExecutionPlatformInfo, \"error\", \"unspecified\", None>
+    // TODO(nga): specify type more precisely.
+    #[provider(field_type = Value)]
     fallback: V,
 }
 

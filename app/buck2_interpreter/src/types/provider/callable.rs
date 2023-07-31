@@ -46,13 +46,13 @@ pub trait ProviderCallableLike {
         overall: &Option<DocString>,
         fields: &[&str],
         field_docs: &[Option<DocString>],
-        field_types: &[Option<Ty>],
+        field_types: &[Ty],
     ) -> Option<DocItem> {
         let members = itertools::izip!(fields.iter(), field_docs.iter(), field_types.iter())
             .map(|(name, docs, return_type)| {
                 let prop = DocProperty {
                     docs: docs.clone(),
-                    typ: return_type.clone().unwrap_or_else(Ty::any),
+                    typ: return_type.clone(),
                 };
                 (*name, prop)
             })

@@ -19,6 +19,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::FrozenDictRef;
+use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
@@ -78,9 +79,11 @@ enum TemplatePlaceholderInfoError {
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct TemplatePlaceholderInfoGen<V> {
-    // Dict[String, CommandLineArg]
+    // `Value` in both fields is command line arg.
+    // TODO(nga): specify type more precisely.
+    #[provider(field_type = DictType<String, Value>)]
     unkeyed_variables: V,
-    // Dict[String, Either<CommandLineArg, Dict[String, CommandLineArg]>]
+    #[provider(field_type = DictType<String, Either<Value, DictType<String, Value>>>)]
     keyed_variables: V,
 }
 
