@@ -34,6 +34,8 @@ use tokio::io::AsyncRead;
 use tokio::process::Child;
 use tokio::process::Command;
 
+use crate::chunk_reader::ChunkReader;
+
 #[derive(Copy, Clone, Dupe)]
 pub struct Ttl {
     duration: Duration,
@@ -536,6 +538,30 @@ impl ManifoldClient {
         consume_response(res).await;
 
         Ok(())
+    }
+
+    pub async fn read_and_upload<R>(
+        &self,
+        bucket: Bucket,
+        path: &str,
+        ttl: Ttl,
+        read: &mut R,
+    ) -> anyhow::Result<()>
+    where
+        R: AsyncRead + Unpin,
+    {
+        let reader = ChunkReader::new()?;
+        let mut upload = self.start_chunked_upload(bucket, path, ttl);
+        let mut first = true;
+        loop {
+            let chunk = reader.read(read).await?;
+            if !first && chunk.is_empty() {
+                break;
+            }
+            first = false;
+            upload.write(chunk.into()).await?;
+        }
+        anyhow::Ok(())
     }
 
     pub fn start_chunked_upload<'a>(

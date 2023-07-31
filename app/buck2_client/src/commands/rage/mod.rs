@@ -29,12 +29,14 @@ use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
+use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::subscribers::event_log::file_names::do_find_log_by_trace_id;
 use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs;
 use buck2_client_ctx::subscribers::event_log::read::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::read::EventLogSummary;
 use buck2_common::result::ToSharedResultExt;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
@@ -212,6 +214,9 @@ impl RageCommand {
 
             let client_ctx = ctx.empty_client_context("rage")?;
 
+            // Don't fail the rage if you can't figure out whether to do vpnless.
+            let manifold = ManifoldClient::new(ctx.allow_vpnless().unwrap_or_default())?;
+
             let rage_id = TraceId::new();
             let mut manifold_id = format!("{}", rage_id);
             let sink = create_scribe_sink(&ctx)?;
@@ -303,7 +308,7 @@ impl RageCommand {
                 match re_session_id {
                     None => RageSection::get_skipped(title),
                     Some(re_session_id) => RageSection::get(title, timeout, || {
-                        upload_re_logs_impl(re_logs_dir, re_session_id)
+                        upload_re_logs_impl(&manifold, &re_logs_dir, re_session_id)
                     }),
                 }
             };
@@ -478,15 +483,17 @@ async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow:
 }
 
 async fn upload_re_logs_impl(
-    re_logs_dir: AbsNormPathBuf,
+    manifold: &ManifoldClient,
+    re_logs_dir: &AbsNormPath,
     re_session_id: String,
 ) -> anyhow::Result<String> {
     let bucket = manifold::Bucket::RAGE_DUMPS;
-    let filename = format!("{}-re_logs.zst", &re_session_id);
-    upload_re_logs::upload_re_logs(bucket, re_logs_dir, &re_session_id, &filename).await?;
+    let filename = format!("flat/{}-re_logs.zst", &re_session_id);
+    upload_re_logs::upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename)
+        .await?;
 
     Ok(format!(
-        "https://www.internalfb.com/manifold/explorer/{}/flat/{}",
+        "https://www.internalfb.com/manifold/explorer/{}/{}",
         bucket.name, filename
     ))
 }
