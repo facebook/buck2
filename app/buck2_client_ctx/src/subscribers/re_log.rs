@@ -29,17 +29,20 @@ pub(crate) struct ReLog<'a> {
     re_session_id: Option<String>,
     isolation_dir: FileNameBuf,
     async_cleanup_context: AsyncCleanupContext<'a>,
+    allow_vpnless: bool,
 }
 
 impl<'a> ReLog<'a> {
     pub(crate) fn new(
         isolation_dir: FileNameBuf,
         async_cleanup_context: AsyncCleanupContext<'a>,
+        allow_vpnless: bool,
     ) -> Self {
         Self {
             re_session_id: None,
             isolation_dir,
             async_cleanup_context,
+            allow_vpnless,
         }
     }
 
@@ -48,9 +51,10 @@ impl<'a> ReLog<'a> {
         // the logs once no matter how many times this function is called
         let session_id = self.re_session_id.take();
         let isolation_dir = self.isolation_dir.clone();
+        let allow_vpnless = self.allow_vpnless;
         async move {
             if let Some(s_id) = session_id {
-                log_upload_impl(s_id, isolation_dir).await?;
+                log_upload_impl(s_id, isolation_dir, allow_vpnless).await?;
             }
             Ok(())
         }
@@ -95,7 +99,11 @@ impl<'a> Drop for ReLog<'a> {
     }
 }
 
-async fn log_upload_impl(session_id: String, isolation_dir: FileNameBuf) -> anyhow::Result<()> {
+async fn log_upload_impl(
+    session_id: String,
+    isolation_dir: FileNameBuf,
+    allow_vpnless: bool,
+) -> anyhow::Result<()> {
     if !should_upload_log()? {
         return Ok(());
     }
@@ -110,6 +118,10 @@ async fn log_upload_impl(session_id: String, isolation_dir: FileNameBuf) -> anyh
         .arg(session_id)
         .stdin(Stdio::null())
         .stdout(Stdio::null());
+
+    if allow_vpnless {
+        command.arg("--allow-vpnless");
+    }
 
     let block_on_upload = std::env::var_os("SANDCASTLE").is_some();
     if block_on_upload {

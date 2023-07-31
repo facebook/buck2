@@ -121,6 +121,7 @@ pub(crate) fn try_get_re_log_subscriber<'a>(
     let log = ReLog::new(
         ctx.paths()?.isolation.clone(),
         ctx.async_cleanup_context().dupe(),
+        ctx.allow_vpnless()?,
     );
     Ok(Some(Box::new(log)))
 }
