@@ -27,6 +27,11 @@ use crate::rule::register_rule_function;
 use crate::super_package::defs::register_package_natives;
 use crate::super_package::package_value::register_read_package_value;
 
+// TODO(nga): Unify globals.
+//   It was decided (https://fburl.com/workplace/dlvp5c9q)
+//   that we want identical globals for all files, except `BUCK` files,
+//   where we additionally add prelude and package implicits.
+
 /// Natives for `BUCK` and `bzl` files.
 fn register_build_bzl_natives(builder: &mut GlobalsBuilder) {
     (MORE_FUNCTIONS.get().unwrap().register_provider)(builder);
