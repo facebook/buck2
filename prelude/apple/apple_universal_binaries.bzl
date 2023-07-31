@@ -12,7 +12,7 @@ load(":apple_toolchain_types.bzl", "AppleToolsInfo")
 load(":debug.bzl", "AppleDebuggableInfo")
 
 def create_universal_binary(
-        ctx: "context",
+        ctx: AnalysisContext,
         binary_deps: dict[str, Dependency],
         binary_name: [str, None],
         dsym_bundle_name: [str, None],

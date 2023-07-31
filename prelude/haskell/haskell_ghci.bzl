@@ -68,7 +68,7 @@ HaskellOmnibusData = record(
 )
 
 def _write_final_ghci_script(
-        ctx: "context",
+        ctx: AnalysisContext,
         omnibus_data: HaskellOmnibusData.type,
         packages_info: PackagesInfo.type,
         packagedb_args: "cmd_args",
@@ -131,7 +131,7 @@ def _write_final_ghci_script(
     return final_ghci_script
 
 def _build_haskell_omnibus_so(
-        ctx: "context") -> HaskellOmnibusData.type:
+        ctx: AnalysisContext) -> HaskellOmnibusData.type:
     link_style = LinkStyle("static_pic")
 
     # pic_behavior = PicBehavior("always_enabled")
@@ -178,7 +178,7 @@ def _build_haskell_omnibus_so(
 
     # Helper to get body nodes and prebuilt dependencies of the
     # omnibus SO (which should dynamically linked) during BFS traversal
-    def find_deps_for_body(node_label: "label"):
+    def find_deps_for_body(node_label: Label):
         deps = dep_graph[node_label]
 
         final_deps = []
