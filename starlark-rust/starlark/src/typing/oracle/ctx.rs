@@ -382,17 +382,17 @@ impl<'a> TypingOracleCtx<'a> {
             (TyBasic::Dict(x), TyBasic::Dict(y)) => {
                 self.intersects(&x.0, &y.0) && self.intersects(&x.1, &y.1)
             }
-            (TyBasic::Tuple(_), t) | (t, TyBasic::Tuple(_)) if t.as_name() == Some("tuple") => true,
             (TyBasic::Tuple(xs), TyBasic::Tuple(ys)) if xs.len() == ys.len() => {
                 std::iter::zip(xs, ys).all(|(x, y)| self.intersects(&x, y))
             }
+            (TyBasic::Tuple(_), t) | (t, TyBasic::Tuple(_)) if t.is_tuple() => true,
             (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(&x, y),
             (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match itered(y) {
                 Some(yy) => self.intersects(x, &yy),
                 None => false,
             },
             (TyBasic::Custom(x), TyBasic::Custom(y)) => TyCustom::intersects(x, y),
-            (x, y) if x.as_name() == Some("function") && y.as_name() == Some("function") => true,
+            (x, y) if x.is_function() && y.is_function() => true,
             // There are lots of other cases that overlap, but add them as we need them
             (x, y) => x == y,
         }

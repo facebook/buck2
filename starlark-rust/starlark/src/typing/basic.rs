@@ -108,6 +108,15 @@ impl TyBasic {
         }
     }
 
+    pub(crate) fn is_function(&self) -> bool {
+        self.as_name() == Some("function")
+    }
+
+    /// Type is a tuple, with specified or unspecified member types.
+    pub(crate) fn is_tuple(&self) -> bool {
+        self.as_name() == Some("tuple")
+    }
+
     /// If I do `self[i]` what will the resulting type be.
     pub(crate) fn indexed(self, i: usize) -> Ty {
         match self {
