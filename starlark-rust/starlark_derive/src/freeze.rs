@@ -275,7 +275,7 @@ fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<syn::Expr> {
             }
         }
         Fields::Unit => {
-            syn::parse_quote_spanned! { span=> }
+            syn::parse_quote_spanned! { span=> #name }
         }
     };
 

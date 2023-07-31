@@ -30,6 +30,9 @@ struct TestStruct {
 #[derive(Freeze)]
 struct TestAnonStruct(String, #[freeze(identity)] String);
 
+#[derive(Freeze)]
+struct TestUnitStruct;
+
 #[test]
 fn test_struct() -> anyhow::Result<()> {
     let t = TestStruct {
