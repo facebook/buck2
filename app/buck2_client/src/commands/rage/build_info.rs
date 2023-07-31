@@ -13,7 +13,9 @@ use std::time::SystemTime;
 
 use buck2_client_ctx::stream_value::StreamValue;
 use buck2_client_ctx::subscribers::event_log::read::EventLogPathBuf;
+use buck2_client_ctx::subscribers::event_log::utils::Invocation;
 use buck2_events::BuckEvent;
+use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
 use chrono::Local;
@@ -118,7 +120,7 @@ pub(crate) async fn get(log: &EventLogPathBuf) -> anyhow::Result<BuildInfo> {
     let output = BuildInfo {
         uuid: first_event.trace_id()?,
         timestamp: t_start,
-        command: format_cmd(&invocation.command_line_args),
+        command: format_cmd(&invocation),
         working_dir: invocation.working_dir,
         buck2_revision: info.revision.unwrap_or_else(|| "".to_owned()),
         command_duration: duration,
@@ -168,15 +170,6 @@ fn seconds_to_string(seconds: Option<u64>) -> String {
     }
 }
 
-pub fn format_cmd(cmd_args: &[String]) -> String {
-    if cmd_args.is_empty() {
-        "???".to_owned()
-    } else {
-        let mut program_name: &str = &cmd_args[0];
-        let program_args = &cmd_args[1..];
-        if program_name.ends_with("fbcode/buck2/.buck2") {
-            program_name = "buck2";
-        }
-        format!("{} {}", program_name, program_args.join(" "))
-    }
+pub fn format_cmd(cmd: &Invocation) -> String {
+    truncate(&cmd.display_expanded_command_line(), 256)
 }

@@ -655,7 +655,7 @@ where
 }
 
 fn print_log_summary(index: usize, log_summary: &EventLogSummary) -> anyhow::Result<()> {
-    let cmd = build_info::format_cmd(&log_summary.invocation.command_line_args);
+    let cmd = build_info::format_cmd(&log_summary.invocation);
 
     let timestamp: DateTime<Local> = log_summary.timestamp.into();
     buck2_client_ctx::eprintln!(
