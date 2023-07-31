@@ -18,6 +18,7 @@
 use proc_macro2::Ident;
 use proc_macro2::TokenStream;
 use quote::format_ident;
+use quote::quote;
 use quote::quote_spanned;
 use syn::parse::ParseStream;
 use syn::parse_macro_input;
@@ -97,7 +98,7 @@ impl<'a> Input<'a> {
     }
 }
 
-fn derive_freeze_impl(input: DeriveInput) -> syn::Result<TokenStream> {
+fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
     let span = input.span();
     let input = Input { input: &input };
 
@@ -122,7 +123,7 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<TokenStream> {
 
     let body = freeze_impl(name, &input.input.data)?;
 
-    let gen = quote_spanned! {
+    let gen = syn::parse_quote_spanned! {
         span=>
         impl #impl_params starlark::values::Freeze for #name #input_params #bounds_body {
             type Frozen = #name #output_params;
@@ -215,7 +216,7 @@ fn is_identity(attrs: &[Attribute]) -> syn::Result<bool> {
     Ok(false)
 }
 
-fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<TokenStream> {
+fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<syn::Expr> {
     let span = name.span();
     let res = match data.fields {
         Fields::Named(ref fields) => {
@@ -237,7 +238,7 @@ fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<TokenStream> {
                     syn::Result::Ok(res)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            quote_spanned! {
+            syn::parse_quote_spanned! {
                 span=>
                 #name {
                     #(#xs)*
@@ -266,7 +267,7 @@ fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<TokenStream> {
                     syn::Result::Ok(res)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            quote_spanned! {
+            syn::parse_quote_spanned! {
                 span=>
                 #name (
                     #(#xs)*
@@ -274,18 +275,18 @@ fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<TokenStream> {
             }
         }
         Fields::Unit => {
-            quote_spanned! { span=> }
+            syn::parse_quote_spanned! { span=> }
         }
     };
 
     Ok(res)
 }
 
-fn freeze_enum_variant(name: &Ident, variant: &Variant) -> syn::Result<TokenStream> {
+fn freeze_enum_variant(name: &Ident, variant: &Variant) -> syn::Result<syn::Arm> {
     let span = variant.span();
     let variant_name = &variant.ident;
     match &variant.fields {
-        Fields::Unit => Ok(quote_spanned! {
+        Fields::Unit => Ok(syn::parse_quote_spanned! {
             span=>
             #name::#variant_name => #name::#variant_name,
         }),
@@ -293,7 +294,7 @@ fn freeze_enum_variant(name: &Ident, variant: &Variant) -> syn::Result<TokenStre
             let field_names: Vec<_> = (0..fields.unnamed.len())
                 .map(|i| format_ident!("f_{}", i))
                 .collect();
-            Ok(quote_spanned! {
+            Ok(syn::parse_quote_spanned! {
                 span=>
                 #name::#variant_name(#(#field_names),*) => {
                     #name::#variant_name(
@@ -304,7 +305,7 @@ fn freeze_enum_variant(name: &Ident, variant: &Variant) -> syn::Result<TokenStre
         }
         Fields::Named(field) => {
             let field_names: Vec<_> = field.named.iter().map(|f| &f.ident).collect();
-            Ok(quote_spanned! {
+            Ok(syn::parse_quote_spanned! {
                 span=>
                 #name::#variant_name { #(#field_names),* } => {
                     #name::#variant_name {
@@ -316,14 +317,14 @@ fn freeze_enum_variant(name: &Ident, variant: &Variant) -> syn::Result<TokenStre
     }
 }
 
-fn freeze_enum(name: &Ident, data: &DataEnum) -> syn::Result<TokenStream> {
+fn freeze_enum(name: &Ident, data: &DataEnum) -> syn::Result<syn::Expr> {
     let span = name.span();
     let variants = data
         .variants
         .iter()
         .map(|v| freeze_enum_variant(name, v))
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(quote_spanned! {
+    Ok(syn::parse_quote_spanned! {
         span=>
         match self {
             #(#variants)*
@@ -331,7 +332,7 @@ fn freeze_enum(name: &Ident, data: &DataEnum) -> syn::Result<TokenStream> {
     })
 }
 
-fn freeze_impl(name: &Ident, data: &Data) -> syn::Result<TokenStream> {
+fn freeze_impl(name: &Ident, data: &Data) -> syn::Result<syn::Expr> {
     match data {
         Data::Struct(data) => freeze_struct(name, data),
         Data::Enum(data) => freeze_enum(name, data),
@@ -343,7 +344,7 @@ pub fn derive_freeze(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let input = parse_macro_input!(input as DeriveInput);
 
     match derive_freeze_impl(input) {
-        Ok(s) => s.into(),
+        Ok(input) => quote! { #input }.into(),
         Err(e) => e.to_compile_error().into(),
     }
 }
