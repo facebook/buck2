@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-use proc_macro2::TokenStream;
+use proc_macro2::Span;
 use quote::quote;
 use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::DeriveInput;
 
 fn punctuated_try_map<A, B, P: Clone>(
@@ -38,9 +39,9 @@ fn generic_argument_replace_lifetimes_with_static(
     generic_argument: &syn::GenericArgument,
 ) -> syn::Result<syn::GenericArgument> {
     match generic_argument {
-        syn::GenericArgument::Lifetime(lifetime) => Ok(syn::GenericArgument::Lifetime(
-            syn::Lifetime::new("'static", lifetime.span()),
-        )),
+        syn::GenericArgument::Lifetime(lifetime) => {
+            Ok(syn::parse_quote_spanned! { lifetime.span() => 'static })
+        }
         a @ syn::GenericArgument::Const(..) => Ok(a.clone()),
         c => Err(syn::Error::new_spanned(c, "unsupported generic argument")),
     }
@@ -92,9 +93,11 @@ fn type_param_bound_replace_lifetimes_with_static(
     bound: &syn::TypeParamBound,
 ) -> syn::Result<syn::TypeParamBound> {
     match bound {
-        syn::TypeParamBound::Lifetime(lifetime) => Ok(syn::TypeParamBound::Lifetime(
-            syn::Lifetime::new("'static", lifetime.span()),
-        )),
+        syn::TypeParamBound::Lifetime(lifetime) => {
+            Ok(syn::parse_quote_spanned! { lifetime.span() =>
+                'static
+            })
+        }
         syn::TypeParamBound::Trait(trait_bound) => {
             if trait_bound.lifetimes.is_some() {
                 return Err(syn::Error::new_spanned(
@@ -117,7 +120,7 @@ pub(crate) fn derive_provides_static_type(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     match derive_provides_static_type_impl(input) {
-        Ok(gen) => gen,
+        Ok(gen) => quote! { #gen }.into(),
         Err(e) => e.to_compile_error().into(),
     }
 }
@@ -125,7 +128,7 @@ pub(crate) fn derive_provides_static_type(
 /// Single lifetime parameter for `ProvidesStaticType`
 fn pst_lifetime<'a>(
     params: impl Iterator<Item = &'a syn::GenericParam>,
-) -> syn::Result<TokenStream> {
+) -> syn::Result<syn::Lifetime> {
     let mut lifetime = None;
     for param in params {
         if let syn::GenericParam::Lifetime(param) = param {
@@ -135,27 +138,27 @@ fn pst_lifetime<'a>(
                     "only one lifetime parameter is supported",
                 ));
             }
-            lifetime = Some(param);
+            lifetime = Some(param.lifetime.clone());
         }
     }
     Ok(match lifetime {
-        Some(lifetime) => quote! { #lifetime },
-        None => quote! { 'pst },
+        Some(lifetime) => lifetime,
+        None => syn::parse_quote_spanned! { Span::call_site() => 'pst },
     })
 }
 
-fn derive_provides_static_type_impl(
-    input: proc_macro::TokenStream,
-) -> syn::Result<proc_macro::TokenStream> {
+fn derive_provides_static_type_impl(input: proc_macro::TokenStream) -> syn::Result<syn::ItemImpl> {
     let input: DeriveInput = syn::parse(input)?;
+
+    let span = input.ident.span();
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let lifetime = pst_lifetime(input.generics.params.iter())?;
 
-    let mut lifetimes = Vec::new();
-    let mut static_lifetimes = Vec::new();
+    let mut lifetimes: Vec<syn::Lifetime> = Vec::new();
+    let mut static_lifetimes: Vec<syn::Lifetime> = Vec::new();
     let mut type_param_names = Vec::new();
     let mut type_param_bounds = Vec::new();
     let mut type_param_static_type_bounds = Vec::new();
@@ -166,7 +169,7 @@ fn derive_provides_static_type_impl(
         match param {
             syn::GenericParam::Lifetime(param) => {
                 lifetimes.push(param.lifetime.clone());
-                static_lifetimes.push(quote! {'static});
+                static_lifetimes.push(syn::parse_quote_spanned! { param.span() => 'static });
             }
             syn::GenericParam::Type(param) => {
                 let has_static_lifetime_bound = param.bounds.iter().any(|bound| {
@@ -215,14 +218,14 @@ fn derive_provides_static_type_impl(
         }
     }
 
-    let gen = if input.generics.lt_token.is_none() {
-        quote! {
+    Ok(if input.generics.lt_token.is_none() {
+        syn::parse_quote_spanned! { span =>
             unsafe impl<#lifetime> #impl_generics starlark::any::ProvidesStaticType<#lifetime> for #name #ty_generics #where_clause {
                 type StaticType = #name #ty_generics;
             }
         }
     } else {
-        quote! {
+        syn::parse_quote_spanned! { span =>
             unsafe impl <
                 #lifetime,
                 #(#type_param_bounds,)*
@@ -243,7 +246,5 @@ fn derive_provides_static_type_impl(
                         >;
             }
         }
-    };
-
-    Ok(gen.into())
+    })
 }
