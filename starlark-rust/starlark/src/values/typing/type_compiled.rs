@@ -555,6 +555,17 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 // These functions are small, but are deliberately out-of-line so we get better
 // information in profiling about the origin of these closures
 impl<'v> TypeCompiled<Value<'v>> {
+    fn alloc(
+        type_compiled_impl: impl TypeCompiledImpl,
+        ty: Ty,
+        heap: &'v Heap,
+    ) -> TypeCompiled<Value<'v>> {
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
+            type_compiled_impl,
+            ty,
+        }))
+    }
+
     fn type_concrete(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         #[derive(
             Eq,
@@ -575,10 +586,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
-            ty: Ty::name(t),
-            type_compiled_impl: IsConcrete(t.to_owned()),
-        }))
+        Self::alloc(IsConcrete(t.to_owned()), Ty::name(t), heap)
     }
 
     /// Hold `Ty`, but only check name if it is provided.
@@ -611,10 +619,14 @@ impl<'v> TypeCompiled<Value<'v>> {
         }
 
         let name = ty.as_name().map(|s| s.to_owned());
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
-            ty: Ty::basic(ty.clone()),
-            type_compiled_impl: Erased { ty, name },
-        }))
+        Self::alloc(
+            Erased {
+                ty: ty.clone(),
+                name,
+            },
+            Ty::basic(ty),
+            heap,
+        )
     }
 
     fn type_list(heap: &'v Heap) -> TypeCompiled<Value<'v>> {
@@ -637,10 +649,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
-            ty: Ty::any_list(),
-            type_compiled_impl: IsList,
-        }))
+        Self::alloc(IsList, Ty::any_list(), heap)
     }
 
     fn type_dict(heap: &'v Heap) -> TypeCompiled<Value<'v>> {
@@ -663,10 +672,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
-            ty: Ty::any_dict(),
-            type_compiled_impl: IsDict,
-        }))
+        Self::alloc(IsDict, Ty::any_dict(), heap)
     }
 
     pub(crate) fn type_list_of(
@@ -689,10 +695,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
-            ty: Ty::list(t.as_ty()),
-            type_compiled_impl: IsListOf(t.to_box_dyn()),
-        }))
+        Self::alloc(IsListOf(t.to_box_dyn()), Ty::list(t.as_ty()), heap)
     }
 
     pub(crate) fn type_any_of_two(
@@ -713,10 +716,11 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
-            ty: Ty::union2(t0.as_ty(), t1.as_ty()),
-            type_compiled_impl: IsAnyOfTwo(t0.to_box_dyn(), t1.to_box_dyn()),
-        }))
+        Self::alloc(
+            IsAnyOfTwo(t0.to_box_dyn(), t1.to_box_dyn()),
+            Ty::union2(t0.as_ty(), t1.as_ty()),
+            heap,
+        )
     }
 
     pub(crate) fn type_any_of(
@@ -744,10 +748,8 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
-            ty: Ty::unions(ts.map(|t| t.as_ty())),
-            type_compiled_impl: IsAnyOf(ts.into_map(|t| t.to_box_dyn())),
-        }))
+        let ty = Ty::unions(ts.map(|t| t.as_ty()));
+        Self::alloc(IsAnyOf(ts.into_map(|t| t.to_box_dyn())), ty, heap)
     }
 
     pub(crate) fn type_dict_of(
@@ -773,10 +775,11 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
-            ty: Ty::dict(kt.as_ty(), vt.as_ty()),
-            type_compiled_impl: IsDictOf(kt.to_box_dyn(), vt.to_box_dyn()),
-        }))
+        Self::alloc(
+            IsDictOf(kt.to_box_dyn(), vt.to_box_dyn()),
+            Ty::dict(kt.as_ty(), vt.as_ty()),
+            heap,
+        )
     }
 
     pub(crate) fn type_tuple_of(
@@ -797,10 +800,8 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
-            ty: Ty::tuple(ts.map(|t| t.as_ty())),
-            type_compiled_impl: IsTupleOf(ts.into_map(|t| t.to_box_dyn())),
-        }))
+        let ty = Ty::tuple(ts.map(|t| t.as_ty()));
+        Self::alloc(IsTupleOf(ts.into_map(|t| t.to_box_dyn())), ty, heap)
     }
 
     /// Types that are `""` or start with `"_"` are wildcard - they match everything.
