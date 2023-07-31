@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::time::Duration;
-
 use anyhow::Context;
 use buck2_client_ctx::chunk_reader::ChunkReader;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -136,10 +134,13 @@ async fn upload_task(
 
     let manifold_client = ManifoldClient::new(allow_vpnless)?;
     let manifold_path = format!("flat/{}", manifold_name);
-    let ttl = MANIFOLD_TTL_S.get_copied()?.map(Duration::from_secs);
+    let ttl = MANIFOLD_TTL_S.get_copied()?.map(manifold::Ttl::from_secs);
 
-    let mut upload =
-        manifold_client.start_chunked_upload(manifold::Bucket::EVENT_LOGS, &manifold_path, ttl);
+    let mut upload = manifold_client.start_chunked_upload(
+        manifold::Bucket::EVENT_LOGS,
+        &manifold_path,
+        ttl.unwrap_or_default(),
+    );
 
     let reader = ChunkReader::new()?;
     let mut total_bytes = 0_u64;

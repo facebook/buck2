@@ -25,6 +25,7 @@ use buck2_common::http::retries::HttpError;
 use buck2_common::http::HttpClient;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use bytes::Bytes;
+use dupe::Dupe;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use hyper::Response;
@@ -32,6 +33,25 @@ use thiserror::Error;
 use tokio::io::AsyncRead;
 use tokio::process::Child;
 use tokio::process::Command;
+
+#[derive(Copy, Clone, Dupe)]
+pub struct Ttl {
+    duration: Duration,
+}
+
+impl Ttl {
+    pub fn from_secs(ttl: u64) -> Self {
+        Self {
+            duration: Duration::from_secs(ttl),
+        }
+    }
+}
+
+impl Default for Ttl {
+    fn default() -> Self {
+        Self::from_secs(164 * 86_400) // 164 days, equals scuba buck2_builds retention
+    }
+}
 
 #[derive(Debug, Error)]
 enum HttpWriteError {
@@ -447,7 +467,7 @@ impl ManifoldClient {
         bucket: Bucket,
         manifold_bucket_path: &str,
         buf: bytes::Bytes,
-        ttl: Option<Duration>,
+        ttl: Ttl,
     ) -> anyhow::Result<()> {
         let manifold_url = match &self.manifold_url {
             None => return Ok(()),
@@ -463,14 +483,12 @@ impl ManifoldClient {
             "NoPredicate".to_owned(),
         )];
 
-        if let Some(ttl) = ttl {
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-            let expiration = now.as_secs() + ttl.as_secs();
-            headers.push((
-                "X-Manifold-Obj-ExpiresAt".to_owned(),
-                expiration.to_string(),
-            ));
-        }
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let expiration = now.as_secs() + ttl.duration.as_secs();
+        headers.push((
+            "X-Manifold-Obj-ExpiresAt".to_owned(),
+            expiration.to_string(),
+        ));
 
         let res = http_retry(
             || async {
@@ -524,7 +542,7 @@ impl ManifoldClient {
         &'a self,
         bucket: Bucket,
         path: &'a str,
-        ttl: Option<Duration>,
+        ttl: Ttl,
     ) -> ManifoldChunkedUploader<'a> {
         ManifoldChunkedUploader {
             manifold: self,
@@ -547,7 +565,7 @@ pub struct ManifoldChunkedUploader<'a> {
     position: u64,
     bucket: Bucket,
     path: &'a str,
-    ttl: Option<Duration>,
+    ttl: Ttl,
 }
 
 impl<'a> ManifoldChunkedUploader<'a> {
