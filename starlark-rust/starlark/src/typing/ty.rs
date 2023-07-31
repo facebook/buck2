@@ -213,14 +213,14 @@ impl Ty {
         }
     }
 
-    pub(crate) fn basic(basic: TyBasic) -> Self {
+    pub(crate) const fn basic(basic: TyBasic) -> Self {
         Ty {
             alternatives: SmallVec1::One(basic),
         }
     }
 
     /// "any" type: can hold any value.
-    pub fn any() -> Self {
+    pub const fn any() -> Self {
         Ty::basic(TyBasic::Any)
     }
 
@@ -231,33 +231,37 @@ impl Ty {
     }
 
     /// Create a `None` type.
-    pub fn none() -> Self {
+    pub const fn none() -> Self {
         Ty::basic(TyBasic::none())
     }
 
     /// Create a boolean type.
-    pub fn bool() -> Self {
+    pub const fn bool() -> Self {
         Ty::starlark_value::<StarlarkBool>()
     }
 
     /// Create the int type.
-    pub fn int() -> Self {
+    pub const fn int() -> Self {
         Ty::basic(TyBasic::int())
     }
 
     /// Create a float type.
-    pub fn float() -> Self {
+    pub const fn float() -> Self {
         Ty::basic(TyBasic::float())
     }
 
     /// Create a string type.
-    pub fn string() -> Self {
+    pub const fn string() -> Self {
         Ty::basic(TyBasic::string())
     }
 
     /// Create a list type.
     pub fn list(element: Ty) -> Self {
         Ty::basic(TyBasic::list(element))
+    }
+
+    pub(crate) fn any_list() -> Self {
+        Self::list(Ty::any())
     }
 
     /// Create a iterable type.
@@ -268,6 +272,10 @@ impl Ty {
     /// Create a dictionary type.
     pub fn dict(key: Ty, value: Ty) -> Self {
         Ty::basic(TyBasic::dict(key, value))
+    }
+
+    pub(crate) fn any_dict() -> Self {
+        Self::dict(Ty::any(), Ty::any())
     }
 
     /// Create a tuple of two elements
@@ -308,7 +316,7 @@ impl Ty {
         Self::custom(TyCustomFunction(TyFunction::any()))
     }
 
-    pub(crate) fn starlark_value<'v, T: StarlarkValue<'v>>() -> Self {
+    pub(crate) const fn starlark_value<'v, T: StarlarkValue<'v>>() -> Self {
         Ty::basic(TyBasic::starlark_value::<T>())
     }
 

@@ -58,23 +58,23 @@ pub enum TyBasic {
 }
 
 impl TyBasic {
-    pub(crate) fn none() -> TyBasic {
+    pub(crate) const fn none() -> TyBasic {
         TyBasic::starlark_value::<NoneType>()
     }
 
-    pub(crate) fn starlark_value<'v, T: StarlarkValue<'v>>() -> TyBasic {
+    pub(crate) const fn starlark_value<'v, T: StarlarkValue<'v>>() -> TyBasic {
         TyBasic::StarlarkValue(TyStarlarkValue::new::<T>())
     }
 
-    pub(crate) fn string() -> Self {
+    pub(crate) const fn string() -> Self {
         TyBasic::starlark_value::<StarlarkStr>()
     }
 
-    pub(crate) fn int() -> Self {
+    pub(crate) const fn int() -> Self {
         TyBasic::starlark_value::<StarlarkBigInt>()
     }
 
-    pub(crate) fn float() -> Self {
+    pub(crate) const fn float() -> Self {
         TyBasic::starlark_value::<StarlarkFloat>()
     }
 

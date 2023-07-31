@@ -112,7 +112,7 @@ impl Ord for TyStarlarkValue {
 }
 
 impl TyStarlarkValue {
-    pub(crate) fn new<'v, T: StarlarkValue<'v>>() -> TyStarlarkValue {
+    pub(crate) const fn new<'v, T: StarlarkValue<'v>>() -> TyStarlarkValue {
         TyStarlarkValue {
             vtable: &TyStarlarkValueVTableGet::<T>::VTABLE,
         }
