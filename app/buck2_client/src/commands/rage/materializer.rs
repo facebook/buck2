@@ -9,7 +9,6 @@
 
 use std::io::Cursor;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_audit::deferred_materializer::DeferredMaterializerCommand;
 use buck2_audit::deferred_materializer::DeferredMaterializerSubcommand;
@@ -19,7 +18,8 @@ use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
 use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
-use buck2_client_ctx::manifold;
+use buck2_client_ctx::manifold::Bucket;
+use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_client_ctx::subscribers::subscriber::EventSubscriber;
 use buck2_common::result::SharedResult;
 
@@ -28,6 +28,7 @@ use crate::commands::rage::MaterializerRageUploadData;
 pub async fn upload_materializer_data(
     buckd: &SharedResult<BootstrapBuckdClient>,
     client_context: &ClientContext,
+    manifold: &ManifoldClient,
     manifold_id: &String,
     materializer_data: MaterializerRageUploadData,
 ) -> anyhow::Result<String> {
@@ -66,17 +67,19 @@ pub async fn upload_materializer_data(
         CommandOutcome::Failure(..) => return Err(anyhow::anyhow!("Command failed")),
     }
 
-    let manifold_bucket = manifold::Bucket::RAGE_DUMPS;
-    let manifold_filename = format!("{}_materializer_{}", manifold_id, materializer_data,);
-    manifold::Upload::new(manifold_bucket, &manifold_filename)
-        .with_default_ttl()
-        .from_async_read(&mut Cursor::new(&capture.buf))?
-        .spawn()
-        .await
-        .context("Error uploading to Manifold")?;
+    let manifold_bucket = Bucket::RAGE_DUMPS;
+    let manifold_filename = format!("flat/{}_materializer_{}", manifold_id, materializer_data);
+    manifold
+        .read_and_upload(
+            manifold_bucket,
+            &manifold_filename,
+            Default::default(),
+            &mut Cursor::new(&capture.buf),
+        )
+        .await?;
 
     Ok(format!(
-        "https://www.internalfb.com/manifold/explorer/{}/flat/{}",
+        "https://www.internalfb.com/manifold/explorer/{}/{}",
         manifold_bucket.name, manifold_filename
     ))
 }

@@ -14,26 +14,28 @@ use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_cli_proto::UnstableDiceDumpRequest;
 use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
-use buck2_client_ctx::manifold;
+use buck2_client_ctx::manifold::Bucket;
+use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_core::fs::fs_util::create_dir_all;
 use buck2_core::fs::fs_util::remove_all;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_util::process::background_command;
+use buck2_util::process::async_background_command;
 
 pub async fn upload_dice_dump(
     buckd: BootstrapBuckdClient,
     buck_out_dice: AbsNormPathBuf,
+    manifold: &ManifoldClient,
     manifold_id: &String,
 ) -> anyhow::Result<String> {
     let buckd = buckd.with_subscribers(Default::default());
-    let manifold_filename = &format!("{}_dice-dump.tar", manifold_id);
+    let manifold_filename = format!("flat/{}_dice-dump.tar", manifold_id);
     let this_dump_folder_name = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
     DiceDump::new(buck_out_dice, &this_dump_folder_name)
-        .upload(buckd, manifold_filename)
+        .upload(buckd, manifold, &manifold_filename)
         .await?;
 
-    Ok(format!("buck2_rage_dumps/flat/{}", manifold_filename))
+    Ok(format!("buck2_rage_dumps/{}", manifold_filename))
 }
 
 struct DiceDump {
@@ -54,6 +56,7 @@ impl DiceDump {
     async fn upload(
         &self,
         mut buckd: BuckdClientConnector<'_>,
+        manifold: &ManifoldClient,
         manifold_filename: &str,
     ) -> anyhow::Result<()> {
         create_dir_all(&self.buck_out_dice).with_context(|| {
@@ -78,7 +81,7 @@ impl DiceDump {
             })?;
 
         // create DICE dump name using the old command being rage on and the trace id of this rage command.
-        upload_to_manifold(&self.dump_folder, manifold_filename)
+        upload_to_manifold(&self.dump_folder, manifold, manifold_filename)
             .await
             .with_context(|| "Failed during manifold upload!")?;
 
@@ -86,11 +89,15 @@ impl DiceDump {
     }
 }
 
-async fn upload_to_manifold(dump_folder: &Path, manifold_filename: &str) -> anyhow::Result<()> {
+async fn upload_to_manifold(
+    dump_folder: &Path,
+    manifold: &ManifoldClient,
+    manifold_filename: &str,
+) -> anyhow::Result<()> {
     if !cfg!(target_os = "windows") {
         buck2_core::facebook_only();
 
-        let tar = background_command("tar")
+        let tar = async_background_command("tar")
             .arg("-c")
             .arg(dump_folder)
             .stdin(std::process::Stdio::null())
@@ -98,10 +105,13 @@ async fn upload_to_manifold(dump_folder: &Path, manifold_filename: &str) -> anyh
             .stderr(std::process::Stdio::null())
             .spawn()?;
 
-        manifold::Upload::new(manifold::Bucket::RAGE_DUMPS, manifold_filename)
-            .with_default_ttl()
-            .from_stdio(tar.stdout.unwrap().into())?
-            .spawn()
+        manifold
+            .read_and_upload(
+                Bucket::RAGE_DUMPS,
+                manifold_filename,
+                Default::default(),
+                &mut tar.stdout.unwrap(),
+            )
             .await?;
     }
     Ok(())

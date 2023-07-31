@@ -28,7 +28,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::manifold;
+use buck2_client_ctx::manifold::Bucket;
 use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::subscribers::event_log::file_names::do_find_log_by_trace_id;
@@ -55,6 +55,7 @@ use maplit::convert_args;
 use maplit::hashmap;
 use serde::Serialize;
 use thiserror::Error;
+use tokio::fs::File;
 use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncWriteExt;
@@ -242,7 +243,7 @@ impl RageCommand {
             let thread_dump = {
                 let title = "Thread dump".to_owned();
                 RageSection::get(title, timeout, || {
-                    thread_dump::upload_thread_dump(&buckd, &manifold_id)
+                    thread_dump::upload_thread_dump(&buckd, &manifold, &manifold_id)
                 })
             };
             let build_info_command = {
@@ -254,6 +255,7 @@ impl RageCommand {
                     }
                 }
             };
+
             let (thread_dump, build_info) = tokio::join!(
                 // Get thread dump before making any new connections to daemon (T159606309)
                 thread_dump,
@@ -265,7 +267,7 @@ impl RageCommand {
                 RageSection::get("System info".to_owned(), timeout, system_info::get);
             let daemon_stderr_command =
                 RageSection::get("Daemon stderr".to_owned(), timeout, || {
-                    upload_daemon_stderr(stderr_path, &manifold_id)
+                    upload_daemon_stderr(stderr_path, &manifold, &manifold_id)
                 });
             let hg_snapshot_id_command = RageSection::get(
                 "Source control".to_owned(),
@@ -273,13 +275,14 @@ impl RageCommand {
                 source_control::get_info,
             );
             let dice_dump_command = RageSection::get("Dice dump".to_owned(), timeout, || async {
-                dice::upload_dice_dump(buckd.clone()?, dice_dump_dir, &manifold_id).await
+                dice::upload_dice_dump(buckd.clone()?, dice_dump_dir, &manifold, &manifold_id).await
             });
             let materializer_state =
                 RageSection::get("Materializer state".to_owned(), timeout, || {
                     materializer::upload_materializer_data(
                         &buckd,
                         &client_ctx,
+                        &manifold,
                         &manifold_id,
                         MaterializerRageUploadData::State,
                     )
@@ -289,6 +292,7 @@ impl RageCommand {
                     materializer::upload_materializer_data(
                         &buckd,
                         &client_ctx,
+                        &manifold,
                         &manifold_id,
                         MaterializerRageUploadData::Fsck,
                     )
@@ -297,9 +301,9 @@ impl RageCommand {
                 let title = "Event log upload".to_owned();
                 match selected_invocation.as_ref() {
                     None => RageSection::get_skipped(title),
-                    Some(path) => {
-                        RageSection::get(title, timeout, || upload_event_logs(path, &manifold_id))
-                    }
+                    Some(path) => RageSection::get(title, timeout, || {
+                        upload_event_logs(path, &manifold, &manifold_id)
+                    }),
                 }
             };
             let re_logs_command = {
@@ -449,35 +453,41 @@ fn insert_if_some<D>(data: &mut HashMap<String, D>, key: &str, value: Option<D>)
 
 async fn upload_daemon_stderr(
     path: AbsNormPathBuf,
+    manifold: &ManifoldClient,
     manifold_id: &String,
 ) -> anyhow::Result<String> {
     // can't use async_fs_util
     // the trait to convert from tokio::fs::File is not implemented for Stdio
-    let upload_log_file: Stdio = std::fs::File::open(&path)
-        .context(RageError::OpenFileError(path.display().to_string()))?
-        .into();
-    let filename = format!("{}.stderr", manifold_id);
-    manifold::Upload::new(manifold::Bucket::RAGE_DUMPS, &filename)
-        .with_default_ttl()
-        .from_stdio(upload_log_file)?
-        .spawn()
+    let mut upload_log_file = File::open(&path)
+        .await
+        .context(RageError::OpenFileError(path.display().to_string()))?;
+
+    let bucket = Bucket::RAGE_DUMPS;
+    let filename = format!("flat/{}.stderr", manifold_id);
+
+    manifold
+        .read_and_upload(bucket, &filename, Default::default(), &mut upload_log_file)
         .await?;
+
     Ok(format!(
-        "https://www.internalfb.com/manifold/explorer/buck2_rage_dumps/flat/{}",
-        filename
+        "https://www.internalfb.com/manifold/explorer/{}/{}",
+        bucket.name, filename
     ))
 }
 
-async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow::Result<String> {
-    let filename = format!("{}-event_log{}", manifold_id, path.extension());
-    let bucket = manifold::Bucket::RAGE_DUMPS;
-    manifold::Upload::new(bucket, &filename)
-        .with_default_ttl()
-        .from_file(path.path())?
-        .spawn()
+async fn upload_event_logs(
+    path: &EventLogPathBuf,
+    manifold: &ManifoldClient,
+    manifold_id: &str,
+) -> anyhow::Result<String> {
+    let bucket = Bucket::RAGE_DUMPS;
+    let filename = format!("flat/{}-event_log{}", manifold_id, path.extension());
+    let mut file = File::open(path.path()).await?;
+    manifold
+        .read_and_upload(bucket, &filename, Default::default(), &mut file)
         .await?;
     Ok(format!(
-        "https://www.internalfb.com/manifold/explorer/{}/flat/{}",
+        "https://www.internalfb.com/manifold/explorer/{}/{}",
         bucket.name, filename
     ))
 }
@@ -487,7 +497,7 @@ async fn upload_re_logs_impl(
     re_logs_dir: &AbsNormPath,
     re_session_id: String,
 ) -> anyhow::Result<String> {
-    let bucket = manifold::Bucket::RAGE_DUMPS;
+    let bucket = Bucket::RAGE_DUMPS;
     let filename = format!("flat/{}-re_logs.zst", &re_session_id);
     upload_re_logs::upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename)
         .await?;

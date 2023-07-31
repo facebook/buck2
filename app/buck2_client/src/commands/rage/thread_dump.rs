@@ -11,12 +11,14 @@ use std::io::Cursor;
 
 use anyhow::Context;
 use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
-use buck2_client_ctx::manifold;
+use buck2_client_ctx::manifold::Bucket;
+use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_common::result::SharedResult;
 use buck2_util::process::async_background_command;
 
 pub async fn upload_thread_dump(
     buckd: &SharedResult<BootstrapBuckdClient>,
+    manifold: &ManifoldClient,
     manifold_id: &String,
 ) -> anyhow::Result<String> {
     let buckd_pid = buckd.clone()?.pid();
@@ -36,16 +38,19 @@ pub async fn upload_thread_dump(
         .await?;
 
     if command.status.success() {
-        let manifold_bucket = manifold::Bucket::RAGE_DUMPS;
-        let manifold_filename = format!("{}_thread_dump", manifold_id);
-        let mut stdout = command.stdout;
-        manifold::Upload::new(manifold_bucket, &manifold_filename)
-            .with_default_ttl()
-            .from_async_read(&mut Cursor::new(&mut stdout))?
-            .spawn()
+        let manifold_bucket = Bucket::RAGE_DUMPS;
+        let manifold_filename = format!("flat/{}_thread_dump", manifold_id);
+        manifold
+            .read_and_upload(
+                manifold_bucket,
+                &manifold_filename,
+                Default::default(),
+                &mut Cursor::new(&command.stdout),
+            )
             .await?;
+
         Ok(format!(
-            "https://www.internalfb.com/manifold/explorer/{}/flat/{}",
+            "https://www.internalfb.com/manifold/explorer/{}/{}",
             manifold_bucket.name, manifold_filename
         ))
     } else {
