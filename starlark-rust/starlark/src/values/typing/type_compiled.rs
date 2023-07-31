@@ -107,13 +107,13 @@ where
     T: TypeCompiledImpl,
 {
     fn as_ty_dyn(&self) -> Ty {
-        self.0.as_ty()
+        self.type_compiled_impl.as_ty()
     }
     fn matches_dyn(&self, value: Value) -> bool {
-        self.0.matches(value)
+        self.type_compiled_impl.matches(value)
     }
     fn is_wildcard_dyn(&self) -> bool {
-        self.0.is_wildcard()
+        self.type_compiled_impl.is_wildcard()
     }
     fn to_frozen_dyn(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
         TypeCompiled(heap.alloc_simple::<TypeCompiledImplAsStarlarkValue<T>>(Self::clone(self)))
@@ -124,7 +124,7 @@ where
     }
     fn hash_code(&self) -> u64 {
         let mut hasher = StarlarkHasher::new();
-        self.0.hash(&mut hasher);
+        self.type_compiled_impl.hash(&mut hasher);
         hasher.finish()
     }
 
@@ -169,14 +169,21 @@ unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn TypeCompiledDyn {
     ProvidesStaticType,
     NoSerialize
 )]
-struct TypeCompiledImplAsStarlarkValue<T: 'static>(T);
+struct TypeCompiledImplAsStarlarkValue<T: 'static> {
+    type_compiled_impl: T,
+}
 
 impl<T> TypeCompiledImplAsStarlarkValue<T>
 where
     TypeCompiledImplAsStarlarkValue<T>: StarlarkValue<'static>,
 {
     const fn alloc_static(imp: T) -> AValueRepr<AValueImpl<Basic, Self>> {
-        alloc_static(Basic, TypeCompiledImplAsStarlarkValue(imp))
+        alloc_static(
+            Basic,
+            TypeCompiledImplAsStarlarkValue {
+                type_compiled_impl: imp,
+            },
+        )
     }
 }
 
@@ -186,7 +193,7 @@ where
     T: TypeCompiledImpl,
 {
     fn type_matches_value(&self, value: Value<'v>, _private: Private) -> bool {
-        self.0.matches(value)
+        self.type_compiled_impl.matches(value)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
@@ -194,7 +201,7 @@ where
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        Hash::hash(&self.0, hasher);
+        Hash::hash(&self.type_compiled_impl, hasher);
         Ok(())
     }
 
@@ -202,14 +209,14 @@ where
         let Some(other) = other.downcast_ref::<Self>() else {
             return Ok(false);
         };
-        Ok(self.0 == other.0)
+        Ok(self.type_compiled_impl == other.type_compiled_impl)
     }
 
     fn eval_type(&self, _private: Private) -> Option<Ty> {
         // `TypeCompiled::new` handles this type explicitly,
         // but implement this function to make proc-macro generate `bit_or`.
         // Also safer to be explicit here.
-        Some(self.0.as_ty())
+        Some(self.type_compiled_impl.as_ty())
     }
 
     fn get_methods() -> Option<&'static Methods>
@@ -223,7 +230,7 @@ where
 
 impl<T: TypeCompiledImpl> Display for TypeCompiledImplAsStarlarkValue<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "eval_type({})", self.0.as_ty())
+        write!(f, "eval_type({})", self.type_compiled_impl.as_ty())
     }
 }
 
@@ -651,7 +658,9 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsConcrete(t.to_owned()))))
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
+            type_compiled_impl: IsConcrete(t.to_owned()),
+        }))
     }
 
     /// Hold `Ty`, but only check name if it is provided.
@@ -688,7 +697,9 @@ impl<'v> TypeCompiled<Value<'v>> {
         }
 
         let name = ty.as_name().map(|s| s.to_owned());
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(Erased { ty, name })))
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
+            type_compiled_impl: Erased { ty, name },
+        }))
     }
 
     pub(crate) fn type_list_of(
@@ -715,7 +726,9 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsListOf(t.to_box_dyn()))))
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
+            type_compiled_impl: IsListOf(t.to_box_dyn()),
+        }))
     }
 
     pub(crate) fn type_any_of_two(
@@ -740,12 +753,9 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(
-            heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsAnyOfTwo(
-                t0.to_box_dyn(),
-                t1.to_box_dyn(),
-            ))),
-        )
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
+            type_compiled_impl: IsAnyOfTwo(t0.to_box_dyn(), t1.to_box_dyn()),
+        }))
     }
 
     pub(crate) fn type_any_of(
@@ -777,9 +787,9 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsAnyOf(
-            ts.into_map(|t| t.to_box_dyn()),
-        ))))
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
+            type_compiled_impl: IsAnyOf(ts.into_map(|t| t.to_box_dyn())),
+        }))
     }
 
     pub(crate) fn type_dict_of(
@@ -809,10 +819,9 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsDictOf(
-            kt.to_box_dyn(),
-            vt.to_box_dyn(),
-        ))))
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
+            type_compiled_impl: IsDictOf(kt.to_box_dyn(), vt.to_box_dyn()),
+        }))
     }
 
     pub(crate) fn type_tuple_of(
@@ -837,9 +846,9 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue(IsTupleOf(
-            ts.into_map(|t| t.to_box_dyn()),
-        ))))
+        TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
+            type_compiled_impl: IsTupleOf(ts.into_map(|t| t.to_box_dyn())),
+        }))
     }
 
     /// Types that are `""` or start with `"_"` are wildcard - they match everything.
