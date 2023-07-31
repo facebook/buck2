@@ -28,6 +28,7 @@ use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingError;
 use crate::typing::Ty;
 use crate::typing::TypingAttr;
+use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
 
 /// An argument being passed to a function
@@ -195,10 +196,15 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
     fn attribute(&self, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         if attr == TypingAttr::Regular("type") && self.0.has_type_attr() {
             Some(Ok(Ty::string()))
+        } else if attr == TypingAttr::BinOp(TypingBinOp::BitOr) && self.0.has_type_attr() {
+            // `str | list`.
+            Some(Ok(Ty::function(
+                vec![Param::pos_only(Ty::any())],
+                // TODO(nga): result is type, but we don't have a type for type yet.
+                Ty::any(),
+            )))
         } else {
-            // TODO(nga): some types (like record types) pretend to be functions,
-            //   so we don't know which attributes they have.
-            None
+            Some(Err(()))
         }
     }
 }
