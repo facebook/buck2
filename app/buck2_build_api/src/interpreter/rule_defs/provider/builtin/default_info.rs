@@ -122,17 +122,17 @@ pub struct DefaultInfoGen<V> {
     /// `ProviderCollection`, this collection must include at least a `DefaultInfo` provider. The
     /// subtargets can have their own subtargets as well, which can be accessed by chaining them,
     /// e.g.: `buck2 build cell//foo:bar[baz][qux]`.
-    #[provider(field_type = "DictType<String, ProviderCollection>")]
+    #[provider(field_type = DictType<String, ProviderCollection>)]
     sub_targets: V,
     /// A list of `Artifact`s that are built by default if this rule is requested
     /// explicitly, or depended on as as a "source".
-    #[provider(field_type = "Vec<StarlarkArtifact>")]
+    #[provider(field_type = Vec<StarlarkArtifact>)]
     default_outputs: V,
     /// A list of `ArtifactTraversable`. The underlying `Artifact`s they define will
     /// be built by default if this rule is requested, but _not_ when it's depended
     /// on as as a "source". `ArtifactTraversable` can be an `Artifact` (which yields
     /// itself), or `cmd_args`, which expand to all their inputs.
-    #[provider(field_type = "Vec<StarlarkArtifact>")]
+    #[provider(field_type = Vec<StarlarkArtifact>)]
     other_outputs: V,
 }
 

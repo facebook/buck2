@@ -42,7 +42,7 @@ enum ExecutionPlatformRegistrationTypeError {
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct ExecutionPlatformRegistrationInfoGen<V> {
-    #[provider(field_type = "Vec<FrozenExecutionPlatformInfo>")]
+    #[provider(field_type = Vec<FrozenExecutionPlatformInfo>)]
     platforms: V,
     // OneOf<ExecutionPlatformInfo, \"error\", \"unspecified\", None>
     fallback: V,

@@ -18,7 +18,6 @@ use syn::parse::ParseStream;
 use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::Fields;
-use syn::LitStr;
 
 const PROVIDER_IDENT: &str = "provider";
 
@@ -192,10 +191,7 @@ impl ProviderCodegen {
                 |input: ParseStream| -> syn::Result<syn::Expr> {
                     if input.parse::<field_type>().is_ok() {
                         input.parse::<syn::Token![=]>()?;
-                        // TODO(nga): no need to use string literal here.
-                        let rust_type = input.parse::<LitStr>()?.value();
-                        let rust_type: proc_macro2::TokenStream = rust_type.parse()?;
-                        let rust_type: syn::Type = syn::parse2(rust_type)?;
+                        let rust_type: syn::Type = input.parse::<syn::Type>()?;
                         Ok(syn::parse_quote_spanned! { span =>
                             Some(<#rust_type as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr())
                         })

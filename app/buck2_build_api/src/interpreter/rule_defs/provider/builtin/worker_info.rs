@@ -37,10 +37,10 @@ use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 #[repr(C)]
 pub struct WorkerInfoGen<V> {
     // Command to spawn a new worker
-    #[provider(field_type = "StarlarkCmdArgs")]
+    #[provider(field_type = StarlarkCmdArgs)]
     pub exe: V,
     // Maximum number of concurrent commands to execute on a worker instance without queuing
-    #[provider(field_type = "NoneOr<usize>")]
+    #[provider(field_type = NoneOr<usize>)]
     pub concurrency: V,
 
     pub id: u64,

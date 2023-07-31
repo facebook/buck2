@@ -49,10 +49,10 @@ enum InstallInfoProviderErrors {
 #[freeze(validator = validate_install_info, bounds = "V: ValueLike<'freeze>")]
 pub struct InstallInfoGen<V> {
     // Label for the installer
-    #[provider(field_type = "StarlarkConfiguredProvidersLabel")]
+    #[provider(field_type = StarlarkConfiguredProvidersLabel)]
     installer: V,
     // list of files that need to be installed
-    #[provider(field_type = "DictType<String, StarlarkArtifact>")]
+    #[provider(field_type = DictType<String, StarlarkArtifact>)]
     files: V,
 }
 

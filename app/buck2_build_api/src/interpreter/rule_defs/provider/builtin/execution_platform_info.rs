@@ -44,13 +44,13 @@ enum ExecutionPlatformProviderErrors {
 #[repr(C)]
 pub struct ExecutionPlatformInfoGen<V> {
     /// label of the defining rule, used in informative messages
-    #[provider(field_type = "StarlarkTargetLabel")]
+    #[provider(field_type = StarlarkTargetLabel)]
     label: V,
     /// The configuration of the execution platform
-    #[provider(field_type = "ConfigurationInfo")]
+    #[provider(field_type = ConfigurationInfo)]
     configuration: V,
     /// The executor config
-    #[provider(field_type = "StarlarkCommandExecutorConfig")]
+    #[provider(field_type = StarlarkCommandExecutorConfig)]
     executor_config: V,
 }
 

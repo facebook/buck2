@@ -32,9 +32,9 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::C
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub(crate) struct ConstraintValueInfoGen<V> {
-    #[provider(field_type = "ConstraintSettingInfo")]
+    #[provider(field_type = ConstraintSettingInfo)]
     setting: V,
-    #[provider(field_type = "StarlarkTargetLabel")]
+    #[provider(field_type = StarlarkTargetLabel)]
     label: V,
 }
 

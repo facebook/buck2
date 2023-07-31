@@ -33,7 +33,7 @@ use starlark::values::ValueTyped;
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(transparent)]
 pub(crate) struct ConstraintSettingInfoGen<V> {
-    #[provider(field_type = "StarlarkTargetLabel")]
+    #[provider(field_type = StarlarkTargetLabel)]
     label: V,
 }
 

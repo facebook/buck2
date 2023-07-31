@@ -48,11 +48,11 @@ pub struct LocalResourceInfoGen<V> {
     /// will be reserved from the pool, for example `{"socket_address": "bar:2"}` and environment variable with
     /// name resolved using mapping in `resource_env_vars` field and `"socket_address"` key will be added to
     /// execution command.
-    #[provider(field_type = "StarlarkCmdArgs")]
+    #[provider(field_type = StarlarkCmdArgs)]
     setup: V,
     /// Mapping from environment variable (appended to an execution command which is dependent on this local resource)
     /// to keys in setup command JSON output.
-    #[provider(field_type = "DictType<String, String>")]
+    #[provider(field_type = DictType<String, String>)]
     resource_env_vars: V,
 }
 
