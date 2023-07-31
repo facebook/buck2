@@ -13,6 +13,7 @@
 
 pub mod argv;
 pub mod build_count;
+pub mod chunk_reader;
 pub mod cleanup_ctx;
 pub mod client_cpu_tracker;
 pub mod client_ctx;

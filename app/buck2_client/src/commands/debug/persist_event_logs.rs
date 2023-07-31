@@ -10,6 +10,7 @@
 use std::time::Duration;
 
 use anyhow::Context;
+use buck2_client_ctx::chunk_reader::ChunkReader;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
@@ -27,7 +28,6 @@ use tokio::io::AsyncSeekExt;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
-static UPLOAD_CHUNK_SIZE: EnvHelper<u64> = EnvHelper::new("BUCK2_TEST_MANIFOLD_CHUNK_BYTES");
 static MANIFOLD_TTL_S: EnvHelper<u64> = EnvHelper::new("BUCK2_TEST_MANIFOLD_TTL_S");
 
 #[derive(Debug, Error)]
@@ -141,23 +141,23 @@ async fn upload_task(
     let mut upload =
         manifold_client.start_chunked_upload(manifold::Bucket::EVENT_LOGS, &manifold_path, ttl);
 
-    let upload_chunk_size = UPLOAD_CHUNK_SIZE.get_copied()?.unwrap_or(8 * 1024 * 1024);
+    let reader = ChunkReader::new()?;
     let mut total_bytes = 0_u64;
 
     while let Some(n) = rx.recv().await {
         total_bytes += n;
-        while should_upload_chunk(total_bytes, &upload, upload_chunk_size).await? {
-            upload_chunk(&mut upload, file_mutex, upload_chunk_size).await?;
+        while should_upload_chunk(total_bytes, &upload, &reader).await? {
+            upload_chunk(&mut upload, file_mutex, &reader).await?;
         }
     }
 
     // When tx gets dropped, rx will return None
-    while should_upload_chunk(total_bytes, &upload, upload_chunk_size).await? {
-        upload_chunk(&mut upload, file_mutex, upload_chunk_size).await?;
+    while should_upload_chunk(total_bytes, &upload, &reader).await? {
+        upload_chunk(&mut upload, file_mutex, &reader).await?;
     }
 
-    // Last chunk to upload is smaller than UPLOAD_CHUNK_SIZE
-    upload_chunk(&mut upload, file_mutex, upload_chunk_size).await?;
+    // Last chunk to upload is smaller than &reader
+    upload_chunk(&mut upload, file_mutex, &reader).await?;
 
     Ok(())
 }
@@ -165,40 +165,29 @@ async fn upload_task(
 async fn should_upload_chunk(
     total_bytes: u64,
     uploader: &ManifoldChunkedUploader<'_>,
-    upload_chunk_size: u64,
+    reader: &ChunkReader,
 ) -> anyhow::Result<bool> {
     Ok(total_bytes
         .checked_sub(uploader.position())
         .ok_or(PersistLogError::ReadBytesOverflow)?
-        > upload_chunk_size)
+        > reader.chunk_size())
 }
 
 async fn upload_chunk(
     uploader: &mut ManifoldChunkedUploader<'_>,
     file_mutex: &Mutex<File>,
-    upload_chunk_size: u64,
+    reader: &ChunkReader,
 ) -> anyhow::Result<()> {
     let mut file = file_mutex.lock().await;
     // Upload chunk
     file.seek(io::SeekFrom::Start(uploader.position()))
         .await
         .context("Failed to seek log file")?;
-    let buf = read_chunk(&mut file, upload_chunk_size).await?;
+    let buf = reader.read(&mut *file).await?;
     drop(file);
 
     uploader.write(buf.into()).await?;
     Ok(())
-}
-
-async fn read_chunk(read_ref: &mut File, chunk_size: u64) -> Result<Vec<u8>, anyhow::Error> {
-    let mut buf = vec![];
-    let mut handle = read_ref.take(chunk_size);
-    let len = handle
-        .read_to_end(&mut buf)
-        .await
-        .context("Cannot read log file chunk")?;
-    buf.truncate(len);
-    Ok(buf)
 }
 
 async fn write_to_file(
