@@ -128,8 +128,8 @@ load(
 def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         _ctx: AnalysisContext,
-        output: CxxLibraryOutput.type) -> (dict[str, list["provider"]], list["provider"]):
-    if link_style != LinkStyle("shared"):
+        output: [CxxLibraryOutput.type, None]) -> (dict[str, list["provider"]], list["provider"]):
+    if link_style != LinkStyle("shared") or output == None:
         return ({}, [])
     sub_targets = {}
     providers = []

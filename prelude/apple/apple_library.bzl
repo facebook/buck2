@@ -206,19 +206,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         )
         providers = [swift_pcm_uncompile_info] if swift_pcm_uncompile_info else []
         providers.append(swift_dependency_info)
-
-        # We populate the ResourceGraphInfo provider for each link_style in the
-        # link_style_sub_targets_and_providers_factory function. However,
-        # libraries with no srcs will never call the factory function, but
-        # we still want to propagate resources through them.
-        if len(cxx_srcs) + len(swift_srcs) == 0:
-            providers.append(create_resource_graph(
-                ctx = ctx,
-                labels = ctx.attrs.labels,
-                deps = cxx_attr_deps(ctx),
-                exported_deps = cxx_attr_exported_deps(ctx),
-            ))
-
         return providers
 
     framework_search_path_pre = CPreprocessor(
@@ -285,18 +272,20 @@ def _filter_swift_srcs(ctx: AnalysisContext) -> (list["CxxSrcWithFlags"], list["
 def _get_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         ctx: AnalysisContext,
-        output: CxxLibraryOutput.type) -> (dict[str, list["provider"]], list["provider"]):
-    if link_style != LinkStyle("shared"):
-        return ({}, [
-            create_resource_graph(
-                ctx = ctx,
-                labels = ctx.attrs.labels,
-                deps = cxx_attr_deps(ctx),
-                exported_deps = cxx_attr_exported_deps(ctx),
-                # static link styles should always propagate their resources.
-                should_propagate = True,
-            ),
-        ])
+        output: [CxxLibraryOutput.type, None]) -> (dict[str, list["provider"]], list["provider"]):
+    # We always propagate a resource graph regardless of link style or empty output
+    resource_graph = create_resource_graph(
+        ctx = ctx,
+        labels = ctx.attrs.labels,
+        deps = cxx_attr_deps(ctx),
+        exported_deps = cxx_attr_exported_deps(ctx),
+        # Shared libraries should not propagate their resources to rdeps,
+        # they should only be contained in their frameworks apple_bundle.
+        should_propagate = link_style != LinkStyle("shared"),
+    )
+
+    if link_style != LinkStyle("shared") or output == None:
+        return ({}, [resource_graph])
 
     min_version = get_min_deployment_version_for_node(ctx)
     min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
@@ -317,19 +306,13 @@ def _get_link_style_sub_targets_and_providers(
     }
     providers = [
         AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = output.external_debug_info),
-        create_resource_graph(
-            ctx = ctx,
-            labels = ctx.attrs.labels,
-            deps = cxx_attr_deps(ctx),
-            exported_deps = cxx_attr_exported_deps(ctx),
-            # Shared libraries should not propagate their resources to rdeps,
-            # they should only be contained in their frameworks apple_bundle.
-            should_propagate = False,
-        ),
+        resource_graph,
     ] + min_version_providers
+
     if output.linker_map != None:
         subtargets["linker-map"] = [DefaultInfo(default_output = output.linker_map.map, other_outputs = [output.linker_map.binary])]
         providers += [AppleBundleLinkerMapInfo(linker_maps = [output.linker_map.map])]
+
     return (subtargets, providers)
 
 def _get_swift_static_debug_info(ctx: AnalysisContext, swiftmodule: "artifact") -> list[ArtifactTSet.type]:

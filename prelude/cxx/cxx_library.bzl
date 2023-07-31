@@ -462,10 +462,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
     # Output sub-targets for all link-styles.
     if impl_params.generate_sub_targets.link_style_outputs or impl_params.generate_providers.link_style_outputs:
         actual_link_style_providers = []
-        for link_style, output in library_outputs.outputs.items():
-            if output == None:
-                continue
 
+        for link_style, output in library_outputs.outputs.items():
             link_style_sub_targets, link_style_providers = impl_params.link_style_sub_targets_and_providers_factory(
                 link_style,
                 ctx,
@@ -476,11 +474,17 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
             link_style_sub_targets.update(library_outputs.sub_targets.get(link_style, {}))
 
             if impl_params.generate_sub_targets.link_style_outputs:
-                sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(
-                    default_output = output.default,
-                    other_outputs = output.other,
-                    sub_targets = link_style_sub_targets,
-                )] + (link_style_providers if link_style_providers else [])
+                sub_target_providers = []
+                if output:
+                    sub_target_providers.append(DefaultInfo(
+                        default_output = output.default,
+                        other_outputs = output.other,
+                        sub_targets = link_style_sub_targets,
+                    ))
+                if link_style_providers:
+                    sub_target_providers.extend(link_style_providers)
+
+                sub_targets[link_style.value.replace("_", "-")] = sub_target_providers
 
                 if link_style == actual_link_style:
                     # If we have additional providers for the current link style,
