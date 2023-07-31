@@ -94,6 +94,7 @@ trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
     fn matches_dyn(&self, value: Value) -> bool;
     fn is_wildcard_dyn(&self) -> bool;
     fn to_frozen_dyn(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue>;
+    fn patch_ty_dyn<'v>(&self, ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>>;
 
     fn eq_token(&self) -> PartialEqAny;
     fn hash_code(&self) -> u64;
@@ -116,6 +117,9 @@ where
     }
     fn to_frozen_dyn(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
         TypeCompiled(heap.alloc_simple::<TypeCompiledImplAsStarlarkValue<T>>(Self::clone(self)))
+    }
+    fn patch_ty_dyn<'v>(&self, ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        TypeCompiled::alloc(self.type_compiled_impl.clone(), ty, heap)
     }
 
     fn eq_token(&self) -> PartialEqAny {
@@ -566,6 +570,16 @@ impl<'v> TypeCompiled<Value<'v>> {
         }))
     }
 
+    /// Replace `ty` field, keep the matcher.
+    fn patch_ty(self, ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        if self.as_ty() == ty {
+            // Optimization, semantically identical to the branch below.
+            self.to_value()
+        } else {
+            self.downcast().unwrap().patch_ty_dyn(ty, heap)
+        }
+    }
+
     fn type_concrete(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         #[derive(
             Eq,
@@ -586,40 +600,16 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        Self::alloc(IsConcrete(t.to_owned()), Ty::name(t), heap)
+        let ty = Ty::name(t);
+        Self::alloc(IsConcrete(t.to_owned()), ty, heap)
     }
 
     /// Hold `Ty`, but only check name if it is provided.
     fn ty_other(ty: TyBasic, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        #[derive(Clone, Eq, PartialEq, Hash, Allocative, Debug, ProvidesStaticType)]
-        struct Erased {
-            ty: TyBasic,
-            name: Option<String>,
+        match ty.as_name() {
+            None => TypeCompiled::<Value>::type_anything().patch_ty(Ty::basic(ty), heap),
+            Some(name) => Self::type_concrete(name, heap).patch_ty(Ty::basic(ty), heap),
         }
-
-        impl TypeCompiledImpl for Erased {
-            fn matches(&self, value: Value) -> bool {
-                if let Some(name) = &self.name {
-                    value.get_ref().matches_type(name)
-                } else {
-                    true
-                }
-            }
-
-            fn is_wildcard(&self) -> bool {
-                self.name.is_none()
-            }
-        }
-
-        let name = ty.as_name().map(|s| s.to_owned());
-        Self::alloc(
-            Erased {
-                ty: ty.clone(),
-                name,
-            },
-            Ty::basic(ty),
-            heap,
-        )
     }
 
     fn type_list(heap: &'v Heap) -> TypeCompiled<Value<'v>> {
