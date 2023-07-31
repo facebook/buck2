@@ -22,18 +22,20 @@ use buck2_client_ctx::manifold::Bucket;
 use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_client_ctx::subscribers::subscriber::EventSubscriber;
 use buck2_common::result::SharedResult;
+use futures::future::BoxFuture;
+use futures::future::Shared;
 
 use crate::commands::rage::MaterializerRageUploadData;
 
 pub async fn upload_materializer_data(
-    buckd: &SharedResult<BootstrapBuckdClient>,
+    buckd: Shared<BoxFuture<'_, SharedResult<BootstrapBuckdClient>>>,
     client_context: &ClientContext,
     manifold: &ManifoldClient,
     manifold_id: &String,
     materializer_data: MaterializerRageUploadData,
 ) -> anyhow::Result<String> {
     let mut buckd = buckd
-        .clone()?
+        .await?
         .with_subscribers(vec![Box::new(TracingSubscriber) as _]);
 
     let mut capture = CaptureStdout::new();

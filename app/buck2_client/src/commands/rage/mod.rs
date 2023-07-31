@@ -25,8 +25,7 @@ use anyhow::Context;
 use buck2_client_ctx::argv::Argv;
 use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
-use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
+use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold::Bucket;
 use buck2_client_ctx::manifold::ManifoldClient;
@@ -208,8 +207,9 @@ impl RageCommand {
         ctx.with_runtime(async move |mut ctx| {
             let timeout = Duration::from_secs(self.timeout);
             let paths = ctx.paths.as_ref().map_err(|e| e.dupe())?;
+            let daemon_dir = paths.daemon_dir()?;
+            let stderr_path = daemon_dir.buckd_stderr();
             let re_logs_dir = ctx.paths()?.re_logs_dir();
-            let stderr_path = paths.daemon_dir()?.buckd_stderr();
             let logdir = paths.log_dir();
             let dice_dump_dir = paths.dice_dump_dir();
 
@@ -227,10 +227,22 @@ impl RageCommand {
                 self.timeout
             )?;
 
-            // If there is a daemon, connect.
-            let buckd = BootstrapBuckdClient::connect(paths, BuckdConnectConstraints::ExistingOnly)
-                .await
-                .shared_error();
+            // If there is a daemon, start connecting.
+            let info = BuckdProcessInfo::load(&daemon_dir).shared_error();
+
+            let buckd = match &info {
+                Ok(info) => async {
+                    info.create_channel()
+                        .await
+                        .shared_error()?
+                        .upgrade()
+                        .await
+                        .shared_error()
+                }
+                .boxed(),
+                Err(e) => futures::future::ready(Err(e.dupe())).boxed(),
+            }
+            .shared();
 
             let selected_invocation = maybe_select_invocation(ctx.stdin(), &logdir, &self).await?;
             let invocation_id = get_trace_id(&selected_invocation).await?;
@@ -243,7 +255,7 @@ impl RageCommand {
             let thread_dump = {
                 let title = "Thread dump".to_owned();
                 RageSection::get(title, timeout, || {
-                    thread_dump::upload_thread_dump(&buckd, &manifold, &manifold_id)
+                    thread_dump::upload_thread_dump(&info, &manifold, &manifold_id)
                 })
             };
             let build_info_command = {
@@ -275,12 +287,13 @@ impl RageCommand {
                 source_control::get_info,
             );
             let dice_dump_command = RageSection::get("Dice dump".to_owned(), timeout, || async {
-                dice::upload_dice_dump(buckd.clone()?, dice_dump_dir, &manifold, &manifold_id).await
+                dice::upload_dice_dump(buckd.clone().await?, dice_dump_dir, &manifold, &manifold_id)
+                    .await
             });
             let materializer_state =
                 RageSection::get("Materializer state".to_owned(), timeout, || {
                     materializer::upload_materializer_data(
-                        &buckd,
+                        buckd.clone(),
                         &client_ctx,
                         &manifold,
                         &manifold_id,
@@ -290,7 +303,7 @@ impl RageCommand {
             let materializer_fsck =
                 RageSection::get("Materializer fsck".to_owned(), timeout, || {
                     materializer::upload_materializer_data(
-                        &buckd,
+                        buckd.clone(),
                         &client_ctx,
                         &manifold,
                         &manifold_id,

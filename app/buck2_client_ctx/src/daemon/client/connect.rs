@@ -758,6 +758,10 @@ impl<'a> BuckdProcessInfo<'a> {
     pub async fn hard_kill(&self) -> anyhow::Result<kill::KillResponse> {
         kill::hard_kill(&self.info).await
     }
+
+    pub fn pid(&self) -> i64 {
+        self.info.pid
+    }
 }
 
 async fn get_constraints(

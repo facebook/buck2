@@ -10,18 +10,18 @@
 use std::io::Cursor;
 
 use anyhow::Context;
-use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
+use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::manifold::Bucket;
 use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_common::result::SharedResult;
 use buck2_util::process::async_background_command;
 
 pub async fn upload_thread_dump(
-    buckd: &SharedResult<BootstrapBuckdClient>,
+    buckd: &SharedResult<BuckdProcessInfo<'_>>,
     manifold: &ManifoldClient,
     manifold_id: &String,
 ) -> anyhow::Result<String> {
-    let buckd_pid = buckd.clone()?.pid();
+    let buckd_pid = buckd.as_ref().map_err(|e| e.clone())?.pid();
     let command = async_background_command("lldb")
         .arg("-p")
         .arg(buckd_pid.to_string())
