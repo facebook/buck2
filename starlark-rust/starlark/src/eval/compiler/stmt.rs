@@ -184,7 +184,7 @@ pub(crate) struct StmtsCompiled(SmallVec1<IrSpanned<StmtCompiled>>);
 
 impl StmtsCompiled {
     pub(crate) fn empty() -> StmtsCompiled {
-        StmtsCompiled(SmallVec1::Empty)
+        StmtsCompiled(SmallVec1::new())
     }
 
     pub(crate) fn one(stmt: IrSpanned<StmtCompiled>) -> StmtsCompiled {
@@ -193,12 +193,8 @@ impl StmtsCompiled {
 
     pub(crate) fn is_empty(&self) -> bool {
         match &self.0 {
-            SmallVec1::Empty => true,
             SmallVec1::One(_) => false,
-            SmallVec1::Many(stmts) => {
-                debug_assert!(stmts.len() > 1);
-                false
-            }
+            SmallVec1::Vec(stmts) => stmts.is_empty(),
         }
     }
 
@@ -229,9 +225,8 @@ impl StmtsCompiled {
     pub(crate) fn optimize(&self, ctx: &mut OptCtx) -> StmtsCompiled {
         let mut stmts = StmtsCompiled::empty();
         match &self.0 {
-            SmallVec1::Empty => {}
             SmallVec1::One(s) => stmts.extend(s.optimize(ctx)),
-            SmallVec1::Many(ss) => {
+            SmallVec1::Vec(ss) => {
                 for s in ss {
                     if stmts.is_terminal() {
                         break;
@@ -245,17 +240,15 @@ impl StmtsCompiled {
 
     pub(crate) fn first(&self) -> Option<&IrSpanned<StmtCompiled>> {
         match &self.0 {
-            SmallVec1::Empty => None,
             SmallVec1::One(s) => Some(s),
-            SmallVec1::Many(ss) => ss.first(),
+            SmallVec1::Vec(ss) => ss.first(),
         }
     }
 
     pub(crate) fn last(&self) -> Option<&IrSpanned<StmtCompiled>> {
         match &self.0 {
-            SmallVec1::Empty => None,
             SmallVec1::One(s) => Some(s),
-            SmallVec1::Many(ss) => ss.last(),
+            SmallVec1::Vec(ss) => ss.last(),
         }
     }
 

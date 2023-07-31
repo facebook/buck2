@@ -24,9 +24,8 @@ use std::slice;
 /// A small vector.
 #[derive(Clone)]
 pub(crate) enum SmallVec1<T> {
-    Empty,
     One(T),
-    Many(Vec<T>),
+    Vec(Vec<T>),
 }
 
 impl<T: Debug> Debug for SmallVec1<T> {
@@ -36,30 +35,33 @@ impl<T: Debug> Debug for SmallVec1<T> {
 }
 
 impl<T> SmallVec1<T> {
+    pub(crate) const fn new() -> SmallVec1<T> {
+        SmallVec1::Vec(Vec::new())
+    }
+
     pub(crate) fn as_slice(&self) -> &[T] {
         match self {
-            SmallVec1::Empty => &[],
             SmallVec1::One(x) => slice::from_ref(x),
-            SmallVec1::Many(xs) => xs,
+            SmallVec1::Vec(xs) => xs,
         }
     }
 
     pub(crate) fn extend(&mut self, that: SmallVec1<T>) {
-        *self = match (mem::replace(self, SmallVec1::Empty), that) {
-            (SmallVec1::Empty, right) => right,
-            (left, SmallVec1::Empty) => left,
-            (SmallVec1::One(left), SmallVec1::One(right)) => SmallVec1::Many(vec![left, right]),
-            (SmallVec1::One(left), SmallVec1::Many(mut right)) => {
+        *self = match (mem::replace(self, SmallVec1::Vec(Vec::new())), that) {
+            (SmallVec1::Vec(vec), right) if vec.is_empty() => right,
+            (left, SmallVec1::Vec(vec)) if vec.is_empty() => left,
+            (SmallVec1::One(left), SmallVec1::One(right)) => SmallVec1::Vec(vec![left, right]),
+            (SmallVec1::One(left), SmallVec1::Vec(mut right)) => {
                 right.insert(0, left);
-                SmallVec1::Many(right)
+                SmallVec1::Vec(right)
             }
-            (SmallVec1::Many(mut left), SmallVec1::One(right)) => {
+            (SmallVec1::Vec(mut left), SmallVec1::One(right)) => {
                 left.push(right);
-                SmallVec1::Many(left)
+                SmallVec1::Vec(left)
             }
-            (SmallVec1::Many(mut left), SmallVec1::Many(right)) => {
+            (SmallVec1::Vec(mut left), SmallVec1::Vec(right)) => {
                 left.extend(right);
-                SmallVec1::Many(left)
+                SmallVec1::Vec(left)
             }
         }
     }
