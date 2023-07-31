@@ -519,9 +519,58 @@ impl ManifoldClient {
 
         Ok(())
     }
+
+    pub fn start_chunked_upload<'a>(
+        &'a self,
+        bucket: Bucket,
+        path: &'a str,
+        ttl: Option<Duration>,
+    ) -> ManifoldChunkedUploader<'a> {
+        ManifoldChunkedUploader {
+            manifold: self,
+            position: 0,
+            bucket,
+            path,
+            ttl,
+        }
+    }
 }
 
 async fn consume_response<'a>(mut res: Response<BoxStream<'a, hyper::Result<Bytes>>>) {
     // HTTP/1: Allow reusing the connection by consuming entire response
     while let Some(_chunk) = res.body_mut().next().await {}
+}
+
+/// Keep track of a chunk upload to a given Manifold key.
+pub struct ManifoldChunkedUploader<'a> {
+    manifold: &'a ManifoldClient,
+    position: u64,
+    bucket: Bucket,
+    path: &'a str,
+    ttl: Option<Duration>,
+}
+
+impl<'a> ManifoldChunkedUploader<'a> {
+    pub async fn write(&mut self, chunk: Bytes) -> anyhow::Result<()> {
+        let len = u64::try_from(chunk.len())?;
+
+        if self.position == 0 {
+            // First chunk
+            self.manifold
+                .write(self.bucket, self.path, chunk, self.ttl)
+                .await?
+        } else {
+            self.manifold
+                .append(self.bucket, self.path, chunk, self.position)
+                .await?
+        }
+
+        self.position += len;
+
+        Ok(())
+    }
+
+    pub fn position(&self) -> u64 {
+        self.position
+    }
 }
