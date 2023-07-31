@@ -359,46 +359,41 @@ impl<'a> TypingOracleCtx<'a> {
             return true;
         }
 
-        let equal_names =
-            |x: &TyName, y: &TyName| x == y || self.subtype(x, y) || self.subtype(y, x);
-
-        let itered = |ty: &TyBasic| self.attribute(ty, TypingAttr::Iter)?.ok();
-
         for x in xs.iter_union() {
             for y in ys.iter_union() {
-                let b = match (x, y) {
-                    (TyBasic::Name(x), TyBasic::Name(y)) => equal_names(x, y),
-                    (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
-                    (TyBasic::Dict(x), TyBasic::Dict(y)) => {
-                        self.intersects(&x.0, &y.0) && self.intersects(&x.1, &y.1)
-                    }
-                    (TyBasic::Tuple(_), t) | (t, TyBasic::Tuple(_))
-                        if t.as_name() == Some("tuple") =>
-                    {
-                        true
-                    }
-                    (TyBasic::Tuple(xs), TyBasic::Tuple(ys)) if xs.len() == ys.len() => {
-                        std::iter::zip(xs, ys).all(|(x, y)| self.intersects(&x, y))
-                    }
-                    (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(&x, y),
-                    (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match itered(y) {
-                        Some(yy) => self.intersects(x, &yy),
-                        None => false,
-                    },
-                    (TyBasic::Custom(x), TyBasic::Custom(y)) => TyCustom::intersects(x, y),
-                    (x, y)
-                        if x.as_name() == Some("function") && y.as_name() == Some("function") =>
-                    {
-                        true
-                    }
-                    // There are lots of other cases that overlap, but add them as we need them
-                    (x, y) => x == y,
-                };
-                if b {
+                if self.intersects_basic(x, y) {
                     return true;
                 }
             }
         }
         false
+    }
+
+    fn intersects_basic(&self, x: &TyBasic, y: &TyBasic) -> bool {
+        let equal_names =
+            |x: &TyName, y: &TyName| x == y || self.subtype(x, y) || self.subtype(y, x);
+
+        let itered = |ty: &TyBasic| self.attribute(ty, TypingAttr::Iter)?.ok();
+
+        match (x, y) {
+            (TyBasic::Name(x), TyBasic::Name(y)) => equal_names(x, y),
+            (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
+            (TyBasic::Dict(x), TyBasic::Dict(y)) => {
+                self.intersects(&x.0, &y.0) && self.intersects(&x.1, &y.1)
+            }
+            (TyBasic::Tuple(_), t) | (t, TyBasic::Tuple(_)) if t.as_name() == Some("tuple") => true,
+            (TyBasic::Tuple(xs), TyBasic::Tuple(ys)) if xs.len() == ys.len() => {
+                std::iter::zip(xs, ys).all(|(x, y)| self.intersects(&x, y))
+            }
+            (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(&x, y),
+            (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match itered(y) {
+                Some(yy) => self.intersects(x, &yy),
+                None => false,
+            },
+            (TyBasic::Custom(x), TyBasic::Custom(y)) => TyCustom::intersects(x, y),
+            (x, y) if x.as_name() == Some("function") && y.as_name() == Some("function") => true,
+            // There are lots of other cases that overlap, but add them as we need them
+            (x, y) => x == y,
+        }
     }
 }
