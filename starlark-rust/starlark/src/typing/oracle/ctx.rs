@@ -23,6 +23,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::basic::TyBasic;
+use crate::typing::custom::TyCustom;
 use crate::typing::error::TypingError;
 use crate::typing::function::Arg;
 use crate::typing::function::Param;
@@ -133,7 +134,7 @@ impl<'a> TypingOracleCtx<'a> {
         require: &Ty,
         span: Span,
     ) -> Result<(), TypingError> {
-        if !got.intersects(require, *self) {
+        if !self.intersects(got, require) {
             Err(self.mk_error(
                 span,
                 TypingOracleCtxError::IncompatibleType {
@@ -342,5 +343,62 @@ impl<'a> TypingOracleCtx<'a> {
                 Err(self.mk_error(span, TypingOracleCtxError::CallArgumentsIncompatible))
             }
         }
+    }
+
+    /// Returns false on Void, since that is definitely not a list
+    pub(crate) fn probably_a_list(&self, ty: &Ty) -> bool {
+        if ty.is_never() {
+            return false;
+        }
+        self.intersects(ty, &Ty::list(Ty::any()))
+    }
+
+    /// If you get to a point where these types are being checked, might they succeed
+    pub(crate) fn intersects(&self, xs: &Ty, ys: &Ty) -> bool {
+        if xs.is_any() || xs.is_never() || ys.is_any() || ys.is_never() {
+            return true;
+        }
+
+        let equal_names =
+            |x: &TyName, y: &TyName| x == y || self.subtype(x, y) || self.subtype(y, x);
+
+        let itered = |ty: &TyBasic| self.attribute(ty, TypingAttr::Iter)?.ok();
+
+        for x in xs.iter_union() {
+            for y in ys.iter_union() {
+                let b = match (x, y) {
+                    (TyBasic::Name(x), TyBasic::Name(y)) => equal_names(x, y),
+                    (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
+                    (TyBasic::Dict(x), TyBasic::Dict(y)) => {
+                        self.intersects(&x.0, &y.0) && self.intersects(&x.1, &y.1)
+                    }
+                    (TyBasic::Tuple(_), t) | (t, TyBasic::Tuple(_))
+                        if t.as_name() == Some("tuple") =>
+                    {
+                        true
+                    }
+                    (TyBasic::Tuple(xs), TyBasic::Tuple(ys)) if xs.len() == ys.len() => {
+                        std::iter::zip(xs, ys).all(|(x, y)| self.intersects(&x, y))
+                    }
+                    (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(&x, y),
+                    (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match itered(y) {
+                        Some(yy) => self.intersects(x, &yy),
+                        None => false,
+                    },
+                    (TyBasic::Custom(x), TyBasic::Custom(y)) => TyCustom::intersects(x, y),
+                    (x, y)
+                        if x.as_name() == Some("function") && y.as_name() == Some("function") =>
+                    {
+                        true
+                    }
+                    // There are lots of other cases that overlap, but add them as we need them
+                    (x, y) => x == y,
+                };
+                if b {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }

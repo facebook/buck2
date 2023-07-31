@@ -48,10 +48,7 @@ use crate::typing::function::TyCustomFunction;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::function::TyFunction;
 use crate::typing::mode::TypecheckMode;
-use crate::typing::oracle::ctx::TypingOracleCtx;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::structs::TyStruct;
-use crate::typing::TypingOracle;
 use crate::values::bool::StarlarkBool;
 use crate::values::tuple::value::FrozenTuple;
 use crate::values::typing::never::TypingNever;
@@ -384,63 +381,6 @@ impl Ty {
     /// If I do `self[i]` what will the resulting type be.
     pub(crate) fn indexed(self, i: usize) -> Ty {
         Ty::unions(self.alternatives.into_map(|x| x.indexed(i)))
-    }
-
-    /// Returns false on Void, since that is definitely not a list
-    pub(crate) fn probably_a_list(&self, ctx: TypingOracleCtx) -> bool {
-        if self.is_never() {
-            return false;
-        }
-        self.intersects(&Self::list(Ty::any()), ctx)
-    }
-
-    /// If you get to a point where these types are being checked, might they succeed
-    pub(crate) fn intersects(&self, other: &Self, oracle: TypingOracleCtx) -> bool {
-        if self.is_any() || self.is_never() || other.is_any() || other.is_never() {
-            return true;
-        }
-
-        let equal_names =
-            |x: &TyName, y: &TyName| x == y || oracle.subtype(x, y) || oracle.subtype(y, x);
-
-        let itered = |ty: &TyBasic| oracle.attribute(ty, TypingAttr::Iter)?.ok();
-
-        for x in self.iter_union() {
-            for y in other.iter_union() {
-                let b = match (x, y) {
-                    (TyBasic::Name(x), TyBasic::Name(y)) => equal_names(x, y),
-                    (TyBasic::List(x), TyBasic::List(y)) => x.intersects(y, oracle),
-                    (TyBasic::Dict(x), TyBasic::Dict(y)) => {
-                        x.0.intersects(&y.0, oracle) && x.1.intersects(&y.1, oracle)
-                    }
-                    (TyBasic::Tuple(_), t) | (t, TyBasic::Tuple(_))
-                        if t.as_name() == Some("tuple") =>
-                    {
-                        true
-                    }
-                    (TyBasic::Tuple(xs), TyBasic::Tuple(ys)) if xs.len() == ys.len() => {
-                        std::iter::zip(xs, ys).all(|(x, y)| x.intersects(y, oracle))
-                    }
-                    (TyBasic::Iter(x), TyBasic::Iter(y)) => x.intersects(y, oracle),
-                    (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match itered(y) {
-                        Some(yy) => x.intersects(&yy, oracle),
-                        None => false,
-                    },
-                    (TyBasic::Custom(x), TyBasic::Custom(y)) => TyCustom::intersects(x, y),
-                    (x, y)
-                        if x.as_name() == Some("function") && y.as_name() == Some("function") =>
-                    {
-                        true
-                    }
-                    // There are lots of other cases that overlap, but add them as we need them
-                    (x, y) => x == y,
-                };
-                if b {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     pub(crate) fn from_type_expr_opt(
