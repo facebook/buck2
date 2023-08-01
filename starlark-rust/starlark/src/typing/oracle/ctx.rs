@@ -374,7 +374,10 @@ impl<'a> TypingOracleCtx<'a> {
     }
 
     fn intersects_basic(&self, x: &TyBasic, y: &TyBasic) -> bool {
-        let itered = |ty: &TyBasic| self.attribute(ty, TypingAttr::Iter)?.ok();
+        let itered = |ty: &TyBasic| match self.attribute(ty, TypingAttr::Iter) {
+            None => Some(Ty::any()),
+            Some(result) => result.ok(),
+        };
 
         match (x, y) {
             (TyBasic::Name(x), TyBasic::Name(y)) => self.intersects_name(x, y),

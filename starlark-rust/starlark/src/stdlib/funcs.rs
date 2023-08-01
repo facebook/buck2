@@ -757,7 +757,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// # starlark::assert::fail(r#"
     /// list("strings are not iterable") # error: not supported
-    /// # "#, r#"Expected type `iter(typing.Any)` but got `str`"#);
+    /// # "#, r#"Operation `(iter)` not supported on type `string`"#);
     /// ```
     #[starlark(
         as_type = FrozenList,

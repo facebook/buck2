@@ -423,11 +423,7 @@ accepts_iterable([1, ()])
 
     let mut a = Assert::new();
     a.globals_add(register_typecheck_globals);
-    // TODO(nga): this is a bug.
-    a.fail(
-        "accepts_iterable([1, ()])",
-        "Expected type `iter(typing.Any)` but got `list[int | ()]`",
-    );
+    a.pass("accepts_iterable([1, ()])");
 }
 
 #[test]
