@@ -192,6 +192,7 @@ impl StarlarkProvidersLabel {
     Freeze,
     ProvidesStaticType,
     Serialize,
+    StarlarkDocs,
     Allocative
 )]
 #[display(fmt = "{}", label)]

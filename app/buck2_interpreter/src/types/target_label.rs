@@ -18,6 +18,7 @@ use dupe::Dupe;
 use serde::Serialize;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
+use starlark::docs::StarlarkDocs;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -45,6 +46,7 @@ use crate::types::label_relative_path::LabelRelativePath;
     From,
     ProvidesStaticType,
     Serialize,
+    StarlarkDocs,
     Allocative
 )]
 #[serde(transparent)]
@@ -122,6 +124,7 @@ fn label_methods(builder: &mut MethodsBuilder) {
     From,
     ProvidesStaticType,
     Serialize,
+    StarlarkDocs,
     Allocative
 )]
 #[serde(transparent)]
