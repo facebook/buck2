@@ -117,6 +117,7 @@ pub(crate) fn register_base_natives(registry: &mut GlobalsBuilder) {
     native_module(registry);
     register_select(registry);
     register_sha256(registry);
+    register_dedupe(registry);
 }
 
 pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
@@ -143,9 +144,8 @@ pub fn configure_base_globals(
     configure_native_struct: impl FnOnce(&mut GlobalsBuilder),
 ) -> GlobalsBuilder {
     let starlark_extensions = starlark_library_extensions_for_buck2();
-    let mut global_env = GlobalsBuilder::extended_by(&starlark_extensions)
-        .with(register_base_natives)
-        .with(register_dedupe);
+    let mut global_env =
+        GlobalsBuilder::extended_by(starlark_extensions).with(register_base_natives);
     global_env.struct_("__internal__", |x| {
         register_base_natives(x);
         // If `native.` symbols need to be added to the global env, they should be done
