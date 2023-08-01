@@ -616,8 +616,11 @@ async fn user_prompt_select_log<'a>(
     logs: &'a [EventLogPathBuf],
 ) -> anyhow::Result<usize> {
     buck2_client_ctx::eprintln!("Which buck invocation would you like to report?\n")?;
-    let logs_summary =
-        futures::future::try_join_all(logs.iter().map(|log_path| log_path.get_summary())).await?;
+    let logs_summary = futures::future::join_all(
+        logs.iter()
+            .map(async move |log_path| log_path.get_summary().await.ok()),
+    )
+    .await;
     for (index, log_summary) in logs_summary.iter().enumerate() {
         print_log_summary(index, log_summary)?;
     }
@@ -628,10 +631,7 @@ async fn user_prompt_select_log<'a>(
     );
     let selection = get_user_selection(stdin, &prompt, |i| i < logs_summary.len()).await?;
 
-    let chosen_log = logs_summary.get(selection).expect("Selection out of range");
-
-    let timestamp: DateTime<Local> = chosen_log.timestamp.into();
-    buck2_client_ctx::eprintln!("Selected invocation at {}\n", timestamp.format("%c %Z"))?;
+    buck2_client_ctx::eprintln!("Selected invocation {}\n", selection)?;
     Ok(selection)
 }
 
@@ -654,16 +654,23 @@ where
     }
 }
 
-fn print_log_summary(index: usize, log_summary: &EventLogSummary) -> anyhow::Result<()> {
-    let cmd = build_info::format_cmd(&log_summary.invocation);
+fn print_log_summary(index: usize, log_summary: &Option<EventLogSummary>) -> anyhow::Result<()> {
+    if let Some(log_summary) = log_summary {
+        let cmd = build_info::format_cmd(&log_summary.invocation);
 
-    let timestamp: DateTime<Local> = log_summary.timestamp.into();
-    buck2_client_ctx::eprintln!(
-        "{:<7} {}    {}",
-        format!("[{}].", index),
-        timestamp.format("%c %Z"),
-        cmd
-    )
+        let timestamp: DateTime<Local> = log_summary.timestamp.into();
+        buck2_client_ctx::eprintln!(
+            "{:<7} {}    {}",
+            format!("[{}].", index),
+            timestamp.format("%c %Z"),
+            cmd
+        )
+    } else {
+        buck2_client_ctx::eprintln!(
+            "{:<7} <<Unable to display information>>",
+            format!("[{}].", index),
+        )
+    }
 }
 
 async fn output_rage(no_paste: bool, output: &str) -> anyhow::Result<()> {
