@@ -341,6 +341,8 @@ def rust_compile(
         predeclared_outputs: dict[Emit.type, "artifact"] = {},
         extra_flags: list[[str, "resolved_macro"]] = [],
         is_binary: bool = False) -> RustcOutput.type:
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+
     toolchain_info = compile_ctx.toolchain_info
 
     lints, clippy_lints = _lint_flags(compile_ctx)
@@ -361,7 +363,7 @@ def rust_compile(
         # Report unused --extern crates in the notification stream.
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         common_args.args,
-        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, "/=", ctx.label.package, "/", delimiter = ""),
+        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, "/=", cmd_args(ctx.label.path).replace_regex("\\\\", "/") if exec_is_windows else ctx.label.path, "/", delimiter = ""),
         compile_ctx.linker_args,
         extra_flags,
     )
