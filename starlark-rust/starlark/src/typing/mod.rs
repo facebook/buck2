@@ -58,5 +58,4 @@ pub use structs::TyStruct;
 pub use ty::Approximation;
 pub use ty::Ty;
 pub use ty::TyName;
-pub use ty::TyUnion;
 pub use typecheck::TypeMap;

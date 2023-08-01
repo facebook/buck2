@@ -138,24 +138,6 @@ impl TyName {
     }
 }
 
-/// A series of types that are unioned together.
-/// Must be at least two elements, all distinct elements, with no nested `Union` types directly inside it.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Allocative)]
-pub struct TyUnion(Vec<Ty>);
-
-impl Display for TyUnion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_container::fmt_container(f, "[", "]", &self.0)
-    }
-}
-
-impl TyUnion {
-    /// The alternatives within a union, will always be at least two elements.
-    pub fn alternatives(&self) -> &[Ty] {
-        &self.0
-    }
-}
-
 fn merge_adjacent<T>(xs: Vec<T>, f: impl Fn(T, T) -> Either<T, (T, T)>) -> SmallVec1<T> {
     let mut res = SmallVec1::new();
     let mut last = None;
