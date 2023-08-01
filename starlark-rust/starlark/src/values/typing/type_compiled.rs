@@ -92,7 +92,7 @@ trait TypeCompiledImpl: Allocative + Debug + Clone + Eq + Hash + Sized + Send + 
 trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
     fn as_ty_dyn(&self) -> &Ty;
     fn matches_dyn(&self, value: Value) -> bool;
-    fn is_wildcard_dyn(&self) -> bool;
+    fn is_runtime_wildcard_dyn(&self) -> bool;
     fn to_frozen_dyn(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue>;
     fn patch_ty_dyn<'v>(&self, ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>>;
 
@@ -112,7 +112,7 @@ where
     fn matches_dyn(&self, value: Value) -> bool {
         self.type_compiled_impl.matches(value)
     }
-    fn is_wildcard_dyn(&self) -> bool {
+    fn is_runtime_wildcard_dyn(&self) -> bool {
         self.type_compiled_impl.is_wildcard()
     }
     fn to_frozen_dyn(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
@@ -337,8 +337,10 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         self.downcast().unwrap().as_ty_dyn()
     }
 
-    pub(crate) fn type_is_wildcard(self) -> bool {
-        self.downcast().unwrap().is_wildcard_dyn()
+    /// True if `TypeCompiled` matches any type at runtime.
+    /// However, compile-time/lint typechecker may still check the type.
+    pub(crate) fn is_runtime_wildcard(self) -> bool {
+        self.downcast().unwrap().is_runtime_wildcard_dyn()
     }
 
     fn to_box_dyn(&self) -> TypeCompiledBox {
@@ -662,7 +664,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         t: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
-        if t.type_is_wildcard() {
+        if t.is_runtime_wildcard() {
             return TypeCompiled::type_list(heap);
         }
 
@@ -686,7 +688,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         t1: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
-        if t0.type_is_wildcard() || t1.type_is_wildcard() {
+        if t0.is_runtime_wildcard() || t1.is_runtime_wildcard() {
             let ts = Ty::union2(t0.as_ty().clone(), t1.as_ty().clone());
             return TypeCompiled::<Value>::type_anything().patch_ty(ts, heap);
         }
@@ -711,7 +713,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         ts: Vec<TypeCompiled<Value<'v>>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
-        if ts.iter().any(|t| t.type_is_wildcard()) {
+        if ts.iter().any(|t| t.is_runtime_wildcard()) {
             let ts = Ty::unions(ts.map(|t| t.as_ty().clone()));
             return TypeCompiled::<Value>::type_anything().patch_ty(ts, heap);
         } else if ts.len() == 1 {
@@ -742,7 +744,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         vt: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
-        if kt.type_is_wildcard() && vt.type_is_wildcard() {
+        if kt.is_runtime_wildcard() && vt.is_runtime_wildcard() {
             return TypeCompiled::type_dict(heap);
         }
 

@@ -82,7 +82,7 @@ impl<'v> Compiler<'v, '_, '_> {
                 )
             );
         };
-        if type_value.type_is_wildcard() {
+        if type_value.is_runtime_wildcard() {
             return None;
         }
         Some(IrSpanned {
