@@ -220,7 +220,7 @@ pub trait StarlarkValue<'v>:
     ///
     /// This can be only implemented by the [`#[starlark_value]`](crate::values::starlark_value)
     /// proc macro.
-    const TYPE: &'static str;
+    const TYPE: &'static str = panic!("This field is implemented by #[starlark_value] proc macro");
 
     /// Like [`TYPE`](Self::TYPE), but returns a reusable [`FrozenStringValue`]
     /// pointer to it. This function deliberately doesn't take a heap,
@@ -228,7 +228,9 @@ pub trait StarlarkValue<'v>:
     ///
     /// This can be only implemented by the [`#[starlark_value]`](crate::values::starlark_value)
     /// proc macro.
-    fn get_type_value_static() -> FrozenStringValue;
+    fn get_type_value_static() -> FrozenStringValue {
+        panic!("This function is implemented by #[starlark_value] proc macro")
+    }
 
     /// Return a string that is the representation of a type that a user would use in
     /// type annotations. This often will be the same as [`Self::TYPE`], but in
@@ -245,7 +247,9 @@ pub trait StarlarkValue<'v>:
     /// but use [`#[starlark_value]`](crate::values::starlark_value) proc macro.
     #[doc(hidden)]
     #[starlark_internal_vtable(skip)]
-    fn please_use_starlark_type_macro();
+    fn please_use_starlark_type_macro() {
+        panic!("This function is implemented by #[starlark_value] proc macro")
+    }
 
     /// Type is special in Starlark, it is implemented differently than user defined types.
     /// For example, some special types like `bool` cannon be heap allocated.
