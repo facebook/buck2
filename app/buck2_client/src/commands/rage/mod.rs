@@ -9,6 +9,7 @@
 
 mod build_info;
 mod dice;
+mod manifold;
 mod materializer;
 mod source_control;
 mod system_info;
@@ -50,11 +51,12 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::future::LocalBoxFuture;
+use manifold::file_to_manifold;
+use manifold::manifold_url;
 use maplit::convert_args;
 use maplit::hashmap;
 use serde::Serialize;
 use thiserror::Error;
-use tokio::fs::File;
 use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncWriteExt;
@@ -79,8 +81,6 @@ enum RageError {
     PastryOutputError,
     #[error("Pastry command failed with code '{0}' and error '{1}' ")]
     PastryCommandError(i32, String),
-    #[error("Failed to open file `{0}`")]
-    OpenFileError(String),
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -468,25 +468,9 @@ fn insert_if_some<D>(data: &mut HashMap<String, D>, key: &str, value: Option<D>)
 async fn upload_daemon_stderr(
     path: AbsNormPathBuf,
     manifold: &ManifoldClient,
-    manifold_id: &String,
+    manifold_id: &str,
 ) -> anyhow::Result<String> {
-    // can't use async_fs_util
-    // the trait to convert from tokio::fs::File is not implemented for Stdio
-    let mut upload_log_file = File::open(&path)
-        .await
-        .context(RageError::OpenFileError(path.display().to_string()))?;
-
-    let bucket = Bucket::RAGE_DUMPS;
-    let filename = format!("flat/{}.stderr", manifold_id);
-
-    manifold
-        .read_and_upload(bucket, &filename, Default::default(), &mut upload_log_file)
-        .await?;
-
-    Ok(format!(
-        "https://www.internalfb.com/manifold/explorer/{}/{}",
-        bucket.name, filename
-    ))
+    file_to_manifold(manifold, &path, format!("flat/{}.stderr", manifold_id)).await
 }
 
 async fn upload_event_logs(
@@ -494,16 +478,8 @@ async fn upload_event_logs(
     manifold: &ManifoldClient,
     manifold_id: &str,
 ) -> anyhow::Result<String> {
-    let bucket = Bucket::RAGE_DUMPS;
     let filename = format!("flat/{}-event_log{}", manifold_id, path.extension());
-    let mut file = File::open(path.path()).await?;
-    manifold
-        .read_and_upload(bucket, &filename, Default::default(), &mut file)
-        .await?;
-    Ok(format!(
-        "https://www.internalfb.com/manifold/explorer/{}/{}",
-        bucket.name, filename
-    ))
+    file_to_manifold(manifold, path.path(), filename).await
 }
 
 async fn upload_re_logs_impl(
@@ -516,10 +492,7 @@ async fn upload_re_logs_impl(
     upload_re_logs::upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename)
         .await?;
 
-    Ok(format!(
-        "https://www.internalfb.com/manifold/explorer/{}/{}",
-        bucket.name, filename
-    ))
+    Ok(manifold_url(&bucket, filename))
 }
 
 async fn dispatch_result_event(

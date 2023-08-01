@@ -7,14 +7,13 @@
  * of this source tree.
  */
 
-use std::io::Cursor;
-
 use anyhow::Context;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
-use buck2_client_ctx::manifold::Bucket;
 use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_common::result::SharedResult;
 use buck2_util::process::async_background_command;
+
+use crate::commands::rage::manifold::buf_to_manifold;
 
 pub async fn upload_thread_dump(
     buckd: &SharedResult<BuckdProcessInfo<'_>>,
@@ -38,21 +37,8 @@ pub async fn upload_thread_dump(
         .await?;
 
     if command.status.success() {
-        let manifold_bucket = Bucket::RAGE_DUMPS;
         let manifold_filename = format!("flat/{}_thread_dump", manifold_id);
-        manifold
-            .read_and_upload(
-                manifold_bucket,
-                &manifold_filename,
-                Default::default(),
-                &mut Cursor::new(&command.stdout),
-            )
-            .await?;
-
-        Ok(format!(
-            "https://www.internalfb.com/manifold/explorer/{}/{}",
-            manifold_bucket.name, manifold_filename
-        ))
+        buf_to_manifold(manifold, &command.stdout, manifold_filename).await
     } else {
         let stderr = &command.stderr;
         Ok(String::from_utf8_lossy(stderr).to_string())

@@ -22,6 +22,8 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_util::process::async_background_command;
 
+use crate::commands::rage::manifold::manifold_url;
+
 pub async fn upload_dice_dump(
     buckd: BootstrapBuckdClient,
     buck_out_dice: AbsNormPathBuf,
@@ -36,10 +38,7 @@ pub async fn upload_dice_dump(
         .upload(buckd, manifold, manifold_bucket, &manifold_filename)
         .await?;
 
-    Ok(format!(
-        "https://www.internalfb.com/manifold/explorer/{}/{}",
-        manifold_bucket.name, manifold_filename
-    ))
+    Ok(manifold_url(&manifold_bucket, manifold_filename))
 }
 
 struct DiceDump {
