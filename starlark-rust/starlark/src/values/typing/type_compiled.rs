@@ -664,8 +664,9 @@ impl<'v> TypeCompiled<Value<'v>> {
         t: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
+        let ty = Ty::list(t.as_ty().clone());
         if t.is_runtime_wildcard() {
-            return TypeCompiled::type_list(heap);
+            return TypeCompiled::<Value>::type_list(heap).patch_ty(ty, heap);
         }
 
         #[derive(Clone, Allocative, Eq, PartialEq, Hash, Debug, ProvidesStaticType)]
@@ -680,7 +681,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        Self::alloc(IsListOf(t.to_box_dyn()), Ty::list(t.as_ty().clone()), heap)
+        Self::alloc(IsListOf(t.to_box_dyn()), ty, heap)
     }
 
     pub(crate) fn type_any_of_two(
@@ -744,8 +745,9 @@ impl<'v> TypeCompiled<Value<'v>> {
         vt: TypeCompiled<Value<'v>>,
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
+        let ty = Ty::dict(kt.as_ty().clone(), vt.as_ty().clone());
         if kt.is_runtime_wildcard() && vt.is_runtime_wildcard() {
-            return TypeCompiled::type_dict(heap);
+            return TypeCompiled::<Value>::type_dict(heap).patch_ty(ty, heap);
         }
 
         #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
@@ -762,11 +764,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        Self::alloc(
-            IsDictOf(kt.to_box_dyn(), vt.to_box_dyn()),
-            Ty::dict(kt.as_ty().clone(), vt.as_ty().clone()),
-            heap,
-        )
+        Self::alloc(IsDictOf(kt.to_box_dyn(), vt.to_box_dyn()), ty, heap)
     }
 
     pub(crate) fn type_tuple_of(
