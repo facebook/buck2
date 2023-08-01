@@ -19,8 +19,12 @@ use std::collections::HashMap;
 use std::fmt::Write;
 
 use once_cell::sync::Lazy;
+use starlark_derive::starlark_module;
 
+use crate as starlark;
+use crate::assert::Assert;
 use crate::environment::Globals;
+use crate::environment::GlobalsBuilder;
 use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
@@ -35,6 +39,10 @@ use crate::typing::OracleDocs;
 use crate::typing::OracleStandard;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
+use crate::values::none::NoneType;
+use crate::values::StarlarkIter;
+use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 
 fn mk_oracle() -> impl TypingOracle {
     static ORACLE: Lazy<OracleSeq<Box<dyn TypingOracle + Send + Sync + 'static>>> =
@@ -97,6 +105,16 @@ struct TypeCheck {
     loads: HashMap<String, Interface>,
 }
 
+#[starlark_module]
+fn register_typecheck_globals(globals: &mut GlobalsBuilder) {
+    fn accepts_iterable<'v>(
+        #[starlark(require = pos)] xs: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
+    ) -> anyhow::Result<NoneType> {
+        let _ = xs;
+        Ok(NoneType)
+    }
+}
+
 impl TypeCheck {
     fn new() -> Self {
         Self::default()
@@ -113,10 +131,13 @@ impl TypeCheck {
     }
 
     fn check(&self, test_name: &str, code: &str) -> Interface {
+        let globals = GlobalsBuilder::extended()
+            .with(register_typecheck_globals)
+            .build();
         let (errors, _, interface, approximations) =
             AstModule::parse("filename", code.to_owned(), &Dialect::Extended)
                 .unwrap()
-                .typecheck(&mk_oracle(), &Globals::extended_internal(), &self.loads);
+                .typecheck(&mk_oracle(), &globals, &self.loads);
 
         let mut output = String::new();
         writeln!(output, "Code:").unwrap();
@@ -388,6 +409,24 @@ fn test_list_append_bug() {
 x = []
 x.append(x)
 "#,
+    );
+}
+
+#[test]
+fn test_accepts_iterable() {
+    TypeCheck::new().check(
+        "accepts_iterable",
+        r#"
+accepts_iterable([1, ()])
+"#,
+    );
+
+    let mut a = Assert::new();
+    a.globals_add(register_typecheck_globals);
+    // TODO(nga): this is a bug.
+    a.fail(
+        "accepts_iterable([1, ()])",
+        "Expected type `iter(typing.Any)` but got `list[int | ()]`",
     );
 }
 
