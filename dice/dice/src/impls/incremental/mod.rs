@@ -219,13 +219,11 @@ impl IncrementalEngine {
                             .await
                     }
                     DidDepsChange::NoChange => {
-                        report_key_activation(
-                            &eval.dice.key_index,
-                            eval.user_data.activation_tracker.as_deref(),
-                            k,
-                            mismatch.deps_to_validate.iter().copied(),
-                            ActivationData::Reused,
-                        );
+                        let activation_deps = mismatch
+                            .deps_to_validate
+                            .iter()
+                            .copied()
+                            .collect::<Vec<_>>();
 
                         let task_state = task_state.deps_match()?;
 
@@ -239,7 +237,17 @@ impl IncrementalEngine {
                             resp: tx,
                         });
 
-                        rx.await.unwrap().map(|r| task_state.cached(r))
+                        rx.await.unwrap().map(|r| {
+                            report_key_activation(
+                                &eval.dice.key_index,
+                                eval.user_data.activation_tracker.as_deref(),
+                                k,
+                                activation_deps.into_iter(),
+                                ActivationData::Reused,
+                            );
+
+                            task_state.cached(r)
+                        })
                     }
                 }
             }
@@ -266,15 +274,10 @@ impl IncrementalEngine {
         let eval_result_state = eval.evaluate(k, task_state).await?;
         let eval_result = eval_result_state.result;
 
-        let res = {
-            report_key_activation(
-                &eval.dice.key_index,
-                eval.user_data.activation_tracker.as_deref(),
-                k,
-                eval_result.deps.iter().copied(),
-                eval_result.evaluation_data.into_activation_data(),
-            );
+        let activation_deps = eval_result.deps.iter().copied().collect::<Vec<_>>();
+        let activation_data = eval_result.evaluation_data.into_activation_data();
 
+        let res = {
             match eval_result.value.into_valid_value() {
                 Ok(value) => {
                     let (tx, rx) = oneshot::channel();
@@ -296,7 +299,17 @@ impl IncrementalEngine {
             }
         };
 
-        res.map(|res| eval_result_state.state.cached(res))
+        res.map(|res| {
+            report_key_activation(
+                &eval.dice.key_index,
+                eval.user_data.activation_tracker.as_deref(),
+                k,
+                activation_deps.into_iter(),
+                activation_data,
+            );
+
+            eval_result_state.state.cached(res)
+        })
     }
 
     /// determines if the given 'Dependency' has changed between versions 'last_version' and
