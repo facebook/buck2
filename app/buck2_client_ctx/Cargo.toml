@@ -19,6 +19,7 @@ derive_more = { workspace = true }
 fs4 = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
+regex = { workspace = true }
 httparse = { workspace = true }
 hyper = { workspace = true }
 itertools = { workspace = true }

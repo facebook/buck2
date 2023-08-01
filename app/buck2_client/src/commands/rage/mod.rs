@@ -722,7 +722,7 @@ async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
 async fn get_trace_id(invocation: &Option<EventLogPathBuf>) -> anyhow::Result<Option<TraceId>> {
     let invocation_id = match invocation {
         None => None,
-        Some(invocation) => Some(invocation.get_summary().await?.trace_id),
+        Some(invocation) => Some(invocation.uuid_from_filename()?),
     };
     Ok(invocation_id)
 }

@@ -102,6 +102,9 @@ pub(crate) enum EventLogInferenceError {
         .0.display(), display_valid_extensions()
     )]
     InvalidExtension(AbsPathBuf),
+
+    #[error("Event log at path {} has no uuid in its filename", .0.display())]
+    NoUuidInFilename(AbsPathBuf),
 }
 
 fn display_valid_extensions() -> String {

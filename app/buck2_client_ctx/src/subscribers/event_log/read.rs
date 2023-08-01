@@ -9,6 +9,7 @@
 
 use std::io;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::task::Context;
@@ -31,6 +32,7 @@ use futures::stream::TryStreamExt;
 use futures::StreamExt;
 use pin_project::pin_project;
 use prost::Message;
+use regex::Regex;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncRead;
 use tokio::io::BufReader;
@@ -136,12 +138,29 @@ impl EventLogPathBuf {
         &self.path
     }
 
-    pub(crate) fn infer_opt(path: AbsPathBuf) -> anyhow::Result<Result<Self, NoInference>> {
+    fn file_name(path: &AbsPathBuf) -> Result<&str, anyhow::Error> {
         let name = path
             .file_name()
             .with_context(|| EventLogInferenceError::NoFilename(path.clone()))?
             .to_str()
             .with_context(|| EventLogInferenceError::InvalidFilename(path.clone()))?;
+        Ok(name)
+    }
+
+    pub fn uuid_from_filename(&self) -> anyhow::Result<TraceId> {
+        let name = Self::file_name(&self.path)?;
+        let re = Regex::new(
+            r"([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})",
+        )?;
+        let uuid = re
+            .find(name)
+            .ok_or(EventLogInferenceError::NoUuidInFilename(self.path.clone()))?
+            .as_str();
+        TraceId::from_str(uuid).context("Failed to create TraceId from uuid")
+    }
+
+    pub(crate) fn infer_opt(path: AbsPathBuf) -> anyhow::Result<Result<Self, NoInference>> {
+        let name = Self::file_name(&path)?;
 
         for encoding in KNOWN_ENCODINGS {
             for extension in encoding.extensions {
@@ -318,5 +337,63 @@ impl EventLogPathBuf {
 
     pub fn extension(&self) -> &str {
         self.encoding.extensions[0]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_data::CommandStart;
+    use buck2_data::SpanStartEvent;
+    use buck2_events::span::SpanId;
+
+    use super::*;
+    use crate::subscribers::event_log::file_names::get_logfile_name;
+
+    #[test]
+    fn test_get_uuid_from_logfile_name() -> anyhow::Result<()> {
+        // Create a test log path.
+        let event = buck_event()?;
+        let file_name = &get_logfile_name(&event, Encoding::PROTO_ZSTD, "bzl")?;
+        let path = EventLogPathBuf {
+            path: logdir().as_abs_path().join(file_name),
+            encoding: Encoding::PROTO_ZSTD,
+        };
+
+        // Check we can extract UUID from log path.
+        let uuid = path.uuid_from_filename().unwrap();
+        assert_eq!(&uuid.to_string(), "7b797fa8-62f1-4123-85f9-875cd74b0a63");
+
+        Ok(())
+    }
+
+    fn buck_event() -> Result<BuckEvent, anyhow::Error> {
+        let event = BuckEvent::new(
+            SystemTime::now(),
+            TraceId::from_str("7b797fa8-62f1-4123-85f9-875cd74b0a63")?,
+            Some(SpanId::new()),
+            Some(SpanId::new()),
+            SpanStartEvent {
+                data: Some(
+                    CommandStart {
+                        data: None,
+                        metadata: HashMap::new(),
+                    }
+                    .into(),
+                ),
+            }
+            .into(),
+        );
+        Ok(event)
+    }
+
+    fn logdir() -> AbsNormPathBuf {
+        if cfg!(windows) {
+            AbsNormPathBuf::new("C:\\foo".into()).unwrap()
+        } else {
+            AbsNormPathBuf::new("/foo".into()).unwrap()
+        }
     }
 }
