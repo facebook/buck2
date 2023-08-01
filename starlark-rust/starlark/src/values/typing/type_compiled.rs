@@ -820,22 +820,15 @@ impl<'v> TypeCompiled<Value<'v>> {
 
     /// Parse `[t1, t2, ...]` as type.
     fn from_list(t: &ListRef<'v>, heap: &'v Heap) -> anyhow::Result<TypeCompiled<Value<'v>>> {
-        match t.len() {
-            0 => Err(TypingError::InvalidTypeAnnotation(t.to_string()).into()),
-            1 => {
-                // Must be a list with all elements of this type
-                let t = *t.first().unwrap();
-                if TypeCompiled::is_wildcard_value(t) {
-                    // Any type - so avoid the inner iteration
-                    Ok(TypeCompiled::type_list(heap))
-                } else {
-                    let t = TypeCompiled::new(t, heap)?;
-                    Ok(TypeCompiled::type_list_of(t, heap))
-                }
+        match t.content() {
+            [] => Err(TypingError::InvalidTypeAnnotation(t.to_string()).into()),
+            [t] => {
+                let t = TypeCompiled::new(*t, heap)?;
+                Ok(TypeCompiled::type_list_of(t, heap))
             }
-            _ => {
+            ts => {
                 // A union type, can match any
-                let ts = t[..].try_map(|t| TypeCompiled::new(*t, heap))?;
+                let ts = ts.try_map(|t| TypeCompiled::new(*t, heap))?;
                 Ok(TypeCompiled::type_any_of(ts, heap))
             }
         }
