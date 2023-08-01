@@ -421,7 +421,7 @@ impl Ty {
                 Self::from_type_expr_for_lint(x, codemap, approximations)
             }
             TypecheckMode::Compiler => match x.payload {
-                Some(ty) => Ok(ty.as_ty()),
+                Some(ty) => Ok(ty.as_ty().clone()),
                 None => Err(InternalError::msg(
                     "type payload is not populated",
                     x.span,
@@ -482,7 +482,7 @@ impl Ty {
                     if let Some(v) = ident_global(first) {
                         let heap = Heap::new();
                         match TypeCompiled::new(v.to_value(), &heap) {
-                            Ok(ty) => ty.as_ty(),
+                            Ok(ty) => ty.as_ty().clone(),
                             Err(_) => unknown(),
                         }
                     } else {
@@ -513,7 +513,7 @@ impl Ty {
                     let i = TypeCompiled::from_ty(&i, &heap);
                     match a.to_value().get_ref().at(i.to_inner(), &heap) {
                         Ok(t) => match TypeCompiled::new(t, &heap) {
-                            Ok(ty) => ty.as_ty(),
+                            Ok(ty) => ty.as_ty().clone(),
                             Err(_) => {
                                 approximations
                                     .push(Approximation::new("TypeCompiled::new failed", x));
@@ -547,7 +547,7 @@ impl Ty {
                         .at2(i0.to_inner(), i1.to_inner(), &heap)
                     {
                         Ok(t) => match TypeCompiled::new(t, &heap) {
-                            Ok(ty) => ty.as_ty(),
+                            Ok(ty) => ty.as_ty().clone(),
                             Err(_) => {
                                 approximations
                                     .push(Approximation::new("TypeCompiled::new failed", x));

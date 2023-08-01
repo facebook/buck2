@@ -90,7 +90,7 @@ trait TypeCompiledImpl: Allocative + Debug + Clone + Eq + Hash + Sized + Send + 
 }
 
 trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
-    fn as_ty_dyn(&self) -> Ty;
+    fn as_ty_dyn(&self) -> &Ty;
     fn matches_dyn(&self, value: Value) -> bool;
     fn is_wildcard_dyn(&self) -> bool;
     fn to_frozen_dyn(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue>;
@@ -106,8 +106,8 @@ impl<T> TypeCompiledDyn for TypeCompiledImplAsStarlarkValue<T>
 where
     T: TypeCompiledImpl,
 {
-    fn as_ty_dyn(&self) -> Ty {
-        self.ty.clone()
+    fn as_ty_dyn(&self) -> &Ty {
+        &self.ty
     }
     fn matches_dyn(&self, value: Value) -> bool {
         self.type_compiled_impl.matches(value)
@@ -333,7 +333,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         self.0.to_value().get_ref().type_matches_value(value)
     }
 
-    pub(crate) fn as_ty(&self) -> Ty {
+    pub(crate) fn as_ty(&self) -> &'v Ty {
         self.downcast().unwrap().as_ty_dyn()
     }
 
@@ -572,7 +572,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
     /// Replace `ty` field, keep the matcher.
     fn patch_ty(self, ty: Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        if self.as_ty() == ty {
+        if self.as_ty() == &ty {
             // Optimization, semantically identical to the branch below.
             self.to_value()
         } else {
@@ -678,7 +678,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        Self::alloc(IsListOf(t.to_box_dyn()), Ty::list(t.as_ty()), heap)
+        Self::alloc(IsListOf(t.to_box_dyn()), Ty::list(t.as_ty().clone()), heap)
     }
 
     pub(crate) fn type_any_of_two(
@@ -701,7 +701,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
         Self::alloc(
             IsAnyOfTwo(t0.to_box_dyn(), t1.to_box_dyn()),
-            Ty::union2(t0.as_ty(), t1.as_ty()),
+            Ty::union2(t0.as_ty().clone(), t1.as_ty().clone()),
             heap,
         )
     }
@@ -731,7 +731,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        let ty = Ty::unions(ts.map(|t| t.as_ty()));
+        let ty = Ty::unions(ts.map(|t| t.as_ty().clone()));
         Self::alloc(IsAnyOf(ts.into_map(|t| t.to_box_dyn())), ty, heap)
     }
 
@@ -760,7 +760,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
         Self::alloc(
             IsDictOf(kt.to_box_dyn(), vt.to_box_dyn()),
-            Ty::dict(kt.as_ty(), vt.as_ty()),
+            Ty::dict(kt.as_ty().clone(), vt.as_ty().clone()),
             heap,
         )
     }
@@ -783,7 +783,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             }
         }
 
-        let ty = Ty::tuple(ts.map(|t| t.as_ty()));
+        let ty = Ty::tuple(ts.map(|t| t.as_ty().clone()));
         Self::alloc(IsTupleOf(ts.into_map(|t| t.to_box_dyn())), ty, heap)
     }
 
