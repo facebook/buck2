@@ -10,7 +10,7 @@
 use buck2_interpreter::bxl::BXL_SPECIFIC_GLOBALS;
 use buck2_interpreter::functions::more::MORE_FUNCTIONS;
 use buck2_interpreter::functions::transition::REGISTER_TRANSITION;
-use buck2_interpreter::types::configured_providers_label::register_configured_providers_label;
+use buck2_interpreter::types::configured_providers_label::register_providers_label;
 use buck2_interpreter::types::target_label::register_target_label;
 use starlark::environment::GlobalsBuilder;
 
@@ -80,7 +80,7 @@ pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
         .unwrap()
         .register_command_executor_config)(globals_builder);
     register_package_natives(globals_builder);
-    register_configured_providers_label(globals_builder);
+    register_providers_label(globals_builder);
     register_target_label(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_analysis_context)(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_dependency)(globals_builder);

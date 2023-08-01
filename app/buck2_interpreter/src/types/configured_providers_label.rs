@@ -277,8 +277,9 @@ fn label_methods(builder: &mut MethodsBuilder) {
 }
 
 #[starlark_module]
-pub fn register_configured_providers_label(globals: &mut GlobalsBuilder) {
+pub fn register_providers_label(globals: &mut GlobalsBuilder) {
     const Label: StarlarkValueAsType<StarlarkConfiguredProvidersLabel> = StarlarkValueAsType::new();
+    const ProvidersLabel: StarlarkValueAsType<StarlarkProvidersLabel> = StarlarkValueAsType::new();
 }
 
 #[cfg(test)]
