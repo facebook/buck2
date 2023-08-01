@@ -31,6 +31,7 @@ load(
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "expect", "flatten", "from_named_set")
 load(":compile.bzl", "PycInvalidationMode", "compile_manifests")
 load(
@@ -105,7 +106,7 @@ def create_python_library_info(
         src_types: [ManifestInfo.type, None] = None,
         bytecode: [dict[PycInvalidationMode.type, ManifestInfo.type], None] = None,
         dep_manifest: [ManifestInfo.type, None] = None,
-        resources: [(ManifestInfo.type, list["_arglike"]), None] = None,
+        resources: [(ManifestInfo.type, list[ArgLike]), None] = None,
         extensions: [dict[str, LinkedObject.type], None] = None,
         deps: list["PythonLibraryInfo"] = [],
         shared_libraries: list["SharedLibraryInfo"] = []):
@@ -205,7 +206,7 @@ def _attr_resources(ctx: AnalysisContext) -> dict[str, [Dependency, "artifact"]]
         all_resources.update(from_named_set(resources))
     return all_resources
 
-def py_attr_resources(ctx: AnalysisContext) -> dict[str, ("artifact", list["_arglike"])]:
+def py_attr_resources(ctx: AnalysisContext) -> dict[str, ("artifact", list[ArgLike])]:
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
@@ -215,7 +216,7 @@ def py_attr_resources(ctx: AnalysisContext) -> dict[str, ("artifact", list["_arg
 
 def py_resources(
         ctx: AnalysisContext,
-        resources: dict[str, ("artifact", list["_arglike"])]) -> (ManifestInfo.type, list["_arglike"]):
+        resources: dict[str, ("artifact", list[ArgLike])]) -> (ManifestInfo.type, list[ArgLike]):
     """
     Generate a manifest to wrap this rules resources.
     """

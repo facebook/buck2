@@ -17,6 +17,7 @@ load(
     "unpack_link_args_filelist",
 )
 load("@prelude//linking:lto.bzl", "LtoMode")
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def generates_split_debug(ctx: AnalysisContext):
@@ -60,7 +61,7 @@ def make_link_args(
         suffix = None,
         output_short_path: [str, None] = None,
         is_shared: [bool, None] = None,
-        link_ordering: ["LinkOrdering", None] = None) -> ("_arglike", list["_hidden"], ["artifact", None]):
+        link_ordering: ["LinkOrdering", None] = None) -> (ArgLike, list["_hidden"], ["artifact", None]):
     """
     Merges LinkArgs. Returns the args, files that must be present for those
     args to work when passed to a linker, and optionally an artifact where DWO
@@ -132,7 +133,7 @@ def executable_shared_lib_arguments(
         actions: "actions",
         cxx_toolchain: CxxToolchainInfo.type,
         output: "artifact",
-        shared_libs: dict[str, "LinkedObject"]) -> (list[""], list["_arglike"], ["artifact", None]):
+        shared_libs: dict[str, "LinkedObject"]) -> (list[""], list[ArgLike], ["artifact", None]):
     extra_args = []
     runtime_files = []
     shared_libs_symlink_tree = None

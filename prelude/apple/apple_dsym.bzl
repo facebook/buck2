@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(
     ":debug.bzl",
@@ -23,7 +24,7 @@ def get_apple_dsym(ctx: AnalysisContext, executable: "artifact", debug_info: lis
 # - pass in dsymutil_extra_flags
 # - oso_prefix
 # - dsym_verification
-def get_apple_dsym_ext(ctx: AnalysisContext, executable: ["_arglike", "artifact"], debug_info: list[AppleDebugInfo], action_identifier: str, output_path: str) -> "artifact":
+def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, "artifact"], debug_info: list[AppleDebugInfo], action_identifier: str, output_path: str) -> "artifact":
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output(output_path, dir = True)
 

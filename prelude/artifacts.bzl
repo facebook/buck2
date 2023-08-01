@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(
     "@prelude//utils:utils.bzl",
     "expect",
@@ -18,7 +19,7 @@ ArtifactGroupInfo = provider(
     ],
 )
 
-def _from_default_info(dep: Dependency) -> ("artifact", list["_arglike"]):
+def _from_default_info(dep: Dependency) -> ("artifact", list[ArgLike]):
     info = dep[DefaultInfo]
     expect(
         len(info.default_outputs) == 1,
@@ -27,7 +28,7 @@ def _from_default_info(dep: Dependency) -> ("artifact", list["_arglike"]):
     )
     return (info.default_outputs[0], info.other_outputs)
 
-def unpack_artifacts(artifacts: list[["artifact", Dependency]]) -> list[("artifact", list["_arglike"])]:
+def unpack_artifacts(artifacts: list[["artifact", Dependency]]) -> list[("artifact", list[ArgLike])]:
     """
     Unpack a list of `artifact` and `ArtifactGroupInfo` into a flattened list
     of `artifact`s
@@ -53,7 +54,7 @@ def unpack_artifacts(artifacts: list[["artifact", Dependency]]) -> list[("artifa
 
     return out
 
-def unpack_artifact_map(artifacts: dict[str, ["artifact", Dependency]]) -> dict[str, ("artifact", list["_arglike"])]:
+def unpack_artifact_map(artifacts: dict[str, ["artifact", Dependency]]) -> dict[str, ("artifact", list[ArgLike])]:
     """
     Unpack a list of `artifact` and `ArtifactGroupInfo` into a flattened list
     of `artifact`s

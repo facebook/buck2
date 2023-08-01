@@ -67,6 +67,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(
     "@prelude//utils:utils.bzl",
     "flatten_dict",
@@ -144,7 +145,7 @@ CxxExecutableOutput = record(
     dwp = field(["artifact", None]),
     # Files that will likely need to be included as .hidden() arguments
     # when executing the executable (ex. RunInfo())
-    runtime_files = ["_arglike"],
+    runtime_files = [ArgLike],
     sub_targets = {str: [DefaultInfo.type]},
     # The LinkArgs used to create the final executable in 'binary'.
     link_args = [LinkArgs.type],
@@ -600,7 +601,7 @@ _CxxLinkExecutableResult = record(
     # The resulting executable
     exe = LinkedObject.type,
     # List of files/directories that should be present for executable to be run successfully
-    runtime_files = ["_arglike"],
+    runtime_files = [ArgLike],
     # Optional shared libs symlink tree symlinked_dir action
     shared_libs_symlink_tree = ["artifact", None],
     linker_map_data = [CxxLinkerMapData.type, None],

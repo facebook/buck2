@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//utils:arglike.bzl", "ArgLike")
 
 def command_alias_impl(ctx):
     target_is_windows = ctx.attrs._target_os_type[OsLookup].platform == "windows"
@@ -189,12 +190,12 @@ def _relativize_path_windows(
 
     return trampoline
 
-def _add_platform_case_to_trampoline_args(trampoline_args: cmd_args, platform_name: str, base: RunInfo.type, args: list["_arglike"]):
+def _add_platform_case_to_trampoline_args(trampoline_args: cmd_args, platform_name: str, base: RunInfo.type, args: list[ArgLike]):
     trampoline_args.add("    {})".format(platform_name))
     _add_args_declaration_to_trampoline_args(trampoline_args, base, args)
     trampoline_args.add("        ;;")
 
-def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo.type, args: list["_arglike"]):
+def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo.type, args: list[ArgLike]):
     trampoline_args.add("ARGS=(")
 
     # FIXME (T111687922): We cannot preserve BUCK_COMMAND_ALIAS_ABSOLUTE *and*
