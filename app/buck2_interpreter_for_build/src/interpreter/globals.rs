@@ -41,6 +41,7 @@ fn register_universal_natives(builder: &mut GlobalsBuilder) {
     register_read_config(builder);
     register_read_package_value(builder);
     register_soft_error(builder);
+    register_package_natives(builder);
 }
 
 /// Globals for `BUCK` files.
@@ -51,7 +52,6 @@ pub fn configure_build_file_globals(globals_builder: &mut GlobalsBuilder) {
 /// Globals for `PACKAGE` files.
 pub fn configure_package_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_universal_natives(globals_builder);
-    register_package_natives(globals_builder);
 }
 
 /// Globals for `.bxl` files.
