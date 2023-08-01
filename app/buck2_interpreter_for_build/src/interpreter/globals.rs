@@ -42,6 +42,7 @@ fn register_universal_natives(builder: &mut GlobalsBuilder) {
     register_read_package_value(builder);
     register_soft_error(builder);
     register_package_natives(builder);
+    (MORE_FUNCTIONS.get().unwrap().register_cmd_args)(builder);
 }
 
 /// Globals for `BUCK` files.
@@ -58,7 +59,6 @@ pub fn configure_package_file_globals(globals_builder: &mut GlobalsBuilder) {
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_universal_natives(globals_builder);
     register_base_natives(globals_builder);
-    (MORE_FUNCTIONS.get().unwrap().register_cmd_args)(globals_builder);
     (BXL_SPECIFIC_GLOBALS.get().unwrap())(globals_builder);
     register_read_config(globals_builder);
     register_host_info(globals_builder);
@@ -68,7 +68,6 @@ pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
 /// Globals for `.bzl` files.
 pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_universal_natives(globals_builder);
-    (MORE_FUNCTIONS.get().unwrap().register_cmd_args)(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_rule_defs)(globals_builder);
     register_warning(globals_builder);
     register_regex(globals_builder);
