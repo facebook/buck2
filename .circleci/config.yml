@@ -82,8 +82,11 @@ commands:
             $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Llvm.Clang -property installationPath
             $llvmPath = Join-Path $vsPath "VC\Tools\Llvm\x64\bin"
             $env:PATH = "$env:USERPROFILE\.cargo\bin;$llvmPath;" + $env:PATH
+            $env:TEMP = "$env:USERPROFILE\temp"
+            $env:TMP = $env:TEMP
             '@
             Add-Content "$PsHome\profile.ps1" $psProfileContent
+            New-Item -ItemType Directory -Path "$env:USERPROFILE\temp"
       - print_versions
 
   setup_reindeer:
