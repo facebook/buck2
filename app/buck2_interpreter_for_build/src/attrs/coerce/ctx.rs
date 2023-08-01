@@ -166,7 +166,7 @@ impl BuildAttrCoercionContext {
 }
 
 impl AttrCoercionContext for BuildAttrCoercionContext {
-    fn coerce_label(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
+    fn coerce_providers_label(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
         let hash = str_hash(value);
         let mut label_cache = self.label_cache.borrow_mut();
 

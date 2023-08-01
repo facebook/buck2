@@ -29,7 +29,7 @@ impl AttrTypeCoerce for LabelAttrType {
             .unpack_str()
             .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
 
-        let label = ctx.coerce_label(label)?;
+        let label = ctx.coerce_providers_label(label)?;
 
         Ok(CoercedAttr::Label(label))
     }

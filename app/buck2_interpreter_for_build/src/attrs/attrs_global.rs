@@ -127,7 +127,8 @@ pub(crate) fn get_attr_coercion_context<'v>(
 }
 
 pub(crate) fn init_coerce_target_label() {
-    COERCE_TARGET_LABEL.init(|eval, value| get_attr_coercion_context(eval)?.coerce_target(value))
+    COERCE_TARGET_LABEL
+        .init(|eval, value| get_attr_coercion_context(eval)?.coerce_target_label(value))
 }
 
 #[derive(Debug, thiserror::Error)]

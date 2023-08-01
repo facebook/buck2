@@ -31,8 +31,8 @@ enum AttrCoercionContextError {
 /// The context for attribute coercion. Mostly just contains information about
 /// the current package (to support things like parsing targets from strings).
 pub trait AttrCoercionContext {
-    fn coerce_target(&self, value: &str) -> anyhow::Result<TargetLabel> {
-        let label = self.coerce_label(value)?;
+    fn coerce_target_label(&self, value: &str) -> anyhow::Result<TargetLabel> {
+        let label = self.coerce_providers_label(value)?;
         if let ProvidersName::NonDefault(box NonDefaultProvidersName::Named(_)) = label.name() {
             return Err(AttrCoercionContextError::UnexpectedProvidersName(value.to_owned()).into());
         }
@@ -40,7 +40,7 @@ pub trait AttrCoercionContext {
     }
 
     /// Attempt to convert a string into a label
-    fn coerce_label(&self, value: &str) -> anyhow::Result<ProvidersLabel>;
+    fn coerce_providers_label(&self, value: &str) -> anyhow::Result<ProvidersLabel>;
 
     /// Reuse previously allocated string if possible.
     fn intern_str(&self, value: &str) -> ArcStr;

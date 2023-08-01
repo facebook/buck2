@@ -128,7 +128,7 @@ fn get_single_target_arg(
             args
         )));
     }
-    ctx.coerce_label(&args[0])
+    ctx.coerce_providers_label(&args[0])
 }
 
 pub trait UnconfiguredMacroExt {
@@ -165,7 +165,7 @@ pub trait UnconfiguredMacroExt {
         };
         Ok(UnconfiguredMacro::UserKeyedPlaceholder(Box::new((
             var_name.into_boxed_str(),
-            ctx.coerce_label(&args[0])?,
+            ctx.coerce_providers_label(&args[0])?,
             arg.map(|a| a.into_boxed_str()),
         ))))
     }

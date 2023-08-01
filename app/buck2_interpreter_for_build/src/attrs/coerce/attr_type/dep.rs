@@ -33,7 +33,7 @@ impl AttrTypeCoerce for DepAttrType {
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
 
-        let label = ctx.coerce_label(label)?;
+        let label = ctx.coerce_providers_label(label)?;
 
         Ok(CoercedAttr::Dep(label))
     }
@@ -61,12 +61,12 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
         let label_string = label_value
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
-        let label = ctx.coerce_label(label_string)?;
+        let label = ctx.coerce_providers_label(label_string)?;
 
         let platform_string = platform_value
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
-        let platform = ctx.coerce_target(platform_string)?;
+        let platform = ctx.coerce_target_label(platform_string)?;
 
         Ok(CoercedAttr::ExplicitConfiguredDep(Box::new(
             UnconfiguredExplicitConfiguredDep {

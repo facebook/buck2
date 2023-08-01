@@ -93,7 +93,7 @@ impl CoercedAttrExr for CoercedAttr {
                                 }
                                 default = Some(v);
                             } else {
-                                let target = ctx.coerce_target(k)?;
+                                let target = ctx.coerce_target_label(k)?;
                                 entries.push((target, v));
                             }
                         }

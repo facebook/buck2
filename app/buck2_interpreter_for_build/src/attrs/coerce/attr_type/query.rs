@@ -54,7 +54,7 @@ impl QueryAttrTypeExt for QueryAttrType {
                 if pattern == "$declared_deps" || pattern == "$declared" {
                     return Ok(());
                 }
-                let label = self.ctx.coerce_label(pattern)?;
+                let label = self.ctx.coerce_providers_label(pattern)?;
 
                 /*
                 if label.name() != &ProvidersName::Default {

@@ -144,7 +144,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
             let frozen = env.freeze().expect("should freeze successfully");
             let label_and_result = |label, var_name| {
                 let configured_label = coerce::testing::coercion_ctx()
-                    .coerce_label(label)
+                    .coerce_providers_label(label)
                     .unwrap()
                     .configure(ConfigurationData::testing_new());
                 let val = FrozenProviderCollectionValue::try_from_value(

@@ -457,7 +457,7 @@ impl AnonAttrCtx {
 }
 
 impl AttrCoercionContext for AnonAttrCtx {
-    fn coerce_label(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
+    fn coerce_providers_label(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
         Err(AnonTargetsError::CantParseDuringCoerce(value.to_owned()).into())
     }
 
