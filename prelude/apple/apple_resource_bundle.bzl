@@ -66,6 +66,7 @@ def make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs) -> [None, st
 
     resource_bundle_name = kwargs["name"] + "__ResourceBundle_Private"
     resource_bundle_kwargs = {
+        "labels": ["generated"],
         "_bundle_target_name": kwargs["name"],
         "_compile_resources_locally_override": kwargs["_compile_resources_locally_override"],
     }
