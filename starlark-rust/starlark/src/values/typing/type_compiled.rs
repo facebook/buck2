@@ -687,7 +687,8 @@ impl<'v> TypeCompiled<Value<'v>> {
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
         if t0.type_is_wildcard() || t1.type_is_wildcard() {
-            return TypeCompiled::type_anything();
+            let ts = Ty::union2(t0.as_ty().clone(), t1.as_ty().clone());
+            return TypeCompiled::<Value>::type_anything().patch_ty(ts, heap);
         }
 
         #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
@@ -711,7 +712,8 @@ impl<'v> TypeCompiled<Value<'v>> {
         heap: &'v Heap,
     ) -> TypeCompiled<Value<'v>> {
         if ts.iter().any(|t| t.type_is_wildcard()) {
-            return TypeCompiled::type_anything();
+            let ts = Ty::unions(ts.map(|t| t.as_ty().clone()));
+            return TypeCompiled::<Value>::type_anything().patch_ty(ts, heap);
         } else if ts.len() == 1 {
             return ts.into_iter().next().unwrap();
         } else if ts.len() == 2 {
