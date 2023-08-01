@@ -32,8 +32,8 @@ use crate::super_package::package_value::register_read_package_value;
 //   that we want identical globals for all files, except `BUCK` files,
 //   where we additionally add prelude and package implicits.
 
-/// Natives for `BUCK` and `bzl` files.
-fn register_build_bzl_natives(builder: &mut GlobalsBuilder) {
+/// Natives for all file types.
+fn register_universal_natives(builder: &mut GlobalsBuilder) {
     (MORE_FUNCTIONS.get().unwrap().register_provider)(builder);
     (MORE_FUNCTIONS.get().unwrap().register_transitive_set)(builder);
     register_module_natives(builder);
@@ -45,21 +45,18 @@ fn register_build_bzl_natives(builder: &mut GlobalsBuilder) {
 
 /// Globals for `BUCK` files.
 pub fn configure_build_file_globals(globals_builder: &mut GlobalsBuilder) {
-    // TODO(cjhopman): This unconditionally adds the native symbols to the global
-    // env, but that needs to be a cell-based config.
-    register_build_bzl_natives(globals_builder);
+    register_universal_natives(globals_builder);
 }
 
 /// Globals for `PACKAGE` files.
 pub fn configure_package_file_globals(globals_builder: &mut GlobalsBuilder) {
-    // TODO(cjhopman): This unconditionally adds the native symbols to the global
-    // env, but that needs to be a cell-based config.
-    register_build_bzl_natives(globals_builder);
+    register_universal_natives(globals_builder);
     register_package_natives(globals_builder);
 }
 
 /// Globals for `.bxl` files.
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
+    register_universal_natives(globals_builder);
     register_base_natives(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_cmd_args)(globals_builder);
     (BXL_SPECIFIC_GLOBALS.get().unwrap())(globals_builder);
@@ -70,9 +67,7 @@ pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
 
 /// Globals for `.bzl` files.
 pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
-    // TODO(cjhopman): This unconditionally adds the native symbols to the global
-    // env, but that needs to be a cell-based config.
-    register_build_bzl_natives(globals_builder);
+    register_universal_natives(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_cmd_args)(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_rule_defs)(globals_builder);
     register_warning(globals_builder);
