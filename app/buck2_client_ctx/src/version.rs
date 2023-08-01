@@ -77,23 +77,23 @@ impl BuckVersion {
             }
         };
 
-        let internal_exe_hash = if let Some(internal_exe_hash) =
+        let (internal_exe_hash, internal_exe_hash_kind) = if let Some(internal_exe_hash) =
             Self::extract_unique_id(&file_object)
         {
-            internal_exe_hash
+            (internal_exe_hash, "<build-id>")
         } else {
             if !buck2_core::is_open_source() {
                 let _ignored = crate::eprintln!(
                     "version extraction failed. This indicates an issue with the buck2 release, will fallback to binary hash"
                 );
             }
-            Self::hash_binary(&mut file)
+            (Self::hash_binary(&mut file), "<exe-hash>")
         };
 
         let version = if let Some(version) = buck2_build_info::revision() {
             version.to_owned()
         } else {
-            format!("{} <local>", internal_exe_hash)
+            format!("{} {}", internal_exe_hash, internal_exe_hash_kind)
         };
 
         BuckVersion {
