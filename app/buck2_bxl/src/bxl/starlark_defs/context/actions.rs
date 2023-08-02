@@ -9,9 +9,6 @@
 
 //! Starlark Actions API for bxl functions
 //!
-
-use std::collections::HashMap;
-
 use allocative::Allocative;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
@@ -27,6 +24,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
 use buck2_util::collections::ordered_map::OrderedMap;
@@ -34,12 +32,16 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
+use gazebo::prelude::SliceExt;
 use starlark::any::ProvidesStaticType;
+use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::environment::Module;
+use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
@@ -72,7 +74,7 @@ pub(crate) async fn resolve_bxl_execution_platform<'v>(
     target_platform: Option<TargetLabel>,
     exec_compatible_with: Vec<TargetLabel>,
     module: &'v Module,
-) -> anyhow::Result<BxlExecutionResolution<'v>> {
+) -> anyhow::Result<BxlExecutionResolution> {
     // bxl has on transitions
     let resolved_transitions = OrderedMap::new();
 
@@ -101,15 +103,11 @@ pub(crate) async fn resolve_bxl_execution_platform<'v>(
         &resolved_transitions,
         &platform_cfgs,
     );
-    let mut toolchain_deps_configured = HashMap::new();
 
-    for dep in toolchain_deps.into_iter() {
-        let configured = configuration_ctx.configure_toolchain_target(&dep);
-
-        let dependency = get_dependency_for_label(configured, ctx, module).await?;
-
-        toolchain_deps_configured.insert(dep, dependency);
-    }
+    let toolchain_deps_configured: Vec<_> = toolchain_deps
+        .iter()
+        .map(|t| configuration_ctx.configure_toolchain_target(t))
+        .collect();
 
     let execution_constraints = ExecutionPlatformConstraints::new_constraints(
         exec_deps
@@ -117,24 +115,19 @@ pub(crate) async fn resolve_bxl_execution_platform<'v>(
             .map(|label| label.target().dupe())
             .collect(),
         toolchain_deps_configured
-            .values()
-            .map(|dep| dep.label().inner().target().clone())
+            .iter()
+            .map(|dep| dep.target().clone())
             .collect(),
         exec_compatible_with,
     );
 
     let resolved_execution = execution_constraints.one_for_cell(ctx, cell).await?;
 
-    let mut exec_deps_configured = HashMap::new();
-
-    for exec_dep in exec_deps.into_iter() {
-        let configured = exec_dep
-            .configure_pair_no_exec(resolved_execution.platform()?.cfg_pair_no_exec().dupe());
-
-        let dependency = get_dependency_for_label(configured, ctx, module).await?;
-
-        exec_deps_configured.insert(exec_dep, dependency);
-    }
+    let mut exec_deps_configured = exec_deps.try_map(|e| {
+        let label =
+            e.configure_pair_no_exec(resolved_execution.platform()?.cfg_pair_no_exec().dupe());
+        anyhow::Ok(label)
+    })?;
 
     Ok(BxlExecutionResolution {
         resolved_execution,
@@ -165,27 +158,28 @@ async fn get_dependency_for_label<'v>(
     Ok(dependency)
 }
 
-pub(crate) struct BxlExecutionResolution<'v> {
+pub(crate) struct BxlExecutionResolution {
     pub(crate) resolved_execution: ExecutionPlatformResolution,
-    pub(crate) exec_deps_configured: HashMap<ProvidersLabel, Dependency<'v>>,
-    pub(crate) toolchain_deps_configured: HashMap<ProvidersLabel, Dependency<'v>>,
+    pub(crate) exec_deps_configured: Vec<ConfiguredProvidersLabel>,
+    pub(crate) toolchain_deps_configured: Vec<ConfiguredProvidersLabel>,
 }
 
 pub(crate) fn validate_action_instantiation<'v>(
     this: &BxlContext<'v>,
-    execution_platform: ExecutionPlatformResolution,
+    bxl_execution_resolution: &BxlExecutionResolution,
 ) -> anyhow::Result<()> {
     let mut registry = this.state.state.borrow_mut();
 
     if (*registry).is_some() {
         return Err(anyhow::anyhow!(BxlActionsError::RegistryAlreadyCreated));
     } else {
+        let execution_platform = bxl_execution_resolution.resolved_execution.clone();
         let analysis_registry = AnalysisRegistry::new_from_owner(
-            BaseDeferredKey::BxlLabel(
-                this.current_bxl
-                    .dupe()
-                    .into_base_deferred_key_dyn_impl(execution_platform.clone()),
-            ),
+            BaseDeferredKey::BxlLabel(this.current_bxl.dupe().into_base_deferred_key_dyn_impl(
+                execution_platform.clone(),
+                bxl_execution_resolution.exec_deps_configured.clone(),
+                bxl_execution_resolution.toolchain_deps_configured.clone(),
+            )),
             execution_platform,
         )?;
 
@@ -214,17 +208,48 @@ pub(crate) struct BxlActions<'v> {
 }
 
 impl<'v> BxlActions<'v> {
-    pub(crate) fn new(
+    pub(crate) async fn new(
         actions: ValueTyped<'v, AnalysisActions<'v>>,
-        exec_deps: ValueOfUnchecked<'v, DictRef<'v>>,
-        toolchains: ValueOfUnchecked<'v, DictRef<'v>>,
-    ) -> Self {
-        Self {
+        exec_deps: Vec<ConfiguredProvidersLabel>,
+        toolchains: Vec<ConfiguredProvidersLabel>,
+        eval: &mut Evaluator<'v, '_>,
+        ctx: &'v DiceComputations,
+    ) -> anyhow::Result<BxlActions<'v>> {
+        let exec_deps = alloc_deps(exec_deps, eval, ctx).await?;
+        let toolchains = alloc_deps(toolchains, eval, ctx).await?;
+        Ok(Self {
             actions,
             exec_deps,
             toolchains,
-        }
+        })
     }
+}
+
+async fn alloc_deps<'v>(
+    deps: Vec<ConfiguredProvidersLabel>,
+    eval: &mut Evaluator<'v, '_>,
+    ctx: &'v DiceComputations,
+) -> anyhow::Result<ValueOfUnchecked<'v, DictRef<'v>>> {
+    let deps: Vec<_> = deps
+        .into_iter()
+        .map(|k| async {
+            let unconfigured = k.unconfigured();
+            let dep = get_dependency_for_label(k, ctx, eval.module()).await?;
+            anyhow::Ok((
+                eval.heap()
+                    .alloc(StarlarkProvidersLabel::new(unconfigured))
+                    .get_hashed()?,
+                eval.heap().alloc(dep),
+            ))
+        })
+        .collect();
+    let deps: SmallMap<_, _> = futures::future::try_join_all(deps)
+        .await?
+        .into_iter()
+        .collect();
+    let deps = eval.heap().alloc(Dict::new(deps));
+
+    ValueOfUnchecked::new_checked(deps)
 }
 
 #[starlark_value(type = "bxl_actions", StarlarkTypeRepr, UnpackValue)]

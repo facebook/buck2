@@ -292,13 +292,15 @@ pub(crate) async fn eval(
 // We use a file as our output/error stream cache. The file is associated with the `BxlDynamicKey` (created from `BxlKey`),
 // which is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping the output file
 // cache up to date. `BxlDynamicKey` requires an execution platform. We set the execution platform to be unspecified here
-// because BXL functions do not have execution platform resolutions
+// because BXL functions do not have execution platform resolutions. exec_deps, toolchains, target_platform, and exec_compatible_with
+// are empty here for the same reason.
 pub(crate) fn mk_stream_cache(stream_type: &str, key: &BxlKey) -> BuckOutPath {
     BuckOutPath::new(
-        BaseDeferredKey::BxlLabel(
-            key.dupe()
-                .into_base_deferred_key_dyn_impl(ExecutionPlatformResolution::unspecified()),
-        ),
+        BaseDeferredKey::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl(
+            ExecutionPlatformResolution::unspecified(),
+            Vec::new(),
+            Vec::new(),
+        )),
         ForwardRelativePathBuf::unchecked_new(format!(
             "__bxl_internal__/{}stream_cache",
             stream_type

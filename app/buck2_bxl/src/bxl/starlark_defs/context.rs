@@ -90,7 +90,6 @@ use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
-use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
 use crate::bxl::key::BxlKey;
@@ -99,6 +98,7 @@ use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::context::actions::resolve_bxl_execution_platform;
 use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
 use crate::bxl::starlark_defs::context::actions::BxlActions;
+use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
@@ -800,9 +800,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneType)] exec_compatible_with: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<BxlActions<'v>> {
-        let (exec_deps, toolchains) = match this.context_type {
-            BxlContextType::Root { .. } => {
-                let execution_resolution = this.async_ctx.via_dice(|ctx| async {
+        this.async_ctx.via_dice(|ctx| async {
+            let (exec_deps, toolchains) = match this.context_type {
+                BxlContextType::Root { .. } => {
                     let target_platform = target_platform.parse_target_platforms(
                         &this.target_alias_resolver,
                         &this.cell_resolver,
@@ -840,78 +840,53 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             .collect()
                     };
 
-                    resolve_bxl_execution_platform(
+                    let execution_resolution = resolve_bxl_execution_platform(
                         ctx,
                         this.cell_name,
                         exec_deps,
                         toolchains,
-                        target_platform,
-                        exec_compatible_with,
+                        target_platform.clone(),
+                        exec_compatible_with.clone(),
                         eval.module(),
                     )
-                    .await
-                })?;
+                    .await?;
 
-                validate_action_instantiation(this, execution_resolution.resolved_execution)?;
+                    validate_action_instantiation(this, &execution_resolution)?;
 
-                let exec_deps = eval.heap().alloc(Dict::new(
-                    execution_resolution
-                        .exec_deps_configured
-                        .into_iter()
-                        .map(|(k, v)| {
-                            Ok((
-                                eval.heap()
-                                    .alloc(StarlarkProvidersLabel::new(k))
-                                    .get_hashed()?,
-                                eval.heap().alloc(v),
-                            ))
-                        })
-                        .collect::<anyhow::Result<_>>()?,
-                ));
-                let exec_deps = ValueOfUnchecked::new_checked(exec_deps)?;
-                let toolchains = eval.heap().alloc(Dict::new(
-                    execution_resolution
-                        .toolchain_deps_configured
-                        .into_iter()
-                        .map(|(k, v)| {
-                            Ok((
-                                eval.heap()
-                                    .alloc(StarlarkProvidersLabel::new(k))
-                                    .get_hashed()?,
-                                eval.heap().alloc(v),
-                            ))
-                        })
-                        .collect::<anyhow::Result<_>>()?,
-                ));
-                let toolchains = ValueOfUnchecked::new_checked(toolchains)?;
-
-                (exec_deps, toolchains)
-            }
-            BxlContextType::Dynamic => {
-                if !exec_deps.is_none()
-                    || !toolchains.is_none()
-                    || !target_platform.is_none()
-                    || !exec_compatible_with.is_none()
-                {
-                    return Err(BxlContextDynamicError::RequireSameExecutionPlatformAsRoot.into());
+                    (
+                        execution_resolution.exec_deps_configured,
+                        execution_resolution.toolchain_deps_configured,
+                    )
                 }
-                // TODO(@wendyy) - make these accessible. Users need to create a providers label currently
-                let exec_deps = eval.heap().alloc(Dict::new(SmallMap::new()));
-                let toolchains = eval.heap().alloc(Dict::new(SmallMap::new()));
-                (
-                    ValueOfUnchecked::new_checked(exec_deps)?,
-                    ValueOfUnchecked::new_checked(toolchains)?,
-                )
-            }
-        };
+                BxlContextType::Dynamic => {
+                    if !exec_deps.is_none()
+                        || !toolchains.is_none()
+                        || !target_platform.is_none()
+                        || !exec_compatible_with.is_none()
+                    {
+                        return Err(
+                            BxlContextDynamicError::RequireSameExecutionPlatformAsRoot.into()
+                        );
+                    }
+                    // TODO(@wendyy) - make these accessible. Users need to create a providers label currently
+                    (Vec::new(), Vec::new())
+                }
+            };
 
-        Ok(BxlActions::new(this.state, exec_deps, toolchains))
+            BxlActions::new(this.state, exec_deps, toolchains, eval, ctx).await
+        })
     }
 
     /// DO NOT USE - will be deprecated soon.
     #[starlark(attribute)]
     fn actions_factory<'v>(this: ValueOf<'v, &'v BxlContext<'v>>) -> anyhow::Result<Value<'v>> {
-        validate_action_instantiation(this.typed, EXECUTION_PLATFORM.dupe())?;
+        let execution_platform = BxlExecutionResolution {
+            resolved_execution: EXECUTION_PLATFORM.dupe(),
+            exec_deps_configured: Vec::new(),
+            toolchain_deps_configured: Vec::new(),
+        };
+
+        validate_action_instantiation(this.typed, &execution_platform)?;
 
         Ok(this.typed.state.to_value())
     }

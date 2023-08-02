@@ -21,6 +21,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
@@ -69,27 +70,23 @@ impl BxlKey {
     pub(crate) fn into_base_deferred_key_dyn_impl(
         self,
         execution_platform_resolution: ExecutionPlatformResolution,
+        exec_deps: Vec<ConfiguredProvidersLabel>,
+        toolchains: Vec<ConfiguredProvidersLabel>,
     ) -> Arc<dyn BaseDeferredKeyDyn> {
         Arc::new(BxlDynamicKeyData {
             key: self.0,
             execution_platform_resolution,
+            exec_deps,
+            toolchains,
         })
-    }
-
-    pub(crate) fn from_base_deferred_key_dyn_impl(
-        key: Arc<dyn BaseDeferredKeyDyn>,
-    ) -> Option<Self> {
-        key.into_any()
-            .downcast()
-            .ok()
-            .map(BxlDynamicKey)
-            .map(|k| BxlKey(k.0.key.dupe()))
     }
 
     pub(crate) fn from_base_deferred_key_dyn_impl_err(
         key: Arc<dyn BaseDeferredKeyDyn>,
     ) -> anyhow::Result<Self> {
-        Self::from_base_deferred_key_dyn_impl(key).context("Not BxlKey (internal error)")
+        BxlDynamicKey::from_base_deferred_key_dyn_impl(key)
+            .map(|k| BxlKey(k.0.key.dupe()))
+            .context("Not BxlKey (internal error)")
     }
 
     pub(crate) fn global_target_platform(&self) -> &Option<TargetLabel> {
@@ -123,14 +120,27 @@ impl BxlKeyData {
     }
 }
 
+// Note that exec_deps and toolchains are not used as a part of the hashed path directly. During normal BXL actions
+// instantiation, these are used to resolve the execution platform resolution, which is also present in
+// BxlDynamicKeyData, and _is_ used to make the hashed path. Thus, exec_deps and toolchains are indirectly used to
+// construct the hashed path. However, we still need to include them in the BxlDynamicKeyData so that we can pass
+// them from the root BXL to the dynamic BXL context, and then access them on the dynamic BXL context's actions factory.
 #[derive(Clone, derive_more::Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "{}", "key")]
-struct BxlDynamicKeyData {
+pub(crate) struct BxlDynamicKeyData {
     key: Arc<BxlKeyData>,
     execution_platform_resolution: ExecutionPlatformResolution,
+    pub(crate) exec_deps: Vec<ConfiguredProvidersLabel>,
+    pub(crate) toolchains: Vec<ConfiguredProvidersLabel>,
 }
 
-struct BxlDynamicKey(Arc<BxlDynamicKeyData>);
+pub(crate) struct BxlDynamicKey(pub Arc<BxlDynamicKeyData>);
+
+impl BxlDynamicKey {
+    fn from_base_deferred_key_dyn_impl(key: Arc<dyn BaseDeferredKeyDyn>) -> Option<Self> {
+        key.into_any().downcast().ok().map(BxlDynamicKey)
+    }
+}
 
 impl BaseDeferredKeyDyn for BxlDynamicKeyData {
     fn eq_token(&self) -> PartialEqAny {
