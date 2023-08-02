@@ -322,7 +322,7 @@ impl RageCommand {
             };
             let re_logs_command = {
                 let title = "RE logs upload".to_owned();
-                let re_session_id = build_info.get_field(|o| Some(o.re_session_id.clone()));
+                let re_session_id = build_info.get_field(|o| o.re_session_id.clone());
                 match re_session_id {
                     None => RageSection::get_skipped(title),
                     Some(re_session_id) => RageSection::get(title, timeout, || {

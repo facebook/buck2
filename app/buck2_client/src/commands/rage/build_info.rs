@@ -44,7 +44,7 @@ pub(crate) struct BuildInfo {
     pub buck2_revision: String,
     pub command_duration: Option<Duration>,
     pub daemon_uptime_s: Option<u64>,
-    pub re_session_id: String,
+    pub re_session_id: Option<String>,
 }
 
 impl fmt::Display for BuildInfo {
@@ -67,7 +67,9 @@ RE session id: {}
             self.buck2_revision,
             seconds_to_string(self.command_duration.map(|d| d.as_secs())),
             seconds_to_string(self.daemon_uptime_s),
-            self.re_session_id,
+            self.re_session_id
+                .as_ref()
+                .map_or_else(|| "", |s| s.as_str()),
         )
     }
 }
@@ -125,7 +127,7 @@ pub(crate) async fn get(log: &EventLogPathBuf) -> anyhow::Result<BuildInfo> {
         buck2_revision: info.revision.unwrap_or_else(|| "".to_owned()),
         command_duration: duration,
         daemon_uptime_s: info.daemon_uptime_s,
-        re_session_id: info.re_session_id.unwrap_or_else(|| "".to_owned()),
+        re_session_id: info.re_session_id,
     };
 
     Ok(output)
