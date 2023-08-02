@@ -39,26 +39,25 @@ create_artifact_annotation(FileName) ->
     Type =
         case lists:member(filename:extension(FileName), [".json", ".html", ".log", ".spec", ".txt"]) of
             true ->
-                case filename:basename(FileName) =:= "test.log" of
-                    true ->
-                        #{
-                            generic_text_log => #{
-                                log_aggregator_config => #{
-                                    log_type => <<"WhatsApp Common Test Log">>
-                                }
-                            }
-                        };
-                    false ->
-                        #{
-                            generic_text_log => #{}
-                        }
+                case filename:basename(FileName) of
+                    "test.log" -> aggregator_config();
+                    "service.log" -> aggregator_config();
+                    _ -> #{generic_text_log => #{}}
                 end;
             _ ->
-                #{
-                    generic_blob => #{}
-                }
+                #{generic_blob => #{}}
         end,
     #{
         type => Type,
         description => list_to_binary(FileName)
+    }.
+
+-spec aggregator_config() -> #{generic_text_log := #{log_aggregator_config := #{log_type := binary()}}}.
+aggregator_config() ->
+    #{
+        generic_text_log => #{
+            log_aggregator_config => #{
+                log_type => <<"WhatsApp Common Test Log">>
+            }
+        }
     }.
