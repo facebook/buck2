@@ -10,17 +10,6 @@
 use buck2_util::late_binding::LateBinding;
 use starlark::environment::GlobalsBuilder;
 
-/// Functions defined in `buck2_build_api`.
-pub struct MoreFunctions {
-    pub register_builtin_providers: fn(&mut GlobalsBuilder),
-    pub register_cmd_args: fn(&mut GlobalsBuilder),
-    pub register_command_executor_config: fn(&mut GlobalsBuilder),
-    pub register_provider: fn(&mut GlobalsBuilder),
-    pub register_rule_defs: fn(&mut GlobalsBuilder),
-    pub register_transitive_set: fn(&mut GlobalsBuilder),
-    pub register_analysis_context: fn(&mut GlobalsBuilder),
-    pub register_dependency: fn(&mut GlobalsBuilder),
-    pub register_artifact: fn(&mut GlobalsBuilder),
-}
-
-pub static MORE_FUNCTIONS: LateBinding<MoreFunctions> = LateBinding::new("MORE_FUNCTIONS");
+/// Globals defined in `buck2_build_api`.
+pub static REGISTER_BUCK2_BUILD_API_GLOBALS: LateBinding<fn(&mut GlobalsBuilder)> =
+    LateBinding::new("REGISTER_BUCK2_BUILD_API_GLOBALS");

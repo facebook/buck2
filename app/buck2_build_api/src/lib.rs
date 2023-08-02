@@ -47,6 +47,6 @@ pub mod transition;
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-        interpreter::more::init_more_functions();
+        interpreter::more::init_register_build_api_globals();
     });
 }

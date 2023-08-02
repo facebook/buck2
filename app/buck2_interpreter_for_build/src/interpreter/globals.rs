@@ -8,7 +8,7 @@
  */
 
 use buck2_interpreter::bxl::BXL_SPECIFIC_GLOBALS;
-use buck2_interpreter::functions::more::MORE_FUNCTIONS;
+use buck2_interpreter::functions::more::REGISTER_BUCK2_BUILD_API_GLOBALS;
 use buck2_interpreter::functions::transition::REGISTER_TRANSITION;
 use buck2_interpreter::types::configured_providers_label::register_providers_label;
 use buck2_interpreter::types::target_label::register_target_label;
@@ -34,15 +34,13 @@ use crate::super_package::package_value::register_read_package_value;
 
 /// Natives for all file types.
 fn register_universal_natives(builder: &mut GlobalsBuilder) {
-    (MORE_FUNCTIONS.get().unwrap().register_provider)(builder);
-    (MORE_FUNCTIONS.get().unwrap().register_transitive_set)(builder);
+    (REGISTER_BUCK2_BUILD_API_GLOBALS.get().unwrap())(builder);
     register_module_natives(builder);
     register_host_info(builder);
     register_read_config(builder);
     register_read_package_value(builder);
     register_soft_error(builder);
     register_package_natives(builder);
-    (MORE_FUNCTIONS.get().unwrap().register_cmd_args)(builder);
 }
 
 /// Globals for `BUCK` files.
@@ -62,27 +60,18 @@ pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
     (BXL_SPECIFIC_GLOBALS.get().unwrap())(globals_builder);
     register_read_config(globals_builder);
     register_host_info(globals_builder);
-    (MORE_FUNCTIONS.get().unwrap().register_builtin_providers)(globals_builder);
 }
 
 /// Globals for `.bzl` files.
 pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_universal_natives(globals_builder);
-    (MORE_FUNCTIONS.get().unwrap().register_rule_defs)(globals_builder);
     register_warning(globals_builder);
     register_regex(globals_builder);
     register_load_symbols(globals_builder);
     register_rule_function(globals_builder);
     register_attrs(globals_builder);
     (REGISTER_TRANSITION.get().unwrap())(globals_builder);
-    (MORE_FUNCTIONS
-        .get()
-        .unwrap()
-        .register_command_executor_config)(globals_builder);
     register_package_natives(globals_builder);
     register_providers_label(globals_builder);
     register_target_label(globals_builder);
-    (MORE_FUNCTIONS.get().unwrap().register_analysis_context)(globals_builder);
-    (MORE_FUNCTIONS.get().unwrap().register_dependency)(globals_builder);
-    (MORE_FUNCTIONS.get().unwrap().register_artifact)(globals_builder);
 }
