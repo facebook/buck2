@@ -1,0 +1,43 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def check_targets_impl(ctx):
+    owners = ctx.cquery().owner(ctx.cli_args.file)
+    nodes = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", owners)
+
+    if len(nodes) == 0:
+        return
+
+    out = []
+
+    for node in nodes:
+        label = node.label
+        if ctx.cli_args.use_clippy:
+            expr = configured_sub_target(label, "clippy.json")
+        else:
+            expr = configured_sub_target(label, "diag.json")
+        outputs = ctx.build(expr)
+        for (label, value) in outputs.items():
+            artifacts = ctx.output.ensure_multiple(value.artifacts())
+
+            # if we have multiple targets, it's possible that subsequent targets
+            # will not be able to produce machine-readable diagnostics (this is not a bug
+            # that we've  been able to consistently reproduce). The check below is
+            # intended to prevent this BXL script from crashing in such cases until a
+            # proper fix in the rust_rules can be implemented.
+            if not len(artifacts) == 0:
+                out.append(artifacts[0].abs_path())
+
+    ctx.output.print_json(out)
+
+check = bxl(
+    impl = check_targets_impl,
+    cli_args = {
+        "file": cli_args.string(),
+        "use-clippy": cli_args.bool(),
+    },
+)

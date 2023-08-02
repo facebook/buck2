@@ -7,9 +7,11 @@
  * of this source tree.
  */
 
+mod check;
 mod develop;
 mod new;
 
+pub use check::Check;
 pub use develop::Develop;
 pub use new::New;
 pub use new::ProjectKind;

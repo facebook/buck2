@@ -9,6 +9,7 @@
 
 mod buck;
 mod cli;
+mod diagnostics;
 mod json_project;
 mod sysroot;
 mod target;
@@ -88,6 +89,20 @@ enum Command {
         /// Use paths relative to the project root in `rust-project.json`.
         #[clap(long, hide = true)]
         relative_paths: bool,
+
+        /// Optional argument specifying build mode.
+        #[clap(short = 'm', long)]
+        mode: Option<String>,
+    },
+    /// Build the saved file's owning target. This is meant to be used by IDEs to provide diagnostics on save.
+    Check {
+        /// Optional argument specifying build mode.
+        #[clap(short = 'm', long)]
+        mode: Option<String>,
+        #[clap(short = 'c', long, default_value = "true")]
+        use_clippy: bool,
+        /// The file saved by the user. `rust-project` will infer the owning target(s) of the saved file and build them.
+        saved_file: PathBuf,
     },
 }
 
@@ -108,6 +123,11 @@ fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Command::New { name, kind, path } => cli::New { name, kind, path }.run(),
+        Command::Check {
+            mode,
+            use_clippy,
+            saved_file,
+        } => cli::Check::new(mode, use_clippy, saved_file).run(),
         c @ Command::Develop { .. } => cli::Develop::from(c).run(),
     }
 }

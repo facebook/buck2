@@ -32,6 +32,7 @@ pub struct Develop {
     pub sysroot: SysrootConfig,
     pub pretty: bool,
     pub relative_paths: bool,
+    pub mode: Option<String>,
 }
 
 impl From<crate::Command> for Develop {
@@ -45,6 +46,7 @@ impl From<crate::Command> for Develop {
             sysroot,
             pretty,
             relative_paths,
+            mode,
         } = command
         {
             let input = if !targets.is_empty() {
@@ -73,6 +75,7 @@ impl From<crate::Command> for Develop {
                 sysroot,
                 pretty,
                 relative_paths,
+                mode,
             };
         }
 
@@ -99,8 +102,9 @@ impl Develop {
             sysroot,
             pretty,
             relative_paths,
+            mode,
         } = self;
-        let buck = buck::Buck;
+        let buck = buck::Buck::new(mode);
         let project_root = buck.resolve_project_root()?;
 
         let targets = match input {
@@ -131,10 +135,7 @@ impl Develop {
                     sysroot_src: None,
                 }
             }
-            SysrootConfig::BuckConfig => {
-                let project_root = buck.resolve_project_root()?;
-                resolve_buckconfig_sysroot(&project_root, relative_paths)?
-            }
+            SysrootConfig::BuckConfig => resolve_buckconfig_sysroot(&project_root, relative_paths)?,
             SysrootConfig::Rustup => resolve_rustup_sysroot()?,
         };
         info!("converting buck info to rust-project.json");

@@ -40,7 +40,7 @@ pub fn resolve_buckconfig_sysroot(
     project_root: &Path,
     relative_paths: bool,
 ) -> Result<Sysroot, anyhow::Error> {
-    let buck = Buck;
+    let buck = Buck::default();
 
     if cfg!(target_os = "linux") {
         let base: PathBuf = if relative_paths {
