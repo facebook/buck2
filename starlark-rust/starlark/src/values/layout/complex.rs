@@ -30,6 +30,7 @@ use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::ValueTyped;
 
 /// Value which is either a complex mutable value or a frozen value.
 #[derive(Copy_, Clone_, Dupe_)]
@@ -100,6 +101,16 @@ where
         } else {
             None
         }
+    }
+}
+
+impl<'v, T> From<ValueTyped<'v, T>> for ValueTypedComplex<'v, T>
+where
+    T: ComplexValue<'v>,
+    T::Frozen: StarlarkValue<'static>,
+{
+    fn from(t: ValueTyped<'v, T>) -> Self {
+        Self(t.to_value(), PhantomData)
     }
 }
 
