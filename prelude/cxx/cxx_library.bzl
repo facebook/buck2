@@ -972,7 +972,12 @@ def _form_library_outputs(
                     pdb = shlib.pdb,
                 )
                 solibs[result.soname] = shlib
-                sub_targets[link_style] = extra_linker_outputs
+                sub_targets[link_style] = extra_linker_outputs | {
+                    "linker.argsfile": [DefaultInfo(
+                        default_output = shlib.linker_argsfile,
+                    )],
+                }
+
                 providers.append(result.link_result.link_execution_preference_info)
 
         # you cannot link against header only libraries so create an empty link info
