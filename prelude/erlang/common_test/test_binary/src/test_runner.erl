@@ -151,8 +151,7 @@ provide_output_file(
         output_dir = OutputDir,
         tests = Tests,
         suite = Suite,
-        output_format = OutputFormat,
-        test_spec_file = TestSpecFile
+        output_format = OutputFormat
     } = _TestEnv,
     ResultExec,
     Status
@@ -219,7 +218,7 @@ provide_output_file(
                         collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, OutLog)
                 end
         end,
-    {ok, ResultOuptuFile} =
+    {ok, _ResultOuptuFile} =
         case OutputFormat of
             xml ->
                 junit_interfacer:write_xml_output(OutputDir, Results, Suite, ResultExec, OutLog);

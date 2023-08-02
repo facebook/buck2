@@ -5,11 +5,14 @@ erlang_application(
         "kernel",
         "stdlib",
     ],
+    erl_opts = [
+        "+debug_info",
+        "+warnings_as_errors",
+    ],
     included_applications = [
         "prelude//erlang/common_test/test_exec:test_exec",
         "prelude//erlang/toolchain:resources[jsone]",
     ],
     shell_libs = [],
     visibility = ["PUBLIC"],
-    erl_opts = ["+debug_info"],
 )

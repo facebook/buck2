@@ -8,9 +8,12 @@ erlang_application(
         "kernel",
         "stdlib",
     ],
+    erl_opts = [
+        "+debug_info",
+        "+warnings_as_errors",
+    ],
     includes = glob(["include/*.hrl"]),
     shell_libs = [],
     use_global_parse_transforms = False,
     visibility = ["PUBLIC"],
-    erl_opts = ["+debug_info"],
 )
