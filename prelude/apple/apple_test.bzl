@@ -187,6 +187,7 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: "artifact", test_host_ap
         },
         local_resources = {
             "ios_booted_simulator": ctx.attrs._ios_booted_simulator.label,
+            "ios_unbooted_simulator": ctx.attrs._ios_unbooted_simulator.label,
             "macos_idb_companion": ctx.attrs._macos_idb_companion.label,
         },
     )
