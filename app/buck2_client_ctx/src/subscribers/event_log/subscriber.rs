@@ -76,6 +76,7 @@ impl<'a> EventSubscriber for EventLog<'a> {
     }
 
     async fn exit(&mut self) -> anyhow::Result<()> {
-        self.writer.exit().await
+        self.writer.exit().await;
+        Ok(())
     }
 }

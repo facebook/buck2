@@ -331,9 +331,7 @@ impl<'a> WriteEventLog<'a> {
         self.log_invocation(event.trace_id()?).await
     }
 
-    pub(crate) fn exit(
-        &mut self,
-    ) -> impl Future<Output = anyhow::Result<()>> + 'static + Send + Sync {
+    pub(crate) fn exit(&mut self) -> impl Future<Output = ()> + 'static + Send + Sync {
         // Shut down writers, flush all our files before exiting.
         let state = std::mem::replace(&mut self.state, LogWriterState::Closed);
 
@@ -343,11 +341,18 @@ impl<'a> WriteEventLog<'a> {
                 LogWriterState::Unopened { .. } | LogWriterState::Closed => {
                     // Nothing to do in this case, though this should be unreachable
                     // since we just did a write_ln.
-                    return Ok(());
+                    return;
                 }
             };
+
             for writer in writers.iter_mut() {
-                writer.file.shutdown().await?;
+                if let Err(e) = writer.file.shutdown().await {
+                    tracing::warn!(
+                        "Failed to flush log file at `{}`: {:#}",
+                        writer.path.path,
+                        e
+                    );
+                }
             }
 
             // NOTE: We call `into_iter()` here and that implicitly drops the `writer.file`, which
@@ -359,8 +364,6 @@ impl<'a> WriteEventLog<'a> {
                 .map(|proc| wait_for_child_and_log(proc, "Event Log"));
 
             futures::future::join_all(futs).await;
-
-            Ok(())
         }
     }
 }
@@ -370,15 +373,7 @@ impl<'a> Drop for WriteEventLog<'a> {
         let exit = self.exit();
         match self.async_cleanup_context.as_ref() {
             Some(async_cleanup_context) => {
-                async_cleanup_context.register(
-                    "event log upload",
-                    async move {
-                        if let Err(e) = exit.await {
-                            tracing::warn!("Failed to cleanup EventLog: {:#}", e);
-                        }
-                    }
-                    .boxed(),
-                );
+                async_cleanup_context.register("event log upload", exit.boxed());
             }
             None => (),
         }
@@ -691,7 +686,7 @@ mod tests {
         let value = StreamValueForWrite::Event(event.event());
         write_event_log.log_invocation(event.trace_id()?).await?;
         write_event_log.write_ln(&[value]).await?;
-        write_event_log.exit().await?;
+        write_event_log.exit().await;
 
         //Get and decode log
         let (_invocation, mut events) = log.unpack_stream().await?;
