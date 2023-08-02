@@ -17,6 +17,12 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
+/// Write jemalloc heap profile to a file.
+///
+/// `mallctl prof.dump`. It is a profile of currently allocated memory,
+/// not profile of allocations.
+///
+/// To use this command, restart buckd with env variable `MALLOC_CONF=prof:true,prof_final:false`.
 #[derive(Debug, clap::Parser)]
 pub struct HeapDumpCommand {
     /// The path to write the heap dump to.

@@ -62,7 +62,6 @@ pub enum DebugCommand {
     ///
     /// Useful to make sure that we're reporting it correctly.
     SegFault(SegfaultCommand),
-    /// Performs a heap dump of the running buck daemon and saves it to disk.
     HeapDump(HeapDumpCommand),
     /// Dumps allocator stat
     AllocatorStats(AllocatorStatsCommand),
