@@ -263,7 +263,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 )
                 .await?
             };
-            // Some timeout is neeeded, use the same value as for the test itself which is better than nothing.
+            // If some timeout is neeeded, use the same value as for the test itself which is better than nothing.
             let resources = self
                 .setup_local_resources(setup_contexts, setup_local_resources_executor, timeout)
                 .await?;
@@ -924,14 +924,13 @@ impl<'b> BuckTestOrchestrator<'b> {
         &self,
         setup_contexts: Vec<LocalResourceSetupContext>,
         executor: CommandExecutor,
-        timeout: Duration,
+        default_timeout: Duration,
     ) -> Result<Vec<LocalResourceState>, ExecuteError> {
-        let setup_commands = futures::future::try_join_all(
-            setup_contexts
-                .into_iter()
-                .map(|context| self.prepare_local_resource(context, executor.fs(), timeout)),
-        )
-        .await?;
+        let setup_commands =
+            futures::future::try_join_all(setup_contexts.into_iter().map(|context| {
+                self.prepare_local_resource(context, executor.fs(), default_timeout)
+            }))
+            .await?;
 
         self.require_alive().await?;
 
@@ -975,7 +974,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         &self,
         context: LocalResourceSetupContext,
         fs: &ArtifactFs,
-        timeout: Duration,
+        default_timeout: Duration,
     ) -> anyhow::Result<PreparedLocalResourceSetupContext> {
         let futs = context
             .input_artifacts
@@ -989,7 +988,8 @@ impl<'b> BuckTestOrchestrator<'b> {
         let paths = CommandExecutionPaths::new(inputs, indexset![], fs, self.digest_config)?;
         let mut execution_request =
             CommandExecutionRequest::new(vec![], context.cmd, paths, Default::default());
-        execution_request = execution_request.with_timeout(timeout);
+        execution_request =
+            execution_request.with_timeout(context.timeout.unwrap_or(default_timeout));
         Ok(PreparedLocalResourceSetupContext {
             target: context.target,
             execution_request,

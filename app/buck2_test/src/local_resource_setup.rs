@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::time::Duration;
+
 use anyhow::Context;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -36,6 +38,8 @@ pub(crate) struct LocalResourceSetupContext {
     /// Mapping from keys in JSON output of setup command to environment variable names
     /// which should be added to executions dependent on this local resource.
     pub env_var_mapping: IndexMap<String, String>,
+    /// Timeout for setup command.
+    pub timeout: Option<Duration>,
 }
 
 pub(crate) async fn required_local_resources_setup_contexts(
@@ -60,6 +64,7 @@ pub(crate) async fn required_local_resources_setup_contexts(
             cmd,
             input_artifacts: artifact_visitor.inputs.into_iter().collect(),
             env_var_mapping: provider.env_var_mapping(),
+            timeout: provider.setup_timeout(),
         })
     }
     Ok(result)
