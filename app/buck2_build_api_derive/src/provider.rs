@@ -473,6 +473,10 @@ impl ProviderCodegen {
                             &dyn buck2_interpreter::types::provider::callable::ProviderCallableLike>(self);
                     }
 
+                    fn eval_type(&self) -> Option<starlark::typing::Ty> {
+                        Some(starlark::typing::Ty::name_deprecated(self.id.name()))
+                    }
+
                     #documentation_function
                 }
             },

@@ -117,3 +117,36 @@ fn creates_providers() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_builtin_provider_as_type() {
+    let mut tester = provider_tester();
+    tester
+        .run_starlark_bzl_test(indoc!(
+            r#"
+        def test():
+            configuration_info = ConfigurationInfo(constraints={}, values={})
+            assert_true(isinstance(configuration_info, ConfigurationInfo))
+            assert_true(isinstance(configuration_info, Provider))
+            assert_true(not isinstance(configuration_info, DefaultInfo))
+        "#
+        ))
+        .unwrap();
+}
+
+#[test]
+fn test_user_defined_provider_as_type() {
+    let mut tester = provider_tester();
+    tester
+        .run_starlark_bzl_test(indoc!(
+            r#"
+            FooInfo = provider(fields=["foo"])
+            def test():
+                foo = FooInfo(foo="foo1")
+                assert_true(isinstance(foo, FooInfo))
+                assert_true(isinstance(foo, Provider))
+                assert_true(not isinstance(foo, DefaultInfo))
+            "#
+        ))
+        .unwrap();
+}

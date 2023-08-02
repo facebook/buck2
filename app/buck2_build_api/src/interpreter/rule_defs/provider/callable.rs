@@ -253,6 +253,10 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
         demand.provide_value::<&dyn ProviderCallableLike>(self);
     }
 
+    fn eval_type(&self) -> Option<Ty> {
+        self.id.get().map(|id| Ty::name_deprecated(id.name()))
+    }
+
     fn documentation(&self) -> Option<DocItem> {
         let return_types = vec![Ty::any(); self.fields.len()];
         self.provider_callable_documentation(
@@ -354,6 +358,10 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
             &self.field_docs,
             &return_types,
         )
+    }
+
+    fn eval_type(&self) -> Option<Ty> {
+        Some(Ty::name_deprecated(self.id.name()))
     }
 }
 

@@ -336,7 +336,6 @@ impl Tester {
         def assert_eq(a, b):
             if a != b:
                 fail("expected: %s got %s" % (a, b))
-
         "#
             )
             .to_owned()
@@ -399,7 +398,12 @@ impl Tester {
 
             def assert_ne(a, b):
                 if a == b:
-                    fail("expected: %s to not equal %s" % (a, b))"#
+                    fail("expected: %s to not equal %s" % (a, b))
+
+            def assert_true(c):
+                if not c:
+                    fail("assertion failed")
+            "#
         );
 
         self.add_import(&import_path, &format!("{}\n\n{}", template, content))?;
