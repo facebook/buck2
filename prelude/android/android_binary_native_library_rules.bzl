@@ -201,10 +201,19 @@ def _get_native_libs_and_assets(
     for native_lib in all_prebuilt_native_library_dirs:
         native_lib_target = str(native_lib.raw_target)
         module = get_module_from_target(native_lib_target)
+        expect(
+            not native_lib.for_primary_apk or is_root_module(module),
+            "{} which is marked as needing to be in the primary APK cannot be included in non-root-module {}".format(native_lib_target, module),
+        )
+        expect(
+            not native_lib.for_primary_apk or not native_lib.is_asset,
+            "{} which is marked as needing to be in the primary APK cannot be an asset".format(native_lib_target),
+        )
         if not is_root_module(module):
-            # In buck1, we always package native libs as assets when they are not in the root module
-            expect(not native_lib.for_primary_apk, "{} which is marked as needing to be in the primary APK cannot be included in non-root-module {}".format(native_lib_target, module))
-            prebuilt_native_library_dir_module_assets_map.setdefault(module, []).append(native_lib)
+            if native_lib.is_asset:
+                prebuilt_native_library_dir_module_assets_map.setdefault(module, []).append(native_lib)
+            else:
+                prebuilt_native_library_dirs.append(native_lib)
         elif native_lib.is_asset and is_packaging_native_libs_as_assets_supported:
             expect(not native_lib.for_primary_apk, "{} which is marked as needing to be in the primary APK cannot be an asset".format(native_lib_target))
             prebuilt_native_library_dir_assets_for_primary_apk.append(native_lib)
@@ -352,7 +361,6 @@ def _get_native_linkables(
                 so_name_path = paths.join(_get_native_libs_as_assets_dir(module), abi_directory, so_name)
                 stripped_native_linkable_module_assets_srcs.setdefault(module, {})[so_name_path] = native_linkable.stripped_lib
             elif native_linkable.can_be_asset and package_native_libs_as_assets_enabled:
-                expect(not native_linkable.for_primary_apk, "{} which is marked as needing to be in the primary APK cannot be an asset".format(native_linkable_target))
                 so_name_path = paths.join(_get_native_libs_as_assets_dir(module), abi_directory, so_name)
                 stripped_native_linkable_assets_for_primary_apk_srcs[so_name_path] = native_linkable.stripped_lib
             else:
