@@ -29,6 +29,8 @@ fn test_construction() -> anyhow::Result<()> {
         def test():
             LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
             LocalResourceInfo(setup=cmd_args(["/foo", "--resource"]), resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
+            LocalResourceInfo(setup=cmd_args(["/foo", "--resource"]), resource_env_vars={"RESOURCE_ENV_VAR": "json_key"}, setup_timeout_seconds=10)
+            LocalResourceInfo(setup=cmd_args(["/foo", "--resource"]), resource_env_vars={"RESOURCE_ENV_VAR": "json_key"}, setup_timeout_seconds=10.5)
         "#
     );
     tester.run_starlark_bzl_test(test)?;
@@ -152,6 +154,20 @@ fn test_validation() -> anyhow::Result<()> {
             tester.run_starlark_bzl_test(test),
             test,
             "Invalid value in `resource_env_vars`: Expected a str, got",
+        );
+    }
+    {
+        let test = indoc!(
+            r#"
+            def test():
+                wrong_env_vars = {"one":"1"}
+                LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars, setup_timeout_seconds="42")
+            "#
+        );
+        expect_error(
+            tester.run_starlark_bzl_test(test),
+            test,
+            "`setup_timeout_seconds` must be a number if provided",
         );
     }
     Ok(())

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::time::Duration;
+
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api_derive::internal_provider;
@@ -15,6 +17,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictRef;
+use starlark::values::none::NoneOr;
 use starlark::values::type_repr::DictType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
@@ -24,6 +27,7 @@ use starlark::values::Value;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use crate::starlark::values::UnpackValue;
 use crate::starlark::values::ValueLike;
 
 #[internal_provider(local_resource_info_creator)]
@@ -54,6 +58,9 @@ pub struct LocalResourceInfoGen<V> {
     /// to keys in setup command JSON output.
     #[provider(field_type = DictType<String, String>)]
     resource_env_vars: V,
+    /// Timeout in seconds for `setup` command.
+    #[provider(field_type = NoneOr<f64>)]
+    setup_timeout_seconds: V,
 }
 
 fn validate_local_resource_info<'v, V>(info: &LocalResourceInfoGen<V>) -> anyhow::Result<()>
@@ -109,6 +116,9 @@ where
         validation_item?;
     }
 
+    NoneOr::<f64>::unpack_value(info.setup_timeout_seconds.to_value())
+        .context("`setup_timeout_seconds` must be a number if provided")?;
+
     Ok(())
 }
 
@@ -118,11 +128,15 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
     fn LocalResourceInfo<'v>(
         #[starlark(require = named)] setup: Value<'v>,
         #[starlark(require = named)] resource_env_vars: Value<'v>,
-        _eval: &mut Evaluator<'v, '_>,
+        #[starlark(require = named, default = NoneOr::None)] setup_timeout_seconds: NoneOr<
+            Value<'v>,
+        >,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<LocalResourceInfo<'v>> {
         let result = LocalResourceInfo {
             setup,
             resource_env_vars,
+            setup_timeout_seconds: eval.heap().alloc(setup_timeout_seconds),
         };
         validate_local_resource_info(&result)?;
         Ok(result)
@@ -147,5 +161,12 @@ impl FrozenLocalResourceInfo {
 
     pub fn setup_command_line(&self) -> &dyn CommandLineArgLike {
         self.setup.to_value().as_command_line().unwrap()
+    }
+
+    pub fn setup_timeout(&self) -> Option<Duration> {
+        NoneOr::<f64>::unpack_value(self.setup_timeout_seconds.to_value())
+            .unwrap()
+            .into_option()
+            .map(Duration::from_secs_f64)
     }
 }
