@@ -81,9 +81,11 @@ where
         events: EventDispatcher,
         liveliness_observer: Arc<dyn LivelinessObserver>,
         cancellations: &CancellationContext<'_>,
+        intend_to_fallback_on_failure: bool,
     ) -> CommandExecutionResult {
         let remote_manager =
-            CommandExecutionManager::new(claim_manager, events, liveliness_observer);
+            CommandExecutionManager::new(claim_manager, events, liveliness_observer)
+                .with_intend_to_fallback_on_failure(intend_to_fallback_on_failure);
         self.remote
             .exec_cmd(command, remote_manager, cancellations)
             .await
@@ -139,6 +141,22 @@ where
 
         let claim_manager = MutexClaimManager::new();
 
+        let (is_limited, fallback_only, fallback_on_failure, low_pass_filter) = match self.level {
+            HybridExecutionLevel::Limited => (true, false, false, false),
+            HybridExecutionLevel::Fallback {
+                fallback_on_failure,
+            } => (false, true, fallback_on_failure, false),
+            HybridExecutionLevel::Full {
+                fallback_on_failure,
+                low_pass_filter,
+            } => (
+                false,
+                false,
+                fallback_on_failure,
+                low_pass_filter && command.request.low_pass_filter(),
+            ),
+        };
+
         // Note that this only sets up these futures, nothing will happen until they are awaited
         // (this is important in the case where we shouldn't be sending one of them).
         let local_result = self.local_exec_cmd(
@@ -164,6 +182,7 @@ where
             manager.events.dupe(),
             manager.liveliness_observer.dupe(),
             cancellations,
+            fallback_on_failure,
         );
 
         if executor_preference.requires_local()
@@ -180,22 +199,6 @@ where
             local: local_result.map(|r| (r, JobPriority(1))),
             remote: remote_result.map(|r| (r, JobPriority(0))),
             executor_preference,
-        };
-
-        let (is_limited, fallback_only, fallback_on_failure, low_pass_filter) = match self.level {
-            HybridExecutionLevel::Limited => (true, false, false, false),
-            HybridExecutionLevel::Fallback {
-                fallback_on_failure,
-            } => (false, true, fallback_on_failure, false),
-            HybridExecutionLevel::Full {
-                fallback_on_failure,
-                low_pass_filter,
-            } => (
-                false,
-                false,
-                fallback_on_failure,
-                low_pass_filter && command.request.low_pass_filter(),
-            ),
         };
 
         if is_limited {

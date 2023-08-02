@@ -164,8 +164,6 @@ impl ReExecutor {
             platform: platform.clone(),
         };
 
-        let action_result = &response.action_result;
-
         if response.error.code != TCode::OK {
             let res = if let Some(out) = as_missing_outputs_error(&response.error) {
                 // TODO: Add a dedicated report variant for this.
@@ -226,23 +224,6 @@ impl ReExecutor {
                     return ControlFlow::Break(manager.error("re_timeout_exceeded", e));
                 }
             }
-        }
-
-        if action_result.exit_code != 0 {
-            return ControlFlow::Break(manager.failure(
-                response.execution_kind(remote_details),
-                // TODO: we want to expose RE outputs even when actions fail,
-                //   this will allow tpx to correctly retrieve the output of
-                //   failing tests running on RE. See D34344489 for context.
-                IndexMap::new(),
-                CommandStdStreams::Remote(response.std_streams(
-                    &self.re_client,
-                    self.re_use_case,
-                    digest_config,
-                )),
-                Some(action_result.exit_code),
-                response.timing(),
-            ));
         }
 
         ControlFlow::Continue((manager, response))
@@ -313,6 +294,7 @@ impl PreparedCommandExecutor for ReExecutor {
             &response,
             self.paranoid.as_ref(),
             cancellations,
+            response.action_result.exit_code,
         )
         .boxed()
         .await;

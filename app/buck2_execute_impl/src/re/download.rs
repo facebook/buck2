@@ -71,7 +71,33 @@ pub async fn download_action_results<'a>(
     response: &dyn RemoteActionResult,
     paranoid: Option<&ParanoidDownloader>,
     cancellations: &CancellationContext<'_>,
+    action_exit_code: i32,
 ) -> DownloadResult {
+    let std_streams = response.std_streams(re_client, re_use_case, digest_config);
+    let std_streams = async {
+        if request.prefetch_lossy_stderr() {
+            std_streams.prefetch_lossy_stderr().await
+        } else {
+            std_streams
+        }
+    };
+
+    if action_exit_code != 0 && manager.intend_to_fallback_on_failure {
+        // Do not attempt to download outputs in this case so
+        // as to avoid cancelling in-flight local execution:
+        // either local already finished and the outputs are
+        // already there, or local hasn't finished, and then
+        // it will produce outputs.
+
+        let std_streams = std_streams.await;
+        return DownloadResult::Result(manager.failure(
+            response.execution_kind(details),
+            IndexMap::new(),
+            CommandStdStreams::Remote(std_streams),
+            Some(action_exit_code),
+            response.timing(),
+        ));
+    }
     let downloader = CasDownloader {
         materializer,
         re_client,
@@ -90,24 +116,26 @@ pub async fn download_action_results<'a>(
         cancellations,
     );
 
-    let std_streams = response.std_streams(re_client, re_use_case, digest_config);
-    let std_streams = async {
-        if request.prefetch_lossy_stderr() {
-            std_streams.prefetch_lossy_stderr().await
-        } else {
-            std_streams
-        }
-    };
-
     let (download, std_streams) = future::join(download, std_streams).await;
     let (manager, outputs) = download?;
 
-    DownloadResult::Result(manager.success(
-        response.execution_kind(details),
-        outputs,
-        CommandStdStreams::Remote(std_streams),
-        response.timing(),
-    ))
+    let res = match action_exit_code {
+        0 => manager.success(
+            response.execution_kind(details),
+            outputs,
+            CommandStdStreams::Remote(std_streams),
+            response.timing(),
+        ),
+        e => manager.failure(
+            response.execution_kind(details),
+            outputs,
+            CommandStdStreams::Remote(std_streams),
+            Some(e),
+            response.timing(),
+        ),
+    };
+
+    DownloadResult::Result(res)
 }
 
 pub struct CasDownloader<'a> {

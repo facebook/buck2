@@ -138,6 +138,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             &response,
             self.paranoid.as_ref(),
             cancellations,
+            response.action_result.exit_code,
         )
         .await;
 

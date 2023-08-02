@@ -42,6 +42,7 @@ pub struct CommandExecutionManager {
     pub claim_manager: Box<dyn ClaimManager>,
     pub events: EventDispatcher,
     pub liveliness_observer: Arc<dyn LivelinessObserver>,
+    pub intend_to_fallback_on_failure: bool,
 }
 
 impl CommandExecutionManager {
@@ -54,6 +55,7 @@ impl CommandExecutionManager {
             claim_manager,
             events,
             liveliness_observer,
+            intend_to_fallback_on_failure: false,
         }
     }
 
@@ -80,6 +82,14 @@ impl CommandExecutionManager {
             None,
             CommandExecutionMetadata::default(),
         )
+    }
+
+    pub fn with_intend_to_fallback_on_failure(
+        mut self,
+        intend_to_fallback_on_failure: bool,
+    ) -> Self {
+        self.intend_to_fallback_on_failure = intend_to_fallback_on_failure;
+        self
     }
 }
 
