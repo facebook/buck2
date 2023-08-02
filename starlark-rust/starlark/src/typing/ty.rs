@@ -185,6 +185,14 @@ impl Ty {
         }
     }
 
+    /// Create a named type.
+    ///
+    /// This function is deprecated because types should be migrated to either
+    /// types based on `StarlarkValue` or `TyCustom`.
+    pub fn name_deprecated(name: &str) -> Self {
+        Self::name(name)
+    }
+
     /// Turn a type back into a name, potentially erasing some structure.
     /// E.g. the type `[bool]` would return `list`.
     /// Types like [`Ty::any`] will return `None`.
