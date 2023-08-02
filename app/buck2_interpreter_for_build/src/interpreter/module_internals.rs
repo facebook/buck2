@@ -84,8 +84,6 @@ pub struct ModuleInternals {
     package_implicits: Option<PackageImplicits>,
     record_target_call_stacks: bool,
     skip_targets_with_duplicate_names: bool,
-    /// TODO(nga): temporary option.
-    pub(crate) check_within_view: bool,
     /// The files owned by this directory. Is `None` for .bzl files.
     package_listing: PackageListing,
     pub(crate) super_package: SuperPackage,
@@ -126,7 +124,6 @@ impl ModuleInternals {
         package_implicits: Option<PackageImplicits>,
         record_target_call_stacks: bool,
         skip_targets_with_duplicate_names: bool,
-        check_within_view: bool,
         package_listing: PackageListing,
         super_package: SuperPackage,
     ) -> Self {
@@ -138,7 +135,6 @@ impl ModuleInternals {
             package_implicits,
             record_target_call_stacks,
             skip_targets_with_duplicate_names,
-            check_within_view,
             package_listing,
             super_package,
         }

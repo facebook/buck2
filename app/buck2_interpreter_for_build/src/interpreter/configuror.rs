@@ -177,7 +177,6 @@ impl BuildInterpreterConfiguror {
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
         implicit_import: Option<&Arc<ImplicitImport>>,
-        check_within_view: bool,
     ) -> anyhow::Result<ModuleInternals> {
         let record_target_call_stack = self.record_target_call_stack;
         let skip_targets_with_duplicate_names = self.skip_targets_with_duplicate_names;
@@ -212,7 +211,6 @@ impl BuildInterpreterConfiguror {
             package_implicits,
             record_target_call_stack,
             skip_targets_with_duplicate_names,
-            check_within_view,
             package_listing,
             super_package,
         ))

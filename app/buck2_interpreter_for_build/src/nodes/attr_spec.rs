@@ -10,7 +10,6 @@
 use std::collections::HashMap;
 
 use anyhow::Context;
-use buck2_core::soft_error;
 use buck2_core::target::label::TargetLabelRef;
 use buck2_core::target::name::TargetName;
 use buck2_node::attrs::attr::CoercedValue;
@@ -153,7 +152,7 @@ impl AttributeSpecExt for AttributeSpec {
                 _ => return Err(AttributeSpecError::WithinViewCoercedIncorrectly.into()),
             };
             for a in self.attrs(&attr_values, AttrInspectOptions::DefinedOnly) {
-                if let Err(e) = check_within_view(
+                check_within_view(
                     a.value,
                     internals.buildfile_path().package(),
                     a.attr.coercer(),
@@ -164,13 +163,7 @@ impl AttributeSpecExt for AttributeSpec {
                         "checking `within_view` for attribute `{}` of `{}`",
                         a.name, target_label,
                     )
-                }) {
-                    if internals.check_within_view {
-                        return Err(e);
-                    } else {
-                        soft_error!("check_within_view", e)?;
-                    }
-                }
+                })?;
             }
         }
 
