@@ -35,7 +35,6 @@ use crate::coerce::coerce;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
-use crate::private::Private;
 use crate::starlark_complex_values;
 use crate::typing::Ty;
 use crate::values::exported_name::ExportedName;
@@ -205,7 +204,7 @@ where
         }
     }
 
-    fn eval_type(&self, _private: Private) -> Option<Ty> {
+    fn eval_type(&self) -> Option<Ty> {
         // Very basic type, only checks the name.
         // Should also behave like a function.
 

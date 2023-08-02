@@ -217,7 +217,7 @@ where
         Ok(self.type_compiled_impl == other.type_compiled_impl)
     }
 
-    fn eval_type(&self, _private: Private) -> Option<Ty> {
+    fn eval_type(&self) -> Option<Ty> {
         // `TypeCompiled::new` handles this type explicitly,
         // but implement this function to make proc-macro generate `bit_or`.
         // Also safer to be explicit here.

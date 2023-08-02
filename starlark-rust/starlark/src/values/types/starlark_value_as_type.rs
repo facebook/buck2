@@ -25,7 +25,6 @@ use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
-use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
@@ -90,7 +89,7 @@ impl<T: StarlarkValue<'static>> AllocFrozenValue for StarlarkValueAsType<T> {
 
 #[starlark_value(type = "type")]
 impl<'v, T: StarlarkValue<'static>> StarlarkValue<'v> for StarlarkValueAsType<T> {
-    fn eval_type(&self, _private: Private) -> Option<Ty> {
+    fn eval_type(&self) -> Option<Ty> {
         Some(T::starlark_type_repr())
     }
 }

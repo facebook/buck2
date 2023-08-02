@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
+#![doc(hidden)]
+
 use anyhow::Context;
 
-use crate::private::Private;
 use crate::values::typing::type_compiled::TypeCompiled;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -30,12 +31,12 @@ enum TypingMacroRefsError {
 }
 
 /// Implementation of `bit_or` for `StarlarkValue` implementations which are types.
-pub(crate) fn starlark_value_bit_or_for_type<'v, S: StarlarkValue<'v>>(
+pub fn starlark_value_bit_or_for_type<'v, S: StarlarkValue<'v>>(
     this: &S,
     other: Value<'v>,
     heap: &'v Heap,
 ) -> anyhow::Result<Value<'v>> {
-    let Some(this) = this.eval_type(Private) else {
+    let Some(this) = this.eval_type() else {
         let mut repr = String::new();
         this.collect_repr(&mut repr);
         return Err(TypingMacroRefsError::LhsNotType(repr).into());

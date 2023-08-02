@@ -37,7 +37,6 @@ use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
-use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::layout::avalue::alloc_static;
 use crate::values::layout::avalue::AValueImpl;
@@ -61,7 +60,7 @@ pub(crate) struct TypingNever;
 
 #[starlark_value(type = "typing.Never")]
 impl<'v> StarlarkValue<'v> for TypingNever {
-    fn eval_type(&self, _private: Private) -> Option<Ty> {
+    fn eval_type(&self) -> Option<Ty> {
         Some(Ty::never())
     }
 }

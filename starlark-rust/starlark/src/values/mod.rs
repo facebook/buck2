@@ -112,6 +112,6 @@ mod trace;
 pub(crate) mod traits;
 pub mod type_repr;
 pub(crate) mod types;
-pub(crate) mod typing;
+pub mod typing;
 mod unpack;
 pub(crate) mod value_of_unchecked;

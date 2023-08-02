@@ -20,7 +20,6 @@ use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
-use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::layout::avalue::alloc_static;
 use crate::values::layout::avalue::AValueImpl;
@@ -44,7 +43,7 @@ pub(crate) struct TypingAny;
 
 #[starlark_value(type = "typing.Any")]
 impl<'v> StarlarkValue<'v> for TypingAny {
-    fn eval_type(&self, _private: Private) -> Option<Ty> {
+    fn eval_type(&self) -> Option<Ty> {
         Some(Ty::any())
     }
 }

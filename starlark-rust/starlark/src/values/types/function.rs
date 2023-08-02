@@ -271,7 +271,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     #[allow(clippy::manual_map)]
-    fn eval_type(&self, _private: Private) -> Option<Ty> {
+    fn eval_type(&self) -> Option<Ty> {
         self.typ.clone()
     }
 

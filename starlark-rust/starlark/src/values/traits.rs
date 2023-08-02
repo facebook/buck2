@@ -302,7 +302,7 @@ pub trait StarlarkValue<'v>:
 
     /// Evaluate this value as a type expression. Basically, `eval_type(this)`.
     #[doc(hidden)]
-    fn eval_type(&self, _private: Private) -> Option<Ty> {
+    fn eval_type(&self) -> Option<Ty> {
         None
     }
 

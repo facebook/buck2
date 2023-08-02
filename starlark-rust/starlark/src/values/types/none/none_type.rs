@@ -98,7 +98,7 @@ impl<'v> StarlarkValue<'v> for NoneType {
         Some(Ty::none())
     }
 
-    fn eval_type(&self, _private: Private) -> Option<Ty> {
+    fn eval_type(&self) -> Option<Ty> {
         Some(Ty::none())
     }
 }
