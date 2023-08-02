@@ -70,9 +70,9 @@ use starlark::values::StarlarkIter;
 use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueOf;
-use starlark::values::ValueOfComplex;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
@@ -895,7 +895,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// Creates a new transitive set. For details, see https://buck2.build/docs/rule_authors/transitive_sets/.
     fn tset<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] definition: ValueOfComplex<'v, TransitiveSetDefinition<'v>>,
+        #[starlark(require = pos)] definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         children: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         eval: &mut Evaluator<'v, '_>,

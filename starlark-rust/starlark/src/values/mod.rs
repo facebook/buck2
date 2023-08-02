@@ -48,7 +48,7 @@ pub use crate::values::freeze::Freeze;
 pub use crate::values::frozen_ref::FrozenRef;
 pub use crate::values::iter::StarlarkIterator;
 pub use crate::values::iter_type::StarlarkIter;
-pub use crate::values::layout::complex::ValueOfComplex;
+pub use crate::values::layout::complex::ValueTypedComplex;
 pub use crate::values::layout::heap::heap_type::Freezer;
 pub use crate::values::layout::heap::heap_type::FrozenHeap;
 pub use crate::values::layout::heap::heap_type::FrozenHeapRef;

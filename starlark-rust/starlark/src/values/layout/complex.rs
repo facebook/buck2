@@ -33,12 +33,12 @@ use crate::values::ValueLike;
 
 /// Value which is either a complex mutable value or a frozen value.
 #[derive(Copy_, Clone_, Dupe_)]
-pub struct ValueOfComplex<'v, T>(Value<'v>, PhantomData<T>)
+pub struct ValueTypedComplex<'v, T>(Value<'v>, PhantomData<T>)
 where
     T: ComplexValue<'v>,
     T::Frozen: StarlarkValue<'static>;
 
-impl<'v, T> ValueOfComplex<'v, T>
+impl<'v, T> ValueTypedComplex<'v, T>
 where
     T: ComplexValue<'v>,
     T::Frozen: StarlarkValue<'static>,
@@ -64,7 +64,7 @@ where
     }
 }
 
-impl<'v, T> StarlarkTypeRepr for ValueOfComplex<'v, T>
+impl<'v, T> StarlarkTypeRepr for ValueTypedComplex<'v, T>
 where
     T: ComplexValue<'v>,
     T::Frozen: StarlarkValue<'static>,
@@ -74,7 +74,7 @@ where
     }
 }
 
-impl<'v, T> AllocValue<'v> for ValueOfComplex<'v, T>
+impl<'v, T> AllocValue<'v> for ValueTypedComplex<'v, T>
 where
     T: ComplexValue<'v>,
     T::Frozen: StarlarkValue<'static>,
@@ -85,7 +85,7 @@ where
     }
 }
 
-impl<'v, T> UnpackValue<'v> for ValueOfComplex<'v, T>
+impl<'v, T> UnpackValue<'v> for ValueTypedComplex<'v, T>
 where
     T: ComplexValue<'v>,
     T::Frozen: StarlarkValue<'static>,
@@ -96,7 +96,7 @@ where
                 .downcast_ref::<T::Frozen>()
                 .is_some()
         {
-            Some(ValueOfComplex(value, PhantomData))
+            Some(ValueTypedComplex(value, PhantomData))
         } else {
             None
         }
@@ -118,7 +118,7 @@ mod tests {
     use crate::assert::Assert;
     use crate::const_frozen_string;
     use crate::environment::GlobalsBuilder;
-    use crate::values::layout::complex::ValueOfComplex;
+    use crate::values::layout::complex::ValueTypedComplex;
     use crate::values::starlark_value;
     use crate::values::StarlarkValue;
     use crate::values::Value;
@@ -144,7 +144,7 @@ mod tests {
     #[starlark_module]
     fn test_module(globals: &mut GlobalsBuilder) {
         fn test_unpack<'v>(
-            v: ValueOfComplex<'v, TestValueOfComplex<Value<'v>>>,
+            v: ValueTypedComplex<'v, TestValueOfComplex<Value<'v>>>,
         ) -> anyhow::Result<&'v str> {
             Ok(match v.unpack() {
                 Either::Left(v) => v.0.unpack_str().context("not a string")?,
