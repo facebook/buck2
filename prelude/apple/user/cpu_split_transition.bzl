@@ -108,7 +108,6 @@ cpu_split_transition = transition(
     },
     attrs = [
         "universal",
-        "_universal_default",
     ],
     split = True,
 )

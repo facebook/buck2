@@ -100,7 +100,6 @@ def apple_bundle_extra_attrs():
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_provisioning_profiles": attrs.dep(default = "fbsource//xplat/buck2/platform/apple:provisioning_profiles"),
-        "_universal_default": attrs.bool(default = False),
     }
     attribs.update(_apple_bundle_like_common_attrs())
     return attribs

@@ -88,7 +88,7 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput.type:
             is_watchkit_stub_binary = True,
         )
 
-    if ctx.attrs.universal:
+    if len(get_flattened_binary_deps(ctx)) > 1:
         if ctx.attrs.selective_debugging != None:
             fail("Selective debugging is not supported for universal binaries.")
         return create_universal_binary(

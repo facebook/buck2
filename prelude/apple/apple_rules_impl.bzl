@@ -167,7 +167,6 @@ extra_attributes = {
         "universal": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
-        "_universal_default": attrs.bool(default = False),
     },
     "core_data_model": {
         "path": attrs.source(allow_directory = True),
