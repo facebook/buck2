@@ -14,7 +14,8 @@ load(
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs") 
-load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo", "SELECTED_DEBUG_PATH_FILE_NAME")
+load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
+load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load(
     "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
