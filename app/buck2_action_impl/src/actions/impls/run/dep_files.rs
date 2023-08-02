@@ -50,7 +50,6 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_file_watcher::dep_files::FLUSH_DEP_FILES;
 use buck2_util::collections::ordered_map::OrderedMap;
-use buck2_util::collections::sorted_map::SortedMap;
 use dashmap::DashMap;
 use derive_more::Display;
 use dupe::Dupe;
@@ -238,7 +237,7 @@ impl DepFileState {
 /// creation time that tags and labels are both unique.
 #[derive(Debug, Allocative)]
 pub(crate) struct RunActionDepFiles {
-    pub(crate) labels: HashMap<ArtifactTag, Arc<str>>,
+    pub(crate) labels: OrderedMap<ArtifactTag, Arc<str>>,
 }
 
 impl Display for RunActionDepFiles {
@@ -255,7 +254,7 @@ impl Display for RunActionDepFiles {
 impl RunActionDepFiles {
     pub fn new() -> Self {
         Self {
-            labels: HashMap::new(),
+            labels: OrderedMap::new(),
         }
     }
 }
@@ -285,9 +284,22 @@ pub(crate) fn make_dep_file_bundle(
 
     let DepFilesCommandLineVisitor {
         inputs: declared_inputs,
-        outputs: declared_dep_files,
+        tagged_outputs,
         ..
     } = visitor;
+    // Filter out tags with no dep file associated with it
+    let tagged_outputs: OrderedMap<ArtifactTag, DeclaredDepFile> = tagged_outputs
+        .into_iter()
+        .filter_map(|(tag, (label, output))| {
+            let output = output?;
+            Some((tag, DeclaredDepFile { label, output }))
+        })
+        .collect();
+
+    let declared_dep_files = DeclaredDepFiles {
+        tagged: tagged_outputs,
+    };
+
     Ok(DepFileBundle {
         dep_files_key,
         digests,
@@ -578,7 +590,7 @@ pub(crate) async fn populate_dep_files(
 #[derive(Clone, PartialEq, Eq, Allocative)]
 pub struct PartitionedInputs<D> {
     pub untagged: D,
-    pub tagged: SortedMap<Arc<str>, D>,
+    pub tagged: OrderedMap<Arc<str>, D>,
 }
 
 impl<D> PartitionedInputs<D> {
@@ -757,41 +769,12 @@ struct DeclaredDepFile {
 /// All the dep files declared by a command;
 #[derive(Default, Debug, Allocative)]
 pub(crate) struct DeclaredDepFiles {
-    tagged: HashMap<ArtifactTag, DeclaredDepFile>,
+    tagged: OrderedMap<ArtifactTag, DeclaredDepFile>,
 }
 
 impl DeclaredDepFiles {
     fn is_empty(&self) -> bool {
         self.tagged.is_empty()
-    }
-
-    /// Add dep file to this set.
-    fn visit_output(
-        &mut self,
-        artifact: OutputArtifact,
-        tag: Option<&ArtifactTag>,
-        dep_files: &RunActionDepFiles,
-    ) {
-        match tag {
-            None => {}
-            Some(tag) => {
-                // NOTE: We have validated tags earlier, so we know that if a tag does not point to
-                // a dep file here, it's safe to ignore it. We also know that we'll have exactly 1
-                // dep file per tag.
-                if let Some(label) = dep_files.labels.get(tag) {
-                    // NOTE: analysis has been done so we know inputs are bound now.
-                    let output = (*artifact).dupe().ensure_bound().unwrap().into_artifact();
-
-                    self.tagged.insert(
-                        tag.dupe(),
-                        DeclaredDepFile {
-                            label: label.dupe(),
-                            output,
-                        },
-                    );
-                }
-            }
-        }
     }
 
     /// Given an ActionOutputs, materialize this set of dep files, so that we may read them later.
@@ -924,22 +907,31 @@ pub struct ConcreteDepFiles {
 /// computations.
 pub(crate) struct DepFilesCommandLineVisitor<'a> {
     pub inputs: PartitionedInputs<Vec<ArtifactGroup>>,
-    pub outputs: DeclaredDepFiles,
+    pub tagged_outputs: OrderedMap<ArtifactTag, (Arc<str>, Option<Artifact>)>,
     dep_files: &'a RunActionDepFiles,
 }
 
 impl<'a> DepFilesCommandLineVisitor<'a> {
     pub(crate) fn new(dep_files: &'a RunActionDepFiles) -> Self {
-        let mut tagged_inputs = OrderedMap::<Arc<str>, Vec<ArtifactGroup>>::default();
-        for tag in dep_files.labels.values() {
-            tagged_inputs.insert(tag.dupe(), Default::default());
-        }
+        // Prepopulate inputs & outputs to maintain the ordering of the labels declaration.
+
+        let tagged_inputs: OrderedMap<Arc<str>, Vec<ArtifactGroup>> = dep_files
+            .labels
+            .iter()
+            .map(|(_tag, label)| (label.dupe(), Default::default()))
+            .collect();
+
+        let tagged_outputs: OrderedMap<ArtifactTag, (Arc<str>, Option<Artifact>)> = dep_files
+            .labels
+            .iter()
+            .map(|(tag, label)| (tag.dupe(), (label.dupe(), None)))
+            .collect();
         Self {
             inputs: PartitionedInputs {
                 untagged: Default::default(),
-                tagged: SortedMap::from(tagged_inputs),
+                tagged: tagged_inputs,
             },
-            outputs: Default::default(),
+            tagged_outputs,
             dep_files,
         }
     }
@@ -951,7 +943,18 @@ impl CommandLineArtifactVisitor for DepFilesCommandLineVisitor<'_> {
     }
 
     fn visit_output(&mut self, artifact: OutputArtifact, tag: Option<&ArtifactTag>) {
-        self.outputs.visit_output(artifact, tag, self.dep_files);
+        match tag {
+            Some(tag) => {
+                // NOTE: We have validated tags earlier, so we know that if a tag does not point to
+                // a dep file here, it's safe to ignore it. We also know that we'll have exactly 1
+                // dep file per tag.
+                if let Some((_label, output)) = self.tagged_outputs.get_mut(tag) {
+                    // NOTE: analysis has been done so we know inputs are bound now.
+                    *output = Some((*artifact).dupe().ensure_bound().unwrap().into_artifact());
+                }
+            }
+            None => (),
+        }
     }
 }
 
@@ -963,9 +966,66 @@ mod test {
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-    use maplit::hashmap;
 
     use super::*;
+
+    #[test]
+    fn test_dep_files_visitor_output_collection() {
+        let tag1 = ArtifactTag::new();
+        let tag2 = ArtifactTag::new();
+        let tag3 = ArtifactTag::new();
+        let tag4 = ArtifactTag::new();
+
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
+        let artifact1 = Artifact::from(BuildArtifact::testing_new(
+            target.dupe(),
+            ForwardRelativePathBuf::unchecked_new("foo/bar1.h".to_owned()),
+            DeferredId::testing_new(0),
+        ));
+        let artifact2 = Artifact::from(BuildArtifact::testing_new(
+            target.dupe(),
+            ForwardRelativePathBuf::unchecked_new("foo/bar2.h".to_owned()),
+            DeferredId::testing_new(0),
+        ));
+        let artifact3 = Artifact::from(BuildArtifact::testing_new(
+            target.dupe(),
+            ForwardRelativePathBuf::unchecked_new("foo/bar3.h".to_owned()),
+            DeferredId::testing_new(0),
+        ));
+        let artifact4 = Artifact::from(BuildArtifact::testing_new(
+            target.dupe(),
+            ForwardRelativePathBuf::unchecked_new("foo/bar4.h".to_owned()),
+            DeferredId::testing_new(0),
+        ));
+        let artifact5 = Artifact::from(BuildArtifact::testing_new(
+            target.dupe(),
+            ForwardRelativePathBuf::unchecked_new("foo/bar5.h".to_owned()),
+            DeferredId::testing_new(0),
+        ));
+
+        let dep_files = RunActionDepFiles {
+            labels: OrderedMap::from_iter([
+                (tag1.dupe(), Arc::from("l1")),
+                (tag2.dupe(), Arc::from("l2")),
+                (tag3.dupe(), Arc::from("l3")),
+            ]),
+        };
+
+        let mut visitor = DepFilesCommandLineVisitor::new(&dep_files);
+        visitor.visit_output(artifact3.as_output_artifact().unwrap(), Some(&tag3));
+        visitor.visit_output(artifact2.as_output_artifact().unwrap(), Some(&tag2));
+        visitor.visit_output(artifact1.as_output_artifact().unwrap(), Some(&tag1));
+        // This should be ignored as it's not included in RunActionDepFiles
+        visitor.visit_output(artifact4.as_output_artifact().unwrap(), Some(&tag4));
+        // This should be ignored as it does not have a tag
+        visitor.visit_output(artifact5.as_output_artifact().unwrap(), None);
+
+        // Assert that the order is preserved between the two maps
+        let x: Vec<_> = visitor.tagged_outputs.keys().collect();
+        let y: Vec<_> = dep_files.labels.keys().collect();
+        assert_eq!(x, y);
+    }
 
     #[test]
     fn test_declares_same_dep_files() {
@@ -1004,19 +1064,19 @@ mod test {
         let tag2 = ArtifactTag::new();
 
         let decl1 = DeclaredDepFiles {
-            tagged: hashmap! { tag1.dupe() => depfile1.dupe() },
+            tagged: OrderedMap::from_iter([(tag1.dupe(), depfile1.dupe())]),
         };
 
         let decl2 = DeclaredDepFiles {
-            tagged: hashmap! { tag2.dupe() => depfile1.dupe() },
+            tagged: OrderedMap::from_iter([(tag2.dupe(), depfile1.dupe())]),
         };
 
         let decl3 = DeclaredDepFiles {
-            tagged: hashmap! { tag2.dupe() => depfile2.dupe() },
+            tagged: OrderedMap::from_iter([(tag2.dupe(), depfile2.dupe())]),
         };
 
         let decl4 = DeclaredDepFiles {
-            tagged: hashmap! { tag2.dupe() => depfile3.dupe() },
+            tagged: OrderedMap::from_iter([(tag2.dupe(), depfile3.dupe())]),
         };
 
         assert!(decl1.declares_same_dep_files(&decl1));

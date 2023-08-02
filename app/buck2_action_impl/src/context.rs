@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -73,6 +72,7 @@ use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
+use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
@@ -727,10 +727,10 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
                 }
 
                 match dep_files_configuration.labels.entry(tag.dupe()) {
-                    Entry::Vacant(v) => {
+                    small_map::Entry::Vacant(v) => {
                         v.insert(Arc::from(key));
                     }
-                    Entry::Occupied(o) => {
+                    small_map::Entry::Occupied(o) => {
                         return Err(RunActionError::ConflictingDepFiles {
                             first: (**o.get()).to_owned(),
                             second: (*key).to_owned(),
