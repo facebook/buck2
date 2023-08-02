@@ -1242,7 +1242,7 @@ def _shared_library(
         impl_params: "CxxRuleConstructorParams",
         objects: list["artifact"],
         external_debug_info: ArtifactTSet.type,
-        dep_infos: "LinkArgs",
+        dep_infos: LinkArgs.type,
         gnu_use_link_groups: bool,
         extra_linker_flags: list[ArgLike],
         link_execution_preference: LinkExecutionPreference.type,

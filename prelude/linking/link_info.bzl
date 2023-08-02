@@ -409,7 +409,7 @@ def create_merged_link_info(
         # Link info to always propagate from exported deps.
         exported_deps: list["MergedLinkInfo"] = [],
         frameworks_linkable: [FrameworksLinkable.type, None] = None,
-        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> "MergedLinkInfo":
+        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> MergedLinkInfo.type:
     """
     Create a `MergedLinkInfo` provider.
     """
@@ -480,7 +480,7 @@ def create_merged_link_info(
 
 def merge_link_infos(
         ctx: AnalysisContext,
-        xs: list["MergedLinkInfo"]) -> "MergedLinkInfo":
+        xs: list[MergedLinkInfo.type]) -> MergedLinkInfo.type:
     merged = {}
     merged_external_debug_info = {}
     frameworks = {}

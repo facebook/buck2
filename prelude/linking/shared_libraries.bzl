@@ -103,7 +103,7 @@ def _merge_lib_map(
 def merge_shared_libraries(
         actions: "actions",
         node: ["SharedLibraries", None] = None,
-        deps: list["SharedLibraryInfo"] = []) -> "SharedLibraryInfo":
+        deps: list[SharedLibraryInfo.type] = []) -> SharedLibraryInfo.type:
     kwargs = {}
 
     children = filter(None, [dep.set for dep in deps])
@@ -116,7 +116,7 @@ def merge_shared_libraries(
     return SharedLibraryInfo(set = set)
 
 def traverse_shared_library_info(
-        info: "SharedLibraryInfo"):  # -> {str: SharedLibrary.type}:
+        info: SharedLibraryInfo.type):  # -> {str: SharedLibrary.type}:
     libraries = {}
     if info.set:
         for libs in info.set.traverse():

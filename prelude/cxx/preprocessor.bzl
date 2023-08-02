@@ -169,7 +169,7 @@ def cxx_inherited_preprocessor_infos(first_order_deps: list[Dependency]) -> list
     # python_library "fbcode//third-party-buck/$platform/build/glibc:__project__"
     return filter(None, [x.get(CPreprocessorInfo) for x in first_order_deps])
 
-def cxx_merge_cpreprocessors(ctx: AnalysisContext, own: list[CPreprocessor.type], xs: list[CPreprocessorInfo.type]) -> "CPreprocessorInfo":
+def cxx_merge_cpreprocessors(ctx: AnalysisContext, own: list[CPreprocessor.type], xs: list[CPreprocessorInfo.type]) -> CPreprocessorInfo.type:
     kwargs = {"children": [x.set for x in xs]}
     if own:
         kwargs["value"] = own
