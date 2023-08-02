@@ -20,10 +20,11 @@ def filegroup_impl(ctx):
     else:
         srcs = {}
         for src in ctx.attrs.srcs:
-            if src.short_path in srcs:
+            existing = srcs.get(src.short_path)
+            if existing != None and existing != src:
                 soft_error(
                     "starlark_filegroup_duplicate_srcs",
-                    "filegroup has srcs with duplicate names: {} and {}".format(src, srcs[src.short_path]),
+                    "filegroup {} has srcs with duplicate names: {} and {}".format(ctx.label, src, srcs[src.short_path]),
                     quiet = True,
                     stack = False,
                 )
