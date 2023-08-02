@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use buck2_build_api::audit_cell::audit_cell;
 use buck2_build_api::audit_output::audit_output;
 use buck2_build_api::audit_output::AuditOutputResult;
 use buck2_core::cells::CellResolver;
@@ -21,6 +22,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
+use starlark::values::dict::Dict;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
@@ -141,5 +143,47 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                 }),
             )
         })
+    }
+
+    /// Query information about the [repositories] list in .buckconfig.
+    ///
+    /// Takes the following parameters:
+    /// * `aliases_to_resolve` - list of cell aliases to query. These aliases will be resolved in the root cell of the BXL script.
+    /// * optional `aliases` flag - if enabled, and no explicit aliases are passed, will query for all aliases in the root cell of the BXL script.
+    ///
+    /// Returns a dict of cell name to absolute path mappings.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_audit_cell(ctx):
+    ///     result = ctx.audit().cell(aliases = True)
+    ///     ctx.output.print(result)
+    /// ```
+    fn cell<'v>(
+        this: &StarlarkAuditCtx<'v>,
+        #[starlark(default = Vec::new())] aliases_to_resolve: Vec<String>,
+        #[starlark(require = named, default = false)] aliases: bool,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
+        audit_cell(
+            &aliases_to_resolve,
+            aliases,
+            &this.cell_resolver,
+            &this.working_dir,
+            this.ctx.project_root(),
+        )
+        .map(|result| {
+            Ok(heap.alloc(Dict::new(
+                result
+                    .into_iter()
+                    .map(|(k, v)| {
+                        Ok((
+                            heap.alloc_str(&k).to_value().get_hashed()?,
+                            heap.alloc_str(&v.to_string()).to_value(),
+                        ))
+                    })
+                    .collect::<anyhow::Result<_>>()?,
+            )))
+        })?
     }
 }

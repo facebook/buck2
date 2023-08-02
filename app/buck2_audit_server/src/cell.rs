@@ -11,6 +11,7 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_audit::cell::AuditCellCommand;
+use buck2_build_api::audit_cell::AUDIT_CELL;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
@@ -122,4 +123,10 @@ pub(crate) fn audit_cell(
         }
     };
     Ok(mappings)
+}
+
+pub(crate) fn init_audit_cell() {
+    AUDIT_CELL.init(|aliases_to_resolve, aliases, cells, cwd, fs| {
+        audit_cell(aliases_to_resolve, aliases, cells, cwd, fs)
+    });
 }

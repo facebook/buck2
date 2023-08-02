@@ -101,5 +101,8 @@ impl AuditCommandExt for AuditCommand {
 
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();
-    ONCE.call_once(output::command::init_audit_output)
+    ONCE.call_once(|| {
+        output::command::init_audit_output();
+        cell::init_audit_cell();
+    })
 }
