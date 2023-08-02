@@ -264,4 +264,8 @@ impl ActionsRegistry {
     ) -> impl Iterator<Item = &ReservedTrivialDeferredData<Arc<RegisteredAction>>> {
         self.pending.iter().map(|(reserved, _)| reserved)
     }
+
+    pub(crate) fn execution_platform(&self) -> &ExecutionPlatformResolution {
+        &self.execution_platform
+    }
 }

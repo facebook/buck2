@@ -136,7 +136,7 @@ pub(crate) async fn resolve_bxl_execution_platform<'v>(
     })
 }
 
-async fn get_dependency_for_label<'v>(
+pub(crate) async fn get_dependency_for_label<'v>(
     configured: ConfiguredProvidersLabel,
     ctx: &'v DiceComputations,
     module: &'v Module,

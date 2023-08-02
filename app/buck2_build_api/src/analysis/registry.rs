@@ -302,6 +302,10 @@ impl<'v> AnalysisRegistry<'v> {
             Ok((frozen_env, deferred))
         })
     }
+
+    pub fn execution_platform(&self) -> &ExecutionPlatformResolution {
+        self.actions.execution_platform()
+    }
 }
 
 pub struct ArtifactDeclaration<'v> {

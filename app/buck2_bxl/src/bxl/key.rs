@@ -137,8 +137,18 @@ pub(crate) struct BxlDynamicKeyData {
 pub(crate) struct BxlDynamicKey(pub Arc<BxlDynamicKeyData>);
 
 impl BxlDynamicKey {
+    pub(crate) fn key(&self) -> BxlKey {
+        BxlKey(self.0.key.dupe())
+    }
+
     fn from_base_deferred_key_dyn_impl(key: Arc<dyn BaseDeferredKeyDyn>) -> Option<Self> {
         key.into_any().downcast().ok().map(BxlDynamicKey)
+    }
+
+    pub(crate) fn from_base_deferred_key_dyn_impl_err(
+        key: Arc<dyn BaseDeferredKeyDyn>,
+    ) -> anyhow::Result<Self> {
+        Self::from_base_deferred_key_dyn_impl(key).context("Not BxlDynamicKey (internal error)")
     }
 }
 

@@ -92,6 +92,7 @@ use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 use thiserror::Error;
 
+use crate::bxl::key::BxlDynamicKey;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
@@ -140,20 +141,27 @@ pub(crate) struct RootBxlContextData<'v> {
     materializations: Arc<DashMap<BuildArtifact, ()>>,
 }
 
+/// Data object for `BxlContextType::Dynamic`.
+#[derive(ProvidesStaticType, Trace, Allocative, Debug, Derivative)]
+pub(crate) struct DynamicBxlContextData {
+    exec_deps: Vec<ConfiguredProvidersLabel>,
+    toolchains: Vec<ConfiguredProvidersLabel>,
+}
+
 /// Environment-specific fields of `BxlContext`.
 #[derive(ProvidesStaticType, Trace, NoSerialize, Allocative, Debug, Derivative)]
 pub(crate) enum BxlContextType<'v> {
     /// Context passed to `ctx` parameter to BXL entry function
     Root(RootBxlContextData<'v>),
     /// Context passed to `ctx` parameter to the dynamic lambda entry function
-    Dynamic,
+    Dynamic(DynamicBxlContextData),
 }
 
 impl<'v> BxlContextType<'v> {
     fn unpack_root(&self) -> anyhow::Result<&'v RootBxlContextData> {
         match &self {
             BxlContextType::Root(root) => Ok(root),
-            BxlContextType::Dynamic => Err(anyhow::anyhow!("Expected root BXL context type")),
+            BxlContextType::Dynamic(_) => Err(anyhow::anyhow!("Expected root BXL context type")),
         }
     }
 }
@@ -164,7 +172,7 @@ impl<'v> Display for BxlContextType<'v> {
             BxlContextType::Root { .. } => {
                 write!(f, "root")
             }
-            BxlContextType::Dynamic => {
+            BxlContextType::Dynamic(_) => {
                 write!(f, "dynamic")
             }
         }
@@ -277,6 +285,7 @@ impl<'v> BxlContext<'v> {
         digest_config: DigestConfig,
         global_target_platform: Option<TargetLabel>,
         analysis_registry: AnalysisRegistry<'v>,
+        dynamic_data: DynamicBxlContextData,
     ) -> anyhow::Result<Self> {
         let cell_root_abs = project_fs.root().join(
             cell_resolver
@@ -299,7 +308,7 @@ impl<'v> BxlContext<'v> {
                 digest_config,
             }),
             global_target_platform,
-            context_type: BxlContextType::Dynamic,
+            context_type: BxlContextType::Dynamic(dynamic_data),
             project_fs,
             artifact_fs,
         })
@@ -309,7 +318,7 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn print_to_error_stream(&self, msg: String) -> anyhow::Result<()> {
         match &self.context_type {
             BxlContextType::Root(root) => writeln!(root.error_stream.sink.borrow_mut(), "{}", msg)?,
-            BxlContextType::Dynamic => console_message(msg),
+            BxlContextType::Dynamic(_) => console_message(msg),
         }
         Ok(())
     }
@@ -405,7 +414,13 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     // TODO(wendyy) emit telemetry, support profiler
     let env = Module::new();
     let liveness = deferred_ctx.liveness();
-    let key = BxlKey::from_base_deferred_key_dyn_impl_err(base_deferred_key.clone())?;
+    let dynamic_key =
+        BxlDynamicKey::from_base_deferred_key_dyn_impl_err(base_deferred_key.clone())?;
+    let key = dynamic_key.key();
+    let dynamic_data = DynamicBxlContextData {
+        exec_deps: dynamic_key.0.exec_deps.clone(),
+        toolchains: dynamic_key.0.toolchains.clone(),
+    };
     let global_target_platform = key.global_target_platform().dupe();
     let async_ctx: BxlSafeDiceComputations<'_> =
         BxlSafeDiceComputations::new(dice_ctx.dupe(), liveness);
@@ -474,6 +489,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                                         digest_config,
                                         global_target_platform,
                                         dynamic_lambda_ctx_data.registry,
+                                        dynamic_data,
                                     )?;
 
                                     let ctx = ValueTyped::<BxlContext>::new(
@@ -801,7 +817,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<BxlActions<'v>> {
         this.async_ctx.via_dice(|ctx| async {
-            let (exec_deps, toolchains) = match this.context_type {
+            let (exec_deps, toolchains) = match &this.context_type {
                 BxlContextType::Root { .. } => {
                     let target_platform = target_platform.parse_target_platforms(
                         &this.target_alias_resolver,
@@ -858,7 +874,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         execution_resolution.toolchain_deps_configured,
                     )
                 }
-                BxlContextType::Dynamic => {
+                BxlContextType::Dynamic(data) => {
                     if !exec_deps.is_none()
                         || !toolchains.is_none()
                         || !target_platform.is_none()
@@ -868,12 +884,18 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             BxlContextDynamicError::RequireSameExecutionPlatformAsRoot.into()
                         );
                     }
-                    // TODO(@wendyy) - make these accessible. Users need to create a providers label currently
-                    (Vec::new(), Vec::new())
+                    (data.exec_deps.clone(), data.toolchains.clone())
                 }
             };
 
-            BxlActions::new(this.state, exec_deps, toolchains, eval, ctx).await
+            BxlActions::new(
+                this.state,
+                exec_deps.to_vec(),
+                toolchains.to_vec(),
+                eval,
+                ctx,
+            )
+            .await
         })
     }
 
