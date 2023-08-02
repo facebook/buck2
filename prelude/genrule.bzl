@@ -11,6 +11,7 @@ load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
 load("@prelude//:genrule_toolchain.bzl", "GenruleToolchainInfo")
 load("@prelude//:open_source.bzl", "is_open_source")
+load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
@@ -66,6 +67,7 @@ def genrule_attributes() -> dict[str, "attribute"]:
         "metadata_env_var": attrs.option(attrs.string(), default = None),
         "metadata_path": attrs.option(attrs.string(), default = None),
         "no_outputs_cleanup": attrs.bool(default = False),
+        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_genrule_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:genrule", providers = [GenruleToolchainInfo])),
     }
 
