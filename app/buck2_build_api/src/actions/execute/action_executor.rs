@@ -126,9 +126,6 @@ pub enum ActionExecutionKind {
     /// This action is simple and executed inline within buck2 (e.g. write, symlink_dir)
     #[display(fmt = "simple")]
     Simple,
-    /// This action was not executed at all.
-    #[display(fmt = "skipped")]
-    Skipped,
     /// This action logically executed, but didn't do all the work.
     #[display(fmt = "deferred")]
     Deferred,
@@ -151,7 +148,6 @@ impl ActionExecutionKind {
         match self {
             ActionExecutionKind::Command { kind, .. } => kind.as_enum(),
             ActionExecutionKind::Simple => buck2_data::ActionExecutionKind::Simple,
-            ActionExecutionKind::Skipped => buck2_data::ActionExecutionKind::Skipped,
             ActionExecutionKind::Deferred => buck2_data::ActionExecutionKind::Deferred,
             ActionExecutionKind::LocalDepFile => buck2_data::ActionExecutionKind::LocalDepFile,
         }
@@ -174,7 +170,7 @@ impl ActionExecutionKind {
                 did_cache_upload: *did_cache_upload,
                 eligible_for_full_hybrid: *eligible_for_full_hybrid,
             }),
-            Self::Simple | Self::Skipped | Self::Deferred | Self::LocalDepFile => None,
+            Self::Simple | Self::Deferred | Self::LocalDepFile => None,
         }
     }
 }

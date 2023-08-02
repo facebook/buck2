@@ -934,9 +934,7 @@ enum ActionExecutionKind {
   // This action was served inline within buck2 due to its simplicity (e.g.
   // write, symlink, etc.
   ACTION_EXECUTION_KIND_SIMPLE = 4;
-  // This action was skipped entirely because Buck2 determined it was redundant
-  // (e.g. dep files hit).
-  ACTION_EXECUTION_KIND_SKIPPED = 5;
+  // reserving 5 for deprecated ACTION_EXECUTION_KIND_SKIPPED
   // This action was logically executed, but didn't perform all the work.
   ACTION_EXECUTION_KIND_DEFERRED = 6;
   // This action was served by the local dep file cache and not executed.
