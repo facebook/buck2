@@ -24,6 +24,8 @@ load(
     "is_any",
 )
 
+SELECTED_DEBUG_PATH_FILE_NAME = "SelectedDebugPaths.txt"
+
 _SelectionCriteria = record(
     include_build_target_patterns = field([BuildTargetPattern.type], []),
     include_regular_expressions = field(["regex"], []),
