@@ -356,8 +356,15 @@ def _get_native_linkables(
             native_linkable_target = str(native_linkable.label.raw_target())
             module = get_module_from_target(native_linkable_target)
 
-            if not is_root_module(module):
-                expect(not native_linkable.for_primary_apk, "{} which is marked as needing to be in the primary APK cannot be included in non-root-module {}".format(native_linkable_target, module))
+            expect(
+                not native_linkable.for_primary_apk or is_root_module(module),
+                "{} which is marked as needing to be in the primary APK cannot be included in non-root-module {}".format(native_linkable_target, module),
+            )
+            expect(
+                not native_linkable.for_primary_apk or not native_linkable.can_be_asset,
+                "{} which is marked as needing to be in the primary APK cannot be an asset".format(native_linkable_target),
+            )
+            if native_linkable.can_be_asset and not is_root_module(module):
                 so_name_path = paths.join(_get_native_libs_as_assets_dir(module), abi_directory, so_name)
                 stripped_native_linkable_module_assets_srcs.setdefault(module, {})[so_name_path] = native_linkable.stripped_lib
             elif native_linkable.can_be_asset and package_native_libs_as_assets_enabled:
