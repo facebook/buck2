@@ -13,6 +13,10 @@ use async_trait::async_trait;
 use buck2_audit::cell::AuditCellCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -33,57 +37,8 @@ impl AuditSubcommand for AuditCellCommand {
                 let cells = ctx.get_cell_resolver().await?;
                 let fs = server_ctx.project_root();
                 let cwd = server_ctx.working_dir();
-                let this_cell = cells.get(cells.find(cwd)?).unwrap();
 
-                let mappings: IndexMap<_, _> = {
-                    if self.aliases_to_resolve.is_empty() {
-                        if self.aliases {
-                            this_cell
-                                .cell_alias_resolver()
-                                .mappings()
-                                .map(|(alias, cell_name)| {
-                                    (
-                                        alias.to_string(),
-                                        fs.resolve(
-                                            cells
-                                                .get(cell_name)
-                                                .unwrap()
-                                                .path()
-                                                .as_project_relative_path(),
-                                        ),
-                                    )
-                                })
-                                .collect()
-                        } else {
-                            cells
-                                .cells()
-                                .map(|(name, cell)| {
-                                    (
-                                        name.as_str().to_owned(),
-                                        fs.resolve(cell.path().as_project_relative_path()),
-                                    )
-                                })
-                                .collect()
-                        }
-                    } else {
-                        let cell_alias_resolver = this_cell.cell_alias_resolver();
-                        self.aliases_to_resolve
-                            .iter()
-                            .map(|alias| {
-                                Ok((
-                                    alias.to_owned(),
-                                    fs.resolve(
-                                        cells
-                                            .get(cell_alias_resolver.resolve(alias)?)
-                                            .unwrap()
-                                            .path()
-                                            .as_project_relative_path(),
-                                    ),
-                                ))
-                            })
-                            .collect::<anyhow::Result<_>>()?
-                    }
-                };
+                let mappings = audit_cell(&self.aliases_to_resolve, self.aliases, &cells, cwd, fs)?;
 
                 let mut stdout = stdout.as_writer();
                 if self.paths_only {
@@ -107,4 +62,64 @@ impl AuditSubcommand for AuditCellCommand {
             })
             .await
     }
+}
+
+pub(crate) fn audit_cell(
+    aliases_to_resolve: &Vec<String>,
+    aliases: bool,
+    cells: &CellResolver,
+    cwd: &ProjectRelativePath,
+    fs: &ProjectRoot,
+) -> anyhow::Result<IndexMap<String, AbsNormPathBuf>> {
+    let this_cell = cells.get(cells.find(cwd)?).unwrap();
+    let mappings: IndexMap<_, _> = {
+        if aliases_to_resolve.is_empty() {
+            if aliases {
+                this_cell
+                    .cell_alias_resolver()
+                    .mappings()
+                    .map(|(alias, cell_name)| {
+                        (
+                            alias.to_string(),
+                            fs.resolve(
+                                cells
+                                    .get(cell_name)
+                                    .unwrap()
+                                    .path()
+                                    .as_project_relative_path(),
+                            ),
+                        )
+                    })
+                    .collect()
+            } else {
+                cells
+                    .cells()
+                    .map(|(name, cell)| {
+                        (
+                            name.as_str().to_owned(),
+                            fs.resolve(cell.path().as_project_relative_path()),
+                        )
+                    })
+                    .collect()
+            }
+        } else {
+            let cell_alias_resolver = this_cell.cell_alias_resolver();
+            aliases_to_resolve
+                .iter()
+                .map(|alias| {
+                    Ok((
+                        alias.to_owned(),
+                        fs.resolve(
+                            cells
+                                .get(cell_alias_resolver.resolve(alias)?)
+                                .unwrap()
+                                .path()
+                                .as_project_relative_path(),
+                        ),
+                    ))
+                })
+                .collect::<anyhow::Result<_>>()?
+        }
+    };
+    Ok(mappings)
 }
