@@ -272,7 +272,6 @@ def _get_link_group_info(
         # We add user-defined mappings last, so that our auto-generated
         # ones get precedence (as we rely on this for things to work).
         link_groups = [s.group for s in root_specs] + shared_groups
-
         if link_group_info != None:
             link_groups += link_group_info.groups.values()
 
