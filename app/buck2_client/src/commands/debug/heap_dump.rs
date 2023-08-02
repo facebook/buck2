@@ -15,6 +15,7 @@ use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 
 /// Write jemalloc heap profile to a file.
@@ -27,7 +28,7 @@ use buck2_client_ctx::streaming::StreamingCommand;
 pub struct HeapDumpCommand {
     /// The path to write the heap dump to.
     #[clap(short, long, value_name = "PATH")]
-    path: String,
+    path: PathArg,
 }
 
 #[async_trait]
@@ -42,12 +43,13 @@ impl StreamingCommand for HeapDumpCommand {
         self,
         buckd: &mut BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: &mut ClientCommandContext<'_>,
+        ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
+        let path = self.path.resolve(&ctx.working_dir);
         buckd
             .with_flushing()
             .unstable_heap_dump(UnstableHeapDumpRequest {
-                destination_path: self.path,
+                destination_path: path.to_str()?.to_owned(),
             })
             .await?;
         ExitResult::success()
