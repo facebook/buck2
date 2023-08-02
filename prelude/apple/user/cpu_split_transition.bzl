@@ -23,11 +23,15 @@ def _cpu_constraint_readable_value(platform: PlatformInfo.type, refs: struct.typ
     else:
         return platform.label
 
+def _universal_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> [None, bool]:
+    universal = platform.configuration.constraints.get(refs.universal[ConstraintSettingInfo].label)
+    return universal.label == refs.universal_enabled[ConstraintValueInfo].label if universal != None else False
+
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
         attrs: struct.type) -> dict[str, PlatformInfo.type]:
-    universal = attrs.universal if attrs.universal != None else attrs._universal_default
+    universal = attrs.universal if attrs.universal != None else _universal_constraint_value(platform, refs)
     os = _os_constraint_value(platform, refs)
     if not universal or os == None:
         # Don't do the splitting, since we don't know what OS type this is.
@@ -95,6 +99,8 @@ cpu_split_transition = transition(
         "macos": "config//os/constraints:macos",
         "os": "config//os/constraints:os",
         "sdk": "config//os/sdk/apple/constraints:_",
+        "universal": "config//build_mode/apple/constraints:universal",
+        "universal_enabled": "config//build_mode/apple/constraints:universal-enabled",
         "watchos": "config//os/constraints:watchos",
         "watchos_device_sdk": "config//os/sdk/apple/constraints:watchos",
         "watchos_simulator_sdk": "config//os/sdk/apple/constraints:watchsimulator",
