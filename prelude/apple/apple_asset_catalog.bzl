@@ -14,7 +14,7 @@ load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_sdk_metadata.bzl", "get_apple_sdk_metadata_for_sdk_name")
 load(":resource_groups.bzl", "create_resource_graph")
 
-def apple_asset_catalog_impl(ctx: AnalysisContext) -> list["provider"]:
+def apple_asset_catalog_impl(ctx: AnalysisContext) -> list[Provider]:
     spec = AppleAssetCatalogSpec(
         app_icon = StringWithSourceTarget(source = ctx.label, value = ctx.attrs.app_icon) if ctx.attrs.app_icon != None else None,
         dirs = ctx.attrs.dirs,
@@ -47,7 +47,7 @@ def _merge_asset_catalog_specs(ctx: AnalysisContext, xs: list[AppleAssetCatalogS
     dirs = dedupe(flatten([x.dirs for x in xs]))
     return AppleAssetCatalogSpec(app_icon = app_icon, dirs = dirs, launch_image = launch_image)
 
-def _get_at_most_one_attribute(ctx: AnalysisContext, xs: list["_record"], attr_name: str) -> ["StringWithSourceTarget", None]:
+def _get_at_most_one_attribute(ctx: AnalysisContext, xs: list[typing.Any], attr_name: str) -> ["StringWithSourceTarget", None]:
     all_values = dedupe(filter(None, [getattr(x, attr_name) for x in xs]))
     if len(all_values) > 1:
         fail("At most one asset catalog in the dependencies of `{}` can have an `{}` attribute. At least 2 catalogs are providing it: `{}` and `{}`.".format(_get_target(ctx), attr_name, all_values[0].source, all_values[1].source))

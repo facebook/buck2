@@ -23,7 +23,7 @@ load("@prelude//decls/common.bzl", "Traversal")
 def resource_group_map_attr():
     return attrs.option(attrs.dep(providers = [ResourceGroupInfo]), default = None)
 
-def _impl(ctx: AnalysisContext) -> list["provider"]:
+def _impl(ctx: AnalysisContext) -> list[Provider]:
     resource_groups = parse_groups_definitions(ctx.attrs.map, lambda root: root.label)
 
     # Extract deps from the roots via the raw attrs, as `parse_groups_definitions`

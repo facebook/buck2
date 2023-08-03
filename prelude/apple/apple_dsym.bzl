@@ -16,7 +16,7 @@ DSYM_SUBTARGET = "dsym"
 DSYM_INFO_SUBTARGET = "dsym-info"
 DWARF_AND_DSYM_SUBTARGET = "dwarf-and-dsym"
 
-def get_apple_dsym(ctx: AnalysisContext, executable: "artifact", debug_info: list[AppleDebugInfo], action_identifier: str, output_path_override: [str, None] = None) -> "artifact":
+def get_apple_dsym(ctx: AnalysisContext, executable: Artifact, debug_info: list[AppleDebugInfo], action_identifier: str, output_path_override: [str, None] = None) -> Artifact:
     output_path = output_path_override or "{}.dSYM".format(executable.short_path)
     return get_apple_dsym_ext(ctx, executable, debug_info, action_identifier, output_path)
 
@@ -24,7 +24,7 @@ def get_apple_dsym(ctx: AnalysisContext, executable: "artifact", debug_info: lis
 # - pass in dsymutil_extra_flags
 # - oso_prefix
 # - dsym_verification
-def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, "artifact"], debug_info: list[AppleDebugInfo], action_identifier: str, output_path: str) -> "artifact":
+def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], debug_info: list[AppleDebugInfo], action_identifier: str, output_path: str) -> Artifact:
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output(output_path, dir = True)
 
@@ -40,7 +40,7 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, "artifact"], 
 
     return output
 
-def get_apple_dsym_info(ctx: AnalysisContext, binary_dsyms: list["artifact"], dep_dsyms: list["artifact"]) -> "artifact":
+def get_apple_dsym_info(ctx: AnalysisContext, binary_dsyms: list[Artifact], dep_dsyms: list[Artifact]) -> Artifact:
     dsym_info = {}
 
     # WatchOS stub does not have a dSYM, so it's possible that we get zero `binary_dsyms`

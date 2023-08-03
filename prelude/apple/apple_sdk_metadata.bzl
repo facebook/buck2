@@ -7,9 +7,9 @@
 
 AppleSdkMetadata = record(
     name = field(str),
-    target_device_flags = field([str], []),
+    target_device_flags = field(list[str], []),
     is_ad_hoc_code_sign_sufficient = field(bool),
-    info_plist_supported_platforms_values = field([str]),
+    info_plist_supported_platforms_values = field(list[str]),
     min_version_plist_info_key = field(str),
     actool_platform_override = field([str, None], None),
 )

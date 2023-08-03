@@ -10,7 +10,7 @@ HttpArchiveExecDeps = provider(fields = [
     "exec_os_type",
 ])
 
-def _http_archive_exec_deps_impl(ctx: AnalysisContext) -> list["provider"]:
+def _http_archive_exec_deps_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         HttpArchiveExecDeps(

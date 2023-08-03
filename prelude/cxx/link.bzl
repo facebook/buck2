@@ -67,8 +67,8 @@ CxxLinkResultType = enum(
 )
 
 CxxLinkerMapData = record(
-    map = field("artifact"),
-    binary = field("artifact"),
+    map = field(Artifact),
+    binary = field(Artifact),
 )
 
 CxxLinkResult = record(
@@ -81,8 +81,8 @@ CxxLinkResult = record(
 def link_external_debug_info(
         ctx: AnalysisContext,
         links: list[LinkArgs.type],
-        split_debug_output: ["artifact", None] = None,
-        pdb: ["artifact", None] = None) -> ArtifactTSet.type:
+        split_debug_output: [Artifact, None] = None,
+        pdb: [Artifact, None] = None) -> ArtifactTSet.type:
     external_debug_artifacts = []
 
     # When using LTO+split-dwarf, the link step will generate externally
@@ -111,7 +111,7 @@ def link_external_debug_info(
 def cxx_link_into(
         ctx: AnalysisContext,
         # The destination for the link output.
-        output: "artifact",
+        output: Artifact,
         links: list[LinkArgs.type],
         result_type: CxxLinkResultType.type,
         link_execution_preference: LinkExecutionPreference.type,
@@ -126,7 +126,7 @@ def cxx_link_into(
         strip: bool = False,
         # A function/lambda which will generate the strip args using the ctx.
         strip_args_factory = None,
-        import_library: ["artifact", None] = None) -> CxxLinkResult.type:
+        import_library: [Artifact, None] = None) -> CxxLinkResult.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 

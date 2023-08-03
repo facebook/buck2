@@ -8,7 +8,7 @@
 StringWithSourceTarget = record(
     # Target providing the string value
     source = field(Label),
-    value = field("string"),
+    value = field(str),
 )
 
 AppleAssetCatalogSpec = record(
@@ -17,14 +17,14 @@ AppleAssetCatalogSpec = record(
     # contains an image set representing an application icon.
     # This set should be contained in one of catalogs referenced by `dirs` attribute.
     app_icon = field([StringWithSourceTarget.type, None]),
-    dirs = field(["artifact"]),
+    dirs = field(list[Artifact]),
     # Same as `app_icon` but with an application launch image semantics.
     launch_image = field([StringWithSourceTarget.type, None]),
 )
 
 AppleAssetCatalogResult = record(
     # Directory which contains compiled assets ready to be copied into application bundle
-    compiled_catalog = field("artifact"),
+    compiled_catalog = field(Artifact),
     # .plist file to be merged into main application Info.plist file, containing information about compiled assets
-    catalog_plist = field("artifact"),
+    catalog_plist = field(Artifact),
 )

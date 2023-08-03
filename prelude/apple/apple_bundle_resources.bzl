@@ -48,7 +48,7 @@ load(
 
 AppleBundleResourcePartListOutput = record(
     # Resource parts to be copied into an Apple bundle, *excluding* binaries
-    resource_parts = field([AppleBundlePart.type]),
+    resource_parts = field(list[AppleBundlePart.type]),
     # Part that holds the info.plist
     info_plist_part = field(AppleBundlePart.type),
 )
@@ -167,7 +167,7 @@ def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec.type]) -
 
     return result
 
-def _extract_single_artifact(x: [Dependency, "artifact"]) -> "artifact":
+def _extract_single_artifact(x: [Dependency, Artifact]) -> Artifact:
     if type(x) == "artifact":
         return x
     else:
@@ -212,7 +212,7 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo.type) -> [None, AppleBundle
         codesign_on_copy = codesign_on_copy,
     )
 
-def _bundle_parts_for_dirs(generated_dirs: list["artifact"], destination: AppleBundleDestination.type, copy_contents_only: bool) -> list[AppleBundlePart.type]:
+def _bundle_parts_for_dirs(generated_dirs: list[Artifact], destination: AppleBundleDestination.type, copy_contents_only: bool) -> list[AppleBundlePart.type]:
     return [AppleBundlePart(
         source = generated_dir,
         destination = destination,
@@ -251,7 +251,7 @@ def _bundle_parts_for_variant_files(ctx: AnalysisContext, spec: AppleResourceSpe
 
 def _run_ibtool(
         ctx: AnalysisContext,
-        raw_file: "artifact",
+        raw_file: Artifact,
         output: "output_artifact",
         action_flags: list[str],
         target_device: [None, str],
@@ -299,7 +299,7 @@ def _run_ibtool(
 
 def _compile_ui_resource(
         ctx: AnalysisContext,
-        raw_file: "artifact",
+        raw_file: Artifact,
         output: "output_artifact",
         target_device: [None, str] = None,
         output_is_dir: bool = False) -> None:
@@ -315,7 +315,7 @@ def _compile_ui_resource(
 
 def _link_ui_resource(
         ctx: AnalysisContext,
-        raw_file: "artifact",
+        raw_file: Artifact,
         output: "output_artifact",
         target_device: [None, str] = None,
         output_is_dir: bool = False) -> None:
@@ -331,7 +331,7 @@ def _link_ui_resource(
 
 def _process_apple_resource_file_if_needed(
         ctx: AnalysisContext,
-        file: "artifact",
+        file: Artifact,
         destination: AppleBundleDestination.type,
         destination_relative_path: [str, None],
         codesign_on_copy: bool = False) -> AppleBundlePart.type:
@@ -370,7 +370,7 @@ def _process_apple_resource_file_if_needed(
 # Returns a path relative to the _parent_ of the lproj dir.
 # For example, given a variant file with a short path of`XX/YY.lproj/ZZ`
 # it would return `YY.lproj/ZZ`.
-def _get_dest_subpath_for_variant_file(variant_file: "artifact") -> str:
+def _get_dest_subpath_for_variant_file(variant_file: Artifact) -> str:
     dir_name = paths.basename(paths.dirname(variant_file.short_path))
     if not dir_name.endswith("lproj"):
         fail("Variant files have to be in a directory with name ending in '.lproj' but `{}` was not.".format(variant_file.short_path))

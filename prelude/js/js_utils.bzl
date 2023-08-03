@@ -138,7 +138,7 @@ def get_bundle_name(ctx: AnalysisContext, default_bundle_name: str) -> str:
 def run_worker_commands(
         ctx: AnalysisContext,
         worker_tool: Dependency,
-        command_args_files: list["artifact"],
+        command_args_files: list[Artifact],
         identifier: str,
         category: str,
         hidden_artifacts = [cmd_args]):

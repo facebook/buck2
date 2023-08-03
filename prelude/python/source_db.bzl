@@ -80,7 +80,7 @@ def create_dbg_source_db(
 
 def create_source_db_no_deps(
         ctx: AnalysisContext,
-        srcs: [dict[str, "artifact"], None]) -> DefaultInfo.type:
+        srcs: [dict[str, Artifact], None]) -> DefaultInfo.type:
     content = {} if srcs == None else srcs
     output = ctx.actions.write_json("db_no_deps.json", content)
     return DefaultInfo(default_output = output, other_outputs = content.values())

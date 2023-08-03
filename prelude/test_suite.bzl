@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def test_suite_impl(ctx: AnalysisContext) -> list["provider"]:
+def test_suite_impl(ctx: AnalysisContext) -> list[Provider]:
     # There is nothing to implement here: test_suite exists as a mechanism to "group" tests using
     # the `tests` attribute, and the `tests` attribute is supported for all rules.
     # We fill in the DefaultInfo so building the test_suite will build all the underlying test rules.

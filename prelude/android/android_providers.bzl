@@ -7,46 +7,46 @@
 
 Aapt2LinkInfo = record(
     # "APK" containing resources to be used by the Android binary
-    primary_resources_apk = "artifact",
+    primary_resources_apk = Artifact,
     # proguard config needed to retain used resources
-    proguard_config_file = "artifact",
+    proguard_config_file = Artifact,
     # R.txt containing all the linked resources
-    r_dot_txt = "artifact",
+    r_dot_txt = Artifact,
 )
 
 AndroidBinaryNativeLibsInfo = record(
-    apk_under_test_prebuilt_native_library_dirs = ["PrebuiltNativeLibraryDir"],
-    apk_under_test_shared_libraries = ["SharedLibrary"],
+    apk_under_test_prebuilt_native_library_dirs = list["PrebuiltNativeLibraryDir"],
+    apk_under_test_shared_libraries = list["SharedLibrary"],
     exopackage_info = ["ExopackageNativeInfo", None],
-    root_module_native_lib_assets = ["artifact"],
-    non_root_module_native_lib_assets = ["artifact"],
-    native_libs_for_primary_apk = ["artifact"],
-    unstripped_libs = {"artifact": str},
+    root_module_native_lib_assets = list[Artifact],
+    non_root_module_native_lib_assets = list[Artifact],
+    native_libs_for_primary_apk = list[Artifact],
+    unstripped_libs = dict[Artifact, str],
 )
 
 AndroidBinaryResourcesInfo = record(
     # Optional information about resources that should be exopackaged
     exopackage_info = ["ExopackageResourcesInfo", None],
     # manifest to be used by the APK
-    manifest = "artifact",
+    manifest = Artifact,
     # per-module manifests (packaged as assets)
-    module_manifests = ["artifact"],
+    module_manifests = list[Artifact],
     # zip containing any strings packaged as assets
-    packaged_string_assets = ["artifact", None],
+    packaged_string_assets = [Artifact, None],
     # "APK" containing resources to be used by the Android binary
-    primary_resources_apk = "artifact",
+    primary_resources_apk = Artifact,
     # proguard config needed to retain used resources
-    proguard_config_file = "artifact",
+    proguard_config_file = Artifact,
     # R.java jars containing all the linked resources
-    r_dot_javas = ["JavaLibraryInfo"],
+    r_dot_javas = list["JavaLibraryInfo"],
     # directory containing filtered string resources files
-    string_source_map = ["artifact", None],
+    string_source_map = [Artifact, None],
     # directory containing filtered string resources files for Voltron language packs
-    voltron_string_source_map = ["artifact", None],
+    voltron_string_source_map = [Artifact, None],
     # list of jars that could contain resources that should be packaged into the APK
-    jar_files_that_may_contain_resources = ["artifact"],
+    jar_files_that_may_contain_resources = list[Artifact],
     # The resource infos that are used in this APK
-    unfiltered_resource_infos = ["AndroidResourceInfo"],
+    unfiltered_resource_infos = list["AndroidResourceInfo"],
 )
 
 # Information about an `android_build_config`
@@ -106,7 +106,7 @@ AndroidInstrumentationApkInfo = provider(
 
 PrebuiltNativeLibraryDir = record(
     raw_target = "target_label",
-    dir = "artifact",  # contains subdirectories for different ABIs.
+    dir = Artifact,  # contains subdirectories for different ABIs.
     for_primary_apk = bool,
     is_asset = bool,
 )
@@ -122,12 +122,12 @@ ResourceInfoTSet = transitive_set()
 
 DepsInfo = record(
     name = "target_label",
-    deps = ["target_label"],
+    deps = list["target_label"],
 )
 
 ManifestInfo = record(
     target_label = "target_label",
-    manifest = "artifact",
+    manifest = Artifact,
 )
 
 AndroidPackageableInfo = provider(
@@ -176,29 +176,29 @@ ExportedAndroidResourceInfo = provider(
 )
 
 ExopackageDexInfo = record(
-    metadata = "artifact",
-    directory = "artifact",
+    metadata = Artifact,
+    directory = Artifact,
 )
 
 ExopackageNativeInfo = record(
-    metadata = "artifact",
-    directory = "artifact",
+    metadata = Artifact,
+    directory = Artifact,
 )
 
 ExopackageResourcesInfo = record(
-    assets = ["artifact", None],
-    assets_hash = ["artifact", None],
-    res = "artifact",
-    res_hash = "artifact",
+    assets = [Artifact, None],
+    assets_hash = [Artifact, None],
+    res = Artifact,
+    res_hash = Artifact,
 )
 
 DexFilesInfo = record(
-    primary_dex = "artifact",
-    primary_dex_class_names = ["artifact", None],
-    root_module_secondary_dex_dirs = ["artifact"],
-    non_root_module_secondary_dex_dirs = ["artifact"],
+    primary_dex = Artifact,
+    primary_dex_class_names = [Artifact, None],
+    root_module_secondary_dex_dirs = list[Artifact],
+    non_root_module_secondary_dex_dirs = list[Artifact],
     secondary_dex_exopackage_info = [ExopackageDexInfo.type, None],
-    proguard_text_files_path = ["artifact", None],
+    proguard_text_files_path = [Artifact, None],
 )
 
 ExopackageInfo = record(
@@ -220,7 +220,7 @@ def merge_android_packageable_info(
         actions: "actions",
         deps: list[Dependency],
         build_config_info: ["AndroidBuildConfigInfo", None] = None,
-        manifest: ["artifact", None] = None,
+        manifest: [Artifact, None] = None,
         prebuilt_native_library_dir: [PrebuiltNativeLibraryDir.type, None] = None,
         resource_info: ["AndroidResourceInfo", None] = None) -> "AndroidPackageableInfo":
     android_packageable_deps = filter(None, [x.get(AndroidPackageableInfo) for x in deps])
@@ -278,7 +278,7 @@ def merge_android_packageable_info(
 def _get_transitive_set(
         actions: "actions",
         children: list["transitive_set"],
-        node: "_a",
+        node: typing.Any,
         transitive_set_definition: "transitive_set_definition") -> ["transitive_set", None]:
     kwargs = {}
     if children:

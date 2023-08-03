@@ -25,7 +25,7 @@ def extern_arg(
         compile_ctx: CompileContext.type,
         flags: list[str],
         crate: CrateName.type,
-        lib: "artifact") -> cmd_args:
+        lib: Artifact) -> cmd_args:
     if flags == []:
         flags = ""
     else:

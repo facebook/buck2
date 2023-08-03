@@ -25,10 +25,10 @@ load(
 )
 
 _SelectionCriteria = record(
-    include_build_target_patterns = field([BuildTargetPattern.type], []),
-    include_regular_expressions = field(["regex"], []),
-    exclude_build_target_patterns = field([BuildTargetPattern.type], []),
-    exclude_regular_expressions = field(["regex"], []),
+    include_build_target_patterns = field(list[BuildTargetPattern.type], []),
+    include_regular_expressions = field(list["regex"], []),
+    exclude_build_target_patterns = field(list[BuildTargetPattern.type], []),
+    exclude_regular_expressions = field(list["regex"], []),
 )
 
 AppleSelectiveDebuggingInfo = provider(fields = [
@@ -37,7 +37,7 @@ AppleSelectiveDebuggingInfo = provider(fields = [
 ])
 
 AppleSelectiveDebuggingFilteredDebugInfo = record(
-    map = field({"label": ["artifact"]}),
+    map = field(dict[Label, list[Artifact]]),
 )
 
 # The type of selective debugging json input to utilze.
@@ -53,7 +53,7 @@ _SelectiveDebuggingJsonType = enum(*_SelectiveDebuggingJsonTypes)
 
 _LOCAL_LINK_THRESHOLD = 0.2
 
-def _impl(ctx: AnalysisContext) -> list["provider"]:
+def _impl(ctx: AnalysisContext) -> list[Provider]:
     json_type = _SelectiveDebuggingJsonType(ctx.attrs.json_type)
 
     # process inputs and provide them up the graph with typing
@@ -90,7 +90,7 @@ def _impl(ctx: AnalysisContext) -> list["provider"]:
         exclude_regular_expressions = exclude_regular_expressions,
     )
 
-    def scrub_binary(inner_ctx, executable: "artifact", executable_link_execution_preference: LinkExecutionPreference.type, adhoc_codesign_tool: ["RunInfo", None]) -> "artifact":
+    def scrub_binary(inner_ctx, executable: Artifact, executable_link_execution_preference: LinkExecutionPreference.type, adhoc_codesign_tool: ["RunInfo", None]) -> Artifact:
         inner_cmd = cmd_args(cmd)
         output = inner_ctx.actions.declare_output("debug_scrubbed/{}".format(executable.short_path))
 

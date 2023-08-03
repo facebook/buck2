@@ -32,14 +32,14 @@ SystemIncludeDirs = record(
     # Compiler type to infer correct include flags
     compiler_type = field(str),
     #  Directories to be included via [-isystem | /external:I] [arglike things]
-    include_dirs = field(["label_relative_path"]),
+    include_dirs = field(list["label_relative_path"]),
 )
 
 CPreprocessorArgs = record(
     # The arguments, [arglike things]
-    args = field([""], []),
+    args = field(list[typing.Any], []),
     # File prefix args maps symlinks to source file location
-    file_prefix_args = field([""], []),
+    file_prefix_args = field(list[typing.Any], []),
 )
 
 # Note: Any generic attributes are assumed to be relative.
@@ -49,18 +49,18 @@ CPreprocessor = record(
     # Absolute path args used to generate extra user-specific outputs.
     absolute_args = field(CPreprocessorArgs.type, CPreprocessorArgs()),
     # Header specs
-    headers = field([CHeader.type], []),
+    headers = field(list[CHeader.type], []),
     # Those should be mutually exclusive with normal headers as per documentation
-    raw_headers = field(["artifact"], []),
+    raw_headers = field(list[Artifact], []),
     # Directories to be included via -I, [arglike things]
-    include_dirs = field(["label_relative_path"], []),
+    include_dirs = field(list["label_relative_path"], []),
     # Directories to be included via -isystem, [arglike things]
     system_include_dirs = field([SystemIncludeDirs.type, None], None),
     # Whether to compile with modules support
     uses_modules = field(bool, False),
     # Modular args to set when modules are in use, [arglike things]
-    modular_args = field([""], []),
-    modulemap_path = field("", None),
+    modular_args = field(list[typing.Any], []),
+    modulemap_path = field(typing.Any, None),
 )
 
 # Methods for transitive_sets must be declared prior to their use.
@@ -147,7 +147,7 @@ CPreprocessorForTestsInfo = provider(fields = [
 ])
 
 # Preprocessor flags
-def cxx_attr_preprocessor_flags(ctx: AnalysisContext, ext: str) -> list[""]:
+def cxx_attr_preprocessor_flags(ctx: AnalysisContext, ext: str) -> list[typing.Any]:
     return (
         ctx.attrs.preprocessor_flags +
         cxx_by_language_ext(ctx.attrs.lang_preprocessor_flags, ext) +
@@ -155,7 +155,7 @@ def cxx_attr_preprocessor_flags(ctx: AnalysisContext, ext: str) -> list[""]:
         flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_preprocessor_flags, ext)))
     )
 
-def cxx_attr_exported_preprocessor_flags(ctx: AnalysisContext) -> list[""]:
+def cxx_attr_exported_preprocessor_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.exported_preprocessor_flags +
         _by_language_cxx(ctx.attrs.exported_lang_preprocessor_flags) +
@@ -251,7 +251,7 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
         modular_args = modular_args,
     )
 
-def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, "artifact"], style: HeaderStyle.type, compiler_type: str, raw_headers: list["artifact"], extra_preprocessors: list[CPreprocessor.type], absolute_path_prefix: [str, None]) -> CPreprocessorArgs.type:
+def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle.type, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor.type], absolute_path_prefix: [str, None]) -> CPreprocessorArgs.type:
     header_root = prepare_headers(ctx, headers, "buck-headers", absolute_path_prefix)
 
     # Process args to handle the `$(cxx-header-tree)` macro.
@@ -286,7 +286,7 @@ def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, "ar
 def cxx_private_preprocessor_info(
         ctx: AnalysisContext,
         headers_layout: CxxHeadersLayout.type,
-        raw_headers: list["artifact"] = [],
+        raw_headers: list[Artifact] = [],
         extra_preprocessors: list[CPreprocessor.type] = [],
         non_exported_deps: list[Dependency] = [],
         is_test: bool = False,
@@ -305,7 +305,7 @@ def cxx_private_preprocessor_info(
 def _cxx_private_preprocessor_info(
         ctx: AnalysisContext,
         headers_layout: CxxHeadersLayout.type,
-        raw_headers: list["artifact"],
+        raw_headers: list[Artifact],
         extra_preprocessors: list[CPreprocessor.type],
         absolute_path_prefix: [str, None]) -> CPreprocessor.type:
     """
@@ -361,7 +361,7 @@ def _cxx_private_preprocessor_info(
         uses_modules = uses_modules,
     )
 
-def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, "artifact"], compiler_type: str, all_raw_headers: list["artifact"], absolute_path_prefix: [str, None]) -> CPreprocessorArgs.type:
+def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], compiler_type: str, all_raw_headers: list[Artifact], absolute_path_prefix: [str, None]) -> CPreprocessorArgs.type:
     # Create private header tree and propagate via args.
     args = []
     file_prefix_args = []
@@ -380,7 +380,7 @@ def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, "art
 
     return CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args)
 
-def _by_language_cxx(x: dict["", ""]) -> list[""]:
+def _by_language_cxx(x: dict[typing.Any, typing.Any]) -> list[typing.Any]:
     return cxx_by_language_ext(x, ".cpp")
 
 def _header_style_args(style: HeaderStyle.type, path: cmd_args, compiler_type: str) -> list[cmd_args]:
@@ -408,13 +408,13 @@ def _attr_headers_as_raw_headers_mode(ctx: AnalysisContext) -> HeadersAsRawHeade
     # Fallback to platform default.
     return mode
 
-def _needs_cxx_header_tree_hack(arg: "") -> bool:
+def _needs_cxx_header_tree_hack(arg: typing.Any) -> bool:
     # The macro $(cxx-header-tree) is used in exactly once place, and its a place which isn't very
     # Buck v2 compatible. We replace $(cxx-header-tree) with HACK-CXX-HEADER-TREE at attribute time,
     # then here we substitute in the real header tree.
     return "HACK-CXX-HEADER-TREE" in repr(arg)
 
-def _cxx_header_tree_hack_replacement(header_tree: "artifact") -> cmd_args:
+def _cxx_header_tree_hack_replacement(header_tree: Artifact) -> cmd_args:
     # Unfortunately, we can't manipulate flags very precisely (for good reasons), so we rely on
     # knowing the form it takes.
     # The source is: -fmodule-map-file=$(cxx-header-tree)/module.modulemap

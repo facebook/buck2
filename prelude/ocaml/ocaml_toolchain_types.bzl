@@ -60,51 +60,51 @@ OCamlLibraryInfo = record(
     # The full library target: e.g. "`fbcode//...:foo`"
     target = Label,
     # .a (C archives e.g. `libfoo_stubs.a`)
-    c_libs = ["artifact"],
+    c_libs = list[Artifact],
     # .o (Native compiler produced stubs)
-    stbs_nat = ["artifact"],
+    stbs_nat = list[Artifact],
     # .o (Bytecode compiler produced stubs)
-    stbs_byt = ["artifact"],
+    stbs_byt = list[Artifact],
     # .cma (Bytecode compiler module archives e.g. `libfoo.cma`)
-    cmas = ["artifact"],
+    cmas = list[Artifact],
     # .cmxa (Native compiler module archives e.g. `libfoo.cmxa`)
-    cmxas = ["artifact"],
+    cmxas = list[Artifact],
     # .cmi (Native compiled module interfaces)
-    cmis_nat = ["artifact"],
+    cmis_nat = list[Artifact],
     # .cmi (Bytecode compiled module interfaces)
-    cmis_byt = ["artifact"],
+    cmis_byt = list[Artifact],
     # .cmo (Bytecode compiled modules - bytecode)
-    cmos = ["artifact"],
+    cmos = list[Artifact],
     # .cmx (Compiled modules - native)
-    cmxs = ["artifact"],
+    cmxs = list[Artifact],
     # .cmt (Native compiler produced typed abstract syntax trees)
-    cmts_nat = ["artifact"],
+    cmts_nat = list[Artifact],
     # .cmt (Bytecode compiler produced typed abstract syntax trees)
-    cmts_byt = ["artifact"],
+    cmts_byt = list[Artifact],
     # .cmti (Native compiler produced typed abstract syntax trees)
-    cmtis_nat = ["artifact"],
+    cmtis_nat = list[Artifact],
     # .cmti (Bytecode compiler produced typed abstract syntax trees)
-    cmtis_byt = ["artifact"],
+    cmtis_byt = list[Artifact],
     # Compile flags for native clients who use this library.
-    include_dirs_nat = [cmd_args],
+    include_dirs_nat = list[cmd_args],
     # Compile flags for bytecode clients who use this library.
-    include_dirs_byt = [cmd_args],
+    include_dirs_byt = list[cmd_args],
     # Native C libs (like `libthreadsnat.a` in the compiler's `threads` package)
-    native_c_libs = ["artifact"],
+    native_c_libs = list[Artifact],
     # Bytecode C libs (like `libthreads.a` in the compiler's `threads` package)
-    bytecode_c_libs = ["artifact"],
+    bytecode_c_libs = list[Artifact],
 )
 
 def merge_ocaml_link_infos(lis: list["OCamlLinkInfo"]) -> "OCamlLinkInfo":
     return OCamlLinkInfo(info = dedupe(flatten([li.info for li in lis])))
 
-def project_expand(value: dict[str, list["artifact"]]):
+def project_expand(value: dict[str, list[Artifact]]):
     return value["expand"]
 
-def project_ide(value: dict[str, list["artifact"]]):
+def project_ide(value: dict[str, list[Artifact]]):
     return value["ide"]
 
-def project_bytecode(value: dict[str, list["artifact"]]):
+def project_bytecode(value: dict[str, list[Artifact]]):
     return value["bytecode"]
 
 OtherOutputsTSet = transitive_set(
@@ -115,7 +115,7 @@ OtherOutputsInfo = provider(
     fields = ["info"],  # :OtherOutputsTSet
 )
 
-def merge_other_outputs_info(ctx: AnalysisContext, value: dict[str, list["artifact"]], infos: list["OtherOutputsInfo"]) -> "OtherOutputsInfo":
+def merge_other_outputs_info(ctx: AnalysisContext, value: dict[str, list[Artifact]], infos: list["OtherOutputsInfo"]) -> "OtherOutputsInfo":
     return OtherOutputsInfo(
         info =
             ctx.actions.tset(

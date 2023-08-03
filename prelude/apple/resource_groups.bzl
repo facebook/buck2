@@ -34,11 +34,11 @@ ResourceGroupInfo = provider(fields = [
 ResourceGraphNode = record(
     label = field(Label),
     # Attribute labels on the target.
-    labels = field([str], []),
+    labels = field(list[str], []),
     # Deps of this target which might have resources transitively.
-    deps = field([Label], []),
+    deps = field(list[Label], []),
     # Exported deps of this target which might have resources transitively.
-    exported_deps = field([Label], []),
+    exported_deps = field(list[Label], []),
     # Actual resource data, present when node corresponds to `apple_resource` target.
     resource_spec = field([AppleResourceSpec.type, None], None),
     # Actual asset catalog data, present when node corresponds to `apple_asset_catalog` target.

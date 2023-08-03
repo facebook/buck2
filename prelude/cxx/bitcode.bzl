@@ -9,9 +9,9 @@ load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 BitcodeBundle = record(
-    artifact = field("artifact"),
+    artifact = field(Artifact),
     # For a thin archive, this contains all the referenced .o files
-    external_objects = field(["artifact"]),
+    external_objects = field(list[Artifact]),
 )
 
 BitcodeTSet = transitive_set()
@@ -27,7 +27,7 @@ def _bundle_locally(ctx: AnalysisContext, linker_info: "LinkerInfo") -> bool:
         return value_or(ctx.attrs._archive_objects_locally_override, archive_locally)
     return archive_locally
 
-def _bundle(ctx: AnalysisContext, name: str, args: cmd_args, prefer_local: bool) -> "artifact":
+def _bundle(ctx: AnalysisContext, name: str, args: cmd_args, prefer_local: bool) -> Artifact:
     llvm_link = get_cxx_toolchain_info(ctx).llvm_link
     if llvm_link == None:
         fail("Bitcode generation not supported when no LLVM linker, the `cxx_toolchain` has no `llvm_link`.")
@@ -46,7 +46,7 @@ def _bundle(ctx: AnalysisContext, name: str, args: cmd_args, prefer_local: bool)
 def make_bitcode_bundle(
         ctx: AnalysisContext,
         name: str,
-        objects: list["artifact"]) -> [BitcodeBundle.type, None]:
+        objects: list[Artifact]) -> [BitcodeBundle.type, None]:
     if len(objects) == 0:
         fail("no objects to archive")
 
@@ -60,7 +60,7 @@ def make_bitcode_bundle(
 
     return BitcodeBundle(artifact = bundle, external_objects = objects)
 
-def llvm_link_bitcode_impl(ctx: AnalysisContext) -> list["provider"]:
+def llvm_link_bitcode_impl(ctx: AnalysisContext) -> list[Provider]:
     llvm_link = get_cxx_toolchain_info(ctx).llvm_link
     if llvm_link == None:
         fail("llvm-link is not provided by toolchain.")

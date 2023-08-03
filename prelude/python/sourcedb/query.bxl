@@ -17,7 +17,7 @@ BUCK_PYTHON_RULE_KIND_QUERY = "|".join(BUCK_PYTHON_RULE_KINDS)
 
 def _filter_root_targets(
         query: "cqueryctx",
-        target_patterns: "_iterable_of_target_pattern") -> "target_set":
+        target_patterns: typing.Any) -> "target_set":
     # Find all Pure-Python targets
     candidate_targets = ctarget_set()
     for pattern in target_patterns:
@@ -79,7 +79,7 @@ def get_python_library_manifests_tset_from_target_patterns(
         ctx: "bxl_ctx",
         query: "cqueryctx",
         actions: "actions",
-        target_patterns: "_iterable_of_target_pattern") -> PythonLibraryManifestsTSet.type:
+        target_patterns: typing.Any) -> PythonLibraryManifestsTSet.type:
     root_targets = _filter_root_targets(query, target_patterns)
     return get_python_library_manifests_tset_from_targets(ctx, actions, root_targets)
 
@@ -87,7 +87,7 @@ def do_query(
         ctx: "bxl_ctx",
         query: "cqueryctx",
         actions: "actions",
-        target_patterns: "_iterable_of_target_pattern") -> list["configured_target_label"]:
+        target_patterns: typing.Any) -> list["configured_target_label"]:
     manifests_of_transitive_dependencies = get_python_library_manifests_tset_from_target_patterns(
         ctx,
         query,

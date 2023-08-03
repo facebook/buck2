@@ -20,7 +20,7 @@ load(
 )
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
-def process_info_plist(ctx: AnalysisContext, override_input: ["artifact", None]) -> AppleBundlePart.type:
+def process_info_plist(ctx: AnalysisContext, override_input: [Artifact, None]) -> AppleBundlePart.type:
     input = _preprocess_info_plist(ctx)
     output = ctx.actions.declare_output("Info.plist")
     additional_keys = _additional_keys_as_json_file(ctx)
@@ -43,7 +43,7 @@ def _get_plist_run_options() -> dict[str, bool]:
         "prefer_local": True,
     }
 
-def _preprocess_info_plist(ctx: AnalysisContext) -> "artifact":
+def _preprocess_info_plist(ctx: AnalysisContext) -> Artifact:
     input = ctx.attrs.info_plist
     output = ctx.actions.declare_output("PreprocessedInfo.plist")
     substitutions_json = _plist_substitutions_as_json_file(ctx)
@@ -64,7 +64,7 @@ def _preprocess_info_plist(ctx: AnalysisContext) -> "artifact":
     ctx.actions.run(command, category = "apple_preprocess_info_plist", **_get_plist_run_options())
     return output
 
-def _plist_substitutions_as_json_file(ctx: AnalysisContext) -> ["artifact", None]:
+def _plist_substitutions_as_json_file(ctx: AnalysisContext) -> [Artifact, None]:
     info_plist_substitutions = ctx.attrs.info_plist_substitutions
     if not info_plist_substitutions:
         return None
@@ -72,7 +72,7 @@ def _plist_substitutions_as_json_file(ctx: AnalysisContext) -> ["artifact", None
     substitutions_json = ctx.actions.write_json("plist_substitutions.json", info_plist_substitutions)
     return substitutions_json
 
-def process_plist(ctx: AnalysisContext, input: "artifact", output: "output_artifact", override_input: ["artifact", None] = None, additional_keys: ["artifact", None] = None, override_keys: ["artifact", None] = None, action_id: [str, None] = None):
+def process_plist(ctx: AnalysisContext, input: Artifact, output: "output_artifact", override_input: [Artifact, None] = None, additional_keys: [Artifact, None] = None, override_keys: [Artifact, None] = None, action_id: [str, None] = None):
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     processor = apple_tools.info_plist_processor
     override_input_arguments = ["--override-input", override_input] if override_input != None else []
@@ -88,11 +88,11 @@ def process_plist(ctx: AnalysisContext, input: "artifact", output: "output_artif
     ] + override_input_arguments + additional_keys_arguments + override_keys_arguments)
     ctx.actions.run(command, category = "apple_process_info_plist", identifier = action_id or input.basename, **_get_plist_run_options())
 
-def _additional_keys_as_json_file(ctx: AnalysisContext) -> "artifact":
+def _additional_keys_as_json_file(ctx: AnalysisContext) -> Artifact:
     additional_keys = _info_plist_additional_keys(ctx)
     return ctx.actions.write_json("plist_additional.json", additional_keys)
 
-def _info_plist_additional_keys(ctx: AnalysisContext) -> dict[str, ""]:
+def _info_plist_additional_keys(ctx: AnalysisContext) -> dict[str, typing.Any]:
     sdk_name = get_apple_sdk_name(ctx)
     sdk_metadata = get_apple_sdk_metadata_for_sdk_name(sdk_name)
     result = _extra_mac_info_plist_keys(sdk_metadata, ctx.attrs.extension)
@@ -115,7 +115,7 @@ def _info_plist_additional_keys(ctx: AnalysisContext) -> dict[str, ""]:
     result[sdk_metadata.min_version_plist_info_key] = get_bundle_min_target_version(ctx, ctx.attrs.binary)
     return result
 
-def _extra_mac_info_plist_keys(sdk_metadata: AppleSdkMetadata.type, extension: str) -> dict[str, ""]:
+def _extra_mac_info_plist_keys(sdk_metadata: AppleSdkMetadata.type, extension: str) -> dict[str, typing.Any]:
     if sdk_metadata.name == MacOSXSdkMetadata.name and extension == "xpc":
         return {
             "NSHighResolutionCapable": True,
@@ -124,11 +124,11 @@ def _extra_mac_info_plist_keys(sdk_metadata: AppleSdkMetadata.type, extension: s
     else:
         return {}
 
-def _override_keys_as_json_file(ctx: AnalysisContext) -> "artifact":
+def _override_keys_as_json_file(ctx: AnalysisContext) -> Artifact:
     override_keys = _info_plist_override_keys(ctx)
     return ctx.actions.write_json("plist_override.json", override_keys)
 
-def _info_plist_override_keys(ctx: AnalysisContext) -> dict[str, ""]:
+def _info_plist_override_keys(ctx: AnalysisContext) -> dict[str, typing.Any]:
     sdk_name = get_apple_sdk_name(ctx)
     result = {}
     if sdk_name == MacOSXSdkMetadata.name:

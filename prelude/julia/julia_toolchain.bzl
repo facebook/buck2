@@ -7,7 +7,7 @@
 
 load(":julia_info.bzl", "JuliaToolchainInfo")
 
-def _toolchain(lang: str, providers: list[""]) -> "attribute":
+def _toolchain(lang: str, providers: list[typing.Any]) -> "attribute":
     return attrs.default_only(attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers))
 
 def julia_toolchain():

@@ -45,7 +45,7 @@ load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_frameworks.bzl", "to_framework_name")
 
-def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list["provider"]:
+def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
     framework_directory_artifact = ctx.attrs.framework

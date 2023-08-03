@@ -12,11 +12,11 @@ load(
 )
 
 ArtifactInfo = record(
-    label = field("label"),
-    artifacts = field(["artifact"]),
+    label = field(Label),
+    artifacts = field(list[Artifact]),
 )
 
-def _get_artifacts(entries: list[ArtifactInfo.type]) -> list["artifact"]:
+def _get_artifacts(entries: list[ArtifactInfo.type]) -> list[Artifact]:
     return flatten([entry.artifacts for entry in entries])
 
 _ArtifactTSet = transitive_set(
@@ -35,7 +35,7 @@ def make_artifact_tset(
         actions: "actions",
         # Must be non-`None` if artifacts are passed in to `artifacts`.
         label: [Label, None] = None,
-        artifacts: list["artifact"] = [],
+        artifacts: list[Artifact] = [],
         infos: list[ArtifactInfo.type] = [],
         children: list[ArtifactTSet.type] = []) -> ArtifactTSet.type:
     expect(

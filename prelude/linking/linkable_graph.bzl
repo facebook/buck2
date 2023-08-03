@@ -37,7 +37,7 @@ LinkableRootInfo = provider(fields = [
 # if Python library A depends on C++ library B, then in the
 # AnnotatedLinkableRoot for B, we'll have A as the dependent.
 LinkableRootAnnotation = record(
-    dependent = field(""),
+    dependent = field(typing.Any),
 )
 
 AnnotatedLinkableRoot = record(
@@ -55,23 +55,23 @@ _DisallowConstruction = record()
 
 LinkableNode = record(
     # Attribute labels on the target.
-    labels = field([str], []),
+    labels = field(list[str], []),
     # Preferred linkage for this target.
     preferred_linkage = field(Linkage.type, Linkage("any")),
     # Linkable deps of this target.
-    deps = field([Label], []),
+    deps = field(list[Label], []),
     # Exported linkable deps of this target.
     #
     # We distinguish between deps and exported deps so that when creating shared
     # libraries in a large graph we only need to link each library against its
     # deps and their (transitive) exported deps. This helps keep link lines smaller
     # and produces more efficient libs (for example, DT_NEEDED stays a manageable size).
-    exported_deps = field([Label], []),
+    exported_deps = field(list[Label], []),
     # Link infos for all supported link styles.
-    link_infos = field({LinkStyle.type: LinkInfos.type}, {}),
+    link_infos = field(dict[LinkStyle.type, LinkInfos.type], {}),
     # Shared libraries provided by this target.  Used if this target is
     # excluded.
-    shared_libs = field({str: LinkedObject.type}, {}),
+    shared_libs = field(dict[str, LinkedObject.type], {}),
 
     # Only allow constructing within this file.
     _private = _DisallowConstruction.type,
@@ -86,10 +86,10 @@ LinkableGraphNode = record(
 
     # All potential root notes for an omnibus link (e.g. C++ libraries,
     # C++ Python extensions).
-    roots = field({"label": AnnotatedLinkableRoot.type}, {}),
+    roots = field(dict[Label, AnnotatedLinkableRoot.type], {}),
 
     # Exclusions this node adds to the Omnibus graph
-    excluded = field({"label": None}, {}),
+    excluded = field(dict[Label, None], {}),
 
     # Only allow constructing within this file.
     _private = _DisallowConstruction.type,

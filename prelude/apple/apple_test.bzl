@@ -42,8 +42,8 @@ load(
 load(":debug.bzl", "DEBUGINFO_SUBTARGET")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
-def apple_test_impl(ctx: AnalysisContext) -> [list["provider"], "promise"]:
-    def get_apple_test_providers(deps_providers) -> list["provider"]:
+def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
+    def get_apple_test_providers(deps_providers) -> list[Provider]:
         xctest_bundle = bundle_output(ctx)
 
         test_host_app_bundle = _get_test_host_app_bundle(ctx)
@@ -136,7 +136,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list["provider"], "promise"]:
     else:
         return get_apple_test_providers([])
 
-def _get_test_info(ctx: AnalysisContext, xctest_bundle: "artifact", test_host_app_bundle: ["artifact", None], dsym_artifact: ["artifact", None] = None) -> "provider":
+def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_bundle: [Artifact, None], dsym_artifact: [Artifact, None] = None) -> Provider:
     # When interacting with Tpx, we just pass our various inputs via env vars,
     # since Tpx basiclaly wants structured output for this.
 
@@ -192,7 +192,7 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: "artifact", test_host_ap
         },
     )
 
-def _get_test_host_app_bundle(ctx: AnalysisContext) -> ["artifact", None]:
+def _get_test_host_app_bundle(ctx: AnalysisContext) -> [Artifact, None]:
     """ Get the bundle for the test host app, if one exists for this test. """
     if ctx.attrs.test_host_app:
         # Copy the test host app bundle into test's output directory
@@ -203,14 +203,14 @@ def _get_test_host_app_bundle(ctx: AnalysisContext) -> ["artifact", None]:
 
     return None
 
-def _get_test_host_app_binary(ctx: AnalysisContext, test_host_app_bundle: ["artifact", None]) -> [cmd_args, None]:
+def _get_test_host_app_binary(ctx: AnalysisContext, test_host_app_bundle: [Artifact, None]) -> [cmd_args, None]:
     """ Reference to the binary with the test host app bundle, if one exists for this test. Captures the bundle as an artifact in the cmd_args. """
     if ctx.attrs.test_host_app:
         return cmd_args([test_host_app_bundle, ctx.attrs.test_host_app[AppleBundleInfo].binary_name], delimiter = "/")
 
     return None
 
-def _get_bundle_loader_flags(binary: [cmd_args, None]) -> list[""]:
+def _get_bundle_loader_flags(binary: [cmd_args, None]) -> list[typing.Any]:
     if binary:
         # During linking we need to link the test shared lib against the test host binary. The
         # test host binary doesn't need to be embedded in an `apple_bundle`.
@@ -222,9 +222,9 @@ def _xcode_populate_attributes(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags.type],
         argsfiles: dict[str, CompileArgsfile.type],
-        xctest_bundle: "artifact",
+        xctest_bundle: Artifact,
         test_host_app_binary: [cmd_args, None],
-        **_kwargs) -> dict[str, ""]:
+        **_kwargs) -> dict[str, typing.Any]:
     data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     data["output"] = xctest_bundle
     if test_host_app_binary:

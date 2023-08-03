@@ -11,7 +11,7 @@ load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 
-def scene_kit_assets_impl(ctx: AnalysisContext) -> list["provider"]:
+def scene_kit_assets_impl(ctx: AnalysisContext) -> list[Provider]:
     spec = SceneKitAssetsSpec(
         path = ctx.attrs.path,
     )
@@ -24,7 +24,7 @@ def scene_kit_assets_impl(ctx: AnalysisContext) -> list["provider"]:
     )
     return [DefaultInfo(), graph]
 
-def compile_scene_kit_assets(ctx: AnalysisContext, specs: list[SceneKitAssetsSpec.type]) -> ["artifact", None]:
+def compile_scene_kit_assets(ctx: AnalysisContext, specs: list[SceneKitAssetsSpec.type]) -> [Artifact, None]:
     if len(specs) == 0:
         return None
 

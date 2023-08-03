@@ -26,7 +26,7 @@ load(":erlang_utils.bzl", "action_identifier", "to_term_args")
 
 # Erlang Releases according to https://www.erlang.org/doc/design_principles/release_structure.html
 
-def erlang_release_impl(ctx: AnalysisContext) -> list["provider"]:
+def erlang_release_impl(ctx: AnalysisContext) -> list[Provider]:
     root_apps = check_dependencies(_dependencies(ctx), [ErlangAppInfo])
     all_apps = flatten_dependencies(ctx, root_apps)
 
@@ -38,7 +38,7 @@ def erlang_release_impl(ctx: AnalysisContext) -> list["provider"]:
 def _build_multi_toolchain_releases(
         ctx: AnalysisContext,
         apps: ErlAppDependencies,
-        configured_toolchains: list[Dependency]) -> list["provider"]:
+        configured_toolchains: list[Dependency]) -> list[Provider]:
     """build the release for all toolchains with the structure being releases/<toolchain>/<relname>"""
     all_toolchains = select_toolchains(ctx)
     toolchains = _get_configured_toolchains(all_toolchains, configured_toolchains)
@@ -60,7 +60,7 @@ def _get_configured_toolchains(
         retval[toolchain_info.name] = toolchains[toolchain_info.name]
     return retval
 
-def _build_primary_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> list["provider"]:
+def _build_primary_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> list[Provider]:
     """build the release only with the primary toolchain with the release folder on the top-level"""
     toolchains = select_toolchains(ctx)
     primary_toolchain = toolchains[get_primary(ctx)]
@@ -68,7 +68,7 @@ def _build_primary_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> li
     release_dir = _symlink_primary_toolchain_output(ctx, all_outputs)
     return [DefaultInfo(default_output = release_dir), ErlangReleaseInfo(name = _relname(ctx))]
 
-def _build_release(ctx: AnalysisContext, toolchain: "Toolchain", apps: ErlAppDependencies) -> dict[str, "artifact"]:
+def _build_release(ctx: AnalysisContext, toolchain: "Toolchain", apps: ErlAppDependencies) -> dict[str, Artifact]:
     # OTP base structure
     lib_dir = _build_lib_dir(ctx, toolchain, apps)
     boot_scripts = _build_boot_script(ctx, toolchain, lib_dir["lib"])
@@ -95,7 +95,7 @@ def _build_release(ctx: AnalysisContext, toolchain: "Toolchain", apps: ErlAppDep
 
     return all_outputs
 
-def _build_lib_dir(ctx: AnalysisContext, toolchain: "Toolchain", all_apps: ErlAppDependencies) -> dict[str, "artifact"]:
+def _build_lib_dir(ctx: AnalysisContext, toolchain: "Toolchain", all_apps: ErlAppDependencies) -> dict[str, Artifact]:
     """Build lib dir according to OTP specifications.
 
     .. seealso:: `OTP Design Principles Release Structure <https://www.erlang.org/doc/design_principles/release_structure.html>`_
@@ -118,7 +118,7 @@ def _build_lib_dir(ctx: AnalysisContext, toolchain: "Toolchain", all_apps: ErlAp
 def _build_boot_script(
         ctx: AnalysisContext,
         toolchain: "Toolchain",
-        lib_dir: "artifact") -> dict[str, "artifact"]:
+        lib_dir: Artifact) -> dict[str, Artifact]:
     """Build Name.rel, start.script, and start.boot in the release folder."""
     release_name = _relname(ctx)
     build_dir = erlang_build.utils.build_dir(toolchain)
@@ -214,7 +214,7 @@ def _build_boot_script(
         ]
     }
 
-def _build_overlays(ctx: AnalysisContext, toolchain: "Toolchain") -> dict[str, "artifact"]:
+def _build_overlays(ctx: AnalysisContext, toolchain: "Toolchain") -> dict[str, Artifact]:
     release_name = _relname(ctx)
     build_dir = erlang_build.utils.build_dir(toolchain)
     installed = {}
@@ -228,7 +228,7 @@ def _build_overlays(ctx: AnalysisContext, toolchain: "Toolchain") -> dict[str, "
                 installed[link_path] = ctx.actions.copy_file(build_path, artifact)
     return installed
 
-def _build_release_variables(ctx: AnalysisContext, toolchain: "Toolchain") -> dict[str, "artifact"]:
+def _build_release_variables(ctx: AnalysisContext, toolchain: "Toolchain") -> dict[str, Artifact]:
     release_name = _relname(ctx)
 
     releases_dir = paths.join(
@@ -266,7 +266,7 @@ def _build_release_variables(ctx: AnalysisContext, toolchain: "Toolchain") -> di
     )
     return {short_path: release_variables}
 
-def _build_erts(ctx: AnalysisContext, toolchain: "Toolchain") -> dict[str, "artifact"]:
+def _build_erts(ctx: AnalysisContext, toolchain: "Toolchain") -> dict[str, Artifact]:
     if not ctx.attrs.include_erts:
         return {}
 
@@ -293,7 +293,7 @@ def _build_erts(ctx: AnalysisContext, toolchain: "Toolchain") -> dict[str, "arti
 
     return {short_path: output_artifact}
 
-def _symlink_multi_toolchain_output(ctx: AnalysisContext, toolchain_artifacts: dict[str, dict[str, "artifact"]]) -> "artifact":
+def _symlink_multi_toolchain_output(ctx: AnalysisContext, toolchain_artifacts: dict[str, dict[str, Artifact]]) -> Artifact:
     link_spec = {}
     relname = _relname(ctx)
 
@@ -309,7 +309,7 @@ def _symlink_multi_toolchain_output(ctx: AnalysisContext, toolchain_artifacts: d
         link_spec,
     )
 
-def _symlink_primary_toolchain_output(ctx: AnalysisContext, artifacts: dict[str, "artifact"]) -> "artifact":
+def _symlink_primary_toolchain_output(ctx: AnalysisContext, artifacts: dict[str, Artifact]) -> Artifact:
     return ctx.actions.symlinked_dir(
         _relname(ctx),
         artifacts,

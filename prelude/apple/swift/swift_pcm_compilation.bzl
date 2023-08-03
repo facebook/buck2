@@ -86,8 +86,8 @@ def _compile_with_argsfile(
         unique_input_inodes = True,
     )
 
-def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list["provider"]]:
-    def k(compiled_pcm_deps_providers) -> list["provider"]:
+def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Provider]]:
+    def k(compiled_pcm_deps_providers) -> list[Provider]:
         uncompiled_pcm_info = ctx.attrs.dep[SwiftPCMUncompiledInfo]
 
         # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers
@@ -257,7 +257,7 @@ def _get_base_pcm_flags(
         uncompiled_pcm_info: SwiftPCMUncompiledInfo.type,
         sdk_deps_tset: SDKDepTSet.type,
         pcm_deps_tset: PcmDepTSet.type,
-        swift_cxx_args: list[str]) -> (cmd_args, cmd_args, "artifact"):
+        swift_cxx_args: list[str]) -> (cmd_args, cmd_args, Artifact):
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     cmd = cmd_args()

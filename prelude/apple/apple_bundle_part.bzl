@@ -19,7 +19,7 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 # Defines where and what should be copied into
 AppleBundlePart = record(
     # A file or directory which content should be copied
-    source = field("artifact"),
+    source = field(Artifact),
     # Where the source should be copied, the actual destination directory
     # inside bundle depends on target platform
     destination = AppleBundleDestination.type,
@@ -36,17 +36,17 @@ SwiftStdlibArguments = record(
     primary_binary_rel_path = field(str),
 )
 
-def bundle_output(ctx: AnalysisContext) -> "artifact":
+def bundle_output(ctx: AnalysisContext) -> Artifact:
     bundle_dir_name = get_bundle_dir_name(ctx)
     output = ctx.actions.declare_output(bundle_dir_name)
     return output
 
 def assemble_bundle(
         ctx: AnalysisContext,
-        bundle: "artifact",
+        bundle: Artifact,
         parts: list[AppleBundlePart.type],
         info_plist_part: [AppleBundlePart.type, None],
-        swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> dict[str, list["provider"]]:
+        swift_stdlib_args: [SwiftStdlibArguments.type, None]) -> dict[str, list[Provider]]:
     """
     Returns extra subtargets related to bundling.
     """
@@ -195,7 +195,7 @@ def get_apple_bundle_part_relative_destination_path(ctx: AnalysisContext, part: 
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
 
 # Returns JSON to be passed into bundle assembling tool. It should contain a dictionary which maps bundle relative destination paths to source paths."
-def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart.type]) -> "artifact":
+def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart.type]) -> Artifact:
     specs = []
 
     for part in parts:
@@ -220,7 +220,7 @@ def _detect_codesign_type(ctx: AnalysisContext) -> CodeSignType.type:
     is_ad_hoc_sufficient = get_apple_sdk_metadata_for_sdk_name(sdk_name).is_ad_hoc_code_sign_sufficient
     return CodeSignType("adhoc" if is_ad_hoc_sufficient else "distribution")
 
-def _entitlements_file(ctx: AnalysisContext) -> ["artifact", None]:
+def _entitlements_file(ctx: AnalysisContext) -> [Artifact, None]:
     if not ctx.attrs.binary:
         return None
 

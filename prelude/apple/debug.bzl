@@ -30,13 +30,13 @@ AppleDebuggableInfo = provider(fields = [
 
 _AppleDebugInfo = record(
     debug_info_tset = "ArtifactTSet",
-    filtered_map = field([{"label": ["artifact"]}, None]),
+    filtered_map = field([dict[Label, list[Artifact]], None]),
 )
 
 AggregatedAppleDebugInfo = record(
     debug_info = field(_AppleDebugInfo.type),
     # debug_info_tset = field(ArtifactTSet.type),
-    sub_targets = field({str.type: ["DefaultInfo"]}),
+    sub_targets = field(dict[str, list["DefaultInfo"]]),
 )
 
 def get_aggregated_debug_info(ctx: AnalysisContext, debug_infos: list[AppleDebuggableInfo.type]) -> AggregatedAppleDebugInfo.type:

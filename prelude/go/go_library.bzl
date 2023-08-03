@@ -27,7 +27,7 @@ load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo", "compile", "get_filtered_
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":packages.bzl", "GoPkg", "go_attr_pkg_name", "merge_pkgs")
 
-def go_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkgs = {}
     default_output = None
     pkg_name = None

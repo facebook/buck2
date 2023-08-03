@@ -108,7 +108,7 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     ]
 
 # replicating the logic in https://fburl.com/code/1fqowxu4 to match buck1's behavior
-def _compute_emulator_target(labels: [str]) -> str:
+def _compute_emulator_target(labels: list[str]) -> str:
     emulator_target_labels = [label for label in labels if label.startswith("re_emulator_")]
     expect(len(emulator_target_labels) <= 1, "multiple 're_emulator_' labels were found:[{}], there must be only one!".format(", ".join(emulator_target_labels)))
     if len(emulator_target_labels) == 0:

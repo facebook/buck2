@@ -15,7 +15,7 @@ AppleBuckConfigAttributeOverride = record(
     name = field(str),
     section = field(str, default = "apple"),
     key = field(str),
-    positive_values = field([[str], [bool]], default = ["True", "true"]),
+    positive_values = field([list[str], list[bool]], default = ["True", "true"]),
     value_if_true = field([str, bool, None], default = True),
     value_if_false = field([str, bool, None], default = False),
     skip_if_false = field(bool, default = False),

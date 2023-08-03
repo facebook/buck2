@@ -139,7 +139,7 @@ def _relativize_path(
         trampoline_args: cmd_args,
         extension: str,
         var: str,
-        exec_is_windows: bool) -> "artifact":
+        exec_is_windows: bool) -> Artifact:
     # Depending on where this action is done, we need to either run sed or a custom Windows sed-equivalent script
     # TODO(marwhal): Bias the exec platform to be the same as target platform to simplify the relativization logic
     if exec_is_windows:
@@ -151,7 +151,7 @@ def _relativize_path_unix(
         ctx,
         extension: str,
         var: str,
-        trampoline_args: cmd_args) -> "artifact":
+        trampoline_args: cmd_args) -> Artifact:
     # FIXME(ndmitchell): more straightforward relativization with better API
     non_materialized_reference = ctx.actions.write("dummy", "")
     trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix("__BUCK_COMMAND_ALIAS_ABSOLUTE__/")
@@ -181,7 +181,7 @@ def _relativize_path_windows(
         ctx,
         extension: str,
         var: str,
-        trampoline_args: cmd_args) -> "artifact":
+        trampoline_args: cmd_args) -> Artifact:
     # FIXME(ndmitchell): more straightforward relativization with better API
     non_materialized_reference = ctx.actions.write("dummy", "")
     trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix(var + "/")

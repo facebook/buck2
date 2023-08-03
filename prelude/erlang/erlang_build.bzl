@@ -41,11 +41,11 @@ BuildEnvironment = record(
     beams = field(ModuleArtifactMapping, {}),
     priv_dirs = field(PathArtifactMapping, {}),
     include_dirs = field(PathArtifactMapping, {}),
-    private_include_dir = field(["artifact"], []),
+    private_include_dir = field(list[Artifact], []),
     ebin_dirs = field(PathArtifactMapping, {}),
     deps_files = field(PathArtifactMapping, {}),
     app_files = field(PathArtifactMapping, {}),
-    full_dependencies = field(["artifact"], []),
+    full_dependencies = field(list[Artifact], []),
     # convenience storrage
     app_includes = field(IncludesMapping, {}),
     app_beams = field(ModuleArtifactMapping, {}),
@@ -133,7 +133,7 @@ def _prepare_build_environment(
         input_mapping = input_mapping,
     )
 
-def _generate_input_mapping(build_environment: "BuildEnvironment", input_artifacts: list["artifact"]) -> "BuildEnvironment":
+def _generate_input_mapping(build_environment: "BuildEnvironment", input_artifacts: list[Artifact]) -> "BuildEnvironment":
     # collect input artifacts for current targets
     # Note: this must be after the dependencies to overwrite private includes
     input_mapping = dict(build_environment.input_mapping)
@@ -182,7 +182,7 @@ def _generate_include_artifacts(
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         name: str,
-        header_artifacts: list["artifact"],
+        header_artifacts: list[Artifact],
         is_private: bool = False) -> "BuildEnvironment":
     # anchor for include dir
     anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "include"))
@@ -234,7 +234,7 @@ def _generate_include_artifacts(
         input_mapping = build_environment.input_mapping,
     )
 
-def _header_key(hrl: "artifact", name: str, is_private: bool) -> [(str, str), str]:
+def _header_key(hrl: Artifact, name: str, is_private: bool) -> [(str, str), str]:
     """Return the key for either public `("string", "string")` or private `"string"` include """
     return hrl.basename if is_private else (name, hrl.basename)
 
@@ -243,13 +243,13 @@ def _generate_beam_artifacts(
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         name: str,
-        src_artifacts: list["artifact"],
-        output_mapping: [None, dict["artifact", str]] = None) -> "BuildEnvironment":
+        src_artifacts: list[Artifact],
+        output_mapping: [None, dict[Artifact, str]] = None) -> "BuildEnvironment":
     # anchor for ebin dir
     anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "ebin"))
 
     # output artifacts
-    def output_path(src: "artifact") -> str:
+    def output_path(src: Artifact) -> str:
         if output_mapping:
             return output_mapping[src]
         else:
@@ -301,7 +301,7 @@ def _generate_chunk_artifacts(
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
         name: str,
-        src_artifacts: list["artifact"]) -> "BuildEnvironment":
+        src_artifacts: list[Artifact]) -> "BuildEnvironment":
     anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "chunks"))
 
     chunk_mapping = {
@@ -336,7 +336,7 @@ def _generate_chunk_artifacts(
 
     return updated_build_environment
 
-def _make_dir_anchor(ctx: AnalysisContext, path: str) -> "artifact":
+def _make_dir_anchor(ctx: AnalysisContext, path: str) -> Artifact:
     return ctx.actions.write(
         paths.normalize(paths.join(path, ".hidden")),
         cmd_args([""]),
@@ -345,12 +345,12 @@ def _make_dir_anchor(ctx: AnalysisContext, path: str) -> "artifact":
 def _get_deps_files(
         ctx: AnalysisContext,
         toolchain: "Toolchain",
-        anchor: "artifact",
-        srcs: list["artifact"],
-        output_mapping: [None, dict["artifact", str]] = None) -> dict[str, "artifact"]:
+        anchor: Artifact,
+        srcs: list[Artifact],
+        output_mapping: [None, dict[Artifact, str]] = None) -> dict[str, Artifact]:
     """Mapping from the output path to the deps file artifact for each srcs artifact."""
 
-    def output_path(src: "artifact") -> str:
+    def output_path(src: Artifact) -> str:
         return output_mapping[src] if output_mapping else _deps_key(anchor, src)
 
     return {
@@ -358,13 +358,13 @@ def _get_deps_files(
         for src in srcs
     }
 
-def _deps_key(anchor: "artifact", src: "artifact") -> str:
+def _deps_key(anchor: Artifact, src: Artifact) -> str:
     name, ext = paths.split_extension(src.basename)
     if ext == ".erl":
         ext = ".beam"
     return anchor_path(anchor, name + ext)
 
-def _get_deps_file(ctx: AnalysisContext, toolchain: "Toolchain", src: "artifact") -> "artifact":
+def _get_deps_file(ctx: AnalysisContext, toolchain: "Toolchain", src: Artifact) -> Artifact:
     dependency_analyzer = toolchain.dependency_analyzer
     dependency_json = ctx.actions.declare_output(_dep_file_name(toolchain, src))
     escript = toolchain.otp_binaries.escript
@@ -388,8 +388,8 @@ def _get_deps_file(ctx: AnalysisContext, toolchain: "Toolchain", src: "artifact"
 
 def _build_hrl(
         ctx: AnalysisContext,
-        hrl: "artifact",
-        output: "artifact") -> None:
+        hrl: Artifact,
+        output: Artifact) -> None:
     """Copy the header file and add dependencies on other includes."""
     ctx.actions.copy_file(output.as_output(), hrl)
     return None
@@ -397,8 +397,8 @@ def _build_hrl(
 def _build_xyrl(
         ctx: AnalysisContext,
         toolchain: "Toolchain",
-        xyrl: "artifact",
-        output: "artifact") -> "artifact":
+        xyrl: Artifact,
+        output: Artifact) -> Artifact:
     """Generate an erl file out of an xrl or yrl input file."""
     erlc = toolchain.otp_binaries.erlc
     erlc_cmd = cmd_args(
@@ -422,8 +422,8 @@ def _build_erl(
         ctx: AnalysisContext,
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
-        src: "artifact",
-        output: "artifact") -> None:
+        src: Artifact,
+        output: Artifact) -> None:
     """Compile erl files into beams."""
 
     trampoline = toolchain.erlc_trampoline
@@ -464,8 +464,8 @@ def _build_edoc(
         ctx: AnalysisContext,
         toolchain: "Toolchain",
         build_environment: "BuildEnvironment",
-        src: "artifact",
-        output: "artifact",
+        src: Artifact,
+        output: Artifact,
         preprocess: bool) -> None:
     """Build edoc from erl files."""
     eval_cmd = cmd_args(
@@ -512,9 +512,9 @@ def _add_dependencies_to_args(
         artifacts,
         queue: list[str],
         done: dict[str, bool],
-        input_mapping: dict[str, (bool, [str, "artifact"])],
+        input_mapping: dict[str, (bool, [str, Artifact])],
         args: cmd_args,
-        build_environment: "BuildEnvironment") -> (cmd_args, dict[str, (bool, [str, "artifact"])]):
+        build_environment: "BuildEnvironment") -> (cmd_args, dict[str, (bool, [str, Artifact])]):
     """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden.
 
     This function traverses the deps specified in the deps files and adds all discovered dependencies.
@@ -644,7 +644,7 @@ def _erlc_dependency_args(
 def _get_erl_opts(
         ctx: AnalysisContext,
         toolchain: "Toolchain",
-        src: "artifact") -> cmd_args:
+        src: Artifact) -> cmd_args:
     always = ["+deterministic"]
 
     # use erl_opts defined in taret if present
@@ -693,7 +693,7 @@ def private_include_name(toolchain: "Toolchain", appname: str) -> str:
         "__private_includes_%s" % (appname,),
     )
 
-def generated_erl_path(toolchain: "Toolchain", appname: str, src: "artifact") -> str:
+def generated_erl_path(toolchain: "Toolchain", appname: str, src: Artifact) -> str:
     """The output path for generated erl files."""
     return paths.join(
         _build_dir(toolchain),
@@ -701,41 +701,41 @@ def generated_erl_path(toolchain: "Toolchain", appname: str, src: "artifact") ->
         "%s.erl" % (module_name(src),),
     )
 
-def anchor_path(anchor: "artifact", basename: str) -> str:
+def anchor_path(anchor: Artifact, basename: str) -> str:
     """ Returns the output path for hrl files. """
     return paths.join(paths.dirname(anchor.short_path), basename)
 
-def beam_path(anchor: "artifact", basename: str) -> str:
+def beam_path(anchor: Artifact, basename: str) -> str:
     """ Returns the output path for beam files. """
     return anchor_path(anchor, paths.replace_extension(basename, ".beam"))
 
-def chunk_path(anchor: "artifact", basename: str) -> str:
+def chunk_path(anchor: Artifact, basename: str) -> str:
     """Returns the output path for chunk files."""
     return anchor_path(anchor, paths.replace_extension(basename, ".chunk"))
 
-def module_name(in_file: "artifact") -> str:
+def module_name(in_file: Artifact) -> str:
     """ Returns the basename of the artifact without extension """
     name, _ = paths.split_extension(in_file.basename)
     return name
 
-def _is_hrl(in_file: "artifact") -> bool:
+def _is_hrl(in_file: Artifact) -> bool:
     """ Returns True if the artifact is a hrl file """
     return _is_ext(in_file, [".hrl"])
 
-def _is_erl(in_file: "artifact") -> bool:
+def _is_erl(in_file: Artifact) -> bool:
     """ Returns True if the artifact is an erl file """
     return _is_ext(in_file, [".erl"])
 
-def _is_xyrl(in_file: "artifact") -> bool:
+def _is_xyrl(in_file: Artifact) -> bool:
     """ Returns True if the artifact is a xrl or yrl file """
     return _is_ext(in_file, [".yrl", ".xrl"])
 
-def _is_ext(in_file: "artifact", extensions: list[str]) -> bool:
+def _is_ext(in_file: Artifact, extensions: list[str]) -> bool:
     """ Returns True if the artifact has an extension listed in extensions """
     _, ext = paths.split_extension(in_file.basename)
     return ext in extensions
 
-def _dep_file_name(toolchain: "Toolchain", src: "artifact") -> str:
+def _dep_file_name(toolchain: "Toolchain", src: Artifact) -> str:
     return paths.join(
         _build_dir(toolchain),
         "__dep_files",
@@ -748,7 +748,7 @@ def _merge(a: dict, b: dict) -> dict:
     r.update(b)
     return r
 
-def _add(a: dict, key: "", value: "") -> dict:
+def _add(a: dict, key: typing.Any, value: typing.Any) -> dict:
     """ safely add a value to a dict """
     b = dict(a)
     b[key] = value
@@ -757,7 +757,7 @@ def _add(a: dict, key: "", value: "") -> dict:
 def _build_dir(toolchain: "Toolchain") -> str:
     return paths.join("__build", toolchain.name)
 
-def _generate_file_mapping_string(mapping: dict[str, (bool, [str, "artifact"])]) -> cmd_args:
+def _generate_file_mapping_string(mapping: dict[str, (bool, [str, Artifact])]) -> cmd_args:
     """produces an easily parsable string for the file mapping"""
     items = {}
     for file, (if_found, artifact) in mapping.items():

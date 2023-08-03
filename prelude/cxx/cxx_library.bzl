@@ -185,15 +185,15 @@ load(
 # An output of a `cxx_library`, consisting of required `default` artifact and optional
 # `other` outputs that should also be materialized along with it.
 CxxLibraryOutput = record(
-    default = field("artifact"),
+    default = field(Artifact),
     # The object files used to create the artifact in `default`.
-    object_files = field(["artifact"], []),
+    object_files = field(list[Artifact], []),
     # Additional outputs that are implicitly used along with the above output
     # (e.g. external object files referenced by a thin archive).
     #
     # Note: It's possible that this can contain some of the artifacts which are
     # also present in object_files.
-    other = field(["artifact"], []),
+    other = field(list[Artifact], []),
     bitcode_bundle = field([BitcodeBundle.type, None], None),
     # Additional debug info which is not included in the library output.
     external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
@@ -201,46 +201,46 @@ CxxLibraryOutput = record(
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled, for static/static-pic libraries,
     # for some types of synthetic link objects or for pre-built shared libraries.
-    dwp = field(["artifact", None], None),
+    dwp = field([Artifact, None], None),
     # A shared shared library may have an associated PDB file with
     # its corresponding Windows debug info.
-    pdb = field(["artifact", None], None),
+    pdb = field([Artifact, None], None),
     linker_map = field([CxxLinkerMapData.type, None], None),
 )
 
 # The outputs of either archiving or linking the outputs of the library
 _CxxAllLibraryOutputs = record(
     # The outputs for each type of link style.
-    outputs = field({LinkStyle.type: [CxxLibraryOutput.type, None]}),
+    outputs = field(dict[LinkStyle.type, [CxxLibraryOutput.type, None]]),
     # The link infos that are part of each output based on link style.
-    libraries = field({LinkStyle.type: LinkInfos.type}),
+    libraries = field(dict[LinkStyle.type, LinkInfos.type]),
     # Extra sub targets to be returned as outputs of this rule, by link style.
-    sub_targets = field({LinkStyle.type: {str: ["provider"]}}, default = {}),
+    sub_targets = field(dict[LinkStyle.type, dict[str, list[Provider]]], default = {}),
     # Extra providers to be returned consumers of this rule.
-    providers = field(["provider"], default = []),
+    providers = field(list[Provider], default = []),
     # Shared object name to shared library mapping.
-    solibs = field({str: LinkedObject.type}),
+    solibs = field(dict[str, LinkedObject.type]),
 )
 
 _CxxLibraryCompileOutput = record(
     # object files
-    objects = field(["artifact"]),
+    objects = field(list[Artifact]),
     # object files stripped of debug information
-    stripped_objects = field(["artifact"]),
+    stripped_objects = field(list[Artifact]),
     # Those outputs which are bitcode
-    bitcode_objects = field([["artifact"], None]),
+    bitcode_objects = field([list[Artifact], None]),
     # yaml file with optimization remarks about clang compilation
-    clang_remarks = field([["artifact"], None]),
+    clang_remarks = field([list[Artifact], None]),
     # json file with trace information about clang compilation
-    clang_traces = field(["artifact"]),
+    clang_traces = field(list[Artifact]),
     # Externally referenced debug info, which doesn't get linked with the
     # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
     # the `.dwo` when using `-gsplit-dwarf=split`).
-    external_debug_info = field(["artifact"]),
+    external_debug_info = field(list[Artifact]),
     # Whether there is any debug info
     objects_have_external_debug_info = field(bool),
     # sub_target for each object
-    objects_sub_targets = field({str.type: [DefaultInfo.type]}),
+    objects_sub_targets = field(dict[str, list[DefaultInfo.type]]),
 )
 
 # The output of compiling all the source files in the library, containing
@@ -263,12 +263,12 @@ _CxxLibraryParameterizedOutput = record(
     # Any generated sub targets as requested by impl_params. Most of these will just be a
     # DefaultInfo to expose outputs to be consumed or built individually, but some (like "headers")
     # will have richer providers.
-    sub_targets = field({str: ["provider"]}),
+    sub_targets = field(dict[str, list[Provider]]),
     # A bundle of all bitcode files as a subtarget
     bitcode_bundle = field([BitcodeBundle.type, None], None),
 
     # Any generated providers as requested by impl_params.
-    providers = field(["provider"]),
+    providers = field(list[Provider]),
     # XcodeDataInfo provider, returned separately as we cannot check
     # provider type from providers above
     xcode_data_info = field([XcodeDataInfo.type, None], None),
@@ -788,7 +788,7 @@ def get_default_cxx_library_product_name(ctx, impl_params) -> str:
     else:
         return _soname(ctx, impl_params)
 
-def _get_library_compile_output(ctx, outs: ["CxxCompileOutput"], extra_link_input) -> _CxxLibraryCompileOutput.type:
+def _get_library_compile_output(ctx, outs: list["CxxCompileOutput"], extra_link_input) -> _CxxLibraryCompileOutput.type:
     objects = [out.object for out in outs]
     stripped_objects = _strip_objects(ctx, objects)
 
@@ -989,7 +989,7 @@ def _form_library_outputs(
         solibs = solibs,
     )
 
-def _strip_objects(ctx: AnalysisContext, objects: list["artifact"]) -> list["artifact"]:
+def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifact]:
     """
     Return new objects with debug info stripped.
     """
@@ -1117,13 +1117,13 @@ def _use_pic(link_style: LinkStyle.type) -> bool:
 def _static_library(
         ctx: AnalysisContext,
         impl_params: "CxxRuleConstructorParams",
-        objects: list["artifact"],
+        objects: list[Artifact],
         pic: bool,
         stripped: bool,
         extra_linkables: list[[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         objects_have_external_debug_info: bool = False,
         external_debug_info: ArtifactTSet.type = ArtifactTSet(),
-        bitcode_objects: [list["artifact"], None] = None) -> (CxxLibraryOutput.type, LinkInfo.type):
+        bitcode_objects: [list[Artifact], None] = None) -> (CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -1209,7 +1209,7 @@ def _static_library(
 # inputs, except the output is a combined bitcode file, which is not machine code.
 def _bitcode_bundle(
         ctx: AnalysisContext,
-        objects: [list["artifact"], None],
+        objects: [list[Artifact], None],
         pic: bool = False,
         stripped: bool = False,
         name_extra = "") -> [BitcodeBundle.type, None]:
@@ -1225,7 +1225,7 @@ _CxxSharedLibraryResult = record(
     link_result = CxxLinkResult.type,
     # Shared library name (e.g. SONAME)
     soname = str,
-    objects_bitcode_bundle = ["artifact", None],
+    objects_bitcode_bundle = [Artifact, None],
     # `LinkInfo` used to link against the shared library.
     info = LinkInfo.type,
 )
@@ -1233,7 +1233,7 @@ _CxxSharedLibraryResult = record(
 def _shared_library(
         ctx: AnalysisContext,
         impl_params: "CxxRuleConstructorParams",
-        objects: list["artifact"],
+        objects: list[Artifact],
         external_debug_info: ArtifactTSet.type,
         dep_infos: LinkArgs.type,
         gnu_use_link_groups: bool,
@@ -1387,7 +1387,7 @@ def use_archives(ctx: AnalysisContext) -> bool:
     # Otherwise, fallback to the rule-specific setting.
     return value_or(ctx.attrs.use_archive, True)
 
-def _attr_post_linker_flags(ctx: AnalysisContext) -> list[""]:
+def _attr_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.post_linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.post_platform_linker_flags))

@@ -104,7 +104,7 @@ def _parse_macro(arg: str) -> [(str, str), None]:
 
 def _get_static_link_info(
         linker_type: str,
-        libs: list["artifact"],
+        libs: list[Artifact],
         args: list[str]) -> LinkInfo.type:
     """
     Format a pair of static link string args and static libs into args to be
@@ -153,7 +153,7 @@ def _get_static_link_info(
     )
 
 def _get_shared_link_info(
-        shared_libs: dict[str, "artifact"],
+        shared_libs: dict[str, Artifact],
         args: list[str]) -> LinkInfo.type:
     """
     Format a pair of shared link string args and shared libs into args to be
@@ -226,7 +226,7 @@ def _get_shared_link_info(
 #         "libfoo2.so": "lib/libfoo2.so",
 #     },
 #
-def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list["provider"]:
+def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
     deps = ctx.attrs.deps

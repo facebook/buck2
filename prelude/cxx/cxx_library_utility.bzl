@@ -48,13 +48,13 @@ def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
 def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
     return ctx.attrs.exported_deps + flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_deps))
 
-def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[""]:
+def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.exported_linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_linker_flags))
     )
 
-def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[""]:
+def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.exported_post_linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.exported_post_platform_linker_flags))
@@ -67,7 +67,7 @@ def cxx_inherited_link_info(ctx, first_order_deps: list[Dependency]) -> MergedLi
     return merge_link_infos(ctx, filter(None, [x.get(MergedLinkInfo) for x in first_order_deps]))
 
 # Linker flags
-def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[""]:
+def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.linker_flags +
         flatten(cxx_by_platform(ctx, ctx.attrs.platform_linker_flags))
@@ -94,7 +94,7 @@ def cxx_attr_preferred_linkage(ctx: AnalysisContext) -> Linkage.type:
 
     return Linkage(preferred_linkage)
 
-def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, ("artifact", list[ArgLike])]:
+def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, (Artifact, list[ArgLike])]:
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
@@ -123,7 +123,7 @@ def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, ("artifact", list[ArgL
 def cxx_mk_shlib_intf(
         ctx: AnalysisContext,
         name: str,
-        shared_lib: ["artifact", "promise"]) -> "artifact":
+        shared_lib: [Artifact, "promise"]) -> Artifact:
     """
     Convert the given shared library into an interface used for linking.
     """
@@ -172,7 +172,7 @@ def cxx_platform_supported(ctx: AnalysisContext) -> bool:
         get_cxx_platform_info(ctx).name,
     )
 
-def cxx_objects_sub_targets(outs: list[CxxCompileOutput.type]) -> dict[str.type, ["provider"]]:
+def cxx_objects_sub_targets(outs: list[CxxCompileOutput.type]) -> dict[str, list[Provider]]:
     objects_sub_targets = {}
     for obj in outs:
         sub_targets = {}

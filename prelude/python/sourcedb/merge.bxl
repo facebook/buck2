@@ -8,7 +8,7 @@
 def do_merge(
         ctx: "bxl_ctx",
         bxl_actions: "bxl_actions",
-        built_sourcedbs: dict["target_label", "artifact"],
+        built_sourcedbs: dict["target_label", Artifact],
         command_category: str) -> "ensured_artifact":
     actions = bxl_actions.actions
 

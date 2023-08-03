@@ -57,7 +57,7 @@ AppleBundleExtraOutputsInfo = provider(fields = [
 ])
 
 AppleBundleBinaryOutput = record(
-    binary = field("artifact"),
+    binary = field(Artifact),
     debuggable_info = field([AppleDebuggableInfo.type, None], None),
     # In the case of watchkit, the `ctx.attrs.binary`'s not set, and we need to create a stub binary.
     is_watchkit_stub_binary = field(bool, False),

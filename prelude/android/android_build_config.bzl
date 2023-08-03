@@ -10,7 +10,7 @@ load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo", "create_java_packaging_dep", "derive_compiling_deps")
 load(":android_providers.bzl", "AndroidBuildConfigInfo", "BuildConfigField", "merge_android_packageable_info")
 
-def android_build_config_impl(ctx: AnalysisContext) -> list["provider"]:
+def android_build_config_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
     default_build_config_fields = get_build_config_fields(ctx.attrs.values)
@@ -39,7 +39,7 @@ def generate_android_build_config(
         java_package: str,
         use_constant_expressions: bool,
         default_values: list["BuildConfigField"],
-        values_file: ["artifact", None]) -> ("JavaLibraryInfo", "JavaPackagingInfo"):
+        values_file: [Artifact, None]) -> ("JavaLibraryInfo", "JavaPackagingInfo"):
     build_config_dot_java = _generate_build_config_dot_java(ctx, source, java_package, use_constant_expressions, default_values, values_file)
 
     compiled_build_config_dot_java = _compile_and_package_build_config_dot_java(ctx, java_package, build_config_dot_java)
@@ -61,7 +61,7 @@ def _generate_build_config_dot_java(
         java_package: str,
         use_constant_expressions: bool,
         default_values: list["BuildConfigField"],
-        values_file: ["artifact", None]) -> "artifact":
+        values_file: [Artifact, None]) -> Artifact:
     generate_build_config_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].generate_build_config[RunInfo])
     generate_build_config_cmd.add([
         "--source",
@@ -94,7 +94,7 @@ def _generate_build_config_dot_java(
 def _compile_and_package_build_config_dot_java(
         ctx: AnalysisContext,
         java_package: str,
-        build_config_dot_java: "artifact") -> "JavaCompileOutputs":
+        build_config_dot_java: Artifact) -> "JavaCompileOutputs":
     return compile_to_jar(
         ctx,
         actions_identifier = "build_config_{}".format(java_package.replace(".", "_")),

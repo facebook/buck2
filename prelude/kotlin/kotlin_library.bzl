@@ -42,11 +42,11 @@ _JAVA_OR_KOTLIN_FILE_EXTENSION = [".java", ".kt"]
 
 def _create_kotlin_sources(
         ctx: AnalysisContext,
-        srcs: list["artifact"],
+        srcs: list[Artifact],
         deps: list[Dependency],
         annotation_processor_params: [list["AnnotationProcessorParams"], None],
         ksp_annotation_processor_params: ["AnnotationProcessorParams", None],
-        additional_classpath_entries: list["artifact"]) -> ("artifact", ["artifact", None], ["artifact", None]):
+        additional_classpath_entries: list[Artifact]) -> (Artifact, [Artifact, None], [Artifact, None]):
     """
     Runs kotlinc on the provided kotlin sources.
     """
@@ -237,7 +237,7 @@ def _add_plugins(
         if options:
             kotlinc_cmd_args.add(["-P", cmd_args(options, delimiter = ",")])
 
-def kotlin_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def kotlin_library_impl(ctx: AnalysisContext) -> list[Provider]:
     packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
 
     # TODO(T107163344) this shouldn't be in kotlin_library itself, use overlays to remove it.
@@ -260,8 +260,8 @@ def kotlin_library_impl(ctx: AnalysisContext) -> list["provider"]:
 
 def build_kotlin_library(
         ctx: AnalysisContext,
-        additional_classpath_entries: list["artifact"] = [],
-        bootclasspath_entries: list["artifact"] = [],
+        additional_classpath_entries: list[Artifact] = [],
+        bootclasspath_entries: list[Artifact] = [],
         extra_sub_targets: dict = {}) -> "JavaProviders":
     srcs = ctx.attrs.srcs
     has_kotlin_srcs = is_any(lambda src: src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar"), srcs)

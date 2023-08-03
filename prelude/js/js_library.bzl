@@ -14,8 +14,8 @@ load("@prelude//utils:utils.bzl", "expect", "map_idx")
 # consistent (it is just the first source encountered when processing the src files).
 GroupedSource = record(
     canonical_name = str,
-    main_source = "artifact",
-    additional_sources = ["artifact"],
+    main_source = Artifact,
+    additional_sources = list[Artifact],
 )
 
 def _get_grouped_srcs(ctx: AnalysisContext) -> list[GroupedSource.type]:
@@ -38,7 +38,7 @@ def _get_grouped_srcs(ctx: AnalysisContext) -> list[GroupedSource.type]:
 
     return grouped_srcs.values()
 
-def _get_virtual_path(ctx: AnalysisContext, src: "artifact", base_path: [str, None]) -> str:
+def _get_virtual_path(ctx: AnalysisContext, src: Artifact, base_path: [str, None]) -> str:
     package = ctx.label.package
     if base_path and base_path not in ["", "."]:
         package = paths.join(package, base_path)
@@ -49,7 +49,7 @@ def _build_js_files(
         ctx: AnalysisContext,
         transform_profile: str,
         flavors: list[str],
-        grouped_srcs: list[GroupedSource.type]) -> list["artifact"]:
+        grouped_srcs: list[GroupedSource.type]) -> list[Artifact]:
     if not grouped_srcs:
         return []
 
@@ -104,7 +104,7 @@ def _build_library_files(
         ctx: AnalysisContext,
         transform_profile: str,
         flavors: list[str],
-        js_files: list["artifact"]) -> "artifact":
+        js_files: list[Artifact]) -> Artifact:
     output_path = ctx.actions.declare_output("{}/library_files".format(transform_profile))
     command_args_file = ctx.actions.write_json(
         "library_files_{}_command_args".format(transform_profile),
@@ -131,9 +131,9 @@ def _build_library_files(
 def _build_js_library(
         ctx: AnalysisContext,
         transform_profile: str,
-        library_files: "artifact",
+        library_files: Artifact,
         flavors: list[str],
-        js_library_deps: list["artifact"]) -> "artifact":
+        js_library_deps: list[Artifact]) -> Artifact:
     output_path = ctx.actions.declare_output("{}.jslib".format(transform_profile))
     job_args = {
         "aggregatedSourceFilesFilePath": library_files,
@@ -167,7 +167,7 @@ def _build_js_library(
 
     return output_path
 
-def js_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def js_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._build_only_native_code:
         sub_targets = {}
         unused_output = ctx.actions.write("unused.js", [])

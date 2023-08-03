@@ -8,7 +8,7 @@
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 load(":cxx_context.bzl", "get_cxx_platform_info")
 
-def cxx_by_platform(ctx: AnalysisContext, xs: list[(str, "_a")]) -> list["_a"]:
+def cxx_by_platform(ctx: AnalysisContext, xs: list[(str, typing.Any)]) -> list[typing.Any]:
     cxx_platform_info = get_cxx_platform_info(ctx)
     platform_flavors = [cxx_platform_info.name]
     if cxx_platform_info.deps_aliases:

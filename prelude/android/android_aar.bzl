@@ -5,6 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def android_aar_impl(_ctx: AnalysisContext) -> list["provider"]:
+def android_aar_impl(_ctx: AnalysisContext) -> list[Provider]:
     # TODO(T145318686)
     return [DefaultInfo()]

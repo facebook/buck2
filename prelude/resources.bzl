@@ -17,8 +17,8 @@ ResourceInfo = provider(fields = [
 
 def gather_resources(
         label: Label,
-        resources: dict[str, ("artifact", list[ArgLike])] = {},
-        deps: list[Dependency] = []) -> dict[Label, dict[str, ("artifact", list[ArgLike])]]:
+        resources: dict[str, (Artifact, list[ArgLike])] = {},
+        deps: list[Dependency] = []) -> dict[Label, dict[str, (Artifact, list[ArgLike])]]:
     """
     Return the resources for this rule and its transitive deps.
     """
@@ -39,8 +39,8 @@ def gather_resources(
 def create_resource_db(
         ctx: AnalysisContext,
         name: str,
-        binary: "artifact",
-        resources: dict[str, ("artifact", list[ArgLike])]) -> "artifact":
+        binary: Artifact,
+        resources: dict[str, (Artifact, list[ArgLike])]) -> Artifact:
     """
     Generate a resource DB for resources for the given binary, relativized to
     the binary's working directory.

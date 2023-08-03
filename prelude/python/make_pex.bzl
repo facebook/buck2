@@ -36,17 +36,17 @@ PexModules = record(
 # The output of pex creation. It's everything needed to make the DefaultInfo and RunInfo
 # providers.
 PexProviders = record(
-    default_output = field("artifact"),
-    other_outputs = [(ArgLike, str)],
+    default_output = field(Artifact),
+    other_outputs = list[(ArgLike, str)],
     other_outputs_prefix = [str, None],
-    hidden_resources = [ArgLike],
-    sub_targets = {str: ["provider"]},
+    hidden_resources = list[ArgLike],
+    sub_targets = dict[str, list[Provider]],
     run_cmd = cmd_args.type,
 )
 
 def make_pex_providers(
         python_toolchain: PythonToolchainInfo.type,
-        pex: PexProviders.type) -> list["provider"]:
+        pex: PexProviders.type) -> list[Provider]:
     providers = [
         make_default_info(pex),
         make_run_info(pex),
@@ -55,7 +55,7 @@ def make_pex_providers(
         providers.append(make_install_info(python_toolchain.installer, pex))
     return providers
 
-def make_install_info(installer: ArgLike, pex: PexProviders.type) -> "provider":
+def make_install_info(installer: ArgLike, pex: PexProviders.type) -> Provider:
     prefix = "{}/".format(pex.other_outputs_prefix) if pex.other_outputs_prefix != None else ""
     files = {
         "{}{}".format(prefix, path): artifact
@@ -69,17 +69,17 @@ def make_install_info(installer: ArgLike, pex: PexProviders.type) -> "provider":
         files = files,
     )
 
-def make_default_info(pex: PexProviders.type) -> "provider":
+def make_default_info(pex: PexProviders.type) -> Provider:
     return DefaultInfo(
         default_output = pex.default_output,
         other_outputs = [a for a, _ in pex.other_outputs] + pex.hidden_resources,
         sub_targets = pex.sub_targets,
     )
 
-def make_run_info(pex: PexProviders.type) -> "provider":
+def make_run_info(pex: PexProviders.type) -> Provider:
     return RunInfo(pex.run_cmd)
 
-def _srcs(srcs: list[""], format = "{}") -> cmd_args:
+def _srcs(srcs: list[typing.Any], format = "{}") -> cmd_args:
     args = cmd_args()
     for src in srcs:
         args.add(cmd_args(src, format = format))
@@ -336,10 +336,10 @@ def _pex_bootstrap_args(
         python_interpreter_flags: [None, str],
         python_host_interpreter: ArgLike,
         main_module: str,
-        output: "artifact",
+        output: Artifact,
         shared_libraries: dict[str, (LinkedObject.type, bool)],
         preload_libraries: cmd_args,
-        symlink_tree_path: [None, "artifact"],
+        symlink_tree_path: [None, Artifact],
         package_style: PackageStyle.type) -> cmd_args:
     cmd = cmd_args()
     cmd.add(preload_libraries)
@@ -447,7 +447,7 @@ def _pex_modules_args(
         ctx: AnalysisContext,
         common_args: cmd_args,
         dep_artifacts: list[(ArgLike, str)],
-        symlink_tree_path: [None, "artifact"],
+        symlink_tree_path: [None, Artifact],
         manifest_module: [ArgLike, None],
         pex_modules: PexModules.type,
         output_suffix: str) -> cmd_args:

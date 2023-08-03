@@ -17,14 +17,14 @@ load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode")
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name")
 load("@prelude//utils:utils.bzl", "expect")
 
-def add_java_7_8_bootclasspath(target_level: int, bootclasspath_entries: list["artifact"], java_toolchain: "JavaToolchainInfo") -> list["artifact"]:
+def add_java_7_8_bootclasspath(target_level: int, bootclasspath_entries: list[Artifact], java_toolchain: "JavaToolchainInfo") -> list[Artifact]:
     if target_level == 7:
         return bootclasspath_entries + java_toolchain.bootclasspath_7
     if target_level == 8:
         return bootclasspath_entries + java_toolchain.bootclasspath_8
     return bootclasspath_entries
 
-def declare_prefixed_output(actions: "actions", prefix: [str, None], output: str, dir: bool = False) -> "artifact":
+def declare_prefixed_output(actions: "actions", prefix: [str, None], output: str, dir: bool = False) -> Artifact:
     return actions.declare_output(declare_prefixed_name(output, prefix), dir = dir)
 
 # The library and the toolchain can both set a specific abi generation
@@ -42,7 +42,7 @@ def _resolve_abi_generation_mode(abi_generation_mode: [AbiGenerationMode.type, N
 def get_abi_generation_mode(
         abi_generation_mode: [AbiGenerationMode.type, None],
         java_toolchain: "JavaToolchainInfo",
-        srcs: list["artifact"],
+        srcs: list[Artifact],
         ap_params: list["AnnotationProcessorParams"]) -> "AbiGenerationMode":
     resolved_mode = AbiGenerationMode("none") if not srcs else _resolve_abi_generation_mode(abi_generation_mode, java_toolchain)
     if resolved_mode == AbiGenerationMode("source_only"):
@@ -88,11 +88,11 @@ def encode_target_type(target_type: TargetType.type) -> str:
     fail()
 
 OutputPaths = record(
-    jar_parent = "artifact",
-    jar = "artifact",
-    classes = "artifact",
-    annotations = "artifact",
-    scratch = "artifact",
+    jar_parent = Artifact,
+    jar = Artifact,
+    classes = Artifact,
+    annotations = Artifact,
+    scratch = Artifact,
 )
 
 def qualified_name_with_subtarget(label: Label) -> str:
@@ -126,7 +126,7 @@ def define_output_paths(actions: "actions", prefix: [str, None], label: Label) -
     )
 
 # buildifier: disable=uninitialized
-def add_output_paths_to_cmd_args(cmd: cmd_args, output_paths: OutputPaths.type, path_to_class_hashes: ["artifact", None]) -> "cmd_args":
+def add_output_paths_to_cmd_args(cmd: cmd_args, output_paths: OutputPaths.type, path_to_class_hashes: [Artifact, None]) -> "cmd_args":
     if path_to_class_hashes != None:
         cmd.hidden(path_to_class_hashes.as_output())
     cmd.hidden(output_paths.jar_parent.as_output())
@@ -184,7 +184,7 @@ filesystem_params = struct(
 def get_compiling_deps_tset(
         actions: "actions",
         deps: list[Dependency],
-        additional_classpath_entries: list["artifact"]) -> [JavaCompilingDepsTSet.type, None]:
+        additional_classpath_entries: list[Artifact]) -> [JavaCompilingDepsTSet.type, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
     if additional_classpath_entries:
         children = [compiling_deps_tset] if compiling_deps_tset else []
@@ -263,19 +263,19 @@ def encode_plugin_params(plugin_params: ["PluginParams", None]) -> [struct.type,
     return encoded_plugin_params
 
 def encode_base_jar_command(
-        javac_tool: [str, "RunInfo", "artifact", None],
+        javac_tool: [str, "RunInfo", Artifact, None],
         target_type: TargetType.type,
         output_paths: OutputPaths.type,
         remove_classes: list[str],
         label: Label,
         compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
         classpath_jars_tag: "artifact_tag",
-        bootclasspath_entries: list["artifact"],
+        bootclasspath_entries: list[Artifact],
         source_level: int,
         target_level: int,
         abi_generation_mode: [AbiGenerationMode.type, None],
-        srcs: list["artifact"],
-        resources_map: dict[str, "artifact"],
+        srcs: list[Artifact],
+        resources_map: dict[str, Artifact],
         ap_params: list["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
         extra_arguments: cmd_args,
@@ -349,7 +349,7 @@ def setup_dep_files(
         actions_identifier: [str, None],
         cmd: cmd_args,
         classpath_jars_tag: "artifact_tag",
-        used_classes_json_outputs: list["artifact"],
+        used_classes_json_outputs: list[Artifact],
         abi_to_abi_dir_map: ["transitive_set_args_projection", list[cmd_args], None],
         hidden = ["artifact"]) -> cmd_args:
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
@@ -383,8 +383,8 @@ def setup_dep_files(
 def prepare_cd_exe(
         qualified_name: str,
         java: RunInfo.type,
-        class_loader_bootstrapper: "artifact",
-        compiler: "artifact",
+        class_loader_bootstrapper: Artifact,
+        compiler: Artifact,
         main_class: str,
         worker: WorkerInfo.type,
         debug_port: [int, None],
@@ -426,10 +426,10 @@ def prepare_cd_exe(
 def prepare_final_jar(
         actions: "actions",
         actions_identifier: [str, None],
-        output: ["artifact", None],
+        output: [Artifact, None],
         output_paths: OutputPaths.type,
-        additional_compiled_srcs: ["artifact", None],
-        jar_builder: "RunInfo") -> "artifact":
+        additional_compiled_srcs: [Artifact, None],
+        jar_builder: "RunInfo") -> Artifact:
     if not additional_compiled_srcs:
         if output:
             actions.copy_file(output.as_output(), output_paths.jar)
@@ -459,14 +459,14 @@ def generate_abi_jars(
         actions_identifier: [str, None],
         label: Label,
         abi_generation_mode: [AbiGenerationMode.type, None],
-        additional_compiled_srcs: ["artifact", None],
+        additional_compiled_srcs: [Artifact, None],
         is_building_android_binary: bool,
         class_abi_generator: Dependency,
-        final_jar: "artifact",
+        final_jar: Artifact,
         compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
         source_only_abi_deps: list[Dependency],
-        class_abi_jar: ["artifact", None],
-        class_abi_output_dir: ["artifact", None],
+        class_abi_jar: [Artifact, None],
+        class_abi_output_dir: [Artifact, None],
         encode_abi_command: "function",
         define_action: "function") -> tuple.type:
     class_abi = None

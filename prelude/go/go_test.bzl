@@ -25,7 +25,7 @@ def _gen_test_main(
         pkg_name: str,
         coverage_mode: [GoCoverageMode.type, None],
         coverage_vars: [cmd_args, None],
-        srcs: cmd_args) -> "artifact":
+        srcs: cmd_args) -> Artifact:
     """
     Generate a `main.go` which calls tests from the given sources.
     """
@@ -44,7 +44,7 @@ def _gen_test_main(
     ctx.actions.run(cmd, category = "go_test_main_gen")
     return output
 
-def go_test_impl(ctx: AnalysisContext) -> list["provider"]:
+def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     deps = ctx.attrs.deps
     srcs = ctx.attrs.srcs
     pkg_name = go_attr_pkg_name(ctx)

@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _get_artifact(result: "bxl_build_result") -> "artifact":
+def _get_artifact(result: "bxl_build_result") -> Artifact:
     # NOTE: the first artifact is always the source db json
     # T124989384 will make this nicer
     for artifact in result.artifacts():
@@ -21,7 +21,7 @@ def _abort_on_build_failure(target_label: "target_label", result: "bxl_build_res
 # to the corresponding sourcedb JSON file location.
 def do_build(
         ctx: "bxl_ctx",
-        targets: list["configured_target_label"]) -> dict["target_label", "artifact"]:
+        targets: list["configured_target_label"]) -> dict["target_label", Artifact]:
     # Build sourcedbs of all targets
     configured_sub_targets = [
         configured_sub_target(target, ["source-db-no-deps"])

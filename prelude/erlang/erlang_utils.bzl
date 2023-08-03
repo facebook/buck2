@@ -13,7 +13,7 @@ def normalise_metadata(data: [str, list[str]]) -> [cmd_args, list[cmd_args]]:
     else:
         return cmd_args(data)
 
-def to_term_args(data: "") -> cmd_args:
+def to_term_args(data: typing.Any) -> cmd_args:
     """ convert nested lists/tuple/map data structure to Erlang Term cmd_args
     """
     args = cmd_args([])
@@ -31,7 +31,7 @@ def app_file(ctx: AnalysisContext) -> str:
 def beam_dir(ctx: AnalysisContext) -> str:
     return paths.join(ctx.attrs.name, "ebin")
 
-def beam_path(ctx: AnalysisContext, src: "artifact") -> str:
+def beam_path(ctx: AnalysisContext, src: Artifact) -> str:
     return paths.join(beam_dir(ctx), paths.replace_extension(src.basename, ".beam"))
 
 def linktree() -> str:
@@ -44,7 +44,7 @@ build_paths = struct(
     linktree = linktree,
 )
 
-def convert(data: "") -> cmd_args:
+def convert(data: typing.Any) -> cmd_args:
     """ converts a lists/tuple/map data structure to a sub-term that can be embedded in another to_term_args or convert
     """
     if type(data) == "list":
@@ -154,7 +154,7 @@ def preserve_structure(path: str) -> dict[str, list[str]]:
         mapping[dirname] = mapping.get(dirname, []) + [filename]
     return mapping
 
-def _file_mapping_impl(ctx: AnalysisContext) -> list["provider"]:
+def _file_mapping_impl(ctx: AnalysisContext) -> list[Provider]:
     outputs = []
     for target_path, files in ctx.attrs.mapping.items():
         for file in files:

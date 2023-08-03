@@ -18,7 +18,7 @@ def cxx_populate_xcode_attributes(
         ctx,
         srcs: list[CxxSrcWithFlags.type],
         argsfiles: dict[str, CompileArgsfile.type],
-        product_name: str) -> dict[str, ""]:
+        product_name: str) -> dict[str, typing.Any]:
     converted_srcs = {}
     for src in srcs:
         file_properties = _get_artifact_owner(src.file)
@@ -46,13 +46,13 @@ def cxx_populate_xcode_attributes(
 
     return data
 
-def _get_artifacts_with_owners(files: "") -> dict["artifact", dict[str, Label]]:
+def _get_artifacts_with_owners(files: typing.Any) -> dict[Artifact, dict[str, Label]]:
     if type(files) == "dict":
         return {artifact: _get_artifact_owner(artifact) for _, artifact in files.items()}
     else:
         return {file: _get_artifact_owner(file) for file in files}
 
-def _get_artifact_owner(file: "artifact") -> dict[str, Label]:
+def _get_artifact_owner(file: Artifact) -> dict[str, Label]:
     if file.owner:
         return {"target": file.owner}
     else:

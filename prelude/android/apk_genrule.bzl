@@ -10,7 +10,7 @@ load("@prelude//android:android_apk.bzl", "get_install_info")
 load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidApkInfo", "AndroidApkUnderTestInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
-def apk_genrule_impl(ctx: AnalysisContext) -> list["provider"]:
+def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     expect((ctx.attrs.apk == None) != (ctx.attrs.aab == None), "Exactly one of 'apk' and 'aab' must be specified")
     input_android_apk_under_test_info = None
     if ctx.attrs.apk != None:

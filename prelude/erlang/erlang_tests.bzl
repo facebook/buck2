@@ -128,7 +128,7 @@ def erlang_tests_macro(
             **common_attributes
         )
 
-def erlang_test_impl(ctx: AnalysisContext) -> list["provider"]:
+def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchains = select_toolchains(ctx)
     primary_toolchain_name = get_primary(ctx)
     primary_toolchain = toolchains[primary_toolchain_name]
@@ -264,7 +264,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list["provider"]:
     ]
 
 # Copied from erlang_application.
-def _build_default_info(dependencies: ErlAppDependencies, output_dir: "artifact") -> "provider":
+def _build_default_info(dependencies: ErlAppDependencies, output_dir: Artifact) -> Provider:
     """ generate default_outputs and DefaultInfo provider
     """
     outputs = []
@@ -280,9 +280,9 @@ def _write_test_info_file(
         ctx: AnalysisContext,
         test_suite: str,
         dependencies: ErlAppDependencies,
-        test_dir: "artifact",
-        config_files: list["artifact"],
-        erl_cmd: [cmd_args, "artifact"]) -> "artifact":
+        test_dir: Artifact,
+        config_files: list[Artifact],
+        erl_cmd: [cmd_args, Artifact]) -> Artifact:
     tests_info = {
         "config_files": config_files,
         "ct_opts": ctx.attrs._ct_opts,
@@ -317,7 +317,7 @@ def _list_code_paths(dependencies: ErlAppDependencies) -> list[cmd_args]:
             folders.append(cmd_args(dep_info.output_dir, format = '"{}"'))
     return folders
 
-def _build_resource_dir(ctx, resources: list, target_dir: str) -> "artifact":
+def _build_resource_dir(ctx, resources: list, target_dir: str) -> Artifact:
     """ build mapping for suite data directory
 
     generating the necessary mapping information for the suite data directory
@@ -337,8 +337,8 @@ def link_output(
         ctx: AnalysisContext,
         test_suite: str,
         build_environment: "BuildEnvironment",
-        data_dir: "artifact",
-        property_dir: "artifact") -> "artifact":
+        data_dir: Artifact,
+        property_dir: Artifact) -> Artifact:
     """Link the data_dirs and the test_suite beam in a single output folder."""
     link_spec = {}
     beam = build_environment.app_beams[test_suite]

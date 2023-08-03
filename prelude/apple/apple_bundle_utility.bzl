@@ -24,10 +24,10 @@ def _get_bundle_target_name(ctx: AnalysisContext):
 def get_product_name(ctx: AnalysisContext) -> str:
     return ctx.attrs.product_name if hasattr(ctx.attrs, "product_name") and ctx.attrs.product_name != None else _get_bundle_target_name(ctx)
 
-def get_extension_attr(ctx: AnalysisContext) -> "":
+def get_extension_attr(ctx: AnalysisContext) -> typing.Any:
     return ctx.attrs.extension
 
-def get_default_binary_dep(ctx: AnalysisContext) -> ["dependency", None]:
+def get_default_binary_dep(ctx: AnalysisContext) -> [Dependency, None]:
     if ctx.attrs.binary == None:
         return None
 
@@ -36,7 +36,7 @@ def get_default_binary_dep(ctx: AnalysisContext) -> ["dependency", None]:
 
     return ctx.attrs.binary["arm64"] if "arm64" in ctx.attrs.binary else ctx.attrs.binary["x86_64"]
 
-def get_flattened_binary_deps(ctx: AnalysisContext) -> list["dependency"]:
+def get_flattened_binary_deps(ctx: AnalysisContext) -> list[Dependency]:
     return [] if ctx.attrs.binary == None else ctx.attrs.binary.values()
 
 # Derives the effective deployment target for the bundle. It's

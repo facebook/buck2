@@ -22,7 +22,7 @@ load("@prelude//utils:utils.bzl", "expect")
 
 AndroidBinaryInfo = record(
     sub_targets = dict,
-    java_packaging_deps = ["JavaPackagingDep"],
+    java_packaging_deps = list["JavaPackagingDep"],
     deps_by_platform = dict,
     primary_platform = str,
     dex_files_info = "DexFilesInfo",

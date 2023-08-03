@@ -46,7 +46,7 @@ def _type(ctx: AnalysisContext) -> str:
 def _unarchive_cmd(
         ext_type: str,
         exec_is_windows: bool,
-        archive: "artifact",
+        archive: Artifact,
         strip_prefix: [str, None]) -> cmd_args:
     if exec_is_windows:
         # So many hacks.
@@ -105,7 +105,7 @@ def _tar_strip_prefix_flags(strip_prefix: [str, None]) -> list[str]:
         return ["--strip-components=" + str(count), strip_prefix]
     return []
 
-def http_archive_impl(ctx: AnalysisContext) -> list["provider"]:
+def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
     expect(len(ctx.attrs.urls) == 1, "multiple `urls` not supported: {}".format(ctx.attrs.urls))
     expect(len(ctx.attrs.vpnless_urls) < 2, "multiple `vpnless_urls` not supported: {}".format(ctx.attrs.vpnless_urls))
 

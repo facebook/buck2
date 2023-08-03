@@ -29,8 +29,8 @@ def get_swift_interface_anon_targets(
     ]
     return [(_swift_interface_compilation, d) for d in deps]
 
-def _swift_interface_compilation_impl(ctx: AnalysisContext) -> ["promise", list["provider"]]:
-    def k(sdk_deps_providers) -> list["provider"]:
+def _swift_interface_compilation_impl(ctx: AnalysisContext) -> ["promise", list[Provider]]:
+    def k(sdk_deps_providers) -> list[Provider]:
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
         uncompiled_module_info_name = uncompiled_sdk_module_info.module_name
 

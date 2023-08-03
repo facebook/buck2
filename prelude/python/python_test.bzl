@@ -18,7 +18,7 @@ load(":python_library.bzl", "py_attr_resources", "qualify_srcs")
 
 def _write_test_modules_list(
         ctx: AnalysisContext,
-        srcs: dict[str, "artifact"]) -> (str, "artifact"):
+        srcs: dict[str, Artifact]) -> (str, Artifact):
     """
     Generate a python source file with a list of all test modules.
     """
@@ -55,7 +55,7 @@ def python_test_executable(ctx: AnalysisContext) -> PexProviders.type:
         compile = value_or(ctx.attrs.compile, False),
     )
 
-def python_test_impl(ctx: AnalysisContext) -> list["provider"]:
+def python_test_impl(ctx: AnalysisContext) -> list[Provider]:
     pex = python_test_executable(ctx)
     test_cmd = pex.run_cmd
 

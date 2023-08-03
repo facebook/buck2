@@ -13,14 +13,14 @@ load(
 def write_swift_module_map(
         ctx: AnalysisContext,
         module_name: str,
-        sdk_deps: list[SdkCompiledModuleInfo.type]) -> "artifact":
+        sdk_deps: list[SdkCompiledModuleInfo.type]) -> Artifact:
     return write_swift_module_map_with_swift_deps(ctx, module_name, sdk_deps, [])
 
 def write_swift_module_map_with_swift_deps(
         ctx: AnalysisContext,
         module_name: str,
         sdk_swift_deps: list[SdkCompiledModuleInfo.type],
-        swift_deps: list["artifact"]) -> "artifact":
+        swift_deps: list[Artifact]) -> Artifact:
     deps = {}
     for sdk_dep in sdk_swift_deps:
         if sdk_dep.is_swiftmodule:

@@ -34,7 +34,7 @@ def _out_root(shared: bool = False):
 def get_inherited_compile_pkgs(deps: list[Dependency]) -> dict[str, GoPkg.type]:
     return merge_pkgs([d[GoPkgCompileInfo].pkgs for d in deps if GoPkgCompileInfo in d])
 
-def get_filtered_srcs(ctx: AnalysisContext, srcs: list["artifact"], tests: bool = False) -> cmd_args:
+def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], tests: bool = False) -> cmd_args:
     """
     Filter the input sources based on build pragma
     """
@@ -79,7 +79,7 @@ def _assemble_cmd(
 def _compile_cmd(
         ctx: AnalysisContext,
         pkg_name: str,
-        pkgs: dict[str, "artifact"] = {},
+        pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
         flags: list[str] = [],
         shared: bool = False) -> cmd_args:
@@ -130,11 +130,11 @@ def compile(
         ctx: AnalysisContext,
         pkg_name: str,
         srcs: cmd_args,
-        pkgs: dict[str, "artifact"] = {},
+        pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
         compile_flags: list[str] = [],
         assemble_flags: list[str] = [],
-        shared: bool = False) -> "artifact":
+        shared: bool = False) -> Artifact:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     root = _out_root(shared)
     output = ctx.actions.declare_output(root, paths.basename(pkg_name) + ".a")

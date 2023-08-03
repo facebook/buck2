@@ -24,7 +24,7 @@ load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 
-def _cargo_buildscript_impl(ctx: AnalysisContext) -> list["provider"]:
+def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
     cwd = ctx.actions.declare_output("cwd", dir = True)

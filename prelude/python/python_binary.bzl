@@ -286,8 +286,8 @@ def _get_link_group_info(
 def python_executable(
         ctx: AnalysisContext,
         main_module: str,
-        srcs: dict[str, "artifact"],
-        resources: dict[str, ("artifact", list[ArgLike])],
+        srcs: dict[str, Artifact],
+        resources: dict[str, (Artifact, list[ArgLike])],
         compile: bool = False) -> PexProviders.type:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
@@ -643,7 +643,7 @@ def convert_python_library_to_executable(
 
     return pex
 
-def python_binary_impl(ctx: AnalysisContext) -> list["provider"]:
+def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     main_module = ctx.attrs.main_module
     if ctx.attrs.main_module != None and ctx.attrs.main != None:
         fail("Only one of main_module or main may be set. Prefer main_module as main is considered deprecated")

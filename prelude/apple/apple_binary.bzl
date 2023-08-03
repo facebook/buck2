@@ -49,8 +49,8 @@ load(":debug.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
-def apple_binary_impl(ctx: AnalysisContext) -> [list["provider"], "promise"]:
-    def get_apple_binary_providers(deps_providers) -> list["provider"]:
+def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
+    def get_apple_binary_providers(deps_providers) -> list[Provider]:
         # FIXME: Ideally we'd like to remove the support of "bridging header",
         # cause it affects build time and in general considered a bad practise.
         # But we need it for now to achieve compatibility with BUCK1.
@@ -148,7 +148,7 @@ def _needs_entitlements_in_binary(ctx: AnalysisContext) -> bool:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     return apple_toolchain_info.sdk_name in _SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY
 
-def _entitlements_link_flags(ctx: AnalysisContext) -> list[""]:
+def _entitlements_link_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return [
         "-Xlinker",
         "-sectcreate",

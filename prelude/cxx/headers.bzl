@@ -64,14 +64,14 @@ HeaderStyle = enum(
 Headers = record(
     include_path = field(cmd_args),
     # NOTE(agallagher): Used for module hack replacement.
-    symlink_tree = field(["artifact", None], None),
+    symlink_tree = field([Artifact, None], None),
     # args that map symlinked private headers to source path
     file_prefix_args = field([cmd_args, None], None),
 )
 
 CHeader = record(
     # `"artifact"` pointing to the actual header file
-    artifact = "artifact",
+    artifact = Artifact,
     # Basename as it should appear in include directive
     name = str,
     # Prefix before the basename as it should appear in include directive
@@ -125,13 +125,13 @@ def cxx_get_regular_cxx_headers_layout(ctx: AnalysisContext) -> CxxHeadersLayout
 def cxx_attr_exported_header_style(ctx: AnalysisContext) -> HeaderStyle.type:
     return HeaderStyle(ctx.attrs.exported_header_style)
 
-def _get_attr_headers(xs: "", namespace: str, naming: CxxHeadersNaming.type) -> list[CHeader.type]:
+def _get_attr_headers(xs: typing.Any, namespace: str, naming: CxxHeadersNaming.type) -> list[CHeader.type]:
     if type(xs) == type([]):
         return [CHeader(artifact = x, name = _get_list_header_name(x, naming), namespace = namespace, named = False) for x in xs]
     else:
         return [CHeader(artifact = xs[x], name = x, namespace = _get_dict_header_namespace(namespace, naming), named = True) for x in xs]
 
-def _headers_by_platform(ctx: AnalysisContext, xs: list[(str, "")]) -> "":
+def _headers_by_platform(ctx: AnalysisContext, xs: list[(str, typing.Any)]) -> typing.Any:
     res = {}
     for deps in cxx_by_platform(ctx, xs):
         res.update(from_named_set(deps))
@@ -139,7 +139,7 @@ def _headers_by_platform(ctx: AnalysisContext, xs: list[(str, "")]) -> "":
 
 def as_raw_headers(
         ctx: AnalysisContext,
-        headers: dict[str, "artifact"],
+        headers: dict[str, Artifact],
         mode: HeadersAsRawHeadersMode.type) -> [list["label_relative_path"], None]:
     """
     Return the include directories needed to treat the given headers as raw
@@ -169,7 +169,7 @@ def _header_mode(ctx: AnalysisContext) -> HeaderMode.type:
         return header_mode
     return get_cxx_toolchain_info(ctx).header_mode
 
-def prepare_headers(ctx: AnalysisContext, srcs: dict[str, "artifact"], name: str, absolute_path_prefix: [str, None]) -> [Headers.type, None]:
+def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, absolute_path_prefix: [str, None]) -> [Headers.type, None]:
     """
     Prepare all the headers we want to use, depending on the header_mode
     set on the target's toolchain.
@@ -232,7 +232,7 @@ def _normalize_header_srcs(srcs: dict) -> dict:
 
 def _as_raw_headers(
         ctx: AnalysisContext,
-        headers: dict[str, "artifact"],
+        headers: dict[str, Artifact],
         # Return `None` instead of failing.
         no_fail: bool = False) -> [list["label_relative_path"], None]:
     """
@@ -263,7 +263,7 @@ def _as_raw_header(
         ctx: AnalysisContext,
         # The full name used to include the header.
         name: str,
-        header: "artifact",
+        header: Artifact,
         # Return `None` instead of failing.
         no_fail: bool = False) -> [str, None]:
     """
@@ -302,7 +302,7 @@ def _as_raw_header(
     )
     return "/".join([".."] * num_parents)
 
-def _get_list_header_name(header: "artifact", naming: CxxHeadersNaming.type) -> str:
+def _get_list_header_name(header: Artifact, naming: CxxHeadersNaming.type) -> str:
     if naming.value == "regular":
         return header.short_path
     elif naming.value == "apple":
@@ -318,7 +318,7 @@ def _get_dict_header_namespace(namespace: str, naming: CxxHeadersNaming.type) ->
     else:
         fail("Unsupported header naming: {}".format(naming))
 
-def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: "artifact") -> [cmd_args.type, None]:
+def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> [cmd_args.type, None]:
     # NOTE(@christylee): Do we need to enable debug-prefix-map for darwin and windows?
     if get_cxx_toolchain_info(ctx).linker_info.type != "gnu":
         return None
@@ -330,7 +330,7 @@ def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: "artifact") -> [cmd
     )
     return debug_prefix_args
 
-def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, ("artifact", str)], absolute_path_prefix: [str, None]) -> "artifact":
+def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)], absolute_path_prefix: [str, None]) -> Artifact:
     output = ctx.actions.declare_output(name + ".hmap")
     cmd = cmd_args(get_cxx_toolchain_info(ctx).mk_hmap)
     cmd.add(["--output", output.as_output()])

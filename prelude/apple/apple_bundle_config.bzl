@@ -11,7 +11,7 @@ def _maybe_get_bool(config: str, default: [None, bool]) -> [None, bool]:
         return default
     return result.lower() == "true"
 
-def apple_bundle_config() -> dict[str, ""]:
+def apple_bundle_config() -> dict[str, typing.Any]:
     return {
         "_bundling_cache_buster": read_root_config("apple", "bundling_cache_buster", None),
         "_bundling_log_file_enabled": _maybe_get_bool("bundling_log_file_enabled", True),

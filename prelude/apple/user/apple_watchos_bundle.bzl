@@ -46,7 +46,7 @@ def _apple_watchos_bundle_attrs():
     attributes.update(apple_bundle_extra_attrs())
     return attributes
 
-def apple_watchos_bundle_impl(ctx: AnalysisContext) -> list["provider"]:
+def apple_watchos_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     # This rule is _equivalent_ to `apple_bundle` except it applies
     # an incoming watchOS transition.
     return apple_bundle_impl(ctx)

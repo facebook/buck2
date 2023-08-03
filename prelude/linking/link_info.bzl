@@ -25,9 +25,9 @@ load(
 
 # Represents an archive (.a file)
 Archive = record(
-    artifact = field("artifact"),
+    artifact = field(Artifact),
     # For a thin archive, this contains all the referenced .o files
-    external_objects = field(["artifact"], []),
+    external_objects = field(list[Artifact], []),
 )
 
 # The different ways libraries can contribute towards a link.
@@ -69,7 +69,7 @@ ArchiveLinkable = record(
     # Artifact in the .a format from ar
     archive = field(Archive.type),
     # If a bitcode bundle was created for this artifact it will be present here
-    bitcode_bundle = field(["artifact", None], None),
+    bitcode_bundle = field([Artifact, None], None),
     linker_type = field(str),
     link_whole = field(bool, False),
     # Indicates if this archive may contain LTO bit code.  Can be set to `False`
@@ -81,16 +81,16 @@ ArchiveLinkable = record(
 
 # A shared lib.
 SharedLibLinkable = record(
-    lib = field("artifact"),
+    lib = field(Artifact),
     link_without_soname = field(bool, False),
     _type = field(LinkableType.type, LinkableType("shared")),
 )
 
 # A list of objects.
 ObjectsLinkable = record(
-    objects = field([["artifact"], None], None),
+    objects = field([list[Artifact], None], None),
     # Any of the objects that are in bitcode format
-    bitcode_bundle = field(["artifact", None], None),
+    bitcode_bundle = field([Artifact, None], None),
     linker_type = field(str),
     link_whole = field(bool, False),
     _type = field(LinkableType.type, LinkableType("objects")),
@@ -100,7 +100,7 @@ ObjectsLinkable = record(
 FrameworksLinkable = record(
     # A list of trimmed framework paths, example: ["Foundation", "UIKit"]
     # Used to construct `-framework` args.
-    framework_names = field([str], []),
+    framework_names = field(list[str], []),
     # A list of unresolved framework paths (i.e., containing $SDKROOT, etc).
     # Used to construct `-F` args for compilation and linking.
     #
@@ -110,9 +110,9 @@ FrameworksLinkable = record(
     # and then linked by as part of an `apple_binary()` using another
     # compatible toolchain. The resolved framework directories passed
     # using `-F` would be different for the compilation and the linking.
-    unresolved_framework_paths = field([str], []),
+    unresolved_framework_paths = field(list[str], []),
     # A list of library names, used to construct `-l` args.
-    library_names = field([str], []),
+    library_names = field(list[str], []),
     _type = field(LinkableType.type, LinkableType("frameworks")),
 )
 
@@ -137,10 +137,10 @@ LinkInfo = record(
     # or when constructing intermediate output paths and does not need to be unique.
     name = field([str, None], None),
     # Opaque cmd_arg-likes to be added pre/post this item on a linker command line.
-    pre_flags = field([""], []),
-    post_flags = field([""], []),
+    pre_flags = field(list[typing.Any], []),
+    post_flags = field(list[typing.Any], []),
     # Primary input to the linker, one of the Linkable types above.
-    linkables = field([LinkableTypes], []),
+    linkables = field(list[LinkableTypes], []),
     # Debug info which is referenced -- but not included -- by linkables in the
     # link info.  For example, this may include `.dwo` files, or the original
     # `.o` files if they contain debug info that doesn't follow the link.
@@ -178,8 +178,8 @@ def set_linkable_link_whole(
 # Helper to wrap a LinkInfo with additional pre/post-flags.
 def wrap_link_info(
         inner: LinkInfo.type,
-        pre_flags: list[""] = [],
-        post_flags: list[""] = []) -> LinkInfo.type:
+        pre_flags: list[typing.Any] = [],
+        post_flags: list[typing.Any] = []) -> LinkInfo.type:
     pre_flags = pre_flags + inner.pre_flags
     post_flags = inner.post_flags + post_flags
     return LinkInfo(
@@ -244,7 +244,7 @@ def link_info_to_args(value: LinkInfo.type) -> cmd_args:
 # platform-specific details from this level.
 # NOTE(agallagher): Using filelist out-of-band means objects/archives get
 # linked out of order of their corresponding flags.
-def link_info_filelist(value: LinkInfo.type) -> list["artifact"]:
+def link_info_filelist(value: LinkInfo.type) -> list[Artifact]:
     filelists = []
     for linkable in value.linkables:
         if linkable._type == LinkableType("archive"):
@@ -275,32 +275,32 @@ LinkInfos = record(
 
 # The output of a native link (e.g. a shared library or an executable).
 LinkedObject = record(
-    output = field(["artifact", "promise"]),
+    output = field([Artifact, "promise"]),
     # The combined bitcode from this linked object and any static libraries
-    bitcode_bundle = field(["artifact", None], None),
+    bitcode_bundle = field([Artifact, None], None),
     # the generated linked output before running bolt, may be None if bolt is not used.
-    prebolt_output = field(["artifact", None], None),
+    prebolt_output = field([Artifact, None], None),
     # A linked object (binary/shared library) may have an associated dwp file with
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled or for some types of synthetic link objects.
-    dwp = field(["artifact", None], None),
+    dwp = field([Artifact, None], None),
     # Additional dirs or paths that contain debug info referenced by the linked
     # object (e.g. split dwarf files or PDB file).
     external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
     # This argsfile is generated in the `cxx_link` step and contains a list of arguments
     # passed to the linker. It is being exposed as a sub-target for debugging purposes.
-    linker_argsfile = field(["artifact", None], None),
+    linker_argsfile = field([Artifact, None], None),
     # This sub-target is only available for distributed thinLTO builds.
-    index_argsfile = field(["artifact", None], None),
+    index_argsfile = field([Artifact, None], None),
     # Import library for linking with DLL on Windows.
     # If not on Windows it's always None.
-    import_library = field(["artifact", None], None),
+    import_library = field([Artifact, None], None),
     # A linked object (binary/shared library) may have an associated PDB file with
     # its corresponding Windows debug info.
     # If not on Windows it's always None.
-    pdb = field(["artifact", None], None),
+    pdb = field([Artifact, None], None),
     # Split-debug info generated by the link.
-    split_debug_output = field(["artifact", None], None),
+    split_debug_output = field([Artifact, None], None),
 )
 
 def _link_info_default_args(infos: "LinkInfos"):
@@ -379,8 +379,8 @@ _LINK_STYLE_FOR_LINKAGE = {
 # Helper to wrap a LinkInfos with additional pre/post-flags.
 def wrap_link_infos(
         inner: LinkInfos.type,
-        pre_flags: list[""] = [],
-        post_flags: list[""] = []) -> LinkInfos.type:
+        pre_flags: list[typing.Any] = [],
+        post_flags: list[typing.Any] = []) -> LinkInfos.type:
     return LinkInfos(
         default = wrap_link_info(
             inner.default,
@@ -520,7 +520,7 @@ def get_link_info(
 LinkArgsTSet = record(
     infos = field(LinkInfosTSet.type),
     external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
-    prefer_stripped = field(bool.type, False),
+    prefer_stripped = field(bool, False),
 )
 
 # An enum. Only one field should be set. The variants here represent different
@@ -532,7 +532,7 @@ LinkArgs = record(
     # A LinkInfosTSet + a flag indicating if stripped is preferred.
     tset = field([LinkArgsTSet.type, None], None),
     # A list of LinkInfos
-    infos = field([[LinkInfo.type], None], None),
+    infos = field([list[LinkInfo.type], None], None),
     # A bunch of flags.
     flags = field([ArgLike, None], None),
 )

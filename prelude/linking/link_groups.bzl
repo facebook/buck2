@@ -20,7 +20,7 @@ LinkGroupLib = record(
     # The label of the owning target (if any).
     label = field([Label, None], None),
     # The shared libs to package for this link group.
-    shared_libs = field({str: LinkedObject.type}),
+    shared_libs = field(dict[str, LinkedObject.type]),
     # The link info to link against this link group.
     shared_link_infos = field(LinkInfos.type),
 )

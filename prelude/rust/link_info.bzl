@@ -45,23 +45,23 @@ RustLinkInfo = provider(fields = [
 
 CrateName = record(
     simple = field(str),
-    dynamic = field(["artifact", None]),
+    dynamic = field([Artifact, None]),
 )
 
 # Information which is keyed on link_style
 RustLinkStyleInfo = record(
     # Path to library or binary
-    rlib = field("artifact"),
+    rlib = field(Artifact),
     # Transitive dependencies which are relevant to consumer
     # This is a dict from artifact to None (we don't have sets)
-    transitive_deps = field({"artifact": CrateName.type}),
+    transitive_deps = field(dict[Artifact, CrateName.type]),
 
     # Path for library metadata (used for check or pipelining)
-    rmeta = field("artifact"),
+    rmeta = field(Artifact),
     # Transitive rmeta deps
-    transitive_rmeta_deps = field({"artifact": CrateName.type}),
+    transitive_rmeta_deps = field(dict[Artifact, CrateName.type]),
     # Path to PDB file with Windows debug data.
-    pdb = field(["artifact", None]),
+    pdb = field([Artifact, None]),
 )
 
 def style_info(info: RustLinkInfo.type, link_style: LinkStyle.type) -> RustLinkStyleInfo.type:
@@ -77,7 +77,7 @@ RustDependency = record(
     # The local name, if any (for `named_deps`)
     name = field([None, str]),
     # Any flags for the dependency (`flagged_deps`), which are passed on to rustc.
-    flags = field([str]),
+    flags = field(list[str]),
 )
 
 # Returns all first-order dependencies.

@@ -12,7 +12,7 @@ load(":rule_spec.bzl", "RuleRegistrationSpec")
 # This rule fills that gap and allows to produce a directory from archive,
 # which then can be used as an input for other rules.
 
-def _impl(ctx: AnalysisContext) -> list["provider"]:
+def _impl(ctx: AnalysisContext) -> list[Provider]:
     output = ctx.actions.declare_output(value_or(ctx.attrs.directory_name, ctx.label.name))
     archive = ctx.attrs.contents_archive
     script, _ = ctx.actions.write(

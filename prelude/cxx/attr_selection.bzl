@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def cxx_by_language_ext(x: dict["", ""], ext: str) -> list[""]:
+def cxx_by_language_ext(x: dict[typing.Any, typing.Any], ext: str) -> list[typing.Any]:
     # lang_preprocessor_flags is indexed by c/cxx
     # lang_compiler_flags is indexed by c_cpp_output/cxx_cpp_output
     # so write a function that can do either

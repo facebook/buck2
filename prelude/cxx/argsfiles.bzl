@@ -11,11 +11,11 @@ ABS_ARGSFILES_SUBTARGET = "abs-argsfiles"
 # Information on argsfiles created for compilation.
 CompileArgsfile = record(
     # The generated argsfile (does not contain dependent inputs).
-    file = field("artifact"),
+    file = field(Artifact),
     # This argsfile as a command form that would use the argsfile (includes dependent inputs).
     cmd_form = field(cmd_args),
     # Input args necessary for the argsfile to reference.
-    input_args = field([["artifacts", cmd_args]]),
+    input_args = field(list[["artifacts", cmd_args]]),
     # Args as written to the argsfile (with shell quoting applied).
     args = field(cmd_args),
     # Args aggregated for the argsfile excluding file prefix args (excludes shell quoting).
@@ -24,9 +24,9 @@ CompileArgsfile = record(
 
 CompileArgsfiles = record(
     # Relative path argsfiles used for build actions, mapped by extension.
-    relative = field({str: CompileArgsfile.type}, default = {}),
+    relative = field(dict[str, CompileArgsfile.type], default = {}),
     # Absolute path argsfiles used for extra outputs, mapped by extension.
-    absolute = field({str: CompileArgsfile.type}, default = {}),
+    absolute = field(dict[str, CompileArgsfile.type], default = {}),
 )
 
 def get_argsfiles_output(ctx: AnalysisContext, argsfile_by_ext: dict[str, CompileArgsfile.type], summary_name: str) -> DefaultInfo.type:

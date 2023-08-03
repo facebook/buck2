@@ -14,10 +14,8 @@ load(
 )
 
 PluginParams = record(
-    processors = field(["string"]),
-    args = field({
-        str: cmd_args,
-    }),
+    processors = field(list[str]),
+    args = field(dict[str, cmd_args]),
     deps = field(["JavaPackagingDepTSet", None]),
 )
 
@@ -43,7 +41,7 @@ def create_plugin_params(ctx: AnalysisContext, plugins: list[Dependency]) -> [Pl
         args = {},
     )
 
-def java_plugin_impl(ctx: AnalysisContext) -> list["provider"]:
+def java_plugin_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 

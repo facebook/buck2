@@ -44,15 +44,15 @@ load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
 load(":swift_toolchain_types.bzl", "SwiftObjectFormat")
 
-def _add_swiftmodule_search_path(swiftmodule_path: "artifact"):
+def _add_swiftmodule_search_path(swiftmodule_path: Artifact):
     # Value will contain a path to the artifact,
     # while we need only the folder which contains the artifact.
     return ["-I", cmd_args(swiftmodule_path).parent()]
 
-def _hidden_projection(swiftmodule_path: "artifact"):
+def _hidden_projection(swiftmodule_path: Artifact):
     return swiftmodule_path
 
-def _linker_args_projection(swiftmodule_path: "artifact"):
+def _linker_args_projection(swiftmodule_path: Artifact):
     return cmd_args(swiftmodule_path, format = "-Wl,-add_ast_path,{}")
 
 SwiftmodulePathsTSet = transitive_set(args_projections = {
@@ -72,10 +72,10 @@ SwiftDependencyInfo = provider(fields = [
 
 SwiftCompilationOutput = record(
     # The object file output from compilation.
-    object_file = field("artifact"),
+    object_file = field(Artifact),
     object_format = field(SwiftObjectFormat.type),
     # The swiftmodule file output from compilation.
-    swiftmodule = field("artifact"),
+    swiftmodule = field(Artifact),
     # The dependency info provider that contains the swiftmodule
     # search paths required for compilation and linking.
     dependency_info = field(SwiftDependencyInfo.type),
@@ -254,8 +254,8 @@ def compile_swift(
 def _perform_swift_postprocessing(
         ctx: AnalysisContext,
         module_name: str,
-        unprocessed_header: "artifact",
-        output_header: "artifact"):
+        unprocessed_header: Artifact,
+        output_header: Artifact):
     transitive_exported_headers = {
         module: module_exported_headers
         for exported_headers_map in _get_exported_headers_tset(ctx).traverse()
@@ -280,8 +280,8 @@ def _compile_swiftmodule(
         toolchain: "SwiftToolchainInfo",
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags.type],
-        output_swiftmodule: "artifact",
-        output_header: "artifact") -> CompileArgsfiles.type:
+        output_swiftmodule: Artifact,
+        output_header: Artifact) -> CompileArgsfiles.type:
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-Xfrontend",
@@ -302,7 +302,7 @@ def _compile_object(
         toolchain: "SwiftToolchainInfo",
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags.type],
-        output_object: "artifact") -> CompileArgsfiles.type:
+        output_object: Artifact) -> CompileArgsfiles.type:
     object_format = toolchain.object_format.value
     embed_bitcode = False
     if toolchain.object_format == SwiftObjectFormat("object-embed-bitcode"):
@@ -622,7 +622,7 @@ def get_swift_pcm_uncompile_info(
 def get_swift_dependency_info(
         ctx: AnalysisContext,
         exported_pre: [CPreprocessor.type, None],
-        output_module: ["artifact", None]) -> SwiftDependencyInfo.type:
+        output_module: [Artifact, None]) -> SwiftDependencyInfo.type:
     all_deps = ctx.attrs.exported_deps + ctx.attrs.deps
     if ctx.attrs.reexport_all_header_dependencies:
         exported_deps = all_deps
@@ -653,7 +653,7 @@ def get_swift_dependency_info(
         debug_info_tset = debug_info_tset,
     )
 
-def _header_basename(header: ["artifact", str]) -> str:
+def _header_basename(header: [Artifact, str]) -> str:
     if type(header) == type(""):
         return paths.basename(header)
     else:

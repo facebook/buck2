@@ -9,7 +9,7 @@ load("@prelude//android:android_providers.bzl", "AndroidManifestInfo", "merge_an
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE")
 
-def android_manifest_impl(ctx: AnalysisContext) -> list["provider"]:
+def android_manifest_impl(ctx: AnalysisContext) -> list[Provider]:
     output, merge_report = generate_android_manifest(
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo].generate_manifest[RunInfo],
@@ -27,10 +27,10 @@ def android_manifest_impl(ctx: AnalysisContext) -> list["provider"]:
 def generate_android_manifest(
         ctx: AnalysisContext,
         generate_manifest: RunInfo.type,
-        manifest_skeleton: "artifact",
+        manifest_skeleton: Artifact,
         module_name: str,
-        manifests: ["ManifestTSet", list["artifact"], None],
-        placeholder_entries: dict) -> ("artifact", "artifact"):
+        manifests: ["ManifestTSet", list[Artifact], None],
+        placeholder_entries: dict) -> (Artifact, Artifact):
     generate_manifest_cmd = cmd_args(generate_manifest)
     generate_manifest_cmd.add([
         "--skeleton-manifest",

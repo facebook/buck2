@@ -140,20 +140,20 @@ load(
 )
 
 CxxExecutableOutput = record(
-    binary = "artifact",
-    bitcode_bundle = field(["artifact", None], None),
-    dwp = field(["artifact", None]),
+    binary = Artifact,
+    bitcode_bundle = field([Artifact, None], None),
+    dwp = field([Artifact, None]),
     # Files that will likely need to be included as .hidden() arguments
     # when executing the executable (ex. RunInfo())
-    runtime_files = [ArgLike],
-    sub_targets = {str: [DefaultInfo.type]},
+    runtime_files = list[ArgLike],
+    sub_targets = dict[str, list[DefaultInfo.type]],
     # The LinkArgs used to create the final executable in 'binary'.
-    link_args = [LinkArgs.type],
+    link_args = list[LinkArgs.type],
     # External components needed to debug the executable.
     external_debug_info = field(ArtifactTSet.type, ArtifactTSet()),
-    shared_libs = {str: LinkedObject.type},
+    shared_libs = dict[str, LinkedObject.type],
     # All link group links that were generated in the executable.
-    auto_link_groups = field({str: LinkedObject.type}, {}),
+    auto_link_groups = field(dict[str, LinkedObject.type], {}),
     compilation_db = CxxCompilationDbInfo.type,
     xcode_data = XcodeDataInfo.type,
     linker_map_data = [CxxLinkerMapData.type, None],
@@ -603,9 +603,9 @@ _CxxLinkExecutableResult = record(
     # The resulting executable
     exe = LinkedObject.type,
     # List of files/directories that should be present for executable to be run successfully
-    runtime_files = [ArgLike],
+    runtime_files = list[ArgLike],
     # Optional shared libs symlink tree symlinked_dir action
-    shared_libs_symlink_tree = ["artifact", None],
+    shared_libs_symlink_tree = [Artifact, None],
     linker_map_data = [CxxLinkerMapData.type, None],
 )
 

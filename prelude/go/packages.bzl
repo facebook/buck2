@@ -10,9 +10,9 @@ load("@prelude//utils:utils.bzl", "value_or")
 
 GoPkg = record(
     # Built w/ `-shared`.
-    shared = field("artifact"),
+    shared = field(Artifact),
     # Built w/o `-shared`.
-    static = field("artifact"),
+    static = field(Artifact),
 )
 
 def go_attr_pkg_name(ctx: AnalysisContext) -> str:
@@ -21,7 +21,7 @@ def go_attr_pkg_name(ctx: AnalysisContext) -> str:
     """
     return value_or(ctx.attrs.package_name, ctx.label.package)
 
-def merge_pkgs(pkgss: list[dict[str, "_pkg"]]) -> dict[str, "_pkg"]:
+def merge_pkgs(pkgss: list[dict[str, typing.Any]]) -> dict[str, typing.Any]:
     """
     Merge mappings of packages into a single mapping, throwing an error on
     conflicts.
@@ -37,7 +37,7 @@ def merge_pkgs(pkgss: list[dict[str, "_pkg"]]) -> dict[str, "_pkg"]:
 
     return all_pkgs
 
-def pkg_artifacts(pkgs: dict[str, GoPkg.type], shared: bool = False) -> dict[str, "artifact"]:
+def pkg_artifacts(pkgs: dict[str, GoPkg.type], shared: bool = False) -> dict[str, Artifact]:
     """
     Return a map package name to a `shared` or `static` package artifact.
     """
@@ -46,7 +46,7 @@ def pkg_artifacts(pkgs: dict[str, GoPkg.type], shared: bool = False) -> dict[str
         for name, pkg in pkgs.items()
     }
 
-def stdlib_pkg_artifacts(toolchain: "GoToolchainInfo", shared: bool = False) -> {str: "artifact"}:
+def stdlib_pkg_artifacts(toolchain: "GoToolchainInfo", shared: bool = False) -> dict[str, Artifact]:
     """
     Return a map package name to a `shared` or `static` package artifact of stdlib.
     """

@@ -12,7 +12,7 @@ AppleAssetCatalogsCompilationOptions = record(
     compress_pngs = field(bool),
     optimization = field(str),
     output_format = field(str),
-    extra_flags = field([str]),
+    extra_flags = field(list[str]),
 )
 
 def get_apple_asset_catalogs_compilation_options(ctx: AnalysisContext) -> AppleAssetCatalogsCompilationOptions.type:

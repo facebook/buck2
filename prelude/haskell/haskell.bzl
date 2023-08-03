@@ -138,17 +138,17 @@ HaskellLibraryInfo = record(
     # The library target name: e.g. "rts"
     name = str,
     # package config database: e.g. platform009/build/ghc/lib/package.conf.d
-    db = "artifact",
+    db = Artifact,
     # e.g. "base-4.13.0.0"
     id = str,
-    import_dirs = ["artifact"],
-    stub_dirs = ["artifact"],
+    import_dirs = list[Artifact],
+    stub_dirs = list[Artifact],
 
     # This field is only used as hidden inputs to compilation, to
     # support Template Haskell which may need access to the libraries
     # at compile time.  The real library flags are propagated up the
     # dependency graph via MergedLinkInfo.
-    libs = field(["artifact"], []),
+    libs = field(list[Artifact], []),
     # Package version, used to specify the full package when exposing it,
     # e.g. filepath-1.4.2.1, deepseq-1.4.4.0.
     # Internal packages default to 1.0.0, e.g. `fbcode-dsi-logger-hs-types-1.0.0`.
@@ -158,7 +158,7 @@ HaskellLibraryInfo = record(
 
 # --
 
-def _by_platform(ctx: AnalysisContext, xs: list[(str, list["_a"])]) -> list["_a"]:
+def _by_platform(ctx: AnalysisContext, xs: list[(str, list[typing.Any])]) -> list[typing.Any]:
     platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
     return flatten(by_platform([platform], xs))
 
@@ -217,7 +217,7 @@ def _src_to_module_name(x: str) -> str:
     base, _ext = paths.split_extension(x)
     return base.replace("/", ".")
 
-def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
     native_infos = []
     haskell_infos = []
     shared_library_infos = []
@@ -353,7 +353,7 @@ def merge_haskell_link_infos(deps: list[HaskellLinkInfo.type]) -> HaskellLinkInf
 PackagesInfo = record(
     exposed_package_args = cmd_args,
     packagedb_args = cmd_args,
-    transitive_deps = field([HaskellLibraryInfo.type]),
+    transitive_deps = field(list[HaskellLibraryInfo.type]),
 )
 
 def get_packages_info(
@@ -410,10 +410,10 @@ def get_packages_info(
 
 # The type of the return value of the `_compile()` function.
 CompileResultInfo = record(
-    objects = field("artifact"),
-    hi = field("artifact"),
-    stubs = field("artifact"),
-    producing_indices = field("bool"),
+    objects = field(Artifact),
+    hi = field(Artifact),
+    stubs = field(Artifact),
+    producing_indices = field(bool),
 )
 
 def _link_style_extensions(link_style: LinkStyle.type) -> (str, str):
@@ -436,7 +436,7 @@ def _output_extensions(
 
 def _srcs_to_objfiles(
         ctx: AnalysisContext,
-        odir: "artifact",
+        odir: Artifact,
         osuf: str) -> cmd_args:
     objfiles = cmd_args()
     for src in ctx.attrs.srcs:
@@ -570,8 +570,8 @@ def _make_package(
         pkgname: str,
         libname: str,
         hlis: list[HaskellLibraryInfo.type],
-        hi: "artifact",
-        lib: "artifact") -> "artifact":
+        hi: Artifact,
+        lib: Artifact) -> Artifact:
     # Don't expose boot sources, as they're only meant to be used for compiling.
     modules = [_src_to_module_name(x) for x in ctx.attrs.srcs if _is_haskell_src(x)]
 
@@ -623,7 +623,7 @@ def _make_package(
 
     return db
 
-def haskell_library_impl(ctx: AnalysisContext) -> list["provider"]:
+def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
     libname = repr(ctx.label.path).replace("//", "_").replace("/", "_") + "_" + ctx.label.name
     pkgname = libname.replace("_", "-")
@@ -840,7 +840,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list["provider"]:
 def derive_indexing_tset(
         actions: "actions",
         link_style: LinkStyle.type,
-        value: ["artifact", None],
+        value: [Artifact, None],
         children: list[Dependency]) -> "HaskellIndexingTSet":
     index_children = []
     for dep in children:
@@ -855,7 +855,7 @@ def derive_indexing_tset(
         children = index_children,
     )
 
-def haskell_binary_impl(ctx: AnalysisContext) -> list["provider"]:
+def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     # Decide what kind of linking we're doing
     link_style = _attr_link_style(ctx)
 

@@ -27,7 +27,7 @@ def _create_fat_jar(
         jars: cmd_args,
         native_libs: dict[str, "SharedLibrary"],
         do_not_create_inner_jar: bool,
-        generate_wrapper: bool) -> list["artifact"]:
+        generate_wrapper: bool) -> list[Artifact]:
     extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
     output = ctx.actions.declare_output("{}.{}".format(ctx.label.name, extension))
 
@@ -126,18 +126,18 @@ def _create_fat_jar(
 def _get_run_cmd(
         attrs: struct.type,
         script_mode: bool,
-        main_artifact: "artifact",
+        main_artifact: Artifact,
         java_toolchain: JavaToolchainInfo.type) -> cmd_args:
     if script_mode:
         return cmd_args(["/usr/bin/env", "bash", main_artifact])
     else:
         return cmd_args([java_toolchain.java[RunInfo]] + attrs.java_args_for_run_info + ["-jar", main_artifact])
 
-def _get_java_tool_artifacts(java_toolchain: JavaToolchainInfo.type) -> list["artifact"]:
+def _get_java_tool_artifacts(java_toolchain: JavaToolchainInfo.type) -> list[Artifact]:
     default_info = java_toolchain.java[DefaultInfo]
     return default_info.default_outputs + default_info.other_outputs
 
-def java_binary_impl(ctx: AnalysisContext) -> list["provider"]:
+def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     """
      java_binary() rule implementation
 

@@ -82,13 +82,13 @@ CxxRuleProviderParams = record(
 
 # Parameters to handle non-Clang sources, e.g Swift on Apple's platforms.
 CxxRuleAdditionalParams = record(
-    srcs = field([CxxSrcWithFlags.type], []),
+    srcs = field(list[CxxSrcWithFlags.type], []),
     # Additional argsfiles to include for this rule.
     argsfiles = field(CompileArgsfiles.type, CompileArgsfiles()),
     # External debug info to be used when generated static output
-    static_external_debug_info = field([ArtifactTSet.type], []),
+    static_external_debug_info = field(list[ArtifactTSet.type], []),
     # External debug info to be used when generating shared objects
-    shared_external_debug_info = field([ArtifactTSet.type], []),
+    shared_external_debug_info = field(list[ArtifactTSet.type], []),
     subtargets = field(dict, {}),  # [str: ["provider"]]
     # Might be used to expose additional providers to cxx layer (e.g to support #headers subtarget for Swift)
     additional_providers_factory = field(["function", None], None),  # (["CPreprocessorInfo", None]) -> ["provider"]:
@@ -112,28 +112,28 @@ CxxRuleConstructorParams = record(
     # Header layout to use importing headers.
     headers_layout = CxxHeadersLayout.type,
     # Additional information used to preprocess every unit of translation in the rule.
-    extra_preprocessors = field([CPreprocessor.type], []),
-    extra_preprocessors_info = field([CPreprocessorInfo.type], []),
+    extra_preprocessors = field(list[CPreprocessor.type], []),
+    extra_preprocessors_info = field(list[CPreprocessorInfo.type], []),
     # Additional preprocessor info to export to other rules.
-    extra_exported_preprocessors = field([CPreprocessor.type], []),
+    extra_exported_preprocessors = field(list[CPreprocessor.type], []),
     # Additional information used to link every object produced by the rule,
     # flags are _both_ exported and used to link the target itself.
-    extra_exported_link_flags = field([""], []),
+    extra_exported_link_flags = field(list[typing.Any], []),
     # Additional flags used _only_ when linking the target itself.
     # These flags are _not_ propagated up the dep tree.
-    extra_link_flags = field([""], []),
-    extra_binary_link_flags = field([""], []),
+    extra_link_flags = field(list[typing.Any], []),
+    extra_binary_link_flags = field(list[typing.Any], []),
     # Additional artifacts to be linked together with the cxx compilation output.
-    extra_link_input = field(["artifact"], []),
+    extra_link_input = field(list[Artifact], []),
     # If True the extra_link_input should be considered as external debug info.
     extra_link_input_has_external_debug_info = field(bool, False),
     # Additional args to be used to link the target.
-    extra_link_args = field([LinkArgs.type], []),
+    extra_link_args = field(list[LinkArgs.type], []),
     # The swift module linkable that should be included for linking.
     swiftmodule_linkable = field([SwiftmoduleLinkable.type, None], None),
     # The source files to compile as part of this rule. This list can be generated
     # from ctx.attrs with the `get_srcs_with_flags` function.
-    srcs = field([CxxSrcWithFlags.type]),
+    srcs = field(list[CxxSrcWithFlags.type]),
     additional = field(CxxRuleAdditionalParams.type, CxxRuleAdditionalParams()),
     # A function which enables the caller to inject subtargets into the link_style provider
     # as well as create custom providers based on the link styles.
@@ -166,15 +166,15 @@ CxxRuleConstructorParams = record(
     force_full_hybrid_if_capable = field(bool, False),
     # Whether shared libs for executables should generate a shared lib link tree.
     exe_shared_libs_link_tree = field(bool, True),
-    extra_link_deps = field([LinkableProviders.type], []),
+    extra_link_deps = field(list[LinkableProviders.type], []),
     # Additional link roots (e.g. dlopen-able libs in a native python link),
     # other than the main executable, which can influence the C++ executable
     # result (e.g. added to link group linking or needs to be searched for
     # shared libs to include in the symlink tree).
-    extra_link_roots = field([LinkableProviders.type], []),
+    extra_link_roots = field(list[LinkableProviders.type], []),
     # Additional shared libs to "package".
-    extra_shared_libs = field({str: SharedLibrary.type}, {}),
-    auto_link_group_specs = field([[LinkGroupLibSpec.type], None], None),
+    extra_shared_libs = field(dict[str, SharedLibrary.type], {}),
+    auto_link_group_specs = field([list[LinkGroupLibSpec.type], None], None),
     link_group_info = field([LinkGroupInfo.type, None], None),
     # Whether to use pre-stripped objects when linking.
     prefer_stripped_objects = field(bool, False),

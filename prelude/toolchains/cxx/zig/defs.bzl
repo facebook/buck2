@@ -155,7 +155,7 @@ ZigDistributionInfo = provider(fields = [
     "os",
 ])
 
-def _zig_distribution_impl(ctx: AnalysisContext) -> list["provider"]:
+def _zig_distribution_impl(ctx: AnalysisContext) -> list[Provider]:
     dst = ctx.actions.declare_output("zig")
     path_tpl = "{}/" + ctx.attrs.prefix + "/zig" + ctx.attrs.suffix
     src = cmd_args(ctx.attrs.dist[DefaultInfo].default_outputs[0], format = path_tpl)
@@ -187,7 +187,7 @@ zig_distribution = rule(
     },
 )
 
-def _http_archive_impl(ctx: AnalysisContext) -> list["provider"]:
+def _http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
     url = ctx.attrs.urls[0]
     if url.endswith(".tar.xz"):
         ext = "tar.xz"
@@ -293,7 +293,7 @@ def _get_linker_type(os: str) -> str:
     else:
         fail("Cannot determine linker type: Unknown OS '{}'".format(os))
 
-def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list["provider"]:
+def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     dist = ctx.attrs.distribution[ZigDistributionInfo]
     zig = ctx.attrs.distribution[RunInfo]
     target = ["-target", ctx.attrs.target] if ctx.attrs.target else []
