@@ -248,15 +248,27 @@ impl TrackIdAllocator {
         }
     }
 
-    fn get_smallest(&mut self) -> u64 {
+    /// Assign a track, unless we'd have > max tracks, in which case do nothing.
+    fn assign_track(&mut self, max: Option<u64>) -> Option<u64> {
         let maybe_smallest = self.unused_track_ids.iter().next().copied();
         if let Some(n) = maybe_smallest {
+            if let Some(max) = max {
+                if max < n {
+                    return None;
+                }
+            }
+
             self.unused_track_ids.remove(&n);
-            n
+            Some(n)
         } else {
             let n = self.lowest_never_used;
+            if let Some(max) = max {
+                if max < n {
+                    return None;
+                }
+            }
             self.lowest_never_used += 1;
-            n
+            Some(n)
         }
     }
 
@@ -511,7 +523,7 @@ impl ChromeTraceWriter {
         &mut self,
         track_key: SpanCategorization,
         event: &BuckEvent,
-    ) -> anyhow::Result<SpanTrackAssignment> {
+    ) -> anyhow::Result<Option<SpanTrackAssignment>> {
         let parent_track_id = event.parent_id().and_then(|parent_id| {
             self.open_spans
                 .get(&parent_id)
@@ -519,14 +531,26 @@ impl ChromeTraceWriter {
         });
 
         match parent_track_id {
-            None => Ok(SpanTrackAssignment::Owned(TrackId(
-                track_key,
-                self.unused_track_ids
+            None => {
+                let max = match track_key {
+                    // Always show the critical path (but it's only going to be one track anyway).
+                    SpanCategorization::CriticalPath => None,
+                    // No point showing hundreds of tracks for the rest. Show what you can.
+                    SpanCategorization::Uncategorized => Some(20),
+                };
+
+                let track = self
+                    .unused_track_ids
                     .entry(track_key)
                     .or_insert_with(TrackIdAllocator::new)
-                    .get_smallest(),
-            ))),
-            Some(track_id) => Ok(SpanTrackAssignment::Inherited(track_id)),
+                    .assign_track(max);
+
+                let assignment =
+                    track.map(|track| SpanTrackAssignment::Owned(TrackId(track_key, track)));
+
+                Ok(assignment)
+            }
+            Some(track_id) => Ok(Some(SpanTrackAssignment::Inherited(track_id))),
         }
     }
 
@@ -567,19 +591,23 @@ impl ChromeTraceWriter {
     ) -> anyhow::Result<()> {
         // Allocate this span to its parent's track or to a new track.
         let track = self.assign_track_for_span(track_key, event)?;
-        self.open_span(
-            event,
-            ChromeTraceOpenSpan {
-                name,
-                start: event.timestamp(),
-                process_id: 0,
-                track,
-                categories: vec!["buck2"],
-                args: json!({
-                    "span_id": event.span_id(),
-                }),
-            },
-        )
+        if let Some(track) = track {
+            self.open_span(
+                event,
+                ChromeTraceOpenSpan {
+                    name,
+                    start: event.timestamp(),
+                    process_id: 0,
+                    track,
+                    categories: vec!["buck2"],
+                    args: json!({
+                        "span_id": event.span_id(),
+                    }),
+                },
+            )?;
+        }
+
+        Ok(())
     }
 
     fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
