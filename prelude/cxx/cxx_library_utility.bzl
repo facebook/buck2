@@ -172,7 +172,7 @@ def cxx_platform_supported(ctx: AnalysisContext) -> bool:
         get_cxx_platform_info(ctx).name,
     )
 
-def cxx_objects_sub_target(outs: list[CxxCompileOutput.type]) -> list["provider"]:
+def cxx_objects_sub_targets(outs: list[CxxCompileOutput.type]) -> dict[str.type, ["provider"]]:
     objects_sub_targets = {}
     for obj in outs:
         sub_targets = {}
@@ -184,4 +184,4 @@ def cxx_objects_sub_target(outs: list[CxxCompileOutput.type]) -> list["provider"
             obj.object,
             sub_targets = sub_targets,
         )]
-    return [DefaultInfo(sub_targets = objects_sub_targets)]
+    return objects_sub_targets

@@ -99,7 +99,7 @@ load(
     "cxx_attr_linker_flags",
     "cxx_attr_resources",
     "cxx_is_gnu",
-    "cxx_objects_sub_target",
+    "cxx_objects_sub_targets",
 )
 load(
     ":cxx_link_utility.bzl",
@@ -193,7 +193,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, "argsfiles")]
     if absolute_path_prefix:
         sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.absolute, "abs-argsfiles")]
-    sub_targets[OBJECTS_SUBTARGET] = cxx_objects_sub_target(cxx_outs)
+    sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = cxx_objects_sub_targets(cxx_outs))]
 
     # Compilation DB.
     comp_db = create_compilation_database(ctx, compile_cmd_output.comp_db_compile_cmds)
