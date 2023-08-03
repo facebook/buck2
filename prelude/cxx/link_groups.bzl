@@ -382,7 +382,7 @@ def get_filtered_labels_to_links_map(
 
 # Find all link group libraries that are first order deps or exported deps of
 # the exectuble or another link group's libs
-def get_public_link_group_nodes(
+def _get_public_link_group_nodes(
         linkable_graph_node_map: dict[Label, LinkableNode.type],
         link_group_mappings: [dict[Label, str], None],
         executable_deps: list[Label],
@@ -740,7 +740,7 @@ def create_link_groups(
     undefined_symfiles = []
     global_symfiles = []
 
-    public_nodes = get_public_link_group_nodes(
+    public_nodes = _get_public_link_group_nodes(
         linkable_graph_node_map,
         link_group_mappings,
         executable_deps + other_roots,
