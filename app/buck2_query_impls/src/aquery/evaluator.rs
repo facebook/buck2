@@ -14,12 +14,12 @@ use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use dice::DiceComputations;
 use dupe::Dupe;
 
 use crate::analysis::evaluator::eval_query;
 use crate::aquery::environment::AqueryEnvironment;
+use crate::aquery::functions::aquery_functions;
 use crate::dice::aquery::DiceAqueryDelegate;
 use crate::dice::get_dice_query_delegate;
 use crate::uquery::environment::PreresolvedQueryLiterals;
@@ -34,7 +34,7 @@ impl AqueryEvaluator<'_> {
         query: &str,
         query_args: &[String],
     ) -> anyhow::Result<QueryEvaluationResult<ActionQueryNode>> {
-        let functions = DefaultQueryFunctionsModule::new();
+        let functions = aquery_functions();
 
         eval_query(&functions, query, query_args, async move |literals| {
             let resolved_literals =

@@ -10,3 +10,4 @@
 pub mod environment;
 pub mod evaluator;
 pub(crate) mod find_matching_action;
+pub mod functions;
