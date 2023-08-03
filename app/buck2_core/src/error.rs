@@ -166,12 +166,6 @@ pub fn handle_soft_error(
 ) -> anyhow::Result<anyhow::Error> {
     validate_category(category)?;
 
-    if is_open_source() {
-        // We don't log these, and we have no legacy users, and they might not upgrade that often,
-        // so lets just break open source things immediately.
-        return Err(err);
-    }
-
     if cfg!(test) {
         // When running unit tests of `buck2_core` crate, all errors are hard errors.
         return Err(err);
@@ -190,6 +184,12 @@ pub fn handle_soft_error(
 
     if hard_error_config()?.should_hard_error(category) {
         return Err(err.context("Upgraded warning to failure via $BUCK2_HARD_ERROR"));
+    }
+
+    if is_open_source() {
+        // We don't log these, and we have no legacy users, and they might not upgrade that often,
+        // so lets just break open source things immediately.
+        return Err(err);
     }
 
     Ok(err)
