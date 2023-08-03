@@ -19,6 +19,7 @@ use buck2_build_api::actions::box_slice_set::BoxSliceSet;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLine;
+use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutable;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -34,7 +35,10 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::Category;
 use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuckOutScratchPath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::request::ActionMetadataBlob;
@@ -401,11 +405,16 @@ impl RunAction {
             ctx.digest_config(),
         )?;
 
+        let scratch = ctx.target().custom_tmpdir();
+        let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
+
         Ok(PreparedRunAction {
             expanded,
             extra_env,
             paths,
             worker,
+            scratch,
+            scratch_path,
         })
     }
 }
@@ -415,22 +424,42 @@ pub(crate) struct PreparedRunAction {
     extra_env: Option<(String, String)>,
     paths: CommandExecutionPaths,
     worker: Option<WorkerSpec>,
+    scratch: BuckOutScratchPath,
+    scratch_path: ProjectRelativePathBuf,
 }
 
 impl PreparedRunAction {
-    fn into_command_execution_request(self) -> CommandExecutionRequest {
+    fn into_command_execution_request(self, knobs: RunActionKnobs) -> CommandExecutionRequest {
         let Self {
             expanded: ExpandedCommandLine { exe, args, mut env },
             extra_env,
             paths,
             worker,
+            scratch,
+            scratch_path,
         } = self;
 
         for (k, v) in extra_env.into_iter() {
             env.insert(k, v);
         }
 
-        CommandExecutionRequest::new(exe, args, paths, env).with_worker(worker)
+        if knobs.expose_action_scratch_path {
+            // We don't reuse the actual `scratch_path` because that's used as the `custom_tmpdir`,
+            // which will get created when running locally, but not on RE. By using a directory
+            // *inside* that dir, we ensure that it consistently does *not* get created, so our
+            // callers are forced to create it for themselves.
+            env.insert(
+                "BUCK_SCRATCH_PATH".to_owned(),
+                scratch_path
+                    .join(ForwardRelativePath::unchecked_new("__scratch__"))
+                    .into_forward_relative_path_buf()
+                    .into_string(),
+            );
+        }
+
+        CommandExecutionRequest::new(exe, args, paths, env)
+            .with_worker(worker)
+            .with_custom_tmpdir(scratch)
     }
 }
 
@@ -550,7 +579,7 @@ impl IncrementalActionExecutable for RunAction {
         let host_sharing_requirements = HostSharingRequirements::Shared(self.inner.weight);
 
         let req = prepared_run_action
-            .into_command_execution_request()
+            .into_command_execution_request(knobs)
             .with_prefetch_lossy_stderr(true)
             .with_executor_preference(self.inner.executor_preference)
             .with_host_sharing_requirements(host_sharing_requirements)
@@ -558,7 +587,6 @@ impl IncrementalActionExecutable for RunAction {
             .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
             .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions())
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
-            .with_custom_tmpdir(ctx.target().custom_tmpdir())
             .with_unique_input_inodes(self.inner.unique_input_inodes);
 
         // First prepare the action, check the action cache, check dep_files if needed, and execute the command

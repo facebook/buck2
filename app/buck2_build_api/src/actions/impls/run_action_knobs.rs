@@ -27,6 +27,9 @@ pub struct RunActionKnobs {
 
     /// Whether to enforce timeouts when running things on RE.
     pub enforce_re_timeouts: bool,
+
+    /// Whether to expose a relative scratch path to actions.
+    pub expose_action_scratch_path: bool,
 }
 
 pub trait HasRunActionKnobs {

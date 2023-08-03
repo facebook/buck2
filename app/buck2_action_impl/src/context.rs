@@ -579,6 +579,17 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///     and `--local-only` CLI flags. The CLI flags take precedence.
     ///     * The `force_full_hybrid_if_capable` option overrides the `use_limited_hybrid` hybrid.
     ///     The options listed above take precedence if set.
+    ///
+    /// When actions execute, they'll do so from the root of the repository. As they execute,
+    /// actions have exclusive access to their output directory.
+    ///
+    /// Actions also get exclusive access to a "scratch" path that is exposed via the environment
+    /// variable `BUCK_SCRATCH_PATH`. This path is expressed as a path relative to the working
+    /// directory (i.e. relative to the project).
+    ///
+    /// The scratch path is not guaranteed to exist when the action executes. If an action wants to
+    /// use the scratch path, the action should create that directory (Buck does guarantee that the
+    /// directory can be created).
     fn run<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] arguments: Value<'v>,
