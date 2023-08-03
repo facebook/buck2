@@ -224,40 +224,6 @@ impl QueryTarget for ActionQueryNode {
 
     // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
     fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        struct Iter<'a> {
-            visited: HashSet<&'a SetProjectionInputs>,
-            queue: VecDeque<&'a SetProjectionInputs>,
-        }
-
-        impl<'a> Iter<'a> {
-            fn new<From: Iterator<Item = &'a SetProjectionInputs>>(iter: From) -> Self {
-                let mut visited = HashSet::new();
-                let mut queue = VecDeque::new();
-                for it in iter {
-                    if visited.insert(it) {
-                        queue.push_back(it);
-                    }
-                }
-                Self { visited, queue }
-            }
-        }
-
-        impl<'a> Iterator for Iter<'a> {
-            type Item = &'a SetProjectionInputs;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                self.queue.pop_front().map(|node| {
-                    for child in &*node.node.children {
-                        if self.visited.insert(child) {
-                            self.queue.push_back(child);
-                        }
-                    }
-
-                    node
-                })
-            }
-        }
-
         // When traversing deps in aquery, we do *not* traverse deps for the target nodes, since
         // those are just for literals
         let action = match &self.data {
@@ -265,19 +231,7 @@ impl QueryTarget for ActionQueryNode {
             ActionQueryNodeData::Analysis(..) => return Box::new(std::iter::empty()),
         };
 
-        let direct = action.deps.iter().filter_map(|input| match input {
-            ActionInput::ActionKey(action_key) => Some(action_key),
-            ActionInput::IndirectInputs(..) => None,
-        });
-
-        let indirect = Iter::new(action.deps.iter().filter_map(|input| match input {
-            ActionInput::ActionKey(..) => None,
-            ActionInput::IndirectInputs(val) => Some(val),
-        }));
-
-        let indirect = Iter::new(indirect);
-
-        Box::new(direct.chain(indirect.flat_map(|v| v.node.direct.iter())))
+        Box::new(iter_action_inputs(&action.deps))
     }
 
     fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
@@ -370,6 +324,58 @@ impl QueryTarget for ActionQueryNode {
     ) -> Result<S::Ok, S::Error> {
         attr.serialize(serializer)
     }
+}
+
+pub fn iter_action_inputs<'a>(
+    deps: &'a [ActionInput],
+) -> impl Iterator<Item = &'a ActionQueryNodeRef> + Send + 'a {
+    struct Iter<'a> {
+        visited: HashSet<&'a SetProjectionInputs>,
+        queue: VecDeque<&'a SetProjectionInputs>,
+    }
+
+    impl<'a> Iter<'a> {
+        fn new<From: Iterator<Item = &'a SetProjectionInputs>>(iter: From) -> Self {
+            let mut visited = HashSet::new();
+            let mut queue = VecDeque::new();
+            for it in iter {
+                if visited.insert(it) {
+                    queue.push_back(it);
+                }
+            }
+            Self { visited, queue }
+        }
+    }
+
+    impl<'a> Iterator for Iter<'a> {
+        type Item = &'a SetProjectionInputs;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.queue.pop_front().map(|node| {
+                for child in &*node.node.children {
+                    if self.visited.insert(child) {
+                        self.queue.push_back(child);
+                    }
+                }
+
+                node
+            })
+        }
+    }
+
+    let direct = deps.iter().filter_map(|input| match input {
+        ActionInput::ActionKey(action_key) => Some(action_key),
+        ActionInput::IndirectInputs(..) => None,
+    });
+
+    let indirect = Iter::new(deps.iter().filter_map(|input| match input {
+        ActionInput::ActionKey(..) => None,
+        ActionInput::IndirectInputs(val) => Some(val),
+    }));
+
+    let indirect = Iter::new(indirect);
+
+    direct.chain(indirect.flat_map(|v| v.node.direct.iter()))
 }
 
 pub static FIND_MATCHING_ACTION: LateBinding<
