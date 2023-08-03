@@ -17,11 +17,13 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use buck2_interpreter::types::project_root::ProjectRoot as StarlarkProjectRoot;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
@@ -223,6 +225,31 @@ impl CommandLineArgLike for CellRoot {
         ctx: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         cli.push_arg(ctx.resolve_cell_path(self.cell_path())?.into_string());
+        Ok(())
+    }
+
+    fn contains_arg_attr(&self) -> bool {
+        false
+    }
+
+    fn visit_write_to_file_macros(
+        &self,
+        _visitor: &mut dyn WriteToFileMacroVisitor,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+impl CommandLineArgLike for StarlarkProjectRoot {
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        ctx: &mut dyn CommandLineContext,
+    ) -> anyhow::Result<()> {
+        cli.push_arg(
+            ctx.resolve_project_path(ProjectRelativePath::empty().to_owned())?
+                .into_string(),
+        );
         Ok(())
     }
 

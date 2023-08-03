@@ -37,6 +37,7 @@ use starlark::values::Value;
 
 use crate::types::cell_root::CellRoot;
 use crate::types::label_relative_path::LabelRelativePath;
+use crate::types::project_root::ProjectRoot;
 use crate::types::target_label::StarlarkConfiguredTargetLabel;
 use crate::types::target_label::StarlarkTargetLabel;
 
@@ -159,6 +160,13 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn cell_root<'v>(this: &StarlarkConfiguredProvidersLabel) -> anyhow::Result<CellRoot> {
         Ok(CellRoot::new(this.label.target().pkg().cell_name()))
+    }
+
+    /// Obtain a reference to the project's root. This can be used as if it were an artifact in
+    /// places that expect one, such as `cmd_args().relative_to`.
+    #[starlark(attribute)]
+    fn project_root<'v>(this: &StarlarkConfiguredProvidersLabel) -> anyhow::Result<ProjectRoot> {
+        Ok(ProjectRoot::new())
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this returns the unconfigured underlying target label (`fbcode//buck2/hello:world`)

@@ -16,9 +16,11 @@ use std::fmt::Formatter;
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
+use buck2_interpreter::types::project_root::ProjectRoot;
 use buck2_util::commas::commas;
 use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
@@ -430,14 +432,17 @@ impl<'v, 'a> Display for CommandLineOptionsRef<'v, 'a> {
 pub(crate) enum RelativeOrigin<'v> {
     Artifact(&'v dyn StarlarkArtifactLike),
     CellRoot(&'v CellRoot),
+    /// Bit of a useless variant since this is simply the default, but we allow it for consistency.
+    ProjectRoot,
 }
 
 impl<'v> StarlarkTypeRepr for RelativeOrigin<'v> {
     fn starlark_type_repr() -> Ty {
-        Ty::union2(
+        Ty::unions(vec![
             ValueAsArtifactLike::starlark_type_repr(),
             CellRoot::starlark_type_repr(),
-        )
+            ProjectRoot::starlark_type_repr(),
+        ])
     }
 }
 
@@ -449,6 +454,10 @@ impl<'v> UnpackValue<'v> for RelativeOrigin<'v> {
 
         if let Some(v) = value.downcast_ref::<CellRoot>() {
             return Some(RelativeOrigin::CellRoot(v));
+        }
+
+        if value.downcast_ref::<ProjectRoot>().is_some() {
+            return Some(RelativeOrigin::ProjectRoot);
         }
 
         None
@@ -468,6 +477,9 @@ impl<'v> RelativeOrigin<'v> {
                 ctx.resolve_artifact(&artifact)?
             }
             Self::CellRoot(cell_root) => ctx.resolve_cell_path(cell_root.cell_path())?,
+            Self::ProjectRoot => {
+                ctx.resolve_project_path(ProjectRelativePath::empty().to_owned())?
+            }
         };
 
         Ok(loc.into_relative())
