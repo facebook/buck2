@@ -51,6 +51,8 @@ AnnotatedLinkableRoot = record(
 # consumers of this target.
 ###############################################################################
 
+_DisallowConstruction = record()
+
 LinkableNode = record(
     # Attribute labels on the target.
     labels = field([str], []),
@@ -70,6 +72,9 @@ LinkableNode = record(
     # Shared libraries provided by this target.  Used if this target is
     # excluded.
     shared_libs = field({str: LinkedObject.type}, {}),
+
+    # Only allow constructing within this file.
+    _private = _DisallowConstruction.type,
 )
 
 LinkableGraphNode = record(
@@ -85,6 +90,9 @@ LinkableGraphNode = record(
 
     # Exclusions this node adds to the Omnibus graph
     excluded = field({"label": None}, {}),
+
+    # Only allow constructing within this file.
+    _private = _DisallowConstruction.type,
 )
 
 LinkableGraphTSet = transitive_set()
@@ -123,6 +131,7 @@ def create_linkable_node(
         exported_deps = linkable_deps(exported_deps),
         link_infos = link_infos,
         shared_libs = shared_libs,
+        _private = _DisallowConstruction(),
     )
 
 def create_linkable_graph_node(
@@ -135,6 +144,7 @@ def create_linkable_graph_node(
         linkable = linkable_node,
         roots = roots,
         excluded = excluded,
+        _private = _DisallowConstruction(),
     )
 
 def create_linkable_graph(
