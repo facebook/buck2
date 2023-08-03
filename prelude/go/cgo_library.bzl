@@ -174,10 +174,6 @@ def cgo_library_impl(ctx: AnalysisContext) -> list["provider"]:
 
     compiled_objects = c_compile_cmds.pic.objects
 
-    # TODO(cjhopman): did i rebase over this being deleted?
-    if link_style == "static":
-        compiled_objects = c_compile_cmds.non_pic._objects
-
     # Merge all sources together to pass to the Go compile step.
     all_srcs = cmd_args(go_srcs + compiled_objects)
     if ctx.attrs.go_srcs:
