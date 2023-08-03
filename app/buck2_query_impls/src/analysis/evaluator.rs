@@ -14,7 +14,7 @@ use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use buck2_query::query::syntax::simple::eval::literals::extract_target_literals;
 use buck2_query::query::syntax::simple::eval::multi_query::process_multi_query;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use buck2_query::query::syntax::simple::functions::QueryFunctions;
 use buck2_query_parser::placeholder::QUERY_PERCENT_S_PLACEHOLDER;
 use futures::Future;
 use gazebo::prelude::*;
@@ -30,11 +30,12 @@ enum EvalQueryError {
 }
 
 pub async fn eval_query<
+    F: QueryFunctions<Env = Env>,
     Env: QueryEnvironment,
     Fut: Future<Output = anyhow::Result<Env>>,
     A: AsRef<str>,
 >(
-    functions: &DefaultQueryFunctionsModule<Env>,
+    functions: &F,
     query: &str,
     query_args: &[A],
     environment: impl FnOnce(Vec<String>) -> Fut,
