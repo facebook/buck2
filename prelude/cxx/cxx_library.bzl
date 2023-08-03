@@ -354,12 +354,12 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
     if impl_params.generate_sub_targets.clang_remarks:
         if compiled_srcs.non_pic and compiled_srcs.non_pic.clang_remarks:
             sub_targets["clang-remarks"] = [DefaultInfo(
-                default_outputs = compiled_srcs.clang_remarks,
+                default_outputs = compiled_srcs.non_pic.clang_remarks,
             )]
 
         if compiled_srcs.pic.clang_remarks:
             sub_targets["pic-clang-remarks"] = [DefaultInfo(
-                default_outputs = compiled_srcs.pic_clang_remarks,
+                default_outputs = compiled_srcs.pic.clang_remarks,
             )]
 
     if impl_params.generate_sub_targets.clang_traces:
