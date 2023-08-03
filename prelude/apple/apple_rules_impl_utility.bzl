@@ -52,6 +52,8 @@ def _apple_bundle_like_common_attrs():
         "_fast_adhoc_signing_enabled": attrs.bool(default = False),
         "_incremental_bundling_enabled": attrs.bool(default = False),
         "_profile_bundling_enabled": attrs.bool(default = False),
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
+        "_provisioning_profiles": attrs.dep(default = "fbsource//xplat/buck2/platform/apple:provisioning_profiles"),
         "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),
@@ -98,8 +100,6 @@ def apple_bundle_extra_attrs():
         "universal": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _get_apple_bundle_toolchain_attr(),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_provisioning_profiles": attrs.dep(default = "fbsource//xplat/buck2/platform/apple:provisioning_profiles"),
     }
     attribs.update(_apple_bundle_like_common_attrs())
     return attribs

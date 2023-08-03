@@ -210,8 +210,8 @@ def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart.type]) -
     return ctx.actions.write_json("bundle_spec.json", specs)
 
 def _detect_codesign_type(ctx: AnalysisContext) -> CodeSignType.type:
-    if ctx.attrs.extension not in ["app", "appex"]:
-        # Only code sign application bundles and extensions
+    if ctx.attrs.extension not in ["app", "appex", "xctest"]:
+        # Only code sign application bundles, extensions and test bundles
         return CodeSignType("skip")
 
     if ctx.attrs._codesign_type:
