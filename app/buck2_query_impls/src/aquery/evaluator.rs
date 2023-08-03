@@ -26,7 +26,6 @@ use crate::uquery::environment::PreresolvedQueryLiterals;
 
 pub(crate) struct AqueryEvaluator<'c> {
     dice_query_delegate: Arc<DiceAqueryDelegate<'c>>,
-    functions: DefaultQueryFunctionsModule<AqueryEnvironment<'c>>,
 }
 
 impl AqueryEvaluator<'_> {
@@ -35,7 +34,9 @@ impl AqueryEvaluator<'_> {
         query: &str,
         query_args: &[String],
     ) -> anyhow::Result<QueryEvaluationResult<ActionQueryNode>> {
-        eval_query(&self.functions, query, query_args, async move |literals| {
+        let functions = DefaultQueryFunctionsModule::new();
+
+        eval_query(&functions, query, query_args, async move |literals| {
             let resolved_literals =
                 PreresolvedQueryLiterals::pre_resolve(&*self.dice_query_delegate, &literals).await;
             Ok(AqueryEnvironment::new(
@@ -56,10 +57,8 @@ pub(crate) async fn get_aquery_evaluator<'a, 'c: 'a>(
 ) -> anyhow::Result<AqueryEvaluator<'c>> {
     let dice_query_delegate =
         get_dice_aquery_delegate(ctx, working_dir, global_target_platform).await?;
-    let functions = DefaultQueryFunctionsModule::new();
     Ok(AqueryEvaluator {
         dice_query_delegate,
-        functions,
     })
 }
 
