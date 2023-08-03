@@ -412,7 +412,11 @@ def _get_public_link_group_nodes(
         if crosses_link_group_boundary(root_link_group, group):
             external_link_group_nodes.add(label)
 
-    # identify all nodes with a dependent across group boundaries
+    # get all nodes that cross function boundaries
+    # TODO(@christylee): dlopen-able libs that depend on the main executable does not have a
+    # linkable internal edge to the main executable. Symbols that are not referenced during the
+    # executable link might be dropped unless the dlopen-able libs are linked against the main
+    # executable. We need to force export those symbols to avoid undefined symbls.
     for label, node in linkable_graph_node_map.items():
         current_group = link_group_mappings.get(label)
 
@@ -422,13 +426,6 @@ def _get_public_link_group_nodes(
                 external_link_group_nodes.add(dep)
 
     SPECIAL_LINK_GROUPS = [MATCH_ALL_LABEL, NO_MATCH_LABEL]
-
-    # Additionally identify exported_deps of those marked nodes (except those included in all groups or included in the main executable).
-
-    # TODO(@christylee): dlopen-able libs that depend on the main executable does not have a
-    # linkable internal edge to the main executable. Symbols that are not referenced during the
-    # executable link might be dropped unless the dlopen-able libs are linked against the main
-    # executable. We need to force export those symbols to avoid undefined symbls.
 
     # buildifier: disable=uninitialized
     def discover_link_group_linkables(node: Label) -> list[Label]:
