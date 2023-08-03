@@ -304,7 +304,7 @@ where
         + std::marker::Copy
         + Serialize,
 {
-    const BUCKET_DURATION: Duration = Duration::from_millis(10);
+    const BUCKET_DURATION: Duration = Duration::from_millis(100);
     pub fn new(name: &'static str, zero_value: T) -> Self {
         Self {
             name,
