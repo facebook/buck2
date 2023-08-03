@@ -284,27 +284,34 @@ struct SimpleCounters<T> {
     /// Stores the current value of each timeseries.
     /// Set to None when we output a zero, so we can save a bit of filesize
     /// by omitting them from the JSON output.
-    counters: HashMap<String, Option<T>>,
-    start_value: T,
+    counters: HashMap<String, SimpleCounter<T>>,
+    zero_value: T,
     trace_events: Vec<serde_json::Value>,
+}
+
+struct SimpleCounter<T> {
+    value: T,
+    /// Whether this counter is currently represented in the trace as implicitly zero by not being
+    /// emitted.
+    implicitly_zero: bool,
 }
 
 impl<T> SimpleCounters<T>
 where
-    T: std::ops::Sub<Output = T>
+    T: std::ops::SubAssign
         + std::cmp::PartialEq
-        + std::ops::Add<Output = T>
+        + std::ops::AddAssign
         + std::marker::Copy
         + Serialize,
 {
     const BUCKET_DURATION: Duration = Duration::from_millis(10);
-    pub fn new(name: &'static str, start_value: T) -> Self {
+    pub fn new(name: &'static str, zero_value: T) -> Self {
         Self {
             name,
             next_flush: SystemTime::UNIX_EPOCH,
             counters: HashMap::new(),
             trace_events: vec![],
-            start_value,
+            zero_value,
         }
     }
 
@@ -320,61 +327,85 @@ where
         Ok(())
     }
 
-    /// If the given key is new to the map, initialize it to self.start_value and flush
-    /// Return the value stored at the given key
-    fn initialize_first_entry_if_needed(
-        &mut self,
-        timestamp: SystemTime,
-        key: &str,
-    ) -> anyhow::Result<T> {
-        // If counter is being bumped from zero, we need to output its zero count
-        // immediately so the line graph won't interpolate from the last time it was zero.
-        let entry = *self.counters.entry(key.to_owned()).or_insert(None);
-        if entry.is_none() {
-            // Add a zero output immediately before the counter changes from zero.
-            self.next_flush = timestamp - Duration::from_micros(1);
-            self.counters.insert(key.to_owned(), Some(self.start_value));
-            self.flush()?;
-            self.next_flush = timestamp;
-        } else if timestamp > self.next_flush {
-            self.flush()?;
-            self.next_flush = timestamp + Self::BUCKET_DURATION;
-        }
-        Ok(entry.unwrap_or(self.start_value))
+    /// If the given key is new to the map, initialize it to self.zero_value;
+    fn counter_entry(&mut self, key: &str) -> &mut SimpleCounter<T> {
+        self.counters
+            .entry(key.to_owned())
+            .or_insert_with(|| SimpleCounter {
+                value: self.zero_value,
+                implicitly_zero: false,
+            })
     }
 
     fn set(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
         self.process_timestamp(timestamp)?;
-        self.counters.insert(key.to_owned(), Some(amount));
+        let entry = self.counter_entry(key);
+        entry.value = amount;
         Ok(())
     }
 
     fn bump(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
         self.process_timestamp(timestamp)?;
-        let entry = self.initialize_first_entry_if_needed(timestamp, key);
-        self.counters
-            .insert(key.to_owned(), Some(entry.unwrap() + amount));
+        let entry = self.counter_entry(key);
+        entry.value += amount;
         Ok(())
     }
 
     fn subtract(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
         self.process_timestamp(timestamp)?;
-        let entry = self.initialize_first_entry_if_needed(timestamp, key);
-        self.counters
-            .insert(key.to_owned(), Some(entry.unwrap() - amount));
+        let entry = self.counter_entry(key);
+        entry.value -= amount;
         Ok(())
     }
 
     fn flush(&mut self) -> anyhow::Result<()> {
         // Output size optimization: omit counters that were previously, and still are, zero.
-        let mut output_counters = json!({});
-        for (key, value) in self.counters.iter_mut() {
-            if let Some(v) = value {
-                output_counters[key] = json!(v);
-                if *v == self.start_value {
-                    *value = None;
+        let mut counters_to_zero = Vec::new();
+        let mut counters_to_output = json!({});
+
+        for (key, counter) in self.counters.iter_mut() {
+            // TODO: With float counters this equality comparison seems sketchy.
+            if counter.value == self.zero_value {
+                // If the counter is currently at its zero value, then emit the zero once, and thne
+                // stop emitting this counter altogether.
+                if !counter.implicitly_zero {
+                    counters_to_output[key] = json!(counter.value);
+                    counter.implicitly_zero = true;
                 }
+            } else {
+                // If the counter isn't zero, then we want to avoid the renderer interpolating from
+                // its last zero value, if any. So, if the counter was previously "zeroed" by not
+                // emitting it we'll emit an extra event setting it to zero.
+                if counter.implicitly_zero {
+                    counter.implicitly_zero = false;
+                    counters_to_zero.push(key.clone());
+                }
+
+                counters_to_output[key] = json!(counter.value);
             }
+        }
+
+        let ts = self
+            .next_flush
+            .duration_since(SystemTime::UNIX_EPOCH)?
+            .as_micros() as u64;
+
+        if !counters_to_zero.is_empty() {
+            let counters_to_zero = counters_to_zero
+                .into_iter()
+                .map(|k| (k, json!(0)))
+                .collect::<serde_json::Map<_, _>>();
+
+            self.trace_events.push(json!(
+                {
+                    "name": self.name,
+                    "pid": 0,
+                    "tid": "counters",
+                    "ph": "C",
+                    "ts": ts - 1,
+                    "args": counters_to_zero,
+                }
+            ));
         }
 
         self.trace_events.push(json!(
@@ -383,10 +414,8 @@ where
                 "pid": 0,
                 "tid": "counters",
                 "ph": "C",
-                "ts": self.next_flush
-                    .duration_since(SystemTime::UNIX_EPOCH)?
-                    .as_micros() as u64,
-                "args": output_counters,
+                "ts": ts,
+                "args": counters_to_output,
             }
         ));
         self.next_flush += Self::BUCKET_DURATION;
