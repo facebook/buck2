@@ -551,6 +551,7 @@ impl Action for RunAction {
                 Some(x) => x.to_string(),
             },
             "no_outputs_cleanup".to_owned() => self.inner.no_outputs_cleanup.to_string(),
+            "allow_cache_upload".to_owned() => self.inner.allow_cache_upload.to_string(),
         }
     }
 }
