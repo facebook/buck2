@@ -142,6 +142,13 @@ impl ActionQueryNode {
             ActionQueryNodeData::Action(data) => Some(&data.action),
         }
     }
+
+    pub fn analysis_opt(&self) -> Option<&AnalysisData> {
+        match &self.data {
+            ActionQueryNodeData::Analysis(a) => Some(a),
+            ActionQueryNodeData::Action(..) => None,
+        }
+    }
 }
 
 impl LabeledNode for ActionQueryNode {

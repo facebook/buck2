@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::ActionQueryNodeRef;
+use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
@@ -32,10 +33,15 @@ pub trait AqueryDelegate: Send + Sync {
     fn cquery_delegate(&self) -> &dyn CqueryDelegate;
 
     async fn get_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode>;
+
+    async fn expand_artifacts(
+        &self,
+        artifacts: &[ArtifactGroup],
+    ) -> anyhow::Result<Vec<ActionQueryNode>>;
 }
 
 pub struct AqueryEnvironment<'c> {
-    delegate: Arc<dyn AqueryDelegate + 'c>,
+    pub(super) delegate: Arc<dyn AqueryDelegate + 'c>,
     literals: Arc<dyn QueryLiterals<ActionQueryNode> + 'c>,
 }
 

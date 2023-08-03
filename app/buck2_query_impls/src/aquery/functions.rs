@@ -11,6 +11,10 @@ use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use buck2_build_api::actions::query::ActionQueryNode;
+use buck2_query::query::syntax::simple::eval::error::QueryError;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::syntax::simple::eval::values::QueryValue;
 use buck2_query::query::syntax::simple::functions::helpers::QueryBinaryOp;
 use buck2_query::query::syntax::simple::functions::helpers::QueryFunction;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
@@ -62,4 +66,29 @@ pub fn aquery_functions<'a>() -> impl QueryFunctions<Env = AqueryEnvironment<'a>
 struct AqueryFunctions<'a>(PhantomData<&'a ()>);
 
 #[query_module(AqueryEnvironment<'a>)]
-impl<'a> AqueryFunctions<'a> {}
+impl<'a> AqueryFunctions<'a> {
+    async fn all_outputs(
+        &self,
+        env: &AqueryEnvironment<'a>,
+        targets: TargetSet<ActionQueryNode>,
+    ) -> Result<QueryValue<ActionQueryNode>, QueryError> {
+        let mut outputs = Vec::new();
+
+        for target in &targets {
+            if let Some(analysis) = target.analysis_opt() {
+                analysis
+                    .providers()?
+                    .provider_collection()
+                    .default_info()
+                    .for_each_output(&mut |output| {
+                        outputs.push(output);
+                        Ok(())
+                    })?;
+            }
+        }
+
+        let nodes = env.delegate.expand_artifacts(&outputs).await?;
+        let nodes = nodes.into_iter().collect::<TargetSet<_>>().into();
+        Ok(nodes)
+    }
+}
