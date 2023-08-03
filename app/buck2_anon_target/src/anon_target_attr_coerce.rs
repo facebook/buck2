@@ -157,12 +157,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 },
                 None => Err(AnonTargetCoercionError::type_error("resolved_macro", value).into()),
             },
-            _ => {
-                return Err(AnonTargetCoercionError::AttrTypeNotSupported(
-                    value.get_type().to_owned(),
-                )
-                .into());
-            }
+            _ => Err(AnonTargetCoercionError::AttrTypeNotSupported(self.to_string()).into()),
         }
     }
 }
