@@ -24,12 +24,6 @@ def get_shared_pcm_compilation_args(target: str, module_name: str) -> cmd_args:
         "-fno-implicit-modules",
         "-Xcc",
         "-fno-implicit-module-maps",
-        # Disable debug info in pcm files. This is required to avoid embedding absolute paths
-        # and ending up with mismatched pcm file sizes.
-        "-Xcc",
-        "-Xclang",
-        "-Xcc",
-        "-fmodule-format=raw",
         # Embed all input files into the PCM so we don't need to include module map files when
         # building remotely.
         # https://github.com/apple/llvm-project/commit/fb1e7f7d1aca7bcfc341e9214bda8b554f5ae9b6
