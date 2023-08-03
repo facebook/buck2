@@ -65,10 +65,15 @@ pub fn aquery_functions<'a>() -> impl QueryFunctions<Env = AqueryEnvironment<'a>
 }
 
 #[derive(Debug)]
-struct AqueryFunctions<'a>(PhantomData<&'a ()>);
+pub(super) struct AqueryFunctions<'a>(PhantomData<&'a ()>);
 
 #[query_module(AqueryEnvironment<'a>)]
 impl<'a> AqueryFunctions<'a> {
+    /// Obtain the actions for all the outputs provided by the `DefaultInfo` for the targets passed
+    /// as input. This includes both the `default_outputs` and `other_outputs`.
+    ///
+    /// This operation only makes sense on a target literal (it does nothing if passed something
+    /// else).
     async fn all_outputs(
         &self,
         env: &AqueryEnvironment<'a>,
@@ -94,6 +99,10 @@ impl<'a> AqueryFunctions<'a> {
         Ok(nodes)
     }
 
+    /// Obtain all the actions declared within the analysis of a given target.
+    ///
+    /// This operation only makes sense on a target literal (it is a simple passthrough when passed
+    /// an action).
     async fn all_actions(
         &self,
         env: &AqueryEnvironment<'a>,

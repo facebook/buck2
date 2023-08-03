@@ -30,6 +30,13 @@ pub(crate) struct DocsCqueryCommand {
     docs_options: DocsOutputFormatOptions,
 }
 
+#[derive(Debug, clap::Parser)]
+#[clap(name = "docs-aquery", about = "Print documentation for aquery")]
+pub(crate) struct DocsAqueryCommand {
+    #[clap(flatten)]
+    docs_options: DocsOutputFormatOptions,
+}
+
 fn output(
     options: DocsOutputFormatOptions,
     description: QueryEnvironmentDescription,
@@ -59,6 +66,17 @@ impl DocsCqueryCommand {
         _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let description = (QUERY_ENVIRONMENT_DESCRIPTION_BY_TYPE.get()?)(QueryType::Cquery);
+        output(self.docs_options, description)
+    }
+}
+
+impl DocsAqueryCommand {
+    pub(crate) fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        _ctx: ClientCommandContext<'_>,
+    ) -> ExitResult {
+        let description = (QUERY_ENVIRONMENT_DESCRIPTION_BY_TYPE.get()?)(QueryType::Aquery);
         output(self.docs_options, description)
     }
 }

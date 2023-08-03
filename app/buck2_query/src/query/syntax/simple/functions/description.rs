@@ -14,6 +14,7 @@ use crate::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
 pub enum QueryType {
     Uquery,
     Cquery,
+    Aquery,
 }
 
 pub static QUERY_ENVIRONMENT_DESCRIPTION_BY_TYPE: LateBinding<

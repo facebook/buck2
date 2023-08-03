@@ -19,11 +19,15 @@ use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
+use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use buck2_query::query::syntax::simple::functions::HasModuleDescription;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 
+use crate::aquery::functions::AqueryFunctions;
 use crate::cquery::environment::CqueryDelegate;
 use crate::uquery::environment::QueryLiterals;
 
@@ -56,6 +60,16 @@ impl<'c> AqueryEnvironment<'c> {
     async fn get_node(&self, label: &ActionQueryNodeRef) -> anyhow::Result<ActionQueryNode> {
         // We do not allow traversing edges in targets in aquery
         self.delegate.get_node(label.require_action()?).await
+    }
+
+    pub(crate) fn describe() -> QueryEnvironmentDescription {
+        QueryEnvironmentDescription {
+            name: "Aquery Environment".to_owned(),
+            mods: vec![
+                DefaultQueryFunctionsModule::<Self>::describe(),
+                AqueryFunctions::describe(),
+            ],
+        }
     }
 }
 

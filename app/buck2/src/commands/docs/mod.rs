@@ -11,6 +11,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
 
+use crate::commands::docs::query::DocsAqueryCommand;
 use crate::commands::docs::query::DocsCqueryCommand;
 use crate::commands::docs::query::DocsUqueryCommand;
 use crate::commands::docs::starlark::DocsStarlarkCommand;
@@ -26,6 +27,7 @@ enum DocsKind {
     Uquery(DocsUqueryCommand),
     Query(DocsUqueryCommand),
     Cquery(DocsCqueryCommand),
+    Aquery(DocsAqueryCommand),
 }
 
 #[derive(Debug, clap::Parser)]
@@ -50,6 +52,7 @@ impl DocsCommand {
             DocsKind::Uquery(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Query(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Cquery(cmd) => cmd.exec(submatches, ctx),
+            DocsKind::Aquery(cmd) => cmd.exec(submatches, ctx),
         }
     }
 }
