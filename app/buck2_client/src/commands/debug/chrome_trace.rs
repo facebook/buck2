@@ -30,6 +30,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_events::BuckEvent;
+use derive_more::Display;
 use dupe::Dupe;
 use futures::stream::BoxStream;
 use futures::TryStreamExt;
@@ -224,7 +225,7 @@ impl ChromeTraceClosedSpan {
 /// Spans are directed to a category, like "critical-path" or "misc". Spans in a
 /// category that would overlap are put on different tracks within that category.
 #[derive(Clone, Copy, Dupe)]
-struct TrackId(&'static str, u64);
+struct TrackId(SpanCategorization, u64);
 
 impl From<TrackId> for String {
     fn from(tid: TrackId) -> String {
@@ -474,16 +475,22 @@ struct ChromeTraceWriter {
     invocation: Invocation,
     first_pass: ChromeTraceFirstPass,
     span_counters: SpanCounters,
-    unused_track_ids: HashMap<&'static str, TrackIdAllocator>,
+    unused_track_ids: HashMap<SpanCategorization, TrackIdAllocator>,
     // Wrappers to contain values from InstantEvent.Data.Snapshot as a timeseries
     snapshot_counters: SimpleCounters<u64>,
     max_rss_gigabytes_counter: SimpleCounters<f64>,
     rate_of_change_counters: AverageRateOfChangeCounters,
 }
 
+#[derive(Copy, Clone, Dupe, Debug, Display, Hash, PartialEq, Eq)]
+enum SpanCategorization {
+    #[display(fmt = "uncategorized")]
+    Uncategorized,
+    #[display(fmt = "critical-path")]
+    CriticalPath,
+}
+
 impl ChromeTraceWriter {
-    const UNCATEGORIZED: &'static str = "uncategorized";
-    const CRITICAL_PATH: &'static str = "critical-path";
     const BYTES_PER_GIGABYTE: f64 = 1000000000.0;
 
     pub fn new(invocation: Invocation, first_pass: ChromeTraceFirstPass) -> Self {
@@ -502,7 +509,7 @@ impl ChromeTraceWriter {
 
     fn assign_track_for_span(
         &mut self,
-        track_key: &'static str,
+        track_key: SpanCategorization,
         event: &BuckEvent,
     ) -> anyhow::Result<SpanTrackAssignment> {
         let parent_track_id = event.parent_id().and_then(|parent_id| {
@@ -556,7 +563,7 @@ impl ChromeTraceWriter {
         &mut self,
         event: &BuckEvent,
         name: String,
-        track_key: &'static str,
+        track_key: SpanCategorization,
     ) -> anyhow::Result<()> {
         // Allocate this span to its parent's track or to a new track.
         let track = self.assign_track_for_span(track_key, event)?;
@@ -589,7 +596,7 @@ impl ChromeTraceWriter {
                 enum Categorization<'a> {
                     /// Show this node on a speciifc tack
                     Show {
-                        category: &'static str,
+                        category: SpanCategorization,
                         name: Cow<'a, str>,
                     },
                     /// Show this node if its parent is being shown.
@@ -600,7 +607,7 @@ impl ChromeTraceWriter {
 
                 let categorization = match start_data {
                     buck2_data::span_start_event::Data::Command(_command) => Categorization::Show {
-                        category: Self::UNCATEGORIZED,
+                        category: SpanCategorization::Uncategorized,
                         name: self.invocation.command_line_args.join(" ").into(),
                     },
                     buck2_data::span_start_event::Data::Analysis(analysis) => {
@@ -608,13 +615,13 @@ impl ChromeTraceWriter {
                             .bump_counter_while_span(event, "analysis", 1)?;
 
                         let category = if on_critical_path {
-                            Some(Self::CRITICAL_PATH)
+                            Some(SpanCategorization::CriticalPath)
                         } else if self
                             .first_pass
                             .long_analyses
                             .contains(&event.span_id().unwrap())
                         {
-                            Some(Self::UNCATEGORIZED)
+                            Some(SpanCategorization::Uncategorized)
                         } else {
                             None
                         };
@@ -645,13 +652,13 @@ impl ChromeTraceWriter {
                             .bump_counter_while_span(event, "load", 1)?;
 
                         let category = if on_critical_path {
-                            Some(Self::CRITICAL_PATH)
+                            Some(SpanCategorization::CriticalPath)
                         } else if self
                             .first_pass
                             .long_loads
                             .contains(&event.span_id().unwrap())
                         {
-                            Some(Self::UNCATEGORIZED)
+                            Some(SpanCategorization::Uncategorized)
                         } else {
                             None
                         };
@@ -671,15 +678,15 @@ impl ChromeTraceWriter {
                             .critical_path_action_keys
                             .contains(action.key.as_ref().unwrap())
                         {
-                            Some(Self::CRITICAL_PATH)
+                            Some(SpanCategorization::CriticalPath)
                         } else if on_critical_path {
-                            Some(Self::CRITICAL_PATH)
+                            Some(SpanCategorization::CriticalPath)
                         } else if self
                             .first_pass
                             .local_actions
                             .contains(&event.span_id().unwrap())
                         {
-                            Some(Self::UNCATEGORIZED)
+                            Some(SpanCategorization::Uncategorized)
                         } else {
                             None
                         };
@@ -722,7 +729,7 @@ impl ChromeTraceWriter {
                     buck2_data::span_start_event::Data::FinalMaterialization(..) => {
                         if on_critical_path {
                             Categorization::Show {
-                                category: Self::CRITICAL_PATH,
+                                category: SpanCategorization::CriticalPath,
                                 name: "materialization".into(),
                             }
                         } else {
@@ -731,12 +738,12 @@ impl ChromeTraceWriter {
                     }
                     buck2_data::span_start_event::Data::FileWatcher(_file_watcher) => {
                         Categorization::Show {
-                            category: Self::CRITICAL_PATH,
+                            category: SpanCategorization::CriticalPath,
                             name: "file_watcher_sync".into(),
                         }
                     }
                     _ if on_critical_path => Categorization::Show {
-                        category: Self::CRITICAL_PATH,
+                        category: SpanCategorization::CriticalPath,
                         name: "<unknown>".into(),
                     },
                     _ => Categorization::Omit,
@@ -753,7 +760,11 @@ impl ChromeTraceWriter {
 
                         if parent_is_open {
                             // Inherit the parent's track.
-                            self.open_named_span(event, name.into_owned(), Self::UNCATEGORIZED)?;
+                            self.open_named_span(
+                                event,
+                                name.into_owned(),
+                                SpanCategorization::Uncategorized,
+                            )?;
                         }
                     }
 
@@ -846,7 +857,7 @@ impl ChromeTraceWriter {
                 .try_into_duration()?;
             if let SpanTrackAssignment::Owned(track_id) = &open.track {
                 self.unused_track_ids
-                    .get_mut(track_id.0)
+                    .get_mut(&track_id.0)
                     .unwrap()
                     .mark_unused(track_id.1);
             }
