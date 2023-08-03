@@ -260,20 +260,21 @@ def get_filtered_labels_to_links_map(
     If no link group is provided, all unmatched link infos are returned.
     """
 
-    def discover_link_group_linkables(node: Label) -> list[Label]:
+    def get_traversed_deps(node: Label) -> list[Label]:
         linkable_node = linkable_graph_node_map[node]  # buildifier: disable=uninitialized
 
         # Always link against exported deps
         node_linkables = list(linkable_node.exported_deps)
 
-        # If the actual link style for will be "shared", we should not traverse private deps.
-        should_traverse_private_deps = get_actual_link_style(
-            link_style,
-            linkable_node.preferred_linkage,
-            pic_behavior,
-        ) != LinkStyle("shared")
+        # If the preferred linkage is `static` or `any` with a link style that is
+        # not shared, we need to link against the deps too.
+        should_traverse = False
+        if linkable_node.preferred_linkage == Linkage("static"):
+            should_traverse = True
+        elif linkable_node.preferred_linkage == Linkage("any"):
+            should_traverse = link_style != Linkage("shared")
 
-        if should_traverse_private_deps:
+        if should_traverse:
             node_linkables += linkable_node.deps
 
         return node_linkables
@@ -282,7 +283,7 @@ def get_filtered_labels_to_links_map(
     linkables = breadth_first_traversal_by(
         linkable_graph_node_map,
         roots,
-        discover_link_group_linkables,
+        get_traversed_deps,
     )
 
     # An index of target to link group names, for all link group library nodes.
@@ -428,7 +429,7 @@ def get_public_link_group_nodes(
     SPECIAL_LINK_GROUPS = [MATCH_ALL_LABEL, NO_MATCH_LABEL]
 
     # buildifier: disable=uninitialized
-    def discover_link_group_linkables(node: Label) -> list[Label]:
+    def get_traversed_deps(node: Label) -> list[Label]:
         exported_deps = []
         for exported_dep in linkable_graph_node_map[node].exported_deps:
             group = link_group_mappings.get(exported_dep)
@@ -441,7 +442,7 @@ def get_public_link_group_nodes(
         breadth_first_traversal_by(
             linkable_graph_node_map,
             external_link_group_nodes.list(),
-            discover_link_group_linkables,
+            get_traversed_deps,
         ),
     )
 
