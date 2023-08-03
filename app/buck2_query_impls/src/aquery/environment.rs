@@ -12,6 +12,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::query::ActionQueryNode;
+use buck2_build_api::actions::query::ActionQueryNodeRef;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
@@ -46,14 +47,15 @@ impl<'c> AqueryEnvironment<'c> {
         Self { delegate, literals }
     }
 
-    async fn get_node(&self, label: &ActionKey) -> anyhow::Result<ActionQueryNode> {
-        self.delegate.get_node(label).await
+    async fn get_node(&self, label: &ActionQueryNodeRef) -> anyhow::Result<ActionQueryNode> {
+        // We do not allow traversing edges in targets in aquery
+        self.delegate.get_node(label.require_action()?).await
     }
 }
 
 #[async_trait]
 impl<'a> AsyncNodeLookup<ActionQueryNode> for AqueryEnvironment<'a> {
-    async fn get(&self, label: &ActionKey) -> anyhow::Result<ActionQueryNode> {
+    async fn get(&self, label: &ActionQueryNodeRef) -> anyhow::Result<ActionQueryNode> {
         self.get_node(label).await
     }
 }
@@ -62,13 +64,13 @@ impl<'a> AsyncNodeLookup<ActionQueryNode> for AqueryEnvironment<'a> {
 impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
     type Target = ActionQueryNode;
 
-    async fn get_node(&self, node_ref: &ActionKey) -> anyhow::Result<Self::Target> {
+    async fn get_node(&self, node_ref: &ActionQueryNodeRef) -> anyhow::Result<Self::Target> {
         AqueryEnvironment::get_node(self, node_ref).await
     }
 
     async fn get_node_for_default_configured_target(
         &self,
-        _node_ref: &ActionKey,
+        _node_ref: &ActionQueryNodeRef,
     ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
         Err(QueryError::FunctionUnimplemented(
             "get_node_for_default_configured_target() only for CqueryEnvironment",

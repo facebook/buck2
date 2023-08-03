@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use anyhow::Context as _;
 use buck2_build_api::audit_cell::audit_cell;
 use buck2_build_api::audit_output::audit_output;
 use buck2_build_api::audit_output::AuditOutputResult;
@@ -17,6 +18,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derivative::Derivative;
 use derive_more::Display;
+use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -126,22 +128,28 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         )?;
 
         this.ctx.async_ctx.via_dice(|ctx| async move {
-            Ok::<_, anyhow::Error>(
-                audit_output(
-                    output_path,
-                    &this.working_dir,
-                    &this.cell_resolver,
-                    ctx,
-                    target_platform,
-                )
-                .await?
-                .map(|result| match result {
-                    AuditOutputResult::Match(action) => heap.alloc(StarlarkAction(action.action())),
+            audit_output(
+                output_path,
+                &this.working_dir,
+                &this.cell_resolver,
+                ctx,
+                target_platform,
+            )
+            .await?
+            .map(|result| {
+                anyhow::Ok(match result {
+                    AuditOutputResult::Match(action) => heap.alloc(StarlarkAction(
+                        action
+                            .action()
+                            .context("audit_output did not return an action")?
+                            .dupe(),
+                    )),
                     AuditOutputResult::MaybeRelevant(label) => {
                         heap.alloc(StarlarkTargetLabel::new(label))
                     }
-                }),
-            )
+                })
+            })
+            .transpose()
         })
     }
 

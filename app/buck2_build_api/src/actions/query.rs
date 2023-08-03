@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::future::Future;
+use std::hash::Hash;
 use std::io::Write;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -22,6 +23,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_query::query::environment::LabeledNode;
@@ -40,6 +42,7 @@ use serde::Serializer;
 use crate::actions::RegisteredAction;
 use crate::analysis::AnalysisResult;
 use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Debug, derive_more::Display, RefCast, Serialize)]
 #[repr(transparent)]
@@ -55,7 +58,7 @@ impl ActionAttr {
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct SetProjectionInputsData {
     key: TransitiveSetProjectionKey,
-    pub direct: Vec<ActionKey>,
+    pub direct: Vec<ActionQueryNodeRef>,
     pub(crate) children: Vec<SetProjectionInputs>,
 }
 
@@ -70,7 +73,7 @@ impl Dupe for SetProjectionInputs {}
 impl SetProjectionInputs {
     pub fn new(
         key: TransitiveSetProjectionKey,
-        direct: Vec<ActionKey>,
+        direct: Vec<ActionQueryNodeRef>,
         children: Vec<SetProjectionInputs>,
     ) -> Self {
         Self {
@@ -85,29 +88,95 @@ impl SetProjectionInputs {
 
 #[derive(Debug)]
 pub enum ActionInput {
-    ActionKey(ActionKey),
+    ActionKey(ActionQueryNodeRef),
     IndirectInputs(SetProjectionInputs),
+}
+
+/// Both the fields are enums here. Ideally they wouldn't be, but since the query interface wants a
+/// &NodeRef (and that is rather hard to change), we pull this out.
+#[derive(Debug, Clone, Dupe)]
+pub struct ActionQueryNode {
+    key: ActionQueryNodeRef,
+    data: ActionQueryNodeData,
+}
+
+#[derive(Debug, Clone, Dupe)]
+enum ActionQueryNodeData {
+    /// A node's analysis. This doesn't do anything on its own (it's a bit like a forward node in
+    /// Cquery!), but it can be used to pass it to functions. When traversing deps, this will be
+    /// ignored, since aquery is for queries on actions, and not targts.
+    Analysis(AnalysisData),
+
+    /// An actual action.
+    Action(ActionData),
+}
+
+impl ActionQueryNode {
+    pub fn new_action(
+        action: Arc<RegisteredAction>,
+        deps: Vec<ActionInput>,
+        fs: Arc<ArtifactFs>,
+    ) -> Self {
+        Self {
+            key: ActionQueryNodeRef::Action(action.key().dupe()),
+            data: ActionQueryNodeData::Action(ActionData {
+                action,
+                deps: Arc::new(deps),
+                fs,
+            }),
+        }
+    }
+
+    pub fn new_analysis(target: ConfiguredProvidersLabel, analysis: AnalysisResult) -> Self {
+        let target = Arc::new(target);
+
+        Self {
+            key: ActionQueryNodeRef::Analysis(target.dupe()),
+            data: ActionQueryNodeData::Analysis(AnalysisData { target, analysis }),
+        }
+    }
+
+    pub fn action(&self) -> Option<&Arc<RegisteredAction>> {
+        match &self.data {
+            ActionQueryNodeData::Analysis(..) => None,
+            ActionQueryNodeData::Action(data) => Some(&data.action),
+        }
+    }
+}
+
+impl LabeledNode for ActionQueryNode {
+    type NodeRef = ActionQueryNodeRef;
+
+    fn node_ref(&self) -> &Self::NodeRef {
+        &self.key
+    }
 }
 
 #[derive(Derivative, Clone, Dupe)]
 #[derivative(Debug)]
-pub struct ActionQueryNode {
+pub struct AnalysisData {
+    target: Arc<ConfiguredProvidersLabel>,
+    #[derivative(Debug = "ignore")]
+    analysis: AnalysisResult,
+}
+
+impl AnalysisData {
+    pub fn providers(&self) -> anyhow::Result<FrozenProviderCollectionValue> {
+        self.analysis.lookup_inner(&self.target)
+    }
+}
+
+#[derive(Derivative, Clone, Dupe)]
+#[derivative(Debug)]
+struct ActionData {
     action: Arc<RegisteredAction>,
     deps: Arc<Vec<ActionInput>>,
     #[derivative(Debug = "ignore")]
     fs: Arc<ArtifactFs>,
 }
 
-impl ActionQueryNode {
-    pub fn new(action: Arc<RegisteredAction>, deps: Vec<ActionInput>, fs: Arc<ArtifactFs>) -> Self {
-        Self {
-            action,
-            deps: Arc::new(deps),
-            fs,
-        }
-    }
-
-    pub fn attrs(&self) -> IndexMap<String, String> {
+impl ActionData {
+    fn attrs(&self) -> IndexMap<String, String> {
         let mut attrs = self.action.action().aquery_attributes(&ExecutorFs::new(
             &self.fs,
             self.action.execution_config().options.path_separator,
@@ -118,17 +187,20 @@ impl ActionQueryNode {
         );
         attrs
     }
-
-    pub fn action(&self) -> Arc<RegisteredAction> {
-        self.action.dupe()
-    }
 }
 
-impl LabeledNode for ActionQueryNode {
-    type NodeRef = ActionKey;
+#[derive(Debug, Clone, Hash, Eq, PartialEq, derive_more::Display, Dupe)]
+pub enum ActionQueryNodeRef {
+    Analysis(Arc<ConfiguredProvidersLabel>),
+    Action(ActionKey),
+}
 
-    fn node_ref(&self) -> &Self::NodeRef {
-        self.action.key()
+impl ActionQueryNodeRef {
+    pub fn require_action(&self) -> anyhow::Result<&ActionKey> {
+        match self {
+            Self::Analysis(a) => Err(anyhow::anyhow!("Not an action: {}", a)),
+            Self::Action(a) => Ok(a),
+        }
     }
 }
 
@@ -136,7 +208,12 @@ impl QueryTarget for ActionQueryNode {
     type Attr<'a> = ActionAttr;
 
     fn rule_type(&self) -> Cow<str> {
-        Cow::Owned(self.action.kind().variant_name().to_ascii_lowercase())
+        match &self.data {
+            ActionQueryNodeData::Analysis(..) => Cow::Borrowed("analysis"),
+            ActionQueryNodeData::Action(a) => {
+                Cow::Owned(a.action.kind().variant_name().to_ascii_lowercase())
+            }
+        }
     }
 
     /// Return the path to the buildfile that defines this target, e.g. `fbcode//foo/bar/TARGETS`
@@ -181,12 +258,19 @@ impl QueryTarget for ActionQueryNode {
             }
         }
 
-        let direct = self.deps.iter().filter_map(|input| match input {
+        // When traversing deps in aquery, we do *not* traverse deps for the target nodes, since
+        // those are just for literals
+        let action = match &self.data {
+            ActionQueryNodeData::Action(action) => action,
+            ActionQueryNodeData::Analysis(..) => return Box::new(std::iter::empty()),
+        };
+
+        let direct = action.deps.iter().filter_map(|input| match input {
             ActionInput::ActionKey(action_key) => Some(action_key),
             ActionInput::IndirectInputs(..) => None,
         });
 
-        let indirect = Iter::new(self.deps.iter().filter_map(|input| match input {
+        let indirect = Iter::new(action.deps.iter().filter_map(|input| match input {
             ActionInput::ActionKey(..) => None,
             ActionInput::IndirectInputs(val) => Some(val),
         }));
@@ -223,16 +307,25 @@ impl QueryTarget for ActionQueryNode {
         mut func: F,
     ) -> Result<(), E> {
         func("kind", ActionAttr::new(&self.rule_type()))?;
-        func("category", ActionAttr::new(self.action.category().as_str()))?;
+
+        let action = match &self.data {
+            ActionQueryNodeData::Action(action) => action,
+            ActionQueryNodeData::Analysis(..) => return Ok(()),
+        };
+
+        func(
+            "category",
+            ActionAttr::new(action.action.category().as_str()),
+        )?;
         func(
             "identifier",
-            ActionAttr::new(self.action.identifier().unwrap_or("")),
+            ActionAttr::new(action.action.identifier().unwrap_or("")),
         )?;
         // TODO(cjhopman): impl inputs/outputs for actions in aquery
         func("inputs", ActionAttr::new(""))?;
         func("outputs", ActionAttr::new(""))?;
 
-        for (k, v) in self.attrs() {
+        for (k, v) in action.attrs() {
             func(&k, ActionAttr::new(&v))?;
         }
         Ok(())
