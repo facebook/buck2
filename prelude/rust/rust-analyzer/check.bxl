@@ -12,25 +12,19 @@ def check_targets_impl(ctx):
     if len(nodes) == 0:
         return
 
-    out = []
+    diag_kind = "clippy.json" if ctx.cli_args.use_clippy else "diag.json"
+    build_result = ctx.build([
+        configured_sub_target(node.label, diag_kind)
+        for node in nodes
+    ])
 
-    for node in nodes:
-        label = node.label
-        if ctx.cli_args.use_clippy:
-            expr = configured_sub_target(label, "clippy.json")
-        else:
-            expr = configured_sub_target(label, "diag.json")
-        outputs = ctx.build(expr)
-        for (label, value) in outputs.items():
-            artifacts = ctx.output.ensure_multiple(value.artifacts())
+    dict_output = ctx.output.ensure_multiple(build_result)
 
-            # if we have multiple targets, it's possible that subsequent targets
-            # will not be able to produce machine-readable diagnostics (this is not a bug
-            # that we've  been able to consistently reproduce). The check below is
-            # intended to prevent this BXL script from crashing in such cases until a
-            # proper fix in the rust_rules can be implemented.
-            if not len(artifacts) == 0:
-                out.append(artifacts[0].abs_path())
+    out = [
+        artifacts[0].abs_path()
+        for artifacts in dict_output.values()
+        if len(artifacts) == 1
+    ]
 
     ctx.output.print_json(out)
 
