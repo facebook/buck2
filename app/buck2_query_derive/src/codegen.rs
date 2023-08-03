@@ -323,6 +323,7 @@ pub(crate) fn codegen(parsed: Parsed) -> syn::Result<TokenStream> {
             use ::buck2_query::__derive_refs::ref_cast::RefCast;
             use ::buck2_query::__derive_refs::buck2_query_parser::{BinaryOp, SpannedExpr};
             use ::buck2_query::__derive_refs::indexmap::indexmap;
+            use ::buck2_query::__derive_refs::async_trait::async_trait;
 
             use super::*;
             use ::buck2_query::query::{

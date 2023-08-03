@@ -28,6 +28,7 @@ extern crate self as buck2_query;
 ///  `buck_query::__derive_refs::foo`.
 #[doc(hidden)]
 pub mod __derive_refs {
+    pub use async_trait;
     pub use buck2_query_parser;
     pub use indexmap;
     pub use ref_cast;
