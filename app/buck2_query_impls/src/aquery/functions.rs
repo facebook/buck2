@@ -11,7 +11,9 @@ use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use buck2_artifact::artifact::provide_outputs::ProvideActionKey;
 use buck2_build_api::actions::query::ActionQueryNode;
+use buck2_build_api::actions::query::ActionQueryNodeData;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryValue;
@@ -90,5 +92,37 @@ impl<'a> AqueryFunctions<'a> {
         let nodes = env.delegate.expand_artifacts(&outputs).await?;
         let nodes = nodes.into_iter().collect::<TargetSet<_>>().into();
         Ok(nodes)
+    }
+
+    async fn all_actions(
+        &self,
+        env: &AqueryEnvironment<'a>,
+        targets: TargetSet<ActionQueryNode>,
+    ) -> Result<QueryValue<ActionQueryNode>, QueryError> {
+        let mut res = TargetSet::new();
+        let mut action_keys = Vec::new();
+
+        for node in targets.into_iter() {
+            match node.data() {
+                ActionQueryNodeData::Action(..) => {
+                    res.insert(node);
+                }
+                ActionQueryNodeData::Analysis(analysis) => {
+                    for entry in analysis.analysis_result().iter_deferreds() {
+                        action_keys.extend(std::any::request_value::<ProvideActionKey>(
+                            entry.as_complex(),
+                        ));
+                    }
+                }
+            }
+        }
+
+        let nodes = futures::future::try_join_all(
+            action_keys.iter().map(|key| env.delegate.get_node(&key.0)),
+        )
+        .await?;
+        res.extend(nodes);
+
+        Ok(res.into())
     }
 }

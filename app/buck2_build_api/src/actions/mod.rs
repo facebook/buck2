@@ -42,6 +42,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::provide_outputs::ProvideActionKey;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::io::IoProvider;
@@ -65,6 +66,7 @@ use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_file_watcher::mergebase::Mergebase;
 use derivative::Derivative;
 use derive_more::Display;
+use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
@@ -302,13 +304,15 @@ impl TrivialDeferred for Arc<RegisteredAction> {
     }
 
     fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
-        demand.provide_value_with(|| {
-            ProvideOutputs(
-                self.action
-                    .outputs()
-                    .map(|outputs| outputs.iter().cloned().collect()),
-            )
-        });
+        demand
+            .provide_value_with(|| {
+                ProvideOutputs(
+                    self.action
+                        .outputs()
+                        .map(|outputs| outputs.iter().cloned().collect()),
+                )
+            })
+            .provide_value_with(|| ProvideActionKey(self.key.dupe()));
     }
 }
 

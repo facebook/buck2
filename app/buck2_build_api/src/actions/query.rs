@@ -101,7 +101,7 @@ pub struct ActionQueryNode {
 }
 
 #[derive(Debug, Clone, Dupe)]
-enum ActionQueryNodeData {
+pub enum ActionQueryNodeData {
     /// A node's analysis. This doesn't do anything on its own (it's a bit like a forward node in
     /// Cquery!), but it can be used to pass it to functions. When traversing deps, this will be
     /// ignored, since aquery is for queries on actions, and not targts.
@@ -149,6 +149,10 @@ impl ActionQueryNode {
             ActionQueryNodeData::Action(..) => None,
         }
     }
+
+    pub fn data(&self) -> &ActionQueryNodeData {
+        &self.data
+    }
 }
 
 impl LabeledNode for ActionQueryNode {
@@ -171,11 +175,15 @@ impl AnalysisData {
     pub fn providers(&self) -> anyhow::Result<FrozenProviderCollectionValue> {
         self.analysis.lookup_inner(&self.target)
     }
+
+    pub fn analysis_result(&self) -> &AnalysisResult {
+        &self.analysis
+    }
 }
 
 #[derive(Derivative, Clone, Dupe)]
 #[derivative(Debug)]
-struct ActionData {
+pub struct ActionData {
     action: Arc<RegisteredAction>,
     deps: Arc<Vec<ActionInput>>,
     #[derivative(Debug = "ignore")]

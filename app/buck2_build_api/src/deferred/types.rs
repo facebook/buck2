@@ -47,8 +47,7 @@ use thiserror::Error;
 /// 'Artifact's will be materialized and its corresponding 'Action's executed, or other
 /// 'DeferredData', which means those 'Deferred' will be computed first.
 ///
-/// `any::Provider` can be used to obtain data for introspection. At the moment of writing,
-/// only `ProvideOutputs` can be extracted from deferreds with outputs.
+/// `any::Provider` can be used to obtain data for introspection.
 #[async_trait]
 pub trait Deferred: Allocative + any::Provider {
     type Output;

@@ -7,9 +7,13 @@
  * of this source tree.
  */
 
+use crate::actions::key::ActionKey;
 use crate::artifact::build_artifact::BuildArtifact;
 
 /// Dynamic data requested from deferreds.
 ///
 /// Newtype to grep easier and to provide some type safety.
 pub struct ProvideOutputs(pub anyhow::Result<Vec<BuildArtifact>>);
+
+/// Dynamic data requested from deferreds, allows access to the action key for registered actions.
+pub struct ProvideActionKey(pub ActionKey);
