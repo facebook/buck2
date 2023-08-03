@@ -100,9 +100,27 @@ impl ChromeTraceFirstPass {
                 match start.data.as_ref() {
                     Some(buck2_data::span_start_event::Data::ExecutorStage(exec)) => {
                         // A local stage means that we want to show the entire action execution.
-                        if let Some(buck2_data::executor_stage_start::Stage::Local(_)) = exec.stage
-                        {
-                            self.local_actions.insert(event.parent_id().unwrap());
+                        use buck2_data::executor_stage_start::Stage;
+
+                        if let Some(Stage::Local(local)) = &exec.stage {
+                            use buck2_data::local_stage::Stage;
+
+                            let local_execution = match local.stage.as_ref() {
+                                Some(Stage::Queued(..)) => false,
+                                Some(Stage::Execute(..)) => true,
+                                Some(Stage::MaterializeInputs(..)) => false,
+                                Some(Stage::PrepareOutputs(..)) => false,
+                                Some(Stage::AcquireLocalResource(..)) => false,
+                                Some(Stage::WorkerInit(..)) => false,
+                                Some(Stage::WorkerExecute(..)) => true,
+                                Some(Stage::WorkerQueued(..)) => false,
+                                Some(Stage::WorkerWait(..)) => false,
+                                None => false,
+                            };
+
+                            if local_execution {
+                                self.local_actions.insert(event.parent_id().unwrap());
+                            }
                         }
                     }
                     _ => {}
