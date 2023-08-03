@@ -9,12 +9,12 @@ load("@prelude//utils:utils.bzl", "expect")
 
 _RE_ENABLED = "supports_remote_execution"
 _RE_OPTS_LABEL_PREFIX = "re_opts_capabilities="
-_RE_OPTS_KEYS = ["platform", "subplatform"]
+_RE_OPTS_KEYS = ["platform", "subplatform", "gpu_name"]
 
 def _parse_re_opts(labels: list[str]) -> [dict[str, str], None]:
     """
     Parse out JSON-embedded RE options like:
-    "re_opts_capabilities={\"platform\": \"gpu-remote-execution\", \"subplatform\": \"P100\"}"
+    "re_opts_capabilities={\"platform\": \"gpu-remote-execution\", \"gpu_name\": \"P100\"}"
     """
 
     for label in labels:
