@@ -77,17 +77,13 @@ def _compile_with_argsfile(
 
     cmd.add(additional_cmd)
 
-    # T142915880 There is an issue with hard links,
-    # when we compile pcms remotely on linux machines.
-    local_only = True
-
     ctx.actions.run(
         cmd,
         env = get_explicit_modules_env_var(True),
         category = category,
         identifier = module_name,
-        local_only = local_only,
-        allow_cache_upload = local_only,
+        # Swift compiler requires unique inodes for all input files.
+        unique_input_inodes = True,
     )
 
 def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list["provider"]]:

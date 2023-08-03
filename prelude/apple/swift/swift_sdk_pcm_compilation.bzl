@@ -145,16 +145,12 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> ["promise", list["p
 
         _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, apple_toolchain)
 
-        # T142915880 There is an issue with hard links,
-        # when we compile pcms remotely on linux machines.
-        local_only = True
-
         ctx.actions.run(
             cmd,
             category = "sdk_swift_pcm_compile",
             identifier = module_name,
-            local_only = local_only,
-            allow_cache_upload = local_only,
+            # Swift compiler requires unique inodes for all input files.
+            unique_input_inodes = True,
         )
 
         compiled_sdk = SdkCompiledModuleInfo(
