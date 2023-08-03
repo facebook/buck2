@@ -42,6 +42,7 @@ use crate::private::Private;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::typing::basic::TyBasic;
+use crate::typing::custom::TyCustom;
 use crate::typing::Ty;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
@@ -606,11 +607,13 @@ impl<'v> TypeCompiled<Value<'v>> {
         Self::alloc(IsConcrete(t.to_owned()), ty, heap)
     }
 
-    /// Hold `Ty`, but only check name if it is provided.
-    fn ty_other(ty: TyBasic, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+    /// Only check name if it is provided.
+    fn ty_custom(ty: &TyCustom, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         match ty.as_name() {
-            None => TypeCompiled::<Value>::type_anything().patch_ty(Ty::basic(ty), heap),
-            Some(name) => Self::type_concrete(name, heap).patch_ty(Ty::basic(ty), heap),
+            None => TypeCompiled::<Value>::type_anything()
+                .patch_ty(Ty::basic(TyBasic::Custom(ty.clone())), heap),
+            Some(name) => Self::type_concrete(name, heap)
+                .patch_ty(Ty::basic(TyBasic::Custom(ty.clone())), heap),
         }
     }
 
@@ -879,10 +882,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             TyBasic::Iter(_) => {
                 TypeCompiled::<Value>::type_anything().patch_ty(Ty::basic(ty.clone()), heap)
             }
-            TyBasic::Custom(_) => {
-                // There are no runtime matchers for these types.
-                TypeCompiled::ty_other(ty.clone(), heap)
-            }
+            TyBasic::Custom(custom) => TypeCompiled::ty_custom(custom, heap),
         }
     }
 
