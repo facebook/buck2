@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:prelude.bzl", "native")
+load("@prelude//utils:selects.bzl", "selects")
 
 DEFAULT_PLATFORM_TEMPLATES = {
     "linux-arm64": select({
@@ -53,12 +54,6 @@ DEFAULT_PLATFORM_TEMPLATES = {
     }),
 }
 
-def _select_map_recursive(sel, fn):
-    return select_map(
-        sel,
-        lambda v: _select_map_recursive(v, fn) if type(v) == type(sel) else fn(v),
-    )
-
 def apply_platform_attrs(
         platform_attrs,
         universal_attrs = {},
@@ -70,7 +65,7 @@ def apply_platform_attrs(
         if template:
             for attr, value in attrs.items():
                 default_value = {} if type(value) == type({}) else [] if type(value) == type([]) else None
-                conditional_value = _select_map_recursive(template, lambda cond: value if cond else default_value)
+                conditional_value = selects.apply(template, lambda cond: value if cond else default_value)
                 if attr in combined_attrs:
                     combined_attrs[attr] = combined_attrs[attr] + conditional_value
                 else:
