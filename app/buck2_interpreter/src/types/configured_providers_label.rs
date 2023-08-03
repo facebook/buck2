@@ -154,6 +154,8 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
         Ok(this.label.target().pkg().cell_name().as_str())
     }
 
+    /// Obtain a reference to this target label's cell root. This can be used as if it were an
+    /// artifact in places that expect one, such as `cmd_args().relative_to`.
     #[starlark(attribute)]
     fn cell_root<'v>(this: &StarlarkConfiguredProvidersLabel) -> anyhow::Result<CellRoot> {
         Ok(CellRoot::new(this.label.target().pkg().cell_name()))

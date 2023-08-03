@@ -20,6 +20,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use indexmap::IndexSet;
@@ -200,6 +201,28 @@ impl CommandLineArgLike for StarlarkConfiguredProvidersLabel {
         _context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         cli.push_arg(self.to_string());
+        Ok(())
+    }
+
+    fn contains_arg_attr(&self) -> bool {
+        false
+    }
+
+    fn visit_write_to_file_macros(
+        &self,
+        _visitor: &mut dyn WriteToFileMacroVisitor,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+impl CommandLineArgLike for CellRoot {
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        ctx: &mut dyn CommandLineContext,
+    ) -> anyhow::Result<()> {
+        cli.push_arg(ctx.resolve_cell_path(self.cell_path())?.into_string());
         Ok(())
     }
 
