@@ -20,6 +20,7 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::label::TargetLabel;
+use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -64,13 +65,20 @@ impl<'c> BxlCqueryFunctionsImpl<'c> {
         )?))
     }
 
-    async fn cquery_env(&self) -> anyhow::Result<CqueryEnvironment<'c>> {
+    async fn cquery_env(
+        &self,
+        universe: Option<&TargetSet<ConfiguredTargetNode>>,
+    ) -> anyhow::Result<CqueryEnvironment<'c>> {
         let dice_query_delegate = self.setup_dice_query_delegate().await?;
+        let universe = match universe {
+            Some(u) => Some(CqueryUniverse::build(u).await?),
+            None => None,
+        };
         Ok(CqueryEnvironment::new(
             dice_query_delegate.dupe(),
             dice_query_delegate,
             // TODO(nga): add universe.
-            None,
+            universe,
             CqueryOwnerBehavior::Correct,
         ))
     }
@@ -96,7 +104,7 @@ impl<'c> BxlCqueryFunctions<'c> for BxlCqueryFunctionsImpl<'c> {
         to: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(cquery_functions()
-            .allpaths(&self.cquery_env().await?, from, to)
+            .allpaths(&self.cquery_env(None).await?, from, to)
             .await?)
     }
 
@@ -106,19 +114,20 @@ impl<'c> BxlCqueryFunctions<'c> for BxlCqueryFunctionsImpl<'c> {
         to: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(cquery_functions()
-            .somepath(&self.cquery_env().await?, from, to)
+            .somepath(&self.cquery_env(None).await?, from, to)
             .await?)
     }
 
     async fn owner(
         &self,
         file_set: &FileSet,
+        target_universe: Option<&TargetSet<ConfiguredTargetNode>>,
         is_legacy: bool,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         let cquery_env = if is_legacy {
             self.cquery_env_legacy().await?
         } else {
-            self.cquery_env().await?
+            self.cquery_env(target_universe).await?
         };
         Ok(cquery_functions().owner(&cquery_env, file_set).await?)
     }
@@ -131,7 +140,7 @@ impl<'c> BxlCqueryFunctions<'c> for BxlCqueryFunctionsImpl<'c> {
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(cquery_functions()
             .deps(
-                &self.cquery_env().await?,
+                &self.cquery_env(None).await?,
                 &DefaultQueryFunctionsModule::new(),
                 targets,
                 deps,
@@ -147,7 +156,7 @@ impl<'c> BxlCqueryFunctions<'c> for BxlCqueryFunctionsImpl<'c> {
         depth: Option<i32>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(cquery_functions()
-            .rdeps(&self.cquery_env().await?, universe, targets, depth)
+            .rdeps(&self.cquery_env(None).await?, universe, targets, depth)
             .await?)
     }
 
@@ -156,7 +165,7 @@ impl<'c> BxlCqueryFunctions<'c> for BxlCqueryFunctionsImpl<'c> {
         targets: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(cquery_functions()
-            .testsof(&self.cquery_env().await?, targets)
+            .testsof(&self.cquery_env(None).await?, targets)
             .await?)
     }
 
@@ -165,7 +174,7 @@ impl<'c> BxlCqueryFunctions<'c> for BxlCqueryFunctionsImpl<'c> {
         targets: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         Ok(cquery_functions()
-            .testsof_with_default_target_platform(&self.cquery_env().await?, targets)
+            .testsof_with_default_target_platform(&self.cquery_env(None).await?, targets)
             .await?)
     }
 }

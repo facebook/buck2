@@ -309,20 +309,42 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _owner_impl(ctx):
-    ///     owner = ctx.cquery().owner("bin/TARGETS.fixture")
+    ///     owner = ctx.cquery().owner("bin/TARGETS.fixture", "foo//target/universe/...")
     ///     ctx.output.print(owner)
     /// ```
     fn owner<'v>(
-        this: &StarlarkCQueryCtx,
+        this: &StarlarkCQueryCtx<'v>,
         files: FileSetExpr,
+        #[starlark(default = NoneOr::None)] universe: NoneOr<Value<'v>>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .async_ctx
             .via(|| async {
+                let universe = match universe.into_option() {
+                    Some(universe) => Some(filter_incompatible(
+                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                            universe,
+                            &this.target_platform,
+                            this.ctx,
+                            eval,
+                        )
+                        .await?
+                        .get(this.ctx.async_ctx.0)
+                        .await?
+                        .into_iter(),
+                        this.ctx,
+                    )?),
+                    None => None,
+                };
+
                 get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
-                    // TODO(@wendyy) - `is_legacy` = false after moving existing uses to `owner_legacy`
-                    .owner(files.get(this.ctx).await?.as_ref(), true)
+                    .owner(
+                        files.get(this.ctx).await?.as_ref(),
+                        universe.as_ref(),
+                        false,
+                    )
                     .await
             })
             .map(StarlarkTargetSet::from)
@@ -338,7 +360,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             .via(|| async {
                 get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
-                    .owner(files.get(this.ctx).await?.as_ref(), true)
+                    .owner(files.get(this.ctx).await?.as_ref(), None, true)
                     .await
             })
             .map(StarlarkTargetSet::from)

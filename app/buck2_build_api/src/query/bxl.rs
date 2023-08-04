@@ -38,6 +38,7 @@ pub trait BxlCqueryFunctions<'c>: Send + 'c {
     async fn owner(
         &self,
         file_set: &FileSet,
+        target_universe: Option<&TargetSet<ConfiguredTargetNode>>,
         is_legacy: bool,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
     async fn deps(
