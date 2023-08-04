@@ -20,9 +20,9 @@ rust_binary(
         "DEFAULT": [],
         "ovr_config//os:linux": [
             "fbsource//third-party/rust:bincode",
-            "fbsource//third-party/rust:thiserror",
-            "fbsource//third-party/rust:smallvec",
             "fbsource//third-party/rust:perf-event",
+            "fbsource//third-party/rust:smallvec",
+            "fbsource//third-party/rust:thiserror",
             "//buck2/app/buck2_miniperf_proto:buck2_miniperf_proto",
         ],
     }),
