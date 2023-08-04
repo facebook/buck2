@@ -66,7 +66,7 @@ pub enum HttpError {
         #[source]
         source: http::uri::InvalidUri,
     },
-    #[error("HTTP: Error building request: {0}")]
+    #[error("HTTP: Error building request")]
     BuildRequest(#[from] http::Error),
     #[error("HTTP: Error sending request to {uri}")]
     SendRequest {
@@ -82,7 +82,7 @@ pub enum HttpError {
     },
     #[error("HTTP Error: Exceeded max redirects ({max_redirects}) while fetching URI: {uri}. ")]
     TooManyRedirects { uri: String, max_redirects: usize },
-    #[error("HTTP: Error mutating request: {0}")]
+    #[error("HTTP: Error mutating request")]
     MutateRequest(#[from] anyhow::Error),
     #[error("HTTP: Timed out while make request to URI: {uri} after {duration} seconds.")]
     Timeout { uri: String, duration: u64 },
