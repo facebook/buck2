@@ -15,14 +15,17 @@ use buck2_interpreter::types::target_label::register_target_label;
 use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::attrs_global::register_attrs;
-use crate::interpreter::build_defs::register_base_natives;
+use crate::interpreter::build_defs::native_module;
+use crate::interpreter::functions::dedupe::register_dedupe;
 use crate::interpreter::functions::host_info::register_host_info;
 use crate::interpreter::functions::load_symbols::register_load_symbols;
 use crate::interpreter::functions::read_config::register_read_config;
 use crate::interpreter::functions::regex::register_regex;
+use crate::interpreter::functions::sha256::register_sha256;
 use crate::interpreter::functions::soft_error::register_soft_error;
 use crate::interpreter::functions::warning::register_warning;
 use crate::interpreter::natives::register_module_natives;
+use crate::interpreter::selector::register_select;
 use crate::rule::register_rule_function;
 use crate::super_package::defs::register_package_natives;
 use crate::super_package::package_value::register_read_package_value;
@@ -64,7 +67,10 @@ pub fn configure_package_file_globals(globals_builder: &mut GlobalsBuilder) {
 /// Globals for `.bxl` files.
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_universal_natives(globals_builder);
-    register_base_natives(globals_builder);
+    native_module(globals_builder);
+    register_select(globals_builder);
+    register_sha256(globals_builder);
+    register_dedupe(globals_builder);
     (BXL_SPECIFIC_GLOBALS.get().unwrap())(globals_builder);
 }
 
