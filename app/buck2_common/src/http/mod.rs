@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context;
-use buck2_core::is_open_source;
 use dice::UserComputationData;
 use dupe::Dupe;
 use hyper::StatusCode;
@@ -24,29 +22,6 @@ mod x2p;
 
 pub use client::HttpClient;
 pub use client::HttpClientBuilder;
-
-/// General-purpose function to get a regular HTTP client for use throughout the
-/// buck2 codebase.
-///
-/// This should work for internal and OSS use cases.
-/// TODO(skarlage): Remove `allow_vpnless` when vpnless becomes default.
-pub fn http_client(allow_vpnless: bool) -> anyhow::Result<HttpClient> {
-    let mut builder = HttpClientBuilder::https_with_system_roots()?;
-    builder.with_max_redirects(10);
-
-    if is_open_source() {
-        Ok(builder.with_proxy_from_env()?.build())
-    } else if allow_vpnless && supports_vpnless() {
-        let proxy = x2p::find_proxy()?.context(
-            "Expected unix domain socket or http proxy port for x2p client but did not find either",
-        )?;
-        Ok(builder.with_x2p_proxy(proxy).build())
-    } else if let Ok(Some(cert_path)) = tls::find_internal_cert() {
-        Ok(builder.with_client_auth_cert(cert_path)?.build())
-    } else {
-        Ok(builder.build())
-    }
-}
 
 /// Dice implementations so we can pass along the HttpClient to various subsystems
 /// that need to use it (Materializer, RunActions, etc).
@@ -71,15 +46,6 @@ impl SetHttpClient for UserComputationData {
     fn set_http_client(&mut self, client: HttpClient) {
         self.data.set(client);
     }
-}
-
-/// Whether the machine buck is running on supports vpnless operation.
-fn supports_vpnless() -> bool {
-    #[cfg(fbcode_build)]
-    return cpe::x2p::supports_vpnless();
-
-    #[cfg(not(fbcode_build))]
-    return false;
 }
 
 fn http_error_label(status: StatusCode) -> &'static str {

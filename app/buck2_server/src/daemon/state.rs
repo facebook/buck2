@@ -20,8 +20,8 @@ use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmKind;
-use buck2_common::http::http_client;
 use buck2_common::http::HttpClient;
+use buck2_common::http::HttpClientBuilder;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -382,7 +382,11 @@ impl DaemonState {
             )
             .await?;
 
-            let http_client = http_client(init_ctx.daemon_startup_config.allow_vpnless)?;
+            let http_client = HttpClientBuilder::from_legacy_configs(
+                root_config,
+                init_ctx.daemon_startup_config.allow_vpnless,
+            )?
+            .build();
 
             let materializer_state_identity =
                 materializer_db.as_ref().map(|d| d.identity().clone());

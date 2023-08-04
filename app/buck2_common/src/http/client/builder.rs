@@ -11,6 +11,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::Context;
+use buck2_core::is_open_source;
 use hyper::client::HttpConnector;
 use hyper::service::Service;
 use hyper::Body;
@@ -30,6 +32,14 @@ use super::RequestClient;
 use crate::http::proxy;
 use crate::http::stats::HttpNetworkStats;
 use crate::http::tls;
+use crate::http::x2p;
+use crate::legacy_configs::LegacyBuckConfig;
+
+/// Support following up to 10 redirects, after which a redirected request will
+/// error out.
+const DEFAULT_MAX_REDIRECTS: usize = 10;
+const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 5000;
+const DEFAULT_READ_TIMEOUT_MS: u64 = 10000;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 struct TimeoutConfig {
@@ -63,6 +73,31 @@ pub struct HttpClientBuilder {
 }
 
 impl HttpClientBuilder {
+    /// General-purpose builder to get a regular HTTP client for use throughout the
+    /// buck2 codebase.
+    ///
+    /// This should work for internal and OSS use cases.
+    /// TODO(skarlage): Remove `allow_vpnless` when vpnless becomes default.
+    pub fn with_sensible_defaults(allow_vpnless: bool) -> anyhow::Result<Self> {
+        let mut builder = Self::https_with_system_roots()?;
+        if is_open_source() {
+            tracing::debug!("Using OSS client");
+            builder.with_proxy_from_env()?;
+        } else if allow_vpnless && x2p::supports_vpnless() {
+            tracing::debug!("Using vpnless client");
+            let proxy = x2p::find_proxy()?.context("Expected unix domain socket or http proxy port for x2p client but did not find either")?;
+            builder.with_x2p_proxy(proxy);
+        } else if let Ok(Some(cert_path)) = tls::find_internal_cert() {
+            tracing::debug!("Using internal https client");
+            builder.with_client_auth_cert(cert_path)?;
+        } else {
+            tracing::debug!("Using default https client");
+        }
+
+        Ok(builder)
+    }
+
+    /// Creates a barebones https client using system roots for TLS authentication.
     pub fn https_with_system_roots() -> anyhow::Result<Self> {
         let tls_config = tls::tls_config_with_system_roots()?;
         Ok(Self {
@@ -72,6 +107,45 @@ impl HttpClientBuilder {
             supports_vpnless: false,
             timeout_config: None,
         })
+    }
+
+    /// Customize an http client based on http.* legacy buckconfigs.
+    pub fn from_legacy_configs(
+        config: &LegacyBuckConfig,
+        allow_vpnless: bool,
+    ) -> anyhow::Result<Self> {
+        let connect_timeout = Duration::from_millis(
+            config
+                .parse("http", "connect_timeout_ms")?
+                .unwrap_or(DEFAULT_CONNECT_TIMEOUT_MS),
+        );
+        let read_timeout = Duration::from_millis(
+            config
+                .parse("http", "read_timeout_ms")?
+                .unwrap_or(DEFAULT_READ_TIMEOUT_MS),
+        );
+        let write_timeout = config
+            .parse("http", "write_timeout_ms")?
+            .map(Duration::from_millis);
+        let max_redirects = config
+            .parse("http", "max_redirects")?
+            .unwrap_or(DEFAULT_MAX_REDIRECTS);
+
+        let mut builder = Self::with_sensible_defaults(allow_vpnless)?;
+        builder.with_max_redirects(max_redirects);
+        if !connect_timeout.is_zero() {
+            builder.with_connect_timeout(Some(connect_timeout));
+        }
+        if !read_timeout.is_zero() {
+            builder.with_read_timeout(Some(read_timeout));
+        }
+        if let Some(write_timeout) = write_timeout {
+            if !write_timeout.is_zero() {
+                builder.with_write_timeout(Some(write_timeout));
+            }
+        }
+
+        Ok(builder)
     }
 
     pub fn with_tls_config(&mut self, tls_config: ClientConfig) -> &mut Self {
@@ -274,8 +348,10 @@ fn find_unix_proxy(proxies: &[Proxy]) -> Option<&Proxy> {
 #[cfg(test)]
 mod tests {
     use hyper_proxy::Intercept;
+    use indoc::indoc;
 
     use super::*;
+    use crate::legacy_configs::testing::parse;
 
     #[test]
     fn test_default_builder() -> anyhow::Result<()> {
@@ -347,6 +423,79 @@ mod tests {
             }),
             builder.timeout_config,
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_from_legacy_configs_defaults_internal() -> anyhow::Result<()> {
+        let builder = HttpClientBuilder::from_legacy_configs(&LegacyBuckConfig::empty(), false)?;
+        assert_eq!(DEFAULT_MAX_REDIRECTS, builder.max_redirects.unwrap());
+        assert_eq!(
+            Some(TimeoutConfig {
+                connect_timeout: Some(Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS)),
+                read_timeout: Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)),
+                write_timeout: None,
+            }),
+            builder.timeout_config
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_from_legacy_configs_overrides() -> anyhow::Result<()> {
+        let config = parse(
+            &[(
+                "/config",
+                indoc!(
+                    r#"
+                    [http]
+                    max_redirects = 5
+                    connect_timeout_ms = 10
+                    write_timeout_ms = 5
+                    "#
+                ),
+            )],
+            "/config",
+        )?;
+        let builder = HttpClientBuilder::from_legacy_configs(&config, false)?;
+        assert_eq!(5, builder.max_redirects.unwrap());
+        assert_eq!(
+            Some(TimeoutConfig {
+                connect_timeout: Some(Duration::from_millis(10)),
+                read_timeout: Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)),
+                write_timeout: Some(Duration::from_millis(5)),
+            }),
+            builder.timeout_config
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_from_legacy_configs_zero_for_unset() -> anyhow::Result<()> {
+        let config = parse(
+            &[(
+                "/config",
+                indoc!(
+                    r#"
+                    [http]
+                    connect_timeout_ms = 0
+                    "#,
+                ),
+            )],
+            "/config",
+        )?;
+        let builder = HttpClientBuilder::from_legacy_configs(&config, false)?;
+        assert_eq!(
+            Some(TimeoutConfig {
+                connect_timeout: None,
+                read_timeout: Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)),
+                write_timeout: None,
+            }),
+            builder.timeout_config
+        );
+
         Ok(())
     }
 }
