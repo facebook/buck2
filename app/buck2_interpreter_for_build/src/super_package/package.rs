@@ -85,7 +85,7 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
     ) -> anyhow::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
         let package_file_eval_ctx = match &build_context.additional {
-            PerFileTypeContext::Package(_, package_file_eval_ctx) => package_file_eval_ctx,
+            PerFileTypeContext::Package(package_file_eval_ctx) => package_file_eval_ctx,
             _ => return Err(PackageFileError::NotPackage.into()),
         };
         let visibility = parse_visibility(

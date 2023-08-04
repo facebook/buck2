@@ -10,6 +10,7 @@
 use std::cell::RefCell;
 
 use buck2_core::metadata_key::MetadataKey;
+use buck2_interpreter::path::PackageFilePath;
 use buck2_node::super_package::SuperPackage;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
@@ -24,6 +25,7 @@ pub(crate) struct PackageFileVisibilityFields {
 
 #[derive(Debug)]
 pub(crate) struct PackageFileEvalCtx {
+    pub(crate) path: PackageFilePath,
     /// Parent file context.
     /// When evaluating root `PACKAGE` file, parent is still defined.
     pub(crate) parent: SuperPackage,

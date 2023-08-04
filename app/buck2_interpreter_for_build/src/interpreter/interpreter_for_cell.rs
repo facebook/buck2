@@ -526,14 +526,12 @@ impl InterpreterForCell {
             &loaded_modules,
         )?;
 
-        let extra_context = PerFileTypeContext::Package(
-            package_file_path.clone(),
-            PackageFileEvalCtx {
-                parent,
-                package_values: RefCell::new(SmallMap::new()),
-                visibility: RefCell::new(None),
-            },
-        );
+        let extra_context = PerFileTypeContext::Package(PackageFileEvalCtx {
+            path: package_file_path.clone(),
+            parent,
+            package_values: RefCell::new(SmallMap::new()),
+            visibility: RefCell::new(None),
+        });
 
         let per_file_context = self.eval(
             &env,

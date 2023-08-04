@@ -17,7 +17,6 @@ use buck2_core::package::PackageLabel;
 use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::path::BxlFilePath;
-use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
 use starlark::any::ProvidesStaticType;
@@ -56,7 +55,7 @@ pub(crate) enum PerFileTypeContext {
     /// Context for evaluating `BUCK` files.
     Build(ModuleInternals),
     /// Context for evaluating `PACKAGE` files.
-    Package(PackageFilePath, PackageFileEvalCtx),
+    Package(PackageFileEvalCtx),
     Bzl(ImportPath),
     Bxl(BxlFilePath),
 }
@@ -65,7 +64,7 @@ impl PerFileTypeContext {
     pub(crate) fn starlark_path(&self) -> StarlarkPath {
         match self {
             PerFileTypeContext::Build(module) => StarlarkPath::BuildFile(module.buildfile_path()),
-            PerFileTypeContext::Package(path, _) => StarlarkPath::PackageFile(path),
+            PerFileTypeContext::Package(package) => StarlarkPath::PackageFile(&package.path),
             PerFileTypeContext::Bzl(path) => StarlarkPath::LoadFile(path),
             PerFileTypeContext::Bxl(path) => StarlarkPath::BxlFile(path),
         }
@@ -96,7 +95,7 @@ impl PerFileTypeContext {
         function_name: &str,
     ) -> anyhow::Result<&PackageFileEvalCtx> {
         match self {
-            PerFileTypeContext::Package(_, ctx) => Ok(ctx),
+            PerFileTypeContext::Package(ctx) => Ok(ctx),
             x => Err(
                 BuildContextError::NotPackageFile(function_name.to_owned(), x.file_type()).into(),
             ),
@@ -105,7 +104,7 @@ impl PerFileTypeContext {
 
     pub(crate) fn into_package_file(self) -> anyhow::Result<PackageFileEvalCtx> {
         match self {
-            PerFileTypeContext::Package(_, ctx) => Ok(ctx),
+            PerFileTypeContext::Package(ctx) => Ok(ctx),
             x => Err(BuildContextError::NotPackageFileNoFunction(x.file_type()).into()),
         }
     }
