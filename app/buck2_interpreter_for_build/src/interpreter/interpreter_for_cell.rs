@@ -370,10 +370,15 @@ impl InterpreterForCell {
         if let Some(prelude_import) = prelude_import {
             let import_path = import.path();
 
-            // Only return the prelude for things outside the prelude directory.
-            if import.unpack_build_file().is_some() || !prelude_import.is_prelude_path(&import_path)
-            {
-                return Some(prelude_import);
+            match import {
+                StarlarkPath::BuildFile(_) => return Some(prelude_import),
+                StarlarkPath::PackageFile(_)
+                | StarlarkPath::BxlFile(_)
+                | StarlarkPath::LoadFile(_) => {
+                    if !prelude_import.is_prelude_path(&import_path) {
+                        return Some(prelude_import);
+                    }
+                }
             }
         }
 
