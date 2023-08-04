@@ -10,7 +10,6 @@
 use std::fmt::Debug;
 
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
-use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
@@ -55,7 +54,7 @@ enum BuildContextError {
 #[derive(Debug)]
 pub(crate) enum PerFileTypeContext {
     /// Context for evaluating `BUCK` files.
-    Build(BuildFilePath, ModuleInternals),
+    Build(ModuleInternals),
     /// Context for evaluating `PACKAGE` files.
     Package(PackageFilePath, PackageFileEvalCtx),
     Bzl(ImportPath),
@@ -65,7 +64,7 @@ pub(crate) enum PerFileTypeContext {
 impl PerFileTypeContext {
     pub(crate) fn starlark_path(&self) -> StarlarkPath {
         match self {
-            PerFileTypeContext::Build(path, _) => StarlarkPath::BuildFile(path),
+            PerFileTypeContext::Build(module) => StarlarkPath::BuildFile(module.buildfile_path()),
             PerFileTypeContext::Package(path, _) => StarlarkPath::PackageFile(path),
             PerFileTypeContext::Bzl(path) => StarlarkPath::LoadFile(path),
             PerFileTypeContext::Bxl(path) => StarlarkPath::BxlFile(path),
@@ -78,7 +77,7 @@ impl PerFileTypeContext {
 
     pub(crate) fn require_build(&self, function_name: &str) -> anyhow::Result<&ModuleInternals> {
         match self {
-            PerFileTypeContext::Build(_, internals) => Ok(internals),
+            PerFileTypeContext::Build(internals) => Ok(internals),
             x => {
                 Err(BuildContextError::NotBuildFile(function_name.to_owned(), x.file_type()).into())
             }
@@ -87,7 +86,7 @@ impl PerFileTypeContext {
 
     pub(crate) fn into_build(self) -> anyhow::Result<ModuleInternals> {
         match self {
-            PerFileTypeContext::Build(_, internals) => Ok(internals),
+            PerFileTypeContext::Build(internals) => Ok(internals),
             x => Err(BuildContextError::NotBuildFileNoFunction(x.file_type()).into()),
         }
     }
@@ -200,7 +199,7 @@ impl<'a> BuildContext<'a> {
 
     pub fn require_package(&self) -> anyhow::Result<PackageLabel> {
         match &self.additional {
-            PerFileTypeContext::Build(path, _) => Ok(path.package()),
+            PerFileTypeContext::Build(module) => Ok(module.buildfile_path().package()),
             _ => Err(BuildContextError::PackageOnlyFromBuildFile.into()),
         }
     }

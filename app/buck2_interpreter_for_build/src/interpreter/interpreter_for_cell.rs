@@ -579,7 +579,7 @@ impl InterpreterForCell {
                 buckconfig,
                 root_buckconfig,
                 loaded_modules,
-                PerFileTypeContext::Build(build_file.clone(), internals),
+                PerFileTypeContext::Build(internals),
                 eval_provider,
             )?
             .into_build()?;
