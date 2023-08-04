@@ -34,6 +34,7 @@ use crate::codemap::Spanned;
 use crate::typing::error::TypingError;
 use crate::typing::Arg;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
 use crate::typing::TypingAttr;
 use crate::typing::TypingOracleCtx;
 
@@ -155,6 +156,13 @@ impl TyCustom {
             true
         } else {
             false
+        }
+    }
+
+    pub(crate) fn intersects_with(&self, other: &TyBasic) -> bool {
+        match other {
+            TyBasic::Custom(other) => Self::intersects(self, other),
+            _ => false,
         }
     }
 }

@@ -23,7 +23,6 @@ use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::basic::TyBasic;
-use crate::typing::custom::TyCustom;
 use crate::typing::error::TypingError;
 use crate::typing::function::Arg;
 use crate::typing::function::Param;
@@ -396,7 +395,8 @@ impl<'a> TypingOracleCtx<'a> {
                 Some(yy) => self.intersects(x, &yy),
                 None => false,
             },
-            (TyBasic::Custom(x), TyBasic::Custom(y)) => TyCustom::intersects(x, y),
+            (TyBasic::Custom(x), y) => x.intersects_with(y),
+            (x, TyBasic::Custom(y)) => y.intersects_with(x),
             (x, y) if x.is_function() && y.is_function() => true,
             // There are lots of other cases that overlap, but add them as we need them
             _ => false,
