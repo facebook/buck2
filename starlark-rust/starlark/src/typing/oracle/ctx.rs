@@ -380,6 +380,8 @@ impl<'a> TypingOracleCtx<'a> {
         };
 
         match (x, y) {
+            (TyBasic::Any, _) | (_, TyBasic::Any) => true,
+            (x, y) if x == y => true,
             (TyBasic::Name(x), TyBasic::Name(y)) => self.intersects_name(x, y),
             (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
             (TyBasic::Dict(x), TyBasic::Dict(y)) => {
@@ -397,7 +399,7 @@ impl<'a> TypingOracleCtx<'a> {
             (TyBasic::Custom(x), TyBasic::Custom(y)) => TyCustom::intersects(x, y),
             (x, y) if x.is_function() && y.is_function() => true,
             // There are lots of other cases that overlap, but add them as we need them
-            (x, y) => x == y,
+            _ => false,
         }
     }
 }
