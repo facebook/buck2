@@ -37,7 +37,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_common::http::counting_client::CountingHttpClient;
+use buck2_common::http::HttpClient;
 use buck2_common::http::SetHttpClient;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
@@ -516,7 +516,7 @@ struct DiceCommandDataProvider {
     create_unhashed_symlink_lock: Arc<Mutex<()>>,
     starlark_debugger: Option<BuckStarlarkDebuggerHandle>,
     keep_going: bool,
-    http_client: CountingHttpClient,
+    http_client: HttpClient,
     paranoid: Option<ParanoidDownloader>,
     spawner: Arc<BuckSpawner>,
 }

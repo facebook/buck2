@@ -14,7 +14,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_common::http::counting_client::CountingHttpClient;
+use buck2_common::http::HttpClient;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -279,7 +279,7 @@ impl EdenMaterializer {
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         eden_buck_out: EdenBuckOut,
-        http_client: CountingHttpClient,
+        http_client: HttpClient,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             re_client_manager: re_client_manager.dupe(),

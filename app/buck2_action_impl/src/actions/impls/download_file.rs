@@ -131,7 +131,7 @@ impl DownloadFileAction {
             .expect("a single artifact by construction")
     }
 
-    fn url(&self, client: &dyn HttpClient) -> &Arc<str> {
+    fn url(&self, client: &HttpClient) -> &Arc<str> {
         if client.supports_vpnless() {
             self.inner.vpnless_url.as_ref().unwrap_or(&self.inner.url)
         } else {
@@ -142,7 +142,7 @@ impl DownloadFileAction {
     /// Try to produce a FileMetadata without downloading the file.
     async fn declared_metadata(
         &self,
-        client: &dyn HttpClient,
+        client: &HttpClient,
         digest_config: DigestConfig,
     ) -> anyhow::Result<Option<FileMetadata>> {
         if !self.inner.is_deferrable {

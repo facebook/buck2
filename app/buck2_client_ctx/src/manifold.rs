@@ -13,7 +13,6 @@ use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
 use buck2_common::http;
-use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::retries::http_retry;
 use buck2_common::http::retries::AsHttpError;
 use buck2_common::http::retries::HttpError;
@@ -148,7 +147,7 @@ fn log_upload_url(use_vpnless: bool) -> Option<&'static str> {
 }
 
 pub struct ManifoldClient {
-    client: CountingHttpClient,
+    client: HttpClient,
     manifold_url: Option<String>,
 }
 

@@ -17,8 +17,8 @@ use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
-use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::HasHttpClient;
+use buck2_common::http::HttpClient;
 use buck2_common::io::IoProvider;
 use buck2_common::liveliness_observer::NoopLivelinessObserver;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
@@ -275,7 +275,7 @@ pub struct BuckActionExecutor {
     digest_config: DigestConfig,
     run_action_knobs: RunActionKnobs,
     io_provider: Arc<dyn IoProvider>,
-    http_client: CountingHttpClient,
+    http_client: HttpClient,
     mergebase: Mergebase,
 }
 
@@ -289,7 +289,7 @@ impl BuckActionExecutor {
         digest_config: DigestConfig,
         run_action_knobs: RunActionKnobs,
         io_provider: Arc<dyn IoProvider>,
-        http_client: CountingHttpClient,
+        http_client: HttpClient,
         mergebase: Mergebase,
     ) -> Self {
         Self {
@@ -540,7 +540,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.executor.io_provider.dupe()
     }
 
-    fn http_client(&self) -> CountingHttpClient {
+    fn http_client(&self) -> HttpClient {
         self.executor.http_client.dupe()
     }
 }
@@ -659,8 +659,7 @@ mod tests {
     use buck2_artifact::deferred::id::DeferredId;
     use buck2_artifact::deferred::key::DeferredKey;
     use buck2_common::cas_digest::CasDigestConfig;
-    use buck2_common::http::counting_client::CountingHttpClient;
-    use buck2_common::http::ClientForTest;
+    use buck2_common::http::HttpClientBuilder;
     use buck2_common::io::fs::FsIoProvider;
     use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::buck_path::path::BuckPath;
@@ -767,7 +766,9 @@ mod tests {
                 project_fs,
                 CasDigestConfig::testing_default(),
             )),
-            CountingHttpClient::new(Arc::new(ClientForTest {})),
+            HttpClientBuilder::https_with_system_roots()
+                .unwrap()
+                .build(),
             Default::default(),
         );
 

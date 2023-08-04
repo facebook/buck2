@@ -132,8 +132,7 @@ impl SnapshotCollector {
     }
 
     fn add_http_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        let stats = self.daemon.http_client.get_updated_http_network_stats();
-        snapshot.http_download_bytes = stats.downloaded_bytes;
+        snapshot.http_download_bytes = self.daemon.http_client.stats().get_downloaded_bytes();
     }
 
     fn add_dice_metrics(&self, snapshot: &mut buck2_data::Snapshot) {

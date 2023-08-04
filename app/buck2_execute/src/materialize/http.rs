@@ -17,7 +17,6 @@ use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::DigestAlgorithmKind;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::retries::http_retry;
 use buck2_common::http::retries::AsHttpError;
 use buck2_common::http::retries::HttpError;
@@ -99,7 +98,7 @@ impl AsHttpError for HttpDownloadError {
     }
 }
 
-pub async fn http_head(client: &dyn HttpClient, url: &str) -> anyhow::Result<Response<()>> {
+pub async fn http_head(client: &HttpClient, url: &str) -> anyhow::Result<Response<()>> {
     let response = http_retry(
         || async {
             client
@@ -114,7 +113,7 @@ pub async fn http_head(client: &dyn HttpClient, url: &str) -> anyhow::Result<Res
 }
 
 pub async fn http_download(
-    client: &CountingHttpClient,
+    client: &HttpClient,
     fs: &ProjectRoot,
     digest_config: DigestConfig,
     path: &ProjectRelativePath,

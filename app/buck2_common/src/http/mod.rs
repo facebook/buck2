@@ -7,164 +7,71 @@
  * of this source tree.
  */
 
-use std::fs::File;
-use std::io::BufReader;
-use std::path::Path;
-use std::sync::Arc;
-
-use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::is_open_source;
-use bytes::Bytes;
 use dice::UserComputationData;
 use dupe::Dupe;
-use futures::stream::BoxStream;
-use gazebo::prelude::VecExt;
-use http::Method;
-use hyper::client::connect::Connect;
-use hyper::client::ResponseFuture;
-use hyper::Body;
-use hyper::Request;
-use hyper::Response;
 use hyper::StatusCode;
-use rustls::Certificate;
-use rustls::ClientConfig;
-use rustls::PrivateKey;
-use rustls::RootCertStore;
 use thiserror::Error;
 
 use self::find_certs::find_tls_cert;
 
-pub mod counting_client;
+mod client;
 pub mod find_certs;
 mod proxy;
 mod redirect;
 pub mod retries;
-mod secure_client;
-mod secure_proxied_client;
-#[cfg(fbcode_build)]
+mod stats;
+pub mod tls;
 mod x2p;
-use counting_client::CountingHttpClient;
-use proxy::http_proxy_from_env;
-use proxy::https_proxy_from_env;
-use secure_client::SecureHttpClient;
-use secure_proxied_client::SecureProxiedClient;
 
-const BUCK2_USER_AGENT: &str = "Buck2";
-
-/// Support following up to 10 redirects, after which a redirected request will
-/// error out.
-const DEFAULT_MAX_REDIRECTS: usize = 10;
+pub use client::HttpClient;
+pub use client::HttpClientBuilder;
 
 /// General-purpose function to get a regular HTTP client for use throughout the
 /// buck2 codebase.
 ///
 /// This should work for internal and OSS use cases.
 /// TODO(skarlage): Remove `allow_vpnless` when vpnless becomes default.
-pub fn http_client(allow_vpnless: bool) -> anyhow::Result<CountingHttpClient> {
-    let http_client = if is_open_source() {
-        http_client_for_oss()
+pub fn http_client(allow_vpnless: bool) -> anyhow::Result<HttpClient> {
+    let mut builder = HttpClientBuilder::https_with_system_roots()?;
+    builder.with_max_redirects(10);
+
+    if is_open_source() {
+        Ok(builder.with_proxy_from_env()?.build())
     } else if allow_vpnless && supports_vpnless() {
-        http_client_for_vpnless()
+        let proxy = x2p::find_proxy()?.context(
+            "Expected unix domain socket or http proxy port for x2p client but did not find either",
+        )?;
+        Ok(builder.with_x2p_proxy(proxy).build())
+    } else if let Ok(Some(cert_path)) = find_tls_cert() {
+        Ok(builder.with_client_auth_cert(cert_path)?.build())
     } else {
-        http_client_for_internal()
-    }?;
-    Ok(CountingHttpClient::new(http_client))
-}
-
-/// Returns a client suitable for OSS usecases. Supports standard Curl-like
-/// proxy environment variables: $HTTP_PROXY, $HTTPS_PROXY.
-pub fn http_client_for_oss() -> anyhow::Result<Arc<dyn HttpClient>> {
-    // Add standard proxy variables if defined.
-    // Ignores values that cannot be turned into valid URIs.
-    let mut proxies = Vec::new();
-    if let Some(proxy) = https_proxy_from_env()? {
-        proxies.push(proxy);
+        Ok(builder.build())
     }
-    if let Some(proxy) = http_proxy_from_env()? {
-        proxies.push(proxy);
-    }
-
-    if !proxies.is_empty() {
-        Ok(Arc::new(SecureProxiedClient::with_proxies(proxies)?))
-    } else {
-        let config = tls_config_with_system_roots()?;
-        Ok(Arc::new(SecureHttpClient::new(
-            config,
-            DEFAULT_MAX_REDIRECTS,
-        )))
-    }
-}
-
-/// Returns a client suitable for Meta-internal usecases. Supports standard
-/// $THRIFT_TLS_CL_* environment variables.
-fn http_client_for_internal() -> anyhow::Result<Arc<dyn HttpClient>> {
-    let tls_config = if let Ok(Some(cert_path)) = find_tls_cert() {
-        tls_config_with_single_cert(cert_path.clone(), cert_path)?
-    } else {
-        tls_config_with_system_roots()?
-    };
-
-    tracing::debug!("Using internal secure client");
-    Ok(Arc::new(SecureHttpClient::new(
-        tls_config,
-        DEFAULT_MAX_REDIRECTS,
-    )))
-}
-
-/// Returns a client suitable for making http requests via the VPNless x2pagent
-/// proxy running on the local machine. Supports both http proxy server and
-/// unix domain socket proxy path.
-#[cfg(fbcode_build)]
-fn http_client_for_vpnless() -> anyhow::Result<Arc<dyn HttpClient>> {
-    // Prefer unix domain socket proxy if it's available (unix-only).
-    #[cfg(unix)]
-    {
-        let proxy_path = cpe::x2p::proxy_url_http1();
-        if !proxy_path.is_empty() {
-            tracing::debug!("Using x2pagent unix socket proxy client at: {}", proxy_path);
-            let client = x2p::X2PAgentUnixSocketClient::new(proxy_path)?;
-            return Ok(Arc::new(client));
-        }
-    }
-
-    if let Some(port) = cpe::x2p::http1_proxy_port() {
-        tracing::debug!("Using x2pagent http proxy client on port: {}", port);
-        let client = x2p::X2PAgentProxyClient::new(port)?;
-        Ok(Arc::new(client))
-    } else {
-        anyhow::bail!(
-            "Expected unix domain socket or http proxy port for x2p client but did not find either"
-        );
-    }
-}
-
-#[cfg(not(fbcode_build))]
-fn http_client_for_vpnless() -> anyhow::Result<Arc<dyn HttpClient>> {
-    anyhow::bail!("VPNless client is not supported for non-internal fbcode builds")
 }
 
 /// Dice implementations so we can pass along the HttpClient to various subsystems
 /// that need to use it (Materializer, RunActions, etc).
 pub trait HasHttpClient {
-    fn get_http_client(&self) -> CountingHttpClient;
+    fn get_http_client(&self) -> HttpClient;
 }
 
 pub trait SetHttpClient {
-    fn set_http_client(&mut self, client: CountingHttpClient);
+    fn set_http_client(&mut self, client: HttpClient);
 }
 
 impl HasHttpClient for UserComputationData {
-    fn get_http_client(&self) -> CountingHttpClient {
+    fn get_http_client(&self) -> HttpClient {
         self.data
-            .get::<CountingHttpClient>()
+            .get::<HttpClient>()
             .expect("HttpClient should be set")
             .dupe()
     }
 }
 
 impl SetHttpClient for UserComputationData {
-    fn set_http_client(&mut self, client: CountingHttpClient) {
+    fn set_http_client(&mut self, client: HttpClient) {
         self.data.set(client);
     }
 }
@@ -176,81 +83,6 @@ fn supports_vpnless() -> bool {
 
     #[cfg(not(fbcode_build))]
     return false;
-}
-
-/// Load the system root certificates into rustls cert store.
-fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
-    let mut roots = rustls::RootCertStore::empty();
-    let native_certs: Vec<_> = rustls_native_certs::load_native_certs()
-        .context("Error loading system root certificates")?
-        .into_map(|cert| cert.0);
-
-    // According to [`rustls` documentation](https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.add_parsable_certificates),
-    // it's better to only add parseable certs when loading system certs because
-    // there are typically many system certs and not all of them can be valid. This
-    // is pertinent for e.g. macOS which may have a lot of old certificates that may
-    // not parse correctly.
-    let (valid, invalid) = roots.add_parsable_certificates(native_certs.as_slice());
-
-    // But make sure we get at least _one_ valid cert, otherwise we legitimately won't be
-    // able to make any connections via https.
-    anyhow::ensure!(
-        valid > 0,
-        "Error loading system certs: unable to find any valid system certs"
-    );
-    tracing::debug!("Loaded {} valid system root certs", valid);
-    tracing::debug!("Loaded {} invalid system root certs", invalid);
-    Ok(roots)
-}
-
-/// Deserialize certificate pair at `cert` and `key` into structures that can
-/// be inserted into rustls CertStore.
-fn load_cert_pair<P: AsRef<Path>>(
-    cert: P,
-    key: P,
-) -> anyhow::Result<(Vec<Certificate>, PrivateKey)> {
-    let cert_file = File::open(cert).context("opening certificate file")?;
-    let key_file = File::open(key).context("opening private key file")?;
-    let mut cert_reader = BufReader::new(&cert_file);
-    let mut key_reader = BufReader::new(&key_file);
-
-    let certs = rustls_pemfile::certs(&mut cert_reader)
-        .context("creating PEM from internal certificate and private key")?
-        .into_map(Certificate);
-
-    let private_key = rustls_pemfile::pkcs8_private_keys(&mut key_reader)
-        .context("reading private key from internal certificate")?
-        .pop()
-        .ok_or_else(|| {
-            anyhow::anyhow!("Expected internal certificate to contain at least one private key")
-        })?;
-    let key = PrivateKey(private_key);
-
-    Ok((certs, key))
-}
-
-fn tls_config_with_system_roots() -> anyhow::Result<ClientConfig> {
-    let system_roots = load_system_root_certs()?;
-    Ok(ClientConfig::builder()
-        .with_safe_defaults()
-        .with_root_certificates(system_roots)
-        .with_no_client_auth())
-}
-
-fn tls_config_with_single_cert<P: AsRef<Path>>(
-    cert_path: P,
-    key_path: P,
-) -> anyhow::Result<ClientConfig> {
-    let system_roots = load_system_root_certs()?;
-    let (cert, key) = load_cert_pair(cert_path, key_path)?;
-    // TODO: replace with_single_cert with with_client_auth_cert
-    //       once rustls get upgraded to >0.21.4
-    #[allow(deprecated)]
-    ClientConfig::builder()
-        .with_safe_defaults()
-        .with_root_certificates(system_roots)
-        .with_single_cert(cert, key)
-        .context("Error creating TLS config with cert and key path")
 }
 
 fn http_error_label(status: StatusCode) -> &'static str {
@@ -285,111 +117,4 @@ pub enum HttpError {
     TooManyRedirects { uri: String, max_redirects: usize },
     #[error("HTTP: Error mutating request: {0}")]
     MutateRequest(#[from] anyhow::Error),
-    #[error("HTTP: Testing client, http methods not supported")]
-    Test,
-}
-
-/// Trait describe http client that can perform simple HEAD and GET requests.
-#[async_trait::async_trait]
-pub trait HttpClient: Allocative + Send + Sync {
-    /// Send a HEAD request. Assumes no body will be returned. If one is returned, it will be ignored.
-    async fn head(&self, uri: &str) -> Result<Response<()>, HttpError> {
-        let req = Request::builder()
-            .uri(uri)
-            .method(Method::HEAD)
-            .header(http::header::USER_AGENT, BUCK2_USER_AGENT)
-            .body(Bytes::new())
-            .map_err(HttpError::BuildRequest)?;
-        self.request(req).await.map(|resp| resp.map(|_| ()))
-    }
-
-    /// Send a GET request.
-    async fn get(&self, uri: &str) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
-        let req = Request::builder()
-            .uri(uri)
-            .method(Method::GET)
-            .header(http::header::USER_AGENT, BUCK2_USER_AGENT)
-            .body(Bytes::new())
-            .map_err(HttpError::BuildRequest)?;
-        self.request(req).await
-    }
-
-    async fn post(
-        &self,
-        uri: &str,
-        body: Bytes,
-        headers: Vec<(String, String)>,
-    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
-        let mut req = Request::builder()
-            .uri(uri)
-            .method(Method::POST)
-            .header(http::header::USER_AGENT, BUCK2_USER_AGENT);
-        for (name, value) in headers {
-            req = req.header(name, value);
-        }
-        let req = req.body(body).map_err(HttpError::BuildRequest)?;
-        self.request(req).await
-    }
-
-    async fn put(
-        &self,
-        uri: &str,
-        body: Bytes,
-        headers: Vec<(String, String)>,
-    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
-        let mut req = Request::builder()
-            .uri(uri)
-            .method(Method::PUT)
-            .header(http::header::USER_AGENT, BUCK2_USER_AGENT);
-        for (name, value) in headers {
-            req = req.header(name, value);
-        }
-        let req = req.body(body).map_err(HttpError::BuildRequest)?;
-        self.request(req).await
-    }
-
-    /// Send a generic request.
-    async fn request(
-        &self,
-        request: Request<Bytes>,
-    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError>;
-
-    /// Whether this client supports vpnless operation. When set, will make requests
-    /// to the `vpnless_url` attribute in the `download_file` action rather than the
-    /// normal `url` attribute.
-    fn supports_vpnless(&self) -> bool {
-        // Most clients do not support vpnless.
-        false
-    }
-}
-
-/// Trait wrapper around a hyper::Client because hyper::Client is parameterized by
-/// the connector. At runtime, we want to pick different connectors (e.g. HttpsConnector,
-/// ProxyConnector<HttpsConnector<..>>, etc); thus wrap the client so we can switch
-/// out the concrete type without exposing implementation details to callers.
-trait RequestClient: Send + Sync {
-    fn request(&self, request: Request<Bytes>) -> ResponseFuture;
-}
-
-impl<C> RequestClient for hyper::Client<C>
-where
-    C: Connect + Clone + Send + Sync + 'static,
-{
-    fn request(&self, request: Request<Bytes>) -> ResponseFuture {
-        self.request(request.map(Body::from))
-    }
-}
-
-/// Http client used for unit testing; errors on any calls to underlying http methods.
-#[derive(Allocative)]
-pub struct ClientForTest {}
-
-#[async_trait::async_trait]
-impl HttpClient for ClientForTest {
-    async fn request(
-        &self,
-        _request: Request<Bytes>,
-    ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
-        Err(HttpError::Test)
-    }
 }

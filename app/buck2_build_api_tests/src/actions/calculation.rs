@@ -38,8 +38,7 @@ use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_common::http::counting_client::CountingHttpClient;
-use buck2_common::http::ClientForTest;
+use buck2_common::http::HttpClientBuilder;
 use buck2_common::http::SetHttpClient;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::buck_path::path::BuckPath;
@@ -202,7 +201,7 @@ async fn make_default_dice_state(
     extra.set_blocking_executor(Arc::new(DummyBlockingExecutor { fs }));
     extra.set_materializer(Arc::new(NoDiskMaterializer));
     extra.set_re_client(ManagedRemoteExecutionClient::testing_new_dummy());
-    extra.set_http_client(CountingHttpClient::new(Arc::new(ClientForTest {})));
+    extra.set_http_client(HttpClientBuilder::https_with_system_roots()?.build());
     extra.set_mergebase(Default::default());
     extra.data.set(EventDispatcher::null());
     extra.data.set(RunActionKnobs::default());

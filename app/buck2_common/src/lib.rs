@@ -15,6 +15,7 @@
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 #![feature(fs_try_exists)]
 #![feature(io_error_more)]
+#![feature(if_let_guard)]
 #![feature(is_sorted)]
 #![feature(trait_alias)]
 #![feature(never_type)]
