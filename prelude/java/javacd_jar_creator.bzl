@@ -271,7 +271,7 @@ def create_jar_artifact_javacd(
             exe = exe,
             local_only = local_only,
             low_pass_filter = False,
-            weight = 5,
+            weight = 2,
         )
 
     library_classpath_jars_tag = actions.artifact_tag()
