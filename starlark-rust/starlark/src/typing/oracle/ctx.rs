@@ -373,14 +373,19 @@ impl<'a> TypingOracleCtx<'a> {
     }
 
     fn intersects_basic(&self, x: &TyBasic, y: &TyBasic) -> bool {
+        x == y || self.intersects_one_side(x, y) || self.intersects_one_side(y, x)
+    }
+
+    /// We consider two type intersecting if either side knows if they intersect.
+    /// This function checks the left side.
+    fn intersects_one_side(&self, x: &TyBasic, y: &TyBasic) -> bool {
         let itered = |ty: &TyBasic| match self.attribute(ty, TypingAttr::Iter) {
             None => Some(Ty::any()),
             Some(result) => result.ok(),
         };
 
         match (x, y) {
-            (TyBasic::Any, _) | (_, TyBasic::Any) => true,
-            (x, y) if x == y => true,
+            (TyBasic::Any, _) => true,
             (TyBasic::Name(x), TyBasic::Name(y)) => self.intersects_name(x, y),
             (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
             (TyBasic::Dict(x), TyBasic::Dict(y)) => {
@@ -389,14 +394,13 @@ impl<'a> TypingOracleCtx<'a> {
             (TyBasic::Tuple(xs), TyBasic::Tuple(ys)) if xs.len() == ys.len() => {
                 std::iter::zip(xs, ys).all(|(x, y)| self.intersects(&x, y))
             }
-            (TyBasic::Tuple(_), t) | (t, TyBasic::Tuple(_)) if t.is_tuple() => true,
+            (TyBasic::Tuple(_), t) => t.is_tuple(),
             (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(&x, y),
             (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match itered(y) {
                 Some(yy) => self.intersects(x, &yy),
                 None => false,
             },
             (TyBasic::Custom(x), y) => x.intersects_with(y),
-            (x, TyBasic::Custom(y)) => y.intersects_with(x),
             (x, y) if x.is_function() && y.is_function() => true,
             // There are lots of other cases that overlap, but add them as we need them
             _ => false,
