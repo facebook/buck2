@@ -9,7 +9,7 @@ title:  BXL Telemetry
 
 In BXL, you can emit custom events via `ctx.instant_event()`, which takes in two named parameters:
 * `id`: string, identifies your event. Helpful to identify your event when looking through event logs. Ids do not have to be unique in a single BXL script.
-* `metadata`: dict, where keys are strings and values are strings, bools, or ints. You can put any metadata you wish here.
+* `metadata`: dict, where keys are strings, and values are strings, bools, ints, or lists/dicts of the mentioned types. You can put any metadata you wish here.
 
 Example:
 
@@ -78,7 +78,15 @@ Sample:
       "bool_value": true,
       "string_value": "str",
       "int_value": 123,
-    }
+      "list_value": [
+        "a",
+        "b",
+        "c"
+      ],
+      "dict_value": {
+        "foo": "bar"
+      }
+    },
   },
   "epoch_millis": 123456789 # when the event was emitted
 }
