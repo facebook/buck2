@@ -52,6 +52,10 @@ fn register_universal_natives(builder: &mut GlobalsBuilder) {
     register_attrs(builder);
     register_providers_label(builder);
     register_target_label(builder);
+    register_path(builder);
+    register_select(builder);
+    register_sha256(builder);
+    register_dedupe(builder);
 }
 
 /// Globals for `BUCK` files.
@@ -67,10 +71,6 @@ pub fn configure_package_file_globals(globals_builder: &mut GlobalsBuilder) {
 /// Globals for `.bxl` files.
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_universal_natives(globals_builder);
-    register_path(globals_builder);
-    register_select(globals_builder);
-    register_sha256(globals_builder);
-    register_dedupe(globals_builder);
     (BXL_SPECIFIC_GLOBALS.get().unwrap())(globals_builder);
 }
 
