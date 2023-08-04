@@ -15,7 +15,7 @@ use buck2_interpreter::types::target_label::register_target_label;
 use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::attrs_global::register_attrs;
-use crate::interpreter::build_defs::native_module;
+use crate::interpreter::build_defs::register_path;
 use crate::interpreter::functions::dedupe::register_dedupe;
 use crate::interpreter::functions::host_info::register_host_info;
 use crate::interpreter::functions::load_symbols::register_load_symbols;
@@ -67,7 +67,7 @@ pub fn configure_package_file_globals(globals_builder: &mut GlobalsBuilder) {
 /// Globals for `.bxl` files.
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_universal_natives(globals_builder);
-    native_module(globals_builder);
+    register_path(globals_builder);
     register_select(globals_builder);
     register_sha256(globals_builder);
     register_dedupe(globals_builder);

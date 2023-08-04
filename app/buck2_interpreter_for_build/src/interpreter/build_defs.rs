@@ -23,7 +23,7 @@ use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::selector::register_select;
 
 #[starlark_module]
-pub fn native_module(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
     /// The `glob()` function specifies a set of files using patterns.
     /// Only available from `BUCK` files.
     ///
@@ -114,7 +114,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
 
 /// Native functions included in all contexts (`BUCK`, `bzl`, `bxl`).
 pub(crate) fn register_base_natives(registry: &mut GlobalsBuilder) {
-    native_module(registry);
+    register_path(registry);
     register_select(registry);
     register_sha256(registry);
     register_dedupe(registry);
