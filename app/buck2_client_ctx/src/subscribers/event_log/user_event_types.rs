@@ -189,7 +189,10 @@ mod tests {
 
     use buck2_data::starlark_user_metadata_value::Value;
     use buck2_data::StarlarkUserEvent;
+    use buck2_data::StarlarkUserMetadataDictValue;
+    use buck2_data::StarlarkUserMetadataListValue;
     use buck2_data::StarlarkUserMetadataValue;
+    use maplit::hashmap;
 
     #[test]
     fn test_serialize_starlark_user_event() {
@@ -210,6 +213,78 @@ mod tests {
   "id": "foo",
   "metadata": {
     "bool_value": true
+  }
+}"#;
+        assert_eq!(expected, serialized);
+    }
+
+    #[test]
+    fn test_serialize_starlark_user_event_list() {
+        let list_val1 = StarlarkUserMetadataValue {
+            value: Some(Value::StringValue("a".to_owned())),
+        };
+        let list_val2 = StarlarkUserMetadataValue {
+            value: Some(Value::StringValue("b".to_owned())),
+        };
+        let list_val3 = StarlarkUserMetadataValue {
+            value: Some(Value::StringValue("c".to_owned())),
+        };
+        let list = StarlarkUserMetadataListValue {
+            value: vec![list_val1, list_val2, list_val3],
+        };
+        let val = StarlarkUserMetadataValue {
+            value: Some(Value::ListValue(list)),
+        };
+
+        let mut metadata = HashMap::new();
+        metadata.insert("list_value".to_owned(), val);
+
+        let starlark_user_event = StarlarkUserEvent {
+            id: "foo".to_owned(),
+            metadata,
+        };
+
+        let serialized = serde_json::to_string_pretty(&starlark_user_event).unwrap();
+        let expected = r#"{
+  "id": "foo",
+  "metadata": {
+    "list_value": [
+      "a",
+      "b",
+      "c"
+    ]
+  }
+}"#;
+        assert_eq!(expected, serialized);
+    }
+
+    #[test]
+    fn test_serialize_starlark_user_event_dict() {
+        let bar = StarlarkUserMetadataValue {
+            value: Some(Value::StringValue("bar".to_owned())),
+        };
+        let dict = StarlarkUserMetadataDictValue {
+            value: hashmap!["foo".to_owned() => bar],
+        };
+        let val = StarlarkUserMetadataValue {
+            value: Some(Value::DictValue(dict)),
+        };
+
+        let mut metadata = HashMap::new();
+        metadata.insert("dict_value".to_owned(), val);
+
+        let starlark_user_event = StarlarkUserEvent {
+            id: "foo".to_owned(),
+            metadata,
+        };
+
+        let serialized = serde_json::to_string_pretty(&starlark_user_event).unwrap();
+        let expected = r#"{
+  "id": "foo",
+  "metadata": {
+    "dict_value": {
+      "foo": "bar"
+    }
   }
 }"#;
         assert_eq!(expected, serialized);

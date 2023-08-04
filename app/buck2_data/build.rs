@@ -202,6 +202,14 @@ fn main() -> io::Result<()> {
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
         .type_attribute(
+            "buck.data.StarlarkUserMetadataDictValue",
+            "#[serde(transparent)]",
+        )
+        .type_attribute(
+            "buck.data.StarlarkUserMetadataListValue",
+            "#[serde(transparent)]",
+        )
+        .type_attribute(
             "buck.data.StarlarkUserMetadataValue",
             "#[serde(transparent)]",
         )
