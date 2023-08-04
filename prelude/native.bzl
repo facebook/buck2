@@ -22,6 +22,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
 load("@prelude//erlang:erlang.bzl", _erlang_application = "erlang_application", _erlang_tests = "erlang_tests")
 load("@prelude//python:toolchain.bzl", _python = "python")
 load("@prelude//user:all.bzl", _user_rules = "rules")
+load("@prelude//utils:selects.bzl", "selects")
 load("@prelude//utils:utils.bzl", "expect")
 load(":open_source.bzl", "is_open_source")
 load(":paths.bzl", "paths")
@@ -276,7 +277,7 @@ def _configured_alias_macro_stub(
     __rules__["configured_alias"](
         name = name,
         # Use a select map to make this thing `None` if `platform` is `None`.
-        configured_actual = native.select_map(
+        configured_actual = selects.apply(
             platform,
             lambda platform: (actual, platform) if platform != None or not fallback_to_unconfigured_alias else None,
         ),
