@@ -272,19 +272,11 @@ impl InterpreterForCell {
                         "Should've had an env for the prelude import `{}` (internal error)",
                         prelude_import,
                     )
-                })?
-                .env();
-            env.import_public_symbols(prelude_env);
+                })?;
+            env.import_public_symbols(prelude_env.env());
             if let StarlarkPath::BuildFile(_) = starlark_path {
-                if let Some(native) = prelude_env.get_option("native")? {
-                    let native = native.value();
-                    for attr in native.dir_attr() {
-                        if let Some(value) = native.get_attr(&attr, env.heap())? {
-                            env.set(&attr, value);
-                        } else {
-                            // Should not be possible.
-                        }
-                    }
+                for (name, value) in prelude_env.extra_globals_from_prelude_for_buck_files()? {
+                    env.set(name, value.to_value());
                 }
             }
         }

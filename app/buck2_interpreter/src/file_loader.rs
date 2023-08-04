@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -14,12 +15,21 @@ use buck2_core::bzl::ImportPath;
 use buck2_util::collections::ordered_map::OrderedMap;
 use derivative::Derivative;
 use dupe::Dupe;
+use either::Either;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::eval::FileLoader;
+use starlark::values::structs::FrozenStructRef;
+use starlark::values::FrozenValue;
 
 use crate::path::OwnedStarlarkModulePath;
 use crate::path::StarlarkModulePath;
+
+#[derive(Debug, thiserror::Error)]
+enum FileLoaderError {
+    #[error("`native` in `prelude.bzl` must be a struct")]
+    NativeMustBeStruct,
+}
 
 #[derive(Default, Clone, Allocative, Debug)]
 pub struct LoadedModules {
@@ -97,6 +107,22 @@ impl LoadedModule {
 
     pub fn env(&self) -> &FrozenModule {
         &self.0.env
+    }
+
+    /// Returned `FrozenValue` is owned by `self.0.env`.
+    pub fn extra_globals_from_prelude_for_buck_files(
+        &self,
+    ) -> anyhow::Result<impl Iterator<Item = (&str, FrozenValue)> + '_> {
+        if let Some(native) = self.0.env.get_option("native")? {
+            unsafe {
+                match FrozenStructRef::<'static>::from_value(native.unchecked_frozen_value()) {
+                    Some(native) => Ok(Either::Left(native.iter().map(|(n, v)| (n.as_str(), v)))),
+                    None => Err(FileLoaderError::NativeMustBeStruct.into()),
+                }
+            }
+        } else {
+            Ok(Either::Right(iter::empty()))
+        }
     }
 }
 

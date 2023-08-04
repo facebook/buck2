@@ -42,10 +42,13 @@ use starlark::collections::SmallMap;
 use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
+use starlark::docs::DocMember;
 use starlark::docs::DocModule;
+use starlark::docs::DocProperty;
 use starlark::docs::Identifier;
 use starlark::docs::Location;
 use starlark::environment::Globals;
+use starlark::typing::Ty;
 
 use super::bxl_docs::get_builtin_bxl_docs;
 use crate::builtin_docs::markdown::generate_markdown_files;
@@ -166,15 +169,17 @@ async fn get_docs_from_module(
 
     // For the prelude, we want to promote `native` symbol up one level
     if let Some(existing_globals) = promote_native {
-        if let Some(native) = frozen_module.get_option("native")? {
-            if let Some(DocItem::Object(native)) = native.value().documentation() {
-                for (k, v) in native.members {
-                    if !existing_globals.contains(k.as_str())
-                        && !module_docs.members.contains_key(&k)
-                    {
-                        module_docs.members.insert(k, v);
-                    }
-                }
+        for (name, value) in module.extra_globals_from_prelude_for_buck_files()? {
+            if !existing_globals.contains(&name) && !module_docs.members.contains_key(name) {
+                let doc = match value.to_value().documentation() {
+                    Some(DocItem::Function(f)) => DocMember::Function(f),
+                    _ => DocMember::Property(DocProperty {
+                        docs: None,
+                        typ: Ty::any(),
+                    }),
+                };
+
+                module_docs.members.insert(name.to_owned(), doc);
             }
         }
     }
