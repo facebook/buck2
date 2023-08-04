@@ -21,7 +21,6 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
@@ -41,7 +40,6 @@ use futures::future::BoxFuture;
 use futures::future::Shared;
 use futures::FutureExt;
 use host_sharing::HostSharingBroker;
-use host_sharing::HostSharingRequirements;
 use host_sharing::HostSharingStrategy;
 use indexmap::IndexMap;
 use tokio::task::JoinHandle;
@@ -289,7 +287,6 @@ async fn spawn_worker(
         client,
         stdout_path,
         stderr_path,
-        worker_spec.concurrency,
         liveliness_guard,
     ))
 }
@@ -298,6 +295,7 @@ type WorkerFuture = Shared<BoxFuture<'static, Result<Arc<WorkerHandle>, Arc<Work
 
 pub struct WorkerPool {
     workers: Arc<parking_lot::Mutex<HashMap<WorkerId, WorkerFuture>>>,
+    brokers: Arc<parking_lot::Mutex<HashMap<WorkerId, Arc<HostSharingBroker>>>>,
 }
 
 impl WorkerPool {
@@ -305,7 +303,23 @@ impl WorkerPool {
         tracing::info!("Creating new WorkerPool");
         WorkerPool {
             workers: Arc::new(parking_lot::Mutex::new(HashMap::default())),
+            brokers: Arc::new(parking_lot::Mutex::new(HashMap::default())),
         }
+    }
+
+    pub fn get_worker_broker(&self, worker_spec: &WorkerSpec) -> Option<Arc<HostSharingBroker>> {
+        let mut brokers = self.brokers.lock();
+        worker_spec.concurrency.map(|concurrency| {
+            brokers
+                .entry(worker_spec.id)
+                .or_insert_with(|| {
+                    Arc::new(HostSharingBroker::new(
+                        HostSharingStrategy::Fifo,
+                        concurrency,
+                    ))
+                })
+                .clone()
+        })
     }
 
     pub fn get_or_create_worker(
@@ -343,7 +357,6 @@ pub struct WorkerHandle {
     client: WorkerClient<Channel>,
     stdout_path: AbsNormPathBuf,
     stderr_path: AbsNormPathBuf,
-    host_sharing_broker: Option<HostSharingBroker>,
     _liveliness_guard: LivelinessGuard,
 }
 
@@ -352,16 +365,12 @@ impl WorkerHandle {
         client: WorkerClient<Channel>,
         stdout_path: AbsNormPathBuf,
         stderr_path: AbsNormPathBuf,
-        concurrency_limit: Option<usize>,
         liveliness_guard: LivelinessGuard,
     ) -> Self {
-        let host_sharing_broker =
-            concurrency_limit.map(|i| HostSharingBroker::new(HostSharingStrategy::Fifo, i));
         Self {
             client,
             stdout_path,
             stderr_path,
-            host_sharing_broker,
             _liveliness_guard: liveliness_guard,
         }
     }
@@ -389,21 +398,6 @@ impl WorkerHandle {
         args: &[String],
         env: Vec<(OsString, OsString)>,
     ) -> (GatherOutputStatus, Vec<u8>, Vec<u8>) {
-        // Would be better to acquire this permit before global permit (associated with LocalQueued span)
-        let _permit = if let Some(host_sharing_broker) = &self.host_sharing_broker {
-            Some(
-                executor_stage_async(
-                    buck2_data::LocalStage {
-                        stage: Some(buck2_data::WorkerQueued {}.into()),
-                    },
-                    host_sharing_broker.acquire(&HostSharingRequirements::default()),
-                )
-                .await,
-            )
-        } else {
-            None
-        };
-
         tracing::info!(
             "Sending worker command:\nExecuteCommand {{ argv: {:?}, env: {:?} }}\n",
             args,
