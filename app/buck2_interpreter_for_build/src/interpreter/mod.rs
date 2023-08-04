@@ -10,6 +10,7 @@
 pub mod buckconfig;
 pub mod build_context;
 pub mod build_defs;
+pub(crate) mod bzl_eval_ctx;
 pub mod calculation;
 pub(crate) mod cell_info;
 pub mod configuror;

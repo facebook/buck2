@@ -53,6 +53,7 @@ use thiserror::Error;
 
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
+use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::module_internals::ModuleInternals;
@@ -499,13 +500,19 @@ impl InterpreterForCell {
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
     ) -> anyhow::Result<FrozenModule> {
         let env = self.create_env(starlark_path.into(), &loaded_modules)?;
+        let extra_context = match starlark_path {
+            StarlarkModulePath::LoadFile(bzl) => PerFileTypeContext::Bzl(BzlEvalCtx {
+                bzl_path: bzl.clone(),
+            }),
+            StarlarkModulePath::BxlFile(bxl) => PerFileTypeContext::Bxl(bxl.clone()),
+        };
         self.eval(
             &env,
             ast,
             buckconfig,
             root_buckconfig,
             loaded_modules,
-            PerFileTypeContext::for_module(starlark_path),
+            extra_context,
             eval_provider,
         )?;
         env.freeze()

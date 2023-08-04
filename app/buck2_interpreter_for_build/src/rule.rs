@@ -301,7 +301,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
 
         let build_context = BuildContext::from_context(eval)?;
         let bzl_path: ImportPath = match &build_context.additional {
-            PerFileTypeContext::Bzl(bzl_path) => (*bzl_path).clone(),
+            PerFileTypeContext::Bzl(bzl_path) => bzl_path.bzl_path.clone(),
             _ => return Err(RuleError::RuleNonInBzl.into()),
         };
         let sorted_validated_attrs = attrs

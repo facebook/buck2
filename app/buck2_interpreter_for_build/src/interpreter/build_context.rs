@@ -10,14 +10,12 @@
 use std::fmt::Debug;
 
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
-use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::path::BxlFilePath;
-use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Module;
@@ -25,6 +23,7 @@ use starlark::eval::Evaluator;
 use thiserror::Error;
 
 use crate::interpreter::buckconfig::LegacyBuckConfigForStarlark;
+use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
 use crate::interpreter::module_internals::ModuleInternals;
@@ -56,7 +55,8 @@ pub(crate) enum PerFileTypeContext {
     Build(ModuleInternals),
     /// Context for evaluating `PACKAGE` files.
     Package(PackageFileEvalCtx),
-    Bzl(ImportPath),
+    /// Context for evaluating `bzl` files.
+    Bzl(BzlEvalCtx),
     Bxl(BxlFilePath),
 }
 
@@ -65,7 +65,7 @@ impl PerFileTypeContext {
         match self {
             PerFileTypeContext::Build(module) => StarlarkPath::BuildFile(module.buildfile_path()),
             PerFileTypeContext::Package(package) => StarlarkPath::PackageFile(&package.path),
-            PerFileTypeContext::Bzl(path) => StarlarkPath::LoadFile(path),
+            PerFileTypeContext::Bzl(path) => StarlarkPath::LoadFile(&path.bzl_path),
             PerFileTypeContext::Bxl(path) => StarlarkPath::BxlFile(path),
         }
     }
@@ -106,13 +106,6 @@ impl PerFileTypeContext {
         match self {
             PerFileTypeContext::Package(ctx) => Ok(ctx),
             x => Err(BuildContextError::NotPackageFileNoFunction(x.file_type()).into()),
-        }
-    }
-
-    pub(crate) fn for_module(path: StarlarkModulePath) -> PerFileTypeContext {
-        match path {
-            StarlarkModulePath::LoadFile(bzl) => PerFileTypeContext::Bzl(bzl.clone()),
-            StarlarkModulePath::BxlFile(bxl) => PerFileTypeContext::Bxl(bxl.clone()),
         }
     }
 }

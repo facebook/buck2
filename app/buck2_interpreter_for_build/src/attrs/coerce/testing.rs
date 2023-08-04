@@ -33,6 +33,7 @@ use starlark::values::Value;
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
+use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
 
@@ -93,7 +94,9 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
         &buckconfig,
         &root_buckconfig,
         &host_info,
-        PerFileTypeContext::Bzl(import_path),
+        PerFileTypeContext::Bzl(BzlEvalCtx {
+            bzl_path: import_path,
+        }),
         false,
     );
 
