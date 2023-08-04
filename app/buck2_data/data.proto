@@ -144,11 +144,21 @@ message UntrackedFile {
   string file_type = 2;
 }
 
+message StarlarkUserMetadataDictValue {
+  map<string, StarlarkUserMetadataValue> value = 1;
+}
+
+message StarlarkUserMetadataListValue {
+  repeated StarlarkUserMetadataValue value = 1;
+}
+
 message StarlarkUserMetadataValue {
   oneof value {
     string string_value = 1;
     int32 int_value = 2;
     bool bool_value = 3;
+    StarlarkUserMetadataDictValue dict_value = 4;
+    StarlarkUserMetadataListValue list_value = 5;
   }
 }
 
