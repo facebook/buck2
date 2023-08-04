@@ -39,6 +39,7 @@ use crate::super_package::package_value::register_read_package_value;
 fn register_universal_natives(builder: &mut GlobalsBuilder) {
     (REGISTER_BUCK2_BUILD_API_GLOBALS.get().unwrap())(builder);
     (REGISTER_TRANSITION.get().unwrap())(builder);
+    (BXL_SPECIFIC_GLOBALS.get().unwrap())(builder);
     register_module_natives(builder);
     register_host_info(builder);
     register_read_config(builder);
@@ -71,7 +72,6 @@ pub fn configure_package_file_globals(globals_builder: &mut GlobalsBuilder) {
 /// Globals for `.bxl` files.
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_universal_natives(globals_builder);
-    (BXL_SPECIFIC_GLOBALS.get().unwrap())(globals_builder);
 }
 
 /// Globals for `.bzl` files.
