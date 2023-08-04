@@ -86,4 +86,10 @@ pub enum HttpError {
     MutateRequest(#[from] anyhow::Error),
     #[error("HTTP: Timed out while make request to URI: {uri} after {duration} seconds.")]
     Timeout { uri: String, duration: u64 },
+    #[error("While making request to {uri} via x2p")]
+    X2P {
+        uri: String,
+        #[source]
+        source: x2p::X2PAgentError,
+    },
 }

@@ -31,6 +31,7 @@ use crate::http::redirect::PendingRequest;
 use crate::http::redirect::RedirectEngine;
 use crate::http::stats::CountingStream;
 use crate::http::stats::HttpNetworkStats;
+use crate::http::x2p::X2PAgentError;
 use crate::http::HttpError;
 
 mod builder;
@@ -144,7 +145,7 @@ impl HttpClient {
         request: Request<Bytes>,
     ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
         let pending_request = PendingRequest::from_request(&request);
-        let uri = request.uri().to_string();
+        let uri = request.uri().clone();
         tracing::debug!("http: request: {:?}", request);
         let resp = self.send_request_impl(request).await?;
         tracing::debug!("http: response: {:?}", resp.status());
@@ -160,9 +161,21 @@ impl HttpClient {
         };
 
         if !resp.status().is_success() {
+            // Handle x2p errors as indicated by headers.
+            if let Some(x2p_err) = X2PAgentError::from_headers(&uri, resp.headers()) {
+                return Err(HttpError::X2P {
+                    uri: uri.to_string(),
+                    source: x2p_err,
+                });
+            }
+
             let status = resp.status();
             let text = read_truncated_error_response(resp).await;
-            return Err(HttpError::Status { status, uri, text });
+            return Err(HttpError::Status {
+                status,
+                uri: uri.to_string(),
+                text,
+            });
         }
 
         Ok(resp)
@@ -852,6 +865,89 @@ mod tests {
             .build();
         let resp = client.get(&url.to_string()).await?;
         assert_eq!(200, resp.status().as_u16());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_x2p_error_response_is_forbidden_host() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        let url = test_server.url("/foo");
+        test_server.expect(
+            Expectation::matching(all_of![request::method_path("GET", "/foo")])
+                .times(1)
+                .respond_with(
+                    responders::status_code(400)
+                        .append_header("x-x2pagentd-error-type", "FORBIDDEN_HOST")
+                        .append_header("x-x2pagentd-error-msg", "Nope"),
+                ),
+        );
+
+        let client = HttpClientBuilder::https_with_system_roots()?.build();
+        let result = client.get(&url.to_string()).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(HttpError::X2P {
+                source: X2PAgentError::ForbiddenHost(..),
+                ..
+            })
+        ));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_x2p_error_response_is_access_denied() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        let url = test_server.url("/foo");
+        test_server.expect(
+            Expectation::matching(all_of![request::method_path("GET", "/foo")])
+                .times(1)
+                .respond_with(
+                    responders::status_code(400)
+                        .append_header("x-fb-validated-x2pauth-decision", "deny")
+                        .append_header("x-x2pagentd-error-msg", "Nope"),
+                ),
+        );
+
+        let client = HttpClientBuilder::https_with_system_roots()?.build();
+        let result = client.get(&url.to_string()).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(HttpError::X2P {
+                source: X2PAgentError::AccessDenied { .. },
+                ..
+            }),
+        ));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_x2p_error_response_is_generic_error() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        let url = test_server.url("/foo");
+        test_server.expect(
+            Expectation::matching(all_of![request::method_path("GET", "/foo")])
+                .times(1)
+                .respond_with(
+                    responders::status_code(400)
+                        .append_header("x-x2pagentd-error-msg", "Something else happened"),
+                ),
+        );
+
+        let client = HttpClientBuilder::https_with_system_roots()?.build();
+        let result = client.get(&url.to_string()).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(HttpError::X2P {
+                source: X2PAgentError::Error(..),
+                ..
+            }),
+        ));
 
         Ok(())
     }

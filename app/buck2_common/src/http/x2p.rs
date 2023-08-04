@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use http::HeaderMap;
+use http::Uri;
 use hyper_proxy::Proxy;
 
 #[cfg(fbcode_build)]
@@ -67,4 +69,41 @@ pub fn supports_vpnless() -> bool {
 
     #[cfg(not(fbcode_build))]
     return false;
+}
+
+/// Collection of different kinds of errors we can see from x2pagent. Typically
+/// denotes a URL is not authorized for vpnless access and/or using the wrong,
+/// non-vpnless url.
+#[derive(Debug, thiserror::Error)]
+pub enum X2PAgentError {
+    #[error("Host `{0}` is not authorized for vpnless access")]
+    ForbiddenHost(String),
+    #[error("Failed to connect to `{0}`; is it authorized for vpnless?")]
+    Connection(String),
+    #[error("Host `{host}` and path `{path}` is not authorized on vpnless")]
+    AccessDenied { host: String, path: String },
+    #[error(transparent)]
+    Error(#[from] anyhow::Error),
+}
+
+impl X2PAgentError {
+    pub fn from_headers(uri: &Uri, headers: &HeaderMap) -> Option<Self> {
+        let auth_decision = headers.get("x-fb-validated-x2pauth-decision");
+        let error_type = headers.get("x-x2pagentd-error-type");
+        let error_msg = headers.get("x-x2pagentd-error-msg");
+
+        let host = uri.host().unwrap_or("<no host>").to_owned();
+        match (auth_decision, error_type, error_msg) {
+            (Some(decision), _, _) if decision == "deny" => Some(Self::AccessDenied {
+                host,
+                path: uri.path().to_owned(),
+            }),
+            (_, Some(typ), Some(_)) if typ == "FORBIDDEN_HOST" => Some(Self::ForbiddenHost(host)),
+            (_, Some(typ), Some(_)) if typ == "CONNECTION" => Some(Self::Connection(host)),
+            (_, _, Some(msg)) => Some(Self::Error(anyhow::anyhow!(
+                String::from_utf8_lossy(msg.as_bytes()).into_owned()
+            ))),
+            _ => None,
+        }
+    }
 }
