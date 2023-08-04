@@ -35,12 +35,20 @@ use crate::super_package::package_value::register_read_package_value;
 /// Natives for all file types.
 fn register_universal_natives(builder: &mut GlobalsBuilder) {
     (REGISTER_BUCK2_BUILD_API_GLOBALS.get().unwrap())(builder);
+    (REGISTER_TRANSITION.get().unwrap())(builder);
     register_module_natives(builder);
     register_host_info(builder);
     register_read_config(builder);
     register_read_package_value(builder);
     register_soft_error(builder);
     register_package_natives(builder);
+    register_warning(builder);
+    register_regex(builder);
+    register_load_symbols(builder);
+    register_rule_function(builder);
+    register_attrs(builder);
+    register_providers_label(builder);
+    register_target_label(builder);
 }
 
 /// Globals for `BUCK` files.
@@ -58,20 +66,9 @@ pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_universal_natives(globals_builder);
     register_base_natives(globals_builder);
     (BXL_SPECIFIC_GLOBALS.get().unwrap())(globals_builder);
-    register_read_config(globals_builder);
-    register_host_info(globals_builder);
 }
 
 /// Globals for `.bzl` files.
 pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_universal_natives(globals_builder);
-    register_warning(globals_builder);
-    register_regex(globals_builder);
-    register_load_symbols(globals_builder);
-    register_rule_function(globals_builder);
-    register_attrs(globals_builder);
-    (REGISTER_TRANSITION.get().unwrap())(globals_builder);
-    register_package_natives(globals_builder);
-    register_providers_label(globals_builder);
-    register_target_label(globals_builder);
 }
