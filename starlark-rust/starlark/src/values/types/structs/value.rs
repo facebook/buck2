@@ -45,6 +45,7 @@ use crate::typing::Ty;
 use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
 use crate::values::structs::unordered_hasher::UnorderedHasher;
+use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -71,6 +72,14 @@ impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
         self.fields
             .iter()
             .map(|(name, value)| (name.to_string_value(), *value))
+    }
+}
+
+impl StructGen<'static, FrozenValue> {
+    pub(crate) fn iter_frozen(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
+        self.fields.iter().map(|(name, value)| (*name, *value))
     }
 }
 
