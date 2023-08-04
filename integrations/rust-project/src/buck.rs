@@ -344,8 +344,11 @@ impl Buck {
     #[instrument(skip_all)]
     pub fn expand_targets(&self, targets: &[Target]) -> Result<Vec<Target>, anyhow::Error> {
         let mut command = self.command();
+        command.arg("bxl");
+        if let Some(mode) = &self.mode {
+            command.arg(mode);
+        }
         command.args([
-            "bxl",
             "prelude//rust/rust-analyzer/resolve_deps.bxl:expand_targets",
             "--",
             "--targets",
@@ -451,11 +454,11 @@ impl Buck {
         // name of fbsource//third-party/rust:once_cell-1.15. This
         // query also fetches non-Rust aliases, but they shouldn't
         // hurt anything.
-        command.args([
-            "cquery",
-            "--output-all-attributes",
-            "kind('^alias$', deps(%Ss))",
-        ]);
+        command.arg("cquery");
+        if let Some(mode) = &self.mode {
+            command.arg(mode);
+        }
+        command.args(["--output-all-attributes", "kind('^alias$', deps(%Ss))"]);
         command.args(targets);
 
         info!("resolving aliased libraries");
@@ -557,7 +560,7 @@ pub fn select_mode(mode: Option<String>) -> Option<String> {
     } else if cfg!(target_os = "macos") {
         Some("@//mode/mac".to_owned())
     } else if cfg!(target_os = "windows") {
-        Some("@//mode/windows".to_owned())
+        Some("@//mode/win".to_owned())
     } else {
         // fallback to the platform default mode. This is likely slower than optimal, but
         // `rust-project build` will work.

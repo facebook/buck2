@@ -18,6 +18,7 @@ use tracing::info;
 
 use crate::buck;
 use crate::buck::relative_to;
+use crate::buck::select_mode;
 use crate::buck::to_json_project;
 use crate::json_project::Sysroot;
 use crate::sysroot::resolve_buckconfig_sysroot;
@@ -104,6 +105,7 @@ impl Develop {
             relative_paths,
             mode,
         } = self;
+        let mode = select_mode(mode);
         let buck = buck::Buck::new(mode);
         let project_root = buck.resolve_project_root()?;
 
