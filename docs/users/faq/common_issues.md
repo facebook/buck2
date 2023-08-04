@@ -25,10 +25,6 @@ For Meta, repo_root = fbsource, cell = fbcode/fbobjc/...
 
 If Buck2 seems to be doing nothing, it could be caused be a cycle in your dependencies, which may cause Buck2 to hang (Buck2 does implement a form of cycle detection, but it unfortunately has false negatives). You can confirm this by running Buck1, which will report cycles properly.
 
-<FbInternalOnly>
-This state of affairs sucks, and we're working on it in [T67259280](https://www.internalfb.com/tasks/?t=67259280).
-</FbInternalOnly>
-
 ## How do I get the commands Buck2 executed so I can reproduce them in isolation?
 
 For information, see [Finding Commands that Buck2 Ran](../../developers/what-ran.md).
