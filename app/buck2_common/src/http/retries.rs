@@ -15,7 +15,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum HttpError {
-    #[error("HTTP Client error: {0}")]
+    #[error(transparent)]
     Client(#[from] crate::http::HttpError),
 
     #[error("HTTP Transfer Error when querying URL: {}. Failed after {} bytes", .url, .received)]
