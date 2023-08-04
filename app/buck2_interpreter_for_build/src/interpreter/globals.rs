@@ -30,13 +30,11 @@ use crate::rule::register_rule_function;
 use crate::super_package::defs::register_package_natives;
 use crate::super_package::package_value::register_read_package_value;
 
-// TODO(nga): Unify globals.
-//   It was decided (https://fburl.com/workplace/dlvp5c9q)
-//   that we want identical globals for all files, except `BUCK` files,
-//   where we additionally add prelude and package implicits.
-
 /// Natives for all file types.
-fn register_universal_natives(builder: &mut GlobalsBuilder) {
+/// [It was decided](https://fburl.com/workplace/dlvp5c9q)
+/// that we want identical globals for all files, except `BUCK` files,
+/// where we additionally add prelude and package implicits.
+pub fn register_universal_natives(builder: &mut GlobalsBuilder) {
     (REGISTER_BUCK2_BUILD_API_GLOBALS.get().unwrap())(builder);
     (REGISTER_TRANSITION.get().unwrap())(builder);
     (BXL_SPECIFIC_GLOBALS.get().unwrap())(builder);
@@ -57,24 +55,4 @@ fn register_universal_natives(builder: &mut GlobalsBuilder) {
     register_select(builder);
     register_sha256(builder);
     register_dedupe(builder);
-}
-
-/// Globals for `BUCK` files.
-pub fn configure_build_file_globals(globals_builder: &mut GlobalsBuilder) {
-    register_universal_natives(globals_builder);
-}
-
-/// Globals for `PACKAGE` files.
-pub fn configure_package_file_globals(globals_builder: &mut GlobalsBuilder) {
-    register_universal_natives(globals_builder);
-}
-
-/// Globals for `.bxl` files.
-pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
-    register_universal_natives(globals_builder);
-}
-
-/// Globals for `.bzl` files.
-pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
-    register_universal_natives(globals_builder);
 }
