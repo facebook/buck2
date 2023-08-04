@@ -14,10 +14,7 @@ use dupe::Dupe;
 use hyper::StatusCode;
 use thiserror::Error;
 
-use self::find_certs::find_tls_cert;
-
 mod client;
-pub mod find_certs;
 mod proxy;
 mod redirect;
 pub mod retries;
@@ -44,7 +41,7 @@ pub fn http_client(allow_vpnless: bool) -> anyhow::Result<HttpClient> {
             "Expected unix domain socket or http proxy port for x2p client but did not find either",
         )?;
         Ok(builder.with_x2p_proxy(proxy).build())
-    } else if let Ok(Some(cert_path)) = find_tls_cert() {
+    } else if let Ok(Some(cert_path)) = tls::find_internal_cert() {
         Ok(builder.with_client_auth_cert(cert_path)?.build())
     } else {
         Ok(builder.build())
