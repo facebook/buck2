@@ -60,6 +60,8 @@ def find_with_vswhere_exe():
     vswhere_json = subprocess.check_output(
         [
             vswhere_exe,
+            "-products",
+            "*",
             "-requires",
             "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
             "-format",
