@@ -435,7 +435,7 @@ struct TimestampAndAmount {
 }
 
 struct AverageRateOfChangeCounters {
-    counters: SimpleCounters<f32>,
+    counters: SimpleCounters<u64>,
     previous_timestamp_and_amount_by_key: HashMap<String, TimestampAndAmount>,
 }
 
@@ -443,7 +443,7 @@ impl AverageRateOfChangeCounters {
     pub fn new(name: &'static str) -> Self {
         Self {
             previous_timestamp_and_amount_by_key: HashMap::new(),
-            counters: SimpleCounters::<f32>::new(name, 0.0),
+            counters: SimpleCounters::<u64>::new(name, 0),
         }
     }
 
@@ -456,13 +456,13 @@ impl AverageRateOfChangeCounters {
         // We only plot if there exists a previous item to compute the rate of change off of
         if let Some(previous) = self.previous_timestamp_and_amount_by_key.get(key) {
             let secs_since_last_datapoint =
-                timestamp.duration_since(previous.timestamp)?.as_secs_f32();
-            let value_change_since_last_datapoint = (amount - previous.amount) as f32;
+                timestamp.duration_since(previous.timestamp)?.as_secs_f64();
+            let value_change_since_last_datapoint = (amount - previous.amount) as f64;
             if secs_since_last_datapoint > 0.0 {
                 self.counters.set(
                     timestamp,
                     key,
-                    value_change_since_last_datapoint / secs_since_last_datapoint,
+                    (value_change_since_last_datapoint / secs_since_last_datapoint) as u64,
                 )?;
             }
         }
