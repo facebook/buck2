@@ -35,7 +35,9 @@ use crate::values::ValueOfUnchecked;
 
 #[starlark_module]
 pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
-    /// Append an element to a list.
+    /// [list.append](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#list·append
+    /// ): append an element to a list.
     ///
     /// `L.append(x)` appends `x` to the list L, and returns `None`.
     ///
@@ -60,7 +62,9 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    /// Clear a list
+    /// [list.clear](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#list·clear
+    /// ): clear a list
     ///
     /// `L.clear()` removes all the elements of the list L and returns `None`.
     /// It fails if the list is frozen or if there are active iterators.
@@ -78,7 +82,9 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    /// Extend a list with another iterable's content.
+    /// [list.extend](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#list·extend
+    /// ): extend a list with another iterable's content.
     ///
     /// `L.extend(x)` appends the elements of `x`, which must be iterable, to
     /// the list L, and returns `None`.
@@ -111,7 +117,9 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    /// Get the index of an element in the list.
+    /// [list.index](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#list·index
+    /// ): get the index of an element in the list.
     ///
     /// `L.index(x[, start[, end]])` finds `x` within the list L and returns its
     /// index.
@@ -158,7 +166,9 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         ))
     }
 
-    /// Insert an element in a list.
+    /// [list.insert](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#list·insert
+    /// ): insert an element in a list.
     ///
     /// `L.insert(i, x)` inserts the value `x` in the list L at index `i`,
     /// moving higher-numbered elements along by one.  It returns `None`.
@@ -189,7 +199,9 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    /// Removes and returns the last element of a list.
+    /// [list.pop](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#list·pop
+    /// ): removes and returns the last element of a list.
     ///
     /// `L.pop([index])` removes and returns the last element of the list L, or,
     /// if the optional index is provided, at that index.
@@ -220,7 +232,9 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         Ok(this.remove(index as usize))
     }
 
-    /// Remove a value from a list
+    /// [list.remove](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#list·remove
+    /// ): remove a value from a list
     ///
     /// `L.remove(x)` removes the first occurrence of the value `x` from the
     /// list L, and returns `None`.

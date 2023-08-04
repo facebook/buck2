@@ -131,7 +131,9 @@ impl<'v> UnpackValue<'v> for StringOrTuple<'v> {
 
 #[starlark_module]
 pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
-    /// Returns an iterable of the bytes values of a string.
+    /// [string.elems](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·elems
+    /// ): returns an iterable of the bytes values of a string.
     ///
     /// `S.elems()` returns an iterable value containing the
     /// sequence of numeric bytes values in the string S.
@@ -175,7 +177,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(result)
     }
 
-    /// Returns an iterable of the unicode codepoint of a string.
+    /// [string.codepoints](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·codepoints
+    /// ): returns an iterable of the unicode codepoint of a string.
     ///
     /// `S.codepoints()` returns an iterable value containing the
     /// sequence of integer Unicode code points encoded by the string S.
@@ -198,12 +202,14 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(iterate_codepoints(this, heap))
     }
 
-    /// Count the number of occurrences of a string in another string.
+    /// [string.count](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·count
+    /// ): count the number of occurrences of a string in another string.
     ///
     /// `S.count(sub[, start[, end]])` returns the number of occcurences of
     /// `sub` within the string S, or, if the optional substring indices
     /// `start` and `end` are provided, within the designated substring of S.
-    /// They are interpreted according to Starlark's [indexing conventions](
+    /// They are interpreted according to Skylark's [indexing conventions](
     /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#indexing).
     ///
     /// This implementation does not count occurrence of `sub` in the string `S`
@@ -233,7 +239,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Determine if a string ends with a given suffix.
+    /// [string.endswith](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·endswith
+    /// ): determine if a string ends with a given suffix.
     ///
     /// `S.endswith(suffix)` reports whether the string S has the specified
     /// suffix.
@@ -254,7 +262,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Find a substring in a string.
+    /// [string.find](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·find
+    /// ): find a substring in a string.
     ///
     /// `S.find(sub[, start[, end]])` returns the index of the first
     /// occurrence of the substring `sub` within S.
@@ -289,7 +299,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(-1)
     }
 
-    /// Format a string.
+    /// [string.format](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·format
+    /// ): format a string.
     ///
     /// `S.format(*args, **kwargs)` returns a version of the format string S
     /// in which bracketed portions `{...}` are replaced
@@ -352,7 +364,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         )
     }
 
-    /// Search a substring inside a string, failing on not found.
+    /// [string.index](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·index
+    /// ): search a substring inside a string, failing on not found.
     ///
     /// `S.index(sub[, start[, end]])` returns the index of the first
     /// occurrence of the substring `sub` within S, like `S.find`, except
@@ -387,7 +401,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         ))
     }
 
-    /// Test if a string is composed only of letters and digits.
+    /// [string.isalnum](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·isalnum
+    /// ): test if a string is composed only of letters and digits.
     ///
     /// `S.isalnum()` reports whether the string S is non-empty and consists
     /// only Unicode letters and digits.
@@ -411,7 +427,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(true)
     }
 
-    /// Test if a string is composed only of letters.
+    /// [string.isalpha](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·isalpha
+    /// ): test if a string is composed only of letters.
     ///
     /// `S.isalpha()` reports whether the string S is non-empty and consists
     /// only of Unicode letters.
@@ -436,7 +454,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(true)
     }
 
-    /// Test if a string is composed only of digits.
+    /// [string.isdigit](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·isdigit
+    /// ): test if a string is composed only of digits.
     ///
     /// `S.isdigit()` reports whether the string S is non-empty and consists
     /// only of Unicode digits.
@@ -461,7 +481,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(true)
     }
 
-    /// Test if all letters of a string are lowercase.
+    /// [string.islower](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·islower
+    /// ): test if all letters of a string are lowercase.
     ///
     /// `S.islower()` reports whether the string S contains at least one cased
     /// Unicode letter, and all such letters are lowercase.
@@ -486,7 +508,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(result)
     }
 
-    /// Test if all characters of a string are whitespaces.
+    /// [string.isspace](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·isspace
+    /// ): test if all characters of a string are whitespaces.
     ///
     /// `S.isspace()` reports whether the string S is non-empty and consists
     /// only of Unicode spaces.
@@ -511,7 +535,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(true)
     }
 
-    /// Test if the string is title cased.
+    /// [string.istitle](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·istitle
+    /// ): test if the string is title cased.
     ///
     /// `S.istitle()` reports whether the string S contains at least one cased
     /// Unicode letter, and all such letters that begin a word are in title
@@ -550,7 +576,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(result)
     }
 
-    /// Test if all letters of a string are uppercase.
+    /// [string.isupper](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·isupper
+    /// ): test if all letters of a string are uppercase.
     ///
     /// `S.isupper()` reports whether the string S contains at least one cased
     /// Unicode letter, and all such letters are uppercase.
@@ -575,7 +603,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(result)
     }
 
-    /// Test if all letters of a string are lowercased.
+    /// [string.lower](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·lower
+    /// ): test if all letters of a string are lowercased.
     ///
     /// `S.lower()` returns a copy of the string S with letters converted to
     /// lowercase.
@@ -590,7 +620,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(this.to_lowercase())
     }
 
-    /// Join elements with a separator.
+    /// [string.join](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·join
+    /// ): join elements with a separator.
     ///
     /// `S.join(iterable)` returns the string formed by concatenating each
     /// element of its argument, with a copy of the string S between
@@ -649,7 +681,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Trim leading whitespaces.
+    /// [string.lstrip](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·lstrip
+    /// ): trim leading whitespaces.
     ///
     /// `S.lstrip()` returns a copy of the string S with leading whitespace removed.
     /// In most cases instead of passing an argument you should use `removeprefix`.
@@ -677,7 +711,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Partition a string in 3 components
+    /// [string.partition](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·partition
+    /// ): partition a string in 3 components
     ///
     /// `S.partition(x = " ")` splits string S into three parts and returns them
     /// as a tuple: the portion before the first occurrence of string `x`,
@@ -716,7 +752,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Replace all occurrences of a substring.
+    /// [string.replace](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·replace
+    /// ): replace all occurrences of a substring.
     ///
     /// `S.replace(old, new[, count])` returns a copy of string S with all
     /// occurrences of substring `old` replaced by `new`. If the optional
@@ -773,7 +811,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Find the last index of a substring.
+    /// [string.rfind](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·rfind
+    /// ): find the last index of a substring.
     ///
     /// `S.rfind(sub[, start[, end]])` returns the index of the substring `sub`
     /// within S, like `S.find`, except that `rfind` returns the index of
@@ -802,7 +842,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(-1)
     }
 
-    /// Find the last index of a substring, failing on not found.
+    /// [string.rindex](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·rindex
+    /// ): find the last index of a substring, failing on not found.
     ///
     /// `S.rindex(sub[, start[, end]])` returns the index of the substring `sub`
     /// within S, like `S.index`, except that `rindex` returns the index of
@@ -837,7 +879,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         ))
     }
 
-    /// Partition a string in 3 elements.
+    /// [string.rpartition](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·rpartition
+    /// ): partition a string in 3 elements.
     ///
     /// `S.rpartition([x = ' '])` is like `partition`, but splits `S` at the
     /// last occurrence of `x`.
@@ -872,7 +916,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Splits a string into substrings.
+    /// [string.rsplit](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·rsplit
+    /// ): splits a string into substrings.
     ///
     /// `S.rsplit([sep[, maxsplit]])` splits a string into substrings like
     /// `S.split`, except that when a maximum number of splits is specified,
@@ -922,7 +968,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         )))
     }
 
-    /// Trim trailing whitespace.
+    /// [string.rstrip](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·rstrip
+    /// ): trim trailing whitespace.
     ///
     /// `S.rstrip()` returns a copy of the string S with trailing whitespace removed.
     /// In most cases instead of passing an argument you should use `removesuffix`.
@@ -950,7 +998,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Split a string in substrings.
+    /// [string.split](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·split
+    /// ): split a string in substrings.
     ///
     /// `S.split([sep [, maxsplit]])` returns the list of substrings of S,
     /// splitting at occurrences of the delimiter string `sep`.
@@ -1026,7 +1076,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         )))
     }
 
-    /// Return the list of lines of a string.
+    /// [string.splitlines](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·splitlines
+    /// ): return the list of lines of a string.
     ///
     /// `S.splitlines([keepends])` returns a list whose elements are the
     /// successive lines of S, that is, the strings formed by splitting S at
@@ -1076,7 +1128,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Test whether a string starts with a given prefix.
+    /// [string.startswith](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·startswith
+    /// ): test whether a string starts with a given prefix.
     ///
     /// `S.startswith(suffix)` reports whether the string S has the specified
     /// prefix.
@@ -1101,7 +1155,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Trim leading and trailing whitespaces.
+    /// [string.strip](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·strip
+    /// ): trim leading and trailing whitespaces.
     ///
     /// `S.strip()` returns a copy of the string S with leading and trailing
     /// whitespace removed.
@@ -1129,7 +1185,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Convert a string to title case.
+    /// [string.title](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·title
+    /// ): convert a string to title case.
     ///
     /// `S.lower()` returns a copy of the string S with letters converted to
     /// titlecase.
@@ -1162,7 +1220,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(result)
     }
 
-    /// Convert a string to all uppercase.
+    /// [string.upper](
+    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·upper
+    /// ): convert a string to all uppercase.
     ///
     /// `S.lower()` returns a copy of the string S with letters converted to
     /// lowercase.
@@ -1177,7 +1237,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(this.to_uppercase())
     }
 
-    /// Remove a prefix from a string. _Not part of standard Starlark._
+    /// [string.removeprefix](
+    /// https://docs.python.org/3.9/library/stdtypes.html#str.removeprefix
+    /// ): remove a prefix from a string. _Not part of standard Starlark._
     ///
     /// If the string starts with the prefix string, return `string[len(prefix):]`.
     /// Otherwise, return a copy of the original string:
@@ -1203,7 +1265,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Remove a prefix from a string. _Not part of standard Starlark._
+    /// [string.removesuffix](
+    /// https://docs.python.org/3.9/library/stdtypes.html#str.removesuffix
+    /// ): remove a prefix from a string. _Not part of standard Starlark._
     ///
     /// If the string starts with the prefix string, return `string[len(prefix):]`.
     /// Otherwise, return a copy of the original string:
