@@ -90,6 +90,7 @@ humantime = "2.0.1"
 hyper = { version = "0.14.26", features = ["client", "http1", "http2"] }
 hyper-proxy = { git = "https://github.com/get9/hyper-proxy", rev = "205e9fee42d469444d654d9fa207897f4a77d5b6", features = ["rustls"], default_features = false } # branch = tokio-rustls-0.23 Many PRs to bump versions (#28, #30, #31) are several years old, possibly abandoned crate. This fork contains changes from #28 + changes to upgrade rustls to 0.21.
 hyper-rustls = { version = "0.24.0", features = ["http2"] }
+hyper-timeout = "0.4"
 hyper-unix-connector = "0.2"
 indent_write = "2.2.0"
 indenter = "0.3.3"

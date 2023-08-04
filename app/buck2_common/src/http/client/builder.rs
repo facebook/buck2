@@ -9,6 +9,7 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use hyper::client::HttpConnector;
 use hyper::service::Service;
@@ -18,6 +19,7 @@ use hyper_proxy::Proxy;
 use hyper_proxy::ProxyConnector;
 use hyper_rustls::HttpsConnector;
 use hyper_rustls::HttpsConnectorBuilder;
+use hyper_timeout::TimeoutConnector;
 use rustls::ClientConfig;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
@@ -29,11 +31,35 @@ use crate::http::proxy;
 use crate::http::stats::HttpNetworkStats;
 use crate::http::tls;
 
+#[derive(Clone, Debug, Default, PartialEq)]
+struct TimeoutConfig {
+    connect_timeout: Option<Duration>,
+    read_timeout: Option<Duration>,
+    write_timeout: Option<Duration>,
+}
+
+impl TimeoutConfig {
+    fn to_connector<C>(&self, connector: C) -> TimeoutConnector<C>
+    where
+        C: Service<Uri> + Send,
+        C::Response: AsyncRead + AsyncWrite + Send + Unpin,
+        C::Future: Send + 'static,
+        C::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    {
+        let mut timeout_connector = TimeoutConnector::new(connector);
+        timeout_connector.set_connect_timeout(self.connect_timeout);
+        timeout_connector.set_read_timeout(self.read_timeout);
+        timeout_connector.set_write_timeout(self.write_timeout);
+        timeout_connector
+    }
+}
+
 pub struct HttpClientBuilder {
     tls_config: ClientConfig,
     proxies: Vec<Proxy>,
     max_redirects: Option<usize>,
     supports_vpnless: bool,
+    timeout_config: Option<TimeoutConfig>,
 }
 
 impl HttpClientBuilder {
@@ -44,6 +70,7 @@ impl HttpClientBuilder {
             proxies: Vec::new(),
             max_redirects: None,
             supports_vpnless: false,
+            timeout_config: None,
         })
     }
 
@@ -77,6 +104,45 @@ impl HttpClientBuilder {
         Ok(self)
     }
 
+    pub fn with_connect_timeout(&mut self, connect_timeout: Option<Duration>) -> &mut Self {
+        if let Some(timeout_config) = &mut self.timeout_config {
+            timeout_config.connect_timeout = connect_timeout;
+        } else {
+            self.timeout_config = Some(TimeoutConfig {
+                connect_timeout,
+                read_timeout: None,
+                write_timeout: None,
+            });
+        }
+        self
+    }
+
+    pub fn with_read_timeout(&mut self, read_timeout: Option<Duration>) -> &mut Self {
+        if let Some(timeout_config) = &mut self.timeout_config {
+            timeout_config.read_timeout = read_timeout;
+        } else {
+            self.timeout_config = Some(TimeoutConfig {
+                read_timeout,
+                connect_timeout: None,
+                write_timeout: None,
+            });
+        }
+        self
+    }
+
+    pub fn with_write_timeout(&mut self, write_timeout: Option<Duration>) -> &mut Self {
+        if let Some(timeout_config) = &mut self.timeout_config {
+            timeout_config.write_timeout = write_timeout;
+        } else {
+            self.timeout_config = Some(TimeoutConfig {
+                write_timeout,
+                connect_timeout: None,
+                read_timeout: None,
+            });
+        }
+        self
+    }
+
     pub fn with_max_redirects(&mut self, max_redirects: usize) -> &mut Self {
         self.max_redirects = Some(max_redirects);
         self
@@ -88,17 +154,31 @@ impl HttpClientBuilder {
     }
 
     fn build_inner(&self) -> Arc<dyn RequestClient> {
-        match self.proxies.as_slice() {
+        match (self.proxies.as_slice(), &self.timeout_config) {
             // Construct x2p unix socket client.
             // Note: This ignores (and does not require) the TLS config.
             #[cfg(unix)]
-            proxies @ [_, ..] if let Some(unix_socket) = find_unix_proxy(proxies) => {
+            (proxies @ [_, ..], Some(timeout_config)) if let Some(unix_socket) = find_unix_proxy(proxies) => {
+                let timeout_connector = timeout_config.to_connector(hyper_unix_connector::UnixClient);
+                let proxy_connector = build_proxy_connector(&[unix_socket.clone()], timeout_connector, None);
+                Arc::new(hyper::Client::builder().build::<_, Body>(proxy_connector))
+            }
+            #[cfg(unix)]
+            (proxies @ [_, ..], None) if let Some(unix_socket) = find_unix_proxy(proxies) => {
                 let proxy_connector = build_proxy_connector(&[unix_socket.clone()], hyper_unix_connector::UnixClient, None);
                 Arc::new(hyper::Client::builder().build::<_, Body>(proxy_connector))
             },
 
             // Construct x2p http proxy client.
-            proxies @ [_, ..] if self.supports_vpnless => {
+            (proxies @ [_, ..], Some(timeout_config)) if self.supports_vpnless => {
+                let mut http_connector = HttpConnector::new();
+                // When talking to local x2pagent proxy, only http is supported.
+                http_connector.enforce_http(true);
+                let timeout_connector = timeout_config.to_connector(http_connector);
+                let proxy_connector = build_proxy_connector(proxies, timeout_connector, None);
+                Arc::new(hyper::Client::builder().build::<_, Body>(proxy_connector))
+            }
+            (proxies @ [_, ..], None) if self.supports_vpnless => {
                 let mut http_connector = HttpConnector::new();
                 // When talking to local x2pagent proxy, only http is supported.
                 http_connector.enforce_http(true);
@@ -107,14 +187,26 @@ impl HttpClientBuilder {
             }
 
             // Proxied http client with TLS.
-            proxies @ [_, ..] => {
+            (proxies @ [_, ..], Some(timeout_config)) => {
+                let https_connector = build_https_connector(self.tls_config.clone());
+                let timeout_connector = timeout_config.to_connector(https_connector);
+                // Re-use TLS config from https connection for communication with proxies.
+                let proxy_connector = build_proxy_connector(proxies, timeout_connector, Some(self.tls_config.clone()));
+                Arc::new(hyper::Client::builder().build::<_, Body>(proxy_connector))
+            },
+            (proxies @ [_, ..], None) => {
                 let https_connector = build_https_connector(self.tls_config.clone());
                 let proxy_connector = build_proxy_connector(proxies, https_connector, Some(self.tls_config.clone()));
                 Arc::new(hyper::Client::builder().build::<_, Body>(proxy_connector))
             },
 
             // Client with TLS only.
-            [] => {
+            ([], Some(timeout_config)) => {
+                let https_connector = build_https_connector(self.tls_config.clone());
+                let timeout_connector = timeout_config.to_connector(https_connector);
+                Arc::new(hyper::Client::builder().build::<_, Body>(timeout_connector))
+            },
+            ([], None) => {
                 let https_connector = build_https_connector(self.tls_config.clone());
                 Arc::new(hyper::Client::builder().build::<_, Body>(https_connector))
             },
@@ -220,6 +312,41 @@ mod tests {
         builder.with_proxy(proxy);
 
         assert_eq!(1, builder.proxies.len());
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_connect_timeout() -> anyhow::Result<()> {
+        let mut builder = HttpClientBuilder::https_with_system_roots()?;
+        builder.with_connect_timeout(Some(Duration::from_millis(1000)));
+
+        assert_eq!(
+            Some(TimeoutConfig {
+                connect_timeout: Some(Duration::from_millis(1000)),
+                read_timeout: None,
+                write_timeout: None,
+            }),
+            builder.timeout_config,
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_connect_and_read_timeouts() -> anyhow::Result<()> {
+        let mut builder = HttpClientBuilder::https_with_system_roots()?;
+        builder
+            .with_connect_timeout(Some(Duration::from_millis(1000)))
+            .with_read_timeout(Some(Duration::from_millis(2000)));
+
+        assert_eq!(
+            Some(TimeoutConfig {
+                connect_timeout: Some(Duration::from_millis(1000)),
+                read_timeout: Some(Duration::from_millis(2000)),
+                write_timeout: None,
+            }),
+            builder.timeout_config,
+        );
         Ok(())
     }
 }

@@ -22,6 +22,7 @@ http = { workspace = true }
 hyper = { workspace = true }
 hyper-proxy = { workspace = true }
 hyper-rustls = { workspace = true }
+hyper-timeout = { workspace = true }
 indexmap = { workspace = true }
 ipnetwork = { workspace = true }
 itertools = { workspace = true }

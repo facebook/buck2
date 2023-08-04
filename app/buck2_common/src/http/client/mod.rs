@@ -110,6 +110,9 @@ impl HttpClient {
         &self,
         mut request: Request<Bytes>,
     ) -> Result<Response<BoxStream<hyper::Result<Bytes>>>, HttpError> {
+        let uri = request.uri().to_string();
+        let now = tokio::time::Instant::now();
+
         // x2p requires scheme to be http since it handles all TLS.
         if self.supports_vpnless() {
             tracing::debug!(
@@ -118,7 +121,16 @@ impl HttpClient {
             );
             change_scheme_to_http(&mut request);
         }
-        let resp = self.inner.request(request).await?;
+        let resp = self.inner.request(request).await.map_err(|e| {
+            if is_hyper_error_due_to_timeout(&e) {
+                HttpError::Timeout {
+                    uri,
+                    duration: now.elapsed().as_secs(),
+                }
+            } else {
+                HttpError::SendRequest { uri, source: e }
+            }
+        })?;
         Ok(
             resp.map(|body| {
                 CountingStream::new(body, self.stats.downloaded_bytes().dupe()).boxed()
@@ -208,11 +220,30 @@ fn change_scheme_to_http(request: &mut Request<Bytes>) {
     *request.uri_mut() = Uri::from_parts(parts).expect("Unexpected invalid URI from request");
 }
 
+/// Helper function to check if any error in the chain of errors produced by
+/// hyper is due to a timeout.
+fn is_hyper_error_due_to_timeout(e: &hyper::Error) -> bool {
+    use std::error::Error;
+
+    let mut cause = e.source();
+    while let Some(err) = cause {
+        if let Some(io_err) = err.downcast_ref::<std::io::Error>() {
+            if let std::io::ErrorKind::TimedOut = io_err.kind() {
+                return true;
+            }
+        }
+        cause = err.source();
+    }
+
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use std::convert::Infallible;
     use std::net::TcpListener;
     use std::net::ToSocketAddrs;
+    use std::time::Duration;
 
     use anyhow::Context;
     use http::StatusCode;
@@ -227,6 +258,8 @@ mod tests {
 
     use super::*;
     use crate::http::proxy::DefaultSchemeUri;
+
+    const HEADER_SLEEP_DURATION_MS: &str = "x-buck2-test-proxy-sleep-duration-ms";
 
     #[test]
     fn test_change_scheme_to_http_succeeds() -> anyhow::Result<()> {
@@ -549,6 +582,13 @@ mod tests {
 
             let make_proxy_service = make_service_fn(|_conn| async move {
                 Ok::<_, Infallible>(service_fn(|mut req: Request<Body>| async move {
+                    // Sleep if requested to simulate slow reads.
+                    if let Some(s) = req.headers().get(HEADER_SLEEP_DURATION_MS) {
+                        let sleep_duration =
+                            Duration::from_millis(s.to_str().unwrap().parse().unwrap());
+                        tokio::time::sleep(sleep_duration).await;
+                    }
+
                     let client = hyper::Client::new();
                     req.headers_mut().insert(
                         http::header::VIA,
@@ -702,6 +742,27 @@ mod tests {
         let resp = client.get(&test_server.url_str("/foo")).await?;
         assert_eq!(200, resp.status().as_u16());
 
+        Ok(())
+    }
+
+    // Use proxy server harness to test slow connections.
+    #[tokio::test]
+    async fn test_timeout() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        let proxy_server = ProxyServer::new().await?;
+
+        let client = HttpClientBuilder::https_with_system_roots()?
+            .with_proxy(Proxy::new(Intercept::Http, proxy_server.uri()?))
+            .with_read_timeout(Some(Duration::from_millis(10)))
+            .build();
+
+        let req = Request::builder()
+            .uri(test_server.url_str("/foo"))
+            .header(HEADER_SLEEP_DURATION_MS, "200")
+            .method(Method::GET)
+            .body(Bytes::new())?;
+        let res = client.request(req).await;
+        assert!(matches!(res, Err(HttpError::Timeout { .. })));
         Ok(())
     }
 

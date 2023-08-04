@@ -102,8 +102,12 @@ pub enum HttpError {
     },
     #[error("HTTP: Error building request: {0}")]
     BuildRequest(#[from] http::Error),
-    #[error("HTTP: Error sending request: {0}")]
-    SendRequest(#[from] hyper::Error),
+    #[error("HTTP: Error sending request to {uri}")]
+    SendRequest {
+        uri: String,
+        #[source]
+        source: hyper::Error,
+    },
     #[error("HTTP {} Error ({status}) when querying URI: {uri}. Response text: {text}", http_error_label(*.status))]
     Status {
         status: StatusCode,
@@ -114,4 +118,6 @@ pub enum HttpError {
     TooManyRedirects { uri: String, max_redirects: usize },
     #[error("HTTP: Error mutating request: {0}")]
     MutateRequest(#[from] anyhow::Error),
+    #[error("HTTP: Timed out while make request to URI: {uri} after {duration} seconds.")]
+    Timeout { uri: String, duration: u64 },
 }
