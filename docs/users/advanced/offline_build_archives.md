@@ -19,7 +19,7 @@ In order to build an image, you need to add a new rule definition along side you
 load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
 
 # Import experimental fbpkg.builder using native buck2 rules
-load("//fbpkg:fbpkg.bzl", fbpkg = "experimental_buck2_fbpkg")
+load("//fbpkg:fbpkg.bzl", "fbpkg")
 
 cpp_binary(
     name = "my_service",
