@@ -18,7 +18,6 @@ ocaml_binary(
     ],
     deps = [
         ":ppx-record-selectors",
-        "//third-party/ocaml:ppxlib",
     ],
 ) if not host_info().os.is_windows else None
 
@@ -28,7 +27,7 @@ ocaml_binary(
     srcs = ["ppx_record_selectors_test.ml"],
     compiler_flags = [
         "-ppx",
-        "$(exe :ppx) --as-ppx",
+        "$(exe_target :ppx) --as-ppx",
     ],
 ) if not host_info().os.is_windows else None
 
