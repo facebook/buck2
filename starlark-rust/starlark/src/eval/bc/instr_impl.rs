@@ -77,7 +77,7 @@ use crate::values::string::dot_format::format_one;
 use crate::values::string::interpolation::percent_s_one;
 use crate::values::types::known_methods::KnownMethod;
 use crate::values::types::list::value::ListData;
-use crate::values::typing::type_compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;

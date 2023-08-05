@@ -78,7 +78,7 @@ use crate::syntax::ast::ParameterP;
 use crate::typing::Ty;
 use crate::values::frozen_ref::AtomicFrozenRefOption;
 use crate::values::function::FUNCTION_TYPE;
-use crate::values::typing::type_compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;

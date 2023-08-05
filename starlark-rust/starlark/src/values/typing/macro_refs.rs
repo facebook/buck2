@@ -19,7 +19,7 @@
 
 use anyhow::Context;
 
-use crate::values::typing::type_compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;

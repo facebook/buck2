@@ -32,7 +32,7 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
 use crate::starlark_complex_value;
-use crate::values::typing::type_compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::StarlarkValue;
 use crate::values::ValueLike;
 

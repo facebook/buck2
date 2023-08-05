@@ -52,7 +52,7 @@ use crate::typing::structs::TyStruct;
 use crate::values::bool::StarlarkBool;
 use crate::values::tuple::value::FrozenTuple;
 use crate::values::typing::never::TypingNever;
-use crate::values::typing::type_compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;

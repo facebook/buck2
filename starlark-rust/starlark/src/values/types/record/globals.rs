@@ -25,7 +25,7 @@ use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
 use crate::values::record::field::Field;
 use crate::values::record::record_type::RecordType;
-use crate::values::typing::type_compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::Heap;
 use crate::values::Value;
 

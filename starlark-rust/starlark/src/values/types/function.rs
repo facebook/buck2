@@ -43,7 +43,7 @@ use crate::starlark_complex_value;
 use crate::starlark_simple_value;
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::typing::type_compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;

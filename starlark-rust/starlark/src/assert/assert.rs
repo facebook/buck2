@@ -49,7 +49,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::none::NoneType;
 use crate::values::structs::AllocStruct;
-use crate::values::typing::type_compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;

@@ -933,7 +933,7 @@ fn invalid_type_annotation<'v>(ty: Value<'v>, heap: &'v Heap) -> TypingError {
 #[cfg(test)]
 mod tests {
     use crate::assert;
-    use crate::values::typing::type_compiled::TypeCompiled;
+    use crate::values::typing::type_compiled::compiled::TypeCompiled;
     use crate::values::Heap;
 
     #[test]

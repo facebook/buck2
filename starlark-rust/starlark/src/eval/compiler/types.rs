@@ -37,7 +37,7 @@ use crate::syntax::ast::ExprP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::syntax::uniplate::VisitMut;
-use crate::values::typing::type_compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Value;
 

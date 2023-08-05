@@ -42,7 +42,7 @@ use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::payload_map::AstPayloadFunction;
 use crate::typing::error::InternalError;
 use crate::typing::Interface;
-use crate::values::typing::type_compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenValue;
 
 /// Compiler-specific AST payload.
