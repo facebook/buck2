@@ -34,7 +34,6 @@ use thiserror::Error;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
-use crate::environment::GlobalsBuilder;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
@@ -258,26 +257,6 @@ fn type_compiled_methods(methods: &mut MethodsBuilder) {
             .into());
         }
         Ok(NoneType)
-    }
-}
-
-#[starlark_module]
-pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {
-    /// Create a runtime type object which can be used to check if a value matches the given type.
-    fn eval_type<'v>(
-        #[starlark(require = pos)] ty: Value<'v>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<TypeCompiled<Value<'v>>> {
-        TypeCompiled::new(ty, heap)
-    }
-
-    /// Check if a value matches the given type.
-    fn isinstance<'v>(
-        #[starlark(require = pos)] value: Value<'v>,
-        #[starlark(require = pos)] ty: Value<'v>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<bool> {
-        Ok(TypeCompiled::new(ty, heap)?.matches(value))
     }
 }
 
