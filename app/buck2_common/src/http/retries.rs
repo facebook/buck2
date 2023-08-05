@@ -34,6 +34,7 @@ impl HttpError {
                 crate::http::HttpError::Status { status, .. } => {
                     status.is_server_error() || *status == StatusCode::TOO_MANY_REQUESTS
                 }
+                crate::http::HttpError::Timeout { .. } => true,
                 crate::http::HttpError::SendRequest { .. } => true,
                 _ => false,
             },

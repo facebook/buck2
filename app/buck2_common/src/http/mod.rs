@@ -84,7 +84,7 @@ pub enum HttpError {
     TooManyRedirects { uri: String, max_redirects: usize },
     #[error("HTTP: Error mutating request")]
     MutateRequest(#[from] anyhow::Error),
-    #[error("HTTP: Timed out while make request to URI: {uri} after {duration} seconds.")]
+    #[error("HTTP: Timed out while making request to URI: {uri} after {duration} seconds.")]
     Timeout { uri: String, duration: u64 },
     #[error("While making request to {uri} via x2p")]
     X2P {
