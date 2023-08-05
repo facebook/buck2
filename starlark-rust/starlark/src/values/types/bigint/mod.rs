@@ -693,4 +693,9 @@ mod tests {
             .unwrap();
         assert_eq!(hash1.finish(), hash2.finish());
     }
+
+    #[test]
+    fn test_int_type_matches_bigint() {
+        assert::is_true("isinstance(1 << 100, int)");
+    }
 }

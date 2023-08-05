@@ -52,6 +52,7 @@ use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::list::ListRef;
 use crate::values::none::NoneType;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::types::tuple::value::TupleGen;
 use crate::values::AllocValue;
@@ -63,6 +64,7 @@ use crate::values::Heap;
 use crate::values::NoSerialize;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 
@@ -493,7 +495,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 
         impl TypeCompiledImpl for IsInt {
             fn matches(&self, value: Value) -> bool {
-                value.unpack_inline_int().is_some()
+                StarlarkIntRef::unpack_value(value).is_some()
             }
         }
 
