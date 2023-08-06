@@ -77,7 +77,8 @@ def _write_final_ghci_script(
         start_ghci_file: Artifact,
         ghci_bin: Artifact,
         haskell_toolchain: HaskellToolchainInfo.type,
-        ghci_script_template: Artifact) -> Artifact:
+        ghci_script_template: Artifact,
+        enable_profiling: bool) -> Artifact:
     srcs = " ".join(
         [
             paths.normalize(
@@ -102,7 +103,7 @@ def _write_final_ghci_script(
         "-fexternal-dynamic-refs",
     ])
 
-    if (ctx.attrs.enable_profiling):
+    if (enable_profiling):
         compiler_flags.add([
             "-prof",
             "-osuf p_o",
@@ -403,7 +404,8 @@ def _replace_macros_in_script_template(
 def _write_iserv_script(
         ctx: AnalysisContext,
         preload_deps_info: GHCiPreloadDepsInfo.type,
-        haskell_toolchain: HaskellToolchainInfo.type) -> Artifact:
+        haskell_toolchain: HaskellToolchainInfo.type,
+        enable_profiling: bool) -> Artifact:
     ghci_iserv_template = haskell_toolchain.ghci_iserv_template
 
     if (not ghci_iserv_template):
@@ -417,13 +419,13 @@ def _write_iserv_script(
         ) for so in sorted(preload_deps_info.preload_symlinks)],
     )
 
-    if ctx.attrs.enable_profiling:
+    if enable_profiling:
         ghci_iserv_path = haskell_toolchain.ghci_iserv_prof_path
     else:
         ghci_iserv_path = haskell_toolchain.ghci_iserv_path
 
     iserv_script_name = "iserv"
-    if ctx.attrs.enable_profiling:
+    if enable_profiling:
         iserv_script_name += "-prof"
 
     iserv_script = _replace_macros_in_script_template(
@@ -508,7 +510,9 @@ def _symlink_ghci_binary(ctx, ghci_bin: Artifact):
     src = ghci_bin_dep[DefaultInfo].default_outputs[0]
     ctx.actions.symlink_file(ghci_bin.as_output(), src)
 
-def _first_order_haskell_deps(ctx: AnalysisContext) -> list["HaskellLibraryInfo"]:
+def _first_order_haskell_deps(
+        ctx: AnalysisContext,
+        _enable_profiling: bool) -> list["HaskellLibraryInfo"]:
     return dedupe(
         flatten(
             [
@@ -520,7 +524,10 @@ def _first_order_haskell_deps(ctx: AnalysisContext) -> list["HaskellLibraryInfo"
     )
 
 # Creates the start.ghci script used to load the packages during startup
-def _write_start_ghci(ctx: AnalysisContext, script_file: Artifact):
+def _write_start_ghci(
+        ctx: AnalysisContext,
+        script_file: Artifact,
+        enable_profiling: bool):
     start_cmd = cmd_args()
 
     # Reason for unsetting `LD_PRELOAD` env var obtained from D6255224:
@@ -535,7 +542,7 @@ def _write_start_ghci(ctx: AnalysisContext, script_file: Artifact):
     set_cmd = cmd_args(":set", delimiter = " ")
     first_order_deps = list(map(
         lambda dep: dep.name + "-" + dep.version,
-        _first_order_haskell_deps(ctx),
+        _first_order_haskell_deps(ctx, enable_profiling),
     ))
     deduped_deps = {pkg: 1 for pkg in first_order_deps}.keys()
     package_list = cmd_args(
@@ -561,8 +568,10 @@ def _write_start_ghci(ctx: AnalysisContext, script_file: Artifact):
         ctx.actions.copy_file(script_file, header_ghci)
 
 def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
+    enable_profiling = ctx.attrs.enable_profiling
+
     start_ghci_file = ctx.actions.declare_output("start.ghci")
-    _write_start_ghci(ctx, start_ghci_file)
+    _write_start_ghci(ctx, start_ghci_file, enable_profiling)
 
     ghci_bin = ctx.actions.declare_output(ctx.attrs.name + ".bin/ghci")
     _symlink_ghci_binary(ctx, ghci_bin)
@@ -575,7 +584,12 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
     if (not ghci_script_template):
         fail("ghci_script_template missing in haskell_toolchain")
 
-    iserv_script = _write_iserv_script(ctx, preload_deps_info, haskell_toolchain)
+    iserv_script = _write_iserv_script(
+        ctx,
+        preload_deps_info,
+        haskell_toolchain,
+        enable_profiling,
+    )
 
     link_style = LinkStyle("static_pic")
 
@@ -648,6 +662,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
         ghci_bin,
         haskell_toolchain,
         ghci_script_template,
+        enable_profiling,
     )
 
     outputs = [
