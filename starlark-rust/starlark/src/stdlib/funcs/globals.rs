@@ -16,10 +16,12 @@
  */
 
 use crate::environment::GlobalsBuilder;
+use crate::stdlib::funcs::min_max::register_min_max;
 use crate::stdlib::funcs::other::register_other;
 use crate::stdlib::funcs::zip::register_zip;
 
 pub(crate) fn register_globals(globals: &mut GlobalsBuilder) {
+    register_min_max(globals);
     register_zip(globals);
     register_other(globals);
 }

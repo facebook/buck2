@@ -76,64 +76,6 @@ fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> anyhow::Result<(Value<'v>
     ))
 }
 
-fn min_max_iter<'v>(
-    mut it: impl Iterator<Item = Value<'v>>,
-    key: Option<Value<'v>>,
-    eval: &mut Evaluator<'v, '_>,
-    // Select min on true, max on false.
-    min: bool,
-) -> anyhow::Result<Value<'v>> {
-    let mut max = match it.next() {
-        Some(x) => x,
-        None => {
-            return Err(anyhow::anyhow!(
-                "Argument is an empty iterable, max() expect a non empty iterable"
-            ));
-        }
-    };
-    let update_max_ordering = if min {
-        Ordering::Greater
-    } else {
-        Ordering::Less
-    };
-    match key {
-        None => {
-            for i in it {
-                if max.compare(i)? == update_max_ordering {
-                    max = i;
-                }
-            }
-        }
-        Some(key) => {
-            let mut cached = key.invoke_pos(&[max], eval)?;
-            for i in it {
-                let keyi = key.invoke_pos(&[i], eval)?;
-                if cached.compare(keyi)? == update_max_ordering {
-                    max = i;
-                    cached = keyi;
-                }
-            }
-        }
-    };
-    Ok(max)
-}
-
-/// Common implementation of `min` and `max`.
-fn min_max<'v>(
-    mut args: Vec<Value<'v>>,
-    key: Option<Value<'v>>,
-    eval: &mut Evaluator<'v, '_>,
-    // Select min on true, max on false.
-    min: bool,
-) -> anyhow::Result<Value<'v>> {
-    if args.len() == 1 {
-        let it = args.swap_remove(0).iterate(eval.heap())?;
-        min_max_iter(it, key, eval, min)
-    } else {
-        min_max_iter(args.into_iter(), key, eval, min)
-    }
-}
-
 #[starlark_module]
 pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// The `None` value, used to represent nothing.
@@ -755,59 +697,6 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         } else {
             heap.alloc(AllocList::EMPTY)
         }))
-    }
-
-    /// [max](
-    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#max
-    /// ): returns the maximum of a sequence.
-    ///
-    /// `max(x)` returns the greatest element in the iterable sequence x.
-    ///
-    /// It is an error if any element does not support ordered comparison,
-    /// or if the sequence is empty.
-    ///
-    /// The optional named parameter `key` specifies a function to be applied
-    /// to each element prior to comparison.
-    ///
-    /// ```
-    /// # starlark::assert::all_true(r#"
-    /// max([3, 1, 4, 1, 5, 9])               == 9
-    /// max("two", "three", "four")           == "two"    # the lexicographically greatest
-    /// max("two", "three", "four", key=len)  == "three"  # the longest
-    /// # "#);
-    /// ```
-    #[starlark(speculative_exec_safe)]
-    fn max<'v>(
-        #[starlark(args)] mut args: Vec<Value<'v>>,
-        key: Option<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        min_max(args, key, eval, false)
-    }
-
-    /// [min](
-    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#min
-    /// ): returns the minimum of a sequence.
-    ///
-    /// `min(x)` returns the least element in the iterable sequence x.
-    ///
-    /// It is an error if any element does not support ordered comparison,
-    /// or if the sequence is empty.
-    ///
-    /// ```
-    /// # starlark::assert::all_true(r#"
-    /// min([3, 1, 4, 1, 5, 9])                 == 1
-    /// min("two", "three", "four")             == "four"  # the lexicographically least
-    /// min("two", "three", "four", key=len)    == "two"   # the shortest
-    /// # "#);
-    /// ```
-    #[starlark(speculative_exec_safe)]
-    fn min<'v>(
-        #[starlark(args)] mut args: Vec<Value<'v>>,
-        key: Option<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        min_max(args, key, eval, true)
     }
 
     /// [ord](
