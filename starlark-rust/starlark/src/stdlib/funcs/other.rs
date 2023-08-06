@@ -30,11 +30,8 @@ use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
 use crate::values::bool::StarlarkBool;
 use crate::values::float::StarlarkFloat;
-use crate::values::function::SpecialBuiltinFunction;
 use crate::values::int::PointerI32;
-use crate::values::list::value::FrozenList;
 use crate::values::list::AllocList;
-use crate::values::list::ListRef;
 use crate::values::never::StarlarkNever;
 use crate::values::none::NoneType;
 use crate::values::num::value::NumRef;
@@ -565,45 +562,6 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn len(#[starlark(require = pos)] a: Value) -> anyhow::Result<i32> {
         a.length()
-    }
-
-    /// [list](
-    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#list
-    /// ): construct a list.
-    ///
-    /// `list(x)` returns a new list containing the elements of the
-    /// iterable sequence x.
-    ///
-    /// With no argument, `list()` returns a new empty list.
-    ///
-    /// ```
-    /// # starlark::assert::all_true(r#"
-    /// list()        == []
-    /// list((1,2,3)) == [1, 2, 3]
-    /// # "#);
-    /// # starlark::assert::fail(r#"
-    /// list("strings are not iterable") # error: not supported
-    /// # "#, r#"Operation `(iter)` not supported on type `string`"#);
-    /// ```
-    #[starlark(
-    as_type = FrozenList,
-    speculative_exec_safe,
-    special_builtin_function = SpecialBuiltinFunction::List,
-    )]
-    fn list<'v>(
-        #[starlark(require = pos)] a: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, &'v ListRef<'v>>> {
-        Ok(ValueOfUnchecked::new(if let Some(a) = a {
-            if let Some(xs) = ListRef::from_value(a.get()) {
-                heap.alloc_list(xs.content())
-            } else {
-                let it = a.get().iterate(heap)?;
-                heap.alloc(AllocList(it))
-            }
-        } else {
-            heap.alloc(AllocList::EMPTY)
-        }))
     }
 
     /// [ord](

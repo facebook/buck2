@@ -17,6 +17,7 @@
 
 pub(crate) mod dict;
 pub(crate) mod globals;
+pub(crate) mod list;
 pub(crate) mod min_max;
 pub(crate) mod other;
 pub(crate) mod zip;
