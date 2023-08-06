@@ -144,7 +144,7 @@ impl TypingContext<'_> {
         span: Span,
     ) -> Ty {
         let fun = self.expression_attribute(&arg0, name, span);
-        self.validate_call(&fun, &args.into_map(|x| x.into_map(Arg::Pos)), span)
+        self.validate_call(&fun, &args.into_map(|x| x.map(Arg::Pos)), span)
     }
 
     fn expression_primitive(&self, name: TypingAttr, args: &[&CstExpr], span: Span) -> Ty {
@@ -328,11 +328,7 @@ impl TypingContext<'_> {
             None => return Ok(Ty::any()),
         };
         self.oracle
-            .validate_call(
-                span,
-                &fun,
-                &[rhs.into_map(|t| Arg::Pos(Ty::basic(t.clone())))],
-            )
+            .validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.clone())))])
             .map_err(|_| ())
     }
 

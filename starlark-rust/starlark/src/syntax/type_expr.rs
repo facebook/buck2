@@ -84,12 +84,12 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             }
             ExprP::Dot(object, field) => {
                 let mut current: &AstExprP<P> = object;
-                let mut rem: Vec<Spanned<_>> = vec![field.as_ref().into_map(|x| x.as_str())];
+                let mut rem: Vec<Spanned<_>> = vec![field.as_ref().map(|x| x.as_str())];
                 loop {
                     match &current.node {
                         ExprP::Dot(o, f) => {
                             current = o;
-                            rem.push(f.as_ref().into_map(|x| x.as_str()));
+                            rem.push(f.as_ref().map(|x| x.as_str()));
                         }
                         ExprP::Identifier(i) => {
                             rem.reverse();
@@ -148,7 +148,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             ExprP::Lambda(..) => err("lambda"),
             ExprP::Literal(AstLiteral::String(s)) => Ok(Spanned {
                 span,
-                node: TypeExprUnpackP::Literal(s.as_ref().into_map(|x| x.as_str())),
+                node: TypeExprUnpackP::Literal(s.as_ref().map(|x| x.as_str())),
             }),
             ExprP::Literal(AstLiteral::Int(_)) => err("int"),
             ExprP::Literal(AstLiteral::Float(_)) => err("float"),

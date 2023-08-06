@@ -86,7 +86,7 @@ pub(crate) fn check_assign(
             }
             Expr::Dot(a, b) => AssignTarget::Dot(a, b),
             Expr::Index(a_b) => AssignTarget::Index(a_b),
-            Expr::Identifier(x) => AssignTarget::Identifier(x.into_map(|s| AssignIdentP(s.0, ()))),
+            Expr::Identifier(x) => AssignTarget::Identifier(x.map(|s| AssignIdentP(s.0, ()))),
             _ => {
                 return Err(EvalException::new(
                     GrammarUtilError::InvalidLhs.into(),
@@ -234,7 +234,7 @@ pub(crate) fn check_def(
     parser_state: &mut ParserState,
 ) -> Stmt {
     check_parameters(&params, parser_state);
-    let name = name.into_map(|s| AssignIdentP(s, ()));
+    let name = name.map(|s| AssignIdentP(s, ()));
     Stmt::Def(DefP {
         name,
         params,

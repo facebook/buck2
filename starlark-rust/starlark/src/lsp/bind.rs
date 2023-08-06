@@ -301,7 +301,7 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
             lhs.visit_expr(|x| expr(x, res));
             lhs.visit_lvalue(|x| {
                 res.push(Bind::Get(
-                    x.clone().into_map(|AssignIdentP(s, ())| IdentP(s, ())),
+                    x.clone().map(|AssignIdentP(s, ())| IdentP(s, ())),
                 ))
             });
             expr(rhs, res);
