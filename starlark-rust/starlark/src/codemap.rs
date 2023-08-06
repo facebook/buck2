@@ -128,14 +128,6 @@ impl<T> Spanned<T> {
         }
     }
 
-    /// Apply the function to the node, keep the span.
-    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> Spanned<U> {
-        Spanned {
-            node: f(&self.node),
-            span: self.span,
-        }
-    }
-
     pub(crate) fn as_ref(&self) -> Spanned<&T> {
         Spanned {
             node: &self.node,
