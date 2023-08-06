@@ -231,31 +231,40 @@ impl Gen {
         Ok((item_attrs.unwrap_or_default(), new_attrs))
     }
 
+    fn process_starlark_value_vtable_fn(
+        &self,
+        m: &mut syn::TraitItemFn,
+    ) -> syn::Result<Option<VTableEntry>> {
+        let (item_attrs, new_attrs) = self.process_item_attrs(&m.attrs)?;
+        m.attrs = new_attrs;
+        if item_attrs.skip {
+            return Ok(None);
+        }
+
+        Ok(Some(self.vtable_entry(m)?))
+    }
+
     fn gen_starlark_value_vtable(&self) -> syn::Result<TokenStream> {
         let mut fields = Vec::new();
         let mut inits = Vec::new();
         let mut init_black_holes = Vec::new();
         let mut starlark_value = self.starlark_value.clone();
         for item in &mut starlark_value.items {
-            let m = match item {
-                TraitItem::Fn(m) => m,
-                _ => continue,
-            };
-
-            let (item_attrs, new_attrs) = self.process_item_attrs(&m.attrs)?;
-            m.attrs = new_attrs;
-            if item_attrs.skip {
-                continue;
+            match item {
+                TraitItem::Fn(m) => {
+                    if let Some(entry) = self.process_starlark_value_vtable_fn(m)? {
+                        let VTableEntry {
+                            field,
+                            init,
+                            init_for_black_hole,
+                        } = entry;
+                        fields.push(field);
+                        inits.push(init);
+                        init_black_holes.push(init_for_black_hole);
+                    }
+                }
+                _ => {}
             }
-
-            let VTableEntry {
-                field,
-                init,
-                init_for_black_hole,
-            } = self.vtable_entry(m)?;
-            fields.push(field);
-            inits.push(init);
-            init_black_holes.push(init_for_black_hole);
         }
 
         Ok(quote_spanned! {
