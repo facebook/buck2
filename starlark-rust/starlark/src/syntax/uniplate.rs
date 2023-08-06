@@ -21,7 +21,7 @@
 // Most consistent to use the closure everywhere.
 #![allow(clippy::redundant_closure)]
 
-use crate::syntax::ast::AssignP;
+use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstPayload;
@@ -486,18 +486,21 @@ impl<P: AstPayload> TypeExprP<P> {
     }
 }
 
-impl<P: AstPayload> AssignP<P> {
+impl<P: AstPayload> AssignTargetP<P> {
     pub(crate) fn visit_expr<'a>(&'a self, mut f: impl FnMut(&'a AstExprP<P>)) {
-        fn recurse<'a, P: AstPayload>(x: &'a AssignP<P>, f: &mut impl FnMut(&'a AstExprP<P>)) {
+        fn recurse<'a, P: AstPayload>(
+            x: &'a AssignTargetP<P>,
+            f: &mut impl FnMut(&'a AstExprP<P>),
+        ) {
             match x {
-                AssignP::Tuple(xs) => xs.iter().for_each(|x| recurse(x, f)),
-                AssignP::Dot(a, _) => f(a),
-                AssignP::Index(a_b) => {
+                AssignTargetP::Tuple(xs) => xs.iter().for_each(|x| recurse(x, f)),
+                AssignTargetP::Dot(a, _) => f(a),
+                AssignTargetP::Index(a_b) => {
                     let (a, b) = &**a_b;
                     f(a);
                     f(b);
                 }
-                AssignP::Identifier(..) => {}
+                AssignTargetP::Identifier(..) => {}
             }
         }
         recurse(self, &mut f)
@@ -505,18 +508,18 @@ impl<P: AstPayload> AssignP<P> {
 
     pub(crate) fn visit_expr_mut<'a>(&'a mut self, mut f: impl FnMut(&'a mut AstExprP<P>)) {
         fn recurse<'a, P: AstPayload>(
-            x: &'a mut AssignP<P>,
+            x: &'a mut AssignTargetP<P>,
             f: &mut impl FnMut(&'a mut AstExprP<P>),
         ) {
             match x {
-                AssignP::Tuple(ref mut xs) => xs.iter_mut().for_each(|x| recurse(&mut *x, f)),
-                AssignP::Dot(a, _) => f(a),
-                AssignP::Index(a_b) => {
+                AssignTargetP::Tuple(ref mut xs) => xs.iter_mut().for_each(|x| recurse(&mut *x, f)),
+                AssignTargetP::Dot(a, _) => f(a),
+                AssignTargetP::Index(a_b) => {
                     let (a, b) = &mut **a_b;
                     f(a);
                     f(b);
                 }
-                AssignP::Identifier(..) => {}
+                AssignTargetP::Identifier(..) => {}
             }
         }
         recurse(self, &mut f)
@@ -527,12 +530,12 @@ impl<P: AstPayload> AssignP<P> {
     /// Note that assignments like `x[i] = n` don't bind any names.
     pub(crate) fn visit_lvalue<'a>(&'a self, mut f: impl FnMut(&'a AstAssignIdentP<P>)) {
         fn recurse<'a, P: AstPayload>(
-            x: &'a AssignP<P>,
+            x: &'a AssignTargetP<P>,
             f: &mut impl FnMut(&'a AstAssignIdentP<P>),
         ) {
             match x {
-                AssignP::Identifier(x) => f(x),
-                AssignP::Tuple(xs) => xs.iter().for_each(|x| recurse(x, f)),
+                AssignTargetP::Identifier(x) => f(x),
+                AssignTargetP::Tuple(xs) => xs.iter().for_each(|x| recurse(x, f)),
                 _ => {}
             }
         }
@@ -544,12 +547,12 @@ impl<P: AstPayload> AssignP<P> {
         mut f: impl FnMut(&'a mut AstAssignIdentP<P>),
     ) {
         fn recurse<'a, P: AstPayload>(
-            x: &'a mut AssignP<P>,
+            x: &'a mut AssignTargetP<P>,
             f: &mut impl FnMut(&'a mut AstAssignIdentP<P>),
         ) {
             match x {
-                AssignP::Identifier(x) => f(x),
-                AssignP::Tuple(xs) => xs.iter_mut().for_each(|x| recurse(x, f)),
+                AssignTargetP::Identifier(x) => f(x),
+                AssignTargetP::Tuple(xs) => xs.iter_mut().for_each(|x| recurse(x, f)),
                 _ => {}
             }
         }

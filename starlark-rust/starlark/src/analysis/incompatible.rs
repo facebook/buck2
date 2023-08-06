@@ -28,7 +28,7 @@ use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
-use crate::syntax::ast::Assign;
+use crate::syntax::ast::AssignTarget;
 use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstStmt;
@@ -163,7 +163,7 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
     ) {
         match &**x {
             Stmt::Assign(lhs, op_rhs) => match (&**lhs, &(**op_rhs).1.node) {
-                (Assign::Identifier(x), Expr::Identifier(y))
+                (AssignTarget::Identifier(x), Expr::Identifier(y))
                     if x.node.0 == y.node.0
                         && defined.get(x.node.0.as_str()).map_or(false, |x| x.1)
                         && !exported.contains(x.node.0.as_str()) =>

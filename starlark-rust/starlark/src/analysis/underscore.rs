@@ -23,7 +23,7 @@ use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
 use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
-use crate::syntax::ast::Assign;
+use crate::syntax::ast::AssignTarget;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::DefP;
@@ -89,7 +89,7 @@ fn inappropriate_underscore(
             inappropriate_underscore(codemap, body, false, res)
         }
         Stmt::Assign(lhs, type_rhs) if !top => {
-            if let Assign::Identifier(name) = &**lhs {
+            if let AssignTarget::Identifier(name) = &**lhs {
                 if name.0.starts_with('_') && !is_allowed(&type_rhs.1) {
                     res.push(LintT::new(
                         codemap,

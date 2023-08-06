@@ -21,7 +21,7 @@ use crate::codemap::Spanned;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignIdentP;
-use crate::syntax::ast::AssignP;
+use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
@@ -224,24 +224,28 @@ impl<A: AstPayload> TypeExprP<A> {
     }
 }
 
-impl<A: AstPayload> AssignP<A> {
+impl<A: AstPayload> AssignTargetP<A> {
     pub(crate) fn into_map_payload<B: AstPayload>(
         self,
         f: &mut impl AstPayloadFunction<A, B>,
-    ) -> AssignP<B> {
+    ) -> AssignTargetP<B> {
         match self {
-            AssignP::Tuple(args) => AssignP::Tuple(args.into_map(|a| a.into_map_payload(f))),
-            AssignP::Index(array_index) => {
+            AssignTargetP::Tuple(args) => {
+                AssignTargetP::Tuple(args.into_map(|a| a.into_map_payload(f)))
+            }
+            AssignTargetP::Index(array_index) => {
                 let (array, index) = *array_index;
-                AssignP::Index(Box::new((
+                AssignTargetP::Index(Box::new((
                     array.into_map_payload(f),
                     index.into_map_payload(f),
                 )))
             }
-            AssignP::Dot(object, field) => {
-                AssignP::Dot(Box::new(object.into_map_payload(f)), field)
+            AssignTargetP::Dot(object, field) => {
+                AssignTargetP::Dot(Box::new(object.into_map_payload(f)), field)
             }
-            AssignP::Identifier(ident) => AssignP::Identifier(ident.into_map_payload(f)),
+            AssignTargetP::Identifier(ident) => {
+                AssignTargetP::Identifier(ident.into_map_payload(f))
+            }
         }
     }
 }
@@ -368,7 +372,7 @@ macro_rules! ast_payload_map_stub {
 
 ast_payload_map_stub!(ExprP);
 ast_payload_map_stub!(TypeExprP);
-ast_payload_map_stub!(AssignP);
+ast_payload_map_stub!(AssignTargetP);
 ast_payload_map_stub!(AssignIdentP);
 ast_payload_map_stub!(IdentP);
 ast_payload_map_stub!(ParameterP);

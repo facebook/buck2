@@ -54,7 +54,7 @@ impl AstPayload for AstNoPayload {
 
 pub(crate) type Expr = ExprP<AstNoPayload>;
 pub(crate) type TypeExpr = TypeExprP<AstNoPayload>;
-pub(crate) type Assign = AssignP<AstNoPayload>;
+pub(crate) type AssignTarget = AssignTargetP<AstNoPayload>;
 pub(crate) type AssignIdent = AssignIdentP<AstNoPayload>;
 pub(crate) type Ident = IdentP<AstNoPayload>;
 pub(crate) type Clause = ClauseP<AstNoPayload>;
@@ -68,7 +68,7 @@ pub(crate) type Stmt = StmtP<AstNoPayload>;
 // especially for the location of the AST item
 pub(crate) type AstExprP<P> = Spanned<ExprP<P>>;
 pub(crate) type AstTypeExprP<P> = Spanned<TypeExprP<P>>;
-pub(crate) type AstAssignP<P> = Spanned<AssignP<P>>;
+pub(crate) type AstAssignTargetP<P> = Spanned<AssignTargetP<P>>;
 pub(crate) type AstAssignIdentP<P> = Spanned<AssignIdentP<P>>;
 pub(crate) type AstIdentP<P> = Spanned<IdentP<P>>;
 pub(crate) type AstArgumentP<P> = Spanned<ArgumentP<P>>;
@@ -78,7 +78,7 @@ pub(crate) type AstFStringP<P> = Spanned<FStringP<P>>;
 
 pub(crate) type AstExpr = AstExprP<AstNoPayload>;
 pub(crate) type AstTypeExpr = AstTypeExprP<AstNoPayload>;
-pub(crate) type AstAssign = AstAssignP<AstNoPayload>;
+pub(crate) type AstAssignTarget = AstAssignTargetP<AstNoPayload>;
 pub(crate) type AstAssignIdent = AstAssignIdentP<AstNoPayload>;
 pub(crate) type AstIdent = AstIdentP<AstNoPayload>;
 pub(crate) type AstArgument = AstArgumentP<AstNoPayload>;
@@ -206,10 +206,10 @@ pub(crate) struct TypeExprP<P: AstPayload> {
 
 /// In some places e.g. AssignModify, the Tuple case is not allowed.
 #[derive(Debug, Clone)]
-pub(crate) enum AssignP<P: AstPayload> {
+pub(crate) enum AssignTargetP<P: AstPayload> {
     // We use Tuple for both Tuple and List,
     // as these have the same semantics in Starlark.
-    Tuple(Vec<AstAssignP<P>>),
+    Tuple(Vec<AstAssignTargetP<P>>),
     Index(Box<(AstExprP<P>, AstExprP<P>)>),
     Dot(Box<AstExprP<P>>, AstString),
     Identifier(AstAssignIdentP<P>),
@@ -234,7 +234,7 @@ pub(crate) struct LoadP<P: AstPayload> {
 
 #[derive(Debug, Clone)]
 pub(crate) struct ForClauseP<P: AstPayload> {
-    pub(crate) var: AstAssignP<P>,
+    pub(crate) var: AstAssignTargetP<P>,
     pub(crate) over: AstExprP<P>,
 }
 
@@ -328,12 +328,15 @@ pub(crate) enum StmtP<P: AstPayload> {
     Return(Option<AstExprP<P>>),
     Expression(AstExprP<P>),
     // LHS : TYPE = RHS for the fields
-    Assign(AstAssignP<P>, Box<(Option<AstTypeExprP<P>>, AstExprP<P>)>),
-    AssignModify(AstAssignP<P>, AssignOp, Box<AstExprP<P>>),
+    Assign(
+        AstAssignTargetP<P>,
+        Box<(Option<AstTypeExprP<P>>, AstExprP<P>)>,
+    ),
+    AssignModify(AstAssignTargetP<P>, AssignOp, Box<AstExprP<P>>),
     Statements(Vec<AstStmtP<P>>),
     If(AstExprP<P>, Box<AstStmtP<P>>),
     IfElse(AstExprP<P>, Box<(AstStmtP<P>, AstStmtP<P>)>),
-    For(AstAssignP<P>, Box<(AstExprP<P>, AstStmtP<P>)>),
+    For(AstAssignTargetP<P>, Box<(AstExprP<P>, AstStmtP<P>)>),
     Def(DefP<P>),
     Load(LoadP<P>),
 }
@@ -556,20 +559,20 @@ impl Display for TypeExpr {
     }
 }
 
-impl Display for Assign {
+impl Display for AssignTarget {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Assign::Tuple(e) => {
+            AssignTarget::Tuple(e) => {
                 f.write_str("(")?;
                 comma_separated_fmt(f, e, |x, f| write!(f, "{}", x.node), true)?;
                 f.write_str(")")
             }
-            Assign::Dot(e, s) => write!(f, "{}.{}", e.node, s.node),
-            Assign::Index(e_i) => {
+            AssignTarget::Dot(e, s) => write!(f, "{}.{}", e.node, s.node),
+            AssignTarget::Index(e_i) => {
                 let (e, i) = &**e_i;
                 write!(f, "{}[{}]", e.node, i.node)
             }
-            Assign::Identifier(s) => write!(f, "{}", s.node),
+            AssignTarget::Identifier(s) => write!(f, "{}", s.node),
         }
     }
 }

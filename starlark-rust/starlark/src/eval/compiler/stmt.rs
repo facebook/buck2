@@ -54,7 +54,7 @@ use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::AssignOp;
-use crate::syntax::ast::AssignP;
+use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::StmtP;
 use crate::values::dict::Dict;
@@ -394,22 +394,22 @@ impl Compiler<'_, '_, '_> {
     pub fn assign(&mut self, expr: &CstAssign) -> IrSpanned<AssignCompiledValue> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let assign = match &expr.node {
-            AssignP::Dot(e, s) => {
+            AssignTargetP::Dot(e, s) => {
                 let e = self.expr(e);
                 let s = &s.node;
                 AssignCompiledValue::Dot(e, s.to_owned())
             }
-            AssignP::Index(e_idx) => {
+            AssignTargetP::Index(e_idx) => {
                 let (e, idx) = &**e_idx;
                 let e = self.expr(e);
                 let idx = self.expr(idx);
                 AssignCompiledValue::Index(e, idx)
             }
-            AssignP::Tuple(v) => {
+            AssignTargetP::Tuple(v) => {
                 let v = v.map(|x| self.assign(x));
                 AssignCompiledValue::Tuple(v)
             }
-            AssignP::Identifier(ident) => {
+            AssignTargetP::Identifier(ident) => {
                 let name = ident.node.0.as_str();
                 let binding_id = ident
                     .node
@@ -441,7 +441,7 @@ impl Compiler<'_, '_, '_> {
         let span_stmt = FrameSpan::new(FrozenFileSpan::new(self.codemap, span_stmt));
         let span_lhs = FrameSpan::new(FrozenFileSpan::new(self.codemap, lhs.span));
         match &lhs.node {
-            AssignP::Dot(e, s) => {
+            AssignTargetP::Dot(e, s) => {
                 let e = self.expr(e);
                 StmtsCompiled::one(IrSpanned {
                     span: span_stmt,
@@ -452,7 +452,7 @@ impl Compiler<'_, '_, '_> {
                     ),
                 })
             }
-            AssignP::Index(e_idx) => {
+            AssignTargetP::Index(e_idx) => {
                 let (e, idx) = &**e_idx;
                 let e = self.expr(e);
                 let idx = self.expr(idx);
@@ -461,7 +461,7 @@ impl Compiler<'_, '_, '_> {
                     node: StmtCompiled::AssignModify(AssignModifyLhs::Array(e, idx), op, rhs),
                 })
             }
-            AssignP::Identifier(ident) => {
+            AssignTargetP::Identifier(ident) => {
                 let (slot, captured) = self.scope_data.get_assign_ident_slot(ident, &self.codemap);
                 match (slot, captured) {
                     (Slot::Local(slot), Captured::No) => {
@@ -500,7 +500,7 @@ impl Compiler<'_, '_, '_> {
                     }
                 }
             }
-            AssignP::Tuple(_) => {
+            AssignTargetP::Tuple(_) => {
                 unreachable!("Assign modify validates that the LHS is never a tuple")
             }
         }
@@ -728,7 +728,7 @@ impl Compiler<'_, '_, '_> {
                 };
                 let lhs = self.assign(&Spanned {
                     span: name.span,
-                    node: AssignP::Identifier(name.clone()),
+                    node: AssignTargetP::Identifier(name.clone()),
                 });
                 StmtsCompiled::one(IrSpanned {
                     span,

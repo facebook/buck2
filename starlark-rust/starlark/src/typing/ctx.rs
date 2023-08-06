@@ -31,7 +31,7 @@ use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignOp;
-use crate::syntax::ast::AssignP;
+use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::BinOp;
 use crate::syntax::ast::ClauseP;
@@ -276,12 +276,12 @@ impl TypingContext<'_> {
     /// Used to get the type of an expression when used as part of a ModifyAssign operation
     fn expression_assign(&self, x: &CstAssign) -> Ty {
         match &**x {
-            AssignP::Tuple(_) => self.approximation("expression_assignment", x),
-            AssignP::Index(a_b) => {
+            AssignTargetP::Tuple(_) => self.approximation("expression_assignment", x),
+            AssignTargetP::Index(a_b) => {
                 self.expression_primitive(TypingAttr::Index, &[&a_b.0, &a_b.1], x.span)
             }
-            AssignP::Dot(_, _) => self.approximation("expression_assignment", x),
-            AssignP::Identifier(x) => {
+            AssignTargetP::Dot(_, _) => self.approximation("expression_assignment", x),
+            AssignTargetP::Identifier(x) => {
                 if let Some(i) = x.1 {
                     if let Some(ty) = self.types.get(&i) {
                         return ty.clone();

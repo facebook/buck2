@@ -30,7 +30,7 @@ use crate::lsp::exported::Symbol;
 use crate::lsp::loaded::LoadedSymbol;
 use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::ArgumentP;
-use crate::syntax::ast::AssignP;
+use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstIdent;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstNoPayload;
@@ -481,7 +481,7 @@ impl LspModule {
             if let StmtP::Assign(l, ty_r) = &v.node {
                 let (_ty, r) = &**ty_r;
                 let main_assign_span = match &l.node {
-                    AssignP::Identifier(main_assign_id) if main_assign_id.0 == name => {
+                    AssignTargetP::Identifier(main_assign_id) if main_assign_id.0 == name => {
                         main_assign_id.span
                     }
                     _ => {

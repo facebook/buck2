@@ -48,8 +48,8 @@ use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
-use crate::syntax::ast::Assign;
 use crate::syntax::ast::AssignIdent;
+use crate::syntax::ast::AssignTarget;
 use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::ClauseP;
@@ -849,7 +849,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         let scope_id = self.top_scope_id();
         let mut locals = SmallMap::new();
         for var in var {
-            Assign::collect_defines_lvalue(
+            AssignTarget::collect_defines_lvalue(
                 var,
                 top_level_stmt_index,
                 InLoop::Yes,
@@ -928,7 +928,7 @@ impl Stmt {
     ) {
         match &mut stmt.node {
             StmtP::Assign(dest, _) | StmtP::AssignModify(dest, _, _) => {
-                Assign::collect_defines_lvalue(
+                AssignTarget::collect_defines_lvalue(
                     dest,
                     top_level_stmt_index,
                     in_loop,
@@ -939,7 +939,7 @@ impl Stmt {
             }
             StmtP::For(dest, over_body) => {
                 let (_over, body) = &mut **over_body;
-                Assign::collect_defines_lvalue(
+                AssignTarget::collect_defines_lvalue(
                     dest,
                     top_level_stmt_index,
                     InLoop::Yes,
@@ -1070,7 +1070,7 @@ impl AssignIdent {
     }
 }
 
-impl Assign {
+impl AssignTarget {
     // Collect variables defined in an expression on the LHS of an assignment (or
     // for variable etc)
     fn collect_defines_lvalue<'a>(

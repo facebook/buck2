@@ -20,8 +20,8 @@ use std::collections::HashMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::syntax::ast::AssignIdentP;
-use crate::syntax::ast::AstAssign;
 use crate::syntax::ast::AstAssignIdent;
+use crate::syntax::ast::AstAssignTarget;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstIdent;
 use crate::syntax::ast::AstParameter;
@@ -224,7 +224,7 @@ fn expr(x: &AstExpr, res: &mut Vec<Bind>) {
     }
 }
 
-fn expr_lvalue(x: &AstAssign, res: &mut Vec<Bind>) {
+fn expr_lvalue(x: &AstAssignTarget, res: &mut Vec<Bind>) {
     x.visit_expr(|x| expr(x, res));
     x.visit_lvalue(|x| res.push(Bind::Set(Assigner::Assign, x.clone())))
 }

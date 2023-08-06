@@ -31,7 +31,7 @@ use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::syntax::ast::AssignOp;
-use crate::syntax::ast::AssignP;
+use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
@@ -131,7 +131,7 @@ impl<'a> BindingsCollect<'a> {
             codemap: &CodeMap,
         ) -> Result<(), InternalError> {
             match &**lhs {
-                AssignP::Identifier(x) => {
+                AssignTargetP::Identifier(x) => {
                     bindings
                         .bindings
                         .expressions
@@ -139,7 +139,7 @@ impl<'a> BindingsCollect<'a> {
                         .or_default()
                         .push(rhs);
                 }
-                AssignP::Tuple(xs) => {
+                AssignTargetP::Tuple(xs) => {
                     for (i, x) in xs.iter().enumerate() {
                         assign(
                             x,
@@ -149,7 +149,7 @@ impl<'a> BindingsCollect<'a> {
                         )?;
                     }
                 }
-                AssignP::Index(array_index) => match &*array_index.0 {
+                AssignTargetP::Index(array_index) => match &*array_index.0 {
                     ExprP::Identifier(Spanned {
                         span: _,
                         node: IdentP(_name, Some(ResolvedIdent::Slot(_, ident))),
@@ -168,7 +168,7 @@ impl<'a> BindingsCollect<'a> {
                         ));
                     }
                 },
-                AssignP::Dot(_, _) => {
+                AssignTargetP::Dot(_, _) => {
                     bindings.approximations.push(Approximation::new(
                         "Underapproximation",
                         "a.b = .. not handled",
@@ -200,7 +200,7 @@ impl<'a> BindingsCollect<'a> {
                                 Some(&ty_rhs.1),
                                 ty2.clone(),
                             ));
-                            if let AssignP::Identifier(id) = &**lhs {
+                            if let AssignTargetP::Identifier(id) = &**lhs {
                                 // FIXME: This could be duplicated if you declare the type of a variable twice,
                                 // we would only see the second one.
                                 bindings

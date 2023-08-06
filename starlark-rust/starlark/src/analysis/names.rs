@@ -38,8 +38,8 @@ use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::syntax::ast::AstAssign;
 use crate::syntax::ast::AstAssignIdent;
+use crate::syntax::ast::AstAssignTarget;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstIdent;
 use crate::syntax::ast::AstStmt;
@@ -377,7 +377,7 @@ impl<'a> State<'a> {
 
     // Traverse the syntax tree
 
-    fn assign(&mut self, assign: &'a AstAssign) {
+    fn assign(&mut self, assign: &'a AstAssignTarget) {
         assign.visit_expr(|x| self.expr(x));
         assign.visit_lvalue(|x| self.set_ident(x, Kind::Assign))
     }
@@ -447,7 +447,7 @@ impl<'a> State<'a> {
         self.expr(&ty.expr)
     }
 
-    fn assign_as_expr(&mut self, assign: &'a AstAssign) {
+    fn assign_as_expr(&mut self, assign: &'a AstAssignTarget) {
         assign.visit_expr(|x| self.expr(x));
         assign.visit_lvalue(|x| self.use_ident(AstStr::assign_ident(x)));
     }
