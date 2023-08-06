@@ -21,6 +21,7 @@
 // Most consistent to use the closure everywhere.
 #![allow(clippy::redundant_closure)]
 
+use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstExprP;
@@ -108,8 +109,7 @@ impl<P: AstPayload> StmtP<P> {
                 ret.iter().for_each(|x| f(Visit::Expr(x)));
             }
             StmtP::Expression(e) => f(Visit::Expr(e)),
-            StmtP::Assign(lhs, ty_rhs) => {
-                let (ty, rhs) = &**ty_rhs;
+            StmtP::Assign(AssignP { lhs, ty, rhs }) => {
                 lhs.visit_expr(|x| f(Visit::Expr(x)));
                 ty.iter().for_each(|x| x.visit_expr(|x| f(Visit::Expr(x))));
                 f(Visit::Expr(rhs));
@@ -164,8 +164,7 @@ impl<P: AstPayload> StmtP<P> {
                 ret.iter_mut().for_each(|x| f(VisitMut::Expr(x)));
             }
             StmtP::Expression(e) => f(VisitMut::Expr(e)),
-            StmtP::Assign(lhs, ty_rhs) => {
-                let (ty, rhs) = &mut **ty_rhs;
+            StmtP::Assign(AssignP { lhs, ty, rhs }) => {
                 lhs.visit_expr_mut(|x| f(VisitMut::Expr(x)));
                 ty.iter_mut()
                     .for_each(|x| x.visit_expr_mut(|x| f(VisitMut::Expr(x))));

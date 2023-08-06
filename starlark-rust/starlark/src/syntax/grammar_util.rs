@@ -27,6 +27,7 @@ use crate::eval::compiler::EvalException;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AssignOp;
+use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTarget;
 use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstAssignIdent;
@@ -132,7 +133,11 @@ pub(crate) fn check_assignment(
         }
     }
     Ok(match op {
-        None => Stmt::Assign(lhs, Box::new((ty.map(|x| *x), rhs))),
+        None => Stmt::Assign(AssignP {
+            lhs,
+            ty: ty.map(|ty| *ty),
+            rhs,
+        }),
         Some(op) => Stmt::AssignModify(lhs, op, Box::new(rhs)),
     })
 }

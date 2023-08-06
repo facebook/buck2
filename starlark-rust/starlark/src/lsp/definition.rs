@@ -478,9 +478,8 @@ impl LspModule {
         let mut symbol_to_lookup = None;
 
         'outer: for v in self.ast.top_level_statements() {
-            if let StmtP::Assign(l, ty_r) = &v.node {
-                let (_ty, r) = &**ty_r;
-                let main_assign_span = match &l.node {
+            if let StmtP::Assign(assign) = &v.node {
+                let main_assign_span = match &assign.lhs.node {
                     AssignTargetP::Identifier(main_assign_id) if main_assign_id.0 == name => {
                         main_assign_id.span
                     }
@@ -494,7 +493,7 @@ impl LspModule {
                 }
 
                 // Look for a function call to `struct`.
-                if let ExprP::Call(function_name, args) = &r.node {
+                if let ExprP::Call(function_name, args) = &assign.rhs.node {
                     match &function_name.node {
                         ExprP::Identifier(function_name) if function_name.node.0 == "struct" => {}
                         _ => {

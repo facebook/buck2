@@ -20,6 +20,7 @@ use crate::codemap::Pos;
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
 use crate::syntax::ast::ArgumentP;
+use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstNoPayload;
@@ -106,20 +107,19 @@ impl AstModule {
 
             match &stmt {
                 Visit::Stmt(AstStmtP {
-                    node: StmtP::Assign(dest, rhs),
+                    node: StmtP::Assign(AssignP { lhs, ty, rhs }),
                     ..
                 }) => {
-                    if dest.span.contains(position) {
+                    if lhs.span.contains(position) {
                         return Some(AutocompleteType::None);
                     }
-                    let (type_, expr) = &**rhs;
-                    if let Some(type_) = type_ {
+                    if let Some(type_) = ty {
                         if type_.span.contains(position) {
                             return Some(AutocompleteType::Type);
                         }
                     }
-                    if expr.span.contains(position) {
-                        return walk_and_find_completion_type(codemap, position, Visit::Expr(expr));
+                    if rhs.span.contains(position) {
+                        return walk_and_find_completion_type(codemap, position, Visit::Expr(rhs));
                     }
                 }
                 Visit::Stmt(AstStmtP {

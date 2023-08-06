@@ -120,7 +120,7 @@ fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
 
         fn visit_stmt(&mut self, stmt: &CstStmt) {
             match &stmt.node {
-                StmtP::Assign(lhs, _rhs) => self.visit_assign(lhs),
+                StmtP::Assign(assign) => self.visit_assign(&assign.lhs),
                 StmtP::Def(DefP { name, params, .. }) => {
                     self.visit_lvalue(name);
                     for param in params {

@@ -215,6 +215,14 @@ pub(crate) enum AssignTargetP<P: AstPayload> {
     Identifier(AstAssignIdentP<P>),
 }
 
+/// `x: t = y`.
+#[derive(Debug, Clone)]
+pub(crate) struct AssignP<P: AstPayload> {
+    pub(crate) lhs: AstAssignTargetP<P>,
+    pub(crate) ty: Option<AstTypeExprP<P>>,
+    pub(crate) rhs: AstExprP<P>,
+}
+
 /// Identifier in assign position.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub(crate) struct AssignIdentP<P: AstPayload>(pub String, pub P::IdentAssignPayload);
@@ -327,11 +335,7 @@ pub(crate) enum StmtP<P: AstPayload> {
     Pass,
     Return(Option<AstExprP<P>>),
     Expression(AstExprP<P>),
-    // LHS : TYPE = RHS for the fields
-    Assign(
-        AstAssignTargetP<P>,
-        Box<(Option<AstTypeExprP<P>>, AstExprP<P>)>,
-    ),
+    Assign(AssignP<P>),
     AssignModify(AstAssignTargetP<P>, AssignOp, Box<AstExprP<P>>),
     Statements(Vec<AstStmtP<P>>),
     If(AstExprP<P>, Box<AstStmtP<P>>),
@@ -644,13 +648,12 @@ impl Stmt {
             Stmt::Return(Some(e)) => writeln!(f, "{}return {}", tab, e.node),
             Stmt::Return(None) => writeln!(f, "{}return", tab),
             Stmt::Expression(e) => writeln!(f, "{}{}", tab, e.node),
-            Stmt::Assign(l, ty_r) => {
-                let (ty, r) = &**ty_r;
-                write!(f, "{}{} ", tab, l.node)?;
+            Stmt::Assign(AssignP { lhs, ty, rhs }) => {
+                write!(f, "{}{} ", tab, lhs.node)?;
                 if let Some(ty) = ty {
                     write!(f, ": {} ", ty.node)?;
                 }
-                writeln!(f, "= {}", r.node)
+                writeln!(f, "= {}", rhs.node)
             }
             Stmt::AssignModify(l, op, r) => writeln!(f, "{}{}{}{}", tab, l.node, op, r.node),
             Stmt::Statements(v) => {

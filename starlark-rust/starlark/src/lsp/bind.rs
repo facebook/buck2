@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::syntax::ast::AssignIdentP;
+use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstAssignTarget;
 use crate::syntax::ast::AstExpr;
@@ -287,8 +288,7 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
             stmt(body, &mut inner);
             res.push(Bind::Scope(Scope::new(inner)));
         }
-        Stmt::Assign(lhs, ty_rhs) => {
-            let (ty, rhs) = &**ty_rhs;
+        Stmt::Assign(AssignP { lhs, ty, rhs }) => {
             opt_type_expr(ty.as_ref(), res);
             expr(rhs, res);
             expr_lvalue(lhs, res);

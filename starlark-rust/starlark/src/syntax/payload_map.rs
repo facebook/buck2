@@ -21,6 +21,7 @@ use crate::codemap::Spanned;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignIdentP;
+use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::ClauseP;
@@ -62,6 +63,20 @@ impl<A: AstPayload> LoadP<A> {
     }
 }
 
+impl<A: AstPayload> AssignP<A> {
+    pub(crate) fn into_map_payload<B: AstPayload>(
+        self,
+        f: &mut impl AstPayloadFunction<A, B>,
+    ) -> AssignP<B> {
+        let AssignP { lhs, ty, rhs } = self;
+        AssignP {
+            lhs: lhs.into_map_payload(f),
+            ty: ty.map(|ty| ty.into_map_payload(f)),
+            rhs: rhs.into_map_payload(f),
+        }
+    }
+}
+
 impl<A: AstPayload> StmtP<A> {
     pub(crate) fn into_map_payload<B: AstPayload>(
         self,
@@ -74,13 +89,7 @@ impl<A: AstPayload> StmtP<A> {
             StmtP::Return(None) => StmtP::Return(None),
             StmtP::Return(Some(e)) => StmtP::Return(Some(e.into_map_payload(f))),
             StmtP::Expression(e) => StmtP::Expression(e.into_map_payload(f)),
-            StmtP::Assign(lhs, ty_rhs) => {
-                let (ty, rhs) = *ty_rhs;
-                StmtP::Assign(
-                    lhs.into_map_payload(f),
-                    Box::new((ty.map(|ty| ty.into_map_payload(f)), rhs.into_map_payload(f))),
-                )
-            }
+            StmtP::Assign(assign) => StmtP::Assign(assign.into_map_payload(f)),
             StmtP::AssignModify(lhs, op, rhs) => StmtP::AssignModify(
                 lhs.into_map_payload(f),
                 op,

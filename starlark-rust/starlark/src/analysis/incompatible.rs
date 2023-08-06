@@ -162,7 +162,7 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
         res: &mut Vec<LintT<Incompatibility>>,
     ) {
         match &**x {
-            Stmt::Assign(lhs, op_rhs) => match (&**lhs, &(**op_rhs).1.node) {
+            Stmt::Assign(assign) => match (&assign.lhs.node, &assign.rhs.node) {
                 (AssignTarget::Identifier(x), Expr::Identifier(y))
                     if x.node.0 == y.node.0
                         && defined.get(x.node.0.as_str()).map_or(false, |x| x.1)
@@ -172,7 +172,9 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
                     // But only allow one export
                     exported.insert(x.node.0.as_str());
                 }
-                _ => lhs.visit_lvalue(|x| ident(x, false, codemap, defined, res)),
+                _ => assign
+                    .lhs
+                    .visit_lvalue(|x| ident(x, false, codemap, defined, res)),
             },
             Stmt::AssignModify(lhs, _, _) => {
                 lhs.visit_lvalue(|x| ident(x, false, codemap, defined, res))

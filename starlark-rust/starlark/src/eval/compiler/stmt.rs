@@ -54,6 +54,7 @@ use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::AssignOp;
+use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::StmtP;
@@ -770,8 +771,7 @@ impl Compiler<'_, '_, '_> {
                 r
             }
             StmtP::Expression(e) => self.stmt_expr(e),
-            StmtP::Assign(lhs, ty_rhs) => {
-                let (ty, rhs) = &**ty_rhs;
+            StmtP::Assign(AssignP { lhs, ty, rhs }) => {
                 let rhs = self.expr(rhs);
                 let ty = self.expr_for_type(ty.as_ref());
                 let lhs = self.assign(lhs);

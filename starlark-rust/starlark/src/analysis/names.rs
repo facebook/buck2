@@ -38,6 +38,7 @@ use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstAssignTarget;
 use crate::syntax::ast::AstExpr;
@@ -464,9 +465,9 @@ impl<'a> State<'a> {
                 self.expr_opt(x.as_ref());
                 self.set_abort(Abort::Function);
             }
-            Stmt::Assign(lhs, type_rhs) => {
-                self.typ_opt(type_rhs.0.as_ref());
-                self.expr(&type_rhs.1);
+            Stmt::Assign(AssignP { lhs, ty, rhs }) => {
+                self.typ_opt(ty.as_ref());
+                self.expr(rhs);
                 self.assign(lhs);
             }
             Stmt::AssignModify(lhs, _, rhs) => {

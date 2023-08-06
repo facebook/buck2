@@ -125,12 +125,12 @@ impl AstModule {
         let mut last_node = None;
         for x in self.top_level_statements() {
             match &**x {
-                Stmt::Assign(dest, rhs) => {
-                    dest.visit_lvalue(|name| {
-                        let kind = SymbolKind::from_expr(&rhs.1);
+                Stmt::Assign(assign) => {
+                    assign.lhs.visit_lvalue(|name| {
+                        let kind = SymbolKind::from_expr(&assign.rhs);
                         add(self, &mut result, name, kind, || {
                             last_node
-                                .and_then(|last| get_doc_item_for_assign(last, dest))
+                                .and_then(|last| get_doc_item_for_assign(last, &assign.lhs))
                                 .map(DocItem::Property)
                         });
                     });

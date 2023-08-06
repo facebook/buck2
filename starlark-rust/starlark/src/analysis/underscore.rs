@@ -23,6 +23,7 @@ use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
 use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
+use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTarget;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstStmt;
@@ -88,9 +89,9 @@ fn inappropriate_underscore(
             }
             inappropriate_underscore(codemap, body, false, res)
         }
-        Stmt::Assign(lhs, type_rhs) if !top => {
-            if let AssignTarget::Identifier(name) = &**lhs {
-                if name.0.starts_with('_') && !is_allowed(&type_rhs.1) {
+        Stmt::Assign(assign) if !top => {
+            if let AssignTarget::Identifier(name) = &assign.lhs.node {
+                if name.0.starts_with('_') && !is_allowed(&assign.rhs) {
                     res.push(LintT::new(
                         codemap,
                         name.span,
@@ -108,7 +109,7 @@ fn use_ignored(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<UnderscoreWar
     // we are ok with using things that were defined at the top level, but not nested
     fn root_definitions<'a>(x: &'a AstStmt, res: &mut HashSet<&'a str>) {
         match &**x {
-            Stmt::Assign(x, _) | Stmt::AssignModify(x, _, _) => {
+            Stmt::Assign(AssignP { lhs: x, .. }) | Stmt::AssignModify(x, _, _) => {
                 x.visit_lvalue(|x| {
                     res.insert(x.0.as_str());
                 });

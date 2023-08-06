@@ -49,6 +49,7 @@ use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::syntax::ast::AssignIdent;
+use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTarget;
 use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstStmt;
@@ -588,8 +589,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                 None,
                 top_level_stmt_index,
             ),
-            StmtP::Assign(lhs, ty_rhs) => {
-                let (ty, rhs) = &mut **ty_rhs;
+            StmtP::Assign(AssignP { lhs, ty, rhs }) => {
                 self.resolve_idents_in_assign(lhs, top_level_stmt_index);
                 if let Some(ty) = ty {
                     self.resolve_idents_in_type_expr(ty, top_level_stmt_index);
@@ -927,7 +927,7 @@ impl Stmt {
         dialect: &Dialect,
     ) {
         match &mut stmt.node {
-            StmtP::Assign(dest, _) | StmtP::AssignModify(dest, _, _) => {
+            StmtP::Assign(AssignP { lhs: dest, .. }) | StmtP::AssignModify(dest, _, _) => {
                 AssignTarget::collect_defines_lvalue(
                     dest,
                     top_level_stmt_index,

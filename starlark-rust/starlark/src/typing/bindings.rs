@@ -31,6 +31,7 @@ use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::syntax::ast::AssignOp;
+use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
@@ -187,19 +188,18 @@ impl<'a> BindingsCollect<'a> {
         ) -> Result<(), InternalError> {
             match x {
                 Visit::Stmt(x) => match &**x {
-                    StmtP::Assign(lhs, ty_rhs) => {
-                        if let Some(ty) = &ty_rhs.0 {
+                    StmtP::Assign(AssignP { lhs, ty, rhs }) => {
+                        if let Some(ty) = ty {
                             let ty2 = Ty::from_type_expr(
                                 ty,
                                 typecheck_mode,
                                 &mut bindings.approximations,
                                 codemap,
                             )?;
-                            bindings.bindings.check_type.push((
-                                ty.span,
-                                Some(&ty_rhs.1),
-                                ty2.clone(),
-                            ));
+                            bindings
+                                .bindings
+                                .check_type
+                                .push((ty.span, Some(rhs), ty2.clone()));
                             if let AssignTargetP::Identifier(id) = &**lhs {
                                 // FIXME: This could be duplicated if you declare the type of a variable twice,
                                 // we would only see the second one.
@@ -209,7 +209,7 @@ impl<'a> BindingsCollect<'a> {
                                     .insert(id.resolved_binding_id(codemap)?, ty2);
                             }
                         }
-                        assign(lhs, BindExpr::Expr(&ty_rhs.1), bindings, codemap)?
+                        assign(lhs, BindExpr::Expr(rhs), bindings, codemap)?
                     }
                     StmtP::AssignModify(lhs, op, rhs) => assign(
                         lhs,
