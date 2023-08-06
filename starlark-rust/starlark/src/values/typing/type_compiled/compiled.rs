@@ -790,6 +790,9 @@ impl<'v> TypeCompiled<Value<'v>> {
                 "string" => TypeCompiled::type_string(),
                 "int" => TypeCompiled::type_int(),
                 "bool" => TypeCompiled::type_bool(),
+                "NoneType" => TypeCompiled::type_none(),
+                "list" => TypeCompiled::type_list(heap),
+                "dict" => TypeCompiled::type_dict(heap),
                 t => TypeCompiled::type_concrete(t, heap),
             }
         }
