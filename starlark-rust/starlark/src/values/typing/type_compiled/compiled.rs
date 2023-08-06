@@ -847,7 +847,7 @@ impl<'v> TypeCompiled<Value<'v>> {
         match ty {
             TyBasic::Any => TypeCompiled::type_anything(),
             TyBasic::Name(name) => TypeCompiled::from_str(name.as_str(), heap),
-            TyBasic::StarlarkValue(x) => TypeCompiled::from_str(x.as_name(), heap),
+            TyBasic::StarlarkValue(x) => x.type_compiled(heap),
             TyBasic::List(item) => {
                 let item = TypeCompiled::from_ty(item, heap);
                 TypeCompiled::type_list_of(item, heap)

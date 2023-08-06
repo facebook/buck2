@@ -34,7 +34,10 @@ use crate::typing::TypingBinOp;
 use crate::typing::TypingUnOp;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
+use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::Value;
 
 // This is a bit suboptimal for binary size:
 // we have two vtable instances for each type: this one, and the one within `AValue` vtable.
@@ -163,5 +166,10 @@ impl TyStarlarkValue {
             return Ok(ty);
         }
         Err(())
+    }
+
+    /// Convert to runtime type matcher.
+    pub(crate) fn type_compiled<'v>(self, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        TypeCompiled::from_str(self.as_name(), heap)
     }
 }
