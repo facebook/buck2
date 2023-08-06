@@ -16,13 +16,46 @@
  */
 
 use std::any::TypeId;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::hash::Hasher;
+
+use allocative::Allocative;
+use dupe::Dupe;
 
 /// `TypeId` wrapper/provider until `const_type_id` feature is stabilized.
+#[derive(Copy, Clone, Dupe, Allocative)]
+#[allocative(skip)]
 pub(crate) struct ConstTypeId {
     #[cfg(rust_nightly)]
     type_id: TypeId,
     #[cfg(not(rust_nightly))]
     type_id_fn: fn() -> TypeId,
+}
+
+impl Debug for ConstTypeId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ConstTypeId")
+            .field("type_id", &self.get())
+            .finish()
+    }
+}
+
+impl PartialEq for ConstTypeId {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.get() == other.get()
+    }
+}
+
+impl Eq for ConstTypeId {}
+
+impl Hash for ConstTypeId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.get().hash(state)
+    }
 }
 
 impl ConstTypeId {
@@ -36,7 +69,7 @@ impl ConstTypeId {
     }
 
     #[inline]
-    pub(crate) fn get(&self) -> TypeId {
+    pub(crate) fn get(self) -> TypeId {
         #[cfg(rust_nightly)]
         return self.type_id;
         #[cfg(not(rust_nightly))]
