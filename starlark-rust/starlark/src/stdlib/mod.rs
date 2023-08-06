@@ -37,6 +37,7 @@ pub(crate) mod util;
 
 pub use extra::PrintHandler;
 
+use crate::stdlib::funcs::globals::register_globals;
 use crate::values::record::globals::register_record;
 use crate::values::typing;
 
@@ -46,7 +47,7 @@ use crate::values::typing;
 /// For example `stdlib::standard_environment().freeze().child("test")` create a
 /// child environment of this global environment that have been frozen.
 pub(crate) fn standard_environment() -> GlobalsBuilder {
-    GlobalsBuilder::new().with(funcs::global_functions)
+    GlobalsBuilder::new().with(register_globals)
 }
 
 /// The extra library definitions available in this Starlark implementation, but not in the standard.

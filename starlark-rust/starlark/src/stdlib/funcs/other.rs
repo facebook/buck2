@@ -186,7 +186,7 @@ impl TyCustomFunctionImpl for ZipType {
 }
 
 #[starlark_module]
-pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// The `None` value, used to represent nothing.
     /// Implicitly returned from functions that don't have an explicit return.
     const None: NoneType = NoneType;
@@ -366,9 +366,9 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(
-        as_type = FrozenDict,
-        speculative_exec_safe,
-        special_builtin_function = SpecialBuiltinFunction::Dict,
+    as_type = FrozenDict,
+    speculative_exec_safe,
+    special_builtin_function = SpecialBuiltinFunction::Dict,
     )]
     fn dict<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> anyhow::Result<Dict<'v>> {
         // Dict is super hot, and has a slightly odd signature, so we can do a bunch of special cases on it.
@@ -788,9 +788,9 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#, r#"Operation `(iter)` not supported on type `string`"#);
     /// ```
     #[starlark(
-        as_type = FrozenList,
-        speculative_exec_safe,
-        special_builtin_function = SpecialBuiltinFunction::List,
+    as_type = FrozenList,
+    speculative_exec_safe,
+    special_builtin_function = SpecialBuiltinFunction::List,
     )]
     fn list<'v>(
         #[starlark(require = pos)] a: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
