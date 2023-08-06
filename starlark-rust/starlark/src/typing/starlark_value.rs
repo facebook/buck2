@@ -32,8 +32,10 @@ use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingUnOp;
+use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
+use crate::values::types::not_type::NotType;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -48,6 +50,10 @@ struct TyStarlarkValueVTable {
     has_minus: bool,
     has_bit_not: bool,
     vtable: StarlarkValueVTable,
+    starlark_type_id: StarlarkTypeId,
+    /// `starlark_type_id` is `TypeId` of `T::Canonical`.
+    /// This is `TypeId` of `T::Canonical::Canonical`.
+    starlark_type_id_check: StarlarkTypeId,
 }
 
 struct TyStarlarkValueVTableGet<'v, T: StarlarkValue<'v>>(PhantomData<&'v T>);
@@ -59,6 +65,8 @@ impl<'v, T: StarlarkValue<'v>> TyStarlarkValueVTableGet<'v, T> {
         has_minus: T::HAS_MINUS,
         has_bit_not: T::HAS_BIT_NOT,
         vtable: StarlarkValueVTableGet::<T>::VTABLE,
+        starlark_type_id: StarlarkTypeId::of_canonical::<T>(),
+        starlark_type_id_check: StarlarkTypeId::of_canonical::<T::Canonical>(),
     };
 }
 
@@ -117,11 +125,28 @@ impl Ord for TyStarlarkValue {
 impl TyStarlarkValue {
     pub(crate) const fn new<'v, T: StarlarkValue<'v>>() -> TyStarlarkValue {
         TyStarlarkValue {
-            vtable: &TyStarlarkValueVTableGet::<T>::VTABLE,
+            vtable: &TyStarlarkValueVTableGet::<T::Canonical>::VTABLE,
         }
     }
 
+    // Cannot have this check in constructor where it belongs because `new` is `const`.
+    #[inline]
+    fn self_check(self) {
+        debug_assert_ne!(
+            self.vtable.starlark_type_id,
+            StarlarkTypeId::of::<NotType>(),
+            "`Canonical` for `{}` is `NotType",
+            self.vtable.type_name
+        );
+        debug_assert_eq!(
+            self.vtable.starlark_type_id, self.vtable.starlark_type_id_check,
+            "`Canonical` for `{}` is not canonical",
+            self.vtable.type_name
+        );
+    }
+
     pub(crate) fn as_name(self) -> &'static str {
+        self.self_check();
         self.vtable.type_name
     }
 
@@ -170,6 +195,7 @@ impl TyStarlarkValue {
 
     /// Convert to runtime type matcher.
     pub(crate) fn type_compiled<'v>(self, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        self.self_check();
         TypeCompiled::from_str(self.as_name(), heap)
     }
 }

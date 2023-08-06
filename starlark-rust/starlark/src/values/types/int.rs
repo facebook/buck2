@@ -58,6 +58,7 @@ use crate::values::num::typecheck::typecheck_num_bin_op;
 use crate::values::num::typecheck::NumTy;
 use crate::values::num::value::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::inline_int::InlineInt;
 use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
@@ -181,6 +182,8 @@ impl Display for PointerI32 {
 /// Define the int type
 #[starlark_value(type = INT_TYPE)]
 impl<'v> StarlarkValue<'v> for PointerI32 {
+    type Canonical = StarlarkBigInt;
+
     fn is_special(_: Private) -> bool
     where
         Self: Sized,

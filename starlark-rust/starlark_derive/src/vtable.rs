@@ -244,6 +244,14 @@ impl Gen {
         Ok(Some(self.vtable_entry(m)?))
     }
 
+    fn process_canonical(&self, item_type: &mut syn::TraitItemType) {
+        if item_type.ident == "Canonical" {
+            // This won't be needed once associated type defaults are stabilized.
+            // https://github.com/rust-lang/rust/issues/29661
+            item_type.default = None;
+        }
+    }
+
     fn gen_starlark_value_vtable(&self) -> syn::Result<TokenStream> {
         let mut fields = Vec::new();
         let mut inits = Vec::new();
@@ -262,6 +270,9 @@ impl Gen {
                         inits.push(init);
                         init_black_holes.push(init_for_black_hole);
                     }
+                }
+                TraitItem::Type(ty) => {
+                    self.process_canonical(ty);
                 }
                 _ => {}
             }

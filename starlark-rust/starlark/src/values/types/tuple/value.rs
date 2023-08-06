@@ -140,6 +140,9 @@ impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TupleGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
+    // TODO(nga): generate with proc macro.
+    type Canonical = FrozenTuple;
+
     fn is_special(_: Private) -> bool
     where
         Self: Sized,

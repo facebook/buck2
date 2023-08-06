@@ -235,6 +235,17 @@ impl<'a> ImplStarlarkValue<'a> {
         })
     }
 
+    /// Find a type with given name.
+    fn find_ty(&self, name: &str) -> Option<&syn::ImplItemType> {
+        self.input.items.iter().find_map(|item| {
+            if let syn::ImplItem::Type(ty) = item {
+                if ty.ident == name { Some(ty) } else { None }
+            } else {
+                None
+            }
+        })
+    }
+
     /// There's an function with given name.
     fn has_fn(&self, name: &str) -> bool {
         self.find_fn(name).is_some()
@@ -362,13 +373,51 @@ impl<'a> ImplStarlarkValue<'a> {
             }
         })?))
     }
+
+    fn try_make_canonical_ty(&self) -> Option<syn::Type> {
+        for type_param in &self.input.generics.params {
+            match type_param {
+                syn::GenericParam::Lifetime(_) => {}
+                syn::GenericParam::Const(_) => return None,
+                syn::GenericParam::Type(_) => {
+                    // TODO(nga): when generic param is `ValueLike`,
+                    //   we can substitute it with `FrozenValue` to get a canonical type.
+                    //   Eventually every impl should provide a canonical type
+                    //   if it cannot be inferred.
+                    return None;
+                }
+            }
+        }
+        Some((*self.input.self_ty).clone())
+    }
+
+    fn make_canonical_type(&self) -> syn::Type {
+        match self.try_make_canonical_ty() {
+            Some(ty) => ty,
+            None => syn::parse_quote_spanned! { self.span() =>
+                starlark::values::not_type::NotType
+            },
+        }
+    }
+
+    /// `type Canonical = ...`.
+    fn canonical_member(&self) -> Option<syn::ImplItem> {
+        if self.find_ty("Canonical").is_some() {
+            None
+        } else {
+            let ty = self.make_canonical_type();
+            Some(syn::parse_quote_spanned! { self.span() =>
+                type Canonical = #ty;
+            })
+        }
+    }
 }
 
 fn derive_starlark_value_impl(
     attr: StarlarkValueAttrs,
     mut input: syn::ItemImpl,
 ) -> syn::Result<proc_macro2::TokenStream> {
-    let impl_starlark_value = is_impl_starlark_value(&input, attr)?;
+    let impl_starlark_value: ImplStarlarkValue = is_impl_starlark_value(&input, attr)?;
 
     let impl_unpack_value = impl_starlark_value.impl_unpack_value()?;
 
@@ -382,6 +431,7 @@ fn derive_starlark_value_impl(
     let rbin_op_ty = impl_starlark_value.rbin_op_ty()?;
     let attr_ty = impl_starlark_value.attr_ty()?;
     let bit_or = impl_starlark_value.bit_or()?;
+    let canonical = impl_starlark_value.canonical_member();
 
     input.items.splice(
         0..0,
@@ -397,7 +447,8 @@ fn derive_starlark_value_impl(
         .chain(attr_ty)
         .chain(bit_or)
         .chain(bin_op_ty)
-        .chain(rbin_op_ty),
+        .chain(rbin_op_ty)
+        .chain(canonical),
     );
 
     Ok(quote_spanned! {
