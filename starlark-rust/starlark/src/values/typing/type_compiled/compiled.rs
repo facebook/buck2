@@ -431,7 +431,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&ANYTHING)))
     }
 
-    fn type_none() -> TypeCompiled<V> {
+    pub(crate) fn type_none() -> TypeCompiled<V> {
         #[derive(
             Clone,
             Copy,
@@ -457,7 +457,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_NONE)))
     }
 
-    fn type_string() -> TypeCompiled<V> {
+    pub(crate) fn type_string() -> TypeCompiled<V> {
         #[derive(
             Clone,
             Copy,
@@ -483,7 +483,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_STRING)))
     }
 
-    fn type_int() -> TypeCompiled<V> {
+    pub(crate) fn type_int() -> TypeCompiled<V> {
         #[derive(
             Clone,
             Copy,
@@ -509,7 +509,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         TypeCompiled(V::from_frozen_value(FrozenValue::new_repr(&IS_INT)))
     }
 
-    fn type_bool() -> TypeCompiled<V> {
+    pub(crate) fn type_bool() -> TypeCompiled<V> {
         #[derive(
             Clone,
             Copy,

@@ -32,11 +32,16 @@ use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingUnOp;
+use crate::values::bool::StarlarkBool;
+use crate::values::none::NoneType;
 use crate::values::starlark_type_id::StarlarkTypeId;
+use crate::values::string::StarlarkStr;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
+use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::not_type::NotType;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -196,6 +201,36 @@ impl TyStarlarkValue {
     /// Convert to runtime type matcher.
     pub(crate) fn type_compiled<'v>(self, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         self.self_check();
-        TypeCompiled::from_str(self.as_name(), heap)
+
+        // First handle special cases that can match faster than default matcher.
+        // These are optimizations.
+        if self.vtable.starlark_type_id == StarlarkTypeId::of::<StarlarkBigInt>() {
+            TypeCompiled::type_int()
+        } else if self.vtable.starlark_type_id == StarlarkTypeId::of::<StarlarkBool>() {
+            TypeCompiled::type_bool()
+        } else if self.vtable.starlark_type_id == StarlarkTypeId::of::<NoneType>() {
+            TypeCompiled::type_none()
+        } else if self.vtable.starlark_type_id == StarlarkTypeId::of::<StarlarkStr>() {
+            TypeCompiled::type_string()
+        } else {
+            #[derive(Hash, Eq, PartialEq, Allocative, Debug, Clone)]
+            struct StarlarkTypeIdMatcher {
+                starlark_type_id: StarlarkTypeId,
+            }
+
+            impl TypeCompiledImpl for StarlarkTypeIdMatcher {
+                fn matches(&self, value: Value) -> bool {
+                    value.starlark_type_id() == self.starlark_type_id
+                }
+            }
+
+            TypeCompiled::alloc(
+                StarlarkTypeIdMatcher {
+                    starlark_type_id: self.vtable.starlark_type_id,
+                },
+                Ty::basic(TyBasic::StarlarkValue(self)),
+                heap,
+            )
+        }
     }
 }
