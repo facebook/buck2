@@ -413,6 +413,17 @@ x.append(x)
 }
 
 #[test]
+fn test_list_function() {
+    TypeCheck::new().ty("x").check(
+        "list_function",
+        r#"
+# `x` is inferred as `list[typing.Any]` while it could be `list[int]`.
+x = list([1, 2])
+"#,
+    );
+}
+
+#[test]
 fn test_accepts_iterable() {
     TypeCheck::new().check(
         "accepts_iterable",
