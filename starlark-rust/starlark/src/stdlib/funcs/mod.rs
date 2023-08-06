@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+pub(crate) mod dict;
 pub(crate) mod globals;
 pub(crate) mod min_max;
 pub(crate) mod other;
