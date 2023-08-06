@@ -17,7 +17,9 @@
 
 use crate::environment::GlobalsBuilder;
 use crate::stdlib::funcs::other::register_other;
+use crate::stdlib::funcs::zip::register_zip;
 
 pub(crate) fn register_globals(globals: &mut GlobalsBuilder) {
+    register_zip(globals);
     register_other(globals);
 }

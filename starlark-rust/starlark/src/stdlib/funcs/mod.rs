@@ -17,3 +17,4 @@
 
 pub(crate) mod globals;
 pub(crate) mod other;
+pub(crate) mod zip;
