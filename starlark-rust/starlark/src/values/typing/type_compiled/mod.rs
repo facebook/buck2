@@ -16,5 +16,6 @@
  */
 
 pub(crate) mod compiled;
+pub(crate) mod factory;
 pub(crate) mod globals;
 pub(crate) mod tests;

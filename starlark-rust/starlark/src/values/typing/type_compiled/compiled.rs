@@ -55,6 +55,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::types::tuple::value::TupleGen;
+use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::AllocValue;
 use crate::values::Demand;
 use crate::values::Freeze;
@@ -84,7 +85,9 @@ enum TypingError {
     ValueDoesNotMatchType(String, &'static str, String),
 }
 
-trait TypeCompiledImpl: Allocative + Debug + Clone + Eq + Hash + Sized + Send + Sync + 'static {
+pub(crate) trait TypeCompiledImpl:
+    Allocative + Debug + Clone + Eq + Hash + Sized + Send + Sync + 'static
+{
     fn matches(&self, value: Value) -> bool;
     fn is_wildcard(&self) -> bool {
         false
@@ -262,6 +265,7 @@ fn type_compiled_methods(methods: &mut MethodsBuilder) {
     }
 }
 
+/// Wrapper for a [`Value`] that acts like a runtime type matcher.
 #[derive(
     Debug,
     Allocative,
@@ -274,7 +278,7 @@ fn type_compiled_methods(methods: &mut MethodsBuilder) {
     ProvidesStaticType
 )]
 #[repr(transparent)]
-pub(crate) struct TypeCompiled<V>(
+pub struct TypeCompiled<V>(
     /// `V` is `TypeCompiledImplAsStarlarkValue`.
     V,
 );
@@ -543,7 +547,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 // These functions are small, but are deliberately out-of-line so we get better
 // information in profiling about the origin of these closures
 impl<'v> TypeCompiled<Value<'v>> {
-    fn alloc(
+    pub(crate) fn alloc(
         type_compiled_impl: impl TypeCompiledImpl,
         ty: Ty,
         heap: &'v Heap,
@@ -588,14 +592,9 @@ impl<'v> TypeCompiled<Value<'v>> {
         Self::alloc(IsConcrete(t.to_owned()), ty, heap)
     }
 
-    /// Only check name if it is provided.
-    fn ty_custom(ty: &TyCustom, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        match ty.as_name() {
-            None => TypeCompiled::<Value>::type_anything()
-                .patch_ty(Ty::basic(TyBasic::Custom(ty.clone())), heap),
-            Some(name) => Self::type_concrete(name, heap)
-                .patch_ty(Ty::basic(TyBasic::Custom(ty.clone())), heap),
-        }
+    fn ty_custom(ty_custom: &TyCustom, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+        let ty = Ty::basic(TyBasic::Custom(ty_custom.clone()));
+        ty_custom.matcher(TypeCompiledFactory::new(ty, heap))
     }
 
     fn type_list(heap: &'v Heap) -> TypeCompiled<Value<'v>> {

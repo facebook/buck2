@@ -21,12 +21,18 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
+use dupe::Dupe;
 
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
+use crate::values::structs::StructRef;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
+use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::Value;
 
 /// Struct type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
@@ -85,6 +91,19 @@ impl TyCustomImpl for TyStruct {
         } else {
             Err((a, b))
         }
+    }
+
+    fn matcher<'v>(&self, factory: TypeCompiledFactory<'v>) -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Eq, PartialEq, Hash, Debug, Clone, Copy, Dupe)]
+        struct StructMatcher;
+
+        impl TypeCompiledImpl for StructMatcher {
+            fn matches(&self, value: Value) -> bool {
+                StructRef::from_value(value).is_some()
+            }
+        }
+
+        factory.alloc(StructMatcher)
     }
 }
 

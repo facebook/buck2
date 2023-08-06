@@ -22,6 +22,7 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use dupe::Dupe;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -31,6 +32,10 @@ use crate::typing::Ty;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
+use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::Value;
 
 /// An argument being passed to a function
 #[derive(Debug)]
@@ -208,6 +213,19 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         } else {
             Err(())
         }
+    }
+
+    fn matcher<'v>(&self, factory: TypeCompiledFactory<'v>) -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Eq, PartialEq, Hash, Clone, Copy, Dupe, Debug)]
+        struct FunctionMatcher;
+
+        impl TypeCompiledImpl for FunctionMatcher {
+            fn matches(&self, value: Value) -> bool {
+                value.get_type() == "function"
+            }
+        }
+
+        factory.alloc(FunctionMatcher)
     }
 }
 
