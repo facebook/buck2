@@ -31,6 +31,11 @@ pub(crate) struct StarlarkTypeId(ConstTypeId);
 
 impl StarlarkTypeId {
     #[inline]
+    pub(crate) const fn from_type_id(type_id: ConstTypeId) -> StarlarkTypeId {
+        StarlarkTypeId(type_id)
+    }
+
+    #[inline]
     pub(crate) const fn of<'v, T: StarlarkValue<'v>>() -> StarlarkTypeId {
         StarlarkTypeId::of_canonical::<T::Canonical>()
     }

@@ -47,6 +47,7 @@ use crate::values::layout::const_type_id::ConstTypeId;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
+use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
 use crate::values::Freezer;
@@ -109,6 +110,7 @@ impl StarlarkValueRawPtr {
 pub(crate) struct AValueVTable {
     // Common `AValue` fields.
     pub(crate) static_type_of_value: ConstTypeId,
+    pub(crate) starlark_type_id: StarlarkTypeId,
     pub(crate) type_name: &'static str,
     /// Cache `type_name` here to avoid computing hash.
     pub(crate) type_as_allocative_key: allocative::Key,
@@ -132,10 +134,11 @@ pub(crate) struct AValueVTable {
     allocative: unsafe fn(StarlarkValueRawPtr) -> *const dyn Allocative,
 }
 
-struct GetTypeId<T: ?Sized + 'static>(PhantomData<&'static T>);
+struct GetTypeId<'v, T: StarlarkValue<'v> + ?Sized>(PhantomData<&'v T>);
 
-impl<T: ?Sized + 'static> GetTypeId<T> {
-    const TYPE_ID: ConstTypeId = ConstTypeId::of::<T>();
+impl<'v, T: StarlarkValue<'v> + ?Sized> GetTypeId<'v, T> {
+    const TYPE_ID: ConstTypeId = ConstTypeId::of::<<T as ProvidesStaticType>::StaticType>();
+    const STARLARK_TYPE_ID: StarlarkTypeId = StarlarkTypeId::of::<T>();
 }
 
 struct GetAllocativeKey<'v, T: StarlarkValue<'v>>(PhantomData<&'v T>);
@@ -147,12 +150,16 @@ impl<'v, T: StarlarkValue<'v>> GetAllocativeKey<'v, T> {
 impl AValueVTable {
     pub(crate) fn new_black_hole() -> &'static AValueVTable {
         const BLACKHOLE_ALLOCATIVE_KEY: allocative::Key = allocative::Key::new("BlackHole");
+        const BLACKHOLE_TYPE_ID: ConstTypeId = ConstTypeId::of::<BlackHole>();
+        const BLACKHOLE_STARLARK_TYPE_ID: StarlarkTypeId =
+            StarlarkTypeId::from_type_id(BLACKHOLE_TYPE_ID);
         &AValueVTable {
             drop_in_place: |_| {},
 
             is_str: false,
             memory_size: |p| unsafe { (*p.value_ptr::<BlackHole>()).0 },
-            static_type_of_value: GetTypeId::<BlackHole>::TYPE_ID,
+            static_type_of_value: BLACKHOLE_TYPE_ID,
+            starlark_type_id: BLACKHOLE_STARLARK_TYPE_ID,
 
             heap_freeze: |_, _| panic!("BlackHole"),
             heap_copy: |_, _| panic!("BlackHole"),
@@ -198,8 +205,8 @@ impl AValueVTable {
                 let value = T::heap_copy(p, transmute!(&Tracer, &Tracer, tracer));
                 transmute!(Value, Value, value)
             },
-            static_type_of_value:
-                GetTypeId::<<T::StarlarkValue as ProvidesStaticType>::StaticType>::TYPE_ID,
+            static_type_of_value: GetTypeId::<T::StarlarkValue>::TYPE_ID,
+            starlark_type_id: GetTypeId::<T::StarlarkValue>::STARLARK_TYPE_ID,
             type_name: T::StarlarkValue::TYPE,
             type_as_allocative_key: GetAllocativeKey::<T::StarlarkValue>::ALLOCATIVE_KEY,
             display: |this| unsafe {

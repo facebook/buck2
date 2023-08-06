@@ -97,6 +97,7 @@ use crate::values::record::record_type::RecordType;
 use crate::values::recursive_repr_or_json_guard::json_stack_push;
 use crate::values::recursive_repr_or_json_guard::repr_stack_push;
 use crate::values::stack_guard;
+use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::string::StarlarkStr;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -668,6 +669,12 @@ impl<'v> Value<'v> {
     /// `type(x)`.
     pub fn get_type_value(self) -> FrozenStringValue {
         self.vtable().type_value()
+    }
+
+    /// See documentation of [`StarlarkTypeId`].
+    #[inline]
+    pub(crate) fn starlark_type_id(self) -> StarlarkTypeId {
+        self.vtable().starlark_type_id
     }
 
     /// The literal string that a user would need to use this in type annotations.

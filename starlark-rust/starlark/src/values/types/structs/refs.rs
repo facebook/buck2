@@ -16,6 +16,7 @@
  */
 
 use crate::typing::Ty;
+use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -36,6 +37,12 @@ impl<'v> StructRef<'v> {
     /// Downcast a value to a struct reference.
     pub fn from_value(value: Value<'v>) -> Option<StructRef<'v>> {
         Struct::from_value(value).map(StructRef)
+    }
+
+    #[inline]
+    pub(crate) fn is_instance(value: Value<'v>) -> bool {
+        debug_assert!(StarlarkTypeId::of::<Struct>() == StarlarkTypeId::of::<FrozenStruct>());
+        value.starlark_type_id() == StarlarkTypeId::of::<Struct>()
     }
 
     /// Iterate over struct fields.

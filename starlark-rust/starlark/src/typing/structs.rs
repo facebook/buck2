@@ -99,7 +99,7 @@ impl TyCustomImpl for TyStruct {
 
         impl TypeCompiledImpl for StructMatcher {
             fn matches(&self, value: Value) -> bool {
-                StructRef::from_value(value).is_some()
+                StructRef::is_instance(value)
             }
         }
 
