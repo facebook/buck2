@@ -33,6 +33,7 @@ use crate::syntax::ast::Clause;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::ForClause;
+use crate::syntax::ast::ForP;
 use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::Stmt;
@@ -307,10 +308,9 @@ fn stmt(x: &AstStmt, res: &mut Vec<Bind>) {
             expr(rhs, res);
             expr_lvalue(lhs, res);
         }
-        Stmt::For(dest, inner_body) => {
-            let (inner, body) = &**inner_body;
-            expr(inner, res);
-            expr_lvalue(dest, res);
+        Stmt::For(ForP { var, over, body }) => {
+            expr(over, res);
+            expr_lvalue(var, res);
             flow(res);
             stmt(body, res);
             flow(res)

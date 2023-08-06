@@ -48,6 +48,7 @@ use crate::syntax::ast::AstTypeExpr;
 use crate::syntax::ast::Clause;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::ForClause;
+use crate::syntax::ast::ForP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 
@@ -488,12 +489,12 @@ impl<'a> State<'a> {
                 self.expr(cond);
                 self.branch(|me| me.stmt(&t_f.0), |me| me.stmt(&t_f.1));
             }
-            Stmt::For(var, iter_body) => {
-                self.expr(&iter_body.0);
+            Stmt::For(ForP { var, over, body }) => {
+                self.expr(over);
                 // Note this isn't 100% correct, as a for loop may set something the next iteration consumes
                 self.loops(|me| {
                     me.assign(var);
-                    me.stmt(&iter_body.1);
+                    me.stmt(body);
                 });
             }
             Stmt::Def(x) => {

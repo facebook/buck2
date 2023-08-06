@@ -57,6 +57,7 @@ use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::ForP;
 use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
@@ -937,10 +938,9 @@ impl Stmt {
                     result,
                 );
             }
-            StmtP::For(dest, over_body) => {
-                let (_over, body) = &mut **over_body;
+            StmtP::For(ForP { var, over: _, body }) => {
                 AssignTarget::collect_defines_lvalue(
-                    dest,
+                    var,
                     top_level_stmt_index,
                     InLoop::Yes,
                     scope_data,

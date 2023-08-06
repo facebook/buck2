@@ -32,6 +32,7 @@ use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::ForP;
 use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
@@ -95,9 +96,8 @@ impl<P: AstPayload> StmtP<P> {
                     .for_each(|x| x.visit_expr(|x| f(Visit::Expr(x))));
                 f(Visit::Stmt(body));
             }
-            StmtP::For(lhs, over_body) => {
-                let (over, body) = &**over_body;
-                lhs.visit_expr(|x| f(Visit::Expr(x)));
+            StmtP::For(ForP { var, over, body }) => {
+                var.visit_expr(|x| f(Visit::Expr(x)));
                 f(Visit::Expr(over));
                 f(Visit::Stmt(body));
             }
@@ -150,9 +150,8 @@ impl<P: AstPayload> StmtP<P> {
                     .for_each(|x| x.visit_expr_mut(|x| f(VisitMut::Expr(x))));
                 f(VisitMut::Stmt(body));
             }
-            StmtP::For(lhs, over_body) => {
-                let (over, body) = &mut **over_body;
-                lhs.visit_expr_mut(|x| f(VisitMut::Expr(x)));
+            StmtP::For(ForP { var, over, body }) => {
+                var.visit_expr_mut(|x| f(VisitMut::Expr(x)));
                 f(VisitMut::Expr(over));
                 f(VisitMut::Stmt(body));
             }

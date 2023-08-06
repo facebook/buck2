@@ -29,6 +29,7 @@ use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
+use crate::syntax::ast::ForP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::dialect::DialectError;
 use crate::syntax::Dialect;
@@ -164,8 +165,7 @@ impl Stmt {
 
             match &stmt.node {
                 Stmt::Def(DefP { body, .. }) => f(codemap, dialect, body, false, false, true),
-                Stmt::For(_, over_body) => {
-                    let (_, body) = &**over_body;
+                Stmt::For(ForP { body, .. }) => {
                     if top_level && !dialect.enable_top_level_stmt {
                         err(ValidateError::NoTopLevelFor.into())
                     } else {

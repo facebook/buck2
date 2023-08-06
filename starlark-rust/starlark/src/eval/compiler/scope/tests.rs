@@ -35,6 +35,7 @@ use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
+use crate::syntax::ast::ForP;
 use crate::syntax::ast::StmtP;
 use crate::syntax::uniplate::Visit;
 use crate::syntax::AstModule;
@@ -132,7 +133,7 @@ fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
                         self.visit_exprs(typ);
                     }
                 }
-                StmtP::For(assign, ..) => self.visit_assign(assign),
+                StmtP::For(ForP { var, .. }) => self.visit_assign(var),
                 _ => {}
             }
 

@@ -37,6 +37,7 @@ use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::ForP;
 use crate::syntax::ast::IdentP;
 use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
@@ -217,9 +218,9 @@ impl<'a> BindingsCollect<'a> {
                         bindings,
                         codemap,
                     )?,
-                    StmtP::For(lhs, iter_body) => assign(
-                        lhs,
-                        BindExpr::Iter(Box::new(BindExpr::Expr(&iter_body.0))),
+                    StmtP::For(ForP { var, over, body: _ }) => assign(
+                        var,
+                        BindExpr::Iter(Box::new(BindExpr::Expr(over))),
                         bindings,
                         codemap,
                     )?,

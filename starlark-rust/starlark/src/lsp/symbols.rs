@@ -28,6 +28,7 @@ use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::ExprP;
+use crate::syntax::ast::ForP;
 use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
 
@@ -84,9 +85,8 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
                     param: None,
                 });
             }),
-            StmtP::For(dest, over_body) => {
-                let (_, body) = &**over_body;
-                dest.visit_lvalue(|x| {
+            StmtP::For(ForP { var, over: _, body }) => {
+                var.visit_lvalue(|x| {
                     symbols.entry(x.0.clone()).or_insert_with(|| Symbol {
                         name: x.0.clone(),
                         kind: SymbolKind::Variable,

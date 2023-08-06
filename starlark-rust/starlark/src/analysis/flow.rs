@@ -30,6 +30,7 @@ use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstTypeExpr;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
+use crate::syntax::ast::ForP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 
@@ -258,10 +259,7 @@ fn redundant(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<FlowIssue>>) {
 
     fn f(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<FlowIssue>>) {
         match &**x {
-            Stmt::For(_, over_body) => {
-                let (_over, body) = &**over_body;
-                check(true, codemap, body, res)
-            }
+            Stmt::For(ForP { body, .. }) => check(true, codemap, body, res),
             Stmt::Def(DefP { body, .. }) => check(false, codemap, body, res),
             _ => {}
         }

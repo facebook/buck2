@@ -134,8 +134,12 @@ ElseStmt: AstStmt = {
 };
 
 ForStmt: AstStmt = ASTS<ForStmt_>;
-ForStmt_: Stmt = "for" <e:ExprList> "in" <c:Test> ":" <s:Suite>
-    =>? Ok(Stmt::For(grammar_util::check_assign(state.codemap, e)?, Box::new((c, s))));
+ForStmt_: Stmt = "for" <var:ExprList> "in" <over:Test> ":" <body:Suite>
+    =>? Ok(Stmt::For(ForP {
+        var: grammar_util::check_assign(state.codemap, var)?,
+        over,
+        body: Box::new(body),
+    }));
 
 SimpleStmt<S>: AstStmt =
     <l:@L> <e:S> <v:(";" <S>)*> ";"? <r:@R> "\n" => {

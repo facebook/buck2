@@ -29,6 +29,7 @@ use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::FStringP;
 use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::ForP;
 use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::LoadP;
@@ -77,6 +78,20 @@ impl<A: AstPayload> AssignP<A> {
     }
 }
 
+impl<A: AstPayload> ForP<A> {
+    pub(crate) fn into_map_payload<B: AstPayload>(
+        self,
+        f: &mut impl AstPayloadFunction<A, B>,
+    ) -> ForP<B> {
+        let ForP { var, over, body } = self;
+        ForP {
+            var: var.into_map_payload(f),
+            over: over.into_map_payload(f),
+            body: Box::new(body.into_map_payload(f)),
+        }
+    }
+}
+
 impl<A: AstPayload> StmtP<A> {
     pub(crate) fn into_map_payload<B: AstPayload>(
         self,
@@ -112,13 +127,7 @@ impl<A: AstPayload> StmtP<A> {
                     )),
                 )
             }
-            StmtP::For(assign, coll_body) => {
-                let (coll, body) = *coll_body;
-                StmtP::For(
-                    assign.into_map_payload(f),
-                    Box::new((coll.into_map_payload(f), body.into_map_payload(f))),
-                )
-            }
+            StmtP::For(fr) => StmtP::For(fr.into_map_payload(f)),
             StmtP::Def(DefP {
                 name,
                 params,

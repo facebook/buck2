@@ -57,6 +57,7 @@ use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::DefP;
+use crate::syntax::ast::ForP;
 use crate::syntax::ast::StmtP;
 use crate::values::dict::Dict;
 use crate::values::dict::DictMut;
@@ -736,8 +737,7 @@ impl Compiler<'_, '_, '_> {
                     node: StmtCompiled::Assign(lhs, None, rhs),
                 })
             }
-            StmtP::For(var, over_body) => {
-                let (over, body) = &**over_body;
+            StmtP::For(ForP { var, over, body }) => {
                 let over = list_to_tuple(over);
                 let var = self.assign(var);
                 let over = self.expr(&over);

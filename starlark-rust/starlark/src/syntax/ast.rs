@@ -320,6 +320,13 @@ impl<P: AstPayload> DefP<P> {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct ForP<P: AstPayload> {
+    pub(crate) var: AstAssignTargetP<P>,
+    pub(crate) over: AstExprP<P>,
+    pub(crate) body: Box<AstStmtP<P>>,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct FStringP<P: AstPayload> {
     /// A format string containing a `{}` marker for each expression to interpolate.
@@ -340,7 +347,7 @@ pub(crate) enum StmtP<P: AstPayload> {
     Statements(Vec<AstStmtP<P>>),
     If(AstExprP<P>, Box<AstStmtP<P>>),
     IfElse(AstExprP<P>, Box<(AstStmtP<P>, AstStmtP<P>)>),
-    For(AstAssignTargetP<P>, Box<(AstExprP<P>, AstStmtP<P>)>),
+    For(ForP<P>),
     Def(DefP<P>),
     Load(LoadP<P>),
 }
@@ -673,10 +680,9 @@ impl Stmt {
                 writeln!(f, "{}else:", tab)?;
                 suite2.node.fmt_with_tab(f, tab + "  ")
             }
-            Stmt::For(bind, coll_suite) => {
-                let (coll, suite) = &**coll_suite;
-                writeln!(f, "{}for {} in {}:", tab, bind.node, coll.node)?;
-                suite.node.fmt_with_tab(f, tab + "  ")
+            Stmt::For(ForP { var, over, body }) => {
+                writeln!(f, "{}for {} in {}:", tab, var.node, over.node)?;
+                body.node.fmt_with_tab(f, tab + "  ")
             }
             Stmt::Def(DefP {
                 name,
