@@ -148,21 +148,13 @@ impl TypingContext<'_> {
     }
 
     fn expr_index(&self, span: Span, array: &CstExpr, index: &CstExpr) -> Ty {
-        self.expression_primitive(TypingAttr::Index, &[array, index], span)
-    }
-
-    fn expression_primitive(&self, name: TypingAttr, args: &[&CstExpr], span: Span) -> Ty {
-        let t0 = self.expression_type(args[0]);
-        let ts = args[1..].map(|x| Spanned {
-            span: x.span,
-            node: self.expression_type(x),
-        });
+        let array_ty = self.expression_type(array);
 
         // Hack for `list[str]`: list of `list` is just "function", and we don't want
         // to make it custom type and have overly complex machinery for handling it.
         // So we just special case it here.
-        if t0.is_function() && name == TypingAttr::Index {
-            if let ExprP::Identifier(v0) = &args[0].node {
+        if array_ty.is_function() {
+            if let ExprP::Identifier(v0) = &array.node {
                 if v0.0 == "list" {
                     // TODO: make this "eval_type" or something.
                     return Ty::any();
@@ -170,7 +162,8 @@ impl TypingContext<'_> {
             }
         }
 
-        self.expression_primitive_ty(name, t0, ts, span)
+        let index = self.expression_type_spanned(index);
+        self.expression_primitive_ty(TypingAttr::Index, array_ty, vec![index], span)
     }
 
     fn expression_un_op(&self, span: Span, arg: &CstExpr, un_op: TypingUnOp) -> Ty {
