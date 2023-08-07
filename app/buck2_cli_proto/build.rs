@@ -41,6 +41,7 @@ fn main() -> io::Result<()> {
         .boxed("CommandProgress.progress.event")
         .boxed("CommandProgress.progress.result")
         .boxed("CommandProgress.progress.partial_result")
+        .field_attribute("expires_at", "#[serde(with = \"serialize_timestamp\")]")
         .extern_path(".buck.data", "::buck2_data")
         .extern_path(".buck.subscription", "::buck2_subscription_proto")
         .compile(proto_files, &[".", &data_include, &subscription_include])

@@ -40,6 +40,12 @@ impl InvocationRoots {
     pub fn common_buckd_dir(&self) -> anyhow::Result<AbsNormPathBuf> {
         Ok(home_buck_dir()?.join(FileName::unchecked_new("buckd")))
     }
+
+    pub fn paranoid_info_path(&self) -> anyhow::Result<AbsNormPathBuf> {
+        Ok(self
+            .common_buckd_dir()?
+            .join(FileName::unchecked_new("paranoid.info")))
+    }
 }
 
 /// This finds the cell root and the project root.

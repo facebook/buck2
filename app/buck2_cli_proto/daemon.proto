@@ -908,3 +908,11 @@ service DaemonApi {
   // Interact with daemon I/O tracing.
   rpc TraceIo(TraceIoRequest) returns (stream MultiCommandProgress);
 }
+
+// This struct is written to `~/.buck/paranoid.info` by `buck2 paranoid
+// enabled`, it's used to control whether we are currently enabling paranoid
+// mode on this machine. Read `buck2 help debug paranoid` for more details.
+message ParanoidInfo {
+  // Paranoid is enabled until this time.
+  google.protobuf.Timestamp expires_at = 1;
+}

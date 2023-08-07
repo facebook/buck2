@@ -7,16 +7,21 @@
  * of this source tree.
  */
 
+use std::time::SystemTime;
+
 use anyhow::Context as _;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::cells::DaemonStartupConfig;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::WorkingDir;
 use once_cell::sync::OnceCell;
+use prost::Message;
 
 /// Lazy-computed immediate config data. This is produced by reading the root buckconfig (but not
 /// processing any includes).
@@ -92,17 +97,49 @@ impl<'a> ImmediateConfigContext<'a> {
         self.data
             .get_or_try_init(|| {
                 let roots = find_invocation_roots(self.cwd.path())?;
+                let paranoid_info_path = roots.paranoid_info_path()?;
 
                 // See comment in `ImmediateConfig` about why we use `OnceCell` rather than `Lazy`
                 let project_filesystem = roots.project_root;
                 let cfg = BuckConfigBasedCells::parse_immediate_config(&project_filesystem)?;
 
+                // It'd be nice to deal with this a little differently by having this be a separate
+                // type.
+                let mut daemon_startup_config = cfg.daemon_startup_config;
+
+                match is_paranoid_enabled(&paranoid_info_path) {
+                    Ok(paranoid) => {
+                        daemon_startup_config.paranoid = daemon_startup_config.paranoid || paranoid;
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to determine whether paranoid is enabled in `{}`: {:#}",
+                            paranoid_info_path,
+                            e
+                        );
+                    }
+                };
+
                 anyhow::Ok(ImmediateConfigContextData {
                     cell_resolver: cfg.cell_resolver,
-                    daemon_startup_config: cfg.daemon_startup_config,
+                    daemon_startup_config,
                     project_filesystem,
                 })
             })
             .context("Error creating cell resolver")
     }
+}
+
+fn is_paranoid_enabled(path: &AbsPath) -> anyhow::Result<bool> {
+    let bytes = match fs_util::read_if_exists(path)? {
+        Some(b) => b,
+        None => return Ok(false),
+    };
+
+    let info = buck2_cli_proto::ParanoidInfo::decode(bytes.as_slice()).context("Invalid data ")?;
+
+    let now = SystemTime::now();
+    let expires_at = SystemTime::try_from(info.expires_at.context("Missing expires_at")?)
+        .context("Invalid expires_at")?;
+    Ok(now < expires_at)
 }
