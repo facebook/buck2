@@ -9,10 +9,31 @@
 
 use std::path::Path;
 
+use allocative::Allocative;
 use anyhow::Context as _;
 use once_cell::sync::OnceCell;
 
+use crate::fs::fs_util;
+use crate::fs::paths::abs_norm_path::AbsNormPath;
+use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::abs_path::AbsPathBuf;
+
+#[derive(Allocative)]
+pub struct WorkingDirectory {
+    path: AbsNormPathBuf,
+}
+
+impl WorkingDirectory {
+    pub fn open(path: AbsNormPathBuf) -> anyhow::Result<Self> {
+        Ok(Self { path })
+    }
+
+    pub fn chdir_and_promise_it_will_not_change(&self) -> anyhow::Result<()> {
+        fs_util::set_current_dir(&self.path).context("Failed to chdir")?;
+        cwd_will_not_change(&self.path).context("Failed to set working dir")?;
+        Ok(())
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 enum CwdError {
@@ -23,10 +44,8 @@ enum CwdError {
 static CWD: OnceCell<AbsPathBuf> = OnceCell::new();
 
 /// Promise the cwd will not change going forward. This should only be called once.
-pub fn cwd_will_not_change() -> anyhow::Result<()> {
-    let cwd = std::env::current_dir().context("Failed to get cwd")?;
-    let cwd = AbsPathBuf::new(cwd).context("Cwd is not absolute")?;
-    CWD.set(cwd)
+fn cwd_will_not_change(cwd: &AbsNormPath) -> anyhow::Result<()> {
+    CWD.set(cwd.as_abs_path().to_owned())
         .ok()
         .context("cwd_will_not_change was called twice")?;
     Ok(())

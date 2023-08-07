@@ -31,6 +31,7 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::name::CellName;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::facebook_only;
+use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::rollout_percentage::RolloutPercentage;
@@ -77,6 +78,7 @@ use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::io_provider::create_io_provider;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
+
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
 #[derive(Allocative)]
 pub struct DaemonState {
@@ -90,6 +92,10 @@ pub struct DaemonState {
 
     #[allocative(skip)]
     rt: Handle,
+
+    /// Our working directory, if we did set one.
+    #[allow(unused)]
+    working_directory: Option<WorkingDirectory>,
 }
 
 /// DaemonStateData is the main shared data across all commands. It's lazily initialized on
@@ -195,6 +201,7 @@ impl DaemonState {
         rt: Handle,
         use_tonic_rt: bool,
         materializations: MaterializationMethod,
+        working_directory: Option<WorkingDirectory>,
     ) -> Self {
         let data = Self::init_data(
             fb,
@@ -220,6 +227,7 @@ impl DaemonState {
             paths,
             data,
             rt,
+            working_directory,
         }
     }
 

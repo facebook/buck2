@@ -54,6 +54,9 @@ sorted_vector_map = { workspace = true }
 buck2_data = { workspace = true }
 buck2_util = { workspace = true }
 
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true }
+
 [target.'cfg(windows)'.dependencies]
 common-path = { workspace = true}
 

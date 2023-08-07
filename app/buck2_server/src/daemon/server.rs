@@ -39,6 +39,7 @@ use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::error::reload_hard_error_config;
 use buck2_core::error::reset_soft_error_counters;
+use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -283,10 +284,13 @@ impl BuckdServer {
         // Create buck-out and potentially chdir to there.
         fs_util::create_dir_all(paths.buck_out_path()).context("Error creating buck_out_path")?;
 
-        if !matches!(materializations, MaterializationMethod::Eden) {
-            fs_util::set_current_dir(paths.buck_out_path()).context("Error changing dirs")?;
-            buck2_core::fs::cwd::cwd_will_not_change().context("Error initializing static cwd")?;
-        }
+        let cwd = if !matches!(materializations, MaterializationMethod::Eden) {
+            let dir = WorkingDirectory::open(paths.buck_out_path())?;
+            dir.chdir_and_promise_it_will_not_change()?;
+            Some(dir)
+        } else {
+            None
+        };
 
         let daemon_state = Arc::new(
             DaemonState::new(
@@ -296,6 +300,7 @@ impl BuckdServer {
                 rt.clone(),
                 use_tonic_rt,
                 materializations,
+                cwd,
             )
             .await,
         );
