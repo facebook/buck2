@@ -1667,6 +1667,14 @@ message InvocationRecord {
   repeated string concurrent_command_ids = 74;
   // The client has failed to connect to the daemon.
   optional bool daemon_connection_failure = 75;
+  // Metadata provided by the client. Unlike TypedMetadata, this won't become
+  // its own column in Scuba, all those entries will land in a NormVector.
+  repeated ClientMetadata client_metadata = 76;
+}
+
+message ClientMetadata {
+  string key = 1;
+  string value = 2;
 }
 
 enum CacheUploadReason {

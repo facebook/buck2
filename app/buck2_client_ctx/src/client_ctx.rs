@@ -24,6 +24,7 @@ use tokio::runtime::Runtime;
 
 use crate::argv::Argv;
 use crate::cleanup_ctx::AsyncCleanupContext;
+use crate::client_metadata::ClientMetadata;
 use crate::common::CommonDaemonCommandOptions;
 use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
@@ -54,6 +55,7 @@ pub struct ClientCommandContext<'a> {
     pub restarted_trace_id: Option<TraceId>,
     pub runtime: &'a Runtime,
     pub oncall: Option<String>,
+    pub client_metadata: Vec<ClientMetadata>,
 }
 
 impl<'a> ClientCommandContext<'a> {

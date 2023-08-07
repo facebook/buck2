@@ -17,6 +17,7 @@ pub mod chunk_reader;
 pub mod cleanup_ctx;
 pub mod client_cpu_tracker;
 pub mod client_ctx;
+pub mod client_metadata;
 pub mod command_outcome;
 pub mod common;
 pub mod console_interaction_stream;

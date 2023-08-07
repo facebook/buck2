@@ -14,6 +14,7 @@ use dupe::Dupe;
 
 use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
+use crate::client_metadata::ClientMetadata;
 use crate::common::CommonDaemonCommandOptions;
 
 mod imp {
@@ -131,6 +132,7 @@ mod imp {
         initial_re_download_bytes: Option<u64>,
         concurrent_command_ids: HashSet<String>,
         daemon_connection_failure: bool,
+        client_metadata: Vec<buck2_data::ClientMetadata>,
     }
 
     impl<'a> InvocationRecorder<'a> {
@@ -146,6 +148,7 @@ mod imp {
             invocation_root_path: AbsNormPathBuf,
             restarted_trace_id: Option<TraceId>,
             log_size_counter_bytes: Option<Arc<AtomicU64>>,
+            client_metadata: Vec<buck2_data::ClientMetadata>,
         ) -> Self {
             Self {
                 fb,
@@ -224,6 +227,7 @@ mod imp {
                 initial_re_download_bytes: None,
                 concurrent_command_ids: HashSet::new(),
                 daemon_connection_failure: false,
+                client_metadata,
             }
         }
 
@@ -382,6 +386,7 @@ mod imp {
                     .into_iter()
                     .collect(),
                 daemon_connection_failure: Some(self.daemon_connection_failure),
+                client_metadata: std::mem::take(&mut self.client_metadata),
             };
 
             let event = BuckEvent::new(
@@ -1138,6 +1143,10 @@ pub fn try_get_invocation_recorder<'a>(
         ctx.paths()?.project_root().root().to_buf(),
         ctx.restarted_trace_id.dupe(),
         log_size_counter_bytes,
+        ctx.client_metadata
+            .iter()
+            .map(ClientMetadata::to_proto)
+            .collect(),
     );
     Ok(Box::new(recorder))
 }
