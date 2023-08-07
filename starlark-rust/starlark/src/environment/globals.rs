@@ -322,7 +322,7 @@ impl GlobalsBuilder {
                 name: name.to_owned(),
                 speculative_exec_safe,
                 typ,
-                ty,
+                ty: Some(ty.unwrap_or_else(|| Ty::from_docs_function(&raw_docs.documentation()))),
                 raw_docs: Some(raw_docs),
                 special_builtin_function,
             },
