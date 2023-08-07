@@ -130,7 +130,7 @@ criterion = { version = "0.3.1", features = [] }
 crossbeam = "0.8"
 crossbeam-channel = "0.5"
 crossbeam-epoch = "0.9.7"
-crossterm = "0.23"
+crossterm = "0.27"
 csv = "1.1"
 ctor = "0.1.16"
 dashmap = "4.0.2"

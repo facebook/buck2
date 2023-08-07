@@ -40,6 +40,7 @@ pub struct Lines(pub Vec<Line>);
 struct ColoredStringParser {
     foreground_color: Option<Color>,
     background_color: Option<Color>,
+    underline_color: Option<Color>,
     attributes: Attributes,
     line_buffer: String,
     spans: Vec<Span>,
@@ -51,6 +52,7 @@ impl ColoredStringParser {
             ContentStyle {
                 foreground_color: self.foreground_color,
                 background_color: self.background_color,
+                underline_color: self.underline_color,
                 attributes: self.attributes,
             },
             std::mem::take(&mut self.line_buffer),
@@ -503,6 +505,7 @@ mod tests {
         let style = ContentStyle {
             foreground_color: Some(Color::Red),
             background_color: None,
+            underline_color: None,
             attributes: Default::default(),
         };
         let test = Lines::from_multiline_string(content, style);
@@ -585,6 +588,7 @@ strips out {bs}invalid control sequences",
         let blue_and_bg_blue_bold = ContentStyle {
             foreground_color: blue.foreground_color,
             background_color: bg_blue.background_color,
+            underline_color: None,
             attributes: Attributes::from(Attribute::Bold),
         };
         let bold = ContentStyle {

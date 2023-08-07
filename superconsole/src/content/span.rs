@@ -397,6 +397,7 @@ mod tests {
             ContentStyle {
                 foreground_color: Some(Color::Cyan),
                 background_color: None,
+                underline_color: None,
                 attributes: Attributes::from(Attribute::Bold) | Attributes::from(Attribute::Italic),
             },
             "fish".to_owned(),

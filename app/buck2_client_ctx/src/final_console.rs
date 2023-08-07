@@ -33,6 +33,7 @@ impl FinalConsole {
                 ContentStyle {
                     foreground_color: Some(color),
                     background_color: None,
+                    underline_color: None,
                     attributes: Default::default(),
                 },
                 message,
