@@ -293,7 +293,8 @@ impl Uploader {
                                         file.digest,
                                         file.digest.expires(),
                                         err
-                                    )
+                                    ),
+                                    quiet: true
                                 )?;
 
                                 continue;
