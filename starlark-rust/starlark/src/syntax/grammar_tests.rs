@@ -376,6 +376,15 @@ fn test_bad_assignment() {
 }
 
 #[test]
+fn test_assignment_type_annotation() {
+    // We support the same annotation syntax as Python.
+    assert::parse("x: int = 1");
+    assert::parse("x.y: int = 1");
+    assert::parse("x[1]: int = 1");
+    parse_fail("assignment_type_annotation", "(x, y): int = foo");
+}
+
+#[test]
 fn test_test_list_in_index_expr() {
     assert_eq!(assert::parse("x[1, 2]"), "x[1, 2]\n");
 
