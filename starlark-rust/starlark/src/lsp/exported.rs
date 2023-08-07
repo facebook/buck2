@@ -30,6 +30,7 @@ use crate::lsp::docs::get_doc_item_for_def;
 use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
+use crate::syntax::top_level_stmts::top_level_stmts;
 use crate::syntax::AstModule;
 
 /// The type of an exported symbol.
@@ -123,7 +124,7 @@ impl AstModule {
         }
 
         let mut last_node = None;
-        for x in self.top_level_statements() {
+        for x in top_level_stmts(&self.statement) {
             match &**x {
                 Stmt::Assign(assign) => {
                     assign.lhs.visit_lvalue(|name| {

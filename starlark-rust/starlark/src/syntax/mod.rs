@@ -37,6 +37,7 @@ pub(crate) mod payload_map;
 pub(crate) mod state;
 #[cfg(test)]
 mod testcases;
+pub(crate) mod top_level_stmts;
 pub(crate) mod type_expr;
 pub(crate) mod uniplate;
 pub(crate) mod validate;

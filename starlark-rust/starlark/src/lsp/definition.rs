@@ -39,6 +39,7 @@ use crate::syntax::ast::Expr;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
+use crate::syntax::top_level_stmts::top_level_stmts;
 use crate::syntax::uniplate::Visit;
 use crate::syntax::AstModule;
 
@@ -477,7 +478,7 @@ impl LspModule {
         let mut identifier_span = None;
         let mut symbol_to_lookup = None;
 
-        'outer: for v in self.ast.top_level_statements() {
+        'outer: for v in top_level_stmts(&self.ast.statement) {
             if let StmtP::Assign(assign) = &v.node {
                 let main_assign_span = match &assign.lhs.node {
                     AssignTargetP::Identifier(main_assign_id) if main_assign_id.0 == name => {

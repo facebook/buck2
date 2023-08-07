@@ -23,7 +23,6 @@ use std::collections::HashMap;
 use std::iter;
 use std::marker::PhantomData;
 use std::mem;
-use std::slice;
 
 use dupe::Dupe;
 use starlark_derive::VisitSpanMut;
@@ -62,6 +61,7 @@ use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
 use crate::syntax::ast::Visibility;
+use crate::syntax::top_level_stmts::top_level_stmts_mut;
 use crate::syntax::uniplate::VisitMut;
 use crate::syntax::Dialect;
 use crate::typing::error::InternalError;
@@ -277,14 +277,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         let scope_id = scope_data.new_scope().0;
         let mut cst = CstStmt::from_ast(stmt, &mut scope_data, loads);
 
-        let top_level_stmts: &mut [CstStmt] = match &mut cst.node {
-            StmtP::Statements(stmts) => {
-                // TODO(nga): single-line top-level statements like `a(); b()`
-                //   will be treated as multiple top-level statements.
-                stmts
-            }
-            _ => slice::from_mut(&mut cst),
-        };
+        let mut top_level_stmts = top_level_stmts_mut(&mut cst);
 
         // Not really important, sanity check
         assert_eq!(scope_id, ScopeId::module());

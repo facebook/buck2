@@ -18,6 +18,7 @@
 use dupe::Dupe;
 
 use crate::syntax::ast::StmtP;
+use crate::syntax::top_level_stmts::top_level_stmts;
 use crate::syntax::AstModule;
 
 /// A loaded symbol. Returned from [`AstModule::loaded_symbols`].
@@ -34,7 +35,7 @@ impl AstModule {
     /// Which symbols are loaded by this module. These are the top-level load
     /// statements.
     pub fn loaded_symbols<'a>(&'a self) -> Vec<LoadedSymbol<'a>> {
-        self.top_level_statements()
+        top_level_stmts(&self.statement)
             .into_iter()
             .filter_map(|x| match &x.node {
                 StmtP::Load(l) => Some(l),

@@ -31,7 +31,6 @@ use crate::errors::Diagnostic;
 use crate::eval::compiler::EvalException;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::Stmt;
-use crate::syntax::ast::StmtP;
 use crate::syntax::grammar::StarlarkParser;
 use crate::syntax::lexer::Lexer;
 use crate::syntax::lexer::Token;
@@ -109,24 +108,6 @@ pub struct AstModule {
 }
 
 impl AstModule {
-    /// List the top-level statements in the AST.
-    pub(crate) fn top_level_statements(&self) -> Vec<&AstStmt> {
-        fn f<'a>(ast: &'a AstStmt, res: &mut Vec<&'a AstStmt>) {
-            match &**ast {
-                StmtP::Statements(xs) => {
-                    for x in xs {
-                        f(x, res);
-                    }
-                }
-                _ => res.push(ast),
-            }
-        }
-
-        let mut res = Vec::new();
-        f(&self.statement, &mut res);
-        res
-    }
-
     fn create(
         codemap: CodeMap,
         statement: AstStmt,
