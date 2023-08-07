@@ -154,7 +154,6 @@ HaskellLibraryInfo = record(
     # Internal packages default to 1.0.0, e.g. `fbcode-dsi-logger-hs-types-1.0.0`.
     version = str,
     is_prebuilt = bool,
-    profiling_enabled = bool,
 )
 
 # --
@@ -274,7 +273,6 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
             libs = libs,
             version = ctx.attrs.version,
             is_prebuilt = True,
-            profiling_enabled = ctx.attrs.enable_profiling,
         )
 
         def archive_linkable(lib):
@@ -378,11 +376,7 @@ def get_packages_info(
     # are a *lot* of duplicates).
     libs = {}
     direct_deps_link_info = _attr_deps_haskell_link_infos(ctx)
-    merged_hs_link_info = merge_haskell_link_infos(direct_deps_link_info)
-
-    hs_link_info = merged_hs_link_info.info
-
-    for lib in hs_link_info[link_style]:
+    for lib in merge_haskell_link_infos(direct_deps_link_info).info[link_style]:
         libs[lib.db] = lib  # lib.db is a good enough unique key
 
     # base is special and gets exposed by default
@@ -460,14 +454,6 @@ def _srcs_to_objfiles(
             objfiles.add(cmd_args([odir, "/", paths.replace_extension(src, "." + osuf)], delimiter = ""))
     return objfiles
 
-# Single place to build the suffix used in artifacts (e.g. package directories,
-# lib names) considering attributes like link style and profiling.
-def get_artifact_suffix(link_style: LinkStyle.type, enable_profiling: bool) -> str:
-    artifact_suffix = link_style.value
-    if enable_profiling:
-        artifact_suffix += "-prof"
-    return artifact_suffix
-
 # Compile all the context's sources.
 def _compile(
         ctx: AnalysisContext,
@@ -499,14 +485,9 @@ def _compile(
     if getattr(ctx.attrs, "main", None) != None:
         compile_args.add(["-main-is", ctx.attrs.main])
 
-    artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
-
-    objects = ctx.actions.declare_output(
-        "objects-" + artifact_suffix,
-        dir = True,
-    )
-    hi = ctx.actions.declare_output("hi-" + artifact_suffix, dir = True)
-    stubs = ctx.actions.declare_output("stubs-" + artifact_suffix, dir = True)
+    objects = ctx.actions.declare_output("objects-" + link_style.value, dir = True)
+    hi = ctx.actions.declare_output("hi-" + link_style.value, dir = True)
+    stubs = ctx.actions.declare_output("stubs-" + link_style.value, dir = True)
 
     compile_args.add(
         "-odir",
@@ -546,16 +527,14 @@ def _compile(
         else:
             compile_args.hidden(src)
 
-    argsfile = ctx.actions.declare_output(
-        "haskell_compile_" + artifact_suffix + ".argsfile",
-    )
+    argsfile = ctx.actions.declare_output("haskell_compile_" + link_style.value + ".argsfile")
     ctx.actions.write(argsfile.as_output(), compile_args, allow_args = True)
     hidden_args = [compile_args]
     compile_cmd.add(cmd_args(argsfile, format = "@{}").hidden(hidden_args))
 
     ctx.actions.run(
         compile_cmd,
-        category = "haskell_compile_" + artifact_suffix.replace("-", "_"),
+        category = "haskell_compile_" + link_style.value,
         no_outputs_cleanup = True,
     )
 
@@ -602,10 +581,7 @@ def _make_package(
         libname: str,
         hlis: list[HaskellLibraryInfo.type],
         hi: Artifact,
-        lib: Artifact,
-        enable_profiling: bool) -> Artifact:
-    artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
-
+        lib: Artifact) -> Artifact:
     # Don't expose boot sources, as they're only meant to be used for compiling.
     modules = [_src_to_module_name(x) for x in ctx.attrs.srcs if _is_haskell_src(x)]
 
@@ -620,14 +596,14 @@ def _make_package(
         "key: " + pkgname,
         "exposed: False",
         "exposed-modules: " + ", ".join(modules),
-        "import-dirs: \"${pkgroot}/hi-" + artifact_suffix + "\"",
-        "library-dirs: \"${pkgroot}/lib-" + artifact_suffix + "\"",
+        "import-dirs: \"${pkgroot}/hi-" + link_style.value + "\"",
+        "library-dirs: \"${pkgroot}/lib-" + link_style.value + "\"",
         "extra-libraries: " + libname,
         "depends: " + ", ".join(uniq_hlis),
     ]
-    pkg_conf = ctx.actions.write("pkg-" + artifact_suffix + ".conf", conf)
+    pkg_conf = ctx.actions.write("pkg-" + link_style.value + ".conf", conf)
 
-    db = ctx.actions.declare_output("db-" + artifact_suffix)
+    db = ctx.actions.declare_output("db-" + link_style.value)
 
     db_deps = {}
     for x in uniq_hlis.values():
@@ -651,7 +627,7 @@ def _make_package(
             db.as_output(),
             pkg_conf,
         ]).hidden(hi).hidden(lib),  # needs hi, because ghc-pkg checks that the .hi files exist
-        category = "haskell_package_" + artifact_suffix.replace("-", "_"),
+        category = "haskell_package_" + link_style.value,
         env = {"GHC_PACKAGE_PATH": ghc_package_path},
     )
 
@@ -688,7 +664,6 @@ def _build_haskell_lib(
         extra_args = ["-this-unit-id", pkgname],
     )
     solibs = {}
-    artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
 
     libstem = libname
     if link_style == LinkStyle("static_pic"):
@@ -696,7 +671,7 @@ def _build_haskell_lib(
 
     libfile = "lib" + libstem + (".so" if link_style == LinkStyle("shared") else ".a")
 
-    lib_short_path = paths.join("lib-{}".format(artifact_suffix), libfile)
+    lib_short_path = paths.join("lib-{}".format(link_style.value), libfile)
 
     uniq_infos = dedupe(flatten([x.info[link_style] for x in hlis]))
 
@@ -722,10 +697,7 @@ def _build_haskell_lib(
 
         infos = get_link_args(merge_link_infos(ctx, nlis), link_style)
         link.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
-        ctx.actions.run(
-            link,
-            category = "haskell_link" + artifact_suffix.replace("-", "_"),
-        )
+        ctx.actions.run(link, category = "haskell_link")
 
         solibs[libfile] = LinkedObject(output = lib)
         libs = [lib]
@@ -758,7 +730,6 @@ def _build_haskell_lib(
         uniq_infos,
         compiled.hi,
         lib,
-        enable_profiling = enable_profiling,
     )
 
     hlib = HaskellLibraryInfo(
@@ -770,7 +741,6 @@ def _build_haskell_lib(
         libs = libs,
         version = "1.0.0",
         is_prebuilt = False,
-        profiling_enabled = enable_profiling,
     )
 
     return HaskellLibBuildOutput(
