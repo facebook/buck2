@@ -30,6 +30,10 @@ enum PackageValueError {
 #[starlark_module]
 pub fn register_write_package_value(globals: &mut GlobalsBuilder) {
     /// Set the value to be accessible in the nested `PACKAGE` files.
+    ///
+    /// If any parent `PACKAGE` value has already set the same `key`,
+    /// it will raise an error unless you pass `overwrite = True`,
+    /// in which case it will replace the parent value.
     fn write_package_value<'v>(
         #[starlark(require = pos)] key: &str,
         #[starlark(require = pos)] value: Value<'v>,
