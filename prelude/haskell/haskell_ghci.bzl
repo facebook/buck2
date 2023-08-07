@@ -18,6 +18,7 @@ load(
     "HaskellToolchainInfo",
     "PackagesInfo",
     "attr_deps",
+    "get_artifact_suffix",
     "get_packages_info",
 )
 load(
@@ -615,8 +616,12 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
                 package_symlinks_root,
                 lib.name,
             )
+            artifact_suffix = get_artifact_suffix(
+                link_style,
+                lib.profiling_enabled,
+            )
             lib_symlinks = {
-                ("hi-" + link_style.value): lib.import_dirs[0],
+                ("hi-" + artifact_suffix): lib.import_dirs[0],
                 "packagedb": lib.db,
             }
             for o in lib.libs:
