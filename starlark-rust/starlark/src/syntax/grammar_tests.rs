@@ -15,10 +15,49 @@
  * limitations under the License.
  */
 
+use std::fmt::Write;
+
 use crate::assert;
 use crate::assert::Assert;
 use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::Stmt;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
+use crate::tests::golden_test_template::golden_test_template;
+
+fn parse_fails_with_dialect(name: &str, dialect: &Dialect, programs: &[&str]) {
+    let mut out = String::new();
+
+    for (i, program) in programs.iter().enumerate() {
+        if i != 0 {
+            writeln!(out).unwrap();
+        }
+
+        let program = program.trim();
+
+        writeln!(out, "Program:").unwrap();
+        writeln!(out, "{}", program).unwrap();
+        writeln!(out).unwrap();
+
+        let err = AstModule::parse(name, program.to_owned(), dialect).unwrap_err();
+        writeln!(out, "Error:").unwrap();
+        writeln!(out, "{}", err).unwrap();
+    }
+
+    golden_test_template(&format!("src/syntax/grammar_tests/{}.golden", name), &out);
+}
+
+fn parse_fail_with_dialect(name: &str, dialect: &Dialect, program: &str) {
+    parse_fails_with_dialect(name, dialect, &[program]);
+}
+
+fn parse_fail(name: &str, program: &str) {
+    parse_fail_with_dialect(name, &Dialect::Extended, program);
+}
+
+fn parse_fails(name: &str, programs: &[&str]) {
+    parse_fails_with_dialect(name, &Dialect::Extended, programs);
+}
 
 #[test]
 fn test_empty() {
@@ -91,9 +130,14 @@ fn test_top_level_def() {
         assert::parse("def toto():\n  pass\n"),
         "def toto():\n  pass\n"
     );
-    let mut a = Assert::new();
-    a.dialect_set(|x| x.enable_def = false);
-    a.parse_fail("!def toto():\n  pass\n!");
+    parse_fail_with_dialect(
+        "top_level_def",
+        &Dialect {
+            enable_def: false,
+            ..Dialect::Extended
+        },
+        "def toto():\n  pass",
+    );
     // no new line at end of file
     assert_eq!(
         assert::parse("def toto():\n  pass"),
@@ -112,10 +156,20 @@ fn test_top_level_def() {
 
 #[test]
 fn test_top_level_statements() {
+    let no_top_leve_stmt = Dialect {
+        enable_top_level_stmt: false,
+        ..Dialect::Extended
+    };
+    parse_fails_with_dialect(
+        "top_level_statements",
+        &no_top_leve_stmt,
+        &[
+            "x = 1\nif x == 1:\n  x = 2\nx = 3",
+            "x = 1\nfor x in []:\n   pass\n",
+        ],
+    );
     let mut a = Assert::new();
     a.dialect_set(|x| x.enable_top_level_stmt = false);
-    a.parse_fail("x = 1\n!if x == 1:\n  x = 2\n!x = 3");
-    a.parse_fail("x = 1\n!for x in []:\n   pass\n!");
     assert_eq!(a.parse("pass"), "pass\n");
 
     assert_eq!(
@@ -252,9 +306,14 @@ fn test_lambda() {
         assert::parse("x = lambda y: y + 1"),
         "x = (lambda y: (y + 1))\n"
     );
-    let mut a = Assert::new();
-    a.dialect_set(|x| x.enable_lambda = false);
-    a.parse_fail("x = !lambda y: y + 1!");
+    parse_fail_with_dialect(
+        "lambda",
+        &Dialect {
+            enable_lambda: false,
+            ..Dialect::Extended
+        },
+        "x = lambda y: y + 1",
+    );
     assert_eq!(
         assert::parse("(lambda y: x == 1)(1)"),
         "(lambda y: (x == 1))(1)\n"
@@ -313,12 +372,12 @@ fn test_op_associativity() {
 
 #[test]
 fn test_bad_assignment() {
-    assert::parse_fail("[!x or y!] = 1");
-    assert::parse_fail("![x]! += 1");
+    parse_fails("bad_assignment", &["[x or y] = 1", "[x] += 1"]);
 }
 
 #[test]
 fn test_test_list_in_index_expr() {
     assert_eq!(assert::parse("x[1, 2]"), "x[1, 2]\n");
-    assert::parse_fail("!x[1, 2]! = 3");
+
+    parse_fail("list_in_index_expr", "x[1, 2] = 3");
 }
