@@ -60,7 +60,7 @@ use crate::bxl::starlark_defs::context::BxlContext;
 #[derive(Debug, Error)]
 enum BxlActionsError {
     #[error(
-        "An action registry was already requested via `actions_factory`. Only one action registry is allowed"
+        "An action registry was already requested via `ctx.bxl_actions().actions`. Only one action registry is allowed"
     )]
     RegistryAlreadyCreated,
 }
