@@ -31,7 +31,6 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::name::CellName;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::facebook_only;
-use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::rollout_percentage::RolloutPercentage;
@@ -195,10 +194,19 @@ impl DaemonState {
         init_ctx: BuckdServerInitPreferences,
         rt: Handle,
         use_tonic_rt: bool,
+        materializations: MaterializationMethod,
     ) -> Self {
-        let data = Self::init_data(fb, paths.clone(), init_ctx, rt.clone(), use_tonic_rt)
-            .await
-            .context("Error initializing DaemonStateData");
+        let data = Self::init_data(
+            fb,
+            paths.clone(),
+            init_ctx,
+            rt.clone(),
+            use_tonic_rt,
+            materializations,
+        )
+        .await
+        .context("Error initializing DaemonStateData");
+
         if let Ok(data) = &data {
             crate::daemon::panic::initialize(data.dupe());
         }
@@ -223,6 +231,7 @@ impl DaemonState {
         init_ctx: BuckdServerInitPreferences,
         rt: Handle,
         use_tonic_rt: bool,
+        materializations: MaterializationMethod,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
         let daemon_state_data_rt = rt.clone();
         rt.spawn(async move {
@@ -239,22 +248,6 @@ impl DaemonState {
             let root_config = legacy_configs
                 .get(cells.root_cell())
                 .context("No config for root cell")?;
-
-            // This really should belong in  in DaemonCommand::run, but we can't read configs there. In
-            // practice, while changing cwd after starting is not a great idea, it's ... fine.
-
-            fs_util::create_dir_all(paths.buck_out_path())
-                .context("Error creating buck_out_path")?;
-
-            let materialization_method = MaterializationMethod::try_new_from_config_value(
-                init_ctx.daemon_startup_config.materializations.as_deref(),
-            )?;
-
-            if !matches!(materialization_method, MaterializationMethod::Eden) {
-                fs_util::set_current_dir(paths.buck_out_path()).context("Error changing dirs")?;
-                buck2_core::fs::cwd::cwd_will_not_change()
-                    .context("Error initializing static cwd")?;
-            }
 
             static DEFAULT_DIGEST_ALGORITHM: EnvHelper<DigestAlgorithmKind> =
                 EnvHelper::new("BUCK_DEFAULT_DIGEST_ALGORITHM");
@@ -313,8 +306,7 @@ impl DaemonState {
                 })
                 .collect::<anyhow::Result<_>>()?;
 
-            let disk_state_options =
-                DiskStateOptions::new(root_config, materialization_method.dupe())?;
+            let disk_state_options = DiskStateOptions::new(root_config, materializations.dupe())?;
             let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?);
             let cache_dir_path = paths.cache_dir_path();
             let valid_cache_dirs = paths.valid_cache_dirs();
@@ -343,7 +335,7 @@ impl DaemonState {
 
                 DeferredMaterializerConfigs {
                     materialize_final_artifacts: matches!(
-                        materialization_method,
+                        materializations,
                         MaterializationMethod::Deferred
                     ),
                     defer_write_actions,
@@ -407,7 +399,7 @@ impl DaemonState {
                 paths.buck_out_dir(),
                 re_client_manager.dupe(),
                 blocking_executor.dupe(),
-                materialization_method,
+                materializations,
                 deferred_materializer_configs,
                 materializer_db,
                 materializer_state,
@@ -525,13 +517,13 @@ impl DaemonState {
         buck_out_path: ProjectRelativePathBuf,
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
-        materialization_method: MaterializationMethod,
+        materializations: MaterializationMethod,
         deferred_materializer_configs: DeferredMaterializerConfigs,
         materializer_db: Option<MaterializerStateSqliteDb>,
         materializer_state: Option<MaterializerState>,
         http_client: HttpClient,
     ) -> anyhow::Result<Arc<dyn Materializer>> {
-        match materialization_method {
+        match materializations {
             MaterializationMethod::Immediate => Ok(Arc::new(ImmediateMaterializer::new(
                 fs,
                 digest_config,
@@ -707,6 +699,7 @@ impl DaemonState {
     fn validate_buck_out_mount(&self) -> anyhow::Result<()> {
         #[cfg(any(fbcode_build, cargo_internal_build))]
         {
+            use buck2_core::fs::fs_util;
             use buck2_core::soft_error;
 
             let project_root = self.paths.project_root().root();

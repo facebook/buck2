@@ -39,6 +39,7 @@ use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::error::reload_hard_error_config;
 use buck2_core::error::reset_soft_error_counters;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_events::dispatch::EventDispatcher;
@@ -46,6 +47,7 @@ use buck2_events::source::ChannelEventSource;
 use buck2_events::ControlEvent;
 use buck2_events::Event;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_profile::starlark_profiler_configuration_from_request;
@@ -274,8 +276,29 @@ impl BuckdServer {
         let (shutdown_channel, shutdown_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
         let (command_channel, command_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
 
-        let daemon_state =
-            Arc::new(DaemonState::new(fb, paths, init_ctx, rt.clone(), use_tonic_rt).await);
+        let materializations = MaterializationMethod::try_new_from_config_value(
+            init_ctx.daemon_startup_config.materializations.as_deref(),
+        )?;
+
+        // Create buck-out and potentially chdir to there.
+        fs_util::create_dir_all(paths.buck_out_path()).context("Error creating buck_out_path")?;
+
+        if !matches!(materializations, MaterializationMethod::Eden) {
+            fs_util::set_current_dir(paths.buck_out_path()).context("Error changing dirs")?;
+            buck2_core::fs::cwd::cwd_will_not_change().context("Error initializing static cwd")?;
+        }
+
+        let daemon_state = Arc::new(
+            DaemonState::new(
+                fb,
+                paths,
+                init_ctx,
+                rt.clone(),
+                use_tonic_rt,
+                materializations,
+            )
+            .await,
+        );
 
         let auth_token = process_info.auth_token.clone();
         let api_server = BuckdServer(Arc::new(BuckdServerData {
