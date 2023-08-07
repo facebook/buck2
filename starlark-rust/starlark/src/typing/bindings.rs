@@ -78,6 +78,8 @@ impl<'a> BindExpr<'a> {
 #[derive(Default)]
 pub(crate) struct Bindings<'a> {
     pub(crate) expressions: SmallMap<BindingId, Vec<BindExpr<'a>>>,
+    /// Non-inferred types of bindings: from `load`,
+    /// or from variable or function parameter type annotations.
     pub(crate) types: HashMap<BindingId, Ty>,
     /// Expressions which need to be typechecked, but which are not used
     /// in assignments or in other expressions.
