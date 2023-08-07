@@ -422,6 +422,17 @@ pub fn read_to_string_if_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Op
     }
 }
 
+/// Read a file, if it exists. Returns `None` when the file does not exist.
+pub fn read_if_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Option<Vec<u8>>> {
+    let _guard = IoCounterKey::Read.guard();
+    match fs::read(path.as_ref().as_maybe_relativized()) {
+        Ok(d) => Ok(Some(d)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(anyhow::Error::from(e)
+            .context(format!("read_if_exists({})", P::as_ref(&path).display()))),
+    }
+}
+
 pub fn canonicalize<P: AsRef<Path>>(path: P) -> anyhow::Result<AbsNormPathBuf> {
     let _guard = IoCounterKey::Canonicalize.guard();
     let path = dunce::canonicalize(&path)
@@ -963,6 +974,23 @@ mod tests {
             Some("data")
         );
         assert_eq!(fs_util::read_to_string_if_exists(f2)?, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_if_exists() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let f1 = root.join("f1");
+        let f2 = root.join("f2");
+
+        fs_util::write(&f1, b"data")?;
+        assert_eq!(
+            fs_util::read_if_exists(&f1)?.as_deref(),
+            Some(b"data".as_slice())
+        );
+        assert_eq!(fs_util::read_if_exists(f2)?, None);
 
         Ok(())
     }
