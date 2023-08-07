@@ -189,23 +189,22 @@ impl TypingContext<'_> {
             BindExpr::Iter(x) => self.from_iterated(&self.expression_bind_type(x), x.span()),
             BindExpr::AssignModify(lhs, op, rhs) => {
                 let span = lhs.span;
-                let rhs_ty = self.expression_type_spanned(rhs);
-                let lhs = self.expression_assign(lhs);
+                let rhs = self.expression_type_spanned(rhs);
+                let lhs = self.expression_assign_spanned(lhs);
                 let attr = match op {
-                    AssignOp::Add => TypingAttr::BinOp(TypingBinOp::Add),
-                    AssignOp::Subtract => TypingAttr::BinOp(TypingBinOp::Sub),
-                    AssignOp::Multiply => TypingAttr::BinOp(TypingBinOp::Mul),
-                    AssignOp::Divide => TypingAttr::BinOp(TypingBinOp::Div),
-                    AssignOp::FloorDivide => TypingAttr::BinOp(TypingBinOp::FloorDiv),
-                    AssignOp::Percent => TypingAttr::BinOp(TypingBinOp::Percent),
-                    AssignOp::BitAnd => TypingAttr::BinOp(TypingBinOp::BitAnd),
-                    AssignOp::BitOr => TypingAttr::BinOp(TypingBinOp::BitOr),
-                    AssignOp::BitXor => TypingAttr::BinOp(TypingBinOp::BitXor),
-                    AssignOp::LeftShift => TypingAttr::BinOp(TypingBinOp::LeftShift),
-                    AssignOp::RightShift => TypingAttr::BinOp(TypingBinOp::RightShift),
+                    AssignOp::Add => TypingBinOp::Add,
+                    AssignOp::Subtract => TypingBinOp::Sub,
+                    AssignOp::Multiply => TypingBinOp::Mul,
+                    AssignOp::Divide => TypingBinOp::Div,
+                    AssignOp::FloorDivide => TypingBinOp::FloorDiv,
+                    AssignOp::Percent => TypingBinOp::Percent,
+                    AssignOp::BitAnd => TypingBinOp::BitAnd,
+                    AssignOp::BitOr => TypingBinOp::BitOr,
+                    AssignOp::BitXor => TypingBinOp::BitXor,
+                    AssignOp::LeftShift => TypingBinOp::LeftShift,
+                    AssignOp::RightShift => TypingBinOp::RightShift,
                 };
-                let fun = self.expression_attribute(&lhs, attr, span);
-                self.validate_call(&fun, &[rhs_ty.map(Arg::Pos)], span)
+                self.expr_bin_op_ty(span, lhs, attr, rhs)
             }
             BindExpr::SetIndex(id, index, e) => {
                 let span = index.span;
@@ -266,6 +265,13 @@ impl TypingContext<'_> {
                 }
                 panic!("Unknown identifier")
             }
+        }
+    }
+
+    fn expression_assign_spanned(&self, x: &CstAssign) -> Spanned<Ty> {
+        Spanned {
+            span: x.span,
+            node: self.expression_assign(x),
         }
     }
 
