@@ -118,6 +118,10 @@ struct BeforeSubcommandOptions {
     )]
     verbosity: Verbosity,
 
+    /// The oncall executing this command
+    #[clap(long, global = true)]
+    oncall: Option<String>,
+
     /// Do not launch a daemon process, run buck server in client process.
     ///
     /// Note even when running in no-buckd mode, it still writes state files.
@@ -376,6 +380,7 @@ impl CommandKind {
             restarted_trace_id: process.restarted_trace_id.dupe(),
             argv,
             runtime: &runtime,
+            oncall: common_opts.oncall,
         };
 
         match self {

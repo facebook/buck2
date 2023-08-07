@@ -53,6 +53,7 @@ pub struct ClientCommandContext<'a> {
     pub restarter: &'a mut Restarter,
     pub restarted_trace_id: Option<TraceId>,
     pub runtime: &'a Runtime,
+    pub oncall: Option<String>,
 }
 
 impl<'a> ClientCommandContext<'a> {
@@ -131,7 +132,6 @@ impl<'a> ClientCommandContext<'a> {
             }
             .into(),
             host_xcode_version: config_opts.host_xcode_version_override(),
-            oncall: config_opts.oncall.as_ref().cloned().unwrap_or_default(),
             disable_starlark_types: config_opts.disable_starlark_types,
             skip_targets_with_duplicate_names: config_opts.skip_targets_with_duplicate_names,
             reuse_current_config: config_opts.reuse_current_config,
@@ -171,7 +171,7 @@ impl<'a> ClientCommandContext<'a> {
             host_platform: Default::default(),
             host_arch: Default::default(),
             host_xcode_version: Default::default(),
-            oncall: Default::default(),
+            oncall: self.oncall.clone().unwrap_or_default(), // TODO: Why do we not make this optional?
             disable_starlark_types: false,
             target_call_stacks: false,
             skip_targets_with_duplicate_names: false,

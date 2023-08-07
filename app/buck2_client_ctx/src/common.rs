@@ -182,10 +182,6 @@ pub struct CommonBuildConfigurationOptions {
     #[clap(long, value_name = "VERSION-BUILD")]
     fake_xcode_version: Option<String>,
 
-    // TODO(cjhopman): Why is this only in CommonConfigOptions options, it has nothing to do with config? Shouldn't all commands support --oncall?
-    #[clap(long)]
-    pub oncall: Option<String>,
-
     /// Disable runtime type checking in Starlark interpreter.
     ///
     /// This option is not stable, and can be used only locally
@@ -314,7 +310,6 @@ impl CommonBuildConfigurationOptions {
             fake_host: None,
             fake_arch: None,
             fake_xcode_version: None,
-            oncall: None,
             disable_starlark_types: false,
             target_call_stacks: false,
             skip_targets_with_duplicate_names: false,
