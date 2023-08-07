@@ -5,10 +5,9 @@
 # ```
 
 Code:
-# `x` is inferred as `list[typing.Any]` while it could be `list[int]`.
 x = list([1, 2])
 
 No errors.
 
 Interfaces:
-x: list[typing.Any]
+x: list[int]

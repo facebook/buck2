@@ -417,7 +417,6 @@ fn test_list_function() {
     TypeCheck::new().ty("x").check(
         "list_function",
         r#"
-# `x` is inferred as `list[typing.Any]` while it could be `list[int]`.
 x = list([1, 2])
 "#,
     );

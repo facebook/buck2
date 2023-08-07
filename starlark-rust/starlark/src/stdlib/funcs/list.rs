@@ -15,10 +15,21 @@
  * limitations under the License.
  */
 
+use allocative::Allocative;
+use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
+use crate::codemap::Span;
+use crate::codemap::Spanned;
 use crate::environment::GlobalsBuilder;
+use crate::typing::error::TypingError;
+use crate::typing::function::TyCustomFunctionImpl;
+use crate::typing::Arg;
+use crate::typing::Param;
+use crate::typing::Ty;
+use crate::typing::TyFunction;
+use crate::typing::TypingOracleCtx;
 use crate::values::function::SpecialBuiltinFunction;
 use crate::values::list::value::FrozenList;
 use crate::values::list::AllocList;
@@ -27,6 +38,41 @@ use crate::values::Heap;
 use crate::values::StarlarkIter;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
+
+#[derive(Allocative, Hash, Eq, PartialEq, Ord, PartialOrd, Clone, Debug)]
+struct ListType;
+
+impl TyCustomFunctionImpl for ListType {
+    fn has_type_attr(&self) -> bool {
+        true
+    }
+
+    fn validate_call(
+        &self,
+        span: Span,
+        args: &[Spanned<Arg>],
+        oracle: TypingOracleCtx,
+    ) -> Result<Ty, TypingError> {
+        static LIST: Lazy<TyFunction> = Lazy::new(|| TyFunction {
+            type_attr: Some(Ty::any_list()),
+            params: vec![Param::pos_only(Ty::iter(Ty::any())).optional()],
+            result: Box::new(Ty::any_list()),
+        });
+
+        oracle.validate_fn_call(span, &LIST, args)?;
+
+        if let Some(arg) = args.get(0) {
+            // This is infallible after the check above.
+            if let Arg::Pos(arg_ty) = &arg.node {
+                // This is also infallible.
+                let item = oracle.iter_item(Spanned { span, node: arg_ty })?;
+                return Ok(Ty::list(item));
+            }
+        }
+
+        Ok(Ty::any_list())
+    }
+}
 
 #[starlark_module]
 pub(crate) fn register_list(globals: &mut GlobalsBuilder) {
@@ -52,6 +98,7 @@ pub(crate) fn register_list(globals: &mut GlobalsBuilder) {
     as_type = FrozenList,
     speculative_exec_safe,
     special_builtin_function = SpecialBuiltinFunction::List,
+    ty_custom_function = ListType,
     )]
     fn list<'v>(
         #[starlark(require = pos)] a: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
