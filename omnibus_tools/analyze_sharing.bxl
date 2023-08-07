@@ -58,7 +58,7 @@ def _analyze_sharing_impl(ctx):
                     ctx.output.print("%s excluded by %s" % (explain_exclusion, exclusion_root))
                     break
 
-analyze_sharing = bxl(
+analyze_sharing = bxl_main(
     impl = _analyze_sharing_impl,
     cli_args = {
         "explain_exclusion": cli_args.option(cli_args.target_label()),

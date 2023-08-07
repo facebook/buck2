@@ -28,7 +28,7 @@ def check_targets_impl(ctx):
 
     ctx.output.print_json(out)
 
-check = bxl(
+check = bxl_main(
     impl = check_targets_impl,
     cli_args = {
         "file": cli_args.string(),

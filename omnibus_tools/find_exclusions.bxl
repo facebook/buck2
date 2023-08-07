@@ -65,7 +65,7 @@ def _find_exclusions_impl(ctx):
     transitive_excluded = sorted(transitive_excluded)
     ctx.output.print_json(transitive_excluded)
 
-find_exclusions = bxl(
+find_exclusions = bxl_main(
     impl = _find_exclusions_impl,
     cli_args = {},
 )

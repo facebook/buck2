@@ -32,7 +32,7 @@ def _build_entry_point(ctx: "bxl_ctx") -> None:
     )
     ctx.output.print_json({"db": merged_sourcedb.abs_path()})
 
-build = bxl(
+build = bxl_main(
     doc = """Build Python sourcedb for Pyre classic type checking server.
 
     It takes a list of target patterns (usually obtained from Pyre local configuration

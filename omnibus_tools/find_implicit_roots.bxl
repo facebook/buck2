@@ -33,7 +33,7 @@ def _find_implicit_roots(ctx):
 
     ctx.output.print_json(implicit_roots)
 
-find_implicit_roots = bxl(
+find_implicit_roots = bxl_main(
     impl = _find_implicit_roots,
     cli_args = {
         "targets": cli_args.string(),

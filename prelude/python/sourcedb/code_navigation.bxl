@@ -35,7 +35,7 @@ def _build_entry_point(ctx: "bxl_ctx") -> None:
     )
     ctx.output.print_json({"db": merged_sourcedb.abs_path()})
 
-build = bxl(
+build = bxl_main(
     doc = """Build Python sourcedb for Pyre code navigation server.
 
     It takes a list of file paths, and will find the owner targets for all

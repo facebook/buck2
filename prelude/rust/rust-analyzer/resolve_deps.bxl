@@ -82,7 +82,7 @@ def cquery_impl(ctx):
         out[target.label.raw_target()] = _process_target_config(ctx, target)
     ctx.output.print_json(out)
 
-query = bxl(
+query = bxl_main(
     impl = cquery_impl,
     cli_args = {
         "targets": cli_args.list(cli_args.target_expr()),
@@ -115,7 +115,7 @@ def expand_proc_macros_impl(ctx):
 
     ctx.output.print_json(macros)
 
-expand_proc_macros = bxl(
+expand_proc_macros = bxl_main(
     impl = expand_proc_macros_impl,
     cli_args = {
         "targets": cli_args.list(cli_args.target_expr()),
@@ -133,7 +133,7 @@ def expand_targets_impl(ctx):
     expanded_target_list = kind_target_list + labeled_target_list
     ctx.output.print_json([target.label.raw_target() for target in expanded_target_list])
 
-expand_targets = bxl(
+expand_targets = bxl_main(
     impl = expand_targets_impl,
     cli_args = {
         "targets": cli_args.list(cli_args.target_expr()),

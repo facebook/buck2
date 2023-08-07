@@ -30,7 +30,7 @@ def _ebin_paths(ctx):
 
     ctx.output.print(sep = "\n", *_deduped_paths(paths))
 
-ebin_paths = bxl(
+ebin_paths = bxl_main(
     impl = _ebin_paths,
     cli_args = {
         "source": cli_args.string(),

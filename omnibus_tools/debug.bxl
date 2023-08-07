@@ -20,7 +20,7 @@ def _debug_impl(ctx):
     for lib, disp in omnibus_libs.dispositions.items():
         ctx.output.print("{}\t{}".format(lib, disp))
 
-debug = bxl(
+debug = bxl_main(
     impl = _debug_impl,
     cli_args = {
         "target": cli_args.target_label(),

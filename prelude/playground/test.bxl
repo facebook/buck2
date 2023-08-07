@@ -8,7 +8,7 @@
 def _impl(ctx):
     ctx.output.print("123")
 
-playground = bxl(
+playground = bxl_main(
     impl = _impl,
     cli_args = {},
 )

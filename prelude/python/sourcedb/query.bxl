@@ -106,7 +106,7 @@ def _do_query_entry_point(ctx: "bxl_ctx") -> None:
     targets = do_query(ctx, query, actions, [query.eval(target) for target in ctx.cli_args.target])
     ctx.output.print_json([target.raw_target() for target in targets])
 
-query = bxl(
+query = bxl_main(
     doc = (
         "Expand target patterns and look for all targets in their transitive" +
         "dependencies that will be built by Pyre."
