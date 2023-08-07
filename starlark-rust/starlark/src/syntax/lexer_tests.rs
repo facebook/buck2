@@ -19,6 +19,8 @@ use std::fmt::Write;
 
 use crate::assert;
 use crate::slice_vec_ext::VecExt;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
 use crate::tests::golden_test_template::golden_test_template;
 
 fn lexer_golden_test(name: &str, program: &str) {
@@ -46,6 +48,31 @@ fn lexer_golden_test(name: &str, program: &str) {
     golden_test_template(&format!("src/syntax/lexer_tests/{}.golden", name), &out);
 }
 
+fn lexer_fail_golden_test(name: &str, programs: &[&str]) {
+    let mut out = String::new();
+
+    for (i, program) in programs.iter().enumerate() {
+        if i != 0 {
+            writeln!(out).unwrap();
+        }
+
+        let program = program.trim();
+
+        let e = AstModule::parse("x", program.to_owned(), &Dialect::Extended).unwrap_err();
+
+        writeln!(out, "Program:").unwrap();
+        writeln!(out, "{}", program).unwrap();
+        writeln!(out).unwrap();
+        writeln!(out, "Error:").unwrap();
+        writeln!(out, "{}", e).unwrap();
+    }
+
+    golden_test_template(
+        &format!("src/syntax/lexer_tests/{}.fail.golden", name),
+        &out,
+    );
+}
+
 #[test]
 fn test_int_lit() {
     lexer_golden_test(
@@ -58,7 +85,7 @@ fn test_int_lit() {
 "#,
     );
     // Starlark requires us to ban leading zeros (confusion with implicit octal)
-    assert::parse_fail("x = !01!");
+    lexer_fail_golden_test("int_lit", &["x = 01"]);
 }
 
 #[test]
@@ -106,12 +133,12 @@ fn test_number_collated_with_keywords_or_identifier() {
 
 #[test]
 fn test_reserved() {
-    let reserved =
-        "as import is class nonlocal del raise except try finally while from with global yield"
-            .split_whitespace();
-    for x in reserved {
-        assert::parse_fail(&format!("!{}! = 1", x));
-    }
+    lexer_fail_golden_test(
+        "reserved",
+        &"as import is class nonlocal del raise except try finally while from with global yield"
+            .split_whitespace()
+            .collect::<Vec<&str>>(),
+    );
 }
 
 #[test]
@@ -145,11 +172,16 @@ fn test_string_lit() {
     );
 
     // unfinished string literal
-    assert::parse_fail("!'!\n'");
-    assert::parse_fail("!\"!\n\"");
-    assert::parse_fail("this = a + test + !r\"!");
-    assert::parse_fail("test + !\' of thing that!");
-    assert::parse_fail("test + !\' of thing that!\n'");
+    lexer_fail_golden_test(
+        "string_lit",
+        &[
+            "'\n'",
+            "\"\n\"",
+            "this = a + test + r\"",
+            "test + \' of thing that",
+            "test + \' of thing that\n'",
+        ],
+    );
 
     // Multiline string
     assert_eq!(
@@ -174,10 +206,15 @@ fn test_string_escape() {
 '\372x'
 "#,
     );
-    assert::parse_fail("test 'more !\\xT!Z");
-    assert::parse_fail("test + 'more !\\UFFFFFFFF! overflows'");
-    assert::parse_fail("test 'more !\\x0y!abc'");
-    assert::parse_fail("test 'more !\\x0!");
+    lexer_fail_golden_test(
+        "string_escape",
+        &[
+            "test 'more \\xTZ",
+            "test + 'more \\UFFFFFFFF overflows'",
+            "test 'more \\x0yabc'",
+            "test 'more \\x0",
+        ],
+    );
 }
 
 #[test]
@@ -294,27 +331,16 @@ fn test_lexer_operators() {
 
 #[test]
 fn test_lexer_error_messages() {
-    // What are the common errors people make.
-    // Do they have good error messages and span locations.
-    fn f(program: &str, msg: &str) {
-        assert::parse_fail(program);
-        assert::fail(&program.replace('!', ""), msg);
-    }
-
-    f("unknown !$!&%+ operator", "invalid input `$`");
-    f("an !'incomplete string!\nends", "unfinished string literal");
-    f(
-        "an + 'invalid escape !\\x3 ! character'",
-        "invalid string escape sequence `x3 `",
-    );
-    f(
-        "leading_zero = !003! + 8",
-        "integer cannot have leading 0, got `003`",
-    );
-    f("a + (test!]! + c", "unexpected symbol ']' here");
-    f(
-        "reserved_word = !raise! + 1",
-        "cannot use reserved keyword `raise`",
+    lexer_fail_golden_test(
+        "error_messages",
+        &[
+            "unknown $&%+ operator",
+            "an 'incomplete string\nends",
+            "an + 'invalid escape \\x3  character'",
+            "leading_zero = 003 + 8",
+            "a + (test] + c",
+            "reserved_word = raise + 1",
+        ],
     );
 }
 
