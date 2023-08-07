@@ -9,6 +9,8 @@ title: BXL and Anonymous Targets
 
 You might want to use anonymous targets if there is some heavy Starlark evaluation which can be cached, or if you want to cache local actions.
 
+**Note**: The context object within the anon target rule is **not** a BXL context, but a normal rule analysis context.
+
 ### APIs
 
 The `actions` object returned from `ctx.bxl_actions().actions` (equivalent of `ctx.actions` in normal rules) has the following functions for anonymous targets:
