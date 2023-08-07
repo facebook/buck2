@@ -48,6 +48,8 @@ enum TypingOracleCtxError {
     TooManyPositionalArguments,
     #[error("Call arguments incompatible")]
     CallArgumentsIncompatible,
+    #[error("Type `{ty}` does not have [] operator")]
+    MissingIndexOperator { ty: Ty },
 }
 
 /// Oracle reference with utility methods.
@@ -342,6 +344,24 @@ impl<'a> TypingOracleCtx<'a> {
                 Err(self.mk_error(span, TypingOracleCtxError::CallArgumentsIncompatible))
             }
         }
+    }
+
+    pub(crate) fn expr_index(
+        &self,
+        span: Span,
+        array: Ty,
+        index: Spanned<Ty>,
+    ) -> Result<Ty, TypingError> {
+        let f = match self.attribute_ty(&array, TypingAttr::Index) {
+            Ok(x) => x,
+            Err(()) => {
+                return Err(self.mk_error(
+                    span,
+                    TypingOracleCtxError::MissingIndexOperator { ty: array.clone() },
+                ));
+            }
+        };
+        self.validate_call(span, &f, &[index.map(Arg::Pos)])
     }
 
     /// Returns false on Void, since that is definitely not a list

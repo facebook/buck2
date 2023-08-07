@@ -141,6 +141,7 @@ impl TypingContext<'_> {
         // Hack for `list[str]`: list of `list` is just "function", and we don't want
         // to make it custom type and have overly complex machinery for handling it.
         // So we just special case it here.
+        // TODO(nga): push this code down to `OracleTypingCtx`.
         if array_ty.is_function() {
             if let ExprP::Identifier(v0) = &array.node {
                 if v0.0 == "list" {
@@ -151,8 +152,13 @@ impl TypingContext<'_> {
         }
 
         let index = self.expression_type_spanned(index);
-        let fun = self.expression_attribute(&array_ty, TypingAttr::Index, span);
-        self.validate_call(&fun, &[index.map(Arg::Pos)], span)
+        match self.oracle.expr_index(span, array_ty, index) {
+            Ok(x) => x,
+            Err(e) => {
+                self.errors.borrow_mut().push(e);
+                Ty::never()
+            }
+        }
     }
 
     fn expression_un_op(&self, span: Span, arg: &CstExpr, un_op: TypingUnOp) -> Ty {
