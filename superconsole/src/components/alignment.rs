@@ -177,7 +177,7 @@ mod tests {
             vec!["short", &" ".repeat(18 - 5)].try_into().unwrap(),
         ]);
 
-        assert_eq!(actual, expected,);
+        assert_eq!(actual, expected);
     }
 
     #[test]

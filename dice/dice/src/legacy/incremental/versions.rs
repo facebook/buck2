@@ -439,16 +439,16 @@ mod tests {
         });
         let vg1 = vt.current();
         assert_eq!(vg1.version, VersionNumber::new(0));
-        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1,);
+        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1);
 
         let vg2 = vt.current();
         assert_eq!(vg2.version, VersionNumber::new(0));
-        assert_eq!(*vt.active_versions.lock().get(&vg2.version).unwrap(), 2,);
+        assert_eq!(*vt.active_versions.lock().get(&vg2.version).unwrap(), 2);
 
         drop(vg2);
 
         assert!(cleaned.lock().unwrap().is_none());
-        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1,);
+        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1);
 
         {
             let w = vt.write();
@@ -457,9 +457,9 @@ mod tests {
 
         let vg3 = vt.current();
         assert_eq!(vg3.version, VersionNumber::new(1));
-        assert_eq!(*vt.active_versions.lock().get(&vg3.version).unwrap(), 1,);
+        assert_eq!(*vt.active_versions.lock().get(&vg3.version).unwrap(), 1);
 
-        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1,);
+        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1);
 
         drop(vg3);
 
@@ -471,7 +471,7 @@ mod tests {
         );
         assert_eq!(*cleaned.lock().unwrap(), Some(VersionNumber::new(1)));
 
-        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1,);
+        assert_eq!(*vt.active_versions.lock().get(&vg1.version).unwrap(), 1);
 
         drop(vg1);
 
@@ -515,7 +515,7 @@ mod tests {
             std::mem::drop(v1);
 
             let v2 = vt.write();
-            assert_eq!(v2.get(), VersionNumber::new(2),);
+            assert_eq!(v2.get(), VersionNumber::new(2));
             let vg = vt.current();
             assert_eq!(
                 (vg.version, *vg.minor_version_guard),

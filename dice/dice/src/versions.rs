@@ -477,7 +477,7 @@ mod tests {
 
         let r1 = VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(2));
         let r2 = VersionRange::bounded(VersionNumber::new(3), VersionNumber::new(4));
-        assert_eq!(r1.intersect(&r2), None,);
+        assert_eq!(r1.intersect(&r2), None);
     }
 
     #[test]
@@ -490,7 +490,7 @@ mod tests {
         );
 
         let mut r1 = VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(4));
-        assert_eq!(r1.split(VersionNumber::new(5)), None,);
+        assert_eq!(r1.split(VersionNumber::new(5)), None);
         assert_eq!(
             r1,
             VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(4))

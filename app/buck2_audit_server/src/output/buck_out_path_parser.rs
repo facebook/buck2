@@ -504,8 +504,8 @@ mod tests {
                     path_after_target_name,
                     ForwardRelativePathBuf::new("output".to_owned())?,
                 );
-                assert_eq!(target_label, expected_target_label,);
-                assert_eq!(path, expected_cell_path,);
+                assert_eq!(target_label, expected_target_label);
+                assert_eq!(path, expected_cell_path);
                 assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
@@ -538,8 +538,8 @@ mod tests {
                     path_after_target_name,
                     ForwardRelativePathBuf::new("output".to_owned())?,
                 );
-                assert_eq!(target_label, expected_target_label_with_slashes,);
-                assert_eq!(path, expected_cell_path,);
+                assert_eq!(target_label, expected_target_label_with_slashes);
+                assert_eq!(path, expected_cell_path);
                 assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
@@ -570,8 +570,8 @@ mod tests {
                     path_after_target_name,
                     ForwardRelativePathBuf::new("output".to_owned())?,
                 );
-                assert_eq!(target_label, expected_target_label_with_equal_sign,);
-                assert_eq!(path, expected_cell_path,);
+                assert_eq!(target_label, expected_target_label_with_equal_sign);
+                assert_eq!(path, expected_cell_path);
                 assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
@@ -594,9 +594,9 @@ mod tests {
                 target_label,
                 common_attrs,
             } => {
-                assert_eq!(path, expected_cell_path,);
+                assert_eq!(path, expected_cell_path);
                 assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
-                assert_eq!(target_label, expected_target_label,);
+                assert_eq!(target_label, expected_target_label);
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
                     "bar/path/to/target/__target_name__/output"
@@ -619,7 +619,7 @@ mod tests {
 
         match res {
             BuckOutPathType::TestOutput { path, common_attrs } => {
-                assert_eq!(path, expected_test_cell_path,);
+                assert_eq!(path, expected_test_cell_path);
                 assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
@@ -643,9 +643,9 @@ mod tests {
                 attr_hash,
                 common_attrs,
             } => {
-                assert_eq!(target_label, expected_target_label,);
-                assert_eq!(path, expected_cell_path,);
-                assert_eq!(attr_hash, "anon_hash",);
+                assert_eq!(target_label, expected_target_label);
+                assert_eq!(path, expected_cell_path);
+                assert_eq!(attr_hash, "anon_hash");
                 assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),
@@ -678,7 +678,7 @@ mod tests {
                     name: "function_name".to_owned(),
                 };
 
-                assert_eq!(bxl_function_label, expected_bxl_function_label,);
+                assert_eq!(bxl_function_label, expected_bxl_function_label);
                 assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
                 assert_eq!(
                     common_attrs.raw_path_to_output.as_str(),

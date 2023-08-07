@@ -838,7 +838,7 @@ mod tests {
             hist.dirtied,
             sorted_vector_map![VersionNumber::new(4) => false]
         );
-        assert_eq!(hist.verified, sorted_vector_set![VersionNumber::new(1)],);
+        assert_eq!(hist.verified, sorted_vector_set![VersionNumber::new(1)]);
     }
 
     #[test]
