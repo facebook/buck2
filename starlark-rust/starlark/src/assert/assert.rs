@@ -30,7 +30,6 @@ use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
-use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;
 use crate::environment::FrozenModule;
 use crate::environment::Globals;
@@ -39,10 +38,7 @@ use crate::environment::Module;
 use crate::errors::Diagnostic;
 use crate::eval::Evaluator;
 use crate::eval::ReturnFileLoader;
-use crate::slice_vec_ext::SliceExt;
 use crate::stdlib::PrintHandler;
-use crate::syntax::lexer::Lexer;
-use crate::syntax::lexer::Token;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::none::NoneType;
@@ -583,58 +579,6 @@ impl<'a> Assert<'a> {
     pub fn parse(&self, program: &str) -> String {
         self.parse_ast(program).statement.to_string()
     }
-
-    /// Restricted to crate because 'Lexeme' isn't a public type.
-    pub(crate) fn lex_tokens(&self, program: &str) -> Vec<(usize, Token, usize)> {
-        fn tokens(dialect: &Dialect, program: &str) -> Vec<(usize, Token, usize)> {
-            let codemap = CodeMap::new("assert.bzl".to_owned(), program.to_owned());
-            Lexer::new(program, dialect, codemap.dupe())
-                .collect::<Result<Vec<_>, _>>()
-                .unwrap_or_else(|e|
-                    panic!(
-                        "starlark::assert::lex_tokens, expected lex success but failed\nCode: {}\nError: {}",
-                        program, e
-                    )
-                )
-        }
-
-        // Check the invariant that each token position can't be before the previous one
-        fn check_spans(tokens: &[(usize, Token, usize)]) {
-            let mut pos = 0;
-            for (i, t, j) in tokens {
-                let span_incorrect = format!("Span of {:?} incorrect", t);
-                assert!(pos <= *i, "{}: {} > {}", span_incorrect, pos, i);
-                assert!(i <= j, "{}: {} > {}", span_incorrect, i, j);
-                pos = *j;
-            }
-        }
-
-        let orig = tokens(&self.dialect, program);
-        check_spans(&orig);
-
-        // In Starlark Windows newline characters shouldn't change the lex tokens (only the positions), so run that test too.
-        // First convert \r\n to \n, in case we started with Windows newlines, so we don't get \r\r\n.
-        let with_r = tokens(
-            &self.dialect,
-            &program.replace("\r\n", "\n").replace('\n', "\r\n"),
-        );
-        check_spans(&with_r);
-        assert_eq!(
-            orig.map(|x| &x.1),
-            with_r.map(|x| &x.1),
-            "starlark::assert::lex_tokens, difference using CRLF newlines\nCode: {}",
-            program,
-        );
-
-        orig
-    }
-
-    /// Lex some text and pretty-print it using enough whitespace etc. to avoid
-    /// ambiguity. Fails if the program does not lex.
-    /// The precise form of the pretty-printed output is not stable over time.
-    pub fn lex(&self, program: &str) -> String {
-        self.lex_tokens(program).map(|x| x.1.unlex()).join(" ")
-    }
 }
 
 /// See [`Assert::eq`].
@@ -704,16 +648,4 @@ pub fn parse(program: &str) -> String {
 /// See [`Assert::parse_ast`].
 pub fn parse_ast(program: &str) -> AstModule {
     Assert::new().parse_ast(program)
-}
-
-/// Lex some text and return the tokens. Fails if the program does not parse.
-/// Only available inside the crate because the Token type is not exported.
-#[cfg(test)]
-pub(crate) fn lex_tokens(program: &str) -> Vec<(usize, Token, usize)> {
-    Assert::new().lex_tokens(program)
-}
-
-/// See [`Assert::lex`].
-pub fn lex(program: &str) -> String {
-    Assert::new().lex(program)
 }

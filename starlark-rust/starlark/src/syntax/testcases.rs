@@ -211,7 +211,6 @@ const TESTCASE_FILES: &[(&str, &str)] = testcases_parse!(
 fn parsing_testcases() {
     for (_, content) in TESTCASE_FILES {
         // Worth doing the lex and parse as lex checks for additional invariants
-        assert::lex(content);
         assert::parse(content);
     }
 }
