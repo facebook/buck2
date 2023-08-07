@@ -26,6 +26,7 @@ use crate::commands::debug::allocative::AllocativeCommand;
 use crate::commands::debug::daemon_dir::DaemonDirCommand;
 use crate::commands::debug::exe::ExeCommand;
 use crate::commands::debug::log_perf::LogPerfCommand;
+use crate::commands::debug::paranoid::ParanoidCommand;
 use crate::commands::debug::persist_event_logs::PersistEventLogsCommand;
 use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::debug::set_log_filter::SetLogFilterCommand;
@@ -47,6 +48,7 @@ mod heap_dump;
 mod internal_version;
 mod log_perf;
 mod materialize;
+mod paranoid;
 mod persist_event_logs;
 mod segfault;
 mod set_log_filter;
@@ -96,6 +98,8 @@ pub enum DebugCommand {
     TraceIo(TraceIoCommand),
     #[doc(hidden)]
     PersistEventLogs(PersistEventLogsCommand),
+    #[clap(subcommand)]
+    Paranoid(ParanoidCommand),
 }
 
 impl DebugCommand {
@@ -122,6 +126,7 @@ impl DebugCommand {
             DebugCommand::LogPerf(cmd) => cmd.exec(matches, ctx),
             DebugCommand::TraceIo(cmd) => cmd.exec(matches, ctx),
             DebugCommand::PersistEventLogs(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::Paranoid(cmd) => cmd.exec(matches, ctx),
         }
     }
 
