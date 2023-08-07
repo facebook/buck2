@@ -15,6 +15,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             resource_env_vars = {
                 "IDB_COMPANION": "socket_address",
             },
+            setup_timeout_seconds = ctx.attrs.setup_timeout_seconds,
         ),
     ]
 
@@ -24,5 +25,6 @@ registration_spec = RuleRegistrationSpec(
     attrs = {
         "args": attrs.list(attrs.string(), default = []),
         "broker": attrs.exec_dep(providers = [RunInfo]),
+        "setup_timeout_seconds": attrs.option(attrs.int(), default = None),
     },
 )
