@@ -59,8 +59,7 @@ resolves as follows:
    be displayed in `buck2 cquery -A`, but will not appear in the deps.
  * During analysis: Also to the unconfigured target label.
 
-The target that appears in the `plugin_dep` must be of a rule which has `is_plugin_rule = MyKind`
-set (anything else is an error). The target is added to the `MyKind` plugin list with
+The target that appears in the `plugin_dep` is added to the `MyKind` plugin list with
 `should_propagate` set.
 
 The second way to add to the plugin list is by inheriting from regular deps. This works as follows:
@@ -79,14 +78,6 @@ behavior? I don't see why not.
 ```py
 RustProcMacro = plugins.kind()
 
-rust_proc_macro = rule(
-    impl = _same_as_before,
-    attrs = {
-        # Same as before
-    },
-    is_plugin_rule = RustProcMacro,
-)
-
 rust_proc_macro_propagation = rule(
     impl = _propagation_impl,
     attrs = {
@@ -97,6 +88,7 @@ rust_proc_macro_propagation = rule(
 rust_library = rule(
     impl = _similar_to_before, # See some notes below
     attrs = {
+        "proc_macro": attrs.bool(default = False),  # Same as before
         "deps": attrs.list(attrs.dep(pulls_and_pushes_plugins = [RustProcMacro])),
         # Here we avoid `pulls_and_pushes` because we do not want to make these deps available to rdeps
         "doc_deps": attrs.list(attrs.dep(pulls_plugins = [RustProcMacro])),
@@ -131,8 +123,9 @@ def _propagation_impl(ctx):
 ### TARGETS
 
 # Expanded by macro
-rust_proc_macro(
+rust_library(
     name = "p1_REAL",
+    proc_macro = True,
 )
 
 # Expanded by macro
@@ -142,8 +135,9 @@ rust_proc_macro_propagation(
 )
 
 # Expanded by macro
-rust_proc_macro(
+rust_library(
     name = "p2_REAL",
+    proc_macro = True,
 )
 
 # Expanded by macro
