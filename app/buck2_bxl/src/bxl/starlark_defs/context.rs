@@ -23,7 +23,6 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::bxl::execution_platform::EXECUTION_PLATFORM;
 use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_build_api::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
 use buck2_build_api::dynamic::deferred::dynamic_lambda_ctx_data;
@@ -86,7 +85,6 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
@@ -99,7 +97,6 @@ use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::context::actions::resolve_bxl_execution_platform;
 use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
 use crate::bxl::starlark_defs::context::actions::BxlActions;
-use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
@@ -917,20 +914,6 @@ fn context_methods(builder: &mut MethodsBuilder) {
             )
             .await
         })
-    }
-
-    /// DO NOT USE - will be deprecated soon.
-    #[starlark(attribute)]
-    fn actions_factory<'v>(this: ValueOf<'v, &'v BxlContext<'v>>) -> anyhow::Result<Value<'v>> {
-        let execution_platform = BxlExecutionResolution {
-            resolved_execution: EXECUTION_PLATFORM.dupe(),
-            exec_deps_configured: Vec::new(),
-            toolchain_deps_configured: Vec::new(),
-        };
-
-        validate_action_instantiation(this.typed, &execution_platform)?;
-
-        Ok(this.typed.state.to_value())
     }
 
     /// Runs analysis on the given `labels`, accepting an optional `target_platform` which is the
