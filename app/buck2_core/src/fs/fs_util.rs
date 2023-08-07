@@ -410,13 +410,13 @@ pub fn read_to_string<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<String> {
 }
 
 /// Read a file, if it exists. Returns `None` when the file does not exist.
-pub fn read_to_string_opt<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Option<String>> {
+pub fn read_to_string_if_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Option<String>> {
     let _guard = IoCounterKey::Read.guard();
     match fs::read_to_string(path.as_ref().as_maybe_relativized()) {
         Ok(d) => Ok(Some(d)),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(anyhow::Error::from(e).context(format!(
-            "read_to_string_opt({})",
+            "read_to_string_if_exists({})",
             P::as_ref(&path).display()
         ))),
     }
@@ -951,15 +951,18 @@ mod tests {
     }
 
     #[test]
-    fn test_read_to_string_opt() -> anyhow::Result<()> {
+    fn test_read_to_string_if_exists() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let f1 = root.join("f1");
         let f2 = root.join("f2");
 
         fs_util::write(&f1, b"data")?;
-        assert_eq!(fs_util::read_to_string_opt(&f1)?.as_deref(), Some("data"));
-        assert_eq!(fs_util::read_to_string_opt(f2)?, None);
+        assert_eq!(
+            fs_util::read_to_string_if_exists(&f1)?.as_deref(),
+            Some("data")
+        );
+        assert_eq!(fs_util::read_to_string_if_exists(f2)?, None);
 
         Ok(())
     }
