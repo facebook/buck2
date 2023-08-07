@@ -789,7 +789,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// marked by ensure will be built.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_write_action(ctx):
     ///     bxl_actions = ctx.bxl_actions()
     ///     output = bxl_actions.actions.write("my_output", "my_content")
@@ -805,6 +805,26 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// `target_platform` - The intended target platform for your toolchains
     /// `exec_compatible_with` - Explicit list of configuration nodes (like platforms or constraints)
     /// that these actions are compatible with. This is the 'exec_compatible_with' attribute of a target.
+    ///
+    /// If you passed in `exec_deps` or `toolchains`, you can access the resolved dependencies using the `exec_deps`
+    /// and `toolchains` attributes on the `bxl_actions`, which both return a `dict` of unconfigured subtarget labels
+    /// and their configured/resolved `dependency` objects.
+    ///
+    /// ```python
+    /// def _impl_run_action(ctx):
+    ///    my_exec_dep = ctx.unconfigured_sub_targets("foo//bar:baz") # has some provider that you would use in the action
+    ///    bxl_actions = ctx.bxl_actions(exec_deps = [my_exec_dep]) # call once, reuse wherever needed
+    ///    output = bxl_actions.actions.run(
+    ///        [
+    ///            "python3",
+    ///            bxl_actions.exec_deps[my_exec_dep][RunInfo], # access resolved exec_deps on the `bxl_actions`
+    ///            out.as_output(),
+    ///        ],
+    ///        category = "command",
+    ///        local_only = True,
+    ///    )
+    ///    ctx.output.ensure(output)  
+    /// ```
     ///
     /// When called from a `dynamic_output`, `bxl_actions()` cannot be configured with a different execution
     /// platform resolution from the parent BXL.
