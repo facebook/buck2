@@ -14,6 +14,7 @@ use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::cells::DaemonStartupConfig;
 use buck2_core::cells::CellResolver;
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -109,7 +110,7 @@ impl<'a> ImmediateConfigContext<'a> {
 
                 match is_paranoid_enabled(&paranoid_info_path) {
                     Ok(paranoid) => {
-                        daemon_startup_config.paranoid = daemon_startup_config.paranoid || paranoid;
+                        daemon_startup_config.paranoid = paranoid;
                     }
                     Err(e) => {
                         tracing::warn!(
@@ -131,6 +132,11 @@ impl<'a> ImmediateConfigContext<'a> {
 }
 
 fn is_paranoid_enabled(path: &AbsPath) -> anyhow::Result<bool> {
+    static PARANOID: EnvHelper<bool> = EnvHelper::new("BUCK_PARANOID");
+    if let Some(p) = PARANOID.get_copied()? {
+        return Ok(p);
+    }
+
     let bytes = match fs_util::read_if_exists(path)? {
         Some(b) => b,
         None => return Ok(false),

@@ -443,14 +443,6 @@ pub struct DaemonStartupConfig {
 
 impl DaemonStartupConfig {
     fn new(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
-        // NOTE: We purposefully still evaluate the config here when the env var is set, to check
-        // it's right.
-        static PARANOID: EnvHelper<bool> = EnvHelper::new("BUCK_PARANOID");
-        let paranoid = PARANOID
-            .get_copied()?
-            .or(config.parse("buck2", "paranoid")?)
-            .unwrap_or_default();
-
         // Intepreted client side because we need the value here.
         let allow_vpnless = config.parse("buck2", "allow_vpnless")?.unwrap_or_default();
         let allow_vpnless_for_logging = config
@@ -467,7 +459,7 @@ impl DaemonStartupConfig {
                 .map(ToOwned::to_owned),
             allow_vpnless,
             allow_vpnless_for_logging,
-            paranoid,
+            paranoid: false, // Setup later in ImmediateConfig
             use_tonic_rt: config.get("buck2", "use_tonic_rt").map(ToOwned::to_owned),
         })
     }
