@@ -50,6 +50,8 @@ enum TypingOracleCtxError {
     CallArgumentsIncompatible,
     #[error("Type `{ty}` does not have [] operator")]
     MissingIndexOperator { ty: Ty },
+    #[error("Type `{ty}` is not iterable")]
+    NotIterable { ty: Ty },
 }
 
 /// Oracle reference with utility methods.
@@ -343,6 +345,19 @@ impl<'a> TypingOracleCtx<'a> {
             } else {
                 Err(self.mk_error(span, TypingOracleCtxError::CallArgumentsIncompatible))
             }
+        }
+    }
+
+    /// Item type of an iterable.
+    pub(crate) fn iter_item(&self, iter: Spanned<&Ty>) -> Result<Ty, TypingError> {
+        match self.attribute_ty(iter.node, TypingAttr::Iter) {
+            Ok(x) => Ok(x),
+            Err(()) => Err(self.mk_error(
+                iter.span,
+                TypingOracleCtxError::NotIterable {
+                    ty: iter.node.clone(),
+                },
+            )),
         }
     }
 

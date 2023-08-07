@@ -103,7 +103,13 @@ impl TypingContext<'_> {
     }
 
     fn from_iterated(&self, ty: &Ty, span: Span) -> Ty {
-        self.expression_attribute(ty, TypingAttr::Iter, span)
+        match self.oracle.iter_item(Spanned { node: ty, span }) {
+            Ok(x) => x,
+            Err(e) => {
+                self.errors.borrow_mut().push(e);
+                Ty::never()
+            }
+        }
     }
 
     pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {

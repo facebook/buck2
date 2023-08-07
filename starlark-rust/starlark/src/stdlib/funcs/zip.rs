@@ -26,7 +26,6 @@ use crate::typing::error::TypingError;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::Arg;
 use crate::typing::Ty;
-use crate::typing::TypingAttr;
 use crate::typing::TypingOracleCtx;
 use crate::values::Heap;
 use crate::values::Value;
@@ -45,12 +44,13 @@ impl TyCustomFunctionImpl for ZipType {
         let mut seen_star_args = false;
         for arg in args {
             match &arg.node {
-                Arg::Pos(pos) => match oracle.attribute_ty(pos, TypingAttr::Iter) {
-                    Err(_) => {
-                        return Err(oracle.msg_error(arg.span, "Argument does not allow iteration"));
-                    }
-                    Ok(t) => iter_item_types.push(t),
-                },
+                Arg::Pos(pos) => {
+                    let item_ty = oracle.iter_item(Spanned {
+                        span: arg.span,
+                        node: pos,
+                    })?;
+                    iter_item_types.push(item_ty);
+                }
                 Arg::Name(_, _) => {
                     return Err(
                         oracle.msg_error(arg.span, "zip() does not accept keyword arguments")
