@@ -28,7 +28,6 @@ use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::slice_vec_ext::SliceExt;
-use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignTargetP;
@@ -136,17 +135,6 @@ impl TypingContext<'_> {
         }
     }
 
-    fn expression_primitive_ty(
-        &self,
-        name: TypingAttr,
-        arg0: Ty,
-        args: Vec<Spanned<Ty>>,
-        span: Span,
-    ) -> Ty {
-        let fun = self.expression_attribute(&arg0, name, span);
-        self.validate_call(&fun, &args.into_map(|x| x.map(Arg::Pos)), span)
-    }
-
     fn expr_index(&self, span: Span, array: &CstExpr, index: &CstExpr) -> Ty {
         let array_ty = self.expression_type(array);
 
@@ -163,7 +151,8 @@ impl TypingContext<'_> {
         }
 
         let index = self.expression_type_spanned(index);
-        self.expression_primitive_ty(TypingAttr::Index, array_ty, vec![index], span)
+        let fun = self.expression_attribute(&array_ty, TypingAttr::Index, span);
+        self.validate_call(&fun, &[index.map(Arg::Pos)], span)
     }
 
     fn expression_un_op(&self, span: Span, arg: &CstExpr, un_op: TypingUnOp) -> Ty {
@@ -200,7 +189,7 @@ impl TypingContext<'_> {
             BindExpr::Iter(x) => self.from_iterated(&self.expression_bind_type(x), x.span()),
             BindExpr::AssignModify(lhs, op, rhs) => {
                 let span = lhs.span;
-                let rhs_ty = self.expression_type(rhs);
+                let rhs_ty = self.expression_type_spanned(rhs);
                 let lhs = self.expression_assign(lhs);
                 let attr = match op {
                     AssignOp::Add => TypingAttr::BinOp(TypingBinOp::Add),
@@ -215,15 +204,8 @@ impl TypingContext<'_> {
                     AssignOp::LeftShift => TypingAttr::BinOp(TypingBinOp::LeftShift),
                     AssignOp::RightShift => TypingAttr::BinOp(TypingBinOp::RightShift),
                 };
-                self.expression_primitive_ty(
-                    attr,
-                    lhs,
-                    vec![Spanned {
-                        span: rhs.span,
-                        node: rhs_ty,
-                    }],
-                    span,
-                )
+                let fun = self.expression_attribute(&lhs, attr, span);
+                self.validate_call(&fun, &[rhs_ty.map(Arg::Pos)], span)
             }
             BindExpr::SetIndex(id, index, e) => {
                 let span = index.span;
