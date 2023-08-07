@@ -439,6 +439,7 @@ pub struct DaemonStartupConfig {
     pub allow_vpnless_for_logging: bool,
     pub paranoid: bool,
     pub use_tonic_rt: Option<String>,
+    pub materializations: Option<String>,
 }
 
 impl DaemonStartupConfig {
@@ -461,6 +462,9 @@ impl DaemonStartupConfig {
             allow_vpnless_for_logging,
             paranoid: false, // Setup later in ImmediateConfig
             use_tonic_rt: config.get("buck2", "use_tonic_rt").map(ToOwned::to_owned),
+            materializations: config
+                .get("buck2", "materializations")
+                .map(ToOwned::to_owned),
         })
     }
 
@@ -482,6 +486,7 @@ impl DaemonStartupConfig {
             allow_vpnless_for_logging: false,
             paranoid: false,
             use_tonic_rt: None,
+            materializations: None,
         }
     }
 }

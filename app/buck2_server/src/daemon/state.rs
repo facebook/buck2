@@ -246,8 +246,8 @@ impl DaemonState {
             fs_util::create_dir_all(paths.buck_out_path())
                 .context("Error creating buck_out_path")?;
 
-            let materialization_method = MaterializationMethod::try_new_from_config(
-                legacy_configs.get(cells.root_cell()).ok(),
+            let materialization_method = MaterializationMethod::try_new_from_config_value(
+                init_ctx.daemon_startup_config.materializations.as_deref(),
             )?;
 
             if !matches!(materialization_method, MaterializationMethod::Eden) {

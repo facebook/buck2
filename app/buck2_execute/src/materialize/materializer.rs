@@ -13,7 +13,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
-use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -614,13 +613,7 @@ pub enum MaterializationMethodError {
 }
 
 impl MaterializationMethod {
-    pub fn try_new_from_config(legacy_config: Option<&LegacyBuckConfig>) -> anyhow::Result<Self> {
-        Self::try_new_from_config_value(
-            legacy_config.and_then(|c| c.get("buck2", "materializations")),
-        )
-    }
-
-    fn try_new_from_config_value(config_value: Option<&str>) -> anyhow::Result<Self> {
+    pub fn try_new_from_config_value(config_value: Option<&str>) -> anyhow::Result<Self> {
         match config_value {
             None | Some("") | Some("all") => Ok(MaterializationMethod::Immediate),
             Some("deferred") => Ok(MaterializationMethod::Deferred),
