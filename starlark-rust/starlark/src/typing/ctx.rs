@@ -147,6 +147,10 @@ impl TypingContext<'_> {
         self.validate_call(&fun, &args.into_map(|x| x.map(Arg::Pos)), span)
     }
 
+    fn expr_index(&self, span: Span, array: &CstExpr, index: &CstExpr) -> Ty {
+        self.expression_primitive(TypingAttr::Index, &[array, index], span)
+    }
+
     fn expression_primitive(&self, name: TypingAttr, args: &[&CstExpr], span: Span) -> Ty {
         let t0 = self.expression_type(args[0]);
         let ts = args[1..].map(|x| Spanned {
@@ -277,9 +281,7 @@ impl TypingContext<'_> {
     fn expression_assign(&self, x: &CstAssign) -> Ty {
         match &**x {
             AssignTargetP::Tuple(_) => self.approximation("expression_assignment", x),
-            AssignTargetP::Index(a_b) => {
-                self.expression_primitive(TypingAttr::Index, &[&a_b.0, &a_b.1], x.span)
-            }
+            AssignTargetP::Index(a_b) => self.expr_index(x.span, &a_b.0, &a_b.1),
             AssignTargetP::Dot(_, _) => self.approximation("expression_assignment", x),
             AssignTargetP::Identifier(x) => {
                 if let Some(i) = x.1 {
@@ -452,9 +454,7 @@ impl TypingContext<'_> {
                 // but we still know the type of the result since the args don't impact that
                 self.validate_call(&f_ty, &args_ty, span)
             }
-            ExprP::Index(a_b) => {
-                self.expression_primitive(TypingAttr::Index, &[&a_b.0, &a_b.1], span)
-            }
+            ExprP::Index(a_b) => self.expr_index(span, &a_b.0, &a_b.1),
             ExprP::Index2(a_i0_i1) => {
                 let (a, i0, i1) = &**a_i0_i1;
                 self.expression_type(a);
