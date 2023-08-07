@@ -22,8 +22,10 @@ use thiserror::Error;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::eval::compiler::scope::payload::CstArgument;
 use crate::eval::compiler::scope::payload::CstAssign;
 use crate::eval::compiler::scope::payload::CstExpr;
+use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ResolvedIdent;
@@ -409,6 +411,71 @@ impl TypingContext<'_> {
         }
     }
 
+    fn expr_call(&self, span: Span, f: &CstExpr, args: &[CstArgument]) -> Ty {
+        let args_ty: Vec<Spanned<Arg>> = args.map(|x| Spanned {
+            span: x.span,
+            node: match &**x {
+                ArgumentP::Positional(x) => Arg::Pos(self.expression_type(x)),
+                ArgumentP::Named(name, x) => Arg::Name((**name).clone(), self.expression_type(x)),
+                ArgumentP::Args(x) => {
+                    let ty = self.expression_type(x);
+                    self.from_iterated(&ty, x.span);
+                    Arg::Args(ty)
+                }
+                ArgumentP::KwArgs(x) => {
+                    let ty = self.expression_type(x);
+                    self.validate_type(&ty, &Ty::dict(Ty::string(), Ty::any()), x.span);
+                    Arg::Kwargs(ty)
+                }
+            },
+        });
+        let f_ty = self.expression_type(f);
+        // If we can't resolve the types of the arguments, we can't validate the call,
+        // but we still know the type of the result since the args don't impact that
+        self.validate_call(&f_ty, &args_ty, span)
+    }
+
+    fn expr_slice(
+        &self,
+        span: Span,
+        x: &CstExpr,
+        start: Option<&CstExpr>,
+        stop: Option<&CstExpr>,
+        stride: Option<&CstExpr>,
+    ) -> Ty {
+        for e in [start, stop, stride].iter().copied().flatten() {
+            self.validate_type(&self.expression_type(e), &Ty::int(), e.span);
+        }
+        self.expression_attribute(&self.expression_type(x), TypingAttr::Slice, span)
+    }
+
+    fn expr_ident(&self, x: &CstIdent) -> Ty {
+        match &x.node.1 {
+            Some(ResolvedIdent::Slot(_, i)) => {
+                if let Some(ty) = self.types.get(i) {
+                    ty.clone()
+                } else {
+                    // All types must be resolved to this point,
+                    // this code is unreachable.
+                    Ty::any()
+                }
+            }
+            Some(ResolvedIdent::Global(g)) => {
+                if let Some(t) = g.to_value().get_ref().typechecker_ty() {
+                    t
+                } else {
+                    self.builtin(&x.node.0, x.span)
+                }
+            }
+            None => {
+                // All identifiers must be resolved at this point,
+                // but we don't stop after scope resolution error,
+                // so this code is reachable.
+                Ty::any()
+            }
+        }
+    }
+
     pub(crate) fn expression_type(&self, x: &CstExpr) -> Ty {
         let span = x.span;
         match &**x {
@@ -416,31 +483,7 @@ impl TypingContext<'_> {
             ExprP::Dot(a, b) => {
                 self.expression_attribute(&self.expression_type(a), TypingAttr::Regular(b), b.span)
             }
-            ExprP::Call(f, args) => {
-                let args_ty: Vec<Spanned<Arg>> = args.map(|x| Spanned {
-                    span: x.span,
-                    node: match &**x {
-                        ArgumentP::Positional(x) => Arg::Pos(self.expression_type(x)),
-                        ArgumentP::Named(name, x) => {
-                            Arg::Name((**name).clone(), self.expression_type(x))
-                        }
-                        ArgumentP::Args(x) => {
-                            let ty = self.expression_type(x);
-                            self.from_iterated(&ty, x.span);
-                            Arg::Args(ty)
-                        }
-                        ArgumentP::KwArgs(x) => {
-                            let ty = self.expression_type(x);
-                            self.validate_type(&ty, &Ty::dict(Ty::string(), Ty::any()), x.span);
-                            Arg::Kwargs(ty)
-                        }
-                    },
-                });
-                let f_ty = self.expression_type(f);
-                // If we can't resolve the types of the arguments, we can't validate the call,
-                // but we still know the type of the result since the args don't impact that
-                self.validate_call(&f_ty, &args_ty, span)
-            }
+            ExprP::Call(f, args) => self.expr_call(span, f, args),
             ExprP::Index(a_b) => self.expr_index(span, &a_b.0, &a_b.1),
             ExprP::Index2(a_i0_i1) => {
                 let (a, i0, i1) = &**a_i0_i1;
@@ -449,38 +492,14 @@ impl TypingContext<'_> {
                 self.expression_type(i1);
                 Ty::any()
             }
-            ExprP::Slice(x, start, stop, stride) => {
-                for e in [start, stop, stride].iter().copied().flatten() {
-                    self.validate_type(&self.expression_type(e), &Ty::int(), e.span);
-                }
-                self.expression_attribute(&self.expression_type(x), TypingAttr::Slice, span)
-            }
-            ExprP::Identifier(x) => {
-                match &x.node.1 {
-                    Some(ResolvedIdent::Slot(_, i)) => {
-                        if let Some(ty) = self.types.get(i) {
-                            ty.clone()
-                        } else {
-                            // All types must be resolved to this point,
-                            // this code is unreachable.
-                            Ty::any()
-                        }
-                    }
-                    Some(ResolvedIdent::Global(g)) => {
-                        if let Some(t) = g.to_value().get_ref().typechecker_ty() {
-                            t
-                        } else {
-                            self.builtin(&x.node.0, x.span)
-                        }
-                    }
-                    None => {
-                        // All identifiers must be resolved at this point,
-                        // but we don't stop after scope resolution error,
-                        // so this code is reachable.
-                        Ty::any()
-                    }
-                }
-            }
+            ExprP::Slice(x, start, stop, stride) => self.expr_slice(
+                span,
+                x,
+                start.as_deref(),
+                stop.as_deref(),
+                stride.as_deref(),
+            ),
+            ExprP::Identifier(x) => self.expr_ident(x),
             ExprP::Lambda(_) => {
                 self.approximation("We don't type check lambdas", ());
                 Ty::any_function()
