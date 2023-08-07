@@ -32,8 +32,6 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;
-use crate::codemap::Pos;
-use crate::codemap::Span;
 use crate::environment::FrozenModule;
 use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;
@@ -637,47 +635,6 @@ impl<'a> Assert<'a> {
     pub fn lex(&self, program: &str) -> String {
         self.lex_tokens(program).map(|x| x.1.unlex()).join(" ")
     }
-
-    /// Parse some text which must fail to parse. Two exclamation marks should be
-    /// placed around the span which is reported by the error.
-    ///
-    /// ```
-    /// # use starlark::assert::Assert;
-    /// Assert::new().parse_fail("!nonlocal! = 1");
-    /// ```
-    pub fn parse_fail(&self, contents: &str) -> anyhow::Error {
-        let rest = contents.replace('!', "");
-        assert!(
-            rest.len() + 2 == contents.len(),
-            "Must be exactly 2 ! marks around the parse error location"
-        );
-
-        let begin = contents.find('!').unwrap();
-        let end = contents[begin + 1..].find('!').unwrap() + begin;
-
-        match AstModule::parse("assert.bzl", rest, &self.dialect) {
-            Ok(ast) => panic!(
-                "Expected parse failure, but succeeded:\nContents: {}\nGot: {:?}",
-                contents, ast
-            ),
-            Err(e) => {
-                if let Some(d) = e.downcast_ref::<Diagnostic>() {
-                    if let Some(span) = &d.span {
-                        let want_span = Span::new(Pos::new(begin as u32), Pos::new(end as u32));
-                        if span.span == want_span {
-                            return e; // Success
-                        }
-                    }
-                }
-                panic!(
-                    "Expected diagnostic with span information, but didn't get a good span:\nContents: {}\nGot: {:?}\nWanted: {:?}",
-                    contents,
-                    e,
-                    (begin, end)
-                )
-            }
-        }
-    }
 }
 
 /// See [`Assert::eq`].
@@ -759,9 +716,4 @@ pub(crate) fn lex_tokens(program: &str) -> Vec<(usize, Token, usize)> {
 /// See [`Assert::lex`].
 pub fn lex(program: &str) -> String {
     Assert::new().lex(program)
-}
-
-/// See [`Assert::parse_fail`].
-pub fn parse_fail(program: &str) -> anyhow::Error {
-    Assert::new().parse_fail(program)
 }
