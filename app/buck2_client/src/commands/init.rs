@@ -216,7 +216,7 @@ fn set_up_prelude(repo_root: &AbsPath, git: bool) -> anyhow::Result<()> {
         println!(
             "* Download https://github.com/facebookincubator/buck2-prelude.git into `prelude/` with a VCS of your choice."
         );
-        println!("* If you wish to use git submodule, run the command again with --git",);
+        println!("* If you wish to use git submodule, run the command again with --git");
     }
     Ok(())
 }

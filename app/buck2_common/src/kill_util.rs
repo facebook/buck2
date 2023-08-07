@@ -86,7 +86,7 @@ mod unix {
         timeout: Option<Duration>,
     ) -> ControlFlow<StoppedWaiting> {
         let start = Instant::now();
-        info!("Sending signal `{}` to process `{}`.", signal, pid,);
+        info!("Sending signal `{}` to process `{}`.", signal, pid);
         // Actually send a signal.
         check_result(pid, nix::sys::signal::kill(pid, signal))?;
         loop {

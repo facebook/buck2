@@ -207,7 +207,7 @@ impl IoProvider for EdenIoProvider {
                     .try_into()
                     .context("Eden returned an invalid size")?;
 
-                tracing::debug!("getAttributesFromFilesV2({}): ok", path,);
+                tracing::debug!("getAttributesFromFilesV2({}): ok", path);
                 let digest = match self.digest {
                     Digest::Sha1 => {
                         let sha1 = data
@@ -306,7 +306,7 @@ impl IoProvider for EdenIoProvider {
             .context("Eden did not return a directory result")?
             .into_result()?;
 
-        tracing::debug!("readdir({}): {} entries", path, data.len(),);
+        tracing::debug!("readdir({}): {} entries", path, data.len());
 
         let entries = data
             .into_iter()

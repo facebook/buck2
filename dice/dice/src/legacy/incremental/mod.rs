@@ -310,7 +310,7 @@ where
             VersionedGraphKeyRef::new(transaction_ctx.get_version(), k),
             transaction_ctx.get_minor_version(),
         ) {
-            debug!( k = %k ,msg = "found existing entry with matching version in cache. reusing result.",);
+            debug!(k = %k, msg = "found existing entry with matching version in cache. reusing result.");
             DiceFuture::Ready(Some(entry))
         } else {
             let this = self.dupe();

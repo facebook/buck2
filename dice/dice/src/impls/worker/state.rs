@@ -120,7 +120,7 @@ impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
         self,
         eval: &AsyncEvaluator,
     ) -> DiceWorkerStateCheckingDeps<'a, 'b> {
-        debug!(msg = "found existing entry with mismatching version. checking if deps changed.",);
+        debug!(msg = "found existing entry with mismatching version. checking if deps changed.");
 
         self.internals.checking_deps();
 
@@ -157,7 +157,7 @@ impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
         self,
         value: DiceComputedValue,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
-        debug!(msg = "found existing entry with matching version in cache. reusing result.",);
+        debug!(msg = "found existing entry with matching version in cache. reusing result.");
 
         finish_with_cached_value(
             value,
