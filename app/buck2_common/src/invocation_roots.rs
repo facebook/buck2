@@ -12,8 +12,10 @@ use std::path::PathBuf;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
 use once_cell::sync::Lazy;
@@ -41,10 +43,18 @@ impl InvocationRoots {
         Ok(home_buck_dir()?.join(FileName::unchecked_new("buckd")))
     }
 
-    pub fn paranoid_info_path(&self) -> anyhow::Result<AbsNormPathBuf> {
+    pub fn paranoid_info_path(&self) -> anyhow::Result<AbsPathBuf> {
+        // Used in tests
+        static PARANOID_PATH: EnvHelper<AbsPathBuf> = EnvHelper::new("BUCK2_PARANOID_PATH");
+
+        if let Some(p) = PARANOID_PATH.get()? {
+            return Ok(p.clone());
+        }
+
         Ok(self
             .common_buckd_dir()?
-            .join(FileName::unchecked_new("paranoid.info")))
+            .join(FileName::new("paranoid.info")?)
+            .into_abs_path_buf())
     }
 }
 
