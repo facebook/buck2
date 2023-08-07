@@ -18,7 +18,6 @@ use buck2_client_ctx::daemon::client::connect::establish_connection_existing;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use buck2_common::daemon_dir::DaemonDir;
-use buck2_common::invocation_paths::InvocationPaths;
 use chrono::NaiveDateTime;
 use humantime::format_duration;
 use walkdir::WalkDir;
@@ -47,7 +46,7 @@ impl StatusCommand {
         ctx.with_runtime(async move |ctx| {
             if self.all {
                 let mut daemon_dirs = Vec::new();
-                let root = InvocationPaths::common_buckd_dir()?;
+                let root = ctx.paths()?.roots.common_buckd_dir()?;
                 let walker = WalkDir::new(&root).follow_links(false).into_iter();
                 for entry in walker {
                     let entry = entry?;

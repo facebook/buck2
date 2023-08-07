@@ -15,7 +15,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use once_cell::sync::Lazy;
 
-use crate::invocation_paths::home_buck_dir;
+use crate::invocation_roots::home_buck_dir;
 use crate::result::SharedResult;
 use crate::result::ToSharedResultExt;
 

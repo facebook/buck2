@@ -11,9 +11,16 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use allocative::Allocative;
+use anyhow::Context as _;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
+use once_cell::sync::Lazy;
 use thiserror::Error;
+
+use crate::result::SharedResult;
+use crate::result::ToSharedResultExt;
 
 #[derive(Debug, Error)]
 enum BuckCliError {
@@ -27,6 +34,12 @@ enum BuckCliError {
 pub struct InvocationRoots {
     pub cell_root: AbsNormPathBuf,
     pub project_root: ProjectRoot,
+}
+
+impl InvocationRoots {
+    pub fn common_buckd_dir(&self) -> anyhow::Result<AbsNormPathBuf> {
+        Ok(home_buck_dir()?.join(FileName::unchecked_new("buckd")))
+    }
 }
 
 /// This finds the cell root and the project root.
@@ -79,4 +92,33 @@ pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
         }),
         _ => Err(BuckCliError::NoBuckRoot(from.to_owned()).into()),
     }
+}
+
+/// `~/.buck`.
+/// TODO(cjhopman): We currently place all buckd info into a directory owned by the user.
+/// This is broken when multiple users try to share the same checkout.
+///
+/// **This is different than the behavior of buck1.**
+///
+/// In buck1, the buck daemon is shared across users. Due to the fact that `buck run`
+/// will run whatever command is returned by the daemon, buck1 has a privilege escalation
+/// vulnerability.
+///
+/// There's a couple ways we could resolve this:
+/// 1. Use a shared .buckd information directory and have the client verify the identity of
+/// the server before doing anything with it. If the identity is different, kill it and
+/// start a new one.
+/// 2. Keep user-owned .buckd directory, use some other mechanism to move ownership of
+/// output directories between different buckd instances.
+#[allow(clippy::needless_borrow)] // False positive.
+pub(crate) fn home_buck_dir() -> anyhow::Result<&'static AbsNormPath> {
+    fn find_dir() -> anyhow::Result<AbsNormPathBuf> {
+        let home = dirs::home_dir().context("Expected a HOME directory to be available")?;
+        let home = AbsNormPathBuf::new(home).context("Expected an absolute HOME directory")?;
+        Ok(home.join(FileName::new(".buck")?))
+    }
+
+    static DIR: Lazy<SharedResult<AbsNormPathBuf>> = Lazy::new(|| find_dir().shared_error());
+
+    Ok(&Lazy::force(&DIR).as_ref()?)
 }

@@ -14,7 +14,6 @@
 use std::borrow::Cow;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
@@ -23,26 +22,9 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use once_cell::sync::Lazy;
 
 use crate::daemon_dir::DaemonDir;
 use crate::invocation_roots::InvocationRoots;
-use crate::result::SharedResult;
-use crate::result::ToSharedResultExt;
-
-/// `~/.buck`.
-#[allow(clippy::needless_borrow)] // False positive.
-pub(crate) fn home_buck_dir() -> anyhow::Result<&'static AbsNormPath> {
-    fn find_dir() -> anyhow::Result<AbsNormPathBuf> {
-        let home = dirs::home_dir().context("Expected a HOME directory to be available")?;
-        let home = AbsNormPathBuf::new(home).context("Expected an absolute HOME directory")?;
-        Ok(home.join(FileName::new(".buck")?))
-    }
-
-    static DIR: Lazy<SharedResult<AbsNormPathBuf>> = Lazy::new(|| find_dir().shared_error());
-
-    Ok(&Lazy::force(&DIR).as_ref()?)
-}
 
 #[derive(Clone, Allocative)]
 pub struct InvocationPaths {
@@ -90,31 +72,14 @@ impl InvocationPaths {
             .project_root
             .root()
             .strip_prefix(AbsNormPath::new("/")?)?;
-        // TODO(cjhopman): We currently place all buckd info into a directory owned by the user.
-        // This is broken when multiple users try to share the same checkout.
-        //
-        // **This is different than the behavior of buck1.**
-        //
-        // In buck1, the buck daemon is shared across users. Due to the fact that `buck run`
-        // will run whatever command is returned by the daemon, buck1 has a privilege escalation
-        // vulnerability.
-        //
-        // There's a couple ways we could resolve this:
-        // 1. Use a shared .buckd information directory and have the client verify the identity of
-        // the server before doing anything with it. If the identity is different, kill it and
-        // start a new one.
-        // 2. Keep user-owned .buckd directory, use some other mechanism to move ownership of
-        // output directories between different buckd instances.
 
-        let path = Self::common_buckd_dir()?
+        let path = self
+            .roots
+            .common_buckd_dir()?
             .join(root_relative.as_ref())
             .join(&self.isolation);
 
         Ok(DaemonDir { path })
-    }
-
-    pub fn common_buckd_dir() -> anyhow::Result<AbsNormPathBuf> {
-        Ok(home_buck_dir()?.join(FileName::unchecked_new("buckd")))
     }
 
     pub fn cell_root(&self) -> &AbsNormPath {
