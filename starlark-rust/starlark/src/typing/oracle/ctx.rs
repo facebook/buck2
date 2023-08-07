@@ -33,6 +33,7 @@ use crate::typing::TyName;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracle;
+use crate::typing::TypingUnOp;
 
 #[derive(Debug, thiserror::Error)]
 enum TypingOracleCtxError {
@@ -52,6 +53,8 @@ enum TypingOracleCtxError {
     MissingIndexOperator { ty: Ty },
     #[error("Type `{ty}` is not iterable")]
     NotIterable { ty: Ty },
+    #[error("Unary operator `{un_op}` is not available on the type `{ty}`")]
+    UnaryOperatorNotAvailable { ty: Ty, un_op: TypingUnOp },
 }
 
 /// Oracle reference with utility methods.
@@ -377,6 +380,37 @@ impl<'a> TypingOracleCtx<'a> {
             }
         };
         self.validate_call(span, &f, &[index.map(Arg::Pos)])
+    }
+
+    pub(crate) fn expr_un_op(
+        &self,
+        span: Span,
+        ty: Ty,
+        un_op: TypingUnOp,
+    ) -> Result<Ty, TypingError> {
+        if ty.is_never() || ty.is_any() {
+            return Ok(ty);
+        }
+        let mut results = Vec::new();
+        for variant in ty.iter_union() {
+            match variant {
+                TyBasic::StarlarkValue(ty) => match ty.un_op(un_op) {
+                    Ok(x) => results.push(Ty::basic(TyBasic::StarlarkValue(x))),
+                    Err(()) => {}
+                },
+                _ => {
+                    // The rest do not support unary operators.
+                }
+            }
+        }
+        if results.is_empty() {
+            Err(self.mk_error(
+                span,
+                TypingOracleCtxError::UnaryOperatorNotAvailable { ty, un_op },
+            ))
+        } else {
+            Ok(Ty::unions(results))
+        }
     }
 
     /// Returns false on Void, since that is definitely not a list

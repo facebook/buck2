@@ -58,8 +58,6 @@ enum TypingContextError {
     AttributeNotAvailable { typ: String, attr: String },
     #[error("The builtin `{name}` is not known")]
     UnknownBuiltin { name: String },
-    #[error("Unary operator `{un_op}` is not available on the type `{ty}`")]
-    UnaryOperatorNotAvailable { un_op: TypingUnOp, ty: Ty },
     #[error("Binary operator `{bin_op}` is not available on the types `{left}` and `{right}`")]
     BinaryOperatorNotAvailable {
         bin_op: TypingBinOp,
@@ -171,28 +169,12 @@ impl TypingContext<'_> {
 
     fn expression_un_op(&self, span: Span, arg: &CstExpr, un_op: TypingUnOp) -> Ty {
         let ty = self.expression_type(arg);
-        if ty.is_never() || ty.is_any() {
-            return ty;
-        }
-        let mut results = Vec::new();
-        for variant in ty.iter_union() {
-            match variant {
-                TyBasic::StarlarkValue(ty) => match ty.un_op(un_op) {
-                    Ok(x) => results.push(Ty::basic(TyBasic::StarlarkValue(x))),
-                    Err(()) => {}
-                },
-                _ => {
-                    // The rest do not support unary operators.
-                }
+        match self.oracle.expr_un_op(span, ty, un_op) {
+            Ok(x) => x,
+            Err(e) => {
+                self.errors.borrow_mut().push(e);
+                Ty::never()
             }
-        }
-        if results.is_empty() {
-            self.add_error(
-                span,
-                TypingContextError::UnaryOperatorNotAvailable { un_op, ty },
-            )
-        } else {
-            Ty::unions(results)
         }
     }
 
