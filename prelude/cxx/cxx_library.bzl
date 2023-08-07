@@ -1317,7 +1317,7 @@ def _shared_library(
             link_ordering = link_ordering,
             name = soname,
             links = [LinkArgs(infos = [link_info])],
-            identifier = soname,
+            identifier = soname + "-interface",
             link_execution_preference = link_execution_preference,
         )
 
