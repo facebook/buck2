@@ -90,9 +90,9 @@ impl TypingContext<'_> {
         Ty::any()
     }
 
-    fn validate_call(&self, fun: &Ty, args: &[Spanned<Arg>], span: Span) -> Ty {
-        match self.oracle.validate_call(span, fun, args) {
-            Ok(ty) => ty,
+    fn result_to_ty(&self, result: Result<Ty, TypingError>) -> Ty {
+        match result {
+            Ok(x) => x,
             Err(e) => {
                 self.errors.borrow_mut().push(e);
                 Ty::never()
@@ -100,14 +100,12 @@ impl TypingContext<'_> {
         }
     }
 
+    fn validate_call(&self, fun: &Ty, args: &[Spanned<Arg>], span: Span) -> Ty {
+        self.result_to_ty(self.oracle.validate_call(span, fun, args))
+    }
+
     fn from_iterated(&self, ty: &Ty, span: Span) -> Ty {
-        match self.oracle.iter_item(Spanned { node: ty, span }) {
-            Ok(x) => x,
-            Err(e) => {
-                self.errors.borrow_mut().push(e);
-                Ty::never()
-            }
-        }
+        self.result_to_ty(self.oracle.iter_item(Spanned { node: ty, span }))
     }
 
     pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {
@@ -158,24 +156,12 @@ impl TypingContext<'_> {
         }
 
         let index = self.expression_type_spanned(index);
-        match self.oracle.expr_index(span, array_ty, index) {
-            Ok(x) => x,
-            Err(e) => {
-                self.errors.borrow_mut().push(e);
-                Ty::never()
-            }
-        }
+        self.result_to_ty(self.oracle.expr_index(span, array_ty, index))
     }
 
     fn expression_un_op(&self, span: Span, arg: &CstExpr, un_op: TypingUnOp) -> Ty {
         let ty = self.expression_type(arg);
-        match self.oracle.expr_un_op(span, ty, un_op) {
-            Ok(x) => x,
-            Err(e) => {
-                self.errors.borrow_mut().push(e);
-                Ty::never()
-            }
-        }
+        self.result_to_ty(self.oracle.expr_un_op(span, ty, un_op))
     }
 
     pub(crate) fn expression_bind_type(&self, x: &BindExpr) -> Ty {
