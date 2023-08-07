@@ -12,6 +12,18 @@ rust_library(
     doctests = False,  # FIXME
     os_deps = [
         (
+            "linux",
+            [
+                "fbsource//third-party/rust:nix",
+            ],
+        ),
+        (
+            "macos",
+            [
+                "fbsource//third-party/rust:nix",
+            ],
+        ),
+        (
             "windows",
             [
                 "fbsource//third-party/rust:common-path",
