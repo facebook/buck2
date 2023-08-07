@@ -37,3 +37,9 @@ An `ensured_artifact` prints out the relative or absolute path via `ctx.output.p
 This is intentional because when the ensured artifact is created with BXL within BXL, it has not been materialized yet. It will be materialized after the BXL script finishes executing, and Buck2 core performs some additional actions after the BXL script.
 
 This is a safeguard to prevent people from misusing the artifact path and passing it into an action without the artifact having been materialized or passing an absolute path into RE, which can actually mess up RE and render the action not shareable across users. In addition, it makes these actions separately cacheable from the BXL execution.
+
+### What is the difference between dynamic outputs and anon targets?
+
+Dynamic outputs are meant for [dynamic dependencies](../rule_authors/dynamic_dependencies.md). The context type is a `bxl_ctx`. Dynamic outputs are ran asynchronously outside of the BXL execution.
+
+Anon targets are meant for sharing work betwen multiple BXLs. The context type is a normal rule analysis `context`. Anon targets are `await`-ed inline with your BXL function.
