@@ -51,6 +51,10 @@ enum TypingOracleCtxError {
     CallArgumentsIncompatible,
     #[error("Type `{ty}` does not have [] operator")]
     MissingIndexOperator { ty: Ty },
+    #[error("Type `{ty}` does not have [::] operator")]
+    MissingSliceOperator { ty: Ty },
+    #[error("The attribute `{attr}` is not available on the type `{ty}`")]
+    AttributeNotAvailable { ty: Ty, attr: String },
     #[error("Type `{ty}` is not iterable")]
     NotIterable { ty: Ty },
     #[error("Unary operator `{un_op}` is not available on the type `{ty}`")]
@@ -116,7 +120,7 @@ impl<'a> TypingOracleCtx<'a> {
         TypingError::msg(msg, span, self.codemap)
     }
 
-    pub(crate) fn attribute_ty(&self, ty: &Ty, attr: TypingAttr) -> Result<Ty, ()> {
+    fn attribute_ty(&self, ty: &Ty, attr: TypingAttr) -> Result<Ty, ()> {
         let mut results = Vec::new();
         let mut errors = false;
         for basic in ty.iter_union() {
@@ -380,6 +384,29 @@ impl<'a> TypingOracleCtx<'a> {
             }
         };
         self.validate_call(span, &f, &[index.map(Arg::Pos)])
+    }
+
+    pub(crate) fn expr_slice(&self, span: Span, array: Ty) -> Result<Ty, TypingError> {
+        match self.attribute_ty(&array, TypingAttr::Slice) {
+            Ok(x) => Ok(x),
+            Err(()) => Err(self.mk_error(
+                span,
+                TypingOracleCtxError::MissingSliceOperator { ty: array.clone() },
+            )),
+        }
+    }
+
+    pub(crate) fn expr_dot(&self, span: Span, array: &Ty, attr: &str) -> Result<Ty, TypingError> {
+        match self.attribute_ty(array, TypingAttr::Regular(attr)) {
+            Ok(x) => Ok(x),
+            Err(()) => Err(self.mk_error(
+                span,
+                TypingOracleCtxError::AttributeNotAvailable {
+                    ty: array.clone(),
+                    attr: attr.to_owned(),
+                },
+            )),
+        }
     }
 
     pub(crate) fn expr_un_op(

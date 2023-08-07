@@ -54,8 +54,6 @@ use crate::typing::TypingOracle;
 
 #[derive(Error, Debug)]
 enum TypingContextError {
-    #[error("The attribute `{attr}` is not available on the type `{typ}`")]
-    AttributeNotAvailable { typ: String, attr: String },
     #[error("The builtin `{name}` is not known")]
     UnknownBuiltin { name: String },
     #[error("Binary operator `{bin_op}` is not available on the types `{left}` and `{right}`")]
@@ -126,17 +124,8 @@ impl TypingContext<'_> {
         }
     }
 
-    fn expression_attribute(&self, ty: &Ty, attr: TypingAttr, span: Span) -> Ty {
-        match self.oracle.attribute_ty(ty, attr) {
-            Ok(x) => x,
-            Err(()) => self.add_error(
-                span,
-                TypingContextError::AttributeNotAvailable {
-                    typ: ty.to_string(),
-                    attr: attr.to_string(),
-                },
-            ),
-        }
+    fn expr_dot(&self, ty: &Ty, attr: &str, span: Span) -> Ty {
+        self.result_to_ty(self.oracle.expr_dot(span, ty, attr))
     }
 
     fn expr_index(&self, span: Span, array: &CstExpr, index: &CstExpr) -> Ty {
@@ -420,7 +409,7 @@ impl TypingContext<'_> {
         for e in [start, stop, stride].iter().copied().flatten() {
             self.validate_type(&self.expression_type(e), &Ty::int(), e.span);
         }
-        self.expression_attribute(&self.expression_type(x), TypingAttr::Slice, span)
+        self.result_to_ty(self.oracle.expr_slice(span, self.expression_type(x)))
     }
 
     fn expr_ident(&self, x: &CstIdent) -> Ty {
@@ -454,9 +443,7 @@ impl TypingContext<'_> {
         let span = x.span;
         match &**x {
             ExprP::Tuple(xs) => Ty::tuple(xs.map(|x| self.expression_type(x))),
-            ExprP::Dot(a, b) => {
-                self.expression_attribute(&self.expression_type(a), TypingAttr::Regular(b), b.span)
-            }
+            ExprP::Dot(a, b) => self.expr_dot(&self.expression_type(a), b, b.span),
             ExprP::Call(f, args) => self.expr_call(span, f, args),
             ExprP::Index(a_b) => self.expr_index(span, &a_b.0, &a_b.1),
             ExprP::Index2(a_i0_i1) => {
