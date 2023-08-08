@@ -182,10 +182,16 @@ def _get_valid_cpu_filters(cpu_filters: [list[str], None]) -> list[str]:
     return [cpu_filter for cpu_filter in cpu_filters if cpu_filter in cpu_abis]
 
 def _android_binary_macro_stub(
+        allow_r_dot_java_in_secondary_dex = False,
         cpu_filters = None,
+        primary_dex_patterns = [],
         **kwargs):
+    if not allow_r_dot_java_in_secondary_dex:
+        primary_dex_patterns = primary_dex_patterns + ["/R^", "/R$"]
     __rules__["android_binary"](
+        allow_r_dot_java_in_secondary_dex = allow_r_dot_java_in_secondary_dex,
         cpu_filters = _get_valid_cpu_filters(cpu_filters),
+        primary_dex_patterns = primary_dex_patterns,
         **kwargs
     )
 

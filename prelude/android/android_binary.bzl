@@ -205,4 +205,3 @@ def _get_build_config_java_libraries(ctx: AnalysisContext, build_config_infos: l
 def _verify_params(ctx: AnalysisContext):
     expect(ctx.attrs.aapt_mode == "aapt2", "aapt1 is deprecated!")
     expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")
-    expect(not ctx.attrs.use_split_dex or ctx.attrs.allow_r_dot_java_in_secondary_dex)
