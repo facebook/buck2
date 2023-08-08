@@ -31,7 +31,7 @@ use starlark_map::StarlarkHasher;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::typing::error::TypingError;
+use crate::typing::error::TypingOrInternalError;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
@@ -51,7 +51,7 @@ pub trait TyCustomImpl:
         span: Span,
         _args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         Err(oracle.msg_error(span, format!("Value of type `{}` is not callable", self)))
     }
     fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()>;
@@ -76,7 +76,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
         span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingError>;
+    ) -> Result<Ty, TypingOrInternalError>;
     fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()>;
     fn union2_dyn(
         self: Box<Self>,
@@ -121,7 +121,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         self.validate_call(span, args, oracle)
     }
 

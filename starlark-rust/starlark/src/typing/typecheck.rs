@@ -58,7 +58,7 @@ pub(crate) fn solve_bindings(
     globals: &Globals,
     bindings: Bindings,
     codemap: &CodeMap,
-) -> (Vec<TypingError>, HashMap<BindingId, Ty>, Vec<Approximation>) {
+) -> Result<(Vec<TypingError>, HashMap<BindingId, Ty>, Vec<Approximation>), InternalError> {
     let mut types = bindings
         .expressions
         .keys()
@@ -84,7 +84,7 @@ pub(crate) fn solve_bindings(
         ctx.errors.borrow_mut().clear();
         for (name, exprs) in &bindings.expressions {
             for expr in exprs {
-                let ty = ctx.expression_bind_type(expr);
+                let ty = ctx.expression_bind_type(expr)?;
                 let t = ctx.types.get_mut(name).unwrap();
                 let new = Ty::union2(t.clone(), ty);
                 if &new != t {
@@ -105,20 +105,20 @@ pub(crate) fn solve_bindings(
     }
     // Make sure we check every expression, looking for failures
     for x in &bindings.check {
-        ctx.expression_type(x);
+        ctx.expression_type(x)?;
     }
     for (span, e, require) in &bindings.check_type {
         let ty = match e {
             None => Ty::none(),
-            Some(x) => ctx.expression_type(x),
+            Some(x) => ctx.expression_type(x)?,
         };
         ctx.validate_type(&ty, require, *span);
     }
-    (
+    Ok((
         ctx.errors.into_inner(),
         ctx.types.into_hash_map(),
         ctx.approximoations.into_inner(),
-    )
+    ))
 }
 
 /// Structure containing all the inferred types.
@@ -197,7 +197,20 @@ impl AstModule {
         };
         let mut approximations = bindings.approximations;
         let (solve_errors, types, solve_approximations) =
-            solve_bindings(oracle, globals, bindings.bindings, &codemap);
+            match solve_bindings(oracle, globals, bindings.bindings, &codemap) {
+                Ok(x) => x,
+                Err(e) => {
+                    return (
+                        vec![e.into_anyhow()],
+                        TypeMap {
+                            codemap,
+                            bindings: UnorderedMap::new(),
+                        },
+                        Interface::default(),
+                        Vec::new(),
+                    );
+                }
+            };
 
         approximations.extend(solve_approximations);
 

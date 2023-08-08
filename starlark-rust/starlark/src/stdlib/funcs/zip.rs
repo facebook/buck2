@@ -22,7 +22,7 @@ use crate as starlark;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::GlobalsBuilder;
-use crate::typing::error::TypingError;
+use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::Arg;
 use crate::typing::Ty;
@@ -39,7 +39,7 @@ impl TyCustomFunctionImpl for ZipType {
         _span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         let mut iter_item_types: Vec<Ty> = Vec::new();
         let mut seen_star_args = false;
         for arg in args {

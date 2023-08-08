@@ -23,7 +23,7 @@ use crate as starlark;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::GlobalsBuilder;
-use crate::typing::error::TypingError;
+use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::Arg;
 use crate::typing::Param;
@@ -52,7 +52,7 @@ impl TyCustomFunctionImpl for ListType {
         span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         static LIST: Lazy<TyFunction> = Lazy::new(|| TyFunction {
             type_attr: Some(Ty::any_list()),
             params: vec![Param::pos_only(Ty::iter(Ty::any())).optional()],

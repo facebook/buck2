@@ -185,7 +185,11 @@ impl<'v> Compiler<'v, '_, '_> {
             BindingsCollect::collect(stmts, TypecheckMode::Compiler, &self.codemap)
                 .map_err(InternalError::into_eval_exception)?;
 
-        let (errors, ..) = solve_bindings(&OracleAny, &self.globals, bindings, &self.codemap);
+        let (errors, ..) = match solve_bindings(&OracleAny, &self.globals, bindings, &self.codemap)
+        {
+            Ok(x) => x,
+            Err(e) => return Err(e.into_eval_exception()),
+        };
 
         if let Some(error) = errors.into_iter().next() {
             return Err(error.into_eval_exception());

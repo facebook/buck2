@@ -23,7 +23,7 @@ use crate::eval::compiler::EvalException;
 
 /// Internal error, bug in the typechecker.
 #[derive(Debug)]
-pub(crate) struct InternalError(EvalException);
+pub struct InternalError(EvalException);
 
 impl InternalError {
     #[cold]
@@ -80,5 +80,25 @@ impl TypingError {
     #[cold]
     pub(crate) fn into_eval_exception(self) -> EvalException {
         self.0
+    }
+}
+
+/// Either a typing error or an internal error.
+/// * Typing error means, types are not compatible.
+/// * Internal error means, bug in the typechecker.
+pub enum TypingOrInternalError {
+    Typing(TypingError),
+    Internal(InternalError),
+}
+
+impl From<TypingError> for TypingOrInternalError {
+    fn from(e: TypingError) -> Self {
+        TypingOrInternalError::Typing(e)
+    }
+}
+
+impl From<InternalError> for TypingOrInternalError {
+    fn from(e: InternalError) -> Self {
+        TypingOrInternalError::Internal(e)
     }
 }

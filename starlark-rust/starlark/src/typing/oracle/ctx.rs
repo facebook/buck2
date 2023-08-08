@@ -23,7 +23,9 @@ use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::basic::TyBasic;
+use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
+use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::Arg;
 use crate::typing::function::Param;
 use crate::typing::function::ParamMode;
@@ -116,8 +118,16 @@ impl<'a> TypingOracleCtx<'a> {
         TypingError::new(err.into(), span, self.codemap)
     }
 
-    pub(crate) fn msg_error(&self, span: Span, msg: impl Display) -> TypingError {
-        TypingError::msg(msg, span, self.codemap)
+    pub(crate) fn mk_error_as_maybe_internal(
+        &self,
+        span: Span,
+        err: impl Into<anyhow::Error>,
+    ) -> TypingOrInternalError {
+        TypingOrInternalError::Typing(TypingError::new(err.into(), span, self.codemap))
+    }
+
+    pub(crate) fn msg_error(&self, span: Span, msg: impl Display) -> TypingOrInternalError {
+        TypingOrInternalError::Typing(TypingError::msg(msg, span, self.codemap))
     }
 
     fn attribute_ty(&self, ty: &Ty, attr: TypingAttr) -> Result<Ty, ()> {
@@ -162,7 +172,7 @@ impl<'a> TypingOracleCtx<'a> {
         params: &[Param],
         args: &[Spanned<Arg>],
         span: Span,
-    ) -> Result<(), TypingError> {
+    ) -> Result<(), TypingOrInternalError> {
         // Want to figure out which arguments go in which positions
         let mut param_args: Vec<Vec<Spanned<&Ty>>> = vec![vec![]; params.len()];
         // The next index a positional parameter might fill
@@ -174,7 +184,7 @@ impl<'a> TypingOracleCtx<'a> {
                 Arg::Pos(ty) => loop {
                     match params.get(param_pos) {
                         None => {
-                            return Err(self.mk_error(
+                            return Err(self.mk_error_as_maybe_internal(
                                 arg.span,
                                 TypingOracleCtxError::TooManyPositionalArguments,
                             ));
@@ -207,7 +217,7 @@ impl<'a> TypingOracleCtx<'a> {
                         }
                     }
                     if !success {
-                        return Err(self.mk_error(
+                        return Err(self.mk_error_as_maybe_internal(
                             arg.span,
                             TypingOracleCtxError::UnexpectedNamedArgument { name: name.clone() },
                         ));
@@ -225,12 +235,16 @@ impl<'a> TypingOracleCtx<'a> {
 
         for (param, args) in std::iter::zip(params, param_args) {
             if !param.allows_many() && args.len() > 1 {
-                panic!("bad")
+                return Err(TypingOrInternalError::Internal(InternalError::msg(
+                    "bad",
+                    span,
+                    self.codemap,
+                )));
             }
             if args.is_empty() {
                 // We assume that *args/**kwargs might have splatted things everywhere.
                 if !param.optional && !seen_vargs {
-                    return Err(self.mk_error(
+                    return Err(self.mk_error_as_maybe_internal(
                         span,
                         TypingOracleCtxError::MissingRequiredParameter {
                             name: param.name().to_owned(),
@@ -277,7 +291,7 @@ impl<'a> TypingOracleCtx<'a> {
         span: Span,
         fun: &TyFunction,
         args: &[Spanned<Arg>],
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         self.validate_args(&fun.params, args, span)?;
         Ok((*fun.result).clone())
     }
@@ -287,14 +301,14 @@ impl<'a> TypingOracleCtx<'a> {
         span: Span,
         ty: &TyName,
         args: &[Spanned<Arg>],
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         match self.oracle.as_function(ty) {
             None => {
                 // Unknown type, may be callable.
                 Ok(Ty::any())
             }
             Some(Ok(f)) => self.validate_fn_call(span, &f, args),
-            Some(Err(())) => Err(self.mk_error(
+            Some(Err(())) => Err(self.mk_error_as_maybe_internal(
                 span,
                 TypingOracleCtxError::CallToNonCallable { ty: ty.to_string() },
             )),
@@ -307,20 +321,21 @@ impl<'a> TypingOracleCtx<'a> {
         span: Span,
         fun: &TyBasic,
         args: &[Spanned<Arg>],
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         match fun {
             TyBasic::Any => Ok(Ty::any()),
             TyBasic::Name(n) => self.validate_call_for_type_name(span, n, args),
-            TyBasic::StarlarkValue(t) => Err(self.mk_error(
+            TyBasic::StarlarkValue(t) => Err(self.mk_error_as_maybe_internal(
                 span,
                 TypingOracleCtxError::CallToNonCallable { ty: t.to_string() },
             )),
-            TyBasic::List(_) | TyBasic::Dict(_) | TyBasic::Tuple(_) => Err(self.mk_error(
-                span,
-                TypingOracleCtxError::CallToNonCallable {
-                    ty: fun.to_string(),
-                },
-            )),
+            TyBasic::List(_) | TyBasic::Dict(_) | TyBasic::Tuple(_) => Err(self
+                .mk_error_as_maybe_internal(
+                    span,
+                    TypingOracleCtxError::CallToNonCallable {
+                        ty: fun.to_string(),
+                    },
+                )),
             TyBasic::Iter(_) => {
                 // Unknown type, may be callable.
                 Ok(Ty::any())
@@ -335,22 +350,28 @@ impl<'a> TypingOracleCtx<'a> {
         span: Span,
         fun: &Ty,
         args: &[Spanned<Arg>],
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         let mut successful = Vec::new();
-        let mut errors = Vec::new();
+        let mut errors: Vec<TypingError> = Vec::new();
         for variant in fun.iter_union() {
             match self.validate_call_basic(span, variant, args) {
                 Ok(ty) => successful.push(ty),
-                Err(e) => errors.push(e),
+                Err(TypingOrInternalError::Typing(e)) => errors.push(e),
+                Err(TypingOrInternalError::Internal(e)) => {
+                    return Err(TypingOrInternalError::Internal(e));
+                }
             }
         }
         if !successful.is_empty() {
             Ok(Ty::unions(successful))
         } else {
             if errors.len() == 1 {
-                Err(errors.pop().unwrap())
+                Err(TypingOrInternalError::Typing(errors.pop().unwrap()))
             } else {
-                Err(self.mk_error(span, TypingOracleCtxError::CallArgumentsIncompatible))
+                Err(self.mk_error_as_maybe_internal(
+                    span,
+                    TypingOracleCtxError::CallArgumentsIncompatible,
+                ))
             }
         }
     }
@@ -373,11 +394,11 @@ impl<'a> TypingOracleCtx<'a> {
         span: Span,
         array: Ty,
         index: Spanned<Ty>,
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         let f = match self.attribute_ty(&array, TypingAttr::Index) {
             Ok(x) => x,
             Err(()) => {
-                return Err(self.mk_error(
+                return Err(self.mk_error_as_maybe_internal(
                     span,
                     TypingOracleCtxError::MissingIndexOperator { ty: array.clone() },
                 ));

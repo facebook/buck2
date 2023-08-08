@@ -40,7 +40,9 @@ use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
 use crate::typing::basic::TyBasic;
 use crate::typing::bindings::BindExpr;
+use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
+use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::Arg;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingAttr;
@@ -98,8 +100,27 @@ impl TypingContext<'_> {
         }
     }
 
-    fn validate_call(&self, fun: &Ty, args: &[Spanned<Arg>], span: Span) -> Ty {
-        self.result_to_ty(self.oracle.validate_call(span, fun, args))
+    fn result_to_ty_with_internal_error(
+        &self,
+        result: Result<Ty, TypingOrInternalError>,
+    ) -> Result<Ty, InternalError> {
+        match result {
+            Ok(x) => Ok(x),
+            Err(TypingOrInternalError::Internal(e)) => Err(e),
+            Err(TypingOrInternalError::Typing(e)) => {
+                self.errors.borrow_mut().push(e);
+                Ok(Ty::never())
+            }
+        }
+    }
+
+    fn validate_call(
+        &self,
+        fun: &Ty,
+        args: &[Spanned<Arg>],
+        span: Span,
+    ) -> Result<Ty, InternalError> {
+        self.result_to_ty_with_internal_error(self.oracle.validate_call(span, fun, args))
     }
 
     fn from_iterated(&self, ty: &Ty, span: Span) -> Ty {
@@ -128,8 +149,13 @@ impl TypingContext<'_> {
         self.result_to_ty(self.oracle.expr_dot(span, ty, attr))
     }
 
-    fn expr_index(&self, span: Span, array: &CstExpr, index: &CstExpr) -> Ty {
-        let array_ty = self.expression_type(array);
+    fn expr_index(
+        &self,
+        span: Span,
+        array: &CstExpr,
+        index: &CstExpr,
+    ) -> Result<Ty, InternalError> {
+        let array_ty = self.expression_type(array)?;
 
         // Hack for `list[str]`: list of `list` is just "function", and we don't want
         // to make it custom type and have overly complex machinery for handling it.
@@ -139,29 +165,34 @@ impl TypingContext<'_> {
             if let ExprP::Identifier(v0) = &array.node {
                 if v0.0 == "list" {
                     // TODO: make this "eval_type" or something.
-                    return Ty::any();
+                    return Ok(Ty::any());
                 }
             }
         }
 
-        let index = self.expression_type_spanned(index);
-        self.result_to_ty(self.oracle.expr_index(span, array_ty, index))
+        let index = self.expression_type_spanned(index)?;
+        self.result_to_ty_with_internal_error(self.oracle.expr_index(span, array_ty, index))
     }
 
-    fn expression_un_op(&self, span: Span, arg: &CstExpr, un_op: TypingUnOp) -> Ty {
-        let ty = self.expression_type(arg);
-        self.result_to_ty(self.oracle.expr_un_op(span, ty, un_op))
+    fn expression_un_op(
+        &self,
+        span: Span,
+        arg: &CstExpr,
+        un_op: TypingUnOp,
+    ) -> Result<Ty, InternalError> {
+        let ty = self.expression_type(arg)?;
+        Ok(self.result_to_ty(self.oracle.expr_un_op(span, ty, un_op)))
     }
 
-    pub(crate) fn expression_bind_type(&self, x: &BindExpr) -> Ty {
+    pub(crate) fn expression_bind_type(&self, x: &BindExpr) -> Result<Ty, InternalError> {
         match x {
             BindExpr::Expr(x) => self.expression_type(x),
-            BindExpr::GetIndex(i, x) => self.expression_bind_type(x).indexed(*i),
-            BindExpr::Iter(x) => self.from_iterated(&self.expression_bind_type(x), x.span()),
+            BindExpr::GetIndex(i, x) => Ok(self.expression_bind_type(x)?.indexed(*i)),
+            BindExpr::Iter(x) => Ok(self.from_iterated(&self.expression_bind_type(x)?, x.span())),
             BindExpr::AssignModify(lhs, op, rhs) => {
                 let span = lhs.span;
-                let rhs = self.expression_type_spanned(rhs);
-                let lhs = self.expression_assign_spanned(lhs);
+                let rhs = self.expression_type_spanned(rhs)?;
+                let lhs = self.expression_assign_spanned(lhs)?;
                 let attr = match op {
                     AssignOp::Add => TypingBinOp::Add,
                     AssignOp::Subtract => TypingBinOp::Sub,
@@ -175,12 +206,12 @@ impl TypingContext<'_> {
                     AssignOp::LeftShift => TypingBinOp::LeftShift,
                     AssignOp::RightShift => TypingBinOp::RightShift,
                 };
-                self.expr_bin_op_ty(span, lhs, attr, rhs)
+                Ok(self.expr_bin_op_ty(span, lhs, attr, rhs))
             }
             BindExpr::SetIndex(id, index, e) => {
                 let span = index.span;
-                let index = self.expression_type(index);
-                let e = self.expression_bind_type(e);
+                let index = self.expression_type(index)?;
+                let e = self.expression_bind_type(e)?;
                 let mut res = Vec::new();
                 // We know about list and dict, everything else we just ignore
                 if self.types[id].is_list() {
@@ -201,68 +232,82 @@ impl TypingContext<'_> {
                         }
                     }
                 }
-                Ty::unions(res)
+                Ok(Ty::unions(res))
             }
             BindExpr::ListAppend(id, e) => {
                 if self.oracle.probably_a_list(&self.types[id]) {
-                    Ty::list(self.expression_type(e))
+                    Ok(Ty::list(self.expression_type(e)?))
                 } else {
                     // It doesn't seem to be a list, so let's assume the append is non-mutating
-                    Ty::never()
+                    Ok(Ty::never())
                 }
             }
             BindExpr::ListExtend(id, e) => {
                 if self.oracle.probably_a_list(&self.types[id]) {
-                    Ty::list(self.from_iterated(&self.expression_type(e), e.span))
+                    Ok(Ty::list(
+                        self.from_iterated(&self.expression_type(e)?, e.span),
+                    ))
                 } else {
                     // It doesn't seem to be a list, so let's assume the extend is non-mutating
-                    Ty::never()
+                    Ok(Ty::never())
                 }
             }
         }
     }
 
     /// Used to get the type of an expression when used as part of a ModifyAssign operation
-    fn expression_assign(&self, x: &CstAssign) -> Ty {
+    fn expression_assign(&self, x: &CstAssign) -> Result<Ty, InternalError> {
         match &**x {
-            AssignTargetP::Tuple(_) => self.approximation("expression_assignment", x),
+            AssignTargetP::Tuple(_) => Ok(self.approximation("expression_assignment", x)),
             AssignTargetP::Index(a_b) => self.expr_index(x.span, &a_b.0, &a_b.1),
-            AssignTargetP::Dot(_, _) => self.approximation("expression_assignment", x),
+            AssignTargetP::Dot(_, _) => Ok(self.approximation("expression_assignment", x)),
             AssignTargetP::Identifier(x) => {
                 if let Some(i) = x.1 {
                     if let Some(ty) = self.types.get(&i) {
-                        return ty.clone();
+                        return Ok(ty.clone());
                     }
                 }
-                panic!("Unknown identifier")
+                Err(InternalError::msg(
+                    "Unknown identifier",
+                    x.span,
+                    self.oracle.codemap,
+                ))
             }
         }
     }
 
-    fn expression_assign_spanned(&self, x: &CstAssign) -> Spanned<Ty> {
-        Spanned {
+    fn expression_assign_spanned(&self, x: &CstAssign) -> Result<Spanned<Ty>, InternalError> {
+        Ok(Spanned {
             span: x.span,
-            node: self.expression_assign(x),
-        }
+            node: self.expression_assign(x)?,
+        })
     }
 
     /// We don't need the type out of the clauses (it doesn't change the overall type),
     /// but it is important we see through to the nested expressions to raise errors
-    fn check_comprehension(&self, for_: &ForClauseP<CstPayload>, clauses: &[ClauseP<CstPayload>]) {
-        self.expression_type(&for_.over);
+    fn check_comprehension(
+        &self,
+        for_: &ForClauseP<CstPayload>,
+        clauses: &[ClauseP<CstPayload>],
+    ) -> Result<(), InternalError> {
+        self.expression_type(&for_.over)?;
         for x in clauses {
             match x {
-                ClauseP::For(x) => self.expression_type(&x.over),
-                ClauseP::If(x) => self.expression_type(x),
+                ClauseP::For(x) => self.expression_type(&x.over)?,
+                ClauseP::If(x) => self.expression_type(x)?,
             };
         }
+        Ok(())
     }
 
-    pub(crate) fn expression_type_spanned(&self, x: &CstExpr) -> Spanned<Ty> {
-        Spanned {
+    pub(crate) fn expression_type_spanned(
+        &self,
+        x: &CstExpr,
+    ) -> Result<Spanned<Ty>, InternalError> {
+        Ok(Spanned {
             span: x.span,
-            node: self.expression_type(x),
-        }
+            node: self.expression_type(x)?,
+        })
     }
 
     fn expr_bin_op_ty_basic(
@@ -329,9 +374,15 @@ impl TypingContext<'_> {
         }
     }
 
-    fn expr_bin_op(&self, span: Span, lhs: &CstExpr, op: BinOp, rhs: &CstExpr) -> Ty {
-        let lhs = self.expression_type_spanned(lhs);
-        let rhs = self.expression_type_spanned(rhs);
+    fn expr_bin_op(
+        &self,
+        span: Span,
+        lhs: &CstExpr,
+        op: BinOp,
+        rhs: &CstExpr,
+    ) -> Result<Ty, InternalError> {
+        let lhs = self.expression_type_spanned(lhs)?;
+        let rhs = self.expression_type_spanned(rhs)?;
         let bool_ret = if lhs.is_never() || rhs.is_never() {
             Ty::never()
         } else {
@@ -340,59 +391,68 @@ impl TypingContext<'_> {
         match op {
             BinOp::And | BinOp::Or => {
                 if lhs.is_never() {
-                    Ty::never()
+                    Ok(Ty::never())
                 } else {
-                    Ty::union2(lhs.node, rhs.node)
+                    Ok(Ty::union2(lhs.node, rhs.node))
                 }
             }
             BinOp::Equal | BinOp::NotEqual => {
                 // It's not an error to compare two different types, but it is pointless
                 self.validate_type(&lhs, &rhs, span);
-                bool_ret
+                Ok(bool_ret)
             }
             BinOp::In | BinOp::NotIn => {
                 // We dispatch `x in y` as y.__in__(x) as that's how we validate
                 self.expr_bin_op_ty(span, rhs, TypingBinOp::In, lhs);
                 // Ignore the return type, we know it's always a bool
-                bool_ret
+                Ok(bool_ret)
             }
             BinOp::Less | BinOp::LessOrEqual | BinOp::Greater | BinOp::GreaterOrEqual => {
                 self.expr_bin_op_ty(span, lhs, TypingBinOp::Less, rhs);
-                bool_ret
+                Ok(bool_ret)
             }
-            BinOp::Subtract => self.expr_bin_op_ty(span, lhs, TypingBinOp::Sub, rhs),
-            BinOp::Add => self.expr_bin_op_ty(span, lhs, TypingBinOp::Add, rhs),
-            BinOp::Multiply => self.expr_bin_op_ty(span, lhs, TypingBinOp::Mul, rhs),
-            BinOp::Percent => self.expr_bin_op_ty(span, lhs, TypingBinOp::Percent, rhs),
-            BinOp::Divide => self.expr_bin_op_ty(span, lhs, TypingBinOp::Div, rhs),
-            BinOp::FloorDivide => self.expr_bin_op_ty(span, lhs, TypingBinOp::FloorDiv, rhs),
-            BinOp::BitAnd => self.expr_bin_op_ty(span, lhs, TypingBinOp::BitAnd, rhs),
-            BinOp::BitOr => self.expr_bin_op_ty(span, lhs, TypingBinOp::BitOr, rhs),
-            BinOp::BitXor => self.expr_bin_op_ty(span, lhs, TypingBinOp::BitXor, rhs),
-            BinOp::LeftShift => self.expr_bin_op_ty(span, lhs, TypingBinOp::LeftShift, rhs),
-            BinOp::RightShift => self.expr_bin_op_ty(span, lhs, TypingBinOp::RightShift, rhs),
+            BinOp::Subtract => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::Sub, rhs)),
+            BinOp::Add => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::Add, rhs)),
+            BinOp::Multiply => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::Mul, rhs)),
+            BinOp::Percent => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::Percent, rhs)),
+            BinOp::Divide => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::Div, rhs)),
+            BinOp::FloorDivide => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::FloorDiv, rhs)),
+            BinOp::BitAnd => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::BitAnd, rhs)),
+            BinOp::BitOr => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::BitOr, rhs)),
+            BinOp::BitXor => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::BitXor, rhs)),
+            BinOp::LeftShift => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::LeftShift, rhs)),
+            BinOp::RightShift => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::RightShift, rhs)),
         }
     }
 
-    fn expr_call(&self, span: Span, f: &CstExpr, args: &[CstArgument]) -> Ty {
-        let args_ty: Vec<Spanned<Arg>> = args.map(|x| Spanned {
-            span: x.span,
-            node: match &**x {
-                ArgumentP::Positional(x) => Arg::Pos(self.expression_type(x)),
-                ArgumentP::Named(name, x) => Arg::Name((**name).clone(), self.expression_type(x)),
-                ArgumentP::Args(x) => {
-                    let ty = self.expression_type(x);
-                    self.from_iterated(&ty, x.span);
-                    Arg::Args(ty)
-                }
-                ArgumentP::KwArgs(x) => {
-                    let ty = self.expression_type(x);
-                    self.validate_type(&ty, &Ty::dict(Ty::string(), Ty::any()), x.span);
-                    Arg::Kwargs(ty)
-                }
-            },
-        });
-        let f_ty = self.expression_type(f);
+    fn expr_call(
+        &self,
+        span: Span,
+        f: &CstExpr,
+        args: &[CstArgument],
+    ) -> Result<Ty, InternalError> {
+        let args_ty: Vec<Spanned<Arg>> = args.try_map(|x| {
+            Ok(Spanned {
+                span: x.span,
+                node: match &**x {
+                    ArgumentP::Positional(x) => Arg::Pos(self.expression_type(x)?),
+                    ArgumentP::Named(name, x) => {
+                        Arg::Name((**name).clone(), self.expression_type(x)?)
+                    }
+                    ArgumentP::Args(x) => {
+                        let ty = self.expression_type(x)?;
+                        self.from_iterated(&ty, x.span);
+                        Arg::Args(ty)
+                    }
+                    ArgumentP::KwArgs(x) => {
+                        let ty = self.expression_type(x)?;
+                        self.validate_type(&ty, &Ty::dict(Ty::string(), Ty::any()), x.span);
+                        Arg::Kwargs(ty)
+                    }
+                },
+            })
+        })?;
+        let f_ty = self.expression_type(f)?;
         // If we can't resolve the types of the arguments, we can't validate the call,
         // but we still know the type of the result since the args don't impact that
         self.validate_call(&f_ty, &args_ty, span)
@@ -405,11 +465,11 @@ impl TypingContext<'_> {
         start: Option<&CstExpr>,
         stop: Option<&CstExpr>,
         stride: Option<&CstExpr>,
-    ) -> Ty {
+    ) -> Result<Ty, InternalError> {
         for e in [start, stop, stride].iter().copied().flatten() {
-            self.validate_type(&self.expression_type(e), &Ty::int(), e.span);
+            self.validate_type(&self.expression_type(e)?, &Ty::int(), e.span);
         }
-        self.result_to_ty(self.oracle.expr_slice(span, self.expression_type(x)))
+        Ok(self.result_to_ty(self.oracle.expr_slice(span, self.expression_type(x)?)))
     }
 
     fn expr_ident(&self, x: &CstIdent) -> Ty {
@@ -439,19 +499,19 @@ impl TypingContext<'_> {
         }
     }
 
-    pub(crate) fn expression_type(&self, x: &CstExpr) -> Ty {
+    pub(crate) fn expression_type(&self, x: &CstExpr) -> Result<Ty, InternalError> {
         let span = x.span;
         match &**x {
-            ExprP::Tuple(xs) => Ty::tuple(xs.map(|x| self.expression_type(x))),
-            ExprP::Dot(a, b) => self.expr_dot(&self.expression_type(a), b, b.span),
+            ExprP::Tuple(xs) => Ok(Ty::tuple(xs.try_map(|x| self.expression_type(x))?)),
+            ExprP::Dot(a, b) => Ok(self.expr_dot(&self.expression_type(a)?, b, b.span)),
             ExprP::Call(f, args) => self.expr_call(span, f, args),
             ExprP::Index(a_b) => self.expr_index(span, &a_b.0, &a_b.1),
             ExprP::Index2(a_i0_i1) => {
                 let (a, i0, i1) = &**a_i0_i1;
-                self.expression_type(a);
-                self.expression_type(i0);
-                self.expression_type(i1);
-                Ty::any()
+                self.expression_type(a)?;
+                self.expression_type(i0)?;
+                self.expression_type(i1)?;
+                Ok(Ty::any())
             }
             ExprP::Slice(x, start, stop, stride) => self.expr_slice(
                 span,
@@ -460,21 +520,21 @@ impl TypingContext<'_> {
                 stop.as_deref(),
                 stride.as_deref(),
             ),
-            ExprP::Identifier(x) => self.expr_ident(x),
+            ExprP::Identifier(x) => Ok(self.expr_ident(x)),
             ExprP::Lambda(_) => {
                 self.approximation("We don't type check lambdas", ());
-                Ty::any_function()
+                Ok(Ty::any_function())
             }
             ExprP::Literal(x) => match x {
-                AstLiteral::Int(_) => Ty::int(),
-                AstLiteral::Float(_) => Ty::float(),
-                AstLiteral::String(_) => Ty::string(),
+                AstLiteral::Int(_) => Ok(Ty::int()),
+                AstLiteral::Float(_) => Ok(Ty::float()),
+                AstLiteral::String(_) => Ok(Ty::string()),
             },
             ExprP::Not(x) => {
-                if self.expression_type(x).is_never() {
-                    Ty::never()
+                if self.expression_type(x)?.is_never() {
+                    Ok(Ty::never())
                 } else {
-                    Ty::bool()
+                    Ok(Ty::bool())
                 }
             }
             ExprP::Minus(x) => self.expression_un_op(span, x, TypingUnOp::Minus),
@@ -482,35 +542,38 @@ impl TypingContext<'_> {
             ExprP::BitNot(x) => self.expression_un_op(span, x, TypingUnOp::BitNot),
             ExprP::Op(lhs, op, rhs) => self.expr_bin_op(span, lhs, *op, rhs),
             ExprP::If(c_t_f) => {
-                let c = self.expression_type(&c_t_f.0);
-                let t = self.expression_type(&c_t_f.1);
-                let f = self.expression_type(&c_t_f.2);
+                let c = self.expression_type(&c_t_f.0)?;
+                let t = self.expression_type(&c_t_f.1)?;
+                let f = self.expression_type(&c_t_f.2)?;
                 if c.is_never() {
-                    Ty::never()
+                    Ok(Ty::never())
                 } else {
-                    Ty::union2(t, f)
+                    Ok(Ty::union2(t, f))
                 }
             }
             ExprP::List(xs) => {
-                let ts = xs.map(|x| self.expression_type(x));
-                Ty::list(Ty::unions(ts))
+                let ts = xs.try_map(|x| self.expression_type(x))?;
+                Ok(Ty::list(Ty::unions(ts)))
             }
             ExprP::Dict(xs) => {
                 let (ks, vs) = xs
-                    .iter()
-                    .map(|(k, v)| (self.expression_type(k), self.expression_type(v)))
+                    .try_map(|(k, v)| Ok((self.expression_type(k)?, self.expression_type(v)?)))?
+                    .into_iter()
                     .unzip();
-                Ty::dict(Ty::unions(ks), Ty::unions(vs))
+                Ok(Ty::dict(Ty::unions(ks), Ty::unions(vs)))
             }
             ExprP::ListComprehension(a, b, c) => {
-                self.check_comprehension(b, c);
-                Ty::list(self.expression_type(a))
+                self.check_comprehension(b, c)?;
+                Ok(Ty::list(self.expression_type(a)?))
             }
             ExprP::DictComprehension(k_v, b, c) => {
-                self.check_comprehension(b, c);
-                Ty::dict(self.expression_type(&k_v.0), self.expression_type(&k_v.1))
+                self.check_comprehension(b, c)?;
+                Ok(Ty::dict(
+                    self.expression_type(&k_v.0)?,
+                    self.expression_type(&k_v.1)?,
+                ))
             }
-            ExprP::FString(_) => Ty::string(),
+            ExprP::FString(_) => Ok(Ty::string()),
         }
     }
 }

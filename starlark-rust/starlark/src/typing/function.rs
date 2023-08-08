@@ -27,7 +27,7 @@ use dupe::Dupe;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::custom::TyCustomImpl;
-use crate::typing::error::TypingError;
+use crate::typing::error::TypingOrInternalError;
 use crate::typing::Ty;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
@@ -169,7 +169,7 @@ pub trait TyCustomFunctionImpl:
         span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingError>;
+    ) -> Result<Ty, TypingOrInternalError>;
 }
 
 #[derive(
@@ -196,7 +196,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         self.0.validate_call(span, args, oracle)
     }
 
@@ -284,7 +284,7 @@ impl TyCustomFunctionImpl for TyFunction {
         span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         oracle.validate_fn_call(span, self, args)
     }
 }

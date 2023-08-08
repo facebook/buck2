@@ -27,7 +27,7 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
-use crate::typing::error::TypingError;
+use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::Arg;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::oracle::ctx::TypingOracleCtx;
@@ -48,7 +48,7 @@ impl TyCustomFunctionImpl for StructType {
         _span: Span,
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingError> {
+    ) -> Result<Ty, TypingOrInternalError> {
         let mut fields = BTreeMap::new();
         let mut extra = false;
         for x in args {
