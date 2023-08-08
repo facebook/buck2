@@ -45,7 +45,6 @@ impl DynamicRegistry {
         inputs: IndexSet<Artifact>,
         outputs: IndexSet<OutputArtifact>,
         registry: &mut DeferredRegistry,
-        with_bxl: bool,
     ) -> anyhow::Result<DeferredId> {
         let reserved = registry.reserve::<DynamicLambdaOutput>();
         let outputs = outputs
@@ -60,7 +59,7 @@ impl DynamicRegistry {
                 Ok(bound)
             })
             .collect::<anyhow::Result<_>>()?;
-        let lambda = DynamicLambda::new(self.owner.dupe(), dynamic, inputs, outputs, with_bxl);
+        let lambda = DynamicLambda::new(self.owner.dupe(), dynamic, inputs, outputs);
         let lambda_id = reserved.data().deferred_key().id();
         self.pending.push((reserved, lambda));
         Ok(lambda_id)

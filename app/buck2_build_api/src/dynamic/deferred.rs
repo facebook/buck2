@@ -88,8 +88,6 @@ pub struct DynamicLambda {
     outputs: Vec<BuildArtifact>,
     /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
     attributes_lambda: OwnedFrozenValue,
-    /// Whether or not to evaluate the lambda with the BxlDynamicContext. Requires that the caller is BXL.
-    with_bxl: bool,
 }
 
 impl DynamicLambda {
@@ -98,7 +96,6 @@ impl DynamicLambda {
         dynamic: IndexSet<Artifact>,
         inputs: IndexSet<Artifact>,
         outputs: Vec<BuildArtifact>,
-        with_bxl: bool,
     ) -> Self {
         let mut depends = IndexSet::with_capacity(dynamic.len() + 1);
         match &owner {
@@ -119,7 +116,6 @@ impl DynamicLambda {
             inputs,
             outputs,
             attributes_lambda: Default::default(),
-            with_bxl,
         }
     }
 
@@ -199,17 +195,8 @@ impl Deferred for DynamicLambda {
         deferred_ctx: &mut dyn DeferredCtx,
         dice: &DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
-        let output = if self.with_bxl {
-            match &self.owner {
-                BaseDeferredKey::BxlLabel(key) => {
-                    eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await
-                }
-                _ => {
-                    return Err(anyhow::anyhow!(
-                        "`with_bxl` was set to True, but `dynamic_output` was not called from BXL"
-                    ));
-                }
-            }
+        let output = if let BaseDeferredKey::BxlLabel(key) = &self.owner {
+            eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await
         } else {
             let env = Module::new();
 
