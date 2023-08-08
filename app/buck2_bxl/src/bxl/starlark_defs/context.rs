@@ -942,12 +942,12 @@ fn context_methods(builder: &mut MethodsBuilder) {
         let providers =
             ProvidersExpr::<ConfiguredProvidersLabel>::unpack(labels, target_platform, this, eval)?;
 
-        let res: anyhow::Result<_> = this
-            .async_ctx
-            .via_dice(|ctx| analysis::analysis(ctx, providers, skip_incompatible));
+        let res: anyhow::Result<_> = analysis::analysis(this, providers, skip_incompatible);
 
         Ok(match res? {
-            Either::Left(single) => eval.heap().alloc(single),
+            Either::Left(single) => single.map_or(eval.heap().alloc(NoneType), |single| {
+                eval.heap().alloc(single)
+            }),
             Either::Right(many) => eval.heap().alloc(Dict::new(
                 many.into_iter()
                     .map(|(t, v)| {
