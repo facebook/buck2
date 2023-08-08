@@ -74,7 +74,8 @@ def run_proguard(
         java_toolchain: "JavaToolchainInfo",
         command_line_args_file: Artifact,
         command_line_args: cmd_args,
-        mapping_file: Artifact):
+        mapping_file: Artifact,
+        usage_file: Artifact):
     run_proguard_cmd = cmd_args()
     run_proguard_cmd.add(
         java_toolchain.java[RunInfo],
@@ -88,13 +89,14 @@ def run_proguard(
     run_proguard_cmd.hidden(command_line_args)
 
     # Some proguard configs can propagate the "-dontobfuscate" flag which disables
-    # obfuscation and prevents the mapping.txt file from being generated.
+    # obfuscation and prevents the mapping.txt and usage.txt file from being generated.
     sh_cmd = cmd_args([
         "sh",
         "-c",
-        "touch $1 && $2",
+        "touch $1 && touch $2 && $3",
         "--",
         mapping_file.as_output(),
+        usage_file.as_output(),
         cmd_args(run_proguard_cmd, delimiter = " "),
     ])
 
@@ -160,6 +162,7 @@ def get_proguard_output(
             command_line_args_file,
             command_line_args,
             mapping,
+            usage,
         )
         output_jars = {}
         for i, (unscrubbed_jar, target_label) in enumerate(unscrubbed_output_jars.items()):
