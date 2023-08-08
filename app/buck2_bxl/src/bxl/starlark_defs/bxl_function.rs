@@ -109,7 +109,7 @@ fn bxl_impl<'v>(
 /// Errors around rule declaration, instantiation, validation, etc
 #[derive(Debug, Error)]
 enum BxlError {
-    #[error("Bxl defined in `{0}` must be assigned to a variable, e.g. `my_bxl = bxl(...)`")]
+    #[error("Bxl defined in `{0}` must be assigned to a variable, e.g. `my_bxl = bxl_main(...)`")]
     BxlNotAssigned(String),
 }
 

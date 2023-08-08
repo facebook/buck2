@@ -126,14 +126,14 @@ as even with one bxl per file, the author still has to have some declaration for
 
 ```python
 # sample.bxl
-func1 = bxl(
+func1 = bxl_main(
    impl = my_func1,
    args = {
      “arg1”: arg.list(arg.str()),
    }
 )
 
-func2 = bxl(
+func2 = bxl_main(
    ...
 )
 
@@ -243,7 +243,7 @@ storing the values in dice.
 i.e.
 ```python
 # caching_sample.bxl
-func1 = bxl(
+func1 = bxl_main(
    impl = my_func1,
    args = {
      “arg1”: arg.list(arg.str()),
@@ -256,7 +256,7 @@ my_func1(ctx):
   # doesn’t change much
   ctx.return(some_artifact)
 
-func2 = bxl(
+func2 = bxl_main(
   impl = my_func2,
   ...
 )

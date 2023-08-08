@@ -117,7 +117,7 @@ def assert_eq(a, b):
     if a != b:
         fail("Expected {} == {}".format(a, b))
 
-anon_target_example = bxl(
+anon_target_example = bxl_main(
     impl = _anon_target_example,
     cli_args = {
     },

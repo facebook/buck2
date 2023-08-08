@@ -14,7 +14,7 @@ def _impl_example(ctx):
     # ...
     pass
 
-example = bxl(
+example = bxl_main(
     impl = _impl_example,
     cli_args = {
         # cli args that you want to receive from the command line

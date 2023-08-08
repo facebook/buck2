@@ -55,7 +55,7 @@ def _impl_dynamic_output(ctx):
 
     ctx.output.print(ctx.output.ensure(resolved_attrs).abs_path())
 
-dynamic_output_example = bxl(
+dynamic_output_example = bxl_main(
     impl = _impl_dynamic_output,
     cli_args = {
     },

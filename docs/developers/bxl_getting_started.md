@@ -14,7 +14,7 @@ def _your_implementation(ctx):
     # ...
     pass
 
-your_function_name = bxl(
+your_function_name = bxl_main(
     impl = _your_implementation,
     cli_args = {
         # cli args that you want to receive from the command line
@@ -39,7 +39,7 @@ def _your_implementation(ctx):
     # ...
     pass
 
-your_function_name = bxl(
+your_function_name = bxl_main(
     impl = _your_implementation,
     cli_args = {
         "my_bool": cli_args.bool(True, "this will be printed as part of `--help`")

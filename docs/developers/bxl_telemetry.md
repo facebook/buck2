@@ -17,7 +17,7 @@ Example:
 def _impl(ctx):
   ctx.instant_event(id = "id1", metadata = {"foo": "bar"})
 
-my_script = bxl(
+my_script = bxl_main(
   impl = _impl,
   cli_args = {},
 )
@@ -37,7 +37,7 @@ def _impl(ctx):
   end = instant.elapsed_millis()
   ctx.instant_event(id = "id2", metadata = {"duration": end})
 
-my_script = bxl(
+my_script = bxl_main(
   impl = _impl,
   cli_args = {},
 )
