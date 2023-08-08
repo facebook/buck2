@@ -5,7 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "project_artifacts")
+load(
+    "@prelude//:artifact_tset.bzl",
+    "make_artifact_tset",
+    "project_artifacts",
+)
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//cxx:cxx_bolt.bzl",
@@ -600,15 +604,20 @@ def cxx_dist_link(
         f = thin_lto_final_link,
     )
 
+    external_debug_info = make_artifact_tset(
+        actions = ctx.actions,
+        children = [
+            unpack_external_debug_info(ctx.actions, link_args)
+            for link_args in links
+        ],
+    )
+
     final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
     dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if generate_dwp else None
 
     if generate_dwp:
-        external_debug_info = project_artifacts(ctx.actions, [
-            unpack_external_debug_info(ctx.actions, link_args)
-            for link_args in links
-        ])
-        referenced_objects = final_link_inputs + external_debug_info
+        materialized_external_debug_info = project_artifacts(ctx.actions, [external_debug_info])
+        referenced_objects = final_link_inputs + materialized_external_debug_info
         run_dwp_action(
             ctx = ctx,
             obj = final_output,
@@ -625,6 +634,7 @@ def cxx_dist_link(
         output = final_output,
         prebolt_output = output,
         dwp = dwp_output,
+        external_debug_info = external_debug_info,
         linker_argsfile = linker_argsfile_out,
         index_argsfile = index_argsfile_out,
     )
