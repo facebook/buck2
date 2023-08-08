@@ -81,7 +81,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 let target_platform = target_platform_from_client_context(
                     &client_ctx,
                     server_ctx,
-                    &ctx,
+                    &mut ctx,
                 )
                 .await?;
 

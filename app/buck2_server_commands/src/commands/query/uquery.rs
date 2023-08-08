@@ -72,7 +72,7 @@ impl ServerCommandTemplate for UqueryServerCommand {
 async fn uquery(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: impl Write,
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     request: &UqueryRequest,
 ) -> anyhow::Result<UqueryResponse> {
     let cell_resolver = ctx.get_cell_resolver().await?;
@@ -96,7 +96,7 @@ async fn uquery(
     let target_call_stacks = client_ctx.target_call_stacks;
 
     let global_target_platform =
-        target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
+        target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     let query_frontend = QUERY_FRONTEND.get()?;
     let ctx = &ctx;

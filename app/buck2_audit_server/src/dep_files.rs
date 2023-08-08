@@ -34,7 +34,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
         server_ctx
             .with_dice_ctx(async move |server_ctx, mut ctx| {
                 let target_platform =
-                    target_platform_from_client_context(&client_ctx, server_ctx, &ctx).await?;
+                    target_platform_from_client_context(&client_ctx, server_ctx, &mut ctx).await?;
 
                 let label = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &mut ctx,

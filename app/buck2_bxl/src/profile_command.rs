@@ -64,7 +64,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
-        ctx: DiceTransaction,
+        mut ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         match self
             .req
@@ -104,7 +104,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
 
                         let client_ctx = self.req.client_context()?;
                         let global_target_platform =
-                            target_platform_from_client_context(client_ctx, server_ctx, &ctx)
+                            target_platform_from_client_context(client_ctx, server_ctx, &mut ctx)
                                 .await?;
 
                         let bxl_key =

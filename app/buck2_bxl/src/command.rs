@@ -119,7 +119,7 @@ impl ServerCommandTemplate for BxlServerCommand {
 async fn bxl(
     server_ctx: &dyn ServerCommandContextTrait,
     stdout: impl Write,
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     request: &BxlRequest,
 ) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
     let cwd = server_ctx.working_dir();
@@ -129,7 +129,7 @@ async fn bxl(
 
     let client_ctx = request.client_context()?;
     let global_target_platform =
-        target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
+        target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     let bxl_args =
         match get_bxl_cli_args(cwd, &ctx, &bxl_label, &request.bxl_args, &cell_resolver).await? {

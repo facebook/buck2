@@ -184,7 +184,7 @@ async fn install(
 
     let client_ctx = request.client_context()?;
     let global_target_platform =
-        target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
+        target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     let materializations = MaterializationContext::force_materializations();
     let materializations = &materializations; // Don't move this below.

@@ -118,7 +118,7 @@ impl AuditSubcommand for AuditOutputCommand {
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, dice_ctx| {
+            .with_dice_ctx(async move |server_ctx, mut dice_ctx| {
                 // First, we parse the buck-out path to get a target label. Next, we configure the target
                 // label and run analysis on it to get the `DeferredTable`. Then, we iterate through the
                 // deferred table's entries and look at their build outputs (if they have any) to try to
@@ -132,7 +132,7 @@ impl AuditSubcommand for AuditOutputCommand {
                 let global_target_platform = target_platform_from_client_context(
                     &client_ctx,
                     server_ctx,
-                    &dice_ctx,
+                    &mut dice_ctx,
                 )
                 .await?;
 

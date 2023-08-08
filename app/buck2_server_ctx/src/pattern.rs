@@ -18,7 +18,6 @@ use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
 use dice::DiceComputations;
-use dice::DiceTransaction;
 use gazebo::prelude::*;
 
 use crate::ctx::ServerCommandContextTrait;
@@ -77,7 +76,7 @@ pub async fn parse_patterns_from_cli_args<T: PatternType>(
 pub async fn target_platform_from_client_context(
     client_ctx: &ClientContext,
     server_ctx: &dyn ServerCommandContextTrait,
-    dice_ctx: &DiceTransaction,
+    dice_ctx: &mut DiceComputations,
 ) -> anyhow::Result<Option<TargetLabel>> {
     target_platform_from_client_context_impl(
         client_ctx,

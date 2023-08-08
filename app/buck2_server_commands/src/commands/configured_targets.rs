@@ -79,7 +79,7 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         let target_call_stacks = client_ctx.target_call_stacks;
 
         let global_target_platform =
-            target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
+            target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
         let skip_missing_targets = MissingTargetBehavior::from_skip(self.req.skip_missing_targets);
 

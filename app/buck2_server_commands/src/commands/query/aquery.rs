@@ -66,7 +66,7 @@ impl ServerCommandTemplate for AqueryServerCommand {
 async fn aquery(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: impl Write,
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     request: &buck2_cli_proto::AqueryRequest,
 ) -> anyhow::Result<buck2_cli_proto::AqueryResponse> {
     let cell_resolver = ctx.get_cell_resolver().await?;
@@ -88,7 +88,7 @@ async fn aquery(
         .as_ref()
         .context("No client context (internal error)")?;
     let global_target_platform =
-        target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
+        target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     let query_result = QUERY_FRONTEND
         .get()?

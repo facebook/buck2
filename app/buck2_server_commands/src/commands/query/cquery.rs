@@ -90,7 +90,7 @@ impl ServerCommandTemplate for CqueryServerCommand {
 async fn cquery(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: impl Write,
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     request: &CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {
     let cell_resolver = ctx.get_cell_resolver().await?;
@@ -122,7 +122,7 @@ async fn cquery(
     let target_call_stacks = client_ctx.target_call_stacks;
 
     let global_target_platform =
-        target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
+        target_platform_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     let owner_behavior = match correct_owner {
         true => CqueryOwnerBehavior::Correct,
