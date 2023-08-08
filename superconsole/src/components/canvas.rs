@@ -63,7 +63,9 @@ impl Canvas {
     /// This is used to clear the scratch area so that any possibly emitted messages can write over it.
     pub(crate) fn move_up(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
         let len = self.last_lines.take();
-        writer.queue(MoveUp(len))?;
+        if len != 0 {
+            writer.queue(MoveUp(len))?;
+        }
         writer.queue(MoveToColumn(0))?;
 
         Ok(())
