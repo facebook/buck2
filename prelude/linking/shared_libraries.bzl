@@ -10,7 +10,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkedObject",  # @unused Used as a type
 )
-load("@prelude//linking:strip.bzl", "strip_shared_library")
+load("@prelude//linking:strip.bzl", "strip_object")
 
 SharedLibrary = record(
     lib = field(LinkedObject.type),
@@ -54,7 +54,7 @@ def create_shared_libraries(
     return SharedLibraries(
         libraries = {name: SharedLibrary(
             lib = shlib,
-            stripped_lib = strip_shared_library(
+            stripped_lib = strip_object(
                 ctx,
                 cxx_toolchain[CxxToolchainInfo],
                 shlib.output,

@@ -34,7 +34,7 @@ load(
     "@prelude//linking:lto.bzl",
     "get_split_debug_lto_info",
 )
-load("@prelude//linking:strip.bzl", "strip_shared_library")
+load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:utils.bzl", "expect", "map_val", "value_or")
 load(
     ":anon_link.bzl",
@@ -261,7 +261,7 @@ def cxx_link_into(
     )
     if strip:
         strip_args = strip_args_factory(ctx) if strip_args_factory else cmd_args()
-        output = strip_shared_library(ctx, cxx_toolchain_info, output, strip_args, category_suffix)
+        output = strip_object(ctx, cxx_toolchain_info, output, strip_args, category_suffix)
 
     final_output = output if not (is_result_executable and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
     dwp_artifact = None
