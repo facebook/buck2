@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifact_tset.bzl", "project_artifacts")
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//cxx:cxx_bolt.bzl",
@@ -33,6 +34,7 @@ load(
     "SharedLibLinkable",  # @unused Used as a type
     "append_linkable_args",
     "map_to_link_infos",
+    "unpack_external_debug_info",
 )
 load("@prelude//utils:utils.bzl", "is_all")
 
@@ -602,12 +604,17 @@ def cxx_dist_link(
     dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if generate_dwp else None
 
     if generate_dwp:
+        external_debug_info = project_artifacts(ctx.actions, [
+            unpack_external_debug_info(ctx.actions, link_args)
+            for link_args in links
+        ])
+        referenced_objects = final_link_inputs + external_debug_info
         run_dwp_action(
             ctx = ctx,
             obj = final_output,
             identifier = identifier,
             category_suffix = category_suffix,
-            referenced_objects = final_link_inputs,
+            referenced_objects = referenced_objects,
             dwp_output = dwp_output,
             # distributed thinlto link actions are ran locally, run llvm-dwp locally as well to
             # ensure all dwo source files are available
