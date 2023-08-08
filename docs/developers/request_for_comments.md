@@ -10,6 +10,7 @@ Following are Request for Comments (RFCs) at specific stages of the lifecycle.
 * [@configuration syntax](rfcs/drafts/configuration-at-syntax.md)
 * [bxl actions and Build API](rfcs/drafts/bxl-actions.md)
 * [Digest Kinds](rfcs/drafts/digest-kinds.md)
+* [labels -> metadata attribute](rfcs/attr-metadata.md)
 
 ### Accepted
 
