@@ -323,20 +323,19 @@ fn eval_bxl<'a>(
     result
 }
 
+#[derive(Debug, Error)]
+#[error("Expected {0} to be a bxl function, was a {1}")]
+struct NotABxlFunction(String, &'static str);
+
 pub(crate) fn get_bxl_callable<'a>(
     spec: &BxlFunctionLabel,
     bxl_module: &'a LoadedModule,
 ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenBxlFunction>> {
     let callable = bxl_module.env().get_any_visibility(&spec.name)?.0;
 
-    Ok(callable
+    callable
         .downcast::<FrozenBxlFunction>()
-        .unwrap_or_else(|e| {
-            panic!(
-                "A bxl function should be a BxlFunction. It was a {}",
-                e.value().get_type(),
-            )
-        }))
+        .map_err(|e| NotABxlFunction(spec.name.clone(), e.value().get_type()).into())
 }
 
 pub(crate) struct CliResolutionCtx<'a> {
