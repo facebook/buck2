@@ -33,7 +33,7 @@ use buck2_common::events::HasEvents;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::io::IoProvider;
-use buck2_common::legacy_configs::cells::DaemonStartupConfig;
+use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;

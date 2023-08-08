@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_common::legacy_configs::cells::DaemonStartupConfig;
+use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_core::env_helper::EnvHelper;
 
 use crate::version::BuckVersion;

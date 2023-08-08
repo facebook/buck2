@@ -12,7 +12,7 @@ use std::time::SystemTime;
 use anyhow::Context as _;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_common::legacy_configs::cells::DaemonStartupConfig;
+use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_core::cells::CellResolver;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;

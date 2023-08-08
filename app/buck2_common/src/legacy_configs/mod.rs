@@ -12,6 +12,7 @@
 
 pub mod cells;
 pub mod dice;
+pub mod init;
 pub(crate) mod path;
 pub mod view;
 
