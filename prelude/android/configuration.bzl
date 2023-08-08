@@ -32,13 +32,13 @@ _REFS = {
     "default_platform": "config//platform/android:x86_32-fbsource",
     "maybe_build_only_native_code": "prelude//android/constraints:maybe_build_only_native_code",
     "maybe_building_android_binary": "prelude//os:maybe_building_android_binary",
-    "min_sdk_version": "fbsource//xplat/buck2/platform/android:min_sdk_version",
+    "min_sdk_version": "prelude//android/constraints:min_sdk_version",
     "x86": "config//cpu/constraints:x86_32",
     "x86_64": "config//cpu/constraints:x86_64",
 }
 for min_sdk in get_min_sdk_version_range():
     constraint_value_name = get_min_sdk_version_constraint_value_name(min_sdk)
-    _REFS[constraint_value_name] = "fbsource//xplat/buck2/platform/android:{}".format(constraint_value_name)
+    _REFS[constraint_value_name] = "prelude//android/constraints:{}".format(constraint_value_name)
 
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,

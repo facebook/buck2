@@ -56,7 +56,7 @@ def select_dex_toolchain():
 def dex_min_sdk_version():
     min_sdk_version_dict = {"DEFAULT": None}
     for min_sdk in get_min_sdk_version_range():
-        constraint = "fbsource//xplat/buck2/platform/android:{}".format(get_min_sdk_version_constraint_value_name(min_sdk))
+        constraint = "prelude//android/constraints:{}".format(get_min_sdk_version_constraint_value_name(min_sdk))
         min_sdk_version_dict[constraint] = min_sdk
 
     return select(min_sdk_version_dict)

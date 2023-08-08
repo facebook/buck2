@@ -1,3 +1,5 @@
+load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
+
 native.constraint_setting(
     name = "maybe_build_only_native_code",
     visibility = ["PUBLIC"],
@@ -16,3 +18,16 @@ native.filegroup(
     ),
     visibility = ["PUBLIC"],
 )
+
+native.constraint_setting(
+    name = "min_sdk_version",
+    visibility = ["PUBLIC"],
+)
+
+[
+    native.constraint_value(
+        name = get_min_sdk_version_constraint_value_name(min_sdk),
+        constraint_setting = ":min_sdk_version",
+    )
+    for min_sdk in get_min_sdk_version_range()
+]
