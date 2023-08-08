@@ -59,7 +59,7 @@ def apple_macro_layer_set_bool_override_attrs_from_config(overrides: list[AppleB
             attribs[override.name] = select({
                 "DEFAULT": override.value_if_true if config_is_true else override.value_if_false,
                 # Do not set attribute value for host tools
-                "ovr_config//platform/macos/constraints:execution-platform-transitioned": None,
+                "ovr_config//platform/execution/constraints:execution-platform-transitioned": None,
             })
     return attribs
 
