@@ -49,6 +49,9 @@ def get_resources_map(
                 full_resource,
                 resources_root,
             )
+            if not resource_name:
+                # Match v1 behavior: https://fburl.com/code/x7zhlz5m
+                resource_name = resource.short_path
         else:
             resource_name = get_src_package(java_toolchain.src_root_prefixes, java_toolchain.src_root_elements, full_resource)
         resources_to_copy[resource_name] = resource

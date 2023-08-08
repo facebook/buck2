@@ -166,8 +166,11 @@ def _relativize(path: str, start: str) -> str:
       path: The path to relativize.
       start: The ancestor path against which to relativize.
     Returns:
-      The portion of `path` that is relative to `start`.
+      The portion of `path` that is relative to `start` or empty string if they
+      are identical.
     """
+    if path == start:
+        return ""
     segments = _normalize(path).split("/")
     start_segments = _normalize(start).split("/")
     if start_segments == ["."]:
