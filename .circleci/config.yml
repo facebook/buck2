@@ -46,11 +46,10 @@ commands:
       - run:
           name: Brew install
           command: |
-            # Avoid: "Error: The `brew link` step did not complete
-            # successfully" (for llvm dependency 'six').
-            rm -f '/usr/local/lib/python3.9/site-packages/six.py'
-            brew unlink python@3.9
-            brew install cmake coreutils opam llvm
+            brew install cmake coreutils opam llvm protobuf
+            # TODO: Remove once non intel macos platform is supported on https://github.com/stepancheg/rust-protoc-bin-vendored/
+            echo 'export BUCK2_BUILD_PROTOC=/opt/homebrew/opt/protobuf/bin/protoc' >> "$BASH_ENV"
+            echo 'export BUCK2_BUILD_PROTOC_INCLUDE=/opt/homebrew/opt/protobuf/include' >> "$BASH_ENV"
       - run:
           # the xlarge linux resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
           name: "Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used"
@@ -184,8 +183,8 @@ jobs:
     description: |
       Build all with cargo for macOS
     macos:
-      xcode: 13.4.1
-    resource_class: macos.x86.medium.gen2
+      xcode: "14.2.0"
+    resource_class: macos.m1.large.gen1
     steps:
       - checkout
       - setup_macos_env
@@ -195,8 +194,8 @@ jobs:
   macos-build-examples:
     description: Build example projects
     macos:
-      xcode: 13.4.1
-    resource_class: macos.x86.medium.gen2
+      xcode: "14.2.0"
+    resource_class: macos.m1.large.gen1
     steps:
       - checkout
       - setup_macos_env

@@ -24,7 +24,7 @@ go_toolchain(
     name = "go",
     archive_extension = toolchain_config.archive_extension,
     platform = toolchain_config.platform,
-    sha1 = toolchain_config.sha1,
+    sha256 = toolchain_config.sha256,
     version = toolchain_config.version,
     visibility = ["PUBLIC"],
 )
