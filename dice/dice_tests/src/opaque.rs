@@ -65,7 +65,7 @@ impl Key for IsOpaque {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.global_data()
@@ -91,7 +91,7 @@ impl Key for DoesNotReadOpaque {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.global_data()

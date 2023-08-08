@@ -132,7 +132,7 @@ impl Key for StarlarkProfilerConfigurationKey {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let configuration = get_starlark_profiler_instrumentation_override(ctx).await?;
@@ -153,7 +153,7 @@ impl Key for StarlarkProfileModeForIntermediateAnalysisKey {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> SharedResult<StarlarkProfileModeOrInstrumentation> {
         let configuration = get_starlark_profiler_configuration(ctx).await?;

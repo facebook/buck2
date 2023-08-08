@@ -1195,7 +1195,7 @@ mod tests {
         #[allow(clippy::await_holding_lock)]
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             cancellation: &CancellationContext,
         ) -> Self::Value {
             let _guard = self.is_executing.lock();

@@ -186,7 +186,7 @@ impl Key for K {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let mut sum = self.0;
@@ -375,7 +375,7 @@ fn dice_computations_are_parallel() {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             self.barrier.wait();
@@ -430,7 +430,7 @@ async fn different_data_per_compute_ctx() {
 
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             ctx.per_transaction_data().data.get::<U>().unwrap().0
@@ -477,7 +477,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             self.0.store(true, Ordering::SeqCst);
@@ -544,7 +544,7 @@ async fn demo_with_transient() -> anyhow::Result<()> {
 
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             if self.0 == 0 {
@@ -631,7 +631,7 @@ async fn test_wait_for_idle() -> anyhow::Result<()> {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             cancellations: &CancellationContext,
         ) -> Self::Value {
             cancellations
@@ -690,7 +690,7 @@ impl Key for Fib {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         if self.0 > 93 {
@@ -969,7 +969,7 @@ fn invalid_update() {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             unimplemented!("not needed for test")

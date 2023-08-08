@@ -36,7 +36,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             self.0.store(true, Ordering::SeqCst);
@@ -103,7 +103,7 @@ async fn demo_with_transient() -> anyhow::Result<()> {
 
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             if self.0 == 0 {

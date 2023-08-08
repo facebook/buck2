@@ -60,7 +60,7 @@ impl Key for internal::BxlComputeKey {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         cancellation: &CancellationContext,
     ) -> Self::Value {
         let key = self.0.dupe();

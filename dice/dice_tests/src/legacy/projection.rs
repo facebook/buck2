@@ -63,7 +63,7 @@ impl Key for FileKey {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         // Read "config".
@@ -115,7 +115,7 @@ impl Key for ConfigKey {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Arc<HashMap<String, String>> {
         // Record we performed this computation.

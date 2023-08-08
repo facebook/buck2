@@ -210,7 +210,7 @@ async fn lookup_company_resource_cost(
 
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             let company = ctx
@@ -271,7 +271,7 @@ impl Cost for DiceComputations {
 
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
                 let companies = ctx

@@ -179,7 +179,7 @@ impl Key for LegacyBuckConfigForCellKey {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> SharedResult<LegacyBuckConfig> {
         let legacy_configs = ctx.get_legacy_configs().await?;
@@ -211,7 +211,7 @@ impl Key for LegacyBuckConfigPropertyKey {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> SharedResult<Option<Arc<str>>> {
         let legacy_config = ctx.get_legacy_config_for_cell(self.cell_name).await?;

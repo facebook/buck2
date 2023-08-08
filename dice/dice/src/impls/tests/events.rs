@@ -60,7 +60,7 @@ impl Key for Stage0 {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.compute(&Injected).await.unwrap();
@@ -81,7 +81,7 @@ impl Key for Stage1 {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.compute(&Stage0).await.unwrap()

@@ -181,7 +181,7 @@ async fn resolve_deferred(
 
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
             let result = compute_deferred(ctx, &self.0).await?;
@@ -214,7 +214,7 @@ async fn compute_deferred(
 
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             cancellation: &CancellationContext,
         ) -> Self::Value {
             let deferred = lookup_deferred(ctx, &self.0).await?;

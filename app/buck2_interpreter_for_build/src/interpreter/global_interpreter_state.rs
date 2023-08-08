@@ -139,7 +139,7 @@ impl HasGlobalInterpreterState for DiceComputations {
             type Value = SharedResult<GisValue>;
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let interpreter_configuror = ctx.get_interpreter_configuror().await?;

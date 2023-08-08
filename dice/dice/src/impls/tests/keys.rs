@@ -48,7 +48,7 @@ async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             let mut count = self.0.lock().await;
@@ -112,7 +112,7 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             self.0.wait();

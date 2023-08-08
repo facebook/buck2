@@ -256,7 +256,7 @@ impl<'a> Display for CowDiceKeyHashed<'a> {
 pub(crate) trait DiceKeyDyn: Allocative + Display + Send + Sync + 'static {
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         cancellations: &CancellationContext,
     ) -> Arc<dyn DiceValueDyn>;
 
@@ -280,7 +280,7 @@ where
 {
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         cancellations: &CancellationContext,
     ) -> Arc<dyn DiceValueDyn> {
         let value = self.compute(ctx, cancellations).await;
@@ -552,7 +552,7 @@ mod tests {
 
             async fn compute(
                 &self,
-                _ctx: &DiceComputations,
+                _ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
                 unimplemented!("test")

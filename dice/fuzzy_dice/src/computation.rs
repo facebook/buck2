@@ -193,7 +193,7 @@ impl Key for EvalVar {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let step = self.state.next_step_for_var(self.key);

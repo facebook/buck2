@@ -32,7 +32,7 @@ async fn different_data_per_compute_ctx() {
 
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             ctx.per_transaction_data().data.get::<U>().unwrap().0

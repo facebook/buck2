@@ -84,7 +84,7 @@ async fn get_target_platform_detector(
         type Value = SharedResult<Arc<TargetPlatformDetector>>;
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
             // We get this off the root cell's config. It's not clear that that's the appropriate way to do it, but its the easiest to get working at FB.
@@ -483,7 +483,7 @@ impl ConfigurationCalculation for DiceComputations {
 
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 compute_platform_configuration(ctx, &self.0)
@@ -525,7 +525,7 @@ impl ConfigurationCalculation for DiceComputations {
 
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let config_futures: Vec<_> = self
@@ -571,7 +571,7 @@ impl ConfigurationCalculation for DiceComputations {
 
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let analysis_result = ctx
@@ -636,7 +636,7 @@ impl ConfigurationCalculation for DiceComputations {
             type Value = SharedResult<Option<ExecutionPlatforms>>;
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 get_execution_platforms(ctx).await

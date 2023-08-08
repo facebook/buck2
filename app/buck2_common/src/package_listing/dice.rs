@@ -77,7 +77,7 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
             type Value = SharedResult<PackageListing>;
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
                 let cell_resolver = ctx.get_cell_resolver().await?;

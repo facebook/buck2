@@ -92,7 +92,7 @@ impl<'c> Filesystem<'c> {
             type Value = Result<Arc<String>, Arc<anyhow::Error>>;
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
                 let encoding = ctx.encodings().get().await?;

@@ -67,7 +67,7 @@ impl Key for KeyThatRuns {
 
     async fn compute(
         &self,
-        _ctx: &DiceComputations,
+        _ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         self.barrier1.add_permits(1);
@@ -141,7 +141,7 @@ impl Key for K {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let mut sum = self.0;
@@ -189,7 +189,7 @@ fn dice_computations_are_parallel() {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             self.barrier.wait();
@@ -244,7 +244,7 @@ async fn different_data_per_compute_ctx() {
 
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             ctx.per_transaction_data().data.get::<U>().unwrap().0
@@ -289,7 +289,7 @@ fn invalid_update() {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             unimplemented!("not needed for test")
@@ -320,7 +320,7 @@ impl Key for Fib {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         if self.0 > 93 {
@@ -502,7 +502,7 @@ async fn dropping_request_future_cancels_execution() {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             let _drop_signal = self.drop_signal.lock().unwrap().take();
@@ -606,7 +606,7 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
 
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             assert!(

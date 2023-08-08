@@ -291,7 +291,7 @@ impl Key for BuildKey {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         cancellation: &CancellationContext,
     ) -> Self::Value {
         build_action_impl(ctx, cancellation, &self.0)

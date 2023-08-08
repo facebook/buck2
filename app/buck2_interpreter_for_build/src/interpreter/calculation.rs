@@ -97,7 +97,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
             type Value = SharedResult<Arc<EvaluationResult>>;
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let now = Instant::now();

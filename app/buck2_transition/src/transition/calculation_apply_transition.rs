@@ -281,7 +281,7 @@ impl TransitionCalculation for TransitionCalculationImpl {
 
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let v: SharedResult<_> = try {

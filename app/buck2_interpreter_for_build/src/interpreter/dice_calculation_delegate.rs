@@ -95,7 +95,7 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
             type Value = SharedResult<Arc<InterpreterForCell>>;
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let cell_resolver = ctx.get_cell_resolver().await?;
@@ -159,7 +159,7 @@ impl<'c> DiceCalculationDelegate<'c> {
             type Value = SharedResult<LoadedModule>;
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let starlark_path = self.0.borrow();
@@ -375,7 +375,7 @@ impl<'c> DiceCalculationDelegate<'c> {
 
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let interpreter = ctx

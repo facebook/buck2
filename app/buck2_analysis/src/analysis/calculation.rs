@@ -94,7 +94,7 @@ impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
             type Value = SharedResult<MaybeCompatible<AnalysisResult>>;
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let profile_mode = ctx.get_profile_mode_for_intermediate_analysis().await?;

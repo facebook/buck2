@@ -132,7 +132,7 @@ impl Key for EvalVar {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Result<i64, Arc<anyhow::Error>> {
         let equation = lookup_unit(ctx, &self.0).await.map_err(Arc::new)?;

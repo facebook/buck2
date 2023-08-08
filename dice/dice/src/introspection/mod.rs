@@ -69,7 +69,7 @@ mod tests {
 
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             if self.0 > 0 {
@@ -94,7 +94,7 @@ mod tests {
 
         async fn compute(
             &self,
-            _: &DiceComputations,
+            _: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             // Noop

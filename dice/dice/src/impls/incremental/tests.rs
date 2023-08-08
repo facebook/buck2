@@ -78,7 +78,7 @@ impl Key for K {
 
     async fn compute(
         &self,
-        _ctx: &DiceComputations,
+        _ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         unimplemented!("test")
@@ -99,7 +99,7 @@ impl Key for IsRan {
 
     async fn compute(
         &self,
-        _ctx: &DiceComputations,
+        _ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         self.0.store(true, Ordering::SeqCst);
@@ -129,7 +129,7 @@ impl Key for Finish {
 
     async fn compute(
         &self,
-        _ctx: &DiceComputations,
+        _ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
     }
@@ -452,7 +452,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             InstanceEqual {
@@ -620,7 +620,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             futures::future::pending().await
@@ -694,7 +694,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
         }
@@ -813,7 +813,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             cancellations: &CancellationContext,
         ) -> Self::Value {
             let mut guard = self
@@ -947,7 +947,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 
         async fn compute(
             &self,
-            _ctx: &DiceComputations,
+            _ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             panic!("never ran as deps equal")

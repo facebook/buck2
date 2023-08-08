@@ -268,7 +268,7 @@ async fn execution_platforms_for_toolchain(
         type Value = SharedResult<ToolchainConstraints>;
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
             let node = ctx.get_target_node(self.0.unconfigured()).await?;
@@ -869,7 +869,7 @@ async fn compute_configured_target_node(
 
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
                 compute_configured_target_node_with_transition(self, ctx)
@@ -942,7 +942,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
             type Value = SharedResult<MaybeCompatible<ConfiguredTargetNode>>;
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let res = compute_configured_target_node(self, ctx).await;

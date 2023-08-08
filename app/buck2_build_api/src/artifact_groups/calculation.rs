@@ -255,7 +255,7 @@ async fn dir_artifact_value(
 
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
             let file_ops = ctx.file_ops();
@@ -327,7 +327,7 @@ impl Key for EnsureProjectedArtifactKey {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let base_value = ensure_base_artifact_staged(ctx, self.0.base())
@@ -382,7 +382,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let set = ctx

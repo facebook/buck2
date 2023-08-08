@@ -40,7 +40,7 @@ pub trait Key: Allocative + Debug + Display + Clone + Eq + Hash + Send + Sync + 
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         cancellations: &CancellationContext,
     ) -> Self::Value;
 

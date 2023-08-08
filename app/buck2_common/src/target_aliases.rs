@@ -151,7 +151,7 @@ impl Key for TargetAliasResolverKey {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> SharedResult<BuckConfigTargetAliasResolver> {
         let legacy_configs = ctx.get_legacy_config_for_cell(self.cell_name).await?;

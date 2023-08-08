@@ -238,7 +238,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
         type Value = SharedResult<FileOpsValue>;
         async fn compute(
             &self,
-            ctx: &DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             let cells = ctx.get_cell_resolver().await?;
@@ -358,7 +358,7 @@ impl Key for ReadFileKey {
     type Value = FileToken;
     async fn compute(
         &self,
-        _ctx: &DiceComputations,
+        _ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         FileToken(self.0.dupe())
@@ -377,7 +377,7 @@ impl Key for ReadDirKey {
     type Value = SharedResult<ReadDirOutput>;
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         get_default_file_ops(ctx)
@@ -407,7 +407,7 @@ impl Key for PathMetadataKey {
     type Value = SharedResult<Option<RawPathMetadata>>;
     async fn compute(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let res = get_default_file_ops(ctx)

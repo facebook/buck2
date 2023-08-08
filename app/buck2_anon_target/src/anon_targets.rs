@@ -267,7 +267,7 @@ impl AnonTargetKey {
 
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 Ok(self.run_analysis(ctx).await?)

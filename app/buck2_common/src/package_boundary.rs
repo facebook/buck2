@@ -157,7 +157,7 @@ impl HasPackageBoundaryExceptions for DiceComputations {
 
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
                 Ok(Arc::new(PackageBoundaryExceptions::new(
@@ -194,7 +194,7 @@ impl HasPackageBoundaryExceptions for DiceComputations {
 
             async fn compute(
                 &self,
-                ctx: &DiceComputations,
+                ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
                 Ok(ctx

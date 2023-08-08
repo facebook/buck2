@@ -115,7 +115,7 @@ mod tests {
 
             async fn compute(
                 &self,
-                _ctx: &DiceComputations,
+                _ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
                 panic!("value should be cached, not evaluated")

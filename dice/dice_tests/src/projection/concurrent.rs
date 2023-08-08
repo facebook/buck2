@@ -34,7 +34,7 @@ impl Key for BaseK {
 
     async fn compute(
         &self,
-        _ctx: &DiceComputations,
+        _ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
     }
