@@ -382,11 +382,8 @@ impl DaemonState {
             )
             .await?;
 
-            let http_client = HttpClientBuilder::from_legacy_configs(
-                root_config,
-                init_ctx.daemon_startup_config.allow_vpnless,
-            )?
-            .build();
+            let http_client =
+                HttpClientBuilder::from_startup_config(&init_ctx.daemon_startup_config)?.build();
 
             let materializer_state_identity =
                 materializer_db.as_ref().map(|d| d.identity().clone());

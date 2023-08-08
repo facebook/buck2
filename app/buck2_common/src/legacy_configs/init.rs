@@ -7,12 +7,92 @@
  * of this source tree.
  */
 
+use std::time::Duration;
+
 use allocative::Allocative;
 use anyhow::Context;
 use serde::Deserialize;
 use serde::Serialize;
 
 use crate::legacy_configs::LegacyBuckConfig;
+
+/// Helper enum to categorize the kind of timeout we get from the startup config.
+#[derive(Clone, Debug)]
+pub enum Timeout {
+    /// Timeout value is set in the config, use that.
+    Value(Duration),
+    /// Timeout value was not set in config, apply the default.
+    Default,
+    /// Timeout value was explicitly set to 0, meaning we shouldn't use a timeout.
+    NoTimeout,
+}
+
+impl Timeout {
+    pub fn new(value: Option<Duration>) -> Self {
+        match value {
+            Some(Duration::ZERO) => Self::NoTimeout,
+            Some(value) => Self::Value(value),
+            None => Self::Default,
+        }
+    }
+}
+
+#[derive(
+    Allocative,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq
+)]
+pub struct HttpConfig {
+    connect_timeout_ms: Option<u64>,
+    read_timeout_ms: Option<u64>,
+    write_timeout_ms: Option<u64>,
+    pub max_redirects: Option<usize>,
+}
+
+impl HttpConfig {
+    pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+        let connect_timeout_ms = config.parse("http", "connect_timeout_ms")?;
+        let read_timeout_ms = config.parse("http", "read_timeout_ms")?;
+        let write_timeout_ms = config.parse("http", "write_timeout_ms")?;
+        let max_redirects = config.parse("http", "max_redirects")?;
+
+        Ok(Self {
+            connect_timeout_ms,
+            read_timeout_ms,
+            write_timeout_ms,
+            max_redirects,
+        })
+    }
+
+    pub fn connect_timeout(&self) -> Timeout {
+        match self.connect_timeout_ms.map(Duration::from_millis) {
+            Some(Duration::ZERO) => Timeout::NoTimeout,
+            Some(value) => Timeout::Value(value),
+            None => Timeout::Default,
+        }
+    }
+
+    pub fn read_timeout(&self) -> Timeout {
+        match self.read_timeout_ms.map(Duration::from_millis) {
+            Some(Duration::ZERO) => Timeout::NoTimeout,
+            Some(value) => Timeout::Value(value),
+            None => Timeout::Default,
+        }
+    }
+
+    pub fn write_timeout(&self) -> Timeout {
+        match self.write_timeout_ms.map(Duration::from_millis) {
+            Some(Duration::ZERO) => Timeout::NoTimeout,
+            Some(value) => Timeout::Value(value),
+            None => Timeout::Default,
+        }
+    }
+}
 
 /// Configurations that are used at startup by the daemon. Those are actually read by the client,
 /// and passed on to the daemon.
@@ -34,6 +114,7 @@ pub struct DaemonStartupConfig {
     pub paranoid: bool,
     pub use_tonic_rt: Option<String>,
     pub materializations: Option<String>,
+    pub http: HttpConfig,
 }
 
 impl DaemonStartupConfig {
@@ -59,6 +140,7 @@ impl DaemonStartupConfig {
             materializations: config
                 .get("buck2", "materializations")
                 .map(ToOwned::to_owned),
+            http: HttpConfig::from_config(config)?,
         })
     }
 
@@ -81,6 +163,7 @@ impl DaemonStartupConfig {
             paranoid: false,
             use_tonic_rt: None,
             materializations: None,
+            http: HttpConfig::default(),
         }
     }
 }

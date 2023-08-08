@@ -33,7 +33,8 @@ use crate::http::proxy;
 use crate::http::stats::HttpNetworkStats;
 use crate::http::tls;
 use crate::http::x2p;
-use crate::legacy_configs::LegacyBuckConfig;
+use crate::legacy_configs::init::DaemonStartupConfig;
+use crate::legacy_configs::init::Timeout;
 
 /// Support following up to 10 redirects, after which a redirected request will
 /// error out.
@@ -110,39 +111,33 @@ impl HttpClientBuilder {
     }
 
     /// Customize an http client based on http.* legacy buckconfigs.
-    pub fn from_legacy_configs(
-        config: &LegacyBuckConfig,
-        allow_vpnless: bool,
-    ) -> anyhow::Result<Self> {
-        let connect_timeout = Duration::from_millis(
-            config
-                .parse("http", "connect_timeout_ms")?
-                .unwrap_or(DEFAULT_CONNECT_TIMEOUT_MS),
-        );
-        let read_timeout = Duration::from_millis(
-            config
-                .parse("http", "read_timeout_ms")?
-                .unwrap_or(DEFAULT_READ_TIMEOUT_MS),
-        );
-        let write_timeout = config
-            .parse("http", "write_timeout_ms")?
-            .map(Duration::from_millis);
-        let max_redirects = config
-            .parse("http", "max_redirects")?
-            .unwrap_or(DEFAULT_MAX_REDIRECTS);
-
-        let mut builder = Self::with_sensible_defaults(allow_vpnless)?;
-        builder.with_max_redirects(max_redirects);
-        if !connect_timeout.is_zero() {
-            builder.with_connect_timeout(Some(connect_timeout));
-        }
-        if !read_timeout.is_zero() {
-            builder.with_read_timeout(Some(read_timeout));
-        }
-        if let Some(write_timeout) = write_timeout {
-            if !write_timeout.is_zero() {
-                builder.with_write_timeout(Some(write_timeout));
+    pub fn from_startup_config(config: &DaemonStartupConfig) -> anyhow::Result<Self> {
+        let mut builder = Self::with_sensible_defaults(config.allow_vpnless)?;
+        builder.with_max_redirects(config.http.max_redirects.unwrap_or(DEFAULT_MAX_REDIRECTS));
+        match config.http.connect_timeout() {
+            Timeout::Value(d) => {
+                builder.with_connect_timeout(Some(d));
             }
+            Timeout::Default => {
+                builder
+                    .with_connect_timeout(Some(Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS)));
+            }
+            _ => {}
+        }
+        match config.http.read_timeout() {
+            Timeout::Value(d) => {
+                builder.with_read_timeout(Some(d));
+            }
+            Timeout::Default => {
+                builder.with_read_timeout(Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)));
+            }
+            _ => {}
+        }
+        match config.http.write_timeout() {
+            Timeout::Value(d) => {
+                builder.with_write_timeout(Some(d));
+            }
+            _ => {}
         }
 
         Ok(builder)
@@ -427,9 +422,11 @@ mod tests {
     }
 
     #[test]
-    fn test_from_legacy_configs_defaults_internal() -> anyhow::Result<()> {
-        let builder = HttpClientBuilder::from_legacy_configs(&LegacyBuckConfig::empty(), false)?;
+    fn test_from_startup_config_defaults_internal() -> anyhow::Result<()> {
+        let builder =
+            HttpClientBuilder::from_startup_config(&DaemonStartupConfig::testing_empty())?;
         assert_eq!(DEFAULT_MAX_REDIRECTS, builder.max_redirects.unwrap());
+        assert!(!builder.supports_vpnless);
         assert_eq!(
             Some(TimeoutConfig {
                 connect_timeout: Some(Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS)),
@@ -443,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_legacy_configs_overrides() -> anyhow::Result<()> {
+    fn test_from_startup_config_overrides() -> anyhow::Result<()> {
         let config = parse(
             &[(
                 "/config",
@@ -458,7 +455,8 @@ mod tests {
             )],
             "/config",
         )?;
-        let builder = HttpClientBuilder::from_legacy_configs(&config, false)?;
+        let startup_config = DaemonStartupConfig::new(&config)?;
+        let builder = HttpClientBuilder::from_startup_config(&startup_config)?;
         assert_eq!(5, builder.max_redirects.unwrap());
         assert_eq!(
             Some(TimeoutConfig {
@@ -473,7 +471,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_legacy_configs_zero_for_unset() -> anyhow::Result<()> {
+    fn test_from_startup_config_zero_for_unset() -> anyhow::Result<()> {
         let config = parse(
             &[(
                 "/config",
@@ -486,7 +484,8 @@ mod tests {
             )],
             "/config",
         )?;
-        let builder = HttpClientBuilder::from_legacy_configs(&config, false)?;
+        let startup_config = DaemonStartupConfig::new(&config)?;
+        let builder = HttpClientBuilder::from_startup_config(&startup_config)?;
         assert_eq!(
             Some(TimeoutConfig {
                 connect_timeout: None,
