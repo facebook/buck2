@@ -108,6 +108,7 @@ const manualSidebar = [
           'users/advanced/restarter',
           'users/advanced/in_memory_cache',
           isInternal() ? 'users/advanced/offline_build_archives' : [],
+          isInternal() ? 'users/advanced/vpnless' : [],
         ],
       },
     ],
