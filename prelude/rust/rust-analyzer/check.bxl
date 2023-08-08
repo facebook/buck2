@@ -6,7 +6,8 @@
 # of this source tree.
 
 def check_targets_impl(ctx):
-    owners = ctx.cquery().owner_legacy(ctx.cli_args.file)
+    target_universe = ctx.uquery().owner(ctx.cli_args.file)
+    owners = ctx.cquery().owner(ctx.cli_args.file, target_universe)
     nodes = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", owners)
 
     if len(nodes) == 0:
