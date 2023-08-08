@@ -574,17 +574,18 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
     # Provide a debug info target to make sure debug info is materialized.
     external_debug_info = make_artifact_tset(
         actions = ctx.actions,
-        label = ctx.label,
         children = (
             [binary.external_debug_info] +
             [s.external_debug_info for s in shared_libs.values()]
         ),
     )
+    materialize_external_debug_info = ctx.actions.write(
+        "debuginfo.artifacts",
+        cmd_args().hidden(project_artifacts(ctx.actions, [external_debug_info])),
+        with_inputs = True,
+    )
     sub_targets["debuginfo"] = [DefaultInfo(
-        other_outputs = project_artifacts(
-            actions = ctx.actions,
-            tsets = [external_debug_info],
-        ),
+        default_output = materialize_external_debug_info,
     )]
 
     return CxxExecutableOutput(
