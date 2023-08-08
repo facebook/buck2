@@ -820,7 +820,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     ///        category = "command",
     ///        local_only = True,
     ///    )
-    ///    ctx.output.ensure(output)  
+    ///    ctx.output.ensure(output)
     /// ```
     ///
     /// When called from a `dynamic_output`, `bxl_actions()` cannot be configured with a different execution
@@ -936,7 +936,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
         labels: Value<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
-        #[starlark(default = true)] skip_incompatible: bool,
+        #[starlark(require = named, default = true)] skip_incompatible: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let providers =
