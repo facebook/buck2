@@ -15,7 +15,7 @@ use dupe::Dupe;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
-use crate::impls::ctx::PerComputeCtx;
+use crate::impls::ctx::ModernComputeCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::value::MaybeValidDiceValue;
 
@@ -26,7 +26,7 @@ pub(crate) struct OpaqueValueModern<'a, K: Key> {
     #[derivative(Debug = "ignore")]
     derive_from: MaybeValidDiceValue,
     #[derivative(Debug = "ignore")]
-    parent_computation: &'a PerComputeCtx,
+    parent_computation: &'a ModernComputeCtx,
     ty: PhantomData<K>,
 }
 
@@ -35,7 +35,7 @@ where
     K: Key,
 {
     pub(crate) fn new(
-        parent_computation: &'a PerComputeCtx,
+        parent_computation: &'a ModernComputeCtx,
         derive_from_key: DiceKey,
         derive_from: MaybeValidDiceValue,
     ) -> Self {

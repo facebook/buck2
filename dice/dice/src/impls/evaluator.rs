@@ -18,6 +18,7 @@ use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::impls::ctx::EvaluationData;
+use crate::impls::ctx::ModernComputeCtx;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::dice::DiceModern;
@@ -58,14 +59,15 @@ impl AsyncEvaluator {
 
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {
-                let mut new_ctx =
-                    DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
+                let mut new_ctx = DiceComputations(DiceComputationsImpl::Modern(
+                    ModernComputeCtx::Regular(PerComputeCtx::new(
                         ParentKey::Some(key), // within this key's compute, this key is the parent
                         self.per_live_version_ctx.dupe(),
                         self.user_data.dupe(),
                         self.dice.dupe(),
                         cycles,
-                    )));
+                    )),
+                ));
 
                 let value = key_dyn
                     .compute(&mut new_ctx, &state.cancellation_ctx().into_compatible())

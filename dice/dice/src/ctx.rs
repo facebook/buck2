@@ -20,7 +20,7 @@ use crate::api::opaque::OpaqueValue;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::api::user_data::UserCycleDetectorGuard;
-use crate::impls::ctx::PerComputeCtx;
+use crate::impls::ctx::ModernComputeCtx;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::opaque::OpaqueValueImpl;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
@@ -29,7 +29,7 @@ use crate::versions::VersionNumber;
 #[derive(Allocative)]
 pub(crate) enum DiceComputationsImpl {
     Legacy(Arc<DiceComputationsImplLegacy>),
-    Modern(PerComputeCtx),
+    Modern(ModernComputeCtx),
 }
 
 impl DiceComputationsImpl {

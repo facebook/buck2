@@ -77,13 +77,7 @@ impl Clone for BaseComputeCtx {
                     unreachable!("wrong dice")
                 }
                 DiceComputationsImpl::Modern(ctx) => {
-                    DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
-                        ParentKey::None,
-                        ctx.async_evaluator.per_live_version_ctx.dupe(),
-                        ctx.async_evaluator.user_data.dupe(),
-                        ctx.async_evaluator.dice.dupe(),
-                        KeyComputingUserCycleDetectorData::Untracked,
-                    )))
+                    DiceComputations(DiceComputationsImpl::Modern(ctx.clone_for_base()))
                 }
             },
             live_version_guard: self.live_version_guard.dupe(),
@@ -101,12 +95,14 @@ impl BaseComputeCtx {
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
-            data: DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
-                ParentKey::None,
-                per_live_version_ctx,
-                user_data,
-                dice,
-                KeyComputingUserCycleDetectorData::Untracked,
+            data: DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::Regular(
+                PerComputeCtx::new(
+                    ParentKey::None,
+                    per_live_version_ctx,
+                    user_data,
+                    dice,
+                    KeyComputingUserCycleDetectorData::Untracked,
+                ),
             ))),
             live_version_guard,
         }
@@ -130,7 +126,7 @@ impl BaseComputeCtx {
 }
 
 impl Deref for BaseComputeCtx {
-    type Target = PerComputeCtx;
+    type Target = ModernComputeCtx;
 
     fn deref(&self) -> &Self::Target {
         match &self.data.0 {
@@ -138,6 +134,144 @@ impl Deref for BaseComputeCtx {
                 unreachable!("legacy dice instead of modern")
             }
             DiceComputationsImpl::Modern(ctx) => ctx,
+        }
+    }
+}
+
+/// Context that is available from the `DiceComputation`s for modern dice calculations
+#[derive(Allocative)]
+pub(crate) enum ModernComputeCtx {
+    Regular(PerComputeCtx),
+}
+
+impl ModernComputeCtx {
+    /// Gets all the result of of the given computation key.
+    /// recorded as dependencies of the current computation for which this
+    /// context is for.
+    pub(crate) fn compute<'a, K>(
+        &'a self,
+        key: &K,
+    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
+    where
+        K: Key,
+    {
+        self.compute_opaque(key)
+            .map(|r| r.map(|opaque| opaque.into_value()))
+    }
+
+    /// Compute "opaque" value where the value is only accessible via projections.
+    /// Projections allow accessing derived results from the "opaque" value,
+    /// where the dependency of reading a projection is the projection value rather
+    /// than the entire opaque value.
+    pub(crate) fn compute_opaque<'a, K>(
+        &'a self,
+        key: &K,
+    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + 'a
+    where
+        K: Key,
+    {
+        match self {
+            ModernComputeCtx::Regular(ctx) => {
+                ctx.compute_opaque(key).map(move |cancellable_result| {
+                    let cancellable = cancellable_result.map(move |(dice_key, dice_value)| {
+                        OpaqueValueModern::new(self, dice_key, dice_value.value().dupe())
+                    });
+
+                    cancellable.map_err(|_| DiceError::cancelled())
+                })
+            }
+        }
+    }
+
+    /// Compute "projection" based on deriving value
+    pub(crate) fn project<K>(
+        &self,
+        key: &K,
+        base_key: DiceKey,
+        base: MaybeValidDiceValue,
+    ) -> DiceResult<K::Value>
+    where
+        K: ProjectionKey,
+    {
+        match self {
+            ModernComputeCtx::Regular(ctx) => ctx.project(key, base_key, base),
+        }
+    }
+
+    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
+    /// time that Dice is initialized via the constructor.
+    pub(crate) fn global_data(&self) -> &DiceData {
+        match self {
+            ModernComputeCtx::Regular(ctx) => ctx.global_data(),
+        }
+    }
+
+    /// Data that is static for the lifetime of the current request context. This lifetime is
+    /// the lifetime of the top-level `DiceComputation` used for all requests.
+    /// The data is also specific to each request context, so multiple concurrent requests can
+    /// each have their own individual data.
+    pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
+        match self {
+            ModernComputeCtx::Regular(ctx) => ctx.per_transaction_data(),
+        }
+    }
+
+    pub(crate) fn get_version(&self) -> VersionNumber {
+        match self {
+            ModernComputeCtx::Regular(ctx) => ctx.get_version(),
+        }
+    }
+
+    pub(crate) fn into_updater(self) -> TransactionUpdater {
+        match self {
+            ModernComputeCtx::Regular(ctx) => ctx.into_updater(),
+        }
+    }
+
+    pub(super) fn dep_trackers(&self) -> MutexGuard<'_, RecordingDepsTracker> {
+        match self {
+            ModernComputeCtx::Regular(ctx) => ctx.dep_trackers(),
+        }
+    }
+
+    pub(crate) fn store_evaluation_data<T: Send + Sync + 'static>(
+        &self,
+        value: T,
+    ) -> DiceResult<()> {
+        match self {
+            ModernComputeCtx::Regular(ctx) => ctx.store_evaluation_data(value),
+        }
+    }
+
+    pub(crate) fn finalize(
+        self,
+    ) -> (
+        (HashSet<DiceKey>, DiceValidity),
+        EvaluationData,
+        KeyComputingUserCycleDetectorData,
+    ) {
+        match self {
+            ModernComputeCtx::Regular(ctx) => ctx.finalize(),
+        }
+    }
+
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+        match self {
+            ModernComputeCtx::Regular(ctx) => ctx.cycle_guard(),
+        }
+    }
+}
+
+impl ModernComputeCtx {
+    pub(crate) fn clone_for_base(&self) -> ModernComputeCtx {
+        match self {
+            ModernComputeCtx::Regular(ctx) => ModernComputeCtx::Regular(PerComputeCtx::new(
+                ParentKey::None,
+                ctx.async_evaluator.per_live_version_ctx.dupe(),
+                ctx.async_evaluator.user_data.dupe(),
+                ctx.async_evaluator.dice.dupe(),
+                KeyComputingUserCycleDetectorData::Untracked,
+            )),
         }
     }
 }
@@ -176,20 +310,6 @@ impl PerComputeCtx {
         }
     }
 
-    /// Gets all the result of of the given computation key.
-    /// recorded as dependencies of the current computation for which this
-    /// context is for.
-    pub(crate) fn compute<'a, K>(
-        &'a self,
-        key: &K,
-    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
-    where
-        K: Key,
-    {
-        self.compute_opaque(key)
-            .map(|r| r.map(|opaque| opaque.into_value()))
-    }
-
     /// Compute "opaque" value where the value is only accessible via projections.
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
@@ -197,7 +317,7 @@ impl PerComputeCtx {
     pub(crate) fn compute_opaque<'a, K>(
         &'a self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + 'a
+    ) -> impl Future<Output = CancellableResult<(DiceKey, DiceComputedValue)>> + 'a
     where
         K: Key,
     {
@@ -216,13 +336,7 @@ impl PerComputeCtx {
                 self.cycles
                     .subrequest(dice_key, &self.async_evaluator.dice.key_index),
             )
-            .map(move |cancellable_result| {
-                let cancellable = cancellable_result.map(move |dice_value| {
-                    OpaqueValueModern::new(self, dice_key, dice_value.value().dupe())
-                });
-
-                cancellable.map_err(|_| DiceError::cancelled())
-            })
+            .map(move |res| res.map(|res| (dice_key, res)))
     }
 
     /// Compute "projection" based on deriving value
