@@ -19,7 +19,7 @@ pub fn gen_daemon_constraints(
         version: version(),
         user_version: user_version()?,
         daemon_id: buck2_events::daemon_id::DAEMON_UUID.to_string(),
-        daemon_startup_config: Some(daemon_startup_config.serialize()),
+        daemon_startup_config: Some(daemon_startup_config.serialize()?),
         extra: None,
     })
 }

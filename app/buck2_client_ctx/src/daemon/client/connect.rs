@@ -286,7 +286,7 @@ impl<'a> BuckdLifecycle<'a> {
         daemon_env_vars: &[(&OsStr, &OsStr)],
         daemon_startup_config: &DaemonStartupConfig,
     ) -> anyhow::Result<()> {
-        let daemon_startup_config = daemon_startup_config.serialize();
+        let daemon_startup_config = daemon_startup_config.serialize()?;
         args.extend(["daemon", "--dont-daemonize"]);
         spawn_background_process_on_windows(
             self.paths.project_root().root(),
@@ -317,7 +317,7 @@ impl<'a> BuckdLifecycle<'a> {
             .args(args);
 
         cmd.arg("daemon");
-        cmd.arg(daemon_startup_config.serialize());
+        cmd.arg(daemon_startup_config.serialize()?);
 
         static DAEMON_LOG_TO_FILE: EnvHelper<u8> = EnvHelper::<u8>::new("BUCK_DAEMON_LOG_TO_FILE");
         if DAEMON_LOG_TO_FILE.get_copied()? == Some(1) {

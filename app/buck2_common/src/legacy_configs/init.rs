@@ -144,9 +144,8 @@ impl DaemonStartupConfig {
         })
     }
 
-    pub fn serialize(&self) -> String {
-        // This only contains String, so it'll successfully serialize to JSON.
-        serde_json::to_string(&self).unwrap()
+    pub fn serialize(&self) -> anyhow::Result<String> {
+        serde_json::to_string(&self).context("Error serializing DaemonStartupConfig")
     }
 
     pub fn deserialize(s: &str) -> anyhow::Result<Self> {
