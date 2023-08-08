@@ -75,7 +75,7 @@ _PrePostFlags = record(
 
 def cxx_dist_link(
         ctx: AnalysisContext,
-        links: list["LinkArgs"],
+        links: list[LinkArgs],
         # The destination for the link output.
         output: Artifact,
         linker_map: [Artifact, None] = None,
@@ -140,15 +140,6 @@ def cxx_dist_link(
             names[name] += 1
             name += "-{}".format(names[name])
         return make_id(name)
-
-    links = [
-        LinkArgs(
-            tset = link.tset,
-            flags = link.flags,
-            infos = link.infos,
-        )
-        for link in links
-    ]
 
     link_infos = map_to_link_infos(links)
 
