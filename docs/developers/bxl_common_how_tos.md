@@ -49,6 +49,30 @@ def _impl_example(ctx):
     output = actions.write("my_output", "out")
 ```
 
+You can specify the execution platform resolution by setting named parameters when instantiating `bxl_actions`:
+* `exec_deps` - These are dependencies you wish to access as executables for creating the action. This is usually the same set of targets one would pass to rule's `attr.exec_dep`. Accepts a list of strings, subtarget labels, target labels, or target nodes.
+* `toolchains` - The set of toolchains needed for the actions you intend to create. Accepts a list of strings, subtarget labels, target labels, or target nodes.
+* `target_platform` - The intended target platform for your toolchains. Accepts a string or target label.
+* `exec_compatible_with` - Explicit list of configuration nodes (like platforms or constraints) that these actions are compatible with. This is the `exec_compatible_with` attribute of a target. Accepts a list of strings, target labels, or target nodes.
+
+If you specify `exec_deps` or `toolchains`, you can access the resolved `dependency` objects on the `bxl_actions` object. The `bxl_actions` object will have `exec_deps` and `toolchains` attributes, which are `dict`s where the keys are the unconfigured subtarget labels, and the values are the configured/resolved `dependency` objects.
+
+```python
+def _impl_example(ctx):
+    my_exec_dep = ctx.unconfigured_sub_targets("foo//bar:baz") # has some provider that you would use in the action
+    bxl_actions = ctx.bxl_actions(exec_deps = [my_exec_dep]) # call once, reuse wherever needed
+    output = bxl_actions.actions.run(
+        [
+            "python3",
+            bxl_actions.exec_deps[my_exec_dep][RunInfo], # access resolved exec_deps on the `bxl_actions`
+            out.as_output(),
+        ],
+        category = "command",
+        local_only = True,
+    )
+    ctx.output.ensure(output)
+```
+
 ## Getting providers from an analysis
 
 After calling `analysis()`, you can get the providers collection from `providers()`:
