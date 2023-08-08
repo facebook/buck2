@@ -20,7 +20,8 @@ def _build_entry_point(ctx: "bxl_ctx") -> None:
     root = ctx.root()
 
     sources = ["{}/{}".format(root, source) for source in ctx.cli_args.source]
-    targets = do_query(ctx, query, actions, query.owner_legacy(sources))
+    target_universe = ctx.uquery().owner(sources)
+    targets = do_query(ctx, query, actions, query.owner(sources, target_universe))
     built_sourcedbs = do_build(ctx, targets)
 
     # Ensure all source files are materialized
