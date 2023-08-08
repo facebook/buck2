@@ -13,7 +13,7 @@ GoCompilerInfo = provider(
 def _go_toolchain_impl(ctx):
     url = "https://go.dev/dl/go" + ctx.attrs.version + "." + ctx.attrs.platform + "." + ctx.attrs.archive_extension
 
-    download = http_archive_impl(ctx, url, ctx.attrs.archive_extension, ctx.attrs.sha1)
+    download = http_archive_impl(ctx, url, ctx.attrs.archive_extension, ctx.attrs.sha256)
 
     compiler_dst = ctx.actions.declare_output("compiler.exe" if host_info().os.is_windows else "compiler")
 
@@ -33,16 +33,16 @@ go_toolchain = rule(
     attrs = {
         "archive_extension": attrs.string(),
         "platform": attrs.string(),
-        "sha1": attrs.string(),
+        "sha256": attrs.string(),
         "version": attrs.string(),
         "_symlink_bat": attrs.default_only(attrs.source(default = "toolchains//:symlink.bat")),
     },
 )
 
-def http_archive_impl(ctx: "context", url, archive_extension, sha1) -> ["provider"]:
+def http_archive_impl(ctx: "context", url, archive_extension, sha256) -> ["provider"]:
     # Download archive.
     archive = ctx.actions.declare_output("archive." + archive_extension)
-    ctx.actions.download_file(archive.as_output(), url, sha1 = sha1, is_deferrable = True)
+    ctx.actions.download_file(archive.as_output(), url, sha256 = sha256, is_deferrable = True)
 
     output = ctx.actions.declare_output(ctx.label.name)
 
@@ -76,26 +76,26 @@ def http_archive_impl(ctx: "context", url, archive_extension, sha1) -> ["provide
     return [DefaultInfo(default_output = output)]
 
 def _toolchain_config():
-    version = "1.18.3"
+    version = "1.20.7"
     os = host_info().os
     if os.is_windows:
         return struct(
-            sha1 = "0545d7d9ae308df6fa82c5f06ab740aec2a059a5",
+            sha256 = "736dc6c7fcab1c96b682c8c93e38d7e371e62a17d34cb2c37d451a1147f66af9",
             platform = "windows-amd64",
             archive_extension = "zip",
             version = version,
         )
     if os.is_macos:
         return struct(
-            sha1 = "87a634156e4020c2806e8ab57ecdc18e54c914bc",
-            platform = "darwin-amd64",
+            sha256 = "eea1e7e4c2f75c72629050e6a6c7c46c446d64056732a7787fb3ba16ace1982e",
+            platform = "darwin-arm64",
             archive_extension = "tar.gz",
             version = version,
         )
 
     # Default linux
     return struct(
-        sha1 = "3511fcb34e0162abdcdeea0ab532f0264943e3d8",
+        sha256 = "f0a87f1bcae91c4b69f8dc2bc6d7e6bfcd7524fceec130af525058c0c17b1b44",
         platform = "linux-amd64",
         archive_extension = "tar.gz",
         version = version,
