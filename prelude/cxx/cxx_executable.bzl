@@ -37,7 +37,6 @@ load(
     "XcodeDataInfo",
     "generate_xcode_data",
 )
-load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_groups.bzl",
     "gather_link_group_libs",
@@ -131,7 +130,9 @@ load(
 load(
     ":link_types.bzl",
     "CxxLinkResultType",
+    "LinkOptions",
     "link_options",
+    "merge_link_options",
 )
 load(
     ":linker.bzl",
@@ -449,18 +450,20 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
 
     link_result = _link_into_executable(
         ctx,
-        links,
         # If shlib lib tree generation is enabled, pass in the shared libs (which
         # will trigger the necessary link tree and link args).
         shared_libs if impl_params.exe_shared_libs_link_tree else {},
-        linker_info.link_weight,
         linker_info.binary_extension,
-        link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
-        link_execution_preference = link_execution_preference,
-        enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
-        strip = impl_params.strip_executable,
-        strip_args_factory = impl_params.strip_args_factory,
-        category_suffix = impl_params.exe_category_suffix,
+        link_options(
+            links = links,
+            link_weight = linker_info.link_weight,
+            link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
+            link_execution_preference = link_execution_preference,
+            enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
+            strip = impl_params.strip_executable,
+            strip_args_factory = impl_params.strip_args_factory,
+            category_suffix = impl_params.exe_category_suffix,
+        ),
     )
     binary = link_result.exe
     runtime_files = link_result.runtime_files
@@ -618,16 +621,9 @@ _CxxLinkExecutableResult = record(
 
 def _link_into_executable(
         ctx: AnalysisContext,
-        links: list[LinkArgs.type],
         shared_libs: dict[str, LinkedObject.type],
-        link_weight: int,
         binary_extension: str,
-        link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
-        enable_distributed_thinlto: bool = False,
-        strip: bool = False,
-        link_ordering: [LinkOrdering.type, None] = None,
-        strip_args_factory = None,
-        category_suffix: [str, None] = None) -> _CxxLinkExecutableResult.type:
+        opts: LinkOptions) -> _CxxLinkExecutableResult.type:
     output = ctx.actions.declare_output("{}{}".format(get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
         ctx.actions,
@@ -635,21 +631,14 @@ def _link_into_executable(
         output,
         shared_libs,
     )
-    links = [LinkArgs(flags = extra_args)] + links
 
     link_result = cxx_link_into(
         ctx = ctx,
         output = output,
         result_type = CxxLinkResultType("executable"),
-        opts = link_options(
-            links = links,
-            enable_distributed_thinlto = enable_distributed_thinlto,
-            category_suffix = category_suffix,
-            strip = strip,
-            strip_args_factory = strip_args_factory,
-            link_ordering = link_ordering,
-            link_weight = link_weight,
-            link_execution_preference = link_execution_preference,
+        opts = merge_link_options(
+            opts,
+            links = [LinkArgs(flags = extra_args)] + opts.links,
         ),
     )
 
