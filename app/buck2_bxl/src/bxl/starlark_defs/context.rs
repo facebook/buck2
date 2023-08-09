@@ -614,6 +614,17 @@ fn context_methods(builder: &mut MethodsBuilder) {
             .to_owned())
     }
 
+    /// Returns the absolute path to the cell of the repository
+    ///
+    /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
+    fn cell_root<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<String> {
+        let _root_type = this
+            .context_type
+            .unpack_root()
+            .context(BxlContextDynamicError::Unsupported("root".to_owned()))?;
+        Ok(this.cell_root_abs.to_owned().to_string())
+    }
+
     /// Gets the target nodes for the `labels`, accepting an optional `target_platform` which is the
     /// target platform configuration used to resolve configurations of any unconfigured target
     /// nodes.
