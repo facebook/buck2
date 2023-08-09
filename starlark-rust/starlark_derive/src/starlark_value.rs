@@ -374,41 +374,127 @@ impl<'a> ImplStarlarkValue<'a> {
         })?))
     }
 
-    fn try_make_canonical_ty(&self) -> Option<syn::Type> {
-        for type_param in &self.input.generics.params {
-            match type_param {
-                syn::GenericParam::Lifetime(_) => {}
-                syn::GenericParam::Const(_) => return None,
-                syn::GenericParam::Type(_) => {
-                    // TODO(nga): when generic param is `ValueLike`,
-                    //   we can substitute it with `FrozenValue` to get a canonical type.
-                    //   Eventually every impl should provide a canonical type
-                    //   if it cannot be inferred.
-                    return None;
+    /// `ValueLike<'v>`?
+    fn path_is_value_like(&self, path: &syn::Path) -> syn::Result<bool> {
+        let Some(last) = path.segments.last() else {
+            return Ok(false);
+        };
+        if last.ident != "ValueLike" {
+            return Ok(false);
+        }
+        let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
+            return Ok(false);
+        };
+        if args.args.len() != 1 {
+            return Ok(false);
+        }
+        let Some(arg) = args.args.first() else {
+            // Unreachable.
+            return Ok(false);
+        };
+        let syn::GenericArgument::Lifetime(lt) = arg else {
+            return Ok(false);
+        };
+        Ok(lt == self.lifetime_param)
+    }
+
+    /// `V: ValueLike<'v>`?
+    fn type_param_is_value_like(&self, type_param: &syn::TypeParam) -> syn::Result<bool> {
+        for bound in &type_param.bounds {
+            if let syn::TypeParamBound::Trait(t) = bound {
+                if self.path_is_value_like(&t.path)? {
+                    return Ok(true);
                 }
             }
         }
-        Some((*self.input.self_ty).clone())
+        // TODO(nga): also check `where` clause.
+        Ok(false)
     }
 
-    fn make_canonical_type(&self) -> syn::Type {
-        match self.try_make_canonical_ty() {
-            Some(ty) => ty,
-            None => syn::parse_quote_spanned! { self.span() =>
-                starlark::values::not_type::NotType
+    /// Make `Canonical` type.
+    /// Replace type arguments with `Value<'v>`.
+    fn do_make_canonical_type(&self) -> syn::Result<syn::Type> {
+        let syn::Type::Path(type_path) = &*self.input.self_ty else {
+            return Err(syn::Error::new_spanned(
+                &self.input.self_ty,
+                "self type is not path",
+            ));
+        };
+        let syn::TypePath { qself, path } = type_path;
+        if qself.is_some() {
+            return Err(syn::Error::new_spanned(
+                type_path,
+                "qualified self not supported",
+            ));
+        }
+        let mut path = path.clone();
+
+        struct PatchTypesVisitor<'a> {
+            lifetime: &'a syn::Lifetime,
+        }
+
+        impl<'a> syn::visit_mut::VisitMut for PatchTypesVisitor<'a> {
+            fn visit_type_mut(&mut self, i: &mut syn::Type) {
+                let lifetime = self.lifetime;
+                *i = syn::parse_quote_spanned! { i.span() =>
+                    starlark::values::Value< #lifetime >
+                };
+            }
+        }
+
+        syn::visit_mut::VisitMut::visit_path_mut(
+            &mut PatchTypesVisitor {
+                lifetime: self.lifetime_param,
             },
+            &mut path,
+        );
+
+        Ok(syn::parse_quote_spanned! { self.span() => #path })
+    }
+
+    fn try_make_canonical_ty(&self) -> syn::Result<Option<syn::Type>> {
+        // Impl has `V: ValueLike<'v>` constraint.
+        let mut value_like_param = false;
+        for type_param in &self.input.generics.params {
+            match type_param {
+                syn::GenericParam::Lifetime(_) => {}
+                syn::GenericParam::Const(_) => return Ok(None),
+                syn::GenericParam::Type(p) => {
+                    if self.type_param_is_value_like(p)? {
+                        if value_like_param {
+                            return Err(syn::Error::new_spanned(
+                                p,
+                                "multiple generic parameters are `ValueLike`",
+                            ));
+                        }
+                        value_like_param = true;
+                    } else {
+                        return Ok(None);
+                    }
+                }
+            }
+        }
+        Ok(Some(self.do_make_canonical_type()?))
+    }
+
+    fn make_canonical_type(&self) -> syn::Result<syn::Type> {
+        match self.try_make_canonical_ty()? {
+            Some(ty) => Ok(ty),
+            None => Ok(syn::parse_quote_spanned! { self.span() =>
+                starlark::values::not_type::NotType
+            }),
         }
     }
 
     /// `type Canonical = ...`.
-    fn canonical_member(&self) -> Option<syn::ImplItem> {
+    fn canonical_member(&self) -> syn::Result<Option<syn::ImplItem>> {
         if self.find_ty("Canonical").is_some() {
-            None
+            Ok(None)
         } else {
-            let ty = self.make_canonical_type();
-            Some(syn::parse_quote_spanned! { self.span() =>
+            let ty = self.make_canonical_type()?;
+            Ok(Some(syn::parse_quote_spanned! { self.span() =>
                 type Canonical = #ty;
-            })
+            }))
         }
     }
 }
@@ -431,7 +517,7 @@ fn derive_starlark_value_impl(
     let rbin_op_ty = impl_starlark_value.rbin_op_ty()?;
     let attr_ty = impl_starlark_value.attr_ty()?;
     let bit_or = impl_starlark_value.bit_or()?;
-    let canonical = impl_starlark_value.canonical_member();
+    let canonical = impl_starlark_value.canonical_member()?;
 
     input.items.splice(
         0..0,
