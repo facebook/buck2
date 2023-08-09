@@ -75,12 +75,6 @@ pub struct TypingOracleCtx<'a> {
 impl<'a> TypingOracle for TypingOracleCtx<'a> {
     fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         Some(Ok(match ty {
-            ty if ty == &TyBasic::none() &&
-                // `None | str`
-                attr != TypingAttr::BinOp(TypingBinOp::BitOr) =>
-            {
-                return Some(Err(()));
-            }
             TyBasic::Tuple(tys) => match attr {
                 TypingAttr::BinOp(TypingBinOp::In) => {
                     Ty::function(vec![Param::pos_only(Ty::unions(tys.clone()))], Ty::bool())
