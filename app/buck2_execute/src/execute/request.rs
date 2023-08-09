@@ -19,7 +19,6 @@ use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
-use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -268,7 +267,7 @@ pub struct CommandExecutionRequest {
     timeout: Option<Duration>,
     executor_preference: ExecutorPreference,
     // Run with a custom $TMPDIR, or just the standard system one
-    scratch_path: Option<BuckOutScratchPath>,
+    scratch_path: Option<ProjectRelativePathBuf>,
     host_sharing_requirements: HostSharingRequirements,
     // Used to disable the low pass filter for concurrent local actions. Enabled by default
     low_pass_filter: bool,
@@ -338,11 +337,11 @@ impl CommandExecutionRequest {
         self
     }
 
-    pub fn scratch_path(&self) -> &Option<BuckOutScratchPath> {
-        &self.scratch_path
+    pub fn scratch_path(&self) -> Option<&ProjectRelativePath> {
+        self.scratch_path.as_deref()
     }
 
-    pub fn with_scratch_path(mut self, scratch_path: BuckOutScratchPath) -> Self {
+    pub fn with_scratch_path(mut self, scratch_path: ProjectRelativePathBuf) -> Self {
         self.scratch_path = Some(scratch_path);
         self
     }

@@ -37,7 +37,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::Category;
 use buck2_core::fs::buck_out_path::BuckOutPath;
-use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -422,7 +421,6 @@ impl RunAction {
             extra_env,
             paths,
             worker,
-            scratch,
             scratch_path,
         })
     }
@@ -433,7 +431,6 @@ pub(crate) struct PreparedRunAction {
     extra_env: Option<(String, String)>,
     paths: CommandExecutionPaths,
     worker: Option<WorkerSpec>,
-    scratch: BuckOutScratchPath,
     scratch_path: ProjectRelativePathBuf,
 }
 
@@ -444,7 +441,6 @@ impl PreparedRunAction {
             extra_env,
             paths,
             worker,
-            scratch,
             scratch_path,
         } = self;
 
@@ -468,7 +464,7 @@ impl PreparedRunAction {
 
         CommandExecutionRequest::new(exe, args, paths, env)
             .with_worker(worker)
-            .with_scratch_path(scratch)
+            .with_scratch_path(scratch_path)
     }
 }
 

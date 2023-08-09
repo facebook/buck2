@@ -263,13 +263,7 @@ impl LocalExecutor {
         // TODO: Release here.
         let manager = manager.claim().await;
 
-        let scratch_dir = request.scratch_path().as_ref().map(|tmpdir| {
-            self.artifact_fs
-                .buck_out_path_resolver()
-                .resolve_scratch(tmpdir)
-        });
-
-        let scratch_dir = &scratch_dir; // So it doesn't move in the block below.
+        let scratch_dir = request.scratch_path();
 
         if let Err(e) = executor_stage_async(
             buck2_data::LocalStage {
