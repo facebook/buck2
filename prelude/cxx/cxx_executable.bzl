@@ -463,6 +463,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
             strip = impl_params.strip_executable,
             strip_args_factory = impl_params.strip_args_factory,
             category_suffix = impl_params.exe_category_suffix,
+            allow_cache_upload = impl_params.exe_allow_cache_upload,
         ),
     )
     binary = link_result.exe

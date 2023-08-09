@@ -185,4 +185,6 @@ CxxRuleConstructorParams = record(
     link_groups_force_static_follows_dependents = field(bool, True),
     # The intended return type is: (["_arglike"], {str: [DefaultInfo.type]}).
     extra_linker_outputs_factory = field("function", lambda _context: ([], {})),
+    # Whether to allow cache uploads for locally-linked executables.
+    exe_allow_cache_upload = field(bool, False),
 )
