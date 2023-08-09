@@ -506,6 +506,7 @@ def cxx_dist_link(
 
                 opt_argsfile = ctx.actions.declare_output(opt_object.basename + ".opt.argsfile")
                 ctx.actions.write(opt_argsfile.as_output(), opt_common_flags, allow_args = True)
+                opt_cmd.hidden(opt_common_flags)
                 opt_cmd.add("--args", opt_argsfile)
 
                 opt_cmd.add("--")
