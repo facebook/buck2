@@ -145,4 +145,11 @@ impl PluginLists {
     > {
         self.0.iter().map(|(k, v)| (k, v.iter()))
     }
+
+    pub fn iter_for_kind<'a>(
+        &'a self,
+        kind: &PluginKind,
+    ) -> impl Iterator<Item = (&'a TargetLabel, &'a PluginListElemKind)> {
+        self.0.get(kind).into_iter().flatten()
+    }
 }

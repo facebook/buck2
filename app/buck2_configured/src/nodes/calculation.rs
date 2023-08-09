@@ -37,6 +37,7 @@ use buck2_core::plugins::PluginKindSet;
 use buck2_core::plugins::PluginListElemKind;
 use buck2_core::plugins::PluginLists;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::execute::dice_data::HasFallbackExecutorConfig;
@@ -750,10 +751,17 @@ async fn gather_deps(
         deps.push(dep);
     }
 
+    let mut exec_deps = traversal.exec_deps;
+    for kind in target_node.uses_plugins() {
+        exec_deps.extend(plugin_lists.iter_for_kind(kind).map(|(target, _)| {
+            attr_cfg_ctx.configure_exec_target(&ProvidersLabel::default_for(target.dupe()))
+        }));
+    }
+
     Ok((
         GatheredDeps {
             deps,
-            exec_deps: traversal.exec_deps,
+            exec_deps,
             toolchain_deps: traversal.toolchain_deps,
             plugin_lists,
         },

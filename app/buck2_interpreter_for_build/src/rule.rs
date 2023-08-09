@@ -16,6 +16,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::plugins::PluginKind;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
@@ -58,6 +59,7 @@ use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::attr_spec::AttributeSpecExt;
 use crate::nodes::unconfigured::TargetNodeExt;
+use crate::plugins::plugin_kind_from_value;
 
 pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 
@@ -78,6 +80,8 @@ struct RuleCallable<'v> {
     attributes: AttributeSpec,
     /// When specified, this transition will be applied to the target before configuring it.
     cfg: Option<Arc<TransitionId>>,
+    /// The plugins that are used by these targets
+    uses_plugins: Vec<PluginKind>,
     /// This kind of the rule, e.g. whether it can be used in configuration context.
     rule_kind: RuleKind,
     /// The raw docstring for this rule
@@ -184,6 +188,7 @@ impl<'v> Freeze for RuleCallable<'v> {
                 rule_type: RuleType::Starlark(rule_type.dupe()),
                 cfg: self.cfg,
                 rule_kind: self.rule_kind,
+                uses_plugins: self.uses_plugins,
             }),
             rule_type,
             implementation: frozen_impl,
@@ -291,6 +296,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
         #[starlark(require = named, default = false)] is_toolchain_rule: bool,
+        #[starlark(require = named, default = Vec::new())] uses_plugins: Vec<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {
         // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
@@ -318,6 +324,10 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             .collect::<anyhow::Result<Vec<(String, Attribute)>>>()?;
 
         let cfg = cfg.try_map(transition_id_from_value)?;
+        let uses_plugins = uses_plugins
+            .into_iter()
+            .map(plugin_kind_from_value)
+            .collect::<anyhow::Result<_>>()?;
 
         let rule_kind = match (is_configuration_rule, is_toolchain_rule) {
             (false, false) => RuleKind::Normal,
@@ -333,6 +343,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             attributes: AttributeSpec::from(sorted_validated_attrs)?,
             cfg,
             rule_kind,
+            uses_plugins,
             docs: Some(doc.to_owned()),
             ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
         })

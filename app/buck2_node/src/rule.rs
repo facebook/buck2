@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::plugins::PluginKind;
 
 use crate::attrs::spec::AttributeSpec;
 use crate::nodes::unconfigured::RuleKind;
@@ -28,4 +29,6 @@ pub struct Rule {
     pub rule_kind: RuleKind,
     /// Transition to apply to the target.
     pub cfg: Option<Arc<TransitionId>>,
+    /// The plugin kinds that are used by the target
+    pub uses_plugins: Vec<PluginKind>,
 }

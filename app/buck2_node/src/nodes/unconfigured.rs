@@ -125,6 +125,10 @@ impl TargetNode {
         self.0.rule.rule_kind == RuleKind::Toolchain
     }
 
+    pub fn uses_plugins(&self) -> &[PluginKind] {
+        &self.0.rule.uses_plugins
+    }
+
     pub fn get_default_target_platform(&self) -> Option<&TargetLabel> {
         match self.attr_or_none(
             DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD,
@@ -507,6 +511,7 @@ pub mod testing {
                     rule_type,
                     rule_kind: RuleKind::Normal,
                     cfg: None,
+                    uses_plugins: Vec::new(),
                 }),
                 Arc::new(Package {
                     buildfile_path,
