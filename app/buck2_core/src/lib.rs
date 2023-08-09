@@ -54,6 +54,7 @@ pub mod logging;
 pub mod metadata_key;
 pub mod package;
 pub mod pattern;
+pub mod plugins;
 pub mod provider;
 pub mod rollout_percentage;
 pub mod target;
