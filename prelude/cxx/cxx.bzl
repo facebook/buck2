@@ -11,6 +11,7 @@ load(
 )
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -98,6 +99,10 @@ load(
     "LinkGroupInfo",  # @unused Used as a type
     "LinkGroupLibSpec",
     "get_link_group_info",
+)
+load(
+    ":link_types.bzl",
+    "link_options",
 )
 load(
     ":linker.bzl",
@@ -382,12 +387,15 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                             ctx = ctx,
                             output = soname,
                             name = soname,
-                            links = [
-                                LinkArgs(flags = shlink_args),
-                                # TODO(T110378118): As per v1, we always link against "shared"
-                                # dependencies when building a shaerd library.
-                                get_link_args(inherited_exported_link, LinkStyle("shared")),
-                            ],
+                            opts = link_options(
+                                links = [
+                                    LinkArgs(flags = shlink_args),
+                                    # TODO(T110378118): As per v1, we always link against "shared"
+                                    # dependencies when building a shaerd library.
+                                    get_link_args(inherited_exported_link, LinkStyle("shared")),
+                                ],
+                                link_execution_preference = LinkExecutionPreference("any"),
+                            ),
                         )
                         shared_lib = link_result.linked_object
 

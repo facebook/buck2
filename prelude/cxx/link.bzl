@@ -52,6 +52,7 @@ load(
     "make_link_args",
 )
 load(":dwp.bzl", "dwp", "dwp_available")
+load(":link_types.bzl", "CxxLinkResultType", "LinkOptions", "merge_link_options")
 load(
     ":linker.bzl",
     "SharedLibraryFlagOverrides",  # @unused Used as a type
@@ -59,11 +60,6 @@ load(
     "get_output_flags",
     "get_shared_library_flags",
     "get_shared_library_name_linker_flags",
-)
-
-CxxLinkResultType = enum(
-    "executable",
-    "shared_library",
 )
 
 CxxLinkerMapData = record(
@@ -112,21 +108,8 @@ def cxx_link_into(
         ctx: AnalysisContext,
         # The destination for the link output.
         output: Artifact,
-        links: list[LinkArgs.type],
         result_type: CxxLinkResultType.type,
-        link_execution_preference: LinkExecutionPreference.type,
-        link_weight: int = 1,
-        link_ordering: [LinkOrdering.type, None] = None,
-        enable_distributed_thinlto: bool = False,
-        # A category suffix that will be added to the category of the link action that is generated.
-        category_suffix: [str, None] = None,
-        # An identifier that will uniquely name this link action in the context of a category. Useful for
-        # differentiating multiple link actions in the same rule.
-        identifier: [str, None] = None,
-        strip: bool = False,
-        # A function/lambda which will generate the strip args using the ctx.
-        strip_args_factory = None,
-        import_library: [Artifact, None] = None) -> CxxLinkResult.type:
+        opts: LinkOptions.type) -> CxxLinkResult.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
@@ -143,29 +126,31 @@ def cxx_link_into(
         linker_map = None
         linker_map_data = None
 
-    if linker_info.supports_distributed_thinlto and enable_distributed_thinlto:
+    if linker_info.supports_distributed_thinlto and opts.enable_distributed_thinlto:
         if not linker_info.requires_objects:
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't require_objects")
         exe = cxx_dist_link(
             ctx,
-            links,
+            opts.links,
             output,
             linker_map,
-            category_suffix,
-            identifier,
+            opts.category_suffix,
+            opts.identifier,
             should_generate_dwp,
             is_result_executable,
         )
         return CxxLinkResult(
             linked_object = exe,
             linker_map_data = linker_map_data,
-            link_execution_preference_info = LinkExecutionPreferenceInfo(preference = link_execution_preference),
+            link_execution_preference_info = LinkExecutionPreferenceInfo(
+                preference = opts.link_execution_preference,
+            ),
         )
 
     if linker_info.generate_linker_maps:
-        links_with_linker_map = links + [linker_map_args(ctx, linker_map.as_output())]
+        links_with_linker_map = opts.links + [linker_map_args(ctx, linker_map.as_output())]
     else:
-        links_with_linker_map = links
+        links_with_linker_map = opts.links
 
     linker, toolchain_linker_flags = cxx_link_cmd_parts(ctx)
     all_link_args = cmd_args(toolchain_linker_flags)
@@ -182,11 +167,11 @@ def cxx_link_into(
     (link_args, hidden, pdb_artifact) = make_link_args(
         ctx,
         links_with_linker_map,
-        suffix = identifier,
+        suffix = opts.identifier,
         output_short_path = output.short_path,
         is_shared = result_type.value == "shared_library",
         link_ordering = value_or(
-            link_ordering,
+            opts.link_ordering,
             # Fallback to toolchain default.
             map_val(LinkOrdering, linker_info.link_ordering),
         ),
@@ -194,7 +179,7 @@ def cxx_link_into(
     all_link_args.add(link_args)
 
     bitcode_linkables = []
-    for link_item in links:
+    for link_item in opts.links:
         if link_item.infos == None:
             continue
         for link_info in link_item.infos:
@@ -209,10 +194,10 @@ def cxx_link_into(
         bitcode_artifact = None
 
     external_debug_info = ArtifactTSet()
-    if not (strip or getattr(ctx.attrs, "prefer_stripped_objects", False)):
+    if not (opts.strip or getattr(ctx.attrs, "prefer_stripped_objects", False)):
         external_debug_info = link_external_debug_info(
             ctx = ctx,
-            links = links,
+            links = opts.links,
             split_debug_output = split_debug_output,
             pdb = pdb_artifact,
         )
@@ -233,8 +218,8 @@ def cxx_link_into(
     command.hidden(hidden)
     command.hidden(shell_quoted_args)
     category = "cxx_link"
-    if category_suffix != None:
-        category += "_" + category_suffix
+    if opts.category_suffix != None:
+        category += "_" + opts.category_suffix
 
     # If the linked object files don't contain debug info, clang may not
     # generate a DWO directory, so make sure we at least `mkdir` and empty
@@ -246,39 +231,43 @@ def cxx_link_into(
         cmd.hidden(command)
         command = cmd
 
-    link_execution_preference_info = LinkExecutionPreferenceInfo(preference = link_execution_preference)
-    action_execution_properties = get_action_execution_attributes(link_execution_preference)
+    link_execution_preference_info = LinkExecutionPreferenceInfo(
+        preference = opts.link_execution_preference,
+    )
+    action_execution_properties = get_action_execution_attributes(
+        opts.link_execution_preference,
+    )
 
     ctx.actions.run(
         command,
         prefer_local = action_execution_properties.prefer_local,
         prefer_remote = action_execution_properties.prefer_remote,
         local_only = action_execution_properties.local_only,
-        weight = link_weight,
+        weight = opts.link_weight,
         category = category,
-        identifier = identifier,
+        identifier = opts.identifier,
         force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
     )
-    if strip:
-        strip_args = strip_args_factory(ctx) if strip_args_factory else cmd_args()
-        output = strip_object(ctx, cxx_toolchain_info, output, strip_args, category_suffix)
+    if opts.strip:
+        strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
+        output = strip_object(ctx, cxx_toolchain_info, output, strip_args, opts.category_suffix)
 
-    final_output = output if not (is_result_executable and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
+    final_output = output if not (is_result_executable and cxx_use_bolt(ctx)) else bolt(ctx, output, opts.identifier)
     dwp_artifact = None
     if should_generate_dwp:
         # TODO(T110378144): Once we track split dwarf from compiles, we should
         # just pass in `binary.external_debug_info` here instead of all link
         # args.
         dwp_inputs = cmd_args()
-        for link in links:
+        for link in opts.links:
             dwp_inputs.add(unpack_link_args(link))
         dwp_inputs.add(project_artifacts(ctx.actions, [external_debug_info]))
 
         dwp_artifact = dwp(
             ctx,
             final_output,
-            identifier = identifier,
-            category_suffix = category_suffix,
+            identifier = opts.identifier,
+            category_suffix = opts.category_suffix,
             # TODO(T110378142): Ideally, referenced objects are a list of
             # artifacts, but currently we don't track them properly.  So, we
             # just pass in the full link line and extract all inputs from that,
@@ -293,7 +282,7 @@ def cxx_link_into(
         dwp = dwp_artifact,
         external_debug_info = external_debug_info,
         linker_argsfile = argfile,
-        import_library = import_library,
+        import_library = opts.import_library,
         pdb = pdb_artifact,
         split_debug_output = split_debug_output,
     )
@@ -309,36 +298,35 @@ _AnonLinkInfo = provider(fields = [
 ])
 
 def _anon_link_impl(ctx):
+    (output, result_type, opts) = deserialize_anon_attrs(ctx.actions, ctx.label, ctx.attrs)
+
     link_result = cxx_link(
         ctx = ctx,
-        result_type = CxxLinkResultType(ctx.attrs.result_type),
-        **deserialize_anon_attrs(ctx.actions, ctx.label, ctx.attrs)
+        output = output,
+        result_type = result_type,
+        opts = opts,
     )
+
     return [DefaultInfo(), _AnonLinkInfo(result = link_result)]
 
 _anon_link_rule = rule(
     impl = _anon_link_impl,
-    attrs = dict(
-        result_type = attrs.enum(CxxLinkResultType.values()),
-        **ANON_ATTRS
-    ),
+    attrs = ANON_ATTRS,
 )
 
 def _anon_cxx_link(
         ctx: AnalysisContext,
         output: str,
         result_type: CxxLinkResultType.type,
-        links: list[LinkArgs.type] = [],
-        **kwargs) -> CxxLinkResult.type:
+        opts: LinkOptions.type) -> CxxLinkResult.type:
     anon_providers = ctx.actions.anon_target(
         _anon_link_rule,
         dict(
             _cxx_toolchain = ctx.attrs._cxx_toolchain,
-            result_type = result_type.value,
             **serialize_anon_attrs(
                 output = output,
-                links = links,
-                **kwargs
+                result_type = result_type,
+                opts = opts,
             )
         ),
     )
@@ -361,7 +349,7 @@ def _anon_cxx_link(
         )
     external_debug_info = link_external_debug_info(
         ctx = ctx,
-        links = links,
+        links = opts.links,
         split_debug_output = split_debug_output,
     )
 
@@ -380,31 +368,36 @@ def _anon_cxx_link(
 def cxx_link(
         ctx: AnalysisContext,
         output: str,
-        anonymous: bool = False,
-        **kwargs):
+        result_type: CxxLinkResultType.type,
+        opts: LinkOptions.type,
+        anonymous: bool = False):
     if anonymous:
         return _anon_cxx_link(
             ctx = ctx,
             output = output,
-            **kwargs
+            result_type = result_type,
+            opts = opts,
         )
     return cxx_link_into(
         ctx = ctx,
         output = ctx.actions.declare_output(output),
-        **kwargs
+        result_type = result_type,
+        opts = opts,
     )
 
 def cxx_link_shared_library(
         ctx: AnalysisContext,
         # The destination for the link output.
         output: str,
+        opts: LinkOptions,
         # Optional soname to link into shared library.
         name: [str, None] = None,
-        links: list[LinkArgs.type] = [],
-        link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
         # Overrides the default flags used to specify building shared libraries
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
-        **kwargs) -> CxxLinkResult.type:
+        anonymous: bool = False) -> CxxLinkResult.type:
+    # links: list[LinkArgs.type] = [],
+    # link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
+
     """
     Link a shared library into the supplied output.
     """
@@ -416,6 +409,7 @@ def cxx_link_shared_library(
     if name != None:
         extra_args.extend(get_shared_library_name_linker_flags(linker_type, name, shared_library_flags))
 
+    link_execution_preference = opts.link_execution_preference
     if linker_info.link_libraries_locally:
         link_execution_preference = LinkExecutionPreference("local")
 
@@ -425,14 +419,19 @@ def cxx_link_shared_library(
         output,
     )
 
-    links_with_extra_args = [LinkArgs(flags = extra_args)] + links + [LinkArgs(flags = import_library_args)]
+    links_with_extra_args = [LinkArgs(flags = extra_args)] + opts.links + [LinkArgs(flags = import_library_args)]
+
+    opts = merge_link_options(
+        opts,
+        links = links_with_extra_args,
+        link_execution_preference = link_execution_preference,
+        import_library = import_library,
+    )
 
     return cxx_link(
         ctx = ctx,
         output = output,
-        links = links_with_extra_args,
         result_type = CxxLinkResultType("shared_library"),
-        import_library = import_library,
-        link_execution_preference = link_execution_preference,
-        **kwargs
+        opts = opts,
+        anonymous = anonymous,
     )

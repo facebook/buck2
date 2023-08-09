@@ -160,6 +160,10 @@ load(
     "get_link_group_preferred_linkage",
 )
 load(
+    ":link_types.bzl",
+    "link_options",
+)
+load(
     ":linker.bzl",
     "get_default_shared_library_name",
     "get_ignore_undefined_symbols_flags",
@@ -1280,14 +1284,16 @@ def _shared_library(
     link_result = cxx_link_shared_library(
         ctx = ctx,
         output = soname,
+        opts = link_options(
+            links = [LinkArgs(infos = [link_info]), dep_infos],
+            identifier = soname,
+            link_ordering = link_ordering,
+            strip = impl_params.strip_executable,
+            strip_args_factory = impl_params.strip_args_factory,
+            link_execution_preference = link_execution_preference,
+        ),
         name = soname if impl_params.use_soname else None,
-        links = [LinkArgs(infos = [link_info]), dep_infos],
-        identifier = soname,
-        link_ordering = link_ordering,
         shared_library_flags = impl_params.shared_library_flags,
-        strip = impl_params.strip_executable,
-        strip_args_factory = impl_params.strip_args_factory,
-        link_execution_preference = link_execution_preference,
     )
     exported_shlib = link_result.linked_object.output
 
@@ -1313,12 +1319,14 @@ def _shared_library(
                 linker_info,
                 ctx.label.name + "-for-interface",
             ),
-            category_suffix = "interface",
-            link_ordering = link_ordering,
+            opts = link_options(
+                category_suffix = "interface",
+                link_ordering = link_ordering,
+                links = [LinkArgs(infos = [link_info])],
+                identifier = soname + "-interface",
+                link_execution_preference = link_execution_preference,
+            ),
             name = soname,
-            links = [LinkArgs(infos = [link_info])],
-            identifier = soname + "-interface",
-            link_execution_preference = link_execution_preference,
         )
 
         # Convert the shared library into an interface.

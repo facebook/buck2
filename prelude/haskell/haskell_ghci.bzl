@@ -13,6 +13,10 @@ load(
     "cxx_link_shared_library",
 )
 load(
+    "@prelude//cxx:link_types.bzl",
+    "link_options",
+)
+load(
     "@prelude//haskell:haskell.bzl",
     "HaskellLibraryProvider",
     "HaskellToolchainInfo",
@@ -21,6 +25,7 @@ load(
     "get_artifact_suffix",
     "get_packages_info",
 )
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
@@ -279,14 +284,17 @@ def _build_haskell_omnibus_so(
     link_result = cxx_link_shared_library(
         ctx,
         soname,
-        links = [
-            LinkArgs(flags = extra_ldflags),
-            LinkArgs(infos = body_link_infos.values()),
-            LinkArgs(infos = tp_deps_shared_link_infos.values()),
-        ],
-        category_suffix = "omnibus",
-        link_weight = linker_info.link_weight,
-        identifier = soname,
+        opts = link_options(
+            links = [
+                LinkArgs(flags = extra_ldflags),
+                LinkArgs(infos = body_link_infos.values()),
+                LinkArgs(infos = tp_deps_shared_link_infos.values()),
+            ],
+            category_suffix = "omnibus",
+            link_weight = linker_info.link_weight,
+            identifier = soname,
+            link_execution_preference = LinkExecutionPreference("any"),
+        ),
     )
     omnibus = link_result.linked_object.output
 

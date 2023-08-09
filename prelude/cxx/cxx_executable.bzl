@@ -111,7 +111,6 @@ load(
 )
 load(
     ":link.bzl",
-    "CxxLinkResultType",
     "CxxLinkerMapData",
     "cxx_link_into",
 )
@@ -128,6 +127,11 @@ load(
     "get_link_group",
     "get_link_group_map_json",
     "get_link_group_preferred_linkage",
+)
+load(
+    ":link_types.bzl",
+    "CxxLinkResultType",
+    "link_options",
 )
 load(
     ":linker.bzl",
@@ -636,15 +640,17 @@ def _link_into_executable(
     link_result = cxx_link_into(
         ctx = ctx,
         output = output,
-        links = links,
         result_type = CxxLinkResultType("executable"),
-        enable_distributed_thinlto = enable_distributed_thinlto,
-        category_suffix = category_suffix,
-        strip = strip,
-        strip_args_factory = strip_args_factory,
-        link_ordering = link_ordering,
-        link_weight = link_weight,
-        link_execution_preference = link_execution_preference,
+        opts = link_options(
+            links = links,
+            enable_distributed_thinlto = enable_distributed_thinlto,
+            category_suffix = category_suffix,
+            strip = strip,
+            strip_args_factory = strip_args_factory,
+            link_ordering = link_ordering,
+            link_weight = link_weight,
+            link_execution_preference = link_execution_preference,
+        ),
     )
 
     return _CxxLinkExecutableResult(

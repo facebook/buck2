@@ -22,6 +22,12 @@ load(
     "ObjectsLinkable",
     "SharedLibLinkable",
 )
+load(
+    ":link_types.bzl",
+    "CxxLinkResultType",
+    "LinkOptions",
+    "link_options",
+)
 
 def _serialize_linkable(linkable):
     if linkable._type == LinkableType("archive"):
@@ -75,21 +81,18 @@ def _serialize_links(links: list[LinkArgs.type]):
     return [_serialize_link_args(link) for link in links]
 
 def serialize_anon_attrs(
-        links: list[LinkArgs.type],
         output: str,
-        import_library: [Artifact, None] = None,
-        link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
-        enable_distributed_thinlto: bool = False,
-        identifier: [str, None] = None,
-        category_suffix: [str, None] = None) -> dict[str, typing.Any]:
+        result_type: CxxLinkResultType.type,
+        opts: LinkOptions.type) -> dict[str, typing.Any]:
     return dict(
-        links = _serialize_links(links),
+        links = _serialize_links(opts.links),
         output = output,
-        import_library = import_library,
-        link_execution_preference = link_execution_preference.value,
-        enable_distributed_thinlto = enable_distributed_thinlto,
-        identifier = identifier,
-        category_suffix = category_suffix,
+        import_library = opts.import_library,
+        link_execution_preference = opts.link_execution_preference.value,
+        enable_distributed_thinlto = opts.enable_distributed_thinlto,
+        identifier = opts.identifier,
+        category_suffix = opts.category_suffix,
+        result_type = result_type.value,
     )
 
 def _deserialize_linkable(linkable: (str, typing.Any)) -> typing.Any:
@@ -154,9 +157,11 @@ def _deserialize_link_args(
 
     fail("invalid link args type: {}".format(typ))
 
-def deserialize_anon_attrs(actions: "actions", label: Label, attrs: "struct") -> dict[str, typing.Any]:
-    return dict(
-        output = attrs.output,
+def deserialize_anon_attrs(
+        actions: "actions",
+        label: Label,
+        attrs: "struct") -> (str.type, CxxLinkResultType.type, LinkOptions.type):
+    opts = link_options(
         links = [_deserialize_link_args(actions, label, link) for link in attrs.links],
         import_library = attrs.import_library,
         link_execution_preference = LinkExecutionPreference(attrs.link_execution_preference),
@@ -164,6 +169,10 @@ def deserialize_anon_attrs(actions: "actions", label: Label, attrs: "struct") ->
         identifier = attrs.identifier,
         enable_distributed_thinlto = attrs.enable_distributed_thinlto,
     )
+
+    result_type = CxxLinkResultType(attrs.result_type)
+
+    return (attrs.output, result_type, opts)
 
 # The attributes -- and their serialzied type -- that can be passed to an
 # anonymous link.
@@ -232,5 +241,6 @@ ANON_ATTRS = {
         default = [],
     ),
     "output": attrs.string(),
+    "result_type": attrs.enum(CxxLinkResultType.values()),
     "_cxx_toolchain": attrs.dep(providers = [CxxToolchainInfo]),
 }

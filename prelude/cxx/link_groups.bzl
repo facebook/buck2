@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLib",
@@ -68,6 +69,10 @@ load(
 load(
     ":link.bzl",
     "cxx_link_shared_library",
+)
+load(
+    ":link_types.bzl",
+    "link_options",
 )
 load(
     ":linker.bzl",
@@ -601,10 +606,13 @@ def _create_link_group(
         ctx = ctx,
         output = paths.join("__link_groups__", spec.name),
         name = spec.name if spec.is_shared_lib else None,
-        links = [LinkArgs(infos = inputs)],
-        category_suffix = category_suffix,
-        identifier = spec.name,
-        enable_distributed_thinlto = spec.group.attrs.enable_distributed_thinlto,
+        opts = link_options(
+            links = [LinkArgs(infos = inputs)],
+            category_suffix = category_suffix,
+            identifier = spec.name,
+            enable_distributed_thinlto = spec.group.attrs.enable_distributed_thinlto,
+            link_execution_preference = LinkExecutionPreference("any"),
+        ),
         anonymous = anonymous,
     )
     return link_result.linked_object
@@ -618,9 +626,12 @@ def _stub_library(
         ctx = ctx,
         output = name + ".stub",
         name = name,
-        links = [LinkArgs(flags = extra_ldflags)],
-        identifier = name,
-        category_suffix = "stub_library",
+        opts = link_options(
+            links = [LinkArgs(flags = extra_ldflags)],
+            identifier = name,
+            category_suffix = "stub_library",
+            link_execution_preference = LinkExecutionPreference("any"),
+        ),
         anonymous = anonymous,
     )
     toolchain_info = get_cxx_toolchain_info(ctx)

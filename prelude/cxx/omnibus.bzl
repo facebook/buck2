@@ -47,6 +47,10 @@ load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
 load("@prelude//open_source.bzl", "is_open_source")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
+    ":link_types.bzl",
+    "link_options",
+)
+load(
     ":linker.bzl",
     "get_default_shared_library_name",
     "get_ignore_undefined_symbols_flags",
@@ -267,9 +271,12 @@ def create_linkable_root(
             ctx = ctx,
             output = output,
             name = name,
-            links = [LinkArgs(flags = env.shared_root_ld_flags), LinkArgs(infos = inputs)],
-            category_suffix = "omnibus_root",
-            identifier = name or output,
+            opts = link_options(
+                links = [LinkArgs(flags = env.shared_root_ld_flags), LinkArgs(infos = inputs)],
+                category_suffix = "omnibus_root",
+                identifier = name or output,
+                link_execution_preference = LinkExecutionPreference("any"),
+            ),
         )
         shared_library = link_result.linked_object
 
@@ -331,8 +338,11 @@ def create_dummy_omnibus(ctx: AnalysisContext, extra_ldflags: list[typing.Any] =
         ctx = ctx,
         output = get_shared_library_name(linker_info, "omnibus-dummy"),
         name = _omnibus_soname(ctx),
-        links = [LinkArgs(flags = extra_ldflags)],
-        category_suffix = "dummy_omnibus",
+        opts = link_options(
+            links = [LinkArgs(flags = extra_ldflags)],
+            category_suffix = "dummy_omnibus",
+            link_execution_preference = LinkExecutionPreference("any"),
+        ),
     )
     return link_result.linked_object.output
 
@@ -469,13 +479,15 @@ def _create_root(
         ctx = ctx,
         output = output,
         name = root.name,
-        links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
-        category_suffix = "omnibus_root",
-        identifier = root.name or output,
-        # We prefer local execution because there are lot of cxx_link_omnibus_root
-        # running simultaneously, so while their overall load is reasonable,
-        # their peak execution load is very high.
-        link_execution_preference = LinkExecutionPreference("local"),
+        opts = link_options(
+            links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
+            category_suffix = "omnibus_root",
+            identifier = root.name or output,
+            # We prefer local execution because there are lot of cxx_link_omnibus_root
+            # running simultaneously, so while their overall load is reasonable,
+            # their peak execution load is very high.
+            link_execution_preference = LinkExecutionPreference("local"),
+        ),
     )
     shared_library = link_result.linked_object
 
@@ -739,19 +751,21 @@ def _create_omnibus(
         ctx = ctx,
         output = soname,
         name = soname,
-        links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
-        category_suffix = "omnibus",
-        # TODO(T110378138): As with static C++ links, omnibus links are
-        # currently too large for RE, so run them locally for now (e.g.
-        # https://fb.prod.workplace.com/groups/buck2dev/posts/2953023738319012/).
-        # NB: We explicitly pass a value here to override
-        # the linker_info.link_libraries_locally that's used by `cxx_link_shared_library`.
-        # That's because we do not want to apply the linking behavior universally,
-        # just use it for omnibus.
-        link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, [], use_hybrid_links_for_libomnibus(ctx), toolchain_info),
-        link_weight = linker_info.link_weight,
-        enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
-        identifier = soname,
+        opts = link_options(
+            links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
+            category_suffix = "omnibus",
+            # TODO(T110378138): As with static C++ links, omnibus links are
+            # currently too large for RE, so run them locally for now (e.g.
+            # https://fb.prod.workplace.com/groups/buck2dev/posts/2953023738319012/).
+            # NB: We explicitly pass a value here to override
+            # the linker_info.link_libraries_locally that's used by `cxx_link_shared_library`.
+            # That's because we do not want to apply the linking behavior universally,
+            # just use it for omnibus.
+            link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, [], use_hybrid_links_for_libomnibus(ctx), toolchain_info),
+            link_weight = linker_info.link_weight,
+            enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
+            identifier = soname,
+        ),
     )
 
 def _build_omnibus_spec(
