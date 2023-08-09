@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::plugins::PluginKind;
+use buck2_interpreter::plugins::PLUGIN_KIND_FROM_VALUE;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
@@ -167,4 +168,8 @@ impl<'v> StarlarkValue<'v> for Plugins {
 
 pub(crate) fn register_plugins(globals: &mut GlobalsBuilder) {
     globals.set("plugins", globals.frozen_heap().alloc_simple(Plugins));
+}
+
+pub(crate) fn init_plugin_kind_from_value_impl() {
+    PLUGIN_KIND_FROM_VALUE.init(plugin_kind_from_value)
 }
