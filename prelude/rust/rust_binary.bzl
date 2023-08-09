@@ -233,11 +233,6 @@ def rust_test_impl(ctx: AnalysisContext) -> list[[DefaultInfo.type, RunInfo.type
     # Setup a RE executor based on the `remote_execution` param.
     re_executor = get_re_executor_from_props(ctx.attrs.remote_execution)
 
-    # We implicitly make this test via the project root, instead of
-    # the cell root (e.g. fbcode root).
-    run_from_project_root = "buck2_run_from_project_root" in (ctx.attrs.labels or []) or \
-                            re_executor != None
-
     return inject_test_run_info(
         ctx,
         ExternalRunnerTestInfo(
@@ -247,7 +242,7 @@ def rust_test_impl(ctx: AnalysisContext) -> list[[DefaultInfo.type, RunInfo.type
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
             default_executor = re_executor,
-            run_from_project_root = run_from_project_root,
-            use_project_relative_paths = run_from_project_root,
+            run_from_project_root = True,
+            use_project_relative_paths = True,
         ),
     ) + providers
