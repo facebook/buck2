@@ -88,6 +88,9 @@ r = [y(), mk()]
     assert_eq!(COUNT.load(Ordering::SeqCst), 5);
 }
 
+// This test relies on stack behavior which does not hold when
+// ASAN is enabled. See D47571173 for more context.
+#[cfg_attr(rust_nightly, cfg(not(sanitize = "address")))]
 #[test]
 fn test_stack_depth() {
     #[starlark_module]

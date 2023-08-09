@@ -250,6 +250,9 @@ noop(f)(1)
     );
 }
 
+// This test relies on stack behavior which does not hold when
+// ASAN is enabled. See D47571173 for more context.
+#[cfg_attr(rust_nightly, cfg(not(sanitize = "address")))]
 #[test]
 fn test_frame_size() {
     #[starlark_module]
