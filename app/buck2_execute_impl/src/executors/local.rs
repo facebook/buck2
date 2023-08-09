@@ -263,7 +263,7 @@ impl LocalExecutor {
         // TODO: Release here.
         let manager = manager.claim().await;
 
-        let scratch_dir = request.custom_tmpdir().as_ref().map(|tmpdir| {
+        let scratch_dir = request.scratch_path().as_ref().map(|tmpdir| {
             self.artifact_fs
                 .buck_out_path_resolver()
                 .resolve_scratch(tmpdir)

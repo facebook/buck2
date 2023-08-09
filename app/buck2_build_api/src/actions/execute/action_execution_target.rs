@@ -43,7 +43,7 @@ impl<'a> ActionExecutionTarget<'a> {
         self.action.identifier()
     }
 
-    pub fn custom_tmpdir(&self) -> BuckOutScratchPath {
+    pub fn scratch_path(&self) -> BuckOutScratchPath {
         BuckOutScratchPath::new(
             self.action.owner().dupe(),
             self.action.category(),

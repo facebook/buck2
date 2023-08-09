@@ -414,7 +414,7 @@ impl RunAction {
             ctx.digest_config(),
         )?;
 
-        let scratch = ctx.target().custom_tmpdir();
+        let scratch = ctx.target().scratch_path();
         let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
 
         Ok(PreparedRunAction {
@@ -453,10 +453,10 @@ impl PreparedRunAction {
         }
 
         if knobs.expose_action_scratch_path {
-            // We don't reuse the actual `scratch_path` because that's used as the `custom_tmpdir`,
-            // which will get created when running locally, but not on RE. By using a directory
-            // *inside* that dir, we ensure that it consistently does *not* get created, so our
-            // callers are forced to create it for themselves.
+            // We don't reuse the actual `scratch_path` because that's used as the
+            // `with_scratch_path`, which will get created when running locally, but not on RE. By
+            // using a directory *inside* that dir, we ensure that it consistently does *not* get
+            // created, so our callers are forced to create it for themselves.
             env.insert(
                 "BUCK_SCRATCH_PATH".to_owned(),
                 scratch_path
@@ -468,7 +468,7 @@ impl PreparedRunAction {
 
         CommandExecutionRequest::new(exe, args, paths, env)
             .with_worker(worker)
-            .with_custom_tmpdir(scratch)
+            .with_scratch_path(scratch)
     }
 }
 

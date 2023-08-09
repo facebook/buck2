@@ -268,7 +268,7 @@ pub struct CommandExecutionRequest {
     timeout: Option<Duration>,
     executor_preference: ExecutorPreference,
     // Run with a custom $TMPDIR, or just the standard system one
-    custom_tmpdir: Option<BuckOutScratchPath>,
+    scratch_path: Option<BuckOutScratchPath>,
     host_sharing_requirements: HostSharingRequirements,
     // Used to disable the low pass filter for concurrent local actions. Enabled by default
     low_pass_filter: bool,
@@ -309,7 +309,7 @@ impl CommandExecutionRequest {
             env,
             timeout: None,
             executor_preference: ExecutorPreference::Default,
-            custom_tmpdir: None,
+            scratch_path: None,
             host_sharing_requirements: HostSharingRequirements::default(),
             low_pass_filter: true,
             working_directory: None,
@@ -338,12 +338,12 @@ impl CommandExecutionRequest {
         self
     }
 
-    pub fn custom_tmpdir(&self) -> &Option<BuckOutScratchPath> {
-        &self.custom_tmpdir
+    pub fn scratch_path(&self) -> &Option<BuckOutScratchPath> {
+        &self.scratch_path
     }
 
-    pub fn with_custom_tmpdir(mut self, custom_tmpdir: BuckOutScratchPath) -> Self {
-        self.custom_tmpdir = Some(custom_tmpdir);
+    pub fn with_scratch_path(mut self, scratch_path: BuckOutScratchPath) -> Self {
+        self.scratch_path = Some(scratch_path);
         self
     }
 
