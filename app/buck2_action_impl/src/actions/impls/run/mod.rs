@@ -36,7 +36,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::Category;
 use buck2_core::fs::buck_out_path::BuckOutPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -402,14 +401,11 @@ impl RunAction {
         let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
 
         if ctx.run_action_knobs().expose_action_scratch_path {
-            // We don't reuse the actual `scratch_path` because that's used as the
-            // `with_scratch_path`, which will get created when running locally, but not on RE. By
-            // using a directory *inside* that dir, we ensure that it consistently does *not* get
-            // created, so our callers are forced to create it for themselves.
-            let path = scratch_path.join(ForwardRelativePath::unchecked_new("__scratch__"));
             extra_env.push((
                 "BUCK_SCRATCH_PATH".to_owned(),
-                cli_ctx.resolve_project_path(path)?.into_string(),
+                cli_ctx
+                    .resolve_project_path(scratch_path.clone())?
+                    .into_string(),
             ));
         }
 
