@@ -31,6 +31,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSep
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
@@ -361,7 +362,8 @@ impl RunAction {
         visitor: &mut impl RunActionVisitor,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<PreparedRunAction> {
-        let fs = ctx.fs();
+        let executor_fs = ctx.executor_fs();
+        let fs = executor_fs.fs();
 
         let (expanded, worker) =
             self.expand_command_line_and_worker(&ctx.executor_fs(), visitor)?;
@@ -380,10 +382,14 @@ impl RunAction {
         // Generate content and output path for the file. It will be either passed
         // to RE as a blob or written to disk in local executor.
         // Path to this file is passed to user in environment variable which is selected by user.
+        let cli_ctx = DefaultCommandLineContext::new(&executor_fs);
+
         let extra_env = if let Some(metadata_param) = &self.inner.metadata_param {
             let path = BuckOutPath::new(ctx.target().owner().dupe(), metadata_param.path.clone());
-            let resolved_path = fs.buck_out_path_resolver().resolve_gen(&path);
-            let extra = (metadata_param.env_var.to_owned(), resolved_path.to_string());
+            let env = cli_ctx
+                .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path))?
+                .into_string();
+            let extra = (metadata_param.env_var.to_owned(), env);
             let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;
             inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
                 data,
