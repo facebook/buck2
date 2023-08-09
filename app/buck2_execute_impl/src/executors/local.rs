@@ -807,6 +807,9 @@ pub async fn materialize_inputs(
                 CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
                 artifact_fs.fs().write_file(&path, &metadata.data, false)?;
             }
+            CommandExecutionInput::ScratchPath(..) => {
+                // TODO: Handle this later
+            }
         }
     }
 
@@ -866,6 +869,9 @@ async fn check_inputs(
                     }
                     CommandExecutionInput::ActionMetadata(..) => {
                         // Ignore those here.
+                    }
+                    CommandExecutionInput::ScratchPath(..) => {
+                        // Nothing to look at
                     }
                 }
             }

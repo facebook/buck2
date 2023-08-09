@@ -167,6 +167,7 @@ impl CommandExecutor {
                 CommandExecutionInput::ActionMetadata(metadata) => {
                     Some((metadata.data.clone(), metadata.digest.dupe()))
                 }
+                CommandExecutionInput::ScratchPath(_) => None,
             });
             let action = re_create_action(
                 request.all_args_vec(),

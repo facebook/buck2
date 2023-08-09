@@ -407,6 +407,8 @@ impl RunAction {
                     .resolve_project_path(scratch_path.clone())?
                     .into_string(),
             ));
+
+            inputs.push(CommandExecutionInput::ScratchPath(scratch));
         }
 
         let paths = CommandExecutionPaths::new(

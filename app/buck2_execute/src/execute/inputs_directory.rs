@@ -36,6 +36,10 @@ pub fn inputs_directory(
                     })),
                 )?;
             }
+            CommandExecutionInput::ScratchPath(path) => {
+                let path = fs.buck_out_path_resolver().resolve_scratch(path);
+                builder.insert(&path, DirectoryEntry::Dir(ActionDirectoryBuilder::empty()))?;
+            }
         };
     }
     Ok(builder)
