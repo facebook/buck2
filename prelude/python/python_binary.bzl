@@ -288,7 +288,7 @@ def python_executable(
         main_module: str,
         srcs: dict[str, Artifact],
         resources: dict[str, (Artifact, list[ArgLike])],
-        compile: bool = False) -> PexProviders.type:
+        compile: bool) -> PexProviders.type:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
 
