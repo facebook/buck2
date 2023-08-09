@@ -28,7 +28,6 @@ impl<'v> SpaceSeparatedCommandLineBuilder<'v> {
         }
     }
 
-    #[allow(dead_code)]
     pub fn wrap_string(string: &'v mut String) -> Self {
         let builder = StringAsArgBuilder::new(string);
         Self::wrap(builder as _)

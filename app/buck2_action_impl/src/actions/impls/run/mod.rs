@@ -27,7 +27,7 @@ use buck2_build_api::actions::IncrementalActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
-// use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -311,12 +311,14 @@ impl RunAction {
             .env
             .into_iter()
             .map(|(k, v)| {
-                let mut env = Vec::<String>::new(); // TODO (torozco): Use a String.
+                let mut env = String::new();
                 let mut ctx = DefaultCommandLineContext::new(fs);
-                v.add_to_command_line(&mut env, &mut ctx)?;
+                v.add_to_command_line(
+                    &mut SpaceSeparatedCommandLineBuilder::wrap_string(&mut env),
+                    &mut ctx,
+                )?;
                 v.visit_artifacts(artifact_visitor)?;
-                let var = env.join(" ");
-                Ok((k.to_owned(), var))
+                Ok((k.to_owned(), env))
             })
             .collect();
 

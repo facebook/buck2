@@ -10,7 +10,7 @@
 pub mod arg_builder;
 mod builder;
 mod options;
-pub(crate) mod space_separated;
+pub mod space_separated;
 mod traits;
 mod typ;
 pub mod value;

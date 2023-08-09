@@ -21,6 +21,7 @@ use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -1128,7 +1129,7 @@ impl<'a> Execute2RequestExpander<'a> {
 
         let env_for_interpolation = self.test_info.env().collect::<HashMap<_, _>>();
 
-        let expand_arg_value = |cli: &mut Vec<String>,
+        let expand_arg_value = |cli: &mut dyn CommandLineBuilder,
                                 ctx: &mut dyn CommandLineContext,
                                 artifact_visitor: &mut dyn CommandLineArtifactVisitor,
                                 declared_outputs: &mut IndexMap<
@@ -1193,17 +1194,16 @@ impl<'a> Execute2RequestExpander<'a> {
             .env
             .into_iter()
             .map(|(k, v)| {
-                let mut env = Vec::<String>::new();
+                let mut env = String::new();
                 let mut ctx = B::new(self.fs);
                 expand_arg_value(
-                    &mut env,
+                    &mut SpaceSeparatedCommandLineBuilder::wrap_string(&mut env),
                     &mut ctx,
                     &mut artifact_visitor,
                     self.declared_outputs,
                     v,
                 )?;
-                // TODO (torozco): Just use a String directly
-                anyhow::Ok((k, env.join(" ")))
+                anyhow::Ok((k, env))
             })
             .collect::<Result<SortedVectorMap<_, _>, _>>()?;
 
