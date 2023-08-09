@@ -18,6 +18,7 @@ pub mod command_executor_config;
 pub mod context;
 pub mod digest_config;
 pub mod label_relative_path;
+pub mod plugins;
 pub mod provider;
 pub mod resolve_query_macro;
 pub mod resolved_macro;

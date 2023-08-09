@@ -28,6 +28,7 @@ use buck2_build_api::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
 use buck2_build_api::dynamic::deferred::dynamic_lambda_ctx_data;
 use buck2_build_api::dynamic::deferred::DynamicLambda;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
@@ -69,6 +70,7 @@ use either::Either;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
+use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -261,6 +263,9 @@ impl<'v> BxlContext<'v> {
                 state: RefCell::new(None),
                 // TODO(nga): attributes struct should not be accessible to BXL.
                 attributes: ValueOfUnchecked::new_checked(heap.alloc(AllocStruct::EMPTY)).unwrap(),
+                plugins: heap
+                    .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                    .into(),
                 digest_config,
             }),
             global_target_platform,
@@ -302,6 +307,9 @@ impl<'v> BxlContext<'v> {
                 state: RefCell::new(Some(analysis_registry)),
                 // TODO(nga): attributes struct should not be accessible to BXL.
                 attributes: ValueOfUnchecked::new_checked(heap.alloc(AllocStruct::EMPTY)).unwrap(),
+                plugins: heap
+                    .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                    .into(),
                 digest_config,
             }),
             global_target_platform,

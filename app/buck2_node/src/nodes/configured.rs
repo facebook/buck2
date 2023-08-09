@@ -25,6 +25,7 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::plugins::PluginLists;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -572,6 +573,13 @@ impl ConfiguredTargetNode {
         match &self.0.target_node {
             TargetNodeOrForward::TargetNode(_) => None,
             TargetNodeOrForward::Forward(_, n) => Some(n),
+        }
+    }
+
+    pub fn uses_plugins(&self) -> &[PluginKind] {
+        match &self.0.target_node {
+            TargetNodeOrForward::TargetNode(target_node) => target_node.uses_plugins(),
+            TargetNodeOrForward::Forward(_, _) => &[],
         }
     }
 

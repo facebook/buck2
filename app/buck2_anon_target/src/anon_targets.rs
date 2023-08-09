@@ -27,6 +27,7 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
+use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_build_api::keep_going;
@@ -93,6 +94,7 @@ use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
 use crate::anon_promises::AnonPromises;
@@ -393,6 +395,11 @@ impl AnonTargetKey {
                                         ),
                                     )),
                             ),
+                            // FIXME(JakobDegen): There should probably be a way to pass plugins
+                            // into anon targets
+                            eval.heap()
+                                .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                                .into(),
                             registry,
                             dice.global_data().get_digest_config(),
                         ));

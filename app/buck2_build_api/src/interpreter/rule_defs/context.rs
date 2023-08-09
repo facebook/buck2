@@ -40,8 +40,10 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 
 use crate::analysis::registry::AnalysisRegistry;
+use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
 
 /// Functions to allow users to interact with the Actions registry.
 ///
@@ -62,6 +64,7 @@ pub struct AnalysisActions<'v> {
     pub state: RefCell<Option<AnalysisRegistry<'v>>>,
     /// Copies from the ctx, so we can capture them for `dynamic`.
     pub attributes: ValueOfUnchecked<'v, StructRef<'v>>,
+    pub plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
     /// Digest configuration to use when interpreting digests passed in analysis.
     pub digest_config: DigestConfig,
 }
@@ -141,6 +144,7 @@ pub struct AnalysisContext<'v> {
     pub actions: ValueTyped<'v, AnalysisActions<'v>>,
     /// Only `None` when running a `dynamic_output` action from Bxl.
     label: Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>,
+    plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
 }
 
 impl<'v> Display for AnalysisContext<'v> {
@@ -162,6 +166,7 @@ impl<'v> AnalysisContext<'v> {
         heap: &'v Heap,
         attrs: Value<'v>,
         label: Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>,
+        plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
     ) -> Self {
@@ -172,9 +177,11 @@ impl<'v> AnalysisContext<'v> {
             actions: heap.alloc_typed(AnalysisActions {
                 state: RefCell::new(Some(registry)),
                 attributes: attrs,
+                plugins,
                 digest_config,
             }),
             label,
+            plugins,
         }
     }
 
@@ -256,6 +263,16 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
         this: RefAnalysisContext,
     ) -> anyhow::Result<Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>> {
         Ok(this.0.label)
+    }
+
+    /// An opaque value that can be indexed with a plugin kind to get a list of the available plugin
+    /// deps of that kind. The rule must set an appropriate value on `uses_plugins` in its
+    /// declaration.
+    #[starlark(attribute)]
+    fn plugins<'v>(
+        this: RefAnalysisContext,
+    ) -> anyhow::Result<ValueTypedComplex<'v, AnalysisPlugins<'v>>> {
+        Ok(this.0.plugins)
     }
 }
 

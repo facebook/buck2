@@ -967,9 +967,15 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         let outputs = outputs.iter().map(|x| x.0.artifact()).collect();
 
         // Registration
-        let attributes_lambda = heap.alloc((this.attributes, f));
+        let attributes_plugins_lambda = heap.alloc((this.attributes, this.plugins, f));
         let mut this = this.state();
-        this.register_dynamic_output(dynamic, inputs, outputs, attributes_lambda, with_bxl)?;
+        this.register_dynamic_output(
+            dynamic,
+            inputs,
+            outputs,
+            attributes_plugins_lambda,
+            with_bxl,
+        )?;
         Ok(NoneType)
     }
 

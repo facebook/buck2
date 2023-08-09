@@ -46,6 +46,7 @@ use starlark::eval::Evaluator;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 
+use crate::analysis::plugins::plugins_to_starlark_value;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::attrs::resolve::node_to_attrs_struct::node_to_attrs_struct;
@@ -242,7 +243,7 @@ async fn run_analysis_with_env_underlying(
     let env = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
-    let attributes = {
+    let (attributes, plugins) = {
         let resolution_ctx = RuleAnalysisAttrResolutionContext {
             module: &env,
             dep_analysis_results: analysis_env.deps,
@@ -250,7 +251,10 @@ async fn run_analysis_with_env_underlying(
             execution_platform_resolution: node.execution_platform_resolution().clone(),
         };
 
-        node_to_attrs_struct(node, &resolution_ctx)?
+        (
+            node_to_attrs_struct(node, &resolution_ctx)?,
+            plugins_to_starlark_value(node, &resolution_ctx)?,
+        )
     };
 
     let registry = AnalysisRegistry::new_from_owner(
@@ -287,6 +291,7 @@ async fn run_analysis_with_env_underlying(
                             ),
                         )),
                 ),
+                plugins.into(),
                 registry,
                 dice.global_data().get_digest_config(),
             ));

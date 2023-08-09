@@ -237,6 +237,13 @@ impl ConfiguredProvidersLabel {
         Self { target, name }
     }
 
+    pub fn default_for(target: ConfiguredTargetLabel) -> Self {
+        Self {
+            target,
+            name: ProvidersName::Default,
+        }
+    }
+
     pub fn target(&self) -> &ConfiguredTargetLabel {
         &self.target
     }
