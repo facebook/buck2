@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
@@ -33,13 +34,15 @@ pub struct DefaultProvider {}
 /// How configuration is changed when configuring a dep.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
 pub enum DepAttrTransition {
-    // No transition.
-    Identity,
-    // Transition to execution platform.
+    /// No transition.
+    ///
+    /// May participate in plugin propagation
+    Identity(PluginKindSet),
+    /// Transition to execution platform.
     Exec,
-    // Transition to toolchain.
+    /// Transition to toolchain.
     Toolchain,
-    // Transition dependency using given transition function.
+    /// Transition dependency using given transition function.
     Transition(Arc<TransitionId>),
 }
 
@@ -72,7 +75,12 @@ impl DepAttr<ConfiguredProvidersLabel> {
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         match &self.attr_type.transition {
-            DepAttrTransition::Identity => traversal.dep(&self.label),
+            DepAttrTransition::Identity(plugins) if plugins.is_empty() => {
+                traversal.dep(&self.label)
+            }
+            DepAttrTransition::Identity(plugins) => {
+                traversal.dep_with_plugins(&self.label, plugins)
+            }
             DepAttrTransition::Exec => traversal.exec_dep(&self.label),
             DepAttrTransition::Toolchain => traversal.toolchain_dep(&self.label),
             DepAttrTransition::Transition(..) => traversal.dep(&self.label),
@@ -87,7 +95,7 @@ impl DepAttr<ProvidersLabel> {
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         match &attr_type.transition {
-            DepAttrTransition::Identity => traversal.dep(label.target()),
+            DepAttrTransition::Identity(..) => traversal.dep(label.target()),
             DepAttrTransition::Exec => traversal.exec_dep(label.target()),
             DepAttrTransition::Toolchain => traversal.toolchain_dep(label.target()),
             DepAttrTransition::Transition(tr) => traversal.transition_dep(label.target(), tr),
@@ -109,7 +117,7 @@ impl DepAttrType {
         ctx: &dyn AttrConfigurationContext,
     ) -> anyhow::Result<ConfiguredAttr> {
         let configured_label = match &self.transition {
-            DepAttrTransition::Identity => ctx.configure_target(label),
+            DepAttrTransition::Identity(..) => ctx.configure_target(label),
             DepAttrTransition::Exec => ctx.configure_exec_target(label),
             DepAttrTransition::Toolchain => ctx.configure_toolchain_target(label),
             DepAttrTransition::Transition(tr) => ctx.configure_transition_target(label, tr)?,

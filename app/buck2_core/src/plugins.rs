@@ -58,6 +58,48 @@ impl PluginKind {
     }
 }
 
+/// This type is pretty tailor-made for storing the values of `pulls_plugins` and
+/// `pulls_and_pushes_plugins` on `attrs.dep()`.
+///
+/// It stores a list of plugin kinds and a bool for each indicating whether that kind is pushed in
+/// addition to pulled.
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
+pub struct PluginKindSet(Option<Intern<Box<[(PluginKind, bool)]>>>);
+
+static PLUGIN_KIND_SET_INTERNER: StaticInterner<Box<[(PluginKind, bool)]>> = StaticInterner::new();
+
+impl PluginKindSet {
+    pub const EMPTY: Self = Self(None);
+
+    pub fn new(pulls: Vec<PluginKind>, pulls_and_pushes: Vec<PluginKind>) -> anyhow::Result<Self> {
+        if pulls.is_empty() && pulls_and_pushes.is_empty() {
+            return Ok(Self::EMPTY);
+        }
+
+        let mut kinds = BTreeMap::new();
+        for kind in pulls {
+            kinds.insert(kind, false);
+        }
+        for kind in pulls_and_pushes {
+            kinds.insert(kind, true);
+        }
+        let kinds = kinds.into_iter().collect::<Vec<_>>();
+
+        Ok(Self(Some(PLUGIN_KIND_SET_INTERNER.intern(&kinds[..]))))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        *self == Self::EMPTY
+    }
+
+    pub fn get(&self, kind: &PluginKind) -> Option<bool> {
+        self.0
+            .as_ref()?
+            .iter()
+            .find_map(|(k, v)| if k == kind { Some(*v) } else { None })
+    }
+}
+
 /// Elements in the plugin list come in three kinds: Either they appear as direct `plugin_dep`s on
 /// the rule, or they arrive indirectly and may or may not need to be propagated.
 #[derive(
@@ -91,5 +133,16 @@ impl PluginLists {
         self.0
             .iter()
             .flat_map(|(k, v)| v.iter().map(move |t| (k, t.0, t.1)))
+    }
+
+    pub fn iter_by_kind<'a>(
+        &'a self,
+    ) -> impl Iterator<
+        Item = (
+            &'a PluginKind,
+            impl Iterator<Item = (&'a TargetLabel, &'a PluginListElemKind)>,
+        ),
+    > {
+        self.0.iter().map(|(k, v)| (k, v.iter()))
     }
 }

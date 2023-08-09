@@ -16,6 +16,7 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::PackageLabel;
+use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
@@ -82,7 +83,7 @@ async fn test_get_node() -> anyhow::Result<()> {
             Attribute::new(
                 None,
                 "",
-                AttrType::list(AttrType::dep(ProviderIdSet::EMPTY)),
+                AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
             ),
             CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
                 ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
@@ -108,7 +109,7 @@ async fn test_get_node() -> anyhow::Result<()> {
             Attribute::new(
                 None,
                 "",
-                AttrType::list(AttrType::dep(ProviderIdSet::EMPTY)),
+                AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
             ),
             AnyAttrType::empty_list(),
         ),
@@ -147,7 +148,7 @@ async fn test_get_node() -> anyhow::Result<()> {
         "some_deps" =>
          ConfiguredAttr::List(ListLiteral(ArcSlice::new([
             ConfiguredAttr::Dep(Box::new(DepAttr {
-                attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
+                attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity(PluginKindSet::EMPTY)),
                 label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                     .configure(cfg.dupe()),
             })),

@@ -14,6 +14,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
+use buck2_core::plugins::PluginKindSet;
 use dupe::Dupe;
 
 use crate::attrs::attr_type::any::AnyAttrType;
@@ -181,10 +182,10 @@ impl AttrType {
     ///
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
-    pub fn dep(required_providers: ProviderIdSet) -> Self {
+    pub fn dep(required_providers: ProviderIdSet, plugin_kinds: PluginKindSet) -> Self {
         Self(Arc::new(AttrTypeInner::Dep(DepAttrType::new(
             required_providers,
-            DepAttrTransition::Identity,
+            DepAttrTransition::Identity(plugin_kinds),
         ))))
     }
 
@@ -268,7 +269,10 @@ impl AttrType {
 
     pub fn query() -> Self {
         Self(Arc::new(AttrTypeInner::Query(QueryAttrType::new(
-            DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
+            DepAttrType::new(
+                ProviderIdSet::EMPTY,
+                DepAttrTransition::Identity(PluginKindSet::EMPTY),
+            ),
         ))))
     }
 

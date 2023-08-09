@@ -14,6 +14,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
+use buck2_core::plugins::PluginKindSet;
 use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
@@ -120,7 +121,7 @@ fn attr_coercer_coerces() -> anyhow::Result<()> {
     let enclosing_package = (package.dupe(), PackageListing::testing_empty());
     let coercer_ctx =
         BuildAttrCoercionContext::new_with_package(cell_resolver, enclosing_package, false);
-    let label_coercer = AttrType::dep(ProviderIdSet::EMPTY);
+    let label_coercer = AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY);
     let string_coercer = AttrType::string();
     let enum_coercer = AttrType::enumeration(vec![
         "red".to_owned(),

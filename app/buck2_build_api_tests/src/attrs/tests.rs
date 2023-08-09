@@ -24,6 +24,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
+use buck2_core::plugins::PluginKindSet;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx;
@@ -325,7 +326,7 @@ fn test_label() -> anyhow::Result<()> {
     let heap = Heap::new();
     let value = heap.alloc(vec!["//some:target", "cell1//named:target[foo]"]);
 
-    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY));
+    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!(
@@ -365,7 +366,7 @@ fn test_coerced_deps() -> anyhow::Result<()> {
     // Check that `x` is captured with the function
     let value = to_value(&env, &globals, content);
 
-    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY));
+    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
 
     let mut visitor = CoercedDepsCollector::new();
@@ -415,7 +416,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
     // Check that `x` is captured with the function
     let value = to_value(&env, &globals, content);
 
-    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY));
+    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured = coerced.configure(&attr, &configuration_ctx())?;
 
@@ -473,7 +474,7 @@ fn test_resolved_deps() -> anyhow::Result<()> {
     // Check that `x` is captured with the function
     let value = to_value(&env, &globals, content);
 
-    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY));
+    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     let resolution_ctx = resolution_ctx(&env);
@@ -514,7 +515,7 @@ fn test_dep_requires_providers() -> anyhow::Result<()> {
     let heap = Heap::new();
     let foo_only = heap.alloc("//sub/dir:foo[foo_only]");
 
-    let attr = AttrType::dep(provider_ids.dupe());
+    let attr = AttrType::dep(provider_ids.dupe(), PluginKindSet::EMPTY);
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), foo_only)?;
     let configured = coerced.configure(&attr, &configuration_ctx())?;
 
@@ -529,7 +530,7 @@ fn test_dep_requires_providers() -> anyhow::Result<()> {
 
     let foo_and_bar = heap.alloc("//sub/dir:foo[foo_and_bar]");
 
-    let attr = AttrType::dep(provider_ids);
+    let attr = AttrType::dep(provider_ids, PluginKindSet::EMPTY);
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), foo_and_bar)?;
     let configured = coerced.configure(&attr, &configuration_ctx())?;
 

@@ -113,7 +113,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                         let label = dep.label().inner().clone();
 
                         let attr_type = match x.transition {
-                            DepAttrTransition::Identity => x.clone(),
+                            DepAttrTransition::Identity(..) => x.clone(),
                             DepAttrTransition::Exec => {
                                 match dep.execution_platform() {
                                 Some(exec_dep_resolution) => {

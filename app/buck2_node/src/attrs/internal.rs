@@ -11,6 +11,7 @@
 
 use std::sync::Arc;
 
+use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::id::ProviderId;
 use buck2_util::collections::ordered_map::OrderedMap;
 use dupe::Dupe;
@@ -68,9 +69,10 @@ fn default_target_platform_attribute() -> Attribute {
     Attribute::new(
         Some(Arc::new(CoercedAttr::None)),
         "specifies the default target platform, used when no platforms are specified on the command line",
-        AttrType::option(AttrType::dep(ProviderIdSet::from(vec![
-            internal_attrs_platform_info_provider_id().dupe(),
-        ]))),
+        AttrType::option(AttrType::dep(
+            ProviderIdSet::from(vec![internal_attrs_platform_info_provider_id().dupe()]),
+            PluginKindSet::EMPTY,
+        )),
     )
 }
 

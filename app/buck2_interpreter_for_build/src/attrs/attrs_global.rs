@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
@@ -328,13 +329,24 @@ fn attr_module(registry: &mut MethodsBuilder) {
     fn dep<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named, default = Vec::new())] pulls_plugins: Vec<Value<'v>>,
+        #[starlark(require = named, default = Vec::new())] pulls_and_pushes_plugins: Vec<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         Attribute::check_not_relative_label(default, "attrs.dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers)?;
-        let coercer = AttrType::dep(required_providers);
+        let pulls_plugins: Vec<_> = pulls_plugins
+            .into_iter()
+            .map(plugin_kind_from_value)
+            .collect::<anyhow::Result<_>>()?;
+        let pulls_and_pushes_plugins: Vec<_> = pulls_and_pushes_plugins
+            .into_iter()
+            .map(plugin_kind_from_value)
+            .collect::<anyhow::Result<_>>()?;
+        let plugin_kinds = PluginKindSet::new(pulls_plugins, pulls_and_pushes_plugins)?;
+        let coercer = AttrType::dep(required_providers, plugin_kinds);
         Attribute::attr(eval, default, doc, coercer)
     }
 
@@ -469,7 +481,12 @@ fn attr_module(registry: &mut MethodsBuilder) {
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         // TODO(nga): explain how this is different from `dep`.
         //   This probably meant to be similar to `label`, but not configurable.
-        Attribute::attr(eval, None, doc, AttrType::dep(ProviderIdSet::EMPTY))
+        Attribute::attr(
+            eval,
+            None,
+            doc,
+            AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY),
+        )
     }
 
     /// Currently an alias for `attrs.string`.

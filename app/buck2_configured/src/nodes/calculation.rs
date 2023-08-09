@@ -33,6 +33,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::plugins::PluginKind;
+use buck2_core::plugins::PluginKindSet;
 use buck2_core::plugins::PluginListElemKind;
 use buck2_core::plugins::PluginLists;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -661,7 +662,7 @@ async fn gather_deps(
 ) -> anyhow::Result<(GatheredDeps, ErrorsAndIncompatibilities)> {
     #[derive(Default)]
     struct Traversal {
-        deps: SmallSet<ConfiguredProvidersLabel>,
+        deps: OrderedMap<ConfiguredProvidersLabel, SmallSet<PluginKindSet>>,
         exec_deps: SmallSet<ConfiguredProvidersLabel>,
         toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
         plugin_lists: PluginLists,
@@ -669,7 +670,19 @@ async fn gather_deps(
 
     impl ConfiguredAttrTraversal for Traversal {
         fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            self.deps.insert(dep.clone());
+            self.deps.entry(dep.clone()).or_insert_with(SmallSet::new);
+            Ok(())
+        }
+
+        fn dep_with_plugins(
+            &mut self,
+            dep: &ConfiguredProvidersLabel,
+            plugin_kinds: &PluginKindSet,
+        ) -> anyhow::Result<()> {
+            self.deps
+                .entry(dep.clone())
+                .or_insert_with(SmallSet::new)
+                .insert(plugin_kinds.dupe());
             Ok(())
         }
 
@@ -699,15 +712,42 @@ async fn gather_deps(
     let dep_futures = traversal
         .deps
         .iter()
-        .map(|v| ctx.get_configured_target_node(v.target()));
+        .map(|v| ctx.get_configured_target_node(v.0.target()));
     let dep_results =
         ConfiguredGraphCycleDescriptor::guard_this(ctx, futures::future::join_all(dep_futures))
             .await??;
 
+    let mut plugin_lists = traversal.plugin_lists;
     let mut deps = Vec::new();
     let mut errors_and_incompats = ErrorsAndIncompatibilities::default();
-    for res in dep_results {
-        errors_and_incompats.unpack_dep_into(target_label, res, &mut deps);
+    for (res, (_, plugin_kind_sets)) in dep_results.into_iter().zip(traversal.deps) {
+        let Some(dep) = errors_and_incompats.unpack_dep(target_label, res) else {
+            continue;
+        };
+
+        if !plugin_kind_sets.is_empty() {
+            for (kind, plugins) in dep.plugin_lists().iter_by_kind() {
+                let Some(should_propagate) = plugin_kind_sets
+                    .iter()
+                    .filter_map(|set| set.get(kind))
+                    .reduce(std::ops::BitOr::bitor)
+                else {
+                    continue;
+                };
+                let should_propagate = if should_propagate {
+                    PluginListElemKind::Propagate
+                } else {
+                    PluginListElemKind::NoPropagate
+                };
+                for (target, elem_kind) in plugins {
+                    if *elem_kind != PluginListElemKind::NoPropagate {
+                        plugin_lists.insert(kind.dupe(), target.dupe(), should_propagate);
+                    }
+                }
+            }
+        }
+
+        deps.push(dep);
     }
 
     Ok((
@@ -715,7 +755,7 @@ async fn gather_deps(
             deps,
             exec_deps: traversal.exec_deps,
             toolchain_deps: traversal.toolchain_deps,
-            plugin_lists: traversal.plugin_lists,
+            plugin_lists,
         },
         errors_and_incompats,
     ))
@@ -851,6 +891,7 @@ async fn compute_configured_target_node_no_transition(
         deps,
         exec_deps,
         platform_cfgs,
+        gathered_deps.plugin_lists,
     )))
 }
 
