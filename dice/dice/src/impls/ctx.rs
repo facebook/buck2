@@ -16,6 +16,7 @@ use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
 use futures::FutureExt;
+use futures::TryFutureExt;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 
@@ -269,9 +270,9 @@ impl ModernComputeCtx {
         match self {
             ModernComputeCtx::Regular(ctx) => ModernComputeCtx::Regular(PerComputeCtx::new(
                 ParentKey::None,
-                ctx.async_evaluator.per_live_version_ctx.dupe(),
-                ctx.async_evaluator.user_data.dupe(),
-                ctx.async_evaluator.dice.dupe(),
+                ctx.ctx_data.async_evaluator.per_live_version_ctx.dupe(),
+                ctx.ctx_data.async_evaluator.user_data.dupe(),
+                ctx.ctx_data.async_evaluator.dice.dupe(),
                 KeyComputingUserCycleDetectorData::Untracked,
             )),
         }
@@ -281,12 +282,17 @@ impl ModernComputeCtx {
 /// Context given to the `compute` function of a `Key`.
 #[derive(Allocative)]
 pub(crate) struct PerComputeCtx {
-    async_evaluator: AsyncEvaluator,
     dep_trackers: Mutex<RecordingDepsTracker>, // If we make PerComputeCtx &mut, we can get rid of this mutex after some refactoring
+    ctx_data: CoreCtx,
+}
+
+#[derive(Allocative)]
+struct CoreCtx {
+    async_evaluator: AsyncEvaluator,
     parent_key: ParentKey,
     #[allocative(skip)]
     cycles: KeyComputingUserCycleDetectorData,
-    // Same as above, PerComputeCtx isn't actually geting shared.
+    // data for the entire compute of a Key, including parallel computes
     #[allocative(skip)]
     evaluation_data: Mutex<EvaluationData>,
 }
@@ -300,15 +306,17 @@ impl PerComputeCtx {
         cycles: KeyComputingUserCycleDetectorData,
     ) -> Self {
         Self {
-            async_evaluator: AsyncEvaluator {
-                per_live_version_ctx,
-                user_data,
-                dice,
-            },
             dep_trackers: Mutex::new(RecordingDepsTracker::new()),
-            parent_key,
-            cycles,
-            evaluation_data: Mutex::new(EvaluationData::none()),
+            ctx_data: CoreCtx {
+                async_evaluator: AsyncEvaluator {
+                    per_live_version_ctx,
+                    user_data,
+                    dice,
+                },
+                parent_key,
+                cycles,
+                evaluation_data: Mutex::new(EvaluationData::none()),
+            },
         }
     }
 
@@ -320,6 +328,88 @@ impl PerComputeCtx {
         &'a self,
         key: &K,
     ) -> impl Future<Output = CancellableResult<(DiceKey, DiceComputedValue)>> + 'a
+    where
+        K: Key,
+    {
+        self.ctx_data.compute_opaque(key)
+    }
+
+    /// Compute "projection" based on deriving value
+    pub(crate) fn project<K>(
+        &self,
+        key: &K,
+        base_key: DiceKey,
+        base: MaybeValidDiceValue,
+    ) -> DiceResult<K::Value>
+    where
+        K: ProjectionKey,
+    {
+        self.ctx_data
+            .project(key, base_key, base, &self.dep_trackers)
+    }
+
+    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
+    /// time that Dice is initialized via the constructor.
+    pub(crate) fn global_data(&self) -> &DiceData {
+        self.ctx_data.global_data()
+    }
+
+    /// Data that is static for the lifetime of the current request context. This lifetime is
+    /// the lifetime of the top-level `DiceComputation` used for all requests.
+    /// The data is also specific to each request context, so multiple concurrent requests can
+    /// each have their own individual data.
+    pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
+        self.ctx_data.per_transaction_data()
+    }
+
+    pub(crate) fn get_version(&self) -> VersionNumber {
+        self.ctx_data.get_version()
+    }
+
+    pub(crate) fn into_updater(self) -> TransactionUpdater {
+        self.ctx_data.into_updater()
+    }
+
+    pub(super) fn dep_trackers(&self) -> MutexGuard<'_, RecordingDepsTracker> {
+        self.dep_trackers.lock()
+    }
+
+    pub(crate) fn store_evaluation_data<T: Send + Sync + 'static>(
+        &self,
+        value: T,
+    ) -> DiceResult<()> {
+        self.ctx_data.store_evaluation_data(value)
+    }
+
+    pub(crate) fn finalize(
+        self,
+    ) -> (
+        (HashSet<DiceKey>, DiceValidity),
+        EvaluationData,
+        KeyComputingUserCycleDetectorData,
+    ) {
+        let data = self.ctx_data;
+        (
+            self.dep_trackers.into_inner().collect_deps(),
+            data.evaluation_data.into_inner(),
+            data.cycles,
+        )
+    }
+
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+        self.ctx_data.cycle_guard()
+    }
+}
+
+impl CoreCtx {
+    /// Compute "opaque" value where the value is only accessible via projections.
+    /// Projections allow accessing derived results from the "opaque" value,
+    /// where the dependency of reading a projection is the projection value rather
+    /// than the entire opaque value.
+    pub(crate) fn compute_opaque<'a, K>(
+        &'a self,
+        key: &K,
+    ) -> impl Future<Output = CancellableResult<(DiceKey, DiceComputedValue)>>
     where
         K: Key,
     {
@@ -338,7 +428,7 @@ impl PerComputeCtx {
                 self.cycles
                     .subrequest(dice_key, &self.async_evaluator.dice.key_index),
             )
-            .map(move |res| res.map(|res| (dice_key, res)))
+            .map_ok(move |res| (dice_key, res))
     }
 
     /// Compute "projection" based on deriving value
@@ -347,6 +437,7 @@ impl PerComputeCtx {
         key: &K,
         base_key: DiceKey,
         base: MaybeValidDiceValue,
+        dep_trackers: &Mutex<RecordingDepsTracker>,
     ) -> DiceResult<K::Value>
     where
         K: ProjectionKey,
@@ -380,9 +471,7 @@ impl PerComputeCtx {
             Err(_cancelled) => return Err(DiceError::cancelled()),
         };
 
-        self.dep_trackers
-            .lock()
-            .record(dice_key, r.value().validity());
+        dep_trackers.lock().record(dice_key, r.value().validity());
 
         Ok(r.value()
             .downcast_maybe_transient::<K::Value>()
@@ -415,10 +504,6 @@ impl PerComputeCtx {
         )
     }
 
-    pub(super) fn dep_trackers(&self) -> MutexGuard<'_, RecordingDepsTracker> {
-        self.dep_trackers.lock()
-    }
-
     pub(crate) fn store_evaluation_data<T: Send + Sync + 'static>(
         &self,
         value: T,
@@ -429,20 +514,6 @@ impl PerComputeCtx {
         }
         evaluation_data.0 = Some(Box::new(value) as _);
         Ok(())
-    }
-
-    pub(crate) fn finalize(
-        self,
-    ) -> (
-        (HashSet<DiceKey>, DiceValidity),
-        EvaluationData,
-        KeyComputingUserCycleDetectorData,
-    ) {
-        (
-            self.dep_trackers.into_inner().collect_deps(),
-            self.evaluation_data.into_inner(),
-            self.cycles,
-        )
     }
 
     pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
