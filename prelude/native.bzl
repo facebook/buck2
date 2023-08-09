@@ -318,6 +318,7 @@ def _apple_test_macro_stub(**kwargs):
 def _apple_binary_macro_stub(**kwargs):
     apple_binary_macro_impl(
         apple_binary_rule = __rules__["apple_binary"],
+        apple_universal_executable = __rules__["apple_universal_executable"],
         **kwargs
     )
 
