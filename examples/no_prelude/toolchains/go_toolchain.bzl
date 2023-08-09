@@ -11,22 +11,20 @@ GoCompilerInfo = provider(
 )
 
 def _go_toolchain_impl(ctx):
-    url = "https://go.dev/dl/go" + ctx.attrs.version + "." + ctx.attrs.platform + "." + ctx.attrs.archive_extension
-
-    download = http_archive_impl(ctx, url, ctx.attrs.archive_extension, ctx.attrs.sha256)
+    download = _download_toolchain(ctx)
 
     compiler_dst = ctx.actions.declare_output("compiler.exe" if host_info().os.is_windows else "compiler")
 
     cmd = cmd_args()
     if host_info().os.is_windows:
-        compiler_src = cmd_args(download[0].default_outputs[0], format = "{}\\go\\bin\\go.exe")
+        compiler_src = cmd_args(download, format = "{}\\go\\bin\\go.exe")
         cmd.add([ctx.attrs._symlink_bat, compiler_dst.as_output(), compiler_src.relative_to(compiler_dst, parent = 1)])
     else:
-        compiler_src = cmd_args(download[0].default_outputs[0], format = "{}/go/bin/go")
+        compiler_src = cmd_args(download, format = "{}/go/bin/go")
         cmd.add(["ln", "-sf", compiler_src.relative_to(compiler_dst, parent = 1), compiler_dst.as_output()])
 
     ctx.actions.run(cmd, category = "cp_compiler")
-    return download + [GoCompilerInfo(compiler_path = compiler_dst, GOROOT = "")]
+    return [DefaultInfo(default_output = download), GoCompilerInfo(compiler_path = compiler_dst, GOROOT = "")]
 
 go_toolchain = rule(
     impl = _go_toolchain_impl,
@@ -39,7 +37,11 @@ go_toolchain = rule(
     },
 )
 
-def http_archive_impl(ctx: "context", url, archive_extension, sha256) -> ["provider"]:
+def _download_toolchain(ctx: "context"):
+    archive_extension = ctx.attrs.archive_extension
+    url = "https://go.dev/dl/go" + ctx.attrs.version + "." + ctx.attrs.platform + "." + archive_extension
+    sha256 = ctx.attrs.sha256
+
     # Download archive.
     archive = ctx.actions.declare_output("archive." + archive_extension)
     ctx.actions.download_file(archive.as_output(), url, sha256 = sha256, is_deferrable = True)
@@ -71,9 +73,9 @@ def http_archive_impl(ctx: "context", url, archive_extension, sha256) -> ["provi
     else:
         cmd = cmd_args(["/bin/sh", script])
 
-    ctx.actions.run(cmd.hidden([archive, output.as_output()]), category = "http_archive")
+    ctx.actions.run(cmd.hidden([archive, output.as_output()]), category = "extract_go_toolchain")
 
-    return [DefaultInfo(default_output = output)]
+    return output
 
 def _toolchain_config():
     version = "1.20.7"
