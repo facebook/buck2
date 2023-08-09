@@ -61,6 +61,12 @@ enum TypingOracleCtxError {
     NotIterable { ty: Ty },
     #[error("Unary operator `{un_op}` is not available on the type `{ty}`")]
     UnaryOperatorNotAvailable { ty: Ty, un_op: TypingUnOp },
+    #[error("Binary operator `{bin_op}` is not available on the types `{left}` and `{right}`")]
+    BinaryOperatorNotAvailable {
+        bin_op: TypingBinOp,
+        left: Ty,
+        right: Ty,
+    },
 }
 
 /// Oracle reference with utility methods.
@@ -452,6 +458,97 @@ impl<'a> TypingOracleCtx<'a> {
             ))
         } else {
             Ok(Ty::unions(results))
+        }
+    }
+
+    fn expr_bin_op_ty_basic(
+        &self,
+        span: Span,
+        lhs: Spanned<&TyBasic>,
+        bin_op: TypingBinOp,
+        rhs: Spanned<&TyBasic>,
+    ) -> Result<Ty, TypingOrInternalError> {
+        if let TyBasic::StarlarkValue(lhs) = &lhs.node {
+            match lhs.bin_op(bin_op, rhs.node) {
+                Ok(x) => return Ok(x),
+                Err(()) => {
+                    // TODO(nga): check RHS too for radd.
+                    return Err(self.mk_error_as_maybe_internal(
+                        span,
+                        TypingOracleCtxError::BinaryOperatorNotAvailable {
+                            bin_op,
+                            left: Ty::basic(TyBasic::StarlarkValue(*lhs)),
+                            right: Ty::basic(rhs.node.clone()),
+                        },
+                    ));
+                }
+            }
+        }
+
+        let fun = match self.oracle.attribute(&lhs.node, TypingAttr::BinOp(bin_op)) {
+            Some(Ok(fun)) => fun,
+            Some(Err(())) => {
+                return Err(self.mk_error_as_maybe_internal(
+                    span,
+                    TypingOracleCtxError::BinaryOperatorNotAvailable {
+                        bin_op,
+                        left: Ty::basic(lhs.node.clone()),
+                        right: Ty::basic(rhs.node.clone()),
+                    },
+                ));
+            }
+            None => return Ok(Ty::any()),
+        };
+        self.validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.clone())))])
+    }
+
+    pub(crate) fn expr_bin_op_ty(
+        &self,
+        span: Span,
+        lhs: Spanned<Ty>,
+        bin_op: TypingBinOp,
+        rhs: Spanned<Ty>,
+    ) -> Result<Ty, TypingOrInternalError> {
+        if lhs.is_never() || rhs.is_never() {
+            // TODO(nga): even if RHS is never, it still can be an error
+            //   if LHS does not support bin op.
+            return Ok(Ty::never());
+        }
+
+        let mut good = Vec::new();
+        for lhs_i in lhs.node.iter_union() {
+            for rhs_i in rhs.node.iter_union() {
+                let lhs_i = Spanned {
+                    span: lhs.span,
+                    node: lhs_i,
+                };
+                let rhs_i = Spanned {
+                    span: rhs.span,
+                    node: rhs_i,
+                };
+                match self.expr_bin_op_ty_basic(span, lhs_i, bin_op, rhs_i) {
+                    Ok(ty) => good.push(ty),
+                    Err(TypingOrInternalError::Internal(e)) => {
+                        return Err(TypingOrInternalError::Internal(e));
+                    }
+                    Err(TypingOrInternalError::Typing(_e)) => {
+                        // TODO(nga): keep the error if it is the only one error.
+                    }
+                }
+            }
+        }
+
+        if good.is_empty() {
+            Err(self.mk_error_as_maybe_internal(
+                span,
+                TypingOracleCtxError::BinaryOperatorNotAvailable {
+                    left: lhs.node,
+                    right: rhs.node,
+                    bin_op,
+                },
+            ))
+        } else {
+            Ok(Ty::unions(good))
         }
     }
 

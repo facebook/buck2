@@ -45,25 +45,17 @@ use crate::typing::error::TypingError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::Arg;
 use crate::typing::oracle::ctx::TypingOracleCtx;
-use crate::typing::oracle::traits::TypingAttr;
 use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingUnOp;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::typing::unordered_map::UnorderedMap;
 use crate::typing::OracleDocs;
-use crate::typing::TypingOracle;
 
 #[derive(Error, Debug)]
 enum TypingContextError {
     #[error("The builtin `{name}` is not known")]
     UnknownBuiltin { name: String },
-    #[error("Binary operator `{bin_op}` is not available on the types `{left}` and `{right}`")]
-    BinaryOperatorNotAvailable {
-        bin_op: TypingBinOp,
-        left: Ty,
-        right: Ty,
-    },
 }
 
 pub(crate) struct TypingContext<'a> {
@@ -206,7 +198,9 @@ impl TypingContext<'_> {
                     AssignOp::LeftShift => TypingBinOp::LeftShift,
                     AssignOp::RightShift => TypingBinOp::RightShift,
                 };
-                Ok(self.expr_bin_op_ty(span, lhs, attr, rhs))
+                self.result_to_ty_with_internal_error(
+                    self.oracle.expr_bin_op_ty(span, lhs, attr, rhs),
+                )
             }
             BindExpr::SetIndex(id, index, e) => {
                 let span = index.span;
@@ -310,70 +304,6 @@ impl TypingContext<'_> {
         })
     }
 
-    fn expr_bin_op_ty_basic(
-        &self,
-        span: Span,
-        lhs: Spanned<&TyBasic>,
-        bin_op: TypingBinOp,
-        rhs: Spanned<&TyBasic>,
-    ) -> Result<Ty, ()> {
-        if let TyBasic::StarlarkValue(lhs) = &lhs.node {
-            return lhs.bin_op(bin_op, rhs.node);
-        }
-
-        let fun = match self.oracle.attribute(&lhs.node, TypingAttr::BinOp(bin_op)) {
-            Some(Ok(fun)) => fun,
-            Some(Err(())) => return Err(()),
-            None => return Ok(Ty::any()),
-        };
-        self.oracle
-            .validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.clone())))])
-            .map_err(|_| ())
-    }
-
-    fn expr_bin_op_ty(
-        &self,
-        span: Span,
-        lhs: Spanned<Ty>,
-        bin_op: TypingBinOp,
-        rhs: Spanned<Ty>,
-    ) -> Ty {
-        if lhs.is_never() || rhs.is_never() {
-            return Ty::never();
-        }
-
-        let mut good = Vec::new();
-        for lhs_i in lhs.node.iter_union() {
-            for rhs_i in rhs.node.iter_union() {
-                let lhs_i = Spanned {
-                    span: lhs.span,
-                    node: lhs_i,
-                };
-                let rhs_i = Spanned {
-                    span: rhs.span,
-                    node: rhs_i,
-                };
-                if let Ok(ty) = self.expr_bin_op_ty_basic(span, lhs_i, bin_op, rhs_i) {
-                    good.push(ty);
-                }
-            }
-        }
-
-        if good.is_empty() {
-            self.add_error(
-                span,
-                TypingContextError::BinaryOperatorNotAvailable {
-                    left: lhs.node,
-                    right: rhs.node,
-                    bin_op,
-                },
-            );
-            Ty::never()
-        } else {
-            Ty::unions(good)
-        }
-    }
-
     fn expr_bin_op(
         &self,
         span: Span,
@@ -403,25 +333,88 @@ impl TypingContext<'_> {
             }
             BinOp::In | BinOp::NotIn => {
                 // We dispatch `x in y` as y.__in__(x) as that's how we validate
-                self.expr_bin_op_ty(span, rhs, TypingBinOp::In, lhs);
+                self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                    span,
+                    rhs,
+                    TypingBinOp::In,
+                    lhs,
+                ))?;
                 // Ignore the return type, we know it's always a bool
                 Ok(bool_ret)
             }
             BinOp::Less | BinOp::LessOrEqual | BinOp::Greater | BinOp::GreaterOrEqual => {
-                self.expr_bin_op_ty(span, lhs, TypingBinOp::Less, rhs);
+                self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                    span,
+                    lhs,
+                    TypingBinOp::Less,
+                    rhs,
+                ))?;
                 Ok(bool_ret)
             }
-            BinOp::Subtract => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::Sub, rhs)),
-            BinOp::Add => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::Add, rhs)),
-            BinOp::Multiply => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::Mul, rhs)),
-            BinOp::Percent => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::Percent, rhs)),
-            BinOp::Divide => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::Div, rhs)),
-            BinOp::FloorDivide => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::FloorDiv, rhs)),
-            BinOp::BitAnd => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::BitAnd, rhs)),
-            BinOp::BitOr => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::BitOr, rhs)),
-            BinOp::BitXor => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::BitXor, rhs)),
-            BinOp::LeftShift => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::LeftShift, rhs)),
-            BinOp::RightShift => Ok(self.expr_bin_op_ty(span, lhs, TypingBinOp::RightShift, rhs)),
+            BinOp::Subtract => self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                span,
+                lhs,
+                TypingBinOp::Sub,
+                rhs,
+            )),
+            BinOp::Add => self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                span,
+                lhs,
+                TypingBinOp::Add,
+                rhs,
+            )),
+            BinOp::Multiply => self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                span,
+                lhs,
+                TypingBinOp::Mul,
+                rhs,
+            )),
+            BinOp::Percent => self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                span,
+                lhs,
+                TypingBinOp::Percent,
+                rhs,
+            )),
+            BinOp::Divide => self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                span,
+                lhs,
+                TypingBinOp::Div,
+                rhs,
+            )),
+            BinOp::FloorDivide => self.result_to_ty_with_internal_error(
+                self.oracle
+                    .expr_bin_op_ty(span, lhs, TypingBinOp::FloorDiv, rhs),
+            ),
+            BinOp::BitAnd => self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                span,
+                lhs,
+                TypingBinOp::BitAnd,
+                rhs,
+            )),
+            BinOp::BitOr => self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                span,
+                lhs,
+                TypingBinOp::BitOr,
+                rhs,
+            )),
+            BinOp::BitXor => self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                span,
+                lhs,
+                TypingBinOp::BitXor,
+                rhs,
+            )),
+            BinOp::LeftShift => self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                span,
+                lhs,
+                TypingBinOp::LeftShift,
+                rhs,
+            )),
+            BinOp::RightShift => self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+                span,
+                lhs,
+                TypingBinOp::RightShift,
+                rhs,
+            )),
         }
     }
 
