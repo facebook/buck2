@@ -237,7 +237,7 @@ def _get_haskell_prebuilt_libs(
             return ctx.attrs.pic_profiled_static_libs
         return ctx.attrs.pic_static_libs
     else:
-        fail("Unexpected LinkStyle")
+        fail("Unexpected LinkStyle: " + link_style.value)
 
 def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
     native_infos = []
@@ -667,8 +667,8 @@ HaskellLibBuildOutput = record(
 
 def _build_haskell_lib(
         ctx,
-        hlis: [HaskellLinkInfo.type],  # haskell link infos from all deps
-        nlis: [MergedLinkInfo.type],  # native link infos from all deps
+        hlis: list[HaskellLinkInfo.type],  # haskell link infos from all deps
+        nlis: list[MergedLinkInfo.type],  # native link infos from all deps
         link_style: LinkStyle.type,
         enable_profiling: bool) -> HaskellLibBuildOutput.type:
     linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
