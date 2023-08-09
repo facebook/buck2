@@ -135,6 +135,9 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                 SplitTransitionDepAttrType::resolve_single(ctx, d.as_ref())
             }
             ConfiguredAttr::ConfigurationDep(d) => ConfigurationDepAttrType::resolve_single(ctx, d),
+            ConfiguredAttr::PluginDep(d) => {
+                Ok(ctx.heap().alloc(StarlarkTargetLabel::new(d.0.dupe())))
+            }
             ConfiguredAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
             ConfiguredAttr::SourceLabel(s) => SourceAttrType::resolve_single_label(ctx, s),
             ConfiguredAttr::Label(label) => {
@@ -171,6 +174,9 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             }
             ConfiguredAttr::SplitTransitionDep(_) => Ok(Dict::TYPE),
             ConfiguredAttr::ConfigurationDep(_) => Ok(starlark::values::string::STRING_TYPE),
+            ConfiguredAttr::PluginDep(_) => {
+                Ok(StarlarkTargetLabel::get_type_value_static().as_str())
+            }
             ConfiguredAttr::Dep(_) => {
                 Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
             }
@@ -238,6 +244,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::ConfigurationDep(c) => {
                 heap.alloc(StarlarkTargetLabel::new(c.as_ref().dupe()))
             }
+            ConfiguredAttr::PluginDep(d) => heap.alloc(StarlarkTargetLabel::new(d.0.dupe())),
             ConfiguredAttr::Dep(d) => {
                 heap.alloc(StarlarkConfiguredProvidersLabel::new(d.label.clone()))
             }

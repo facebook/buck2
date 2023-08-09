@@ -16,6 +16,7 @@ use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
@@ -162,6 +163,7 @@ impl TargetNode {
             .chain(deps_cache.transition_deps.iter().map(|(dep, _tr)| dep))
             .chain(deps_cache.exec_deps.iter())
             .chain(deps_cache.toolchain_deps.iter())
+            .chain(deps_cache.plugin_deps.iter())
     }
 
     /// Deps which are to be transitioned to other configuration using transition function.
@@ -318,6 +320,14 @@ impl TargetNode {
                 Ok(())
             }
 
+            fn plugin_dep(
+                &mut self,
+                _dep: &'a TargetLabel,
+                _kind: &PluginKind,
+            ) -> anyhow::Result<()> {
+                Ok(())
+            }
+
             fn split_transition_dep(
                 &mut self,
                 _dep: &'a TargetLabel,
@@ -369,6 +379,14 @@ impl TargetNode {
             }
 
             fn platform_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn plugin_dep(
+                &mut self,
+                _dep: &'a TargetLabel,
+                _kind: &PluginKind,
+            ) -> anyhow::Result<()> {
                 Ok(())
             }
 

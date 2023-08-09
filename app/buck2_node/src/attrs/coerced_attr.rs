@@ -200,6 +200,7 @@ pub enum CoercedAttr {
     SplitTransitionDep(ProvidersLabel),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
     ConfigurationDep(TargetLabel),
+    PluginDep(TargetLabel),
     Dep(ProvidersLabel),
     SourceLabel(ProvidersLabel),
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
@@ -260,6 +261,7 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::SplitTransitionDep(e) => Display::fmt(e, f),
             CoercedAttr::ConfiguredDep(e) => write!(f, "\"{}\"", e),
             CoercedAttr::ConfigurationDep(e) => write!(f, "\"{}\"", e),
+            CoercedAttr::PluginDep(e) => write!(f, "\"{}\"", e),
             CoercedAttr::Dep(e) => write!(f, "\"{}\"", e),
             CoercedAttr::SourceLabel(e) => write!(f, "\"{}\"", e),
             CoercedAttr::Label(e) => write!(f, "\"{}\"", e),
@@ -340,6 +342,7 @@ impl CoercedAttr {
             CoercedAttr::SplitTransitionDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::ConfiguredDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
+            CoercedAttr::PluginDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::Dep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::SourceLabel(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::Label(e) => Ok(to_value(e.to_string())?),
@@ -452,6 +455,7 @@ impl CoercedAttr {
                 traversal.dep(dep.label.target().unconfigured())
             }
             CoercedAttrWithType::ConfigurationDep(dep, _t) => traversal.configuration_dep(dep),
+            CoercedAttrWithType::PluginDep(dep, t) => traversal.plugin_dep(dep, t.kind()),
             CoercedAttrWithType::Dep(dep, t) => {
                 DepAttr::<ProvidersLabel>::traverse(dep, t, traversal)
             }
@@ -597,6 +601,9 @@ impl CoercedAttr {
             CoercedAttrWithType::ConfigurationDep(dep, _) => {
                 ConfigurationDepAttrType::configure(ctx, dep)?
             }
+            CoercedAttrWithType::PluginDep(dep, t) => {
+                ConfiguredAttr::PluginDep(Box::new((dep.dupe(), t.kind().dupe())))
+            }
             CoercedAttrWithType::Dep(dep, t) => t.configure(dep, ctx)?,
             CoercedAttrWithType::SourceLabel(source, _) => ConfiguredAttr::SourceLabel(Box::new(
                 source.configure_pair(ctx.cfg().cfg_pair().dupe()),
@@ -650,6 +657,7 @@ impl CoercedAttr {
             CoercedAttr::SplitTransitionDep(e) => filter(&e.to_string()),
             CoercedAttr::ConfiguredDep(e) => filter(&e.to_string()),
             CoercedAttr::ConfigurationDep(e) => filter(&e.to_string()),
+            CoercedAttr::PluginDep(e) => filter(&e.to_string()),
             CoercedAttr::Dep(e) => filter(&e.to_string()),
             CoercedAttr::SourceLabel(e) => filter(&e.to_string()),
             CoercedAttr::Label(e) => filter(&e.to_string()),

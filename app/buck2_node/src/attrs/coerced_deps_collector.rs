@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::plugins::PluginKind;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::collections::ordered_set::OrderedSet;
 use dupe::Dupe;
@@ -39,6 +40,9 @@ pub struct CoercedDeps {
 
     /// Contains platform targets of configured_alias()
     pub platform_deps: Box<[TargetLabel]>,
+
+    /// Contains the plugin deps
+    pub plugin_deps: Box<[TargetLabel]>,
 }
 
 impl From<CoercedDepsCollector> for CoercedDeps {
@@ -50,6 +54,7 @@ impl From<CoercedDepsCollector> for CoercedDeps {
             toolchain_deps,
             configuration_deps,
             platform_deps,
+            plugin_deps,
         } = collector;
         CoercedDeps {
             deps: deps.into_iter().collect(),
@@ -58,6 +63,7 @@ impl From<CoercedDepsCollector> for CoercedDeps {
             toolchain_deps: toolchain_deps.into_iter().collect(),
             configuration_deps: configuration_deps.into_iter().collect(),
             platform_deps: platform_deps.into_iter().collect(),
+            plugin_deps: plugin_deps.into_iter().collect(),
         }
     }
 }
@@ -83,6 +89,9 @@ pub struct CoercedDepsCollector {
 
     /// Contains platform targets of configured_alias()
     pub platform_deps: OrderedSet<TargetLabel>,
+
+    /// Contains the plugin deps
+    pub plugin_deps: OrderedSet<TargetLabel>,
 }
 
 impl CoercedDepsCollector {
@@ -94,6 +103,7 @@ impl CoercedDepsCollector {
             transition_deps: OrderedSet::new(),
             configuration_deps: OrderedSet::new(),
             platform_deps: OrderedSet::new(),
+            plugin_deps: OrderedSet::new(),
         }
     }
 }
@@ -139,6 +149,11 @@ impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
 
     fn platform_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
         self.platform_deps.insert(dep.dupe());
+        Ok(())
+    }
+
+    fn plugin_dep(&mut self, dep: &'a TargetLabel, _kind: &PluginKind) -> anyhow::Result<()> {
+        self.plugin_deps.insert(dep.dupe());
         Ok(())
     }
 

@@ -31,6 +31,7 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
 use crate::interpreter::build_context::BuildContext;
@@ -75,6 +76,8 @@ impl<'v> StarlarkValue<'v> for StarlarkPluginKind {
 enum PluginKindError {
     #[error("Plugin kind has not yet been assigned to a global")]
     NotBound,
+    #[error("Expected a plugin kind, got a {0}")]
+    NotAPluginKind(String),
 }
 
 impl StarlarkPluginKind {
@@ -110,6 +113,16 @@ impl Freeze for StarlarkPluginKind {
     type Frozen = FrozenStarlarkPluginKind;
     fn freeze(self, _: &Freezer) -> anyhow::Result<Self::Frozen> {
         self.expect_bound().map(FrozenStarlarkPluginKind)
+    }
+}
+
+pub(crate) fn plugin_kind_from_value<'v>(v: Value<'v>) -> anyhow::Result<PluginKind> {
+    if let Some(unfrozen) = v.downcast_ref::<StarlarkPluginKind>() {
+        unfrozen.expect_bound()
+    } else if let Some(frozen) = v.downcast_ref::<FrozenStarlarkPluginKind>() {
+        Ok(frozen.0.dupe())
+    } else {
+        Err(PluginKindError::NotAPluginKind(v.to_repr()).into())
     }
 }
 
@@ -152,6 +165,6 @@ impl<'v> StarlarkValue<'v> for Plugins {
     }
 }
 
-pub fn register_plugins(globals: &mut GlobalsBuilder) {
+pub(crate) fn register_plugins(globals: &mut GlobalsBuilder) {
     globals.set("plugins", globals.frozen_heap().alloc_simple(Plugins));
 }

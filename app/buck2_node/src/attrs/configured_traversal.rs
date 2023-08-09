@@ -8,6 +8,7 @@
  */
 
 use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 
@@ -27,6 +28,10 @@ pub trait ConfiguredAttrTraversal {
     }
 
     fn configuration_dep(&mut self, _dep: &TargetLabel) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn plugin_dep(&mut self, _dep: &TargetLabel, _kind: &PluginKind) -> anyhow::Result<()> {
         Ok(())
     }
 

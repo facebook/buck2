@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::plugins::PluginKind;
 use dupe::Dupe;
 
 use crate::attrs::attr_type::any::AnyAttrType;
@@ -30,6 +31,7 @@ use crate::attrs::attr_type::list::ListAttrType;
 use crate::attrs::attr_type::metadata::MetadataAttrType;
 use crate::attrs::attr_type::one_of::OneOfAttrType;
 use crate::attrs::attr_type::option::OptionAttrType;
+use crate::attrs::attr_type::plugin_dep::PluginDepAttrType;
 use crate::attrs::attr_type::query::QueryAttrType;
 use crate::attrs::attr_type::source::SourceAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
@@ -57,6 +59,7 @@ pub mod list;
 pub mod metadata;
 pub mod one_of;
 pub mod option;
+pub mod plugin_dep;
 pub mod query;
 pub mod source;
 pub mod split_transition_dep;
@@ -82,6 +85,7 @@ pub enum AttrTypeInner {
     Tuple(TupleAttrType),
     OneOf(OneOfAttrType),
     Option(OptionAttrType),
+    PluginDep(PluginDepAttrType),
     Query(QueryAttrType),
     Source(SourceAttrType),
     SplitTransitionDep(SplitTransitionDepAttrType),
@@ -113,6 +117,7 @@ impl AttrType {
             AttrTypeInner::Arg(_) => attr("arg"),
             AttrTypeInner::ConfigurationDep(_) => attr("configuration_dep"),
             AttrTypeInner::ConfiguredDep(_) => attr("configured_dep"),
+            AttrTypeInner::PluginDep(_) => attr("plugin_dep"),
             AttrTypeInner::Bool(_) => attr("bool"),
             AttrTypeInner::Int(_) => attr("int"),
             AttrTypeInner::Dep(_) => attr("dep"),
@@ -231,6 +236,12 @@ impl AttrType {
         )))
     }
 
+    pub fn plugin_dep(kind: PluginKind) -> Self {
+        Self(Arc::new(AttrTypeInner::PluginDep(PluginDepAttrType::new(
+            kind,
+        ))))
+    }
+
     /// A dict attribute containing keys and values of the specified types.
     pub fn dict(key: AttrType, value: AttrType, sorted: bool) -> Self {
         Self(Arc::new(AttrTypeInner::Dict(DictAttrType::new(
@@ -305,6 +316,7 @@ impl AttrType {
             | AttrTypeInner::Source(_)
             | AttrTypeInner::ConfigurationDep(_)
             | AttrTypeInner::ConfiguredDep(_)
+            | AttrTypeInner::PluginDep(_)
             | AttrTypeInner::Int(_)
             | AttrTypeInner::Dep(_)
             | AttrTypeInner::Tuple(_)

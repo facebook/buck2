@@ -12,6 +12,7 @@ use std::sync::Arc;
 use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::PackageLabel;
+use buck2_core::plugins::PluginKind;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -76,6 +77,10 @@ pub(crate) fn check_within_view(
 
     impl<'a, 'x> CoercedAttrTraversal<'a> for WithinViewCheckTraversal<'x> {
         fn dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
+            self.check_dep_within_view(dep)
+        }
+
+        fn plugin_dep(&mut self, dep: &'a TargetLabel, _kind: &PluginKind) -> anyhow::Result<()> {
             self.check_dep_within_view(dep)
         }
 

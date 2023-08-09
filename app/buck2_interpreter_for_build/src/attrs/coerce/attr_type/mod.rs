@@ -31,6 +31,7 @@ mod list;
 mod metadata;
 mod one_of;
 mod option;
+pub mod plugin_dep;
 pub mod query;
 pub mod source;
 pub mod split_transition_dep;
@@ -115,6 +116,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
             Self::Query(x) => x.coerce_item(configurable, ctx, value),
             Self::ConfigurationDep(x) => x.coerce_item(configurable, ctx, value),
             Self::ConfiguredDep(x) => x.coerce_item(configurable, ctx, value),
+            Self::PluginDep(x) => x.coerce_item(configurable, ctx, value),
             Self::Enum(x) => x.coerce_item(configurable, ctx, value),
             Self::SplitTransitionDep(x) => x.coerce_item(configurable, ctx, value),
             Self::Label(x) => x.coerce_item(configurable, ctx, value),
@@ -142,6 +144,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
             AttrTypeInner::OneOf(x) => x.starlark_type(),
             AttrTypeInner::Option(x) => x.starlark_type(),
             AttrTypeInner::Query(x) => x.starlark_type(),
+            AttrTypeInner::PluginDep(x) => x.starlark_type(),
             AttrTypeInner::Source(x) => x.starlark_type(),
             AttrTypeInner::String(x) => x.starlark_type(),
             AttrTypeInner::SplitTransitionDep(x) => x.starlark_type(),

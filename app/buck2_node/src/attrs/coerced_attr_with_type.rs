@@ -30,6 +30,7 @@ use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::metadata::MetadataAttrType;
 use crate::attrs::attr_type::one_of::OneOfAttrType;
 use crate::attrs::attr_type::option::OptionAttrType;
+use crate::attrs::attr_type::plugin_dep::PluginDepAttrType;
 use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::query::QueryAttrType;
 use crate::attrs::attr_type::source::SourceAttrType;
@@ -94,6 +95,7 @@ pub enum CoercedAttrWithType<'a, 't> {
     SplitTransitionDep(&'a ProvidersLabel, &'t SplitTransitionDepAttrType),
     ConfiguredDep(&'a DepAttr<ConfiguredProvidersLabel>),
     ConfigurationDep(&'a TargetLabel, ConfigurationDepAttrType),
+    PluginDep(&'a TargetLabel, &'t PluginDepAttrType),
     Dep(&'a ProvidersLabel, &'t DepAttrType),
     SourceLabel(&'a ProvidersLabel, SourceAttrType),
     Label(&'a ProvidersLabel, LabelAttrType),
@@ -150,6 +152,9 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             (CoercedAttr::ConfigurationDep(d), AttrTypeInner::ConfigurationDep(t)) => {
                 Ok(CoercedAttrWithType::ConfigurationDep(d, *t))
             }
+            (CoercedAttr::PluginDep(d), AttrTypeInner::PluginDep(t)) => {
+                Ok(CoercedAttrWithType::PluginDep(d, t))
+            }
             (CoercedAttr::Dep(d), AttrTypeInner::Dep(t)) => Ok(CoercedAttrWithType::Dep(d, t)),
             (CoercedAttr::SourceLabel(s), AttrTypeInner::Source(t)) => {
                 Ok(CoercedAttrWithType::SourceLabel(s, *t))
@@ -182,6 +187,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | (CoercedAttr::ExplicitConfiguredDep(_), _)
             | (CoercedAttr::SplitTransitionDep(_), _)
             | (CoercedAttr::ConfigurationDep(_), _)
+            | (CoercedAttr::PluginDep(_), _)
             | (CoercedAttr::Dep(_), _)
             | (CoercedAttr::SourceLabel(_), _)
             | (CoercedAttr::Label(_), _)
@@ -214,6 +220,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | CoercedAttr::SplitTransitionDep(_)
             | CoercedAttr::ConfiguredDep(_)
             | CoercedAttr::ConfigurationDep(_)
+            | CoercedAttr::PluginDep(_)
             | CoercedAttr::Dep(_)
             | CoercedAttr::SourceLabel(_)
             | CoercedAttr::Label(_)

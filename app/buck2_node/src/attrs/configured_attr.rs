@@ -13,6 +13,7 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::package::PackageLabel;
+use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
@@ -100,6 +101,9 @@ pub enum ConfiguredAttr {
     ExplicitConfiguredDep(Box<ConfiguredExplicitConfiguredDep>),
     SplitTransitionDep(Box<ConfiguredSplitTransitionDep>),
     ConfigurationDep(Box<TargetLabel>),
+    // Note: Despite being named `PluginDep`, this doesn't really act like a dep but rather like a
+    // label
+    PluginDep(Box<(TargetLabel, PluginKind)>),
     Dep(Box<DepAttr<ConfiguredProvidersLabel>>),
     SourceLabel(Box<ConfiguredProvidersLabel>),
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
@@ -143,6 +147,7 @@ impl AttrDisplayWithContext for ConfiguredAttr {
             ConfiguredAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             ConfiguredAttr::SplitTransitionDep(e) => Display::fmt(e, f),
             ConfiguredAttr::ConfigurationDep(e) => write!(f, "\"{}\"", e),
+            ConfiguredAttr::PluginDep(e) => write!(f, "\"{}\"", e.0),
             ConfiguredAttr::Dep(e) => write!(f, "\"{}\"", e),
             ConfiguredAttr::SourceLabel(e) => write!(f, "\"{}\"", e),
             ConfiguredAttr::Label(e) => write!(f, "\"{}\"", e),
@@ -197,6 +202,7 @@ impl ConfiguredAttr {
                 Ok(())
             }
             ConfiguredAttr::ConfigurationDep(dep) => traversal.configuration_dep(dep),
+            ConfiguredAttr::PluginDep(dep) => traversal.plugin_dep(&dep.0, &dep.1),
             ConfiguredAttr::Dep(dep) => dep.traverse(traversal),
             ConfiguredAttr::SourceLabel(dep) => traversal.dep(dep),
             ConfiguredAttr::Label(label) => traversal.label(label),
