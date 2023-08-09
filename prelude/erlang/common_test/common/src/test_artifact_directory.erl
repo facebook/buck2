@@ -115,10 +115,15 @@ link_tar_ball(LogDir) ->
     with_artifact_dir(
         fun(ArtifactDir) ->
             {_Pid, MonitorRef} = spawn_monitor(fun() ->
+                {ok, Items} = file:list_dir(LogDir),
+                Files = [
+                    {Item, filename:join(LogDir, Item)}
+                 || Item <- Items, not string:equal(filename:join(LogDir, Item), ArtifactDir)
+                ],
                 erl_tar:create(
-                    filename:join(ArtifactDir, "execution_dir.tar.gz"), [{"./", LogDir}], [
-                        compressed
-                    ]
+                    filename:join(ArtifactDir, "execution_dir.tar.gz"),
+                    Files,
+                    [compressed]
                 )
             end),
             receive
