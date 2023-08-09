@@ -134,7 +134,7 @@ pub(crate) struct BxlDynamicKeyData {
     pub(crate) toolchains: Vec<ConfiguredProvidersLabel>,
 }
 
-pub(crate) struct BxlDynamicKey(pub Arc<BxlDynamicKeyData>);
+pub(crate) struct BxlDynamicKey(pub(crate) Arc<BxlDynamicKeyData>);
 
 impl BxlDynamicKey {
     pub(crate) fn key(&self) -> BxlKey {

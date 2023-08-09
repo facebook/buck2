@@ -33,15 +33,21 @@ enum ViaError {
 /// code.
 /// This also provides a handle for dice.
 #[derive(Clone, Dupe)]
-pub struct BxlSafeDiceComputations<'a>(pub(crate) &'a DiceComputations, CancellationObserver);
+pub(crate) struct BxlSafeDiceComputations<'a>(
+    pub(crate) &'a DiceComputations,
+    CancellationObserver,
+);
 
 impl<'a> BxlSafeDiceComputations<'a> {
-    pub fn new(dice: &'a DiceComputations, cancellation: CancellationObserver) -> Self {
+    pub(crate) fn new(dice: &'a DiceComputations, cancellation: CancellationObserver) -> Self {
         Self(dice, cancellation)
     }
 
     /// runs the async computation over dice as sync
-    pub fn via_dice<Fut, T>(&self, f: impl FnOnce(&'a DiceComputations) -> Fut) -> anyhow::Result<T>
+    pub(crate) fn via_dice<Fut, T>(
+        &self,
+        f: impl FnOnce(&'a DiceComputations) -> Fut,
+    ) -> anyhow::Result<T>
     where
         Fut: Future<Output = anyhow::Result<T>>,
     {
@@ -49,7 +55,7 @@ impl<'a> BxlSafeDiceComputations<'a> {
     }
 
     /// runs any async computation
-    pub fn via<Fut, T>(&self, f: impl FnOnce() -> Fut) -> anyhow::Result<T>
+    pub(crate) fn via<Fut, T>(&self, f: impl FnOnce() -> Fut) -> anyhow::Result<T>
     where
         Fut: Future<Output = anyhow::Result<T>>,
     {
