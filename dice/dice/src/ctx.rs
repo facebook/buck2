@@ -17,13 +17,11 @@ use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
-use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::ctx::ModernComputeCtx;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::opaque::OpaqueValueImpl;
-use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
 
 #[derive(Allocative)]
@@ -114,14 +112,5 @@ impl DiceComputationsImpl {
             DiceComputationsImpl::Legacy(delegate) => delegate.get_version(),
             DiceComputationsImpl::Modern(delegate) => delegate.get_version(),
         }
-    }
-
-    pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(match self {
-            DiceComputationsImpl::Legacy(delegate) => DiceTransactionUpdaterImpl::Legacy(delegate),
-            DiceComputationsImpl::Modern(delegate) => {
-                DiceTransactionUpdaterImpl::Modern(delegate.into_updater())
-            }
-        })
     }
 }

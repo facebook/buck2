@@ -54,6 +54,7 @@ use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
+use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
 use crate::DiceError;
 use crate::DiceTransactionUpdater;
@@ -113,7 +114,14 @@ impl BaseComputeCtx {
     }
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
-        self.data.0.into_updater()
+        DiceTransactionUpdater(match self.data.0 {
+            DiceComputationsImpl::Legacy(_) => unreachable!("modern dice"),
+            DiceComputationsImpl::Modern(delegate) => {
+                DiceTransactionUpdaterImpl::Modern(match delegate {
+                    ModernComputeCtx::Regular(ctx) => ctx.into_updater(),
+                })
+            }
+        })
     }
 
     pub(crate) fn as_computations(&self) -> &DiceComputations {
@@ -219,12 +227,6 @@ impl ModernComputeCtx {
     pub(crate) fn get_version(&self) -> VersionNumber {
         match self {
             ModernComputeCtx::Regular(ctx) => ctx.get_version(),
-        }
-    }
-
-    pub(crate) fn into_updater(self) -> TransactionUpdater {
-        match self {
-            ModernComputeCtx::Regular(ctx) => ctx.into_updater(),
         }
     }
 

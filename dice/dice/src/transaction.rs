@@ -12,6 +12,7 @@ use dupe::Dupe;
 
 use crate::ctx::DiceComputationsImpl;
 use crate::impls::ctx::BaseComputeCtx;
+use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
 use crate::DiceComputations;
 use crate::DiceTransactionUpdater;
@@ -52,7 +53,14 @@ impl DiceTransactionImpl {
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
         match self {
-            DiceTransactionImpl::Legacy(delegate) => delegate.0.into_updater(),
+            DiceTransactionImpl::Legacy(delegate) => match delegate.0 {
+                DiceComputationsImpl::Legacy(ctx) => {
+                    DiceTransactionUpdater(DiceTransactionUpdaterImpl::Legacy(ctx))
+                }
+                DiceComputationsImpl::Modern(_) => {
+                    unreachable!("legacy dice")
+                }
+            },
             DiceTransactionImpl::Modern(delegate) => delegate.into_updater(),
         }
     }
