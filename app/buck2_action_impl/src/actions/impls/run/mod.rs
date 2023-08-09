@@ -406,12 +406,10 @@ impl RunAction {
             // `with_scratch_path`, which will get created when running locally, but not on RE. By
             // using a directory *inside* that dir, we ensure that it consistently does *not* get
             // created, so our callers are forced to create it for themselves.
+            let path = scratch_path.join(ForwardRelativePath::unchecked_new("__scratch__"));
             extra_env.push((
                 "BUCK_SCRATCH_PATH".to_owned(),
-                scratch_path
-                    .join(ForwardRelativePath::unchecked_new("__scratch__"))
-                    .into_forward_relative_path_buf()
-                    .into_string(),
+                cli_ctx.resolve_project_path(path)?.into_string(),
             ));
         }
 
