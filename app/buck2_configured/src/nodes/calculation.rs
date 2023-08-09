@@ -32,6 +32,9 @@ use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::plugins::PluginKind;
+use buck2_core::plugins::PluginListElemKind;
+use buck2_core::plugins::PluginLists;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
@@ -118,6 +121,12 @@ enum ToolchainDepError {
     ToolchainRuleUsedAsNormalDep(TargetLabel),
     #[error("Target `{0}` has a transition_dep, which is not permitted on a toolchain rule")]
     ToolchainTransitionDep(TargetLabel),
+}
+
+#[derive(Debug, Error)]
+enum PluginDepError {
+    #[error("Plugin dep `{0}` is a toolchain rule")]
+    PluginDepIsToolchainRule(TargetLabel),
 }
 
 pub async fn find_execution_platform_by_configuration(
@@ -550,6 +559,27 @@ fn check_compatible(
     )))
 }
 
+/// Ideally, we would check this much earlier. However, that turns out to be a bit tricky to
+/// implement. Naively implementing this check on unconfigured nodes doesn't work because it results
+/// in dice cycles when there are cycles in the unconfigured graph.
+async fn check_plugin_deps_are_not_toolchains(
+    ctx: &DiceComputations,
+    plugin_deps: &PluginLists,
+) -> anyhow::Result<()> {
+    for (_, target, elem_kind) in plugin_deps.iter() {
+        if *elem_kind == PluginListElemKind::Direct {
+            let dep_node = ctx
+                .get_target_node(target)
+                .await
+                .with_context(|| format!("looking up unconfigured target node `{}`", target))?;
+            if dep_node.is_toolchain_rule() {
+                return Err(PluginDepError::PluginDepIsToolchainRule(target.dupe()).into());
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Default)]
 struct ErrorsAndIncompatibilities {
     errs: Vec<anyhow::Error>,
@@ -611,6 +641,7 @@ struct GatheredDeps {
     deps: Vec<ConfiguredTargetNode>,
     exec_deps: SmallSet<ConfiguredProvidersLabel>,
     toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
+    plugin_lists: PluginLists,
 }
 
 async fn gather_deps(
@@ -624,6 +655,7 @@ async fn gather_deps(
         deps: SmallSet<ConfiguredProvidersLabel>,
         exec_deps: SmallSet<ConfiguredProvidersLabel>,
         toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
+        plugin_lists: PluginLists,
     }
 
     impl ConfiguredAttrTraversal for Traversal {
@@ -639,6 +671,12 @@ async fn gather_deps(
 
         fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
             self.toolchain_deps.insert(dep.clone());
+            Ok(())
+        }
+
+        fn plugin_dep(&mut self, dep: &TargetLabel, kind: &PluginKind) -> anyhow::Result<()> {
+            self.plugin_lists
+                .insert(kind.dupe(), dep.dupe(), PluginListElemKind::Direct);
             Ok(())
         }
     }
@@ -668,6 +706,7 @@ async fn gather_deps(
             deps,
             exec_deps: traversal.exec_deps,
             toolchain_deps: traversal.toolchain_deps,
+            plugin_lists: traversal.plugin_lists,
         },
         errors_and_incompats,
     ))
@@ -720,6 +759,8 @@ async fn compute_configured_target_node_no_transition(
     );
     let (gathered_deps, mut errors_and_incompats) =
         gather_deps(target_label, &target_node, &attr_cfg_ctx, ctx).await?;
+
+    check_plugin_deps_are_not_toolchains(ctx, &gathered_deps.plugin_lists).await?;
 
     let execution_platform_resolution = if target_cfg.is_unbound() {
         // The unbound configuration is used when evaluation configuration nodes.

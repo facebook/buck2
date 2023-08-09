@@ -7,13 +7,17 @@
  * of this source tree.
  */
 
+use std::collections::BTreeMap;
+
 use allocative::Allocative;
+use buck2_util::collections::ordered_map::OrderedMap;
 use derive_more::Display;
 use dupe::Dupe;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 
 use crate::cells::cell_path::CellPath;
+use crate::target::label::TargetLabel;
 
 #[derive(
     Clone, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
@@ -51,5 +55,41 @@ impl PluginKind {
 
     pub fn as_str(&self) -> &str {
         &self.0.deref_static().name
+    }
+}
+
+/// Elements in the plugin list come in three kinds: Either they appear as direct `plugin_dep`s on
+/// the rule, or they arrive indirectly and may or may not need to be propagated.
+#[derive(
+    Copy, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+)]
+pub enum PluginListElemKind {
+    Direct,
+    Propagate,
+    NoPropagate,
+}
+
+// TODO(JakobDegen): Representation with fewer allocations
+#[derive(
+    Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+)]
+pub struct PluginLists(BTreeMap<PluginKind, OrderedMap<TargetLabel, PluginListElemKind>>);
+
+impl PluginLists {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn insert(&mut self, kind: PluginKind, target: TargetLabel, elem_kind: PluginListElemKind) {
+        // FIXME(JakobDegen): This should more carefully think about how repeated insertion should work
+        self.0.entry(kind).or_default().insert(target, elem_kind);
+    }
+
+    pub fn iter<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&'a PluginKind, &'a TargetLabel, &'a PluginListElemKind)> {
+        self.0
+            .iter()
+            .flat_map(|(k, v)| v.iter().map(move |t| (k, t.0, t.1)))
     }
 }
