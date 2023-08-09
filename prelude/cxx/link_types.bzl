@@ -32,6 +32,7 @@ LinkOptions = record(
     # A function/lambda which will generate the strip args using the ctx.
     strip_args_factory = ["function", None],
     import_library = [Artifact, None],
+    allow_cache_upload = bool,
     # Force callers to use link_options() or merge_link_options() to create.
     __private_use_link_options_function_to_construct = None,
 )
@@ -46,7 +47,8 @@ def link_options(
         identifier: [str, None] = None,
         strip: bool = False,
         strip_args_factory = None,
-        import_library: [Artifact, None] = None) -> LinkOptions:
+        import_library: [Artifact, None] = None,
+        allow_cache_upload: bool = False) -> LinkOptions:
     """
     A type-checked constructor for LinkOptions because by default record
     constructors aren't typed.
@@ -62,6 +64,7 @@ def link_options(
         strip = strip,
         strip_args_factory = strip_args_factory,
         import_library = import_library,
+        allow_cache_upload = allow_cache_upload,
         __private_use_link_options_function_to_construct = None,
     )
 
@@ -81,7 +84,8 @@ def merge_link_options(
         identifier: [str, None, _NotProvided] = _NOT_PROVIDED,
         strip: [bool, _NotProvided] = _NOT_PROVIDED,
         strip_args_factory = _NOT_PROVIDED,
-        import_library: [Artifact, None, _NotProvided] = _NOT_PROVIDED) -> LinkOptions:
+        import_library: [Artifact, None, _NotProvided] = _NOT_PROVIDED,
+        allow_cache_upload: [bool, _NotProvided] = _NOT_PROVIDED) -> LinkOptions:
     """
     Also something we would ideally auto-generate as LinkOptions.merge in
     Starlark.
@@ -98,5 +102,6 @@ def merge_link_options(
         strip = base.strip if strip == _NOT_PROVIDED else strip,
         strip_args_factory = base.strip_args_factory if strip_args_factory == _NOT_PROVIDED else strip_args_factory,
         import_library = base.import_library if import_library == _NOT_PROVIDED else import_library,
+        allow_cache_upload = base.allow_cache_upload if allow_cache_upload == _NOT_PROVIDED else allow_cache_upload,
         __private_use_link_options_function_to_construct = None,
     )

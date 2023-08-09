@@ -93,6 +93,7 @@ def serialize_anon_attrs(
         identifier = opts.identifier,
         category_suffix = opts.category_suffix,
         result_type = result_type.value,
+        allow_cache_upload = opts.allow_cache_upload,
     )
 
 def _deserialize_linkable(linkable: (str, typing.Any)) -> typing.Any:
@@ -168,6 +169,7 @@ def deserialize_anon_attrs(
         category_suffix = attrs.category_suffix,
         identifier = attrs.identifier,
         enable_distributed_thinlto = attrs.enable_distributed_thinlto,
+        allow_cache_upload = attrs.allow_cache_upload,
     )
 
     result_type = CxxLinkResultType(attrs.result_type)
@@ -177,6 +179,7 @@ def deserialize_anon_attrs(
 # The attributes -- and their serialzied type -- that can be passed to an
 # anonymous link.
 ANON_ATTRS = {
+    "allow_cache_upload": attrs.bool(),
     "category_suffix": attrs.string(),
     "enable_distributed_thinlto": attrs.bool(),
     "identifier": attrs.option(attrs.string(), default = None),
