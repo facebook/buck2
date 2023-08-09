@@ -587,12 +587,20 @@ struct ErrorsAndIncompatibilities {
 }
 
 impl ErrorsAndIncompatibilities {
-    pub fn unpack_dep(
+    pub fn unpack_dep_into(
         &mut self,
         target_label: &ConfiguredTargetLabel,
         result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>,
         list: &mut Vec<ConfiguredTargetNode>,
     ) {
+        list.extend(self.unpack_dep(target_label, result));
+    }
+
+    fn unpack_dep(
+        &mut self,
+        target_label: &ConfiguredTargetLabel,
+        result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>,
+    ) -> Option<ConfiguredTargetNode> {
         match result {
             Err(e) => {
                 self.errs.push(e);
@@ -606,7 +614,7 @@ impl ErrorsAndIncompatibilities {
             Ok(MaybeCompatible::Compatible(dep)) => {
                 match dep.is_visible_to(target_label.unconfigured()) {
                     Ok(true) => {
-                        list.push(dep);
+                        return Some(dep);
                     }
                     Ok(false) => {
                         self.errs
@@ -621,6 +629,7 @@ impl ErrorsAndIncompatibilities {
                 }
             }
         }
+        None
     }
 
     /// Returns an error/incompatibility to return, if any, and `None` otherwise
@@ -698,7 +707,7 @@ async fn gather_deps(
     let mut deps = Vec::new();
     let mut errors_and_incompats = ErrorsAndIncompatibilities::default();
     for res in dep_results {
-        errors_and_incompats.unpack_dep(target_label, res, &mut deps);
+        errors_and_incompats.unpack_dep_into(target_label, res, &mut deps);
     }
 
     Ok((
@@ -823,10 +832,10 @@ async fn compute_configured_target_node_no_transition(
     let mut exec_deps = Vec::with_capacity(gathered_deps.exec_deps.len());
 
     for dep in toolchain_dep_results {
-        errors_and_incompats.unpack_dep(target_label, dep, &mut deps);
+        errors_and_incompats.unpack_dep_into(target_label, dep, &mut deps);
     }
     for dep in exec_dep_results {
-        errors_and_incompats.unpack_dep(target_label, dep, &mut exec_deps);
+        errors_and_incompats.unpack_dep_into(target_label, dep, &mut exec_deps);
     }
 
     if let Some(ret) = errors_and_incompats.finalize() {
