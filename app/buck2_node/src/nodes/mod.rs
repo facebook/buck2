@@ -52,4 +52,8 @@ pub mod attributes {
 
     /// The package values for the package this target belongs to.
     pub static PACKAGE_VALUES: &str = "buck.package_values";
+
+    /// The plugin lists on the node. This includes all plugins, regardless of whether they're
+    /// propagated or actually used.
+    pub static PLUGINS: &str = "buck.plugins";
 }

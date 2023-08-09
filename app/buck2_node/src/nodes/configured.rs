@@ -61,6 +61,7 @@ use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::EXECUTION_PLATFORM;
 use crate::nodes::attributes::ONCALL;
 use crate::nodes::attributes::PACKAGE;
+use crate::nodes::attributes::PLUGINS;
 use crate::nodes::attributes::TARGET_CONFIGURATION;
 use crate::nodes::attributes::TYPE;
 use crate::nodes::unconfigured::RuleKind;
@@ -505,6 +506,7 @@ impl ConfiguredTargetNode {
                         .map_or_else(|_| ArcStr::from("<NONE>"), |v| ArcStr::from(v.id())),
                 )),
             ),
+            (PLUGINS, self.plugins_as_attr()),
         ]
         .into_iter()
     }
@@ -575,6 +577,25 @@ impl ConfiguredTargetNode {
 
     pub fn plugin_lists(&self) -> &PluginLists {
         &self.0.plugin_lists
+    }
+
+    fn plugins_as_attr(&self) -> ConfiguredAttr {
+        let mut kinds = Vec::new();
+        for (kind, plugins) in self.plugin_lists().iter_by_kind() {
+            // Using plugin dep here is a bit of an abuse. However, there's no
+            // `ConfiguredAttr::TargetLabel` type, and it also seems excessive to add one for this
+            // reason alone
+            let plugins = plugins
+                .map(|(target, _)| {
+                    ConfiguredAttr::PluginDep(Box::new((target.dupe(), kind.dupe())))
+                })
+                .collect();
+            kinds.push((
+                ConfiguredAttr::String(StringLiteral(ArcStr::from(kind.as_str()))),
+                ConfiguredAttr::List(plugins),
+            ));
+        }
+        ConfiguredAttr::Dict(kinds.into_iter().collect())
     }
 }
 
