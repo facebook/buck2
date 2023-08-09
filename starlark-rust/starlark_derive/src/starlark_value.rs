@@ -207,13 +207,7 @@ impl<'a> ImplStarlarkValue<'a> {
     /// const HAS_PLUS: bool = true;
     /// ```
     fn has_unop(&self, constant_name: &str, fn_name: &str) -> syn::Result<syn::ImplItem> {
-        let has = self.input.items.iter().any(|item| {
-            if let syn::ImplItem::Fn(fn_) = item {
-                fn_.sig.ident == fn_name
-            } else {
-                false
-            }
-        });
+        let has = self.has_fn(fn_name);
         let constant_name = syn::Ident::new(constant_name, self.span());
         syn::parse2(quote_spanned! { self.span() =>
             const #constant_name: bool = #has;
