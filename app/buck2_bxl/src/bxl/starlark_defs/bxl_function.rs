@@ -48,18 +48,6 @@ use crate::bxl::starlark_defs::cli_args::CliArgValue;
 
 #[starlark_module]
 pub(crate) fn register_bxl_function(builder: &mut GlobalsBuilder) {
-    /// Deprecated alias for `bxl_main`.
-    ///
-    /// The goal is to eventually remove this function and make `bxl` a namespace.
-    fn bxl<'v>(
-        #[starlark(require = named)] r#impl: Value<'v>,
-        #[starlark(require = named)] cli_args: DictOf<'v, &'v str, &'v CliArgs>,
-        #[starlark(require = named, default = "")] doc: &str,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        bxl_impl(r#impl, cli_args, doc, eval)
-    }
-
     fn bxl_main<'v>(
         #[starlark(require = named)] r#impl: Value<'v>,
         #[starlark(require = named)] cli_args: DictOf<'v, &'v str, &'v CliArgs>,
