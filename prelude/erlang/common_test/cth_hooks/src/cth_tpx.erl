@@ -72,7 +72,6 @@
 second_timestamp() ->
     os:system_time(millisecond) / 1000.
 
-
 %% -----------------------------------------------------------------------------
 %%    Registering and collecting results.
 %% -----------------------------------------------------------------------------
@@ -86,7 +85,6 @@ second_timestamp() ->
 % Once the whole run is finished, the method terminate/1 is called.
 % This one will, for each requested_test creates and output a method_result, using the
 % previously constructed tree_result.
-
 
 %%%%%%%%%%%%%%%%%% This part is similar to the one in cth_tespilot (execpt for some minor modifications
 %% in representing init / main/ end testcases as {Phase, Name})
@@ -151,7 +149,8 @@ init_role_top(Id, ServerName, Output) ->
         output = Output,
         starting_times = #{},
         io_buffer = IoBuffer,
-        groups = []
+        groups = [],
+        tree_results = cth_tpx_test_tree:new_node(unknown_suite)
     },
     Handle = cth_tpx_server:start_link(SharedState),
     % Register so that init_role_bot can find it
@@ -652,11 +651,10 @@ capture_starting_time(#state{starting_times = ST0} = State, MethodId) ->
 format_path(TC, Groups) ->
     lists:join([atom_to_list(P) || P <- lists:reverse([TC | Groups])], ".").
 
-
 -spec on_shared_state(hook_state(), Caller, Default, Action) -> {A, hook_state()} when
-  Caller :: cth_tpx_role:responsibility(),
-  Default :: A,
-  Action :: fun((shared_state()) -> {A, shared_state()}).
+    Caller :: cth_tpx_role:responsibility(),
+    Default :: A,
+    Action :: fun((shared_state()) -> {A, shared_state()}).
 on_shared_state(HookState = #{role := Role, server := Handle}, Caller, Default, Action) ->
     case cth_tpx_role:is_responsible(Role, Caller) of
         true ->
@@ -667,10 +665,10 @@ on_shared_state(HookState = #{role := Role, server := Handle}, Caller, Default, 
     end.
 
 -spec modify_shared_state(hook_state(), Caller, Action) -> hook_state() when
-  Caller :: cth_tpx_role:responsibility(),
-  Action :: fun((shared_state()) -> shared_state()).
+    Caller :: cth_tpx_role:responsibility(),
+    Action :: fun((shared_state()) -> shared_state()).
 modify_shared_state(HookState, Caller, Action) ->
-    {ok, NewHookState} = on_shared_state(HookState, Caller, _Default=ok, fun(State) ->
+    {ok, NewHookState} = on_shared_state(HookState, Caller, _Default = ok, fun(State) ->
         {ok, Action(State)}
     end),
     NewHookState.
