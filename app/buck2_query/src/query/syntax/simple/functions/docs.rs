@@ -9,7 +9,6 @@
 
 use std::fmt::Write;
 
-use enum_iterator::IntoEnumIterator;
 use indexmap::IndexMap;
 use itertools::Itertools;
 
@@ -127,7 +126,7 @@ impl QueryEnvironmentDescription {
             {}
             "#},
             &self.name,
-            QueryArgType::into_enum_iter()
+            enum_iterator::all::<QueryArgType>()
                 .map(|v| render_arg_type_markdown(v, options))
                 .join("\n\n"),
             self.mods.iter().map(|v| v.render_markdown()).join("\n\n")
