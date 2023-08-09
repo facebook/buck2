@@ -213,6 +213,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         link_group_info = link_group_info,
         auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info),
         prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
+        exe_allow_cache_upload = ctx.attrs.allow_cache_upload,
     )
     output = cxx_executable(ctx, params)
 
