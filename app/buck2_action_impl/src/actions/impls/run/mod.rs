@@ -19,7 +19,6 @@ use buck2_build_api::actions::box_slice_set::BoxSliceSet;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLine;
-use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutable;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -383,22 +382,38 @@ impl RunAction {
         // Path to this file is passed to user in environment variable which is selected by user.
         let cli_ctx = DefaultCommandLineContext::new(&executor_fs);
 
-        let extra_env = if let Some(metadata_param) = &self.inner.metadata_param {
+        let mut extra_env = Vec::new();
+
+        if let Some(metadata_param) = &self.inner.metadata_param {
             let path = BuckOutPath::new(ctx.target().owner().dupe(), metadata_param.path.clone());
             let env = cli_ctx
                 .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path))?
                 .into_string();
-            let extra = (metadata_param.env_var.to_owned(), env);
             let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;
             inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
                 data,
                 digest,
                 path,
             }));
-            Some(extra)
-        } else {
-            None
-        };
+            extra_env.push((metadata_param.env_var.to_owned(), env));
+        }
+
+        let scratch = ctx.target().scratch_path();
+        let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
+
+        if ctx.run_action_knobs().expose_action_scratch_path {
+            // We don't reuse the actual `scratch_path` because that's used as the
+            // `with_scratch_path`, which will get created when running locally, but not on RE. By
+            // using a directory *inside* that dir, we ensure that it consistently does *not* get
+            // created, so our callers are forced to create it for themselves.
+            extra_env.push((
+                "BUCK_SCRATCH_PATH".to_owned(),
+                scratch_path
+                    .join(ForwardRelativePath::unchecked_new("__scratch__"))
+                    .into_forward_relative_path_buf()
+                    .into_string(),
+            ));
+        }
 
         let paths = CommandExecutionPaths::new(
             inputs,
@@ -413,9 +428,6 @@ impl RunAction {
             ctx.digest_config(),
         )?;
 
-        let scratch = ctx.target().scratch_path();
-        let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
-
         Ok(PreparedRunAction {
             expanded,
             extra_env,
@@ -428,14 +440,14 @@ impl RunAction {
 
 pub(crate) struct PreparedRunAction {
     expanded: ExpandedCommandLine,
-    extra_env: Option<(String, String)>,
+    extra_env: Vec<(String, String)>,
     paths: CommandExecutionPaths,
     worker: Option<WorkerSpec>,
     scratch_path: ProjectRelativePathBuf,
 }
 
 impl PreparedRunAction {
-    fn into_command_execution_request(self, knobs: RunActionKnobs) -> CommandExecutionRequest {
+    fn into_command_execution_request(self) -> CommandExecutionRequest {
         let Self {
             expanded: ExpandedCommandLine { exe, args, mut env },
             extra_env,
@@ -444,22 +456,8 @@ impl PreparedRunAction {
             scratch_path,
         } = self;
 
-        for (k, v) in extra_env.into_iter() {
+        for (k, v) in extra_env {
             env.insert(k, v);
-        }
-
-        if knobs.expose_action_scratch_path {
-            // We don't reuse the actual `scratch_path` because that's used as the
-            // `with_scratch_path`, which will get created when running locally, but not on RE. By
-            // using a directory *inside* that dir, we ensure that it consistently does *not* get
-            // created, so our callers are forced to create it for themselves.
-            env.insert(
-                "BUCK_SCRATCH_PATH".to_owned(),
-                scratch_path
-                    .join(ForwardRelativePath::unchecked_new("__scratch__"))
-                    .into_forward_relative_path_buf()
-                    .into_string(),
-            );
         }
 
         CommandExecutionRequest::new(exe, args, paths, env)
@@ -585,7 +583,7 @@ impl IncrementalActionExecutable for RunAction {
         let host_sharing_requirements = HostSharingRequirements::Shared(self.inner.weight);
 
         let req = prepared_run_action
-            .into_command_execution_request(knobs)
+            .into_command_execution_request()
             .with_prefetch_lossy_stderr(true)
             .with_executor_preference(self.inner.executor_preference)
             .with_host_sharing_requirements(host_sharing_requirements)
