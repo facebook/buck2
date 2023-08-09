@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use ref_cast::ref_cast_custom;
+use ref_cast::RefCastCustom;
+
 use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 
@@ -24,6 +27,12 @@ impl<'v> SpaceSeparatedCommandLineBuilder<'v> {
             first: true,
         }
     }
+
+    #[allow(dead_code)]
+    pub fn wrap_string(string: &'v mut String) -> Self {
+        let builder = StringAsArgBuilder::new(string);
+        Self::wrap(builder as _)
+    }
 }
 
 impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
@@ -37,49 +46,54 @@ impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
     }
 }
 
+#[derive(RefCastCustom)]
+#[repr(transparent)]
+struct StringAsArgBuilder(String);
+
+impl StringAsArgBuilder {
+    #[ref_cast_custom]
+    pub(crate) fn new(string: &mut String) -> &mut Self;
+}
+
+impl ArgBuilder for StringAsArgBuilder {
+    fn push_str(&mut self, v: &str) {
+        self.0.push_str(v);
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
     use crate::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
     use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 
     #[test]
     fn cmdline_builder() -> anyhow::Result<()> {
-        struct Base {
-            val: String,
-        }
-        impl ArgBuilder for Base {
-            fn push_str(&mut self, v: &str) {
-                self.val.push_str(v);
-            }
-        }
-
-        let mut base = Base { val: String::new() };
-        SpaceSeparatedCommandLineBuilder::wrap(&mut base);
-        assert_eq!("", &base.val);
+        let mut s = String::new();
+        SpaceSeparatedCommandLineBuilder::wrap_string(&mut s);
+        assert_eq!("", &s);
 
         {
-            let mut builder = SpaceSeparatedCommandLineBuilder::wrap(&mut base);
+            let mut builder = SpaceSeparatedCommandLineBuilder::wrap_string(&mut s);
             builder.push_arg("hello".to_owned());
         }
-        assert_eq!("hello", &base.val);
+        assert_eq!("hello", &s);
 
-        base.val = String::new();
+        s = String::new();
         {
-            let mut builder = SpaceSeparatedCommandLineBuilder::wrap(&mut base);
+            let mut builder = SpaceSeparatedCommandLineBuilder::wrap_string(&mut s);
             builder.push_arg("hello".to_owned());
             builder.push_arg("world!".to_owned());
         }
-        assert_eq!("hello world!", &base.val);
+        assert_eq!("hello world!", &s);
 
         {
-            let mut builder = SpaceSeparatedCommandLineBuilder::wrap(&mut base);
+            let mut builder = SpaceSeparatedCommandLineBuilder::wrap_string(&mut s);
             builder.push_arg("hello".to_owned());
             builder.push_arg("again!".to_owned());
             builder.push_arg("and".to_owned());
             builder.push_arg("again!".to_owned());
         }
-        assert_eq!("hello world!hello again! and again!", &base.val);
+        assert_eq!("hello world!hello again! and again!", &s);
 
         Ok(())
     }
