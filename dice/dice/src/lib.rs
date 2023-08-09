@@ -213,6 +213,8 @@ pub mod introspection;
 mod legacy;
 pub(crate) mod metrics;
 mod opaque;
+#[allow(unused)] // temporary
+pub(crate) mod owned;
 pub(crate) mod result;
 mod transaction;
 mod transaction_update;
