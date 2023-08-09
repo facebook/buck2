@@ -411,7 +411,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
     CommandExecutorConfig {
         executor,
         options: CommandGenerationOptions {
-            path_separator: PathSeparatorKind::system_default(),
+            path_separator: get_default_path_separator(host_platform),
             output_paths_behavior: Default::default(),
         },
     }
@@ -438,4 +438,13 @@ fn get_default_re_properties(host_platform: HostPlatformOverride) -> SortedMap<S
         .iter()
         .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
         .collect()
+}
+
+fn get_default_path_separator(host_platform: HostPlatformOverride) -> PathSeparatorKind {
+    match host_platform {
+        HostPlatformOverride::Linux => PathSeparatorKind::Unix,
+        HostPlatformOverride::MacOs => PathSeparatorKind::Unix,
+        HostPlatformOverride::Windows => PathSeparatorKind::Windows,
+        HostPlatformOverride::DefaultPlatform => PathSeparatorKind::system_default(),
+    }
 }
