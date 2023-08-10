@@ -22,6 +22,7 @@ use dupe::Dupe;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::syntax::ast::BinOp;
 use crate::typing::basic::TyBasic;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
@@ -622,6 +623,52 @@ impl<'a> TypingOracleCtx<'a> {
                 bin_op if bin_op.always_bool() => Ok(Ty::bool()),
                 _ => Ok(Ty::unions(good)),
             }
+        }
+    }
+
+    pub(crate) fn expr_bin_op(
+        &self,
+        span: Span,
+        lhs: Spanned<Ty>,
+        bin_op: BinOp,
+        rhs: Spanned<Ty>,
+    ) -> Result<Ty, TypingOrInternalError> {
+        let bool_ret = if lhs.is_never() || rhs.is_never() {
+            Ty::never()
+        } else {
+            Ty::bool()
+        };
+        match bin_op {
+            BinOp::And | BinOp::Or => {
+                if lhs.is_never() {
+                    Ok(Ty::never())
+                } else {
+                    Ok(Ty::union2(lhs.node, rhs.node))
+                }
+            }
+            BinOp::Equal | BinOp::NotEqual => {
+                // It's not an error to compare two different types, but it is pointless
+                self.validate_type(&lhs, &rhs, span)?;
+                Ok(bool_ret)
+            }
+            BinOp::In | BinOp::NotIn => {
+                // We dispatch `x in y` as y.__in__(x) as that's how we validate
+                self.expr_bin_op_ty(span, rhs, TypingBinOp::In, lhs)
+            }
+            BinOp::Less | BinOp::LessOrEqual | BinOp::Greater | BinOp::GreaterOrEqual => {
+                self.expr_bin_op_ty(span, lhs, TypingBinOp::Less, rhs)
+            }
+            BinOp::Subtract => self.expr_bin_op_ty(span, lhs, TypingBinOp::Sub, rhs),
+            BinOp::Add => self.expr_bin_op_ty(span, lhs, TypingBinOp::Add, rhs),
+            BinOp::Multiply => self.expr_bin_op_ty(span, lhs, TypingBinOp::Mul, rhs),
+            BinOp::Percent => self.expr_bin_op_ty(span, lhs, TypingBinOp::Percent, rhs),
+            BinOp::Divide => self.expr_bin_op_ty(span, lhs, TypingBinOp::Div, rhs),
+            BinOp::FloorDivide => self.expr_bin_op_ty(span, lhs, TypingBinOp::FloorDiv, rhs),
+            BinOp::BitAnd => self.expr_bin_op_ty(span, lhs, TypingBinOp::BitAnd, rhs),
+            BinOp::BitOr => self.expr_bin_op_ty(span, lhs, TypingBinOp::BitOr, rhs),
+            BinOp::BitXor => self.expr_bin_op_ty(span, lhs, TypingBinOp::BitXor, rhs),
+            BinOp::LeftShift => self.expr_bin_op_ty(span, lhs, TypingBinOp::LeftShift, rhs),
+            BinOp::RightShift => self.expr_bin_op_ty(span, lhs, TypingBinOp::RightShift, rhs),
         }
     }
 
