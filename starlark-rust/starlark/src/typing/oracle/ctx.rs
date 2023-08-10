@@ -389,22 +389,64 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
+    fn expr_index_ty(
+        &self,
+        span: Span,
+        array: &TyBasic,
+        index: Spanned<&TyBasic>,
+    ) -> Result<Ty, TypingOrInternalError> {
+        let f = match self.attribute(array, TypingAttr::Index) {
+            None => return Ok(Ty::any()),
+            Some(Ok(x)) => x,
+            Some(Err(())) => {
+                return Err(self.mk_error_as_maybe_internal(
+                    span,
+                    TypingOracleCtxError::MissingIndexOperator {
+                        ty: Ty::basic(array.clone()),
+                    },
+                ));
+            }
+        };
+        self.validate_call(span, &f, &[index.map(|i| Arg::Pos(Ty::basic(i.clone())))])
+    }
+
     pub(crate) fn expr_index(
         &self,
         span: Span,
         array: Ty,
         index: Spanned<Ty>,
     ) -> Result<Ty, TypingOrInternalError> {
-        let f = match self.attribute_ty(&array, TypingAttr::Index) {
-            Ok(x) => x,
-            Err(()) => {
-                return Err(self.mk_error_as_maybe_internal(
+        if array.is_any() || array.is_any() {
+            return Ok(Ty::any());
+        }
+
+        let mut good = Vec::new();
+        for array in array.iter_union() {
+            for index_basic in index.node.iter_union() {
+                if let Ok(ty) = self.expr_index_ty(
                     span,
-                    TypingOracleCtxError::MissingIndexOperator { ty: array.clone() },
-                ));
+                    array,
+                    Spanned {
+                        span: index.span,
+                        node: index_basic,
+                    },
+                ) {
+                    good.push(ty);
+                }
             }
-        };
-        self.validate_call(span, &f, &[index.map(Arg::Pos)])
+        }
+
+        if good.is_empty() {
+            // TODO: message is wrong: it is possible that there's index operator,
+            //   but it does not support parameter type.
+            //   But we don't support that.
+            Err(self.mk_error_as_maybe_internal(
+                span,
+                TypingOracleCtxError::MissingIndexOperator { ty: array },
+            ))
+        } else {
+            Ok(Ty::unions(good))
+        }
     }
 
     pub(crate) fn expr_slice(&self, span: Span, array: Ty) -> Result<Ty, TypingError> {
