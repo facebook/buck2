@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _installer_impl(ctx: "context") -> ["provider"]:
+def _installer_impl(ctx: AnalysisContext) -> list[Provider]:
     installer = ctx.attrs.installer
     return [DefaultInfo(), InstallInfo(installer = installer, files = ctx.attrs.files)]
 

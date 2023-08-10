@@ -7,7 +7,7 @@
 
 load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
 
-def _symlinked_buck2_and_tpx_impl(ctx: "context") -> ["provider"]:
+def _symlinked_buck2_and_tpx_impl(ctx: AnalysisContext) -> list[Provider]:
     """
     Produce a directory layout that is similar to the one our release binary
     uses, this allows setting a path for Tpx relative to BUCK2_BINARY_DIR.

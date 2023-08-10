@@ -149,10 +149,10 @@ def _maybe_select_map(v, mapper):
         return select_map(v, mapper)
     return mapper(v)
 
-def _select_os_deps(xss: [(
-    "string",
-    ["string"],
-)]) -> "selector":
+def _select_os_deps(xss: list[(
+    str,
+    list[str],
+)]) -> Select:
     d = {
         "prelude//os:" + os: xs
         for os, xs in xss
@@ -160,29 +160,29 @@ def _select_os_deps(xss: [(
     d["DEFAULT"] = []
     return select(d)
 
-def _fix_dict_deps(xss: [(
-    "string",
-    ["string"],
-)]) -> [(
-    "string",
-    ["string"],
+def _fix_dict_deps(xss: list[(
+    str,
+    list[str],
+)]) -> list[(
+    str,
+    list[str],
 )]:
     return [
         (k, _fix_deps(xs))
         for k, xs in xss
     ]
 
-def _fix_mapped_srcs(xs: {"string": "string"}):
+def _fix_mapped_srcs(xs: dict[str, str]):
     # For reasons, this is source -> file path, which is the opposite of what
     # it should be.
     return {_fix_dep(k): v for (k, v) in xs.items()}
 
-def _fix_deps(xs: ["string"]) -> ["string"]:
+def _fix_deps(xs: list[str]) -> list[str]:
     return filter(None, map(_fix_dep, xs))
 
-def _fix_dep(x: "string") -> [
+def _fix_dep(x: str) -> [
     None,
-    "string",
+    str,
 ]:
     if x == "fbsource//third-party/blake3:blake3-rust":
         x = "fbsource//third-party/rust:blake3"
@@ -200,7 +200,7 @@ def _fix_dep(x: "string") -> [
     else:
         return x
 
-def _fix_dep_in_string(x: "string") -> "string":
+def _fix_dep_in_string(x: str) -> str:
     """Replace internal labels in string values such as env-vars."""
     return (x
         .replace("//buck2/", "root//"))

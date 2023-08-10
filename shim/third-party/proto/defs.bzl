@@ -8,8 +8,8 @@ ProtocReleaseInfo = provider(fields = [
 ])
 
 def _get_protoc_release(
-        version: "string",
-        platform: "string") -> ProtocReleaseInfo.type:
+        version: str,
+        platform: str) -> ProtocReleaseInfo.type:
     if not version in releases:
         fail("Unknown protoc release version '{}'. Available versions: {}".format(
             version,
@@ -31,7 +31,7 @@ def _get_protoc_release(
 
 def _turn_http_archive_into_protoc_distribution(
         providers: "provider_collection",
-        protoc_filename: str.type) -> ["provider"]:
+        protoc_filename: str) -> list[Provider]:
     downloads = providers[DefaultInfo].sub_targets
     include = downloads["include"][DefaultInfo]
     protoc = downloads[protoc_filename][DefaultInfo]
@@ -46,7 +46,7 @@ def _turn_http_archive_into_protoc_distribution(
         },
     )]
 
-def _download_protoc_distribution_impl(ctx: "context") -> "promise":
+def _download_protoc_distribution_impl(ctx: AnalysisContext) -> "promise":
     protoc_filename = "bin/protoc" + ctx.attrs.exe_extension
 
     return ctx.actions.anon_target(native.http_archive, {
@@ -89,9 +89,9 @@ def _host_platform():
         fail("Unknown platform: os={}, arch={}".format(os, arch))
 
 def protoc_distribution(
-        name: "string",
-        version: "string",
-        platform: [None, "string"] = None):
+        name: str,
+        version: str,
+        platform: [None, str] = None):
     if platform == None:
         platform = _host_platform()
     exe_extension = ".exe" if platform.startswith("win") else ""
