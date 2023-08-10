@@ -149,12 +149,13 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                             |dice| async move {
                                 let events = self.events().dupe();
 
-                                let metadata = self.config_metadata(&dice).await?;
+                                let request_metadata = self.request_metadata().await?;
+                                let config_metadata = self.config_metadata(&dice).await?;
 
                                 events
                                     .span_async(
                                         CommandCriticalStart {
-                                            metadata: metadata.clone(),
+                                            metadata: config_metadata.clone(),
                                             dice_version: dice.equality_token().to_string(),
                                         },
                                         async move {
@@ -165,7 +166,14 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                                     .get_critical_path_backend(),
                                                 BuildSignalsContext {
                                                     command_name: self.command_name().to_owned(),
-                                                    metadata: metadata.clone(),
+                                                    metadata: request_metadata
+                                                        .into_iter()
+                                                        .chain(
+                                                            config_metadata.iter().map(|(k, v)| {
+                                                                (k.clone(), v.clone())
+                                                            }),
+                                                        )
+                                                        .collect(),
                                                     isolation_prefix: self
                                                         .isolation_prefix()
                                                         .to_owned(),
@@ -174,7 +182,12 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                             )
                                             .await;
 
-                                            (res, CommandCriticalEnd { metadata })
+                                            (
+                                                res,
+                                                CommandCriticalEnd {
+                                                    metadata: config_metadata,
+                                                },
+                                            )
                                         },
                                     )
                                     .await
