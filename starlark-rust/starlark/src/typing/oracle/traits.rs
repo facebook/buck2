@@ -83,6 +83,13 @@ pub enum TypingBinOp {
     RightShift,
 }
 
+impl TypingBinOp {
+    /// Result type is always `bool`.
+    pub(crate) fn always_bool(self) -> bool {
+        matches!(self, TypingBinOp::In | TypingBinOp::Less)
+    }
+}
+
 /// Attribute for [`TypingOracle::attribute`].
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display)]
 pub enum TypingAttr<'a> {

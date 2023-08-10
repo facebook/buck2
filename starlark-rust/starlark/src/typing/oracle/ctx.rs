@@ -512,7 +512,10 @@ impl<'a> TypingOracleCtx<'a> {
         if lhs.is_never() || rhs.is_never() {
             // TODO(nga): even if RHS is never, it still can be an error
             //   if LHS does not support bin op.
-            return Ok(Ty::never());
+            match bin_op {
+                bin_op if bin_op.always_bool() => return Ok(Ty::bool()),
+                _ => return Ok(Ty::never()),
+            }
         }
 
         let mut good = Vec::new();
@@ -548,7 +551,10 @@ impl<'a> TypingOracleCtx<'a> {
                 },
             ))
         } else {
-            Ok(Ty::unions(good))
+            match bin_op {
+                bin_op if bin_op.always_bool() => Ok(Ty::bool()),
+                _ => Ok(Ty::unions(good)),
+            }
         }
     }
 

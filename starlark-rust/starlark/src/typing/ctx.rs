@@ -338,19 +338,15 @@ impl TypingContext<'_> {
                     rhs,
                     TypingBinOp::In,
                     lhs,
-                ))?;
-                // Ignore the return type, we know it's always a bool
-                Ok(bool_ret)
+                ))
             }
-            BinOp::Less | BinOp::LessOrEqual | BinOp::Greater | BinOp::GreaterOrEqual => {
-                self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
+            BinOp::Less | BinOp::LessOrEqual | BinOp::Greater | BinOp::GreaterOrEqual => self
+                .result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
                     span,
                     lhs,
                     TypingBinOp::Less,
                     rhs,
-                ))?;
-                Ok(bool_ret)
-            }
+                )),
             BinOp::Subtract => self.result_to_ty_with_internal_error(self.oracle.expr_bin_op_ty(
                 span,
                 lhs,
