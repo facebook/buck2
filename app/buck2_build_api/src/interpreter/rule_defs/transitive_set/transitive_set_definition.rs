@@ -206,6 +206,8 @@ impl<'v> AllocValue<'v> for TransitiveSetDefinition<'v> {
 
 #[starlark_value(type = "transitive_set_definition")]
 impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
+    type Canonical = FrozenTransitiveSetDefinition;
+
     fn export_as(&self, variable_name: &str, _: &mut Evaluator<'v, '_>) {
         // First export wins
         let mut id = self.id.borrow_mut();

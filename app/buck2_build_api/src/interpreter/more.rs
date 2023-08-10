@@ -18,6 +18,7 @@ use crate::interpreter::rule_defs::provider::callable::register_provider;
 use crate::interpreter::rule_defs::provider::dependency::register_dependency;
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use crate::interpreter::rule_defs::register_rule_defs;
+use crate::interpreter::rule_defs::transitive_set::globals::register_transitive_set_types;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 
 fn register_build_api_globals(globals: &mut GlobalsBuilder) {
@@ -27,6 +28,7 @@ fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_provider(globals);
     register_rule_defs(globals);
     register_transitive_set(globals);
+    register_transitive_set_types(globals);
     register_analysis_context(globals);
     register_dependency(globals);
     register_artifact(globals);
