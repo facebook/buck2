@@ -60,9 +60,6 @@ The OS image will contain all input files necessary to produce the desired outpu
 To test out a build on your devserver and ensure you _can_ actually produce the output you expect, you can materialize the container in a separate location and enter with with `systemd-nspawn`:
 
 ```[bash]
-# Make a directory where the container will be materialized.
-$ mkdir ~/local/my_service_offline
-
 # Use Antlir's special `=container` rule to generate the container locally.
 $ buck2 run //my/service:my.service-offline=container -- --snapshot-into ~/local/my_service_offline
 
