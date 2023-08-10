@@ -63,8 +63,8 @@ To test out a build on your devserver and ensure you _can_ actually produce the 
 # Use Antlir's special `=container` rule to generate the container locally.
 $ buck2 run //my/service:my.service-offline=container -- --snapshot-into ~/local/my_service_offline
 
-# Enter the container as the build user with no network
-$ systemd-nspawn -D ~/local/my_service_offline --register=no --user facebook --private-network
+# Enter the container as the build user with no network, you will need root access
+$ sudo systemd-nspawn -D ~/local/my_service_offline --register=no --user facebook --private-network
 
 [facebook@my_service_offline ~]$ ls -l
 total 0
@@ -86,9 +86,29 @@ Inside the fbsource repository are one or more shell scripts to make it easier t
 #!/bin/sh
 
 exec fbpkg-build --offline --build-local --no-publish fbcode//my/service:my.service
+
+[facebook@my_service_offline fbsource]$ ./build_fbpkg_my_service.sh
+2023-08-08T11:58:01.709968604-07:00  INFO registry_build_utils::build_utils: Using repo found at cwd: /home/facebook/fbsource
+Buck UI: https://www.internalfb.com/buck2/1dbe44a6-2089-46b5-b5fe-83ba82facf69
+Jobs completed: 78265. Time elapsed: 50.2s.
+Cache hits: 0%. Commands: 18 (cached: 0, remote: 0, local: 18)
+BUILD SUCCEEDED
+2023-08-08T18:59:00.958700Z  WARN buck2_client_ctx::cleanup_ctx: Async cleanup step 'sending invocation to Scribe' took 3.535555792s
+{
+  "x86_64": "/home/facebook/fbsource/buck-out/v2/gen/fbcode/29146bce1651974e/path/to/my_service_offline/__my_service_offline__/tree"
+}
 ```
 
-> NOTE: today, this only produces a tree of artifacts that represents **uncompressed** fbpkg contents. In the future, this will be updated to produce a fully compressed fbpkg that can be handed off to tupperware.
+> NOTE: today, this only produces a tree of artifacts that represents **uncompressed** fbpkg contents. In the future, this will be updated to produce a fully compressed fbpkg that can be handed off to tupperware. The script above will print out the location of the built fbpkg
+
+## Copy built package out of the container
+You can access the files inside the container, from your dev server, you can cp the generated fbpkg out as root. The path will be the image base path (the path you pass through --snapshot-into when built the image) + path inside container (the output of the build script), in our case it is shown below
+```[bash]
+[yourunix@devvm4242.vll0 /]$ ls ~/local/my_service_offline/home/facebook/fbsource/buck-out/v2/gen/fbcode/29146bce1651974e/path/to/my_service_offline/__my_service_offline__/tree
+server.par
+[yourunix@devvm4242.vll0 /]$ sudo cp ~/local/my_service_offline/home/facebook/fbsource/buck-out/v2/gen/fbcode/29146bce1651974e/path/to/my_service_offline/__my_service_offline__/tree/server.par /tmp/your_test_dir
+```
+
 
 ## Additional build modes
 
