@@ -15,6 +15,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
+use starlark_map::small_map::Entry;
 
 use crate::cells::cell_path::CellPath;
 use crate::target::label::TargetLabel;
@@ -102,13 +103,17 @@ impl PluginKindSet {
 
 /// Elements in the plugin list come in three kinds: Either they appear as direct `plugin_dep`s on
 /// the rule, or they arrive indirectly and may or may not need to be propagated.
+///
+/// Note that the `Ord` impl on this type is semantically meaningful - larger values indicate
+/// stronger kinds of membership, and when a plugin enters the plugin lists twice the larger of the
+/// two values is preferred.
 #[derive(
     Copy, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
 )]
 pub enum PluginListElemKind {
-    Direct,
-    Propagate,
     NoPropagate,
+    Propagate,
+    Direct,
 }
 
 // TODO(JakobDegen): Representation with fewer allocations
@@ -123,8 +128,17 @@ impl PluginLists {
     }
 
     pub fn insert(&mut self, kind: PluginKind, target: TargetLabel, elem_kind: PluginListElemKind) {
-        // FIXME(JakobDegen): This should more carefully think about how repeated insertion should work
-        self.0.entry(kind).or_default().insert(target, elem_kind);
+        match self.0.entry(kind).or_default().entry(target) {
+            Entry::Occupied(mut occupied) => {
+                let current = occupied.get_mut();
+                if *current < elem_kind {
+                    *current = elem_kind;
+                }
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(elem_kind);
+            }
+        }
     }
 
     pub fn iter<'a>(
