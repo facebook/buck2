@@ -37,7 +37,7 @@ def create_dep_manifest_for_source_map(
         cmd.add(cmd_args(artifact))
         cmd.add(cmd_args(dep_manifest.as_output()))
         ctx.actions.run(cmd, category = "generate_dep_manifest", identifier = out_name)
-        entries.append((dep_manifest, path))
+        entries.append((dep_manifest, path, ctx.label.raw_target()))
         artifacts.append(dep_manifest)
 
     manifest = ctx.actions.write_json("dep.manifest", entries)

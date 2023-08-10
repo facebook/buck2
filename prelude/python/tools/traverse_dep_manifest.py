@@ -25,13 +25,15 @@ def main() -> int:
 
     deps = {}
     all_deps = {}
+    module_to_targets = {}
     for manifest in args.manifest:
         with open(manifest, "r") as f:
-            for dep_file, source in json.load(f):
+            for dep_file, source, target in json.load(f):
                 # get the fully qualified module name from the output path
                 # e.g. foo/bar/baz.py -> foo.bar.baz
                 module = source[:-3].replace("/", ".")
                 all_deps[module] = source
+                module_to_targets.setdefault(module, []).append(target)
                 root_module = source.split("/")[0]
                 if root_module in STDLIB_MODULES:
                     continue
@@ -46,6 +48,17 @@ def main() -> int:
     count, required, missing = ensure_deps(args.main, deps, all_deps)
     extra = included - required
 
+    target_to_modules = {}
+    for module, targets in module_to_targets.items():
+        for target in targets:
+            if target not in target_to_modules:
+                target_to_modules[target] = {
+                    "required": [],
+                    "extra": [],
+                }
+            key = "required" if module in required else "extra"
+            target_to_modules[target][key].append(module)
+
     with open(args.outfile, "w") as out:
         report = {}
         report["all_modules_count"] = len(included)
@@ -54,6 +67,7 @@ def main() -> int:
         report["all_modules"] = sorted(included)
         report["required_modules"] = sorted(required)
         report["extra_modules"] = sorted(extra)
+        report["all_targets"] = target_to_modules
         out.write(json.dumps(report, indent=2))
 
     return 0
