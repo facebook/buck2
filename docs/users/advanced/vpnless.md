@@ -38,15 +38,15 @@ You may see failures like the following when performing a VPNless build the firs
 ```
 $ buck2 build //my/cool:project
 Action failed: fbsource//xplat/toolchains/apple:xcode_14.3.1_14e300b-macosx-sdk_genrule (download_file archive.tar.zst)
-Internal error: Received invalid sha1 digets. Expected eaaf6bd1951ee7200ca66d608dc837e28883ec1e, got bcac2ddc59677d169098742206a7c110fa00a385 from https://our.intern.facebook.com/intern/managed_sdk/component/272435095345806/; perhaps this url is not gated into vpnless?
+Internal error: Received invalid sha1 digest. Expected eaaf6bd1951ee7200ca66d608dc837e28883ec1e, got bcac2ddc59677d169098742206a7c110fa00a385 from https://our.intern.facebook.com/intern/managed_sdk/component/272435095345806/; perhaps this url is not gated into vpnless?
 Action failed: fbsource//xplat/toolchains/apple:xcode_14.3.1_14e300b_swift-resource-dir_macos (download_file archive.tar.zst)
-Internal error: Received invalid sha1 digets. Expected f7cc25942c4e8a56f87c851ad75e351e71fae49a, got e63063370b23229764fa0d61e8fc6bbfe7137c16 from https://our.intern.facebook.com/intern/managed_sdk/component/271406345550923/; perhaps this url is not gated into vpnless?
+Internal error: Received invalid sha1 digest. Expected f7cc25942c4e8a56f87c851ad75e351e71fae49a, got e63063370b23229764fa0d61e8fc6bbfe7137c16 from https://our.intern.facebook.com/intern/managed_sdk/component/271406345550923/; perhaps this url is not gated into vpnless?
 Action failed: fbsource//xplat/toolchains/apple:xcode_14.3.1_14e300b_macosx-swift-resource-dir_macos (download_file archive.tar.zst)
-Internal error: Received invalid sha1 digets. Expected b6bd2a7faba6985ccd2dd541efdeb48dfb82da31, got 93c6003bc10513445a20ec89d0843419192bd02d from https://our.intern.facebook.com/intern/managed_sdk/component/259997920045153/; perhaps this url is not gated into vpnless?
+Internal error: Received invalid sha1 digest. Expected b6bd2a7faba6985ccd2dd541efdeb48dfb82da31, got 93c6003bc10513445a20ec89d0843419192bd02d from https://our.intern.facebook.com/intern/managed_sdk/component/259997920045153/; perhaps this url is not gated into vpnless?
 Action failed: fbsource//xplat/toolchains/apple:xcode_14.3.1_14e300b_linker-resource-dir_macos (download_file archive.tar.zst)
-Internal error: Received invalid sha1 digets. Expected 145cde8a2d9c65f2bdd66818970b94c9ae974b3f, got 395b70b84a5e3ee8a12bed3cd0c31968fb37b94b from https://our.intern.facebook.com/intern/managed_sdk/component/786106529582223/; perhaps this url is not gated into vpnless?
+Internal error: Received invalid sha1 digest. Expected 145cde8a2d9c65f2bdd66818970b94c9ae974b3f, got 395b70b84a5e3ee8a12bed3cd0c31968fb37b94b from https://our.intern.facebook.com/intern/managed_sdk/component/786106529582223/; perhaps this url is not gated into vpnless?
 Action failed: fbsource//xplat/toolchains/apple:xcode_14.3.1_14e300b_clang-resource-dir_macos (download_file archive.tar.zst)
-Internal error: Received invalid sha1 digets. Expected f32f8356ed50596d5c000018573e9fd5d2836e48, got c4346966bd9c976f44e951f7e3974e8d2d0f3e86 from https://our.intern.facebook.com/intern/managed_sdk/component/921533932454562/; perhaps this url is not gated into vpnless?
+Internal error: Received invalid sha1 digest. Expected f32f8356ed50596d5c000018573e9fd5d2836e48, got c4346966bd9c976f44e951f7e3974e8d2d0f3e86 from https://our.intern.facebook.com/intern/managed_sdk/component/921533932454562/; perhaps this url is not gated into vpnless?
 BUILD FAILED
 ```
 
