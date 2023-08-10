@@ -152,6 +152,8 @@ def get_multi_dex(
             module_to_jars.setdefault(module, []).append(java_library_jar)
 
         secondary_dex_dir_srcs = {}
+        all_jars = flatten(module_to_jars.values())
+        all_jars_list = ctx.actions.write("all_jars_classpath.txt", all_jars)
         for module, jars in module_to_jars.items():
             multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
             secondary_dex_compression_cmd = cmd_args(android_toolchain.secondary_dex_compression_command[RunInfo])
@@ -190,6 +192,8 @@ def get_multi_dex(
                 secondary_dex_compression_cmd.add("--module-deps", ctx.actions.write("module_deps_for_{}".format(module), apk_module_graph_info.module_to_module_deps_function(module)))
                 secondary_dex_compression_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
                 jars_to_dex = jars
+                multi_dex_cmd.add("--classpath-files", all_jars_list)
+                multi_dex_cmd.hidden(all_jars)
 
             multi_dex_cmd.add("--module", module)
             multi_dex_cmd.add("--canary-class-name", apk_module_graph_info.module_to_canary_class_name_function(module))
