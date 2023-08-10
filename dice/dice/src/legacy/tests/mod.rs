@@ -699,9 +699,13 @@ impl Key for Fib {
         if self.0 < 2 {
             return Ok(self.0 as u64);
         }
-        let (a, b) =
-            futures::future::join(ctx.compute(&Fib(self.0 - 2)), ctx.compute(&Fib(self.0 - 1)))
-                .await;
+        let (a, b) = {
+            let (a, b) = ctx.compute2(
+                |ctx| ctx.compute(&Fib(self.0 - 2)).boxed(),
+                |ctx| ctx.compute(&Fib(self.0 - 1)).boxed(),
+            );
+            futures::future::join(a, b).await
+        };
         match (a, b) {
             (Ok(a), Ok(b)) => Ok(a? + b?),
             _ => Err(Arc::new(anyhow::anyhow!("some dice error"))),
