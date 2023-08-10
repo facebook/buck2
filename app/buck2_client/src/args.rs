@@ -18,6 +18,7 @@ use anyhow::Context as _;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::is_open_source;
 use buck2_util::process::background_command;
 use termwiz::istty::IsTty;
 use thiserror::Error;
@@ -165,7 +166,11 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
             Ok(lines)
         }
         ArgFile::PythonExecutable(path, flag) => {
-            let mut cmd = background_command("python3");
+            let mut cmd = background_command(if is_open_source() {
+                "python3"
+            } else {
+                "fbpython"
+            });
             cmd.env("BUCK2_ARG_FILE", "1");
             cmd.arg(path.as_os_str());
             if let Some(flag) = flag.as_deref() {
