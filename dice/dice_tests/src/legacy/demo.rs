@@ -47,10 +47,10 @@ impl InjectedKey for EncodingConfig {
     }
 }
 
-struct Encodings<'c>(&'c DiceComputations);
+struct Encodings<'c>(&'c mut DiceComputations);
 
 impl<'c> Encodings<'c> {
-    async fn get(&self) -> Result<Encoding, Arc<anyhow::Error>> {
+    async fn get(&mut self) -> Result<Encoding, Arc<anyhow::Error>> {
         self.0
             .compute(&EncodingConfig())
             .await
@@ -59,11 +59,11 @@ impl<'c> Encodings<'c> {
 }
 
 trait HasEncodings {
-    fn encodings(&self) -> Encodings;
+    fn encodings(&mut self) -> Encodings;
 }
 
 impl HasEncodings for DiceComputations {
-    fn encodings(&self) -> Encodings {
+    fn encodings(&mut self) -> Encodings {
         Encodings(self)
     }
 }
@@ -78,14 +78,14 @@ impl SetEncodings for DiceTransactionUpdater {
     }
 }
 
-struct Filesystem<'c>(&'c DiceComputations);
+struct Filesystem<'c>(&'c mut DiceComputations);
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "File({})", "_0.display()")]
 struct File(PathBuf);
 
 impl<'c> Filesystem<'c> {
-    async fn read_file(&self, file: &Path) -> Result<Arc<String>, Arc<anyhow::Error>> {
+    async fn read_file(&mut self, file: &Path) -> Result<Arc<String>, Arc<anyhow::Error>> {
         #[async_trait]
         impl Key for File {
             type Value = Result<Arc<String>, Arc<anyhow::Error>>;
@@ -120,12 +120,12 @@ impl<'c> Filesystem<'c> {
 }
 
 trait HasFilesystem<'c> {
-    fn filesystem(&'c self) -> Arc<Filesystem<'c>>;
+    fn filesystem(&'c mut self) -> Filesystem<'c>;
 }
 
 impl<'c> HasFilesystem<'c> for DiceComputations {
-    fn filesystem(&'c self) -> Arc<Filesystem<'c>> {
-        Arc::new(Filesystem(self))
+    fn filesystem(&'c mut self) -> Filesystem<'c> {
+        Filesystem(self)
     }
 }
 
