@@ -383,7 +383,9 @@ impl DaemonState {
             .await?;
 
             let http_client =
-                HttpClientBuilder::from_startup_config(&init_ctx.daemon_startup_config)?.build();
+                HttpClientBuilder::from_startup_config(&init_ctx.daemon_startup_config)
+                    .context("Error creating HTTP client")?
+                    .build();
 
             let materializer_state_identity =
                 materializer_db.as_ref().map(|d| d.identity().clone());
