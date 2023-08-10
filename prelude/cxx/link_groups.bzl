@@ -187,7 +187,7 @@ def get_link_group_info(
         return None
 
     # If specified as a dep that provides the `LinkGroupInfo`, use that.
-    if type(link_group_map) == "dependency":
+    if isinstance(link_group_map, Dependency):
         return link_group_map[LinkGroupInfo]
 
     # Otherwise build one from our graph.

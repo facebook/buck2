@@ -57,7 +57,7 @@ def get_link_execution_preference(ctx, links: list[Label]) -> LinkExecutionPrefe
     if not link_execution_preference:
         return LinkExecutionPreference("any")
 
-    if not type(link_execution_preference) == "dependency":
+    if not isinstance(link_execution_preference, Dependency):
         return LinkExecutionPreference(link_execution_preference)
 
     all_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)

@@ -82,7 +82,7 @@ def get_bundle_infos_from_graph(graph: ResourceGraphInfo.type) -> list[AppleBund
 
         resource_spec = node.resource_spec
         for artifact in resource_spec.files:
-            if type(artifact) != "dependency":
+            if not isinstance(artifact, Dependency):
                 continue
 
             bundle_info = artifact.get(AppleBundleLinkerMapInfo)

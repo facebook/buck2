@@ -19,7 +19,7 @@ def sh_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.test != None:
         if type(ctx.attrs.test) == "artifact":
             args.add(ctx.attrs.test)
-        elif type(ctx.attrs.test) == "dependency":
+        elif isinstance(ctx.attrs.test, Dependency):
             run_info = ctx.attrs.test.get(RunInfo)
             if run_info != None:
                 args.add(run_info.args)

@@ -132,7 +132,7 @@ def get_resource_group_info(ctx: AnalysisContext) -> [ResourceGroupInfo.type, No
     if not resource_group_map:
         return None
 
-    if type(resource_group_map) == "dependency":
+    if isinstance(resource_group_map, Dependency):
         return resource_group_map[ResourceGroupInfo]
 
     fail("Resource group maps must be provided as a resource_group_map rule dependency.")

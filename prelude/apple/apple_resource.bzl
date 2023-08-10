@@ -21,7 +21,7 @@ def apple_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     # `files` can contain `apple_library()` which in turn can have `apple_resource()` deps
-    file_deps = [file_or_dep for file_or_dep in ctx.attrs.files if type(file_or_dep) == "dependency"]
+    file_deps = [file_or_dep for file_or_dep in ctx.attrs.files if isinstance(file_or_dep, Dependency)]
     deps = file_deps + ctx.attrs.resources_from_deps
     graph = create_resource_graph(
         ctx = ctx,

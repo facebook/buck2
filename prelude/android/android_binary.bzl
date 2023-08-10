@@ -197,7 +197,7 @@ def _get_build_config_java_libraries(ctx: AnalysisContext, build_config_infos: l
             java_package,
             True,  # use_constant_expressions
             all_build_config_values.values(),
-            ctx.attrs.build_config_values_file[DefaultInfo].default_outputs[0] if type(ctx.attrs.build_config_values_file) == "dependency" else ctx.attrs.build_config_values_file,
+            ctx.attrs.build_config_values_file[DefaultInfo].default_outputs[0] if isinstance(ctx.attrs.build_config_values_file, Dependency) else ctx.attrs.build_config_values_file,
         )[1])
 
     return java_libraries

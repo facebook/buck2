@@ -420,13 +420,13 @@ def _get_manifest(
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     if ctx.attrs.manifest:
         expect(ctx.attrs.manifest_skeleton == None, "Only one of manifest and manifest_skeleton should be declared")
-        if type(ctx.attrs.manifest) == "dependency":
+        if isinstance(ctx.attrs.manifest, Dependency):
             android_manifest = ctx.attrs.manifest[DefaultInfo].default_outputs[0]
         else:
             android_manifest = ctx.attrs.manifest
     else:
         expect(ctx.attrs.manifest_skeleton != None, "Must declare one of manifest and manifest_skeleton")
-        if type(ctx.attrs.manifest_skeleton) == "dependency":
+        if isinstance(ctx.attrs.manifest_skeleton, Dependency):
             manifest_skeleton = ctx.attrs.manifest_skeleton[DefaultInfo].default_outputs[0]
         else:
             manifest_skeleton = ctx.attrs.manifest_skeleton
@@ -470,7 +470,7 @@ def _get_module_manifests(
     if not ctx.attrs.module_manifest_skeleton:
         return []
 
-    if type(ctx.attrs.module_manifest_skeleton) == "dependency":
+    if isinstance(ctx.attrs.module_manifest_skeleton, Dependency):
         module_manifest_skeleton = ctx.attrs.module_manifest_skeleton[DefaultInfo].default_outputs[0]
     else:
         module_manifest_skeleton = ctx.attrs.module_manifest_skeleton
