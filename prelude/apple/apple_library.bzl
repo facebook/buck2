@@ -254,8 +254,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     )
 
 def _get_extra_linker_flags_and_outputs(
-        _ctx: AnalysisContext) -> (["_arglike"], {str: [DefaultInfo.type]}): # @oss-enable
-        # @oss-disable: ctx: AnalysisContext) -> (list[ArgLike], dict[str, list[DefaultInfo.type]]): 
+        ctx: AnalysisContext) -> (list[ArgLike], dict[str, list[DefaultInfo.type]]):
+    _ = ctx  # buildifier: disable=unused-variable
     # @oss-disable: return add_extra_linker_outputs(ctx) 
     return [], {} # @oss-enable
 
