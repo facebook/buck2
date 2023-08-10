@@ -9,16 +9,13 @@
 
 use std::time::Instant;
 
-use anyhow::Context;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::NonDefaultProvidersName;
-use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
+use buck2_interpreter::types::target_label::value_to_providers_name;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -28,12 +25,10 @@ use dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::list::AllocList;
-use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Value;
-use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
@@ -47,20 +42,7 @@ use crate::bxl::starlark_defs::time::StarlarkInstant;
 /// Global methods on the target label.
 #[starlark_module]
 pub(crate) fn register_label_function(builder: &mut GlobalsBuilder) {
-    /// Converts a `TargetLabel` into its corresponding `ProvidersLabel` given the subtarget names,
-    /// which is a list for each layer of subtarget
-    ///
-    /// Sample usage:
-    /// ```text
-    /// def _impl_sub_target(ctx):
-    ///     owners = ctx.cquery().owner("bin/TARGETS.fixture")
-    ///     for owner in owners:
-    ///         configured_label = owner.label
-    ///         unconfigured_label = configured_label.raw_target()
-    ///         ctx.output.print(sub_target(unconfigured_label))
-    ///         ctx.output.print(sub_target(unconfigured_label, "subtarget1"))
-    ///         ctx.output.print(sub_target(unconfigured_label, ["subtarget1", "subtarget2"))
-    /// ```
+    /// Exact same behavior as `with_providers` on `TargetLabel`, and deprecated in favor of it
     fn sub_target<'v>(
         target: &StarlarkTargetLabel,
         #[starlark(default = AllocList::EMPTY)] subtarget_name: Value<'v>,
@@ -73,19 +55,8 @@ pub(crate) fn register_label_function(builder: &mut GlobalsBuilder) {
         )))
     }
 
-    /// Converts a `TargetLabel` into its corresponding `ProvidersLabel` given the subtarget name
-    /// which is a list for each layer of subtarget
-    ///
-    /// Sample usage:
-    /// ```text
-    /// def _impl_sub_target(ctx):
-    ///     owners = ctx.cquery().owner("bin/TARGETS.fixture")
-    ///     for owner in owners:
-    ///         configured_label = owner.label
-    ///         ctx.output.print(configured_sub_target(configured_label))
-    ///         ctx.output.print(configured_sub_target(configured_label, "subtarget1"))
-    ///         ctx.output.print(configured_sub_target(configured_label, ["subtarget1", "subtarget2"))
-    /// ```
+    /// Exact same behavior as `with_providers` on `ConfiguredTargetLabel`, and deprecated in favor
+    /// of it
     fn configured_sub_target<'v>(
         target: &StarlarkConfiguredTargetLabel,
         #[starlark(default = AllocList::EMPTY)] subtarget_name: Value<'v>,
@@ -266,44 +237,4 @@ pub(crate) fn register_error_handling_function(builder: &mut GlobalsBuilder) {
         }
         Err(BxlErrorWithoutStacktrace(s).into())
     }
-}
-
-fn value_to_providers_name<'v>(subtarget_name: Value<'v>) -> anyhow::Result<ProvidersName> {
-    let subtarget = if let Some(list) = ListRef::from_value(subtarget_name) {
-        list.iter()
-            .map(|name| {
-                name.unpack_str()
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(ValueError::IncorrectParameterTypeNamedWithExpected(
-                            "subtarget_name".to_owned(),
-                            "list of str or str".to_owned(),
-                            name.get_type().to_owned(),
-                        ))
-                    })
-                    .and_then(|name| {
-                        ProviderName::new(name.to_owned())
-                            .context("for parameter `subtarget_name`")
-                            .map_err(|e| anyhow::anyhow!(e))
-                    })
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?
-    } else if let Some(str) = subtarget_name.unpack_str() {
-        vec![ProviderName::new(str.to_owned()).context("for parameter `subtarget_name`")?]
-    } else {
-        return Err(anyhow::anyhow!(
-            ValueError::IncorrectParameterTypeNamedWithExpected(
-                "subtarget_name".to_owned(),
-                "list of str or str".to_owned(),
-                subtarget_name.get_type().to_owned()
-            )
-        ));
-    };
-
-    Ok(if subtarget.is_empty() {
-        ProvidersName::Default
-    } else {
-        ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
-            subtarget.into_boxed_slice(),
-        )))
-    })
 }
