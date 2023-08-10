@@ -350,22 +350,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
-    /// DO NOT USE - will be deprecated
-    fn owner_legacy<'v>(
-        this: &StarlarkCQueryCtx,
-        files: FileSetExpr,
-    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx
-            .async_ctx
-            .via(|| async {
-                get_cquery_env(this.ctx, this.target_platform.dupe())
-                    .await?
-                    .owner(files.get(this.ctx).await?.as_ref(), None, true)
-                    .await
-            })
-            .map(StarlarkTargetSet::from)
-    }
-
     /// The deps query for finding the transitive closure of dependencies.
     ///
     /// Sample usage:
