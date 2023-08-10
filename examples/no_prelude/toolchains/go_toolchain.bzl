@@ -37,7 +37,7 @@ go_toolchain = rule(
     },
 )
 
-def _download_toolchain(ctx: "context"):
+def _download_toolchain(ctx: AnalysisContext):
     archive_extension = ctx.attrs.archive_extension
     url = "https://go.dev/dl/go" + ctx.attrs.version + "." + ctx.attrs.platform + "." + archive_extension
     sha256 = ctx.attrs.sha256

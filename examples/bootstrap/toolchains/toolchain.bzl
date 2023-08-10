@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _toolchain_impl(ctx: "context") -> ["provider"]:
+def _toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.dep != None:
         return ctx.attrs.dep.providers
     return [DefaultInfo()]
@@ -16,7 +16,7 @@ toolchain = rule(
     is_toolchain_rule = True,
 )
 
-def _toolchain_alias_impl(ctx: "context") -> ["provider"]:
+def _toolchain_alias_impl(ctx: AnalysisContext) -> list[Provider]:
     return ctx.attrs.actual.providers
 
 toolchain_alias = rule(

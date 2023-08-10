@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _builds(ctx: "context"):
+def _builds(ctx: AnalysisContext):
     # Create locally
     stage0 = ctx.actions.declare_output("stage0")
     ctx.actions.run(

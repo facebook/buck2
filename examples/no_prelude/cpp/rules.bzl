@@ -9,7 +9,7 @@ load("@toolchains//:cpp_toolchain.bzl", "CxxCompilerInfo")
 
 CxxLibraryInfo = provider(fields = ["headers", "objects", "include_folders"])
 
-def _cpp_binary_impl(ctx: "context") -> ["provider"]:
+def _cpp_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     sources = ctx.attrs.srcs
     extension = ".exe" if host_info().os.is_windows else ""
     out = ctx.actions.declare_output("main" + extension)
@@ -33,7 +33,7 @@ cpp_binary = rule(
     },
 )
 
-def _cpp_library_impl(ctx: "context") -> ["provider"]:
+def _cpp_library_impl(ctx: AnalysisContext) -> list[Provider]:
     sources = ctx.attrs.srcs
     headers = ctx.attrs.headers
     extension = ".dll" if host_info().os.is_windows else ".so"

@@ -7,7 +7,7 @@
 
 # Copy pasted from prelude/platforms/defs.bzl
 
-def _execution_platform_impl(ctx: "context") -> ["provider"]:
+def _execution_platform_impl(ctx: AnalysisContext) -> list[Provider]:
     constraints = dict()
     constraints.update(ctx.attrs.cpu_configuration[ConfigurationInfo].constraints)
     constraints.update(ctx.attrs.os_configuration[ConfigurationInfo].constraints)
@@ -40,7 +40,7 @@ execution_platform = rule(
     },
 )
 
-def _host_cpu_configuration() -> str.type:
+def _host_cpu_configuration() -> str:
     arch = host_info().arch
     if arch.is_aarch64:
         return "prelude//cpu:arm64"
@@ -51,7 +51,7 @@ def _host_cpu_configuration() -> str.type:
     else:
         return "prelude//cpu:x86_64"
 
-def _host_os_configuration() -> str.type:
+def _host_os_configuration() -> str:
     os = host_info().os
     if os.is_macos:
         return "prelude//os:macos"

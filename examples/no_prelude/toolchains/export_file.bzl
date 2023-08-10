@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _export_file_impl(ctx: "context") -> [DefaultInfo.type]:
+def _export_file_impl(ctx: AnalysisContext) -> list[DefaultInfo.type]:
     return [DefaultInfo(default_outputs = [ctx.attrs.src])]
 
 export_file = rule(
