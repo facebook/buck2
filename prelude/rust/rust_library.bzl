@@ -409,7 +409,7 @@ def _handle_rust_artifact(
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
-            artifacts = [],  # TODO(T147665047) pass dwo output directory
+            artifacts = filter(None, [link.dwo_output_directory]),
             children = external_debug_info,
         )
         return RustLinkStyleInfo(
@@ -570,7 +570,7 @@ def _native_providers(
         libraries[link_style] = lib
         external_debug_info = inherited_external_debug_info(
             ctx = ctx,
-            dwo_output_directory = None,  # TODO(T147665047) pass lib's dwo output directory
+            dwo_output_directory = lib.dwo_output_directory,
             dep_link_style = params.dep_link_style,
         )
         if link_style in STATIC_LINK_STYLES:
