@@ -398,6 +398,7 @@ impl_has_error_handling_strategy!(SetPathObjectIdError);
 impl_has_error_handling_strategy!(RemoveRecursivelyError);
 impl_has_error_handling_strategy!(EnsureMaterializedError);
 impl_has_error_handling_strategy!(ReaddirError);
+impl_has_error_handling_strategy!(GetSHA1Error);
 
 #[derive(Debug, Error)]
 pub enum EdenError {
