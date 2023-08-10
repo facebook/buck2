@@ -68,7 +68,7 @@ def _get_python_library_manifests_from_targets(
 
 def get_python_library_manifests_tset_from_targets(
         ctx: "bxl_ctx",
-        actions: "actions",
+        actions: AnalysisActions,
         root_targets: "target_set") -> PythonLibraryManifestsTSet.type:
     return actions.tset(
         PythonLibraryManifestsTSet,
@@ -78,7 +78,7 @@ def get_python_library_manifests_tset_from_targets(
 def get_python_library_manifests_tset_from_target_patterns(
         ctx: "bxl_ctx",
         query: "cqueryctx",
-        actions: "actions",
+        actions: AnalysisActions,
         target_patterns: typing.Any) -> PythonLibraryManifestsTSet.type:
     root_targets = _filter_root_targets(query, target_patterns)
     return get_python_library_manifests_tset_from_targets(ctx, actions, root_targets)
@@ -86,7 +86,7 @@ def get_python_library_manifests_tset_from_target_patterns(
 def do_query(
         ctx: "bxl_ctx",
         query: "cqueryctx",
-        actions: "actions",
+        actions: AnalysisActions,
         target_patterns: typing.Any) -> list["configured_target_label"]:
     manifests_of_transitive_dependencies = get_python_library_manifests_tset_from_target_patterns(
         ctx,

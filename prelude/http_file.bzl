@@ -8,7 +8,7 @@
 load("@prelude//utils:utils.bzl", "expect", "value_or")
 
 def http_file_shared(
-        actions: "actions",
+        actions: AnalysisActions,
         name: str,
         url: str,
         vpnless_url: [None, str],

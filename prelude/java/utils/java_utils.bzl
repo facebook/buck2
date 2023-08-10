@@ -81,7 +81,7 @@ def get_abi_generation_mode(abi_generation_mode):
     }[abi_generation_mode]
 
 def get_default_info(
-        actions: "actions",
+        actions: AnalysisActions,
         java_toolchain: "JavaToolchainInfo",
         outputs: ["JavaCompileOutputs", None],
         packaging_info: "JavaPackagingInfo",
@@ -135,7 +135,7 @@ def get_class_to_source_map_info(
     )
     return (class_to_src_map_info, sub_targets)
 
-def get_classpath_subtarget(actions: "actions", packaging_info: "JavaPackagingInfo") -> dict[str, list[Provider]]:
+def get_classpath_subtarget(actions: AnalysisActions, packaging_info: "JavaPackagingInfo") -> dict[str, list[Provider]]:
     proj = packaging_info.packaging_deps.project_as_args("full_jar_args")
     output = actions.write("classpath", proj)
     return {"classpath": [DefaultInfo(output, other_outputs = [proj])]}

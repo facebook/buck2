@@ -48,7 +48,7 @@ _APPLE_BINARY_LOCAL_EXECUTION_OVERRIDES = [
     ),
 ]
 
-def apple_macro_layer_set_bool_override_attrs_from_config(overrides: list[AppleBuckConfigAttributeOverride.type]) -> dict[str, "selector"]:
+def apple_macro_layer_set_bool_override_attrs_from_config(overrides: list[AppleBuckConfigAttributeOverride.type]) -> dict[str, Select]:
     attribs = {}
     for override in overrides:
         config_value = read_root_config(override.section, override.key, None)

@@ -217,7 +217,7 @@ AndroidLibraryIntellijInfo = provider(
 
 def merge_android_packageable_info(
         label: Label,
-        actions: "actions",
+        actions: AnalysisActions,
         deps: list[Dependency],
         build_config_info: ["AndroidBuildConfigInfo", None] = None,
         manifest: [Artifact, None] = None,
@@ -276,7 +276,7 @@ def merge_android_packageable_info(
     )
 
 def _get_transitive_set(
-        actions: "actions",
+        actions: AnalysisActions,
         children: list["transitive_set"],
         node: typing.Any,
         transitive_set_definition: "transitive_set_definition") -> ["transitive_set", None]:

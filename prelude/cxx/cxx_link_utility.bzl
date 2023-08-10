@@ -130,7 +130,7 @@ def shared_libs_symlink_tree_name(output: Artifact) -> str:
 # - list of files/directories that should be present for executable to be run successfully
 # - optional shared libs symlink tree symlinked_dir action
 def executable_shared_lib_arguments(
-        actions: "actions",
+        actions: AnalysisActions,
         cxx_toolchain: CxxToolchainInfo.type,
         output: Artifact,
         shared_libs: dict[str, "LinkedObject"]) -> (list[typing.Any], list[ArgLike], [Artifact, None]):

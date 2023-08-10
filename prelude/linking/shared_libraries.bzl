@@ -101,7 +101,7 @@ def _merge_lib_map(
 # SharedLibraryInfo but it cannot produce any. The value in `deps` represents
 # all the inherited shared libraries for this target.
 def merge_shared_libraries(
-        actions: "actions",
+        actions: AnalysisActions,
         node: ["SharedLibraries", None] = None,
         deps: list[SharedLibraryInfo.type] = []) -> SharedLibraryInfo.type:
     kwargs = {}

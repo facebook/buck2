@@ -51,7 +51,7 @@ JuliaLibraryInfo = provider(fields = [
 ])
 
 def create_julia_library_info(
-        actions: "actions",
+        actions: AnalysisActions,
         label: Label,
         uuid: str = "",
         src_labels: typing.Any = [],

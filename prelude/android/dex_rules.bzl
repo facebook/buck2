@@ -321,7 +321,7 @@ SecondaryDexMetadataConfig = record(
 )
 
 def _get_secondary_dex_jar_metadata_config(
-        actions: "actions",
+        actions: AnalysisActions,
         secondary_dex_path: str,
         module: str,
         module_to_canary_class_name_function: "function",
@@ -336,7 +336,7 @@ def _get_secondary_dex_jar_metadata_config(
     )
 
 def _get_secondary_dex_raw_metadata_config(
-        actions: "actions",
+        actions: AnalysisActions,
         module: str,
         module_to_canary_class_name_function: "function",
         index: int) -> SecondaryDexMetadataConfig.type:
@@ -352,7 +352,7 @@ def _get_filter_dex_batch_size() -> int:
     return 100
 
 def _filter_pre_dexed_libs(
-        actions: "actions",
+        actions: AnalysisActions,
         android_toolchain: "AndroidToolchainInfo",
         primary_dex_patterns_file: Artifact,
         pre_dexed_libs: list["DexLibraryInfo"],

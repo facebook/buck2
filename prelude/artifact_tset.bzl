@@ -32,7 +32,7 @@ ArtifactTSet = record(
 )
 
 def make_artifact_tset(
-        actions: "actions",
+        actions: AnalysisActions,
         # Must be non-`None` if artifacts are passed in to `artifacts`.
         label: [Label, None] = None,
         artifacts: list[Artifact] = [],
@@ -67,7 +67,7 @@ def make_artifact_tset(
     )
 
 def project_artifacts(
-        actions: "actions",
+        actions: AnalysisActions,
         tsets: list[ArtifactTSet.type] = []) -> list[ArtifactProjection]:
     """
     Helper to project a list of optional tsets.

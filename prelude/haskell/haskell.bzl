@@ -221,7 +221,7 @@ def _src_to_module_name(x: str) -> str:
 def _get_haskell_prebuilt_libs(
         ctx,
         link_style: LinkStyle.type,
-        enable_profiling: bool) -> [Artifact]:
+        enable_profiling: bool) -> list[Artifact]:
     if link_style == LinkStyle("shared"):
         if enable_profiling:
             # Profiling doesn't support shared libraries
@@ -659,10 +659,10 @@ def _make_package(
 
 HaskellLibBuildOutput = record(
     hlib = HaskellLibraryInfo.type,
-    solibs = {str: LinkedObject.type},
+    solibs = dict[str, LinkedObject.type],
     link_infos = LinkInfos.type,
     compiled = CompileResultInfo.type,
-    libs = [Artifact],
+    libs = list[Artifact],
 )
 
 def _build_haskell_lib(
@@ -931,7 +931,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     return providers
 
 def derive_indexing_tset(
-        actions: "actions",
+        actions: AnalysisActions,
         link_style: LinkStyle.type,
         value: [Artifact, None],
         children: list[Dependency]) -> "HaskellIndexingTSet":

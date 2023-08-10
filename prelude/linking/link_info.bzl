@@ -582,7 +582,7 @@ def unpack_link_args_filelist(args: LinkArgs.type) -> [ArgLike, None]:
 
     fail("Unpacked invalid empty link args")
 
-def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> ArtifactTSet.type:
+def unpack_external_debug_info(actions: AnalysisActions, args: LinkArgs.type) -> ArtifactTSet.type:
     if args.tset != None:
         if args.tset.prefer_stripped:
             return ArtifactTSet()

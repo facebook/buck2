@@ -180,7 +180,7 @@ def extract_global_syms(
     )
 
 def _create_symbols_file_from_script(
-        actions: "actions",
+        actions: AnalysisActions,
         name: str,
         script: str,
         symbol_files: list[Artifact],
@@ -243,7 +243,7 @@ def get_undefined_symbols_args(
     return cmd_args(argsfile, format = "@{}")
 
 def create_undefined_symbols_argsfile(
-        actions: "actions",
+        actions: AnalysisActions,
         name: str,
         symbol_files: list[Artifact],
         category: [str, None] = None,
@@ -269,7 +269,7 @@ LC_ALL=C sort -S 10% -u -m --files0-from="$2.files0.txt" | sed "s/^/-u/" > "$2"
     )
 
 def create_undefined_symbols_linker_script(
-        actions: "actions",
+        actions: AnalysisActions,
         name: str,
         symbol_files: list[Artifact],
         category: [str, None] = None,
@@ -297,7 +297,7 @@ echo ")" >> "$2";
     )
 
 def create_global_symbols_version_script(
-        actions: "actions",
+        actions: AnalysisActions,
         name: str,
         symbol_files: list[Artifact],
         identifier: [str, None] = None,
@@ -327,7 +327,7 @@ echo "};" >> "$2"
     )
 
 def create_dynamic_list_version_script(
-        actions: "actions",
+        actions: AnalysisActions,
         name: str,
         symbol_files: list[Artifact],
         identifier: [str, None] = None,

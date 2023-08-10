@@ -47,7 +47,7 @@ def get_flags_for_colorful_output(compiler_type: str) -> list[str]:
 # wrapper_args -> the arguments used by the dep_file_processor to determine how to process the dep files
 # compiler_args -> args passed to the compiler when generating dependencies
 
-def cc_dep_files(actions: "actions", filename_base: str, _input_file: Artifact) -> (cmd_args.type, cmd_args.type):
+def cc_dep_files(actions: AnalysisActions, filename_base: str, _input_file: Artifact) -> (cmd_args.type, cmd_args.type):
     intermediary_dep_file = actions.declare_output(
         paths.join("__dep_files_intermediaries__", filename_base),
     ).as_output()
@@ -55,13 +55,13 @@ def cc_dep_files(actions: "actions", filename_base: str, _input_file: Artifact) 
     return (cmd_args(intermediary_dep_file), cmd_args(["-MD", "-MF", intermediary_dep_file]))
 
 def tree_style_cc_dep_files(
-        _actions: "actions",
+        _actions: AnalysisActions,
         _filename_base: str,
         input_file: Artifact) -> (cmd_args.type, cmd_args.type):
     return (cmd_args(input_file), cmd_args(["-H"]))
 
 def windows_cc_dep_files(
-        _actions: "actions",
+        _actions: AnalysisActions,
         _filename_base: str,
         input_file: Artifact) -> (cmd_args.type, cmd_args.type):
     return (cmd_args(input_file), cmd_args(["/showIncludes"]))

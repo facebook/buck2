@@ -24,7 +24,7 @@ def add_java_7_8_bootclasspath(target_level: int, bootclasspath_entries: list[Ar
         return bootclasspath_entries + java_toolchain.bootclasspath_8
     return bootclasspath_entries
 
-def declare_prefixed_output(actions: "actions", prefix: [str, None], output: str, dir: bool = False) -> Artifact:
+def declare_prefixed_output(actions: AnalysisActions, prefix: [str, None], output: str, dir: bool = False) -> Artifact:
     return actions.declare_output(declare_prefixed_name(output, prefix), dir = dir)
 
 # The library and the toolchain can both set a specific abi generation
@@ -112,7 +112,7 @@ def get_qualified_name(label: Label, target_type: TargetType.type) -> str:
         TargetType("source_only_abi"): base_qualified_name(label) + "[source-only-abi]",
     }[target_type]
 
-def define_output_paths(actions: "actions", prefix: [str, None], label: Label) -> OutputPaths.type:
+def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: Label) -> OutputPaths.type:
     # currently, javacd requires that at least some outputs are in the root
     # output dir. so we put all of them there. If javacd is updated we
     # could consolidate some of these into one subdir.
@@ -182,7 +182,7 @@ filesystem_params = struct(
 )
 
 def get_compiling_deps_tset(
-        actions: "actions",
+        actions: AnalysisActions,
         deps: list[Dependency],
         additional_classpath_entries: list[Artifact]) -> [JavaCompilingDepsTSet.type, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
@@ -345,7 +345,7 @@ def encode_base_jar_command(
     )
 
 def setup_dep_files(
-        actions: "actions",
+        actions: AnalysisActions,
         actions_identifier: [str, None],
         cmd: cmd_args,
         classpath_jars_tag: "artifact_tag",
@@ -424,7 +424,7 @@ def prepare_cd_exe(
 # caller specified an output artifact we need to make sure the jar is in that
 # location.
 def prepare_final_jar(
-        actions: "actions",
+        actions: AnalysisActions,
         actions_identifier: [str, None],
         output: [Artifact, None],
         output_paths: OutputPaths.type,
@@ -455,7 +455,7 @@ def prepare_final_jar(
     return merged_jar
 
 def generate_abi_jars(
-        actions: "actions",
+        actions: AnalysisActions,
         actions_identifier: [str, None],
         label: Label,
         abi_generation_mode: [AbiGenerationMode.type, None],

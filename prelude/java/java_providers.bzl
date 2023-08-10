@@ -258,7 +258,7 @@ def make_compile_outputs(
         annotation_processor_output = annotation_processor_output,
     )
 
-def create_abi(actions: "actions", class_abi_generator: Dependency, library: Artifact) -> Artifact:
+def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, library: Artifact) -> Artifact:
     # It's possible for the library to be created in a subdir that is
     # itself some actions output artifact, so we replace directory
     # separators to get a path that we can uniquely own.
@@ -277,7 +277,7 @@ def create_abi(actions: "actions", class_abi_generator: Dependency, library: Art
 
 # Accumulate deps necessary for compilation, which consist of this library's output and compiling_deps of its exported deps
 def derive_compiling_deps(
-        actions: "actions",
+        actions: AnalysisActions,
         library_output: [JavaClasspathEntry.type, None],
         children: list[Dependency]) -> ["JavaCompilingDepsTSet", None]:
     if children:
@@ -364,7 +364,7 @@ def get_java_packaging_info(
     packaging_deps = get_all_java_packaging_deps_tset(ctx, java_packaging_infos, java_packaging_dep)
     return JavaPackagingInfo(packaging_deps = packaging_deps)
 
-def create_native_providers(actions: "actions", label: Label, packaging_deps: list[Dependency]) -> (SharedLibraryInfo.type, ResourceInfo.type):
+def create_native_providers(actions: AnalysisActions, label: Label, packaging_deps: list[Dependency]) -> (SharedLibraryInfo.type, ResourceInfo.type):
     shared_library_info = merge_shared_libraries(
         actions,
         deps = filter(None, [x.get(SharedLibraryInfo) for x in packaging_deps]),

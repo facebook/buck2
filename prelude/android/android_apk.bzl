@@ -62,7 +62,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def build_apk(
         label: Label,
-        actions: "actions",
+        actions: AnalysisActions,
         keystore: KeystoreInfo.type,
         android_toolchain: AndroidToolchainInfo.type,
         dex_files_info: "DexFilesInfo",

@@ -342,7 +342,7 @@ def _get_resources_filter(resources_filter_strings: list[str]) -> [ResourcesFilt
     return ResourcesFilter(densities = densities, downscale = downscale)
 
 def _maybe_generate_string_source_map(
-        actions: "actions",
+        actions: AnalysisActions,
         should_build_source_string_map: bool,
         resource_infos: list[AndroidResourceInfo.type],
         android_toolchain: AndroidToolchainInfo.type,

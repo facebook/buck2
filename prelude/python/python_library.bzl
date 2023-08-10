@@ -100,7 +100,7 @@ def create_python_needed_coverage_info(
     )
 
 def create_python_library_info(
-        actions: "actions",
+        actions: AnalysisActions,
         label: Label,
         srcs: [ManifestInfo.type, None] = None,
         src_types: [ManifestInfo.type, None] = None,

@@ -32,7 +32,7 @@ _JAVA_FILE_EXTENSION = [".java"]
 _SUPPORTED_ARCHIVE_SUFFIXES = [".src.zip", "-sources.jar"]
 
 def _process_classpath(
-        actions: "actions",
+        actions: AnalysisActions,
         classpath_args: cmd_args,
         cmd: cmd_args,
         args_file_name: str,
@@ -54,7 +54,7 @@ def classpath_args(args):
     return cmd_args(args, delimiter = get_path_separator())
 
 def _process_plugins(
-        actions: "actions",
+        actions: AnalysisActions,
         actions_identifier: [str, None],
         ap_params: list["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
@@ -111,7 +111,7 @@ def _process_plugins(
             "--javac_processors_classpath_file",
         )
 
-def _build_classpath(actions: "actions", deps: list[Dependency], additional_classpath_entries: list[Artifact], classpath_args_projection: str) -> [cmd_args, None]:
+def _build_classpath(actions: AnalysisActions, deps: list[Dependency], additional_classpath_entries: list[Artifact], classpath_args_projection: str) -> [cmd_args, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
 
     if additional_classpath_entries or compiling_deps_tset:
@@ -135,7 +135,7 @@ def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: in
     return bootclasspath_list
 
 def _append_javac_params(
-        actions: "actions",
+        actions: AnalysisActions,
         actions_identifier: [str, None],
         java_toolchain: "JavaToolchainInfo",
         srcs: list[Artifact],
@@ -243,7 +243,7 @@ def _is_supported_archive(src: Artifact) -> bool:
     return False
 
 def _copy_resources(
-        actions: "actions",
+        actions: AnalysisActions,
         actions_identifier: [str, None],
         java_toolchain: JavaToolchainInfo.type,
         package: str,
@@ -343,7 +343,7 @@ def compile_to_jar(
     )
 
 def _create_jar_artifact(
-        actions: "actions",
+        actions: AnalysisActions,
         actions_identifier: [str, None],
         abi_generation_mode: ["AbiGenerationMode", None],
         java_toolchain: JavaToolchainInfo.type,

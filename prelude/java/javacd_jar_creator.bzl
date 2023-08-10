@@ -41,7 +41,7 @@ base_command_params = struct(
 )
 
 def create_jar_artifact_javacd(
-        actions: "actions",
+        actions: AnalysisActions,
         actions_identifier: [str, None],
         abi_generation_mode: [AbiGenerationMode.type, None],
         java_toolchain: "JavaToolchainInfo",

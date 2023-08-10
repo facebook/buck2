@@ -43,7 +43,7 @@ CxxExtensionLinkInfo = provider(
 )
 
 def merge_cxx_extension_info(
-        actions: "actions",
+        actions: AnalysisActions,
         deps: list[Dependency],
         linkable_providers: [LinkableProviders.type, None] = None,
         artifacts: dict[str, typing.Any] = {},

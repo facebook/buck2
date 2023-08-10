@@ -169,7 +169,7 @@ def _get_min_sdk_constraint_value(min_sdk_version: int, refs: struct.type) -> Co
 
     return constraint[ConstraintValueInfo]
 
-def _is_building_android_binary() -> "selector":
+def _is_building_android_binary() -> Select:
     return select(
         {
             "DEFAULT": False,

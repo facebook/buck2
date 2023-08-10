@@ -36,7 +36,7 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def build_bundle(
         label: Label,
-        actions: "actions",
+        actions: AnalysisActions,
         android_toolchain: AndroidToolchainInfo.type,
         dex_files_info: "DexFilesInfo",
         native_library_info: "AndroidBinaryNativeLibsInfo",

@@ -41,7 +41,7 @@ def create_class_to_source_map_info(
     )
 
 def create_class_to_source_map_from_jar(
-        actions: "actions",
+        actions: AnalysisActions,
         name: str,
         java_toolchain: JavaToolchainInfo.type,
         jar: Artifact,
@@ -56,7 +56,7 @@ def create_class_to_source_map_from_jar(
     return output
 
 def merge_class_to_source_map_from_jar(
-        actions: "actions",
+        actions: AnalysisActions,
         name: str,
         java_test_toolchain: JavaTestToolchainInfo.type,
         mapping: [Artifact, None] = None,
