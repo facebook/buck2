@@ -53,6 +53,8 @@ enum TypingOracleCtxError {
     CallArgumentsIncompatible,
     #[error("Type `{ty}` does not have [] operator")]
     MissingIndexOperator { ty: Ty },
+    #[error("Type `{array}` [] operator does not accept `{index}")]
+    IndexOperatorWrongArg { array: Ty, index: Ty },
     #[error("Type `{ty}` does not have [::] operator")]
     MissingSliceOperator { ty: Ty },
     #[error("The attribute `{attr}` is not available on the type `{ty}`")]
@@ -86,9 +88,6 @@ impl<'a> TypingOracle for TypingOracleCtx<'a> {
                     Ty::function(vec![Param::pos_only(Ty::unions(tys.clone()))], Ty::bool())
                 }
                 TypingAttr::Iter => Ty::unions(tys.clone()),
-                TypingAttr::Index => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::unions(tys.clone()))
-                }
                 _ => return Some(Err(())),
             },
             TyBasic::StarlarkValue(x) if x.as_name() == "tuple" => match attr {
@@ -96,7 +95,6 @@ impl<'a> TypingOracle for TypingOracleCtx<'a> {
                 TypingAttr::BinOp(TypingBinOp::In) => {
                     Ty::function(vec![Param::pos_only(Ty::any())], Ty::bool())
                 }
-                TypingAttr::Index => Ty::function(vec![Param::pos_only(Ty::int())], Ty::any()),
                 _ => return Some(Err(())),
             },
             TyBasic::Custom(c) => return Some(c.0.attribute_dyn(attr)),
@@ -395,6 +393,19 @@ impl<'a> TypingOracleCtx<'a> {
         array: &TyBasic,
         index: Spanned<&TyBasic>,
     ) -> Result<Ty, TypingOrInternalError> {
+        if let TyBasic::Tuple(xs) = array {
+            if !self.intersects_basic(index.node, &TyBasic::int()) {
+                return Err(self.mk_error_as_maybe_internal(
+                    span,
+                    TypingOracleCtxError::IndexOperatorWrongArg {
+                        array: Ty::basic(array.clone()),
+                        index: Ty::basic(index.node.clone()),
+                    },
+                ));
+            }
+            return Ok(Ty::unions(xs.clone()));
+        }
+
         if let TyBasic::StarlarkValue(array) = array {
             match array.index(index.node) {
                 Ok(x) => return Ok(x),
