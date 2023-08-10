@@ -17,12 +17,9 @@
         "multi-root ready"
     ],
     "engines": {
-        "vscode": "^1.43.0"
+        "vscode": "^1.81.0"
     },
-    "activationEvents": [
-        "onLanguage:starlark"
-    ],
-    "main": "./client/out/extension",
+    "main": "./dist/extension.js",
     "contributes": {
         "languages": [
             {
@@ -49,59 +46,21 @@
                     "TARGETS.v2",
                     "PACKAGE"
                 ],
-                "configuration": "./syntaxes/starlark.configuration.json"
+                "configuration": "./syntax/starlark.configuration.json"
             }
         ],
         "grammars": [
             {
                 "language": "starlark",
                 "scopeName": "source.starlark",
-                "path": "./syntaxes/starlark.tmLanguage.json"
-            }
-        ],
-        "breakpoints": [
-            {
-                "language": "starlark"
-            }
-        ],
-        "debuggers": [
-            {
-                "type": "starlark",
-                "label": "Starlark Debug",
-                "program": "/usr/bin/env",
-                "args": [
-                    "starlark",
-                    "--dap"
-                ],
-                "languages": [
-                    "starlark"
-                ],
-                "configurationAttributes": {
-                    "launch": {
-                        "properties": {
-                            "program": {
-                                "type": "string",
-                                "description": "The program to debug.",
-                                "default": "${file}"
-                            }
-                        }
-                    }
-                },
-                "initialConfigurations": [
-                    {
-                        "type": "starlark",
-                        "request": "launch",
-                        "name": "Launch Program",
-                        "program": "${file}"
-                    }
-                ]
+                "path": "./syntax/starlark.tmLanguage.json"
             }
         ],
         "configuration": {
             "properties": {
                 "starlark.lspPath": {
                     "type": "string",
-                    "default": "starlark",
+                    "1fault": "buck2",
                     "description": "The path to the binary to invoke (possibly on the path) for the plugin to invoke that handles LSP over stdin/stdout"
                 },
                 "starlark.lspArguments": {
@@ -110,7 +69,7 @@
                         "type": "string"
                     },
                     "default": [
-                        "--lsp"
+                        "lsp"
                     ],
                     "description": "Additional arguments that should be passed to the binary at starlark.lspPath"
                 },
@@ -123,19 +82,32 @@
         }
     },
     "scripts": {
-        "vscode:prepublish": "npm run compile",
-        "compile": "tsc -b",
-        "watch": "tsc -b -w"
+        "vscode:prepublish": "npm run package",
+        "compile": "webpack",
+        "watch": "webpack --watch",
+        "package": "webpack --mode production --devtool hidden-source-map",
+        "compile-tests": "tsc -p . --outDir out",
+        "watch-tests": "tsc -p . -w --outDir out",
+        "pretest": "npm run compile-tests && npm run compile && npm run lint",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/test/runTest.js"
     },
     "devDependencies": {
-        "@types/mocha": "^9.0.0",
-        "@types/node": "^16.10.2",
-        "@typescript-eslint/parser": "^4.32.0",
-        "eslint": "^7.32.0",
-        "mocha": "^9.0.0",
-        "typescript": "^4.4.3"
-    },
-    "dependencies": {
-        "vsce": "^2.9.2"
+        "@types/glob": "^8.1.0",
+        "@types/mocha": "^10.0.1",
+        "@types/node": "20.4.9",
+        "@types/vscode": "^1.81.0",
+        "@typescript-eslint/eslint-plugin": "^6.3.0",
+        "@typescript-eslint/parser": "^6.3.0",
+        "@vscode/test-electron": "^2.3.4",
+        "@vscode/vsce": "^2.20.1",
+        "eslint": "^8.46.0",
+        "glob": "^10.3.3",
+        "mocha": "^10.2.0",
+        "ts-loader": "^9.4.4",
+        "typescript": "^5.1.6",
+        "vscode-languageclient": "^8.1.0",
+        "webpack": "^5.88.2",
+        "webpack-cli": "^5.1.4"
     }
 }

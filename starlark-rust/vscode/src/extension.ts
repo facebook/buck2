@@ -21,7 +21,7 @@ import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
-} from 'vscode-languageclient';
+} from 'vscode-languageclient/node';
 
 let client: LanguageClient;
 
@@ -31,7 +31,7 @@ interface AdditionalClientSettings {
 
 /// Get a setting at the path, or throw an error if it's not set.
 function requireSetting<T>(path: string): T {
-    const ret: T = vscode.workspace.getConfiguration().get(path);
+    const ret: T | undefined = vscode.workspace.getConfiguration().get(path);
     if (ret == undefined) {
         throw new Error(`Setting "${path}" was not configured`)
     }
@@ -48,45 +48,40 @@ const STARLARK_FILE_CONTENTS_METHOD = 'starlark/fileContents';
 const STARLARK_URI_SCHEME = 'starlark';
 
 class StarlarkFileContentsParams {
-  constructor(public uri: String) {}
+    constructor(public uri: String) { }
 }
 
 class StarlarkFileContentsResponse {
-  constructor(public contents?: string | null) {}
+    constructor(public contents?: string | null) { }
 }
 
 /// Ask the server for the contents of a starlark: file
 class StarlarkFileHandler implements vscode.TextDocumentContentProvider {
-  provideTextDocumentContent(
-    uri: vscode.Uri,
-    _token: vscode.CancellationToken,
-  ): vscode.ProviderResult<string> {
-    if (client === undefined) {
-      return null;
-    } else {
-      return client
-        .sendRequest<StarlarkFileContentsResponse>(
-          STARLARK_FILE_CONTENTS_METHOD,
-          new StarlarkFileContentsParams(uri.toString()),
-        )
-        .then((response: StarlarkFileContentsResponse) => {
-          if (response.contents !== undefined && response.contents !== null) {
-            return response.contents;
-          } else {
+    provideTextDocumentContent(
+        uri: vscode.Uri,
+        token: vscode.CancellationToken,
+    ): vscode.ProviderResult<string> {
+        if (client === undefined) { // This can happen if the server fails to start
+            console.warn("No client available to handle", uri);
             return null;
-          }
-        });
+        }
+
+        return client
+            .sendRequest<StarlarkFileContentsResponse>(
+                STARLARK_FILE_CONTENTS_METHOD,
+                new StarlarkFileContentsParams(uri.toString()),
+                token,
+            ).then(x => x.contents);
     }
-  }
 }
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
     // Make sure that any starlark: URIs that come back from the LSP
     // are handled, and requested from the LSP.
-    vscode.workspace.registerTextDocumentContentProvider(
+    context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(
         STARLARK_URI_SCHEME,
         new StarlarkFileHandler(),
-    );
+    ));
 
     const path: string = requireSetting("starlark.lspPath");
     const args: [string] = requireSetting("starlark.lspArguments");
@@ -110,12 +105,9 @@ export function activate(context: ExtensionContext) {
     );
 
     // Start the client. This will also launch the server
-    client.start();
+    await client.start();
 }
 
 export function deactivate(): Thenable<void> | undefined {
-    if (!client) {
-        return undefined;
-    }
-    return client.stop();
+    return client?.stop();
 }

@@ -26,8 +26,7 @@ You need to have npm v7+ installed. Afterwards, run `npm install` in this folder
 ## Installing
 
 - Follow steps in Pre-requisites section.
-- Run `npm install vsce`
-- Run `npm exec vsce package`
+- Run `npm exec @vscode/vsce package`
 - In VS Code, go to Extensions, click on the "..." button in the Extensions bar, select "Install from VSIX" and then select the `starlark-1.0.0.vsix` file that was produced.
 - Build the starlark binary with `cargo build --bin=starlark` and then do one of:
   - Put it on your `$PATH`, e.g. `cp $CARGO_TARGET_DIR/debug/starlark ~/.cargo/bin/starlark`.
@@ -40,4 +39,4 @@ Every few months security advisories will arrive about pinned versions of packag
 * `npm audit` to see which packages have security updates.
 * `npm audit fix` to fix those issues.
 * Try `npm audit`, if it still has issues run `npm update`.
-* `npm exec vsce package` to confirm everything still works.
+* `npm exec @vscode/vsce package` to confirm everything still works.
