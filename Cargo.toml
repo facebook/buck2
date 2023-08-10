@@ -156,6 +156,7 @@ glob = "0.3.0"
 globset = "0.4.10"
 hashbrown = { version = "0.12.3", features = ["raw"] }
 hex = "0.4.3"
+higher-order-closure = "0.0.5"
 hostname = "0.3.1"
 http = "0.2"
 httparse = "1.7.1"

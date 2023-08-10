@@ -20,17 +20,20 @@
 //! The cost of a resource is the sum of each item cost + a company specific flat fee.
 
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceResult;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
 use futures::future::join_all;
+use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
@@ -159,7 +162,15 @@ impl Setup for DiceTransactionUpdater {
 
         // get the remote resources => company mapping
         let state = self.existing_state().await;
-        let remote_resources = join_all(resources.iter().map(|res| state.compute(res))).await;
+        let remote_resources = join_all(state
+            .compute_many(resources.iter().map(|res| {
+                higher_order_closure! {
+                    move |ctx: &'_ mut DiceComputations| -> BoxFuture<'_, DiceResult<Arc<Vec<LookupCompany>>>> {
+                        ctx.compute(res).boxed()
+                    }
+                }
+            })))
+            .await;
 
         // combine remote company list with local company list for reach resource
         let joined: Vec<_> = resources
@@ -196,11 +207,11 @@ pub trait CostUpdater {
     ) -> anyhow::Result<()>;
 }
 
-async fn lookup_company_resource_cost(
-    ctx: &DiceComputations,
+fn lookup_company_resource_cost<'a>(
+    ctx: &'a DiceComputations,
     company: &LookupCompany,
     resource: &Resource,
-) -> Result<Option<u16>, Arc<anyhow::Error>> {
+) -> impl Future<Output = Result<Option<u16>, Arc<anyhow::Error>>> + 'a {
     #[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq, Allocative)]
     #[display(fmt = "{:?}", self)]
     struct LookupCompanyResourceCost(LookupCompany, Resource);
@@ -225,14 +236,16 @@ async fn lookup_company_resource_cost(
             }
 
             // get the unit cost for each resource needed to make item
-            let mut futs: FuturesUnordered<_> = recipe
-                .ingredients
-                .iter()
-                .map(|(required, resource)| {
-                    ctx.resource_cost(resource)
-                        .map(|res| Ok::<_, Arc<anyhow::Error>>(res?.map(|x| x * *required as u16)))
-                })
-                .collect();
+            let mut futs : FuturesUnordered<_> =
+                ctx.compute_many(recipe.ingredients.iter().map(|(required, resource)| {
+                    higher_order_closure! {
+                        move |ctx: &'_ mut DiceComputations| -> BoxFuture<'_, Result<Option<u16>, Arc<anyhow::Error>>> {
+                            ctx.resource_cost(resource).map(|res| {
+                                Ok::<_, Arc<anyhow::Error>>(res?.map(|x| x * *required as u16))
+                            }).boxed()
+                        }
+                    }
+                })).into_iter().collect();
 
             let mut sum = 0;
             while let Some(x) = futs.next().await {
@@ -255,8 +268,7 @@ async fn lookup_company_resource_cost(
     }
 
     ctx.compute(&LookupCompanyResourceCost(company.clone(), resource.dupe()))
-        .await
-        .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
+        .map(|r| r.map_err(|e| Arc::new(anyhow::anyhow!(e)))?)
 }
 
 #[async_trait]
@@ -279,12 +291,15 @@ impl Cost for DiceComputations {
                     .await
                     .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
 
-                let costs = join_all(
-                    companies
-                        .iter()
-                        .map(|company| lookup_company_resource_cost(ctx, company, &self.0)),
-                )
-                .await;
+                let costs = join_all(ctx
+                    .compute_many(companies.iter().map(|company| {
+                        higher_order_closure! {
+                            move |ctx: &'_ mut DiceComputations| -> BoxFuture<'_, Result<Option<u16>, Arc<anyhow::Error>>> {
+                                lookup_company_resource_cost(ctx, company, &self.0).boxed()
+                            }
+                        }
+                    })))
+                    .await;
 
                 Ok(costs
                     .into_iter()

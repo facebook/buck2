@@ -25,6 +25,7 @@ use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
 use futures::future;
+use futures::future::BoxFuture;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use more_futures::cancellation::CancellationContext;
@@ -164,10 +165,16 @@ async fn resolve_units(
     ctx: &DiceComputations,
     units: &[Unit],
 ) -> Result<Vec<i64>, Arc<anyhow::Error>> {
-    let futs = units.map(|unit| match unit {
-        Unit::Var(var) => ctx.eval(var.clone()),
-        Unit::Literal(lit) => async move { Ok(*lit) }.boxed(),
-    });
+    let futs = ctx.compute_many(units.iter().map(|unit|
+        higher_order_closure! {
+            for<'x> move |ctx: &'x mut DiceComputations| -> BoxFuture<'x, Result<i64, Arc<anyhow::Error>>> {
+                match unit {
+                    Unit::Var(var) => ctx.eval(var.clone()).boxed(),
+                    Unit::Literal(lit) => futures::future::ready(Ok(*lit)).boxed(),
+                }
+            }
+        }
+    ));
 
     future::join_all(futs)
         .await

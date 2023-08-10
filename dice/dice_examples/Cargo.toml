@@ -8,6 +8,7 @@ anyhow = "1.0.65"
 async-trait = "0.1.24"
 derive_more = "0.99.3"
 futures = "0.3"
+higher-order-closure = { workspace = true }
 ref-cast = "1.0.0"
 dupe = { workspace = true }
 gazebo = { workspace = true }
