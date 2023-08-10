@@ -245,7 +245,6 @@ impl<'v> AnalysisRegistry<'v> {
         inputs: IndexSet<Artifact>,
         outputs: IndexSet<OutputArtifact>,
         attributes_plugins_lambda: Value<'v>,
-        _with_bxl: bool,
     ) -> anyhow::Result<()> {
         let id = self
             .dynamic
