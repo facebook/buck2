@@ -33,7 +33,7 @@ async fn setup(companies: Vec<Company>) -> anyhow::Result<(Arc<Dice>, DiceTransa
 
 #[tokio::test]
 async fn test_no_resources() -> Result<(), Arc<anyhow::Error>> {
-    let (dice, ctx) = setup(vec![Company {
+    let (dice, mut ctx) = setup(vec![Company {
         name: Arc::new("hello world".to_owned()),
         makes: HashMap::new(),
     }])
@@ -50,7 +50,7 @@ async fn test_no_resources() -> Result<(), Arc<anyhow::Error>> {
 
 #[tokio::test]
 async fn test_other_resource() -> Result<(), Arc<anyhow::Error>> {
-    let (_, ctx) = setup(vec![Company {
+    let (_, mut ctx) = setup(vec![Company {
         name: Arc::new("hello world".to_owned()),
         makes: [(Resource::Wood, 2)].iter().cloned().collect(),
     }])
@@ -63,7 +63,7 @@ async fn test_other_resource() -> Result<(), Arc<anyhow::Error>> {
 
 #[tokio::test]
 async fn test_simple() -> Result<(), Arc<anyhow::Error>> {
-    let (_, ctx) = setup(vec![
+    let (_, mut ctx) = setup(vec![
         Company {
             name: Arc::new("Steve".to_owned()),
             makes: [
@@ -108,7 +108,7 @@ async fn test_simple() -> Result<(), Arc<anyhow::Error>> {
 
 #[tokio::test]
 async fn test_complex() -> Result<(), Arc<anyhow::Error>> {
-    let (_, ctx) = setup(vec![
+    let (_, mut ctx) = setup(vec![
         Company {
             name: Arc::new("Steve".to_owned()),
             makes: [
@@ -196,7 +196,7 @@ async fn test_change_cost() -> Result<(), Arc<anyhow::Error>> {
         .await
         .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
 
-    let ctx = ctx.commit().await;
+    let mut ctx = ctx.commit().await;
 
     assert_eq!(
         Some(3 * 7 + 2 * (2 * (1 + 2) + 2) + 10),

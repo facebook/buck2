@@ -104,7 +104,7 @@ pub trait MathEquations {
 
 #[async_trait]
 pub trait Math {
-    async fn eval(&self, var: Var) -> Result<i64, Arc<anyhow::Error>>;
+    async fn eval(&mut self, var: Var) -> Result<i64, Arc<anyhow::Error>>;
 }
 
 impl MathEquations for DiceTransactionUpdater {
@@ -153,7 +153,7 @@ impl Key for EvalVar {
 
 #[async_trait]
 impl Math for DiceComputations {
-    async fn eval(&self, var: Var) -> Result<i64, Arc<anyhow::Error>> {
+    async fn eval(&mut self, var: Var) -> Result<i64, Arc<anyhow::Error>> {
         Ok(self
             .compute(&EvalVar(var))
             .await

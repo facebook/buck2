@@ -193,7 +193,10 @@ impl Setup for DiceTransactionUpdater {
 #[async_trait]
 pub trait Cost {
     /// Find the cheapest manufacturing cost for a resource
-    async fn resource_cost(&self, resource: &Resource) -> Result<Option<u16>, Arc<anyhow::Error>>;
+    async fn resource_cost(
+        &mut self,
+        resource: &Resource,
+    ) -> Result<Option<u16>, Arc<anyhow::Error>>;
 }
 
 #[async_trait]
@@ -273,7 +276,10 @@ fn lookup_company_resource_cost<'a>(
 
 #[async_trait]
 impl Cost for DiceComputations {
-    async fn resource_cost(&self, resource: &Resource) -> Result<Option<u16>, Arc<anyhow::Error>> {
+    async fn resource_cost(
+        &mut self,
+        resource: &Resource,
+    ) -> Result<Option<u16>, Arc<anyhow::Error>> {
         #[derive(Display, Debug, Hash, Eq, Dupe, Clone, PartialEq, RefCast, Allocative)]
         #[repr(transparent)]
         struct LookupResourceCost(Resource);
