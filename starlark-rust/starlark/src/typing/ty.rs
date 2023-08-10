@@ -306,7 +306,8 @@ impl Ty {
         Self::custom(TyCustomFunction(TyFunction::any()))
     }
 
-    pub(crate) const fn starlark_value<'v, T: StarlarkValue<'v>>() -> Self {
+    /// Type from the implementation of [`StarlarkValue`].
+    pub const fn starlark_value<'v, T: StarlarkValue<'v>>() -> Self {
         Ty::basic(TyBasic::starlark_value::<T>())
     }
 
