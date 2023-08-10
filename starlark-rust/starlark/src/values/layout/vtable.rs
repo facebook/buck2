@@ -117,6 +117,7 @@ pub(crate) struct AValueVTable {
 
     // `StarlarkValue`
     starlark_value: StarlarkValueVTable,
+    pub(crate) has_invoke: bool,
 
     // `Drop`
     drop_in_place: fn(StarlarkValueRawPtr),
@@ -183,6 +184,7 @@ impl AValueVTable {
                 this as *const dyn Allocative
             },
             starlark_value: StarlarkValueVTable::BLACK_HOLE,
+            has_invoke: false,
         }
     }
 
@@ -234,6 +236,7 @@ impl AValueVTable {
                 mem::transmute(allocative)
             },
             starlark_value: StarlarkValueVTableGet::<'v, T::StarlarkValue>::VTABLE,
+            has_invoke: <T::StarlarkValue>::HAS_INVOKE,
         }
     }
 

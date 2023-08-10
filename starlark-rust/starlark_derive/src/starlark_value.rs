@@ -508,6 +508,7 @@ fn derive_starlark_value_impl(
     let has_minus = impl_starlark_value.has_fn_flag("HAS_MINUS", "minus")?;
     let has_bit_not = impl_starlark_value.has_fn_flag("HAS_BIT_NOT", "bit_not")?;
     let has_at = impl_starlark_value.has_fn_flag("HAS_AT", "at")?;
+    let has_invoke = impl_starlark_value.has_fn_flag("HAS_INVOKE", "invoke")?;
     let bin_op_ty = impl_starlark_value.bin_op_ty()?;
     let rbin_op_ty = impl_starlark_value.rbin_op_ty()?;
     let attr_ty = impl_starlark_value.attr_ty()?;
@@ -524,6 +525,7 @@ fn derive_starlark_value_impl(
             has_minus,
             has_bit_not,
             has_at,
+            has_invoke,
         ]
         .into_iter()
         .chain(attr_ty)
