@@ -11,8 +11,13 @@ use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use dupe::Dupe;
+use futures::future::BoxFuture;
 use futures::FutureExt;
+use gazebo::variants::UnpackVariants;
+use more_futures::owning_future::OwningFuture;
 
+use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
@@ -24,7 +29,7 @@ use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::opaque::OpaqueValueImpl;
 use crate::versions::VersionNumber;
 
-#[derive(Allocative)]
+#[derive(Allocative, UnpackVariants)]
 pub(crate) enum DiceComputationsImpl {
     Legacy(Arc<DiceComputationsImplLegacy>),
     Modern(ModernComputeCtx),
@@ -70,6 +75,31 @@ impl DiceComputationsImpl {
                 .compute_opaque(key)
                 .map(|r| r.map(|x| OpaqueValue::new(OpaqueValueImpl::Modern(x))))
                 .right_future(),
+        }
+    }
+
+    /// Computes all the given tasks in parallel, returning an unordered Stream
+    pub(crate) fn compute_many<'a, T: 'a>(
+        &'a self,
+        computes: impl IntoIterator<
+            Item = impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+        >,
+    ) -> Vec<impl Future<Output = T> + 'a> {
+        match self {
+            DiceComputationsImpl::Legacy(ctx) => {
+                // legacy dice does nothing special
+                computes
+                    .into_iter()
+                    .map(|work| {
+                        OwningFuture::new(
+                            DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
+                            work,
+                        )
+                        .left_future()
+                    })
+                    .collect()
+            }
+            DiceComputationsImpl::Modern(ctx) => ctx.compute_many(computes),
         }
     }
 

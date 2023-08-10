@@ -10,6 +10,7 @@
 use std::future::Future;
 
 use allocative::Allocative;
+use futures::future::BoxFuture;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -62,6 +63,16 @@ impl DiceComputations {
         K: Key,
     {
         self.0.compute_opaque(key)
+    }
+
+    /// Computes all the given tasks in parallel, returning an unordered Stream
+    pub fn compute_many<'a, T: 'a>(
+        &'a self,
+        computes: impl IntoIterator<
+            Item = impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+        >,
+    ) -> Vec<impl Future<Output = T> + 'a> {
+        self.0.compute_many(computes)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the

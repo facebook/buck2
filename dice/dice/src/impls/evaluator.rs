@@ -76,7 +76,10 @@ impl AsyncEvaluator {
                     DiceComputationsImpl::Legacy(_) => {
                         unreachable!("modern dice created above")
                     }
-                    DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize(),
+                    DiceComputationsImpl::Modern(new_ctx) => new_ctx
+                        .into_regular()
+                        .expect("created regular above")
+                        .finalize(),
                 };
 
                 state.finished(

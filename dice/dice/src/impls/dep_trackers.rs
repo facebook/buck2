@@ -40,6 +40,18 @@ impl RecordingDepsTracker {
         }
     }
 
+    // TODO record structured dependencies instead of flat list
+    pub(crate) fn record_parallel_ctx_deps(&mut self, other: RecordingDepsTracker) {
+        for dep in other.deps {
+            self.deps.insert(dep);
+        }
+
+        match other.deps_validity {
+            DiceValidity::Transient => self.deps_validity = other.deps_validity,
+            _ => {}
+        }
+    }
+
     pub(crate) fn collect_deps(self) -> (HashSet<DiceKey>, DiceValidity) {
         (self.deps, self.deps_validity)
     }
