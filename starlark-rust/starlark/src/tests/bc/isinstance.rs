@@ -15,13 +15,9 @@
  * limitations under the License.
  */
 
-//! Bytecode generation tests.
+use crate::tests::bc::golden::bc_golden_test;
 
-mod and_or;
-mod compr;
-mod definitely_assigned;
-mod expr;
-mod for_stmt;
-pub(crate) mod golden;
-mod if_stmt;
-mod isinstance;
+#[test]
+fn test_isinstance() {
+    bc_golden_test("isinstance", "def test(x): return isinstance(x, str)");
+}

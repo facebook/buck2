@@ -60,6 +60,20 @@ impl ArgsCompiledValue {
         }
     }
 
+    /// Check if arguments is two positional arguments.
+    pub(crate) fn two_pos(&self) -> Option<(&IrSpanned<ExprCompiled>, &IrSpanned<ExprCompiled>)> {
+        let ArgsCompiledValue {
+            pos_named,
+            names,
+            args,
+            kwargs,
+        } = self;
+        match (pos_named.as_slice(), names.as_slice(), args, kwargs) {
+            ([pos0, pos1], [], None, None) => Some((pos0, pos1)),
+            _ => None,
+        }
+    }
+
     pub(crate) fn pos_only(&self) -> Option<&[IrSpanned<ExprCompiled>]> {
         if self.names.is_empty() && self.args.is_none() && self.kwargs.is_none() {
             Some(&self.pos_named)

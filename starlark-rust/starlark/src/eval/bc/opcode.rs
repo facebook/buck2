@@ -80,6 +80,7 @@ pub(crate) enum BcOpcode {
     Len,
     Type,
     TypeIs,
+    IsInstance,
     TupleNPop,
     ListNew,
     ListNPop,

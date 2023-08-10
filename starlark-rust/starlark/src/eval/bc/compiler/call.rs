@@ -36,6 +36,7 @@ use crate::eval::bc::instr_impl::InstrCallMaybeKnownMethodPos;
 use crate::eval::bc::instr_impl::InstrCallMethod;
 use crate::eval::bc::instr_impl::InstrCallMethodPos;
 use crate::eval::bc::instr_impl::InstrCallPos;
+use crate::eval::bc::instr_impl::InstrIsInstance;
 use crate::eval::bc::instr_impl::InstrLen;
 use crate::eval::bc::instr_impl::InstrType;
 use crate::eval::bc::native_function::BcNativeFunction;
@@ -49,6 +50,7 @@ use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::values::function::NativeFunction;
 use crate::values::types::known_methods::get_known_method;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 
@@ -228,6 +230,12 @@ impl IrSpanned<CallCompiled> {
             return arg.write_bc_cb(bc, |arg, bc| {
                 bc.write_instr::<InstrType>(self.span, (arg, target));
             });
+        } else if let Some((x, t)) = self.as_isinstance() {
+            if let Ok(t) = TypeCompiled::new_frozen(t, bc.heap) {
+                return x.write_bc_cb(bc, |x, bc| {
+                    bc.write_instr::<InstrIsInstance>(self.span, (x, t, target));
+                });
+            }
         }
 
         let span = self.span;

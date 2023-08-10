@@ -315,6 +315,14 @@ impl ExprCompiled {
         }
     }
 
+    /// Expression is builtin `isinstance` function.
+    pub(crate) fn is_fn_isinstance(&self) -> bool {
+        match self.as_value() {
+            Some(value) => value == Constants::get().fn_isinstance,
+            None => false,
+        }
+    }
+
     /// If expression is `type(x)`, return `x`.
     pub(crate) fn as_type(&self) -> Option<&IrSpanned<ExprCompiled>> {
         match self {

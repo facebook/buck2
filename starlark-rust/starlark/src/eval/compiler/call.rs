@@ -37,6 +37,7 @@ use crate::slice_vec_ext::VecExt;
 use crate::values::enumeration::FrozenEnumType;
 use crate::values::string::dot_format::parse_format_one;
 use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
 use crate::values::Value;
 
 #[derive(Clone, Debug, VisitSpanMut)]
@@ -91,6 +92,16 @@ impl CallCompiled {
             return None;
         }
         self.args.one_pos()
+    }
+
+    /// If this call expression is `isinstance(x, t)`, return `(x, t)`.
+    pub(crate) fn as_isinstance(&self) -> Option<(&IrSpanned<ExprCompiled>, FrozenValue)> {
+        if !self.fun.is_fn_isinstance() {
+            return None;
+        }
+        let (x, t) = self.args.two_pos()?;
+        let t = t.as_value()?;
+        Some((x, t))
     }
 
     /// This call is infallible and has no side effects.
