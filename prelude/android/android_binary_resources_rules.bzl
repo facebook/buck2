@@ -42,7 +42,7 @@ def get_android_binary_resources_info(
         android_toolchain,
     )
 
-    android_manifest = _get_manifest(ctx, android_packageable_info, manifest_entries)
+    android_manifest = get_manifest(ctx, android_packageable_info, manifest_entries)
 
     non_proto_format_aapt2_link_info, proto_format_aapt2_link_info = get_aapt2_link(
         ctx,
@@ -409,7 +409,7 @@ def _maybe_package_strings_as_assets(
 
     return string_assets_zip
 
-def _get_manifest(
+def get_manifest(
         ctx: AnalysisContext,
         android_packageable_info: AndroidPackageableInfo.type,
         manifest_entries: dict) -> Artifact:

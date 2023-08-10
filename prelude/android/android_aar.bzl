@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//android:android_binary_resources_rules.bzl", "get_manifest")
+load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:utils.bzl", "flatten")
@@ -14,6 +16,9 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     deps = ctx.attrs.deps
 
     java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps)]
+    android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
+
+    android_manifest = get_manifest(ctx, android_packageable_info, manifest_entries = {})
 
     jars = [dep.jar for dep in java_packaging_deps if dep.jar]
     classes_jar = ctx.actions.declare_output("classes.jar")
@@ -31,7 +36,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     zip_file_toolchain = ctx.attrs._zip_file_toolchain[ZipFileToolchainInfo]
     create_zip_tool = zip_file_toolchain.create_zip
 
-    entries = [classes_jar]
+    entries = [android_manifest, classes_jar]
     entries_file = ctx.actions.write("entries.txt", flatten([[entry, "ignored_short_path", "false"] for entry in entries]))
 
     aar = ctx.actions.declare_output("{}.aar".format(ctx.label.name))
