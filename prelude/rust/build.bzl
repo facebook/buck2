@@ -949,7 +949,7 @@ def _rustc_invoke(
     compile_cmd = cmd_args(
         cmd_args(json_diag.as_output(), format = "--diag-json={}"),
         cmd_args(txt_diag.as_output(), format = "--diag-txt={}"),
-        "--remap-cwd-prefix=",
+        "--remap-cwd-prefix=.",
         "--buck-target={}".format(ctx.label.raw_target()),
     )
 
