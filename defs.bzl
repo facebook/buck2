@@ -28,7 +28,10 @@ def _symlinked_buck2_and_tpx_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [DefaultInfo(out), RunInfo(cmd)]
 
-_symlinked_buck2_and_tpx = rule(impl = _symlinked_buck2_and_tpx_impl, attrs = {"buck2": attrs.dep(), "tpx": attrs.dep()})
+_symlinked_buck2_and_tpx = rule(
+    impl = _symlinked_buck2_and_tpx_impl,
+    attrs = {"buck2": attrs.dep(), "labels": attrs.list(attrs.string(), default = []), "tpx": attrs.dep()},
+)
 
 def symlinked_buck2_and_tpx(**kwargs):
     cxx_platform = platform_utils.get_cxx_platform_for_base_path(native.package_name())
