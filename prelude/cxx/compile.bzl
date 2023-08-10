@@ -259,17 +259,22 @@ def compile_cxx(
     toolchain = get_cxx_toolchain_info(ctx)
     linker_info = toolchain.linker_info
 
-    object_format = toolchain.object_format or CxxObjectFormat("native")
+    # Resolve the output format, which is a tristate of native (default being mach-o/elf/pe)
+    # bitcode (being LLVM-IR, which is also produced if any link time optimization flags are
+    # enabled) or the third hybrid state where the bitcode is embedded into a section of the
+    # native code, allowing the file to be used as either (but at twice the size)
+    default_object_format = toolchain.object_format or CxxObjectFormat("native")
     bitcode_args = cmd_args()
     if linker_info.lto_mode == LtoMode("none"):
         if toolchain.object_format == CxxObjectFormat("bitcode"):
             bitcode_args.add("-emit-llvm")
-            object_format = CxxObjectFormat("bitcode")
+            default_object_format = CxxObjectFormat("bitcode")
         elif toolchain.object_format == CxxObjectFormat("embedded-bitcode"):
             bitcode_args.add("-fembed-bitcode")
-            object_format = CxxObjectFormat("embedded-bitcode")
+            default_object_format = CxxObjectFormat("embedded-bitcode")
     else:
-        object_format = CxxObjectFormat("bitcode")
+        # LTO always produces bitcode object in any mode (thin, full, etc)
+        default_object_format = CxxObjectFormat("bitcode")
 
     objects = []
     for src_compile_cmd in src_compile_cmds:
@@ -353,6 +358,15 @@ def compile_cxx(
             toolchain.split_debug_mode == SplitDebugMode("single") and
             linker_info.lto_mode in (LtoMode("none"), LtoMode("fat"))
         )
+
+        # .S extension is native assembly code (machine level, processor specific)
+        # and clang will happily compile them to .o files, but the object are always
+        # native even if we ask for bitcode.  If we don't mark the output format,
+        # other tools would try and parse the .o file as LLVM-IR and fail.
+        if src_compile_cmd.src.extension in [".S", ".s"]:
+            object_format = CxxObjectFormat("native")
+        else:
+            object_format = default_object_format
 
         objects.append(CxxCompileOutput(
             object = object,
