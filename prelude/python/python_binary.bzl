@@ -341,7 +341,7 @@ def python_executable(
 
     dbg_source_db = create_dbg_source_db(ctx, src_manifest, python_deps)
 
-    exe = convert_python_library_to_executable(
+    exe = _convert_python_library_to_executable(
         ctx,
         main_module,
         info_to_interface(library_info),
@@ -376,13 +376,13 @@ def create_dep_report(
     ctx.actions.run(cmd, category = "write_dep_report")
     return DefaultInfo(default_output = out)
 
-def convert_python_library_to_executable(
+def _convert_python_library_to_executable(
         ctx: AnalysisContext,
         main_module: str,
         library: PythonLibraryInterface.type,
         deps: list[Dependency],
-        compile: bool = False,
-        dbg_source_db: [DefaultInfo.type, None] = None) -> PexProviders.type:
+        compile: bool,
+        dbg_source_db: [DefaultInfo.type, None]) -> PexProviders.type:
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
