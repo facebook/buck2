@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//java:java_providers.bzl", "JavaLibraryInfo")
+
 Aapt2LinkInfo = record(
     # "APK" containing resources to be used by the Android binary
     primary_resources_apk = Artifact,
@@ -38,7 +40,7 @@ AndroidBinaryResourcesInfo = record(
     # proguard config needed to retain used resources
     proguard_config_file = Artifact,
     # R.java jars containing all the linked resources
-    r_dot_javas = list["JavaLibraryInfo"],
+    r_dot_javas = list[JavaLibraryInfo.type],
     # directory containing filtered string resources files
     string_source_map = [Artifact, None],
     # directory containing filtered string resources files for Voltron language packs
@@ -219,10 +221,10 @@ def merge_android_packageable_info(
         label: Label,
         actions: AnalysisActions,
         deps: list[Dependency],
-        build_config_info: ["AndroidBuildConfigInfo", None] = None,
+        build_config_info: [AndroidBuildConfigInfo.type, None] = None,
         manifest: [Artifact, None] = None,
         prebuilt_native_library_dir: [PrebuiltNativeLibraryDir.type, None] = None,
-        resource_info: ["AndroidResourceInfo", None] = None) -> "AndroidPackageableInfo":
+        resource_info: [AndroidResourceInfo.type, None] = None) -> AndroidPackageableInfo.type:
     android_packageable_deps = filter(None, [x.get(AndroidPackageableInfo) for x in deps])
 
     build_config_infos = _get_transitive_set(
@@ -289,7 +291,7 @@ def _get_transitive_set(
     return actions.tset(transitive_set_definition, **kwargs) if kwargs else None
 
 def merge_exported_android_resource_info(
-        exported_deps: list[Dependency]) -> "ExportedAndroidResourceInfo":
+        exported_deps: list[Dependency]) -> ExportedAndroidResourceInfo.type:
     exported_android_resource_infos = []
     for exported_dep in exported_deps:
         exported_resource_info = exported_dep.get(ExportedAndroidResourceInfo)

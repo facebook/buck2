@@ -255,7 +255,7 @@ def _get_shared_library_versioned_name_format(ctx: AnalysisContext) -> str:
     prefix = "" if extension_format == "dll" else "lib"
     return prefix + "{}." + extension_format
 
-def _get_maybe_wrapped_msvc(compiler: "RunInfo", compiler_type: str, msvc_hermetic_exec: "RunInfo") -> "RunInfo":
+def _get_maybe_wrapped_msvc(compiler: RunInfo.type, compiler_type: str, msvc_hermetic_exec: RunInfo.type) -> RunInfo.type:
     if compiler_type == "windows":
         return RunInfo(args = cmd_args(msvc_hermetic_exec, compiler))
     return compiler

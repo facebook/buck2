@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 
 # Infer the likely package name for the given path based on conventional
 # source root components.
@@ -25,7 +26,7 @@ def get_src_package(src_root_prefixes: list[str], src_root_elements: list[str], 
     return path
 
 def get_resources_map(
-        java_toolchain: "JavaToolchainInfo",
+        java_toolchain: JavaToolchainInfo.type,
         package: str,
         resources: list[Artifact],
         resources_root: [str, None]) -> dict[str, Artifact]:

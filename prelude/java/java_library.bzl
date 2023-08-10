@@ -123,7 +123,7 @@ def _build_classpath(actions: AnalysisActions, deps: list[Dependency], additiona
 
     return None
 
-def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: int, java_toolchain: "JavaToolchainInfo") -> list[Artifact]:
+def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: int, java_toolchain: JavaToolchainInfo.type) -> list[Artifact]:
     bootclasspath_list = []
     if source_level in [7, 8]:
         if bootclasspath_entries:
@@ -137,7 +137,7 @@ def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: in
 def _append_javac_params(
         actions: AnalysisActions,
         actions_identifier: [str, None],
-        java_toolchain: "JavaToolchainInfo",
+        java_toolchain: JavaToolchainInfo.type,
         srcs: list[Artifact],
         remove_classes: list[str],
         annotation_processor_params: list["AnnotationProcessorParams"],

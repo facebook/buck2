@@ -32,6 +32,7 @@ load(
     "ArchiveLinkable",  # @unused Used as a type
     "FrameworksLinkable",  # @unused Used as a type
     "LinkArgs",
+    "LinkInfo",
     "LinkableType",
     "LinkedObject",
     "ObjectsLinkable",  # @unused Used as a type
@@ -137,7 +138,7 @@ def cxx_dist_link(
 
     names = {}
 
-    def name_for_link(info: "LinkInfo") -> str:
+    def name_for_link(info: LinkInfo.type) -> str:
         """ Creates a unique name for a LinkInfo that we are consuming """
         name = info.name or "unknown"
         if name not in names:
@@ -402,7 +403,7 @@ def cxx_dist_link(
     link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
 
-    def prepare_opt_flags(link_infos: list["LinkInfo"]) -> cmd_args:
+    def prepare_opt_flags(link_infos: list[LinkInfo.type]) -> cmd_args:
         opt_args = cmd_args()
         opt_args.add(cxx_link_cmd(ctx))
 

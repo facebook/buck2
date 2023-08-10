@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//android:android_binary.bzl", "get_binary_info")
-load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "ExopackageInfo")
+load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo", "ExopackageInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
@@ -65,9 +65,9 @@ def build_apk(
         actions: AnalysisActions,
         keystore: KeystoreInfo.type,
         android_toolchain: AndroidToolchainInfo.type,
-        dex_files_info: "DexFilesInfo",
-        native_library_info: "AndroidBinaryNativeLibsInfo",
-        resources_info: "AndroidBinaryResourcesInfo",
+        dex_files_info: DexFilesInfo.type,
+        native_library_info: AndroidBinaryNativeLibsInfo.type,
+        resources_info: AndroidBinaryResourcesInfo.type,
         compress_resources_dot_arsc: bool = False) -> Artifact:
     output_apk = actions.declare_output("{}.apk".format(label.name))
 

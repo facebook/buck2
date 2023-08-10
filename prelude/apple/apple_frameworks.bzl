@@ -18,6 +18,7 @@ load(
     "LinkInfos",
     "LinkInfosTSet",
     "LinkableType",
+    "MergedLinkInfo",
     "SwiftRuntimeLinkable",  # @unused Used as a type
     "SwiftmoduleLinkable",  # @unused Used as a type
     "get_link_args",
@@ -126,7 +127,7 @@ def _non_sdk_unresolved_framework_directory(framework_path: str) -> [str, None]:
 
 def apple_build_link_args_with_deduped_flags(
         ctx: AnalysisContext,
-        merged: "MergedLinkInfo",
+        merged: MergedLinkInfo.type,
         frameworks_linkable: [FrameworksLinkable.type, None],
         link_style: "LinkStyle",
         prefer_stripped: bool = False,

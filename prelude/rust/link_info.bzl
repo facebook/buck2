@@ -141,7 +141,7 @@ def _non_rust_link_deps(
 # Returns native link dependencies.
 def _non_rust_link_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list["MergedLinkInfo"]:
+        include_doc_deps: bool = False) -> list[MergedLinkInfo.type]:
     """
     Return all first-order native link infos of all transitive Rust libraries.
 
@@ -155,7 +155,7 @@ def _non_rust_link_infos(
 # Returns native link dependencies.
 def _non_rust_shared_lib_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list["SharedLibraryInfo"]:
+        include_doc_deps: bool = False) -> list[SharedLibraryInfo.type]:
     """
     Return all transitive shared libraries for non-Rust native linkabes.
 
@@ -172,7 +172,7 @@ def _non_rust_shared_lib_infos(
 # Returns native link dependencies.
 def _rust_link_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list["RustLinkInfo"]:
+        include_doc_deps: bool = False) -> list[RustLinkInfo.type]:
     first_order_deps = resolve_deps(ctx, include_doc_deps)
     return filter(None, [d.dep.get(RustLinkInfo) for d in first_order_deps])
 
@@ -190,7 +190,7 @@ def inherited_non_rust_exported_link_deps(ctx: AnalysisContext) -> list[Dependen
 
 def inherited_non_rust_link_info(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> "MergedLinkInfo":
+        include_doc_deps: bool = False) -> MergedLinkInfo.type:
     infos = []
     infos.extend(_non_rust_link_infos(ctx, include_doc_deps))
     infos.extend([d.non_rust_link_info for d in _rust_link_infos(ctx, include_doc_deps)])
@@ -198,7 +198,7 @@ def inherited_non_rust_link_info(
 
 def inherited_non_rust_shared_libs(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list["SharedLibraryInfo"]:
+        include_doc_deps: bool = False) -> list[SharedLibraryInfo.type]:
     infos = []
     infos.extend(_non_rust_shared_lib_infos(ctx, include_doc_deps))
     infos.extend([d.non_rust_shared_libs for d in _rust_link_infos(ctx, include_doc_deps)])

@@ -206,10 +206,10 @@ _swift_pcm_compilation = rule(
 
 def compile_underlying_pcm(
         ctx: AnalysisContext,
-        uncompiled_pcm_info: "SwiftPCMUncompiledInfo",
+        uncompiled_pcm_info: SwiftPCMUncompiledInfo.type,
         compiled_pcm_deps_providers,
         swift_cxx_args: list[str],
-        framework_search_path_flags: cmd_args) -> "SwiftPCMCompiledInfo":
+        framework_search_path_flags: cmd_args) -> SwiftPCMCompiledInfo.type:
     module_name = get_module_name(ctx)
 
     # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers

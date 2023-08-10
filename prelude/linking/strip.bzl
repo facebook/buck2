@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 
 def strip_debug_info(ctx: AnalysisContext, name: str, obj: Artifact) -> Artifact:
     """
@@ -17,7 +18,7 @@ def strip_debug_info(ctx: AnalysisContext, name: str, obj: Artifact) -> Artifact
     ctx.actions.run(cmd, category = "strip_debug", identifier = name)
     return output
 
-def strip_object(ctx: AnalysisContext, cxx_toolchain: "CxxToolchainInfo", unstripped: Artifact, strip_flags: cmd_args, category_suffix: [str, None] = None) -> Artifact:
+def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo.type, unstripped: Artifact, strip_flags: cmd_args, category_suffix: [str, None] = None) -> Artifact:
     """
     Strip unneeded information from binaries / shared libs.
     """

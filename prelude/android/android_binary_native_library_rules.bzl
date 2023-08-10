@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "ExopackageNativeInfo")
+load("@prelude//android:android_providers.bzl", "AndroidBinaryNativeLibsInfo", "AndroidPackageableInfo", "ExopackageNativeInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
@@ -42,7 +42,7 @@ load("@prelude//utils:utils.bzl", "expect")
 
 def get_android_binary_native_library_info(
         ctx: AnalysisContext,
-        android_packageable_info: "AndroidPackageableInfo",
+        android_packageable_info: AndroidPackageableInfo.type,
         deps_by_platform: dict[str, list[Dependency]],
         apk_module_graph_file: [Artifact, None] = None,
         prebuilt_native_library_dirs_to_exclude: [set_type, None] = None,

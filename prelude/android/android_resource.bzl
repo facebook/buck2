@@ -75,7 +75,7 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
 def aapt2_compile(
         ctx: AnalysisContext,
         resources_dir: Artifact,
-        android_toolchain: "AndroidToolchainInfo",
+        android_toolchain: AndroidToolchainInfo.type,
         skip_crunch_pngs: bool = False,
         identifier: [str, None] = None) -> Artifact:
     aapt2_command = cmd_args(android_toolchain.aapt2)

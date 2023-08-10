@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//android:android_providers.bzl", "AndroidResourceInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")
 load("@prelude//utils:set.bzl", "set")
@@ -21,8 +22,8 @@ RDotJavaSourceCode = record(
 def get_dummy_r_dot_java(
         ctx: AnalysisContext,
         merge_android_resources_tool: RunInfo.type,
-        android_resources: list["AndroidResourceInfo"],
-        union_package: [str, None]) -> "JavaLibraryInfo":
+        android_resources: list[AndroidResourceInfo.type],
+        union_package: [str, None]) -> JavaLibraryInfo.type:
     r_dot_java_source_code = _generate_r_dot_java_source_code(ctx, merge_android_resources_tool, android_resources, "dummy_r_dot_java", union_package = union_package)
     library_output = _generate_and_compile_r_dot_java(
         ctx,
@@ -38,14 +39,14 @@ def get_dummy_r_dot_java(
 def generate_r_dot_javas(
         ctx: AnalysisContext,
         merge_android_resources_tool: RunInfo.type,
-        android_resources: list["AndroidResourceInfo"],
+        android_resources: list[AndroidResourceInfo.type],
         banned_duplicate_resource_types: list[str],
         uber_r_dot_txt_files: list[Artifact],
         override_symbols_paths: list[Artifact],
         duplicate_resources_allowlist: [Artifact, None],
         union_package: [str, None],
         referenced_resources_lists: list[Artifact],
-        generate_strings_and_ids_separately: [bool, None] = True) -> list["JavaLibraryInfo"]:
+        generate_strings_and_ids_separately: [bool, None] = True) -> list[JavaLibraryInfo.type]:
     r_dot_java_source_code = _generate_r_dot_java_source_code(
         ctx,
         merge_android_resources_tool,
@@ -92,7 +93,7 @@ def generate_r_dot_javas(
 def _generate_r_dot_java_source_code(
         ctx: AnalysisContext,
         merge_android_resources_tool: RunInfo.type,
-        android_resources: list["AndroidResourceInfo"],
+        android_resources: list[AndroidResourceInfo.type],
         identifier: str,
         force_final_resources_ids = False,
         generate_strings_and_ids_separately = False,

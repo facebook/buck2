@@ -59,7 +59,7 @@ def create_julia_library_info(
         srcs: typing.Any = [],
         deps: list[JuliaLibraryInfo.type] = [],
         jll: [JllInfo.type, None] = None,
-        shlibs: list[SharedLibraryInfo.type] = []) -> "JuliaLibraryInfo":
+        shlibs: list[SharedLibraryInfo.type] = []) -> JuliaLibraryInfo.type:
     julia_tsets = JuliaLibrary(
         uuid = uuid,
         label = label,

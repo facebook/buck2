@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
@@ -21,7 +22,7 @@ BitcodeBundleInfo = provider(fields = [
     "bitcode_bundle",
 ])
 
-def _bundle_locally(ctx: AnalysisContext, linker_info: "LinkerInfo") -> bool:
+def _bundle_locally(ctx: AnalysisContext, linker_info: LinkerInfo.type) -> bool:
     archive_locally = linker_info.archive_objects_locally
     if hasattr(ctx.attrs, "_archive_objects_locally_override"):
         return value_or(ctx.attrs._archive_objects_locally_override, archive_locally)

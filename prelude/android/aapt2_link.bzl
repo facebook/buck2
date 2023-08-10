@@ -5,15 +5,16 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//android:android_providers.bzl", "Aapt2LinkInfo", "RESOURCE_PRIORITY_LOW")
+load("@prelude//android:android_providers.bzl", "Aapt2LinkInfo", "AndroidResourceInfo", "RESOURCE_PRIORITY_LOW")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 
 BASE_PACKAGE_ID = 0x7f
 ZIP_NOTHING_TO_DO_EXIT_CODE = 12
 
 def get_aapt2_link(
         ctx: AnalysisContext,
-        android_toolchain: "AndroidToolchainInfo",
-        resource_infos: list["AndroidResourceInfo"],
+        android_toolchain: AndroidToolchainInfo.type,
+        resource_infos: list[AndroidResourceInfo.type],
         android_manifest: Artifact,
         includes_vector_drawables: bool,
         no_auto_version: bool,
@@ -138,7 +139,7 @@ def get_aapt2_link(
 
 def get_module_manifest_in_proto_format(
         ctx: AnalysisContext,
-        android_toolchain: "AndroidToolchainInfo",
+        android_toolchain: AndroidToolchainInfo.type,
         android_manifest: Artifact,
         primary_resources_apk: Artifact,
         module_name: str) -> Artifact:

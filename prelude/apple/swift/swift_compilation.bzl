@@ -14,6 +14,10 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_explicit_modules_env_var", "get_module_name", "get_versioned_target_triple")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
+load(
+    "@prelude//apple/swift:swift_toolchain_types.bzl",
+    "SwiftToolchainInfo",  # @unused Used as a type
+)
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load(
@@ -39,7 +43,11 @@ load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "PcmDepTSet", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
-load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo")
+load(
+    ":swift_pcm_compilation_types.bzl",
+    "SwiftPCMCompiledInfo",  # @unused Used as a type
+    "SwiftPCMUncompiledInfo",
+)
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
 load(":swift_toolchain_types.bzl", "SwiftObjectFormat")
@@ -277,7 +285,7 @@ def _perform_swift_postprocessing(
 # faster than object file output.
 def _compile_swiftmodule(
         ctx: AnalysisContext,
-        toolchain: "SwiftToolchainInfo",
+        toolchain: SwiftToolchainInfo.type,
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags.type],
         output_swiftmodule: Artifact,
@@ -299,7 +307,7 @@ def _compile_swiftmodule(
 
 def _compile_object(
         ctx: AnalysisContext,
-        toolchain: "SwiftToolchainInfo",
+        toolchain: SwiftToolchainInfo.type,
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags.type],
         output_object: Artifact) -> CompileArgsfiles.type:
@@ -327,7 +335,7 @@ def _compile_with_argsfile(
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags.type],
         additional_flags: cmd_args,
-        toolchain: "SwiftToolchainInfo") -> CompileArgsfiles.type:
+        toolchain: SwiftToolchainInfo.type) -> CompileArgsfiles.type:
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
     argsfile, _ = ctx.actions.write(extension + ".argsfile", shell_quoted_args, allow_args = True)
     input_args = [shared_flags]
@@ -372,7 +380,7 @@ def _get_shared_flags(
         ctx: AnalysisContext,
         deps_providers: list,
         parse_as_library: bool,
-        underlying_module: ["SwiftPCMCompiledInfo", None],
+        underlying_module: [SwiftPCMCompiledInfo.type, None],
         module_name: str,
         objc_headers: list[CHeader.type],
         objc_modulemap_pp_info: [CPreprocessor.type, None],
@@ -540,7 +548,7 @@ def _add_clang_deps_flags(
 def _add_mixed_library_flags_to_cmd(
         ctx: AnalysisContext,
         cmd: cmd_args,
-        underlying_module: ["SwiftPCMCompiledInfo", None],
+        underlying_module: [SwiftPCMCompiledInfo.type, None],
         objc_headers: list[CHeader.type],
         objc_modulemap_pp_info: [CPreprocessor.type, None]) -> None:
     if uses_explicit_modules(ctx):

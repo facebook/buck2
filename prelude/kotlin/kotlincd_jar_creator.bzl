@@ -11,7 +11,7 @@ load(
     "make_compile_outputs",
 )
 load("@prelude//java:java_resources.bzl", "get_resources_map")
-load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "DepFiles")
+load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "DepFiles", "JavaToolchainInfo")
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "OutputPaths",
@@ -28,6 +28,7 @@ load(
     "prepare_final_jar",
     "setup_dep_files",
 )
+load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo")
 load("@prelude//kotlin:kotlin_utils.bzl", "get_kotlinc_compatible_target")
 load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
@@ -40,9 +41,9 @@ def create_jar_artifact_kotlincd(
         actions: AnalysisActions,
         actions_identifier: [str, None],
         abi_generation_mode: [AbiGenerationMode.type, None],
-        java_toolchain: "JavaToolchainInfo",
-        kotlin_toolchain: "KotlinToolchainInfo",
-        javac_tool: [str, "RunInfo", Artifact, None],
+        java_toolchain: JavaToolchainInfo.type,
+        kotlin_toolchain: KotlinToolchainInfo.type,
+        javac_tool: [str, RunInfo.type, Artifact, None],
         label: Label,
         srcs: list[Artifact],
         remove_classes: list[str],

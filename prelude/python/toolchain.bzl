@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 
 # The ways that Python executables handle native linkable dependencies.
@@ -66,8 +67,8 @@ PythonPlatformInfo = provider(fields = [
 ])
 
 def get_platform_attr(
-        python_platform_info: "PythonPlatformInfo",
-        cxx_platform_info: "CxxPlatformInfo",
+        python_platform_info: PythonPlatformInfo.type,
+        cxx_platform_info: CxxPlatformInfo.type,
         xs: list[(str, typing.Any)]) -> list[typing.Any]:
     """
     Take a platform_* value, and the non-platform version, and concat into a list

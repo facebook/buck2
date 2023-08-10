@@ -18,6 +18,7 @@ load(
 )
 load(
     "@prelude//haskell:haskell.bzl",
+    "HaskellLibraryInfo",
     "HaskellLibraryProvider",
     "HaskellToolchainInfo",
     "PackagesInfo",
@@ -521,7 +522,7 @@ def _symlink_ghci_binary(ctx, ghci_bin: Artifact):
 
 def _first_order_haskell_deps(
         ctx: AnalysisContext,
-        _enable_profiling: bool) -> list["HaskellLibraryInfo"]:
+        _enable_profiling: bool) -> list[HaskellLibraryInfo.type]:
     return dedupe(
         flatten(
             [

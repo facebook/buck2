@@ -21,13 +21,13 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainIn
 # the top level but as part of the transition to support
 # `apple_toolchain`, we want to make progress now.
 
-def get_cxx_platform_info(ctx: AnalysisContext) -> "CxxPlatformInfo":
+def get_cxx_platform_info(ctx: AnalysisContext) -> CxxPlatformInfo.type:
     apple_toolchain = getattr(ctx.attrs, "_apple_toolchain", None)
     if apple_toolchain:
         return apple_toolchain[AppleToolchainInfo].cxx_platform_info
     return ctx.attrs._cxx_toolchain[CxxPlatformInfo]
 
-def get_cxx_toolchain_info(ctx: AnalysisContext) -> "CxxToolchainInfo":
+def get_cxx_toolchain_info(ctx: AnalysisContext) -> CxxToolchainInfo.type:
     apple_toolchain = getattr(ctx.attrs, "_apple_toolchain", None)
     if apple_toolchain:
         return apple_toolchain[AppleToolchainInfo].cxx_toolchain_info

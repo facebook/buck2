@@ -170,7 +170,7 @@ def attr_deps(ctx: AnalysisContext) -> list[Dependency]:
 # def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> ["MergedLinkInfo"]:
 #     return filter(None, [d[MergedLinkInfo] for d in attr_deps(ctx)])
 
-def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list["HaskellLinkInfo"]:
+def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list[HaskellLinkInfo.type]:
     return filter(
         None,
         [
@@ -181,7 +181,7 @@ def _attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list["HaskellLinkInfo
 
 def _attr_deps_haskell_lib_infos(
         ctx: AnalysisContext,
-        link_style: LinkStyle.type) -> list["HaskellLibraryInfo"]:
+        link_style: LinkStyle.type) -> list[HaskellLibraryInfo.type]:
     return [
         x.lib[link_style]
         for x in filter(None, [

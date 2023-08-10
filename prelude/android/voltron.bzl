@@ -135,9 +135,9 @@ def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: dict[st
 def _get_base_cmd_and_output(
         actions: AnalysisActions,
         label: Label,
-        android_packageable_infos: list["AndroidPackageableInfo"],
+        android_packageable_infos: list[AndroidPackageableInfo.type],
         shared_libraries: list["SharedLibrary"],
-        android_toolchain: "AndroidToolchainInfo",
+        android_toolchain: AndroidToolchainInfo.type,
         application_module_configs: dict[str, list[Dependency]],
         application_module_dependencies: [dict[str, list[str]], None],
         application_module_blocklist: [list[list[Dependency]], None]) -> (cmd_args, Artifact):

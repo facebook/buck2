@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load(
     ":compile.bzl",
     "CxxSrcCompileCommand",  # @unused Used as a type
@@ -19,7 +20,7 @@ CxxCompilationDbInfo = provider(fields = {
     "toolchain": "toolchain for this compilation database",
 })
 
-def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand.type], toolchainInfo: "CxxToolchainInfo", platformInfo: "CxxPlatformInfo") -> CxxCompilationDbInfo.type:
+def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand.type], toolchainInfo: CxxToolchainInfo.type, platformInfo: CxxPlatformInfo.type) -> CxxCompilationDbInfo.type:
     info = {}
     for src_compile_cmd in src_compile_cmds:
         info.update({src_compile_cmd.src: src_compile_cmd})

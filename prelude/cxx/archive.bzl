@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
 load("@prelude//linking:link_info.bzl", "Archive")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -78,7 +79,7 @@ def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer
     ctx.actions.run(command, category = category, identifier = name, prefer_local = prefer_local)
     return archive_output
 
-def _archive_locally(ctx: AnalysisContext, linker_info: "LinkerInfo") -> bool:
+def _archive_locally(ctx: AnalysisContext, linker_info: LinkerInfo.type) -> bool:
     archive_locally = linker_info.archive_objects_locally
     if hasattr(ctx.attrs, "_archive_objects_locally_override"):
         return value_or(ctx.attrs._archive_objects_locally_override, archive_locally)

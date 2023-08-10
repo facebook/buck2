@@ -108,8 +108,8 @@ def create_python_library_info(
         dep_manifest: [ManifestInfo.type, None] = None,
         resources: [(ManifestInfo.type, list[ArgLike]), None] = None,
         extensions: [dict[str, LinkedObject.type], None] = None,
-        deps: list["PythonLibraryInfo"] = [],
-        shared_libraries: list["SharedLibraryInfo"] = []):
+        deps: list[PythonLibraryInfo.type] = [],
+        shared_libraries: list[SharedLibraryInfo.type] = []):
     """
     Create a `PythonLibraryInfo` for a set of sources and deps
 
@@ -147,7 +147,7 @@ def create_python_library_info(
         shared_libraries = new_shared_libraries,
     )
 
-def gather_dep_libraries(raw_deps: list[list[Dependency]]) -> (list["PythonLibraryInfo"], list["SharedLibraryInfo"]):
+def gather_dep_libraries(raw_deps: list[list[Dependency]]) -> (list[PythonLibraryInfo.type], list[SharedLibraryInfo.type]):
     """
     Takes a list of raw dependencies, and partitions them into python_library / shared library providers.
     Fails if a dependency is not one of these.

@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//linking:lto.bzl", "LtoMode")
 load(
     "@prelude//utils:utils.bzl",
@@ -390,7 +391,7 @@ def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreproces
         else:
             path_to_artifact[header_path] = header.artifact
 
-def _get_compiler_info(toolchain: "CxxToolchainInfo", ext: CxxExtension.type) -> typing.Any:
+def _get_compiler_info(toolchain: CxxToolchainInfo.type, ext: CxxExtension.type) -> typing.Any:
     compiler_info = None
     if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp"):
         compiler_info = toolchain.cxx_compiler_info

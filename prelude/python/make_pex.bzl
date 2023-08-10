@@ -87,7 +87,7 @@ def _srcs(srcs: list[typing.Any], format = "{}") -> cmd_args:
 
 def _fail_at_build_time(
         ctx: AnalysisContext,
-        python_toolchain: "PythonToolchainInfo",
+        python_toolchain: PythonToolchainInfo.type,
         msg: str) -> PexProviders.type:
     error_message = ctx.actions.write("__error_message", msg)
     dummy_output = ctx.actions.declare_output("__dummy_output")
@@ -108,7 +108,7 @@ def _fail_at_build_time(
 
 def _fail(
         ctx: AnalysisContext,
-        python_toolchain: "PythonToolchainInfo",
+        python_toolchain: PythonToolchainInfo.type,
         suffix: str,
         msg: str) -> PexProviders.type:
     if suffix:
@@ -124,7 +124,7 @@ def _fail(
 #                 script that invokes make_xar in a slightly different way.
 def make_pex(
         ctx: AnalysisContext,
-        python_toolchain: "PythonToolchainInfo",
+        python_toolchain: PythonToolchainInfo.type,
         # A rule-provided tool to use to build the PEX.
         make_pex_cmd: [RunInfo.type, None],
         package_style: PackageStyle.type,
@@ -199,7 +199,7 @@ def make_pex(
 
 def _make_pex_impl(
         ctx: AnalysisContext,
-        python_toolchain: "PythonToolchainInfo",
+        python_toolchain: PythonToolchainInfo.type,
         make_pex_cmd: [RunInfo.type, None],
         package_style: PackageStyle.type,
         build_args: list[ArgLike],

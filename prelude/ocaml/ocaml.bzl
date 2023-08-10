@@ -135,13 +135,13 @@ def _by_platform(ctx: AnalysisContext, xs: list[(str, list[typing.Any])]) -> lis
 def _attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     return ctx.attrs.deps + _by_platform(ctx, ctx.attrs.platform_deps)
 
-def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> list["MergedLinkInfo"]:
+def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> list[MergedLinkInfo.type]:
     return filter(None, [d.get(MergedLinkInfo) for d in _attr_deps(ctx)])
 
-def _attr_deps_ocaml_link_infos(ctx: AnalysisContext) -> list["OCamlLinkInfo"]:
+def _attr_deps_ocaml_link_infos(ctx: AnalysisContext) -> list[OCamlLinkInfo.type]:
     return filter(None, [d.get(OCamlLinkInfo) for d in _attr_deps(ctx)])
 
-def _attr_deps_other_outputs_infos(ctx: AnalysisContext) -> list["OtherOutputsInfo"]:
+def _attr_deps_other_outputs_infos(ctx: AnalysisContext) -> list[OtherOutputsInfo.type]:
     return filter(None, [d.get(OtherOutputsInfo) for d in _attr_deps(ctx)])
 
 # ---

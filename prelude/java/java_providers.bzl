@@ -11,7 +11,7 @@ load(
     "gather_resources",
 )
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
-load("@prelude//java:dex.bzl", "get_dex_produced_from_java_library")
+load("@prelude//java:dex.bzl", "DexLibraryInfo", "get_dex_produced_from_java_library")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load(
@@ -125,7 +125,7 @@ JavaCompilingDepsTSet = transitive_set(
 JavaPackagingDep = record(
     label = Label,
     jar = [Artifact, None],
-    dex = ["DexLibraryInfo", None],
+    dex = [DexLibraryInfo.type, None],
     is_prebuilt_jar = bool,
     proguard_config = [Artifact, None],
 
@@ -332,7 +332,7 @@ def create_java_packaging_dep(
 def get_all_java_packaging_deps(ctx: AnalysisContext, deps: list[Dependency]) -> list["JavaPackagingDep"]:
     return get_all_java_packaging_deps_from_packaging_infos(ctx, filter(None, [x.get(JavaPackagingInfo) for x in deps]))
 
-def get_all_java_packaging_deps_from_packaging_infos(ctx: AnalysisContext, infos: list["JavaPackagingInfo"]) -> list["JavaPackagingDep"]:
+def get_all_java_packaging_deps_from_packaging_infos(ctx: AnalysisContext, infos: list[JavaPackagingInfo.type]) -> list["JavaPackagingDep"]:
     children = filter(None, [info.packaging_deps for info in infos])
     if not children:
         return []
@@ -343,7 +343,7 @@ def get_all_java_packaging_deps_from_packaging_infos(ctx: AnalysisContext, infos
 
 def get_all_java_packaging_deps_tset(
         ctx: AnalysisContext,
-        java_packaging_infos: list["JavaPackagingInfo"],
+        java_packaging_infos: list[JavaPackagingInfo.type],
         java_packaging_dep: [JavaPackagingDep.type, None] = None) -> [JavaPackagingDepTSet.type, None]:
     packaging_deps_kwargs = {}
     if java_packaging_dep:

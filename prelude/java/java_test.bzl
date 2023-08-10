@@ -11,7 +11,7 @@ load(
     "merge_class_to_source_map_from_jar",
 )
 load("@prelude//java:java_library.bzl", "build_java_library")
-load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps_tset")
+load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingInfo", "get_all_java_packaging_deps_tset")
 load("@prelude//java:java_toolchain.bzl", "JavaTestToolchainInfo", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
@@ -35,8 +35,8 @@ def java_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def build_junit_test(
         ctx: AnalysisContext,
-        tests_java_library_info: "JavaLibraryInfo",
-        tests_java_packaging_info: "JavaPackagingInfo",
+        tests_java_library_info: JavaLibraryInfo.type,
+        tests_java_packaging_info: JavaPackagingInfo.type,
         tests_class_to_source_info: [JavaClassToSourceMapInfo.type, None] = None,
         extra_cmds: list = [],
         extra_classpath_entries: list[Artifact] = []) -> ExternalRunnerTestInfo.type:

@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
@@ -23,7 +24,7 @@ def create_python_source_db_info(manifests: [PythonLibraryManifestsTSet.type, No
 def create_source_db(
         ctx: AnalysisContext,
         srcs: [ManifestInfo.type, None],
-        python_deps: list["PythonLibraryInfo"]) -> DefaultInfo.type:
+        python_deps: list[PythonLibraryInfo.type]) -> DefaultInfo.type:
     output = ctx.actions.declare_output("db.json")
     artifacts = []
 
@@ -53,7 +54,7 @@ def create_source_db(
 def create_dbg_source_db(
         ctx: AnalysisContext,
         srcs: [ManifestInfo.type, None],
-        python_deps: list["PythonLibraryInfo"]) -> DefaultInfo.type:
+        python_deps: list[PythonLibraryInfo.type]) -> DefaultInfo.type:
     output = ctx.actions.declare_output("dbg-db.json")
     artifacts = []
 

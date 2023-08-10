@@ -405,9 +405,9 @@ def create_merged_link_info(
         # which actual link style to propagate for each "requested" link style.
         preferred_linkage: Linkage.type = Linkage("any"),
         # Link info to propagate from non-exported deps for static link styles.
-        deps: list["MergedLinkInfo"] = [],
+        deps: list[MergedLinkInfo.type] = [],
         # Link info to always propagate from exported deps.
-        exported_deps: list["MergedLinkInfo"] = [],
+        exported_deps: list[MergedLinkInfo.type] = [],
         frameworks_linkable: [FrameworksLinkable.type, None] = None,
         swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> MergedLinkInfo.type:
     """
@@ -599,7 +599,7 @@ def unpack_external_debug_info(actions: AnalysisActions, args: LinkArgs.type) ->
 
     fail("Unpacked invalid empty link args")
 
-def map_to_link_infos(links: list[LinkArgs.type]) -> list["LinkInfo"]:
+def map_to_link_infos(links: list[LinkArgs.type]) -> list[LinkInfo.type]:
     res = []
 
     def append(v):
@@ -625,7 +625,7 @@ def map_to_link_infos(links: list[LinkArgs.type]) -> list["LinkInfo"]:
     return res
 
 def get_link_args(
-        merged: "MergedLinkInfo",
+        merged: MergedLinkInfo.type,
         link_style: LinkStyle.type,
         prefer_stripped: bool = False) -> LinkArgs.type:
     """

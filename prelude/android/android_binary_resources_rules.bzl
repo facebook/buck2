@@ -8,7 +8,7 @@
 load("@prelude//:resources.bzl", "gather_resources")
 load("@prelude//android:aapt2_link.bzl", "get_aapt2_link", "get_module_manifest_in_proto_format")
 load("@prelude//android:android_manifest.bzl", "generate_android_manifest")
-load("@prelude//android:android_providers.bzl", "AndroidBinaryResourcesInfo", "AndroidResourceInfo", "ExopackageResourcesInfo")
+load("@prelude//android:android_providers.bzl", "AndroidBinaryResourcesInfo", "AndroidPackageableInfo", "AndroidResourceInfo", "ExopackageResourcesInfo")
 load("@prelude//android:android_resource.bzl", "aapt2_compile")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "generate_r_dot_javas")
@@ -20,7 +20,7 @@ load("@prelude//decls/android_rules.bzl", "RType")
 def get_android_binary_resources_info(
         ctx: AnalysisContext,
         deps: list[Dependency],
-        android_packageable_info: "AndroidPackageableInfo",
+        android_packageable_info: AndroidPackageableInfo.type,
         java_packaging_deps: list["JavaPackagingDep"],
         use_proto_format: bool,
         referenced_resources_lists: list[Artifact],
@@ -29,7 +29,7 @@ def get_android_binary_resources_info(
         resource_infos_to_exclude: [set_type, None] = None,
         generate_strings_and_ids_separately: [bool, None] = True,
         aapt2_min_sdk: [str, None] = None,
-        aapt2_preferred_density: [str, None] = None) -> "AndroidBinaryResourcesInfo":
+        aapt2_preferred_density: [str, None] = None) -> AndroidBinaryResourcesInfo.type:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unfiltered_resource_infos = [
         resource_info
@@ -411,7 +411,7 @@ def _maybe_package_strings_as_assets(
 
 def _get_manifest(
         ctx: AnalysisContext,
-        android_packageable_info: "AndroidPackageableInfo",
+        android_packageable_info: AndroidPackageableInfo.type,
         manifest_entries: dict) -> Artifact:
     robolectric_manifest = getattr(ctx.attrs, "robolectric_manifest", None)
     if robolectric_manifest:
@@ -459,7 +459,7 @@ def _get_manifest(
 
 def _get_module_manifests(
         ctx: AnalysisContext,
-        android_packageable_info: "AndroidPackageableInfo",
+        android_packageable_info: AndroidPackageableInfo.type,
         manifest_entries: dict,
         apk_module_graph_file: [Artifact, None],
         use_proto_format: bool,
@@ -531,7 +531,7 @@ def _merge_assets(
         ctx: AnalysisContext,
         is_exopackaged_enabled_for_resources: bool,
         base_apk: Artifact,
-        resource_infos: list["AndroidResourceInfo"],
+        resource_infos: list[AndroidResourceInfo.type],
         cxx_resources: [Artifact, None]) -> (Artifact, [Artifact, None], [Artifact, None]):
     assets_dirs = [resource_info.assets for resource_info in resource_infos if resource_info.assets]
     if cxx_resources != None:

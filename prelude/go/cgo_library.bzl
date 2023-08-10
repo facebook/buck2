@@ -21,6 +21,7 @@ load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
     "CPreprocessorArgs",
+    "CPreprocessorInfo",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
     "cxx_private_preprocessor_info",
@@ -58,7 +59,7 @@ def _cgo(
         ctx: AnalysisContext,
         srcs: list[Artifact],
         own_pre: list[CPreprocessor.type],
-        inherited_pre: list["CPreprocessorInfo"]) -> (list[Artifact], list[Artifact], list[Artifact]):
+        inherited_pre: list[CPreprocessorInfo.type]) -> (list[Artifact], list[Artifact], list[Artifact]):
     """
     Run `cgo` on `.go` sources to generate Go, C, and C-Header sources.
     """

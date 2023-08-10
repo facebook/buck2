@@ -19,7 +19,7 @@ def get_path_separator() -> str:
     # On UNIX systems, this character is ':'; on Microsoft Windows systems it is ';'.
     return ":"
 
-def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, "RunInfo", Artifact]:
+def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, RunInfo.type, Artifact]:
     javac_attr_type = type(javac_attribute)
     if isinstance(javac_attribute, Dependency):
         javac_run_info = javac_attribute.get(RunInfo)
@@ -82,7 +82,7 @@ def get_abi_generation_mode(abi_generation_mode):
 
 def get_default_info(
         actions: AnalysisActions,
-        java_toolchain: "JavaToolchainInfo",
+        java_toolchain: JavaToolchainInfo.type,
         outputs: ["JavaCompileOutputs", None],
         packaging_info: "JavaPackagingInfo",
         extra_sub_targets: dict = {}) -> DefaultInfo.type:

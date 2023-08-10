@@ -8,7 +8,7 @@
 load("@prelude//android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
 load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
 load("@prelude//android:android_build_config.bzl", "generate_android_build_config", "get_build_config_fields")
-load("@prelude//android:android_providers.bzl", "BuildConfigField", "merge_android_packageable_info")
+load("@prelude//android:android_providers.bzl", "BuildConfigField", "DexFilesInfo", "merge_android_packageable_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
@@ -17,7 +17,7 @@ load("@prelude//android:exopackage.bzl", "get_exopackage_flags")
 load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
 load("@prelude//android:proguard.bzl", "get_proguard_output")
 load("@prelude//android:voltron.bzl", "get_target_to_module_mapping")
-load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
+load("@prelude//java:java_providers.bzl", "JavaPackagingInfo", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
 load("@prelude//utils:utils.bzl", "expect")
 
 AndroidBinaryInfo = record(
@@ -25,7 +25,7 @@ AndroidBinaryInfo = record(
     java_packaging_deps = list["JavaPackagingDep"],
     deps_by_platform = dict,
     primary_platform = str,
-    dex_files_info = "DexFilesInfo",
+    dex_files_info = DexFilesInfo.type,
     native_library_info = "AndroidBinaryNativeLibsInfo",
     resources_info = "AndroidBinaryResourcesInfo",
 )
@@ -166,7 +166,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         resources_info = resources_info,
     )
 
-def _get_build_config_java_libraries(ctx: AnalysisContext, build_config_infos: list["AndroidBuildConfigInfo"]) -> list["JavaPackagingInfo"]:
+def _get_build_config_java_libraries(ctx: AnalysisContext, build_config_infos: list["AndroidBuildConfigInfo"]) -> list[JavaPackagingInfo.type]:
     # BuildConfig deps should not be added for instrumented APKs because BuildConfig.class has
     # already been added to the APK under test.
     if ctx.attrs.package_type == "instrumented":

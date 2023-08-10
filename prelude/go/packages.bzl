@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:artifacts.bzl", "ArtifactGroupInfo")
+load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//utils:utils.bzl", "value_or")
 
 GoPkg = record(
@@ -46,7 +47,7 @@ def pkg_artifacts(pkgs: dict[str, GoPkg.type], shared: bool = False) -> dict[str
         for name, pkg in pkgs.items()
     }
 
-def stdlib_pkg_artifacts(toolchain: "GoToolchainInfo", shared: bool = False) -> dict[str, Artifact]:
+def stdlib_pkg_artifacts(toolchain: GoToolchainInfo.type, shared: bool = False) -> dict[str, Artifact]:
     """
     Return a map package name to a `shared` or `static` package artifact of stdlib.
     """

@@ -13,11 +13,11 @@ load(
     "create_abi",
     "derive_compiling_deps",
 )
-load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode")
+load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name")
 load("@prelude//utils:utils.bzl", "expect")
 
-def add_java_7_8_bootclasspath(target_level: int, bootclasspath_entries: list[Artifact], java_toolchain: "JavaToolchainInfo") -> list[Artifact]:
+def add_java_7_8_bootclasspath(target_level: int, bootclasspath_entries: list[Artifact], java_toolchain: JavaToolchainInfo.type) -> list[Artifact]:
     if target_level == 7:
         return bootclasspath_entries + java_toolchain.bootclasspath_7
     if target_level == 8:
@@ -31,7 +31,7 @@ def declare_prefixed_output(actions: AnalysisActions, prefix: [str, None], outpu
 # mode. The toolchain's setting is effectively the "highest" form of abi
 # that the toolchain supports and then the same for the target and we will choose
 # the "highest" that both support.
-def _resolve_abi_generation_mode(abi_generation_mode: [AbiGenerationMode.type, None], java_toolchain: "JavaToolchainInfo") -> "AbiGenerationMode":
+def _resolve_abi_generation_mode(abi_generation_mode: [AbiGenerationMode.type, None], java_toolchain: JavaToolchainInfo.type) -> "AbiGenerationMode":
     if abi_generation_mode == None:
         return java_toolchain.abi_generation_mode
     for mode in [AbiGenerationMode("none"), AbiGenerationMode("class"), AbiGenerationMode("source"), AbiGenerationMode("source_only")]:
@@ -41,7 +41,7 @@ def _resolve_abi_generation_mode(abi_generation_mode: [AbiGenerationMode.type, N
 
 def get_abi_generation_mode(
         abi_generation_mode: [AbiGenerationMode.type, None],
-        java_toolchain: "JavaToolchainInfo",
+        java_toolchain: JavaToolchainInfo.type,
         srcs: list[Artifact],
         ap_params: list["AnnotationProcessorParams"]) -> "AbiGenerationMode":
     resolved_mode = AbiGenerationMode("none") if not srcs else _resolve_abi_generation_mode(abi_generation_mode, java_toolchain)
@@ -263,7 +263,7 @@ def encode_plugin_params(plugin_params: ["PluginParams", None]) -> [struct.type,
     return encoded_plugin_params
 
 def encode_base_jar_command(
-        javac_tool: [str, "RunInfo", Artifact, None],
+        javac_tool: [str, RunInfo.type, Artifact, None],
         target_type: TargetType.type,
         output_paths: OutputPaths.type,
         remove_classes: list[str],
@@ -429,7 +429,7 @@ def prepare_final_jar(
         output: [Artifact, None],
         output_paths: OutputPaths.type,
         additional_compiled_srcs: [Artifact, None],
-        jar_builder: "RunInfo") -> Artifact:
+        jar_builder: RunInfo.type) -> Artifact:
     if not additional_compiled_srcs:
         if output:
             actions.copy_file(output.as_output(), output_paths.jar)

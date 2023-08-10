@@ -139,7 +139,7 @@ def _get_fallback_transform_profile(ctx: AnalysisContext) -> str:
 def _get_default_providers(js_bundle_info: JsBundleInfo.type) -> list[Provider]:
     return [DefaultInfo(default_output = js_bundle_info.built_js)]
 
-def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, identifier: str) -> "AndroidResourceInfo":
+def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInfo.type, identifier: str) -> AndroidResourceInfo.type:
     aapt2_compile_output = aapt2_compile(
         ctx,
         js_bundle_info.res,

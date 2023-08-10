@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",
@@ -100,7 +101,7 @@ def rewrite_static_symbols(
         pic_objects: list[Artifact],
         non_pic_objects: list[Artifact],
         libraries: dict[LinkStyle.type, LinkInfos.type],
-        cxx_toolchain: "CxxToolchainInfo",
+        cxx_toolchain: CxxToolchainInfo.type,
         suffix_all: bool = False) -> dict[LinkStyle.type, LinkInfos.type]:
     symbols_file = _write_syms_file(
         ctx = ctx,
@@ -168,7 +169,7 @@ def _write_syms_file(
         name: str,
         objects: list[Artifact],
         suffix: str,
-        cxx_toolchain: "CxxToolchainInfo",
+        cxx_toolchain: CxxToolchainInfo.type,
         suffix_all: bool = False) -> Artifact:
     """
     Take a list of objects and append a suffix to all  defined symbols.
@@ -230,7 +231,7 @@ def suffix_symbols(
         suffix: str,
         objects: list[Artifact],
         symbols_file: Artifact,
-        cxx_toolchain: "CxxToolchainInfo") -> (ObjectsLinkable.type, ObjectsLinkable.type):
+        cxx_toolchain: CxxToolchainInfo.type) -> (ObjectsLinkable.type, ObjectsLinkable.type):
     """
     Take a list of objects and append a suffix to all  defined symbols.
     """

@@ -14,6 +14,7 @@ load(
     "@prelude//java:java_toolchain.bzl",
     "AbiGenerationMode",  # @unused Used as a type
     "DepFiles",
+    "JavaToolchainInfo",  # @unused Used as a type
 )
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
@@ -44,7 +45,7 @@ def create_jar_artifact_javacd(
         actions: AnalysisActions,
         actions_identifier: [str, None],
         abi_generation_mode: [AbiGenerationMode.type, None],
-        java_toolchain: "JavaToolchainInfo",
+        java_toolchain: JavaToolchainInfo.type,
         label,
         output: [Artifact, None],
         javac_tool: [typing.Any, None],
