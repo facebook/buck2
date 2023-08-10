@@ -103,6 +103,35 @@ impl DiceComputationsImpl {
         }
     }
 
+    pub(crate) fn compute2<'a, T: 'a, U: 'a>(
+        &'a self,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, U> + Send,
+    ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
+        match self {
+            DiceComputationsImpl::Legacy(ctx) => {
+                // legacy dice does nothing special
+                (
+                    OwningFuture::new(
+                        DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
+                        compute1,
+                    )
+                    .left_future(),
+                    OwningFuture::new(
+                        DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
+                        compute2,
+                    )
+                    .left_future(),
+                )
+            }
+            DiceComputationsImpl::Modern(ctx) => {
+                let (f1, f2) = ctx.compute2(compute1, compute2);
+
+                (f1.right_future(), f2.right_future())
+            }
+        }
+    }
+
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub(crate) fn global_data(&self) -> &DiceData {

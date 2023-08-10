@@ -75,6 +75,15 @@ impl DiceComputations {
         self.0.compute_many(computes)
     }
 
+    /// Computes all the given tasks in parallel, returning an unordered Stream
+    pub fn compute2<'a, T: 'a, U: 'a>(
+        &'a self,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, U> + Send,
+    ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
+        self.0.compute2(compute1, compute2)
+    }
+
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub fn global_data(&self) -> &DiceData {

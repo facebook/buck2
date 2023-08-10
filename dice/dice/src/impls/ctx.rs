@@ -225,6 +225,24 @@ impl ModernComputeCtx {
         }
     }
 
+    pub(crate) fn compute2<'a, T: 'a, U: 'a>(
+        &'a self,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, U> + Send,
+    ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
+        match self {
+            ModernComputeCtx::Regular(ctx) => {
+                let (f1, f2) = ctx.compute2(compute1, compute2);
+
+                (f1.left_future(), f2.left_future())
+            }
+            ModernComputeCtx::Parallel(ctx) => {
+                let (f1, f2) = ctx.compute2(compute1, compute2);
+                (f1.right_future(), f2.right_future())
+            }
+        }
+    }
+
     /// Compute "projection" based on deriving value
     pub(crate) fn project<K>(
         &self,
@@ -396,6 +414,55 @@ impl PerComputeCtx {
         })
     }
 
+    pub(crate) fn compute2<'a, T: 'a, U: 'a>(
+        &'a self,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, U> + Send,
+    ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
+        (
+            OwningFuture::new(
+                DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::Parallel(
+                    PerParallelComputeCtx::new(self.ctx_data.as_ref()),
+                ))),
+                compute1,
+            )
+            .map_taking_data(|res, ctx| {
+                // TODO record structured dependencies instead of flat list
+                self.dep_trackers.lock().record_parallel_ctx_deps(
+                    ctx.0
+                        .into_modern()
+                        .expect("modern dice")
+                        .into_parallel()
+                        .expect("parallel ctx")
+                        .dep_trackers
+                        .into_inner(),
+                );
+
+                res
+            }),
+            OwningFuture::new(
+                DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::Parallel(
+                    PerParallelComputeCtx::new(self.ctx_data.as_ref()),
+                ))),
+                compute2,
+            )
+            .map_taking_data(|res, ctx| {
+                // TODO record structured dependencies instead of flat list
+                self.dep_trackers.lock().record_parallel_ctx_deps(
+                    ctx.0
+                        .into_modern()
+                        .expect("modern dice")
+                        .into_parallel()
+                        .expect("parallel ctx")
+                        .dep_trackers
+                        .into_inner(),
+                );
+
+                res
+            }),
+        )
+    }
+
     /// Compute "projection" based on deriving value
     pub(crate) fn project<K>(
         &self,
@@ -509,6 +576,27 @@ impl PerParallelComputeCtx {
                 |ctx| work(ctx),
             )
         })
+    }
+
+    pub(crate) fn compute2<'a, T: 'a, U: 'a>(
+        &'a self,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, U> + Send,
+    ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
+        (
+            OwningFuture::new(
+                DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::Parallel(
+                    PerParallelComputeCtx::new(self.ctx_data.dupe()),
+                ))),
+                compute1,
+            ),
+            OwningFuture::new(
+                DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::Parallel(
+                    PerParallelComputeCtx::new(self.ctx_data.dupe()),
+                ))),
+                compute2,
+            ),
+        )
     }
 
     /// Compute "projection" based on deriving value
