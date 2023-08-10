@@ -288,7 +288,8 @@ def python_executable(
         main_module: str,
         srcs: dict[str, Artifact],
         resources: dict[str, (Artifact, list[ArgLike])],
-        compile: bool) -> PexProviders.type:
+        compile: bool,
+        allow_cache_upload: bool) -> PexProviders.type:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
 
@@ -347,6 +348,7 @@ def python_executable(
         info_to_interface(library_info),
         flatten(raw_deps),
         compile,
+        allow_cache_upload,
         dbg_source_db,
     )
     if python_toolchain.emit_dependency_metadata:
@@ -382,6 +384,7 @@ def _convert_python_library_to_executable(
         library: PythonLibraryInterface.type,
         deps: list[Dependency],
         compile: bool,
+        allow_cache_upload: bool,
         dbg_source_db: [DefaultInfo.type, None]) -> PexProviders.type:
     extra = {}
 
@@ -560,6 +563,7 @@ def _convert_python_library_to_executable(
                 extension_info.dlopen_deps.values() +
                 extension_info.shared_only_libs.values()
             ),
+            exe_allow_cache_upload = allow_cache_upload,
         )
 
         executable_info = cxx_executable(ctx, impl_params)
@@ -637,6 +641,7 @@ def _convert_python_library_to_executable(
         shared_libraries,
         main_module,
         hidden_resources,
+        allow_cache_upload,
     )
 
     pex.sub_targets.update(extra)
@@ -668,6 +673,7 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         srcs,
         {},
         compile = value_or(ctx.attrs.compile, False),
+        allow_cache_upload = ctx.attrs.allow_cache_upload,
     )
     return [
         make_default_info(pex),

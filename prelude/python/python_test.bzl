@@ -53,6 +53,7 @@ def python_test_executable(ctx: AnalysisContext) -> PexProviders.type:
         srcs,
         resources,
         compile = value_or(ctx.attrs.compile, False),
+        allow_cache_upload = False,
     )
 
 def python_test_impl(ctx: AnalysisContext) -> list[Provider]:

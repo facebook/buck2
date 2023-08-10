@@ -132,7 +132,8 @@ def make_pex(
         pex_modules: PexModules.type,
         shared_libraries: dict[str, (LinkedObject.type, bool)],
         main_module: str,
-        hidden_resources: [None, list[ArgLike]]) -> PexProviders.type:
+        hidden_resources: [None, list[ArgLike]],
+        allow_cache_upload: bool) -> PexProviders.type:
     """
     Passes a standardized set of flags to a `make_pex` binary to create a python
     "executable".
@@ -173,6 +174,7 @@ def make_pex(
         manifest_module,
         pex_modules,
         output_suffix = "",
+        allow_cache_upload = allow_cache_upload,
     )
     for style in PackageStyle.values():
         pex_providers = default if style == package_style.value else _make_pex_impl(
@@ -190,6 +192,7 @@ def make_pex(
             manifest_module,
             pex_modules,
             output_suffix = "-{}".format(style),
+            allow_cache_upload = allow_cache_upload,
         )
         default.sub_targets[style] = make_pex_providers(python_toolchain, pex_providers)
     return default
@@ -208,7 +211,8 @@ def _make_pex_impl(
         hidden_resources: [None, list[ArgLike]],
         manifest_module: [None, ArgLike],
         pex_modules: PexModules.type,
-        output_suffix: str) -> PexProviders.type:
+        output_suffix: str,
+        allow_cache_upload: bool) -> PexProviders.type:
     name = "{}{}".format(ctx.attrs.name, output_suffix)
     standalone = package_style == PackageStyle("standalone")
 
@@ -282,7 +286,13 @@ def _make_pex_impl(
         )
         cmd.add(modules_args)
         cmd.add(bootstrap_args)
-        ctx.actions.run(cmd, prefer_local = prefer_local, category = "par", identifier = "standalone{}".format(output_suffix))
+        ctx.actions.run(
+            cmd,
+            prefer_local = prefer_local,
+            category = "par",
+            identifier = "standalone{}".format(output_suffix),
+            allow_cache_upload = allow_cache_upload,
+        )
 
     else:
         runtime_files.extend(dep_artifacts)

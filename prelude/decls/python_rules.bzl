@@ -300,7 +300,8 @@ python_binary = prelude_rule(
             "prefer_stripped_native_objects": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
-        }
+        } |
+        buck.allow_cache_upload_arg()
     ),
 )
 
