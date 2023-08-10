@@ -50,21 +50,23 @@ fn load_cert_pair<P: AsRef<Path>>(
     cert: P,
     key: P,
 ) -> anyhow::Result<(Vec<Certificate>, PrivateKey)> {
-    let cert_file = File::open(cert).context("opening certificate file")?;
-    let key_file = File::open(key).context("opening private key file")?;
+    let cert = cert.as_ref();
+    let key = key.as_ref();
+    let cert_file = File::open(cert)
+        .with_context(|| format!("Error opening certificate file `{}`", cert.display()))?;
+    let key_file =
+        File::open(key).with_context(|| format!("Error opening key file `{}`", key.display()))?;
     let mut cert_reader = BufReader::new(&cert_file);
     let mut key_reader = BufReader::new(&key_file);
 
     let certs = rustls_pemfile::certs(&mut cert_reader)
-        .context("creating PEM from internal certificate and private key")?
+        .with_context(|| format!("Error parsing certificate file `{}`", cert.display()))?
         .into_map(Certificate);
 
     let private_key = rustls_pemfile::pkcs8_private_keys(&mut key_reader)
-        .context("reading private key from internal certificate")?
+        .with_context(|| format!("Error parsing key file `{}`", key.display()))?
         .pop()
-        .ok_or_else(|| {
-            anyhow::anyhow!("Expected internal certificate to contain at least one private key")
-        })?;
+        .with_context(|| format!("Found no private key in key file `{}`", key.display()))?;
     let key = PrivateKey(private_key);
 
     Ok((certs, key))
@@ -83,7 +85,8 @@ pub fn tls_config_with_single_cert<P: AsRef<Path>>(
     key_path: P,
 ) -> anyhow::Result<ClientConfig> {
     let system_roots = load_system_root_certs()?;
-    let (cert, key) = load_cert_pair(cert_path, key_path)?;
+    let (cert, key) =
+        load_cert_pair(cert_path, key_path).context("Error loading certificate pair")?;
     // TODO: replace with_single_cert with with_client_auth_cert
     //       once rustls get upgraded to >0.21.4
     #[allow(deprecated)]
