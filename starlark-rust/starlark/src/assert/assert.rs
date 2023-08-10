@@ -369,6 +369,24 @@ impl<'a> Assert<'a> {
         }
     }
 
+    fn execute_unwrap_false<'v>(
+        &self,
+        func: &str,
+        program: &str,
+        module: &'v Module,
+        gc: GcStrategy,
+    ) {
+        let v = self.execute_unwrap(func, "assert.bzl", program, module, gc);
+        match v.unpack_bool() {
+            Some(false) => {}
+            Some(true) => panic!("starlark::assert::{}, got true!\nCode:\n{}", func, program),
+            None => panic!(
+                "starlark::assert::{}, not a bool!\nCode:\n{}\nResult\n{}",
+                func, program, v
+            ),
+        }
+    }
+
     /// Set the [`Dialect`] that future tests will use.
     pub fn dialect(&mut self, x: &Dialect) {
         self.dialect = x.clone();
@@ -517,6 +535,14 @@ impl<'a> Assert<'a> {
         })
     }
 
+    /// A program that must evaluate to `False`.
+    pub fn is_false(&self, program: &str) {
+        self.with_gc(|gc| {
+            let env = Module::new();
+            self.execute_unwrap_false("is_false", program, &env, gc);
+        })
+    }
+
     /// Many lines, each of which must individually evaluate to `True` (or be blank lines).
     ///
     /// ```
@@ -613,6 +639,11 @@ pub(crate) fn fails_skip_typecheck(program: &str, msgs: &[&str]) -> anyhow::Erro
 /// See [`Assert::is_true`].
 pub fn is_true(program: &str) {
     Assert::new().is_true(program)
+}
+
+/// See [`Assert::is_false`].
+pub fn is_false(program: &str) {
+    Assert::new().is_false(program)
 }
 
 #[cfg(test)]

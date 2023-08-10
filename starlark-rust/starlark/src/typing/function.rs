@@ -221,6 +221,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 
         impl TypeCompiledImpl for FunctionMatcher {
             fn matches(&self, value: Value) -> bool {
+                // TODO(nga): this not right. Check that the value defines `call` instead.
                 value.get_type() == "function"
             }
         }

@@ -18,6 +18,7 @@
 #![doc(hidden)]
 
 pub(crate) mod any;
+pub(crate) mod callable;
 pub(crate) mod globals;
 pub mod macro_refs;
 pub(crate) mod never;
