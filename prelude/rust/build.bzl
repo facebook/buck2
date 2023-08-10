@@ -313,7 +313,8 @@ def rust_compile_multi(
         extra_link_args: list[typing.Any] = [],
         predeclared_outputs: dict[Emit.type, Artifact] = {},
         extra_flags: list[[str, "resolved_macro"]] = [],
-        is_binary: bool = False) -> list[RustcOutput.type]:
+        is_binary: bool = False,
+        allow_cache_upload: bool = False) -> list[RustcOutput.type]:
     outputs = []
 
     for emit in emits:
@@ -328,6 +329,7 @@ def rust_compile_multi(
             predeclared_outputs = predeclared_outputs,
             extra_flags = extra_flags,
             is_binary = is_binary,
+            allow_cache_upload = allow_cache_upload,
         )
         outputs.append(outs)
 
@@ -346,7 +348,8 @@ def rust_compile(
         extra_link_args: list[typing.Any] = [],
         predeclared_outputs: dict[Emit.type, Artifact] = {},
         extra_flags: list[[str, "resolved_macro"]] = [],
-        is_binary: bool = False) -> RustcOutput.type:
+        is_binary: bool = False,
+        allow_cache_upload: bool = False) -> RustcOutput.type:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
@@ -438,6 +441,7 @@ def rust_compile(
         required_outputs = [emit_output],
         short_cmd = common_args.short_cmd,
         is_binary = is_binary,
+        allow_cache_upload = allow_cache_upload,
         crate_map = common_args.crate_map,
     )
 
@@ -475,6 +479,7 @@ def rust_compile(
             required_outputs = [clippy_out],
             short_cmd = common_args.short_cmd,
             is_binary = False,
+            allow_cache_upload = False,
             crate_map = common_args.crate_map,
         )
         diag.update(clippy_diag)
@@ -995,6 +1000,7 @@ def _rustc_invoke(
         required_outputs: list[Artifact],
         short_cmd: str,
         is_binary: bool,
+        allow_cache_upload: bool,
         crate_map: list[(CrateName.type, Label)],
         env: dict[str, ["resolved_macro", Artifact]] = {}) -> (dict[str, Artifact], [Artifact, None]):
     toolchain_info = compile_ctx.toolchain_info
@@ -1057,6 +1063,7 @@ def _rustc_invoke(
         category = "rustc",
         identifier = identifier,
         no_outputs_cleanup = incremental_enabled,
+        allow_cache_upload = allow_cache_upload,
     )
 
     return ({diag + ".json": json_diag, diag + ".txt": txt_diag}, build_status)

@@ -58,7 +58,8 @@ def _rust_binary_common(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
         default_roots: list[str],
-        extra_flags: list[str]) -> (list[[DefaultInfo.type, RunInfo.type]], cmd_args):
+        extra_flags: list[str],
+        allow_cache_upload: bool) -> (list[[DefaultInfo.type, RunInfo.type]], cmd_args):
     toolchain_info = compile_ctx.toolchain_info
 
     simple_crate = attr_simple_crate_for_filenames(ctx)
@@ -126,6 +127,7 @@ def _rust_binary_common(
             predeclared_outputs = {Emit("link"): output},
             extra_flags = extra_flags,
             is_binary = True,
+            allow_cache_upload = allow_cache_upload,
         )
 
         args = cmd_args(link.output).hidden(runtime_files)
@@ -211,6 +213,7 @@ def rust_binary_impl(ctx: AnalysisContext) -> list[[DefaultInfo.type, RunInfo.ty
         compile_ctx = compile_ctx,
         default_roots = ["main.rs"],
         extra_flags = [],
+        allow_cache_upload = True,
     )
 
     return providers + [RunInfo(args = args)]
@@ -228,6 +231,7 @@ def rust_test_impl(ctx: AnalysisContext) -> list[[DefaultInfo.type, RunInfo.type
         compile_ctx = compile_ctx,
         default_roots = ["main.rs", "lib.rs"],
         extra_flags = extra_flags,
+        allow_cache_upload = False,
     )
 
     # Setup a RE executor based on the `remote_execution` param.
