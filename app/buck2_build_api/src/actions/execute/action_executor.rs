@@ -121,7 +121,10 @@ pub enum ActionExecutionKind {
         requires_local: bool,
         allows_cache_upload: bool,
         did_cache_upload: bool,
+        allows_dep_file_cache_upload: bool,
+        did_dep_file_cache_upload: bool,
         eligible_for_full_hybrid: bool,
+        dep_file_key: Option<String>,
     },
     /// This action is simple and executed inline within buck2 (e.g. write, symlink_dir)
     #[display(fmt = "simple")]
@@ -140,7 +143,10 @@ pub struct CommandExecutionRef<'a> {
     pub requires_local: bool,
     pub allows_cache_upload: bool,
     pub did_cache_upload: bool,
+    pub allows_dep_file_cache_upload: bool,
+    pub did_dep_file_cache_upload: bool,
     pub eligible_for_full_hybrid: bool,
+    pub dep_file_key: &'a Option<String>,
 }
 
 impl ActionExecutionKind {
@@ -161,6 +167,9 @@ impl ActionExecutionKind {
                 requires_local,
                 allows_cache_upload,
                 did_cache_upload,
+                allows_dep_file_cache_upload,
+                did_dep_file_cache_upload,
+                dep_file_key,
                 eligible_for_full_hybrid,
             } => Some(CommandExecutionRef {
                 kind,
@@ -168,6 +177,9 @@ impl ActionExecutionKind {
                 requires_local: *requires_local,
                 allows_cache_upload: *allows_cache_upload,
                 did_cache_upload: *did_cache_upload,
+                allows_dep_file_cache_upload: *allows_dep_file_cache_upload,
+                did_dep_file_cache_upload: *did_dep_file_cache_upload,
+                dep_file_key,
                 eligible_for_full_hybrid: *eligible_for_full_hybrid,
             }),
             Self::Simple | Self::Deferred | Self::LocalDepFile => None,
@@ -410,12 +422,15 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         request: &CommandExecutionRequest,
         result: CommandExecutionResult,
         allows_cache_upload: bool,
+        allows_dep_file_cache_upload: bool,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let CommandExecutionResult {
             outputs,
             report,
             rejected_execution,
             did_cache_upload,
+            did_dep_file_cache_upload,
+            dep_file_key,
             eligible_for_full_hybrid,
         } = result;
         // TODO (@torozco): The execution kind should be made to come via the command reports too.
@@ -438,6 +453,9 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                             requires_local: request.executor_preference().requires_local(),
                             allows_cache_upload,
                             did_cache_upload,
+                            allows_dep_file_cache_upload,
+                            did_dep_file_cache_upload,
+                            dep_file_key,
                             eligible_for_full_hybrid,
                         },
                         timing: report.timing.into(),
@@ -857,7 +875,7 @@ mod tests {
                     ctx.fs().fs().write_file(&dest_path, "", false)?
                 }
 
-                ctx.unpack_command_execution_result(&req, res, false)?;
+                ctx.unpack_command_execution_result(&req, res, false, false)?;
                 let outputs = self
                     .outputs
                     .iter()

@@ -113,6 +113,8 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
             },
             rejected_execution: None,
             did_cache_upload: false,
+            did_dep_file_cache_upload: false,
+            dep_file_key: None,
             eligible_for_full_hybrid: false,
         }
     }
@@ -175,6 +177,8 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
             },
             rejected_execution: None,
             did_cache_upload: false,
+            did_dep_file_cache_upload: false,
+            dep_file_key: None,
             eligible_for_full_hybrid: false,
         }
     }

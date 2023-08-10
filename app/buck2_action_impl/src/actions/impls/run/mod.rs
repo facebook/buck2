@@ -162,6 +162,7 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) metadata_param: Option<MetadataParameter>,
     pub(crate) no_outputs_cleanup: bool,
     pub(crate) allow_cache_upload: bool,
+    pub(crate) allow_dep_file_cache_upload: bool,
     pub(crate) force_full_hybrid_if_capable: bool,
     pub(crate) unique_input_inodes: bool,
 }
@@ -625,8 +626,12 @@ impl IncrementalActionExecutable for RunAction {
                 .await?;
         }
 
-        let (outputs, metadata) =
-            ctx.unpack_command_execution_result(&req, result, self.inner.allow_cache_upload)?;
+        let (outputs, metadata) = ctx.unpack_command_execution_result(
+            &req,
+            result,
+            self.inner.allow_cache_upload,
+            self.inner.allow_dep_file_cache_upload,
+        )?;
 
         if let Some(dep_file_bundle) = dep_file_bundle {
             populate_dep_files(ctx, dep_file_bundle, &outputs).await?;

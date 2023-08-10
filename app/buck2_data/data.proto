@@ -1161,6 +1161,13 @@ message ActionExecutionEnd {
 
   // Hostname of this action ran on. This is set only when the action fails.
   optional string hostname = 34;
+
+  // Fields related to the remote dep file cache
+  bool allows_dep_file_cache_upload = 35;
+  bool did_dep_file_cache_upload = 36;
+  // Remote dep file key (the digest we use to populate the action cache).
+  // This is set if the action contains a dep file
+  optional string dep_file_key = 37;
 }
 
 // The beginning of materialization for the output of a target requested,

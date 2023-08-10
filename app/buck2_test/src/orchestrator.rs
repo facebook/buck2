@@ -595,6 +595,8 @@ impl<'b> BuckTestOrchestrator<'b> {
                 },
             rejected_execution: _,
             did_cache_upload: _,
+            did_dep_file_cache_upload: _,
+            dep_file_key: _,
             eligible_for_full_hybrid: _,
         } = match metadata {
             DisplayMetadata::Listing(listing) => {
@@ -1042,6 +1044,8 @@ impl<'b> BuckTestOrchestrator<'b> {
                 },
             rejected_execution: _,
             did_cache_upload: _,
+            did_dep_file_cache_upload: _,
+            dep_file_key: _,
             eligible_for_full_hybrid: _,
         } = execution_result;
 

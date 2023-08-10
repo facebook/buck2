@@ -142,6 +142,9 @@ async fn build_action_no_redirect(
         let mut requires_local = None;
         let mut allows_cache_upload = None;
         let mut did_cache_upload = None;
+        let mut allows_dep_file_cache_upload = None;
+        let mut did_dep_file_cache_upload = None;
+        let mut dep_file_key = None;
         let mut eligible_for_full_hybrid = None;
 
         let mut buck2_revision = None;
@@ -161,6 +164,9 @@ async fn build_action_no_redirect(
                     requires_local = Some(command.requires_local);
                     allows_cache_upload = Some(command.allows_cache_upload);
                     did_cache_upload = Some(command.did_cache_upload);
+                    allows_dep_file_cache_upload = Some(command.allows_dep_file_cache_upload);
+                    did_dep_file_cache_upload = Some(command.did_dep_file_cache_upload);
+                    dep_file_key = command.dep_file_key.clone();
                     eligible_for_full_hybrid = Some(command.eligible_for_full_hybrid);
                 }
             }
@@ -223,6 +229,9 @@ async fn build_action_no_redirect(
                 requires_local: requires_local.unwrap_or_default(),
                 allows_cache_upload: allows_cache_upload.unwrap_or_default(),
                 did_cache_upload: did_cache_upload.unwrap_or_default(),
+                allows_dep_file_cache_upload: allows_dep_file_cache_upload.unwrap_or_default(),
+                did_dep_file_cache_upload: did_dep_file_cache_upload.unwrap_or_default(),
+                dep_file_key,
                 eligible_for_full_hybrid,
                 buck2_revision,
                 buck2_build_time,

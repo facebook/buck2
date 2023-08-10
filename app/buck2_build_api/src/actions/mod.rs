@@ -233,6 +233,7 @@ pub trait ActionExecutionCtx: Send + Sync {
         request: &CommandExecutionRequest,
         result: CommandExecutionResult,
         allows_cache_upload: bool,
+        allows_dep_file_cache_upload: bool,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>;
 
     /// Clean up all the output directories for this action. This requires a mutable reference

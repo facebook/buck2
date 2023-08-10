@@ -609,6 +609,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         // TODO(scottcao): Refactor `no_outputs_cleanup` to `outputs_cleanup`
         #[starlark(require = named, default = false)] no_outputs_cleanup: bool,
         #[starlark(require = named, default = false)] allow_cache_upload: bool,
+        #[starlark(require = named, default = false)] allow_dep_file_cache_upload: bool,
         #[starlark(require = named, default = false)] force_full_hybrid_if_capable: bool,
         #[starlark(require = named)] exe: Option<
             Either<ValueOf<'v, &'v WorkerRunInfo<'v>>, ValueOf<'v, &'v RunInfo<'v>>>,
@@ -789,6 +790,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             metadata_param,
             no_outputs_cleanup,
             allow_cache_upload,
+            allow_dep_file_cache_upload,
             force_full_hybrid_if_capable,
             unique_input_inodes,
         };
