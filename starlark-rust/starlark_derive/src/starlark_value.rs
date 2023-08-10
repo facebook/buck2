@@ -201,12 +201,12 @@ impl<'a> ImplStarlarkValue<'a> {
         })
     }
 
-    /// Emit a constant whether `StarlarkValue` overrides an unary operator.
+    /// Emit a constant whether `StarlarkValue` implements a function.
     /// Like this:
     /// ```ignore
     /// const HAS_PLUS: bool = true;
     /// ```
-    fn has_unop(&self, constant_name: &str, fn_name: &str) -> syn::Result<syn::ImplItem> {
+    fn has_fn_flag(&self, constant_name: &str, fn_name: &str) -> syn::Result<syn::ImplItem> {
         let has = self.has_fn(fn_name);
         let constant_name = syn::Ident::new(constant_name, self.span());
         syn::parse2(quote_spanned! { self.span() =>
@@ -504,9 +504,10 @@ fn derive_starlark_value_impl(
     let please_use_starlark_type_macro = impl_starlark_value.please_use_starlark_type_macro()?;
     let const_type = impl_starlark_value.const_type()?;
     let get_type_value_static = impl_starlark_value.get_type_value_static()?;
-    let has_plus = impl_starlark_value.has_unop("HAS_PLUS", "plus")?;
-    let has_minus = impl_starlark_value.has_unop("HAS_MINUS", "minus")?;
-    let has_bit_not = impl_starlark_value.has_unop("HAS_BIT_NOT", "bit_not")?;
+    let has_plus = impl_starlark_value.has_fn_flag("HAS_PLUS", "plus")?;
+    let has_minus = impl_starlark_value.has_fn_flag("HAS_MINUS", "minus")?;
+    let has_bit_not = impl_starlark_value.has_fn_flag("HAS_BIT_NOT", "bit_not")?;
+    let has_at = impl_starlark_value.has_fn_flag("HAS_AT", "at")?;
     let bin_op_ty = impl_starlark_value.bin_op_ty()?;
     let rbin_op_ty = impl_starlark_value.rbin_op_ty()?;
     let attr_ty = impl_starlark_value.attr_ty()?;
@@ -522,6 +523,7 @@ fn derive_starlark_value_impl(
             has_plus,
             has_minus,
             has_bit_not,
+            has_at,
         ]
         .into_iter()
         .chain(attr_ty)

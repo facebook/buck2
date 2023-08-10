@@ -54,6 +54,7 @@ struct TyStarlarkValueVTable {
     has_plus: bool,
     has_minus: bool,
     has_bit_not: bool,
+    has_at: bool,
     vtable: StarlarkValueVTable,
     starlark_type_id: StarlarkTypeId,
     /// `starlark_type_id` is `TypeId` of `T::Canonical`.
@@ -69,6 +70,7 @@ impl<'v, T: StarlarkValue<'v>> TyStarlarkValueVTableGet<'v, T> {
         has_plus: T::HAS_PLUS,
         has_minus: T::HAS_MINUS,
         has_bit_not: T::HAS_BIT_NOT,
+        has_at: T::HAS_AT,
         vtable: StarlarkValueVTableGet::<T>::VTABLE,
         starlark_type_id: StarlarkTypeId::of_canonical::<T>(),
         starlark_type_id_check: StarlarkTypeId::of_canonical::<T::Canonical>(),
@@ -171,6 +173,14 @@ impl TyStarlarkValue {
         match (self.vtable.vtable.bin_op_ty)(op, rhs) {
             Some(ty) => Ok(ty),
             None => Err(()),
+        }
+    }
+
+    pub(crate) fn index(self, _index: &TyBasic) -> Result<Ty, ()> {
+        if self.vtable.has_at {
+            Ok(Ty::any())
+        } else {
+            Err(())
         }
     }
 

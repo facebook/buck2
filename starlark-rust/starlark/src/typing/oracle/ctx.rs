@@ -395,6 +395,20 @@ impl<'a> TypingOracleCtx<'a> {
         array: &TyBasic,
         index: Spanned<&TyBasic>,
     ) -> Result<Ty, TypingOrInternalError> {
+        if let TyBasic::StarlarkValue(array) = array {
+            match array.index(index.node) {
+                Ok(x) => return Ok(x),
+                Err(()) => {
+                    return Err(self.mk_error_as_maybe_internal(
+                        span,
+                        TypingOracleCtxError::MissingIndexOperator {
+                            ty: Ty::basic(TyBasic::StarlarkValue(*array)),
+                        },
+                    ));
+                }
+            }
+        }
+
         let f = match self.attribute(array, TypingAttr::Index) {
             None => return Ok(Ty::any()),
             Some(Ok(x)) => x,
