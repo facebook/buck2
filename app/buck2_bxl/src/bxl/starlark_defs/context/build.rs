@@ -15,6 +15,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::build::build_configured_label;
+use buck2_build_api::build::BuildConfiguredLabelOptions;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::ProvidersToBuild;
@@ -199,7 +200,7 @@ pub(crate) fn build<'v>(
                         run: true,
                         tests: true,
                     }, // TODO support skipping/configuring?
-                    false,
+                    BuildConfiguredLabelOptions { skippable: false },
                 )
                 .await;
 

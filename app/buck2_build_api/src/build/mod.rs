@@ -173,12 +173,17 @@ pub struct BuildEvent {
     variant: BuildEventVariant,
 }
 
+#[derive(Copy, Clone, Dupe, Debug)]
+pub struct BuildConfiguredLabelOptions {
+    pub skippable: bool,
+}
+
 pub async fn build_configured_label<'a>(
     ctx: &'a DiceComputations,
     materialization_context: &MaterializationContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
-    skippable: bool,
+    opts: BuildConfiguredLabelOptions,
 ) -> anyhow::Result<BoxStream<'a, BuildEvent>> {
     let providers_label = Arc::new(providers_label);
 
@@ -188,7 +193,7 @@ pub async fn build_configured_label<'a>(
         // A couple of these objects aren't Send and so scope them here so async transform doesn't get concerned.
         let providers = match ctx.get_providers(providers_label.as_ref()).await? {
             MaybeCompatible::Incompatible(reason) => {
-                if skippable {
+                if opts.skippable {
                     console_message(reason.skipping_message(providers_label.target()));
                     return Ok(futures::stream::once(futures::future::ready(BuildEvent {
                         label: providers_label.dupe(),
@@ -275,7 +280,7 @@ pub async fn build_configured_label<'a>(
         );
     }
 
-    if !skippable && outputs.is_empty() {
+    if !opts.skippable && outputs.is_empty() {
         console_message(format!(
             "target {} does not have any outputs: building it does nothing",
             providers_label.target()
