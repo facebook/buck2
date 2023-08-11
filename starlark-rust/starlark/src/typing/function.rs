@@ -225,7 +225,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 
         impl TypeCompiledImpl for FunctionMatcher {
             fn matches(&self, value: Value) -> bool {
-                value.vtable().has_invoke
+                value.vtable().starlark_value.HAS_invoke
             }
         }
 

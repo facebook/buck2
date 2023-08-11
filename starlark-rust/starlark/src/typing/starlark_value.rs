@@ -51,10 +51,6 @@ use crate::values::Value;
 struct TyStarlarkValueVTable {
     type_name: &'static str,
     // TODO(nga): put these into generated `StarlarkValueVTable`.
-    has_plus: bool,
-    has_minus: bool,
-    has_bit_not: bool,
-    has_at: bool,
     vtable: StarlarkValueVTable,
     starlark_type_id: StarlarkTypeId,
     /// `starlark_type_id` is `TypeId` of `T::Canonical`.
@@ -67,10 +63,6 @@ struct TyStarlarkValueVTableGet<'v, T: StarlarkValue<'v>>(PhantomData<&'v T>);
 impl<'v, T: StarlarkValue<'v>> TyStarlarkValueVTableGet<'v, T> {
     const VTABLE: TyStarlarkValueVTable = TyStarlarkValueVTable {
         type_name: T::TYPE,
-        has_plus: T::HAS_PLUS,
-        has_minus: T::HAS_MINUS,
-        has_bit_not: T::HAS_BIT_NOT,
-        has_at: T::HAS_AT,
         vtable: StarlarkValueVTableGet::<T>::VTABLE,
         starlark_type_id: StarlarkTypeId::of_canonical::<T>(),
         starlark_type_id_check: StarlarkTypeId::of_canonical::<T::Canonical>(),
@@ -160,9 +152,9 @@ impl TyStarlarkValue {
     /// Result of applying unary operator to this type.
     pub(crate) fn un_op(self, un_op: TypingUnOp) -> Result<TyStarlarkValue, ()> {
         let has = match un_op {
-            TypingUnOp::Plus => self.vtable.has_plus,
-            TypingUnOp::Minus => self.vtable.has_minus,
-            TypingUnOp::BitNot => self.vtable.has_bit_not,
+            TypingUnOp::Plus => self.vtable.vtable.HAS_plus,
+            TypingUnOp::Minus => self.vtable.vtable.HAS_minus,
+            TypingUnOp::BitNot => self.vtable.vtable.HAS_bit_not,
         };
         if has { Ok(self) } else { Err(()) }
     }
@@ -177,7 +169,7 @@ impl TyStarlarkValue {
     }
 
     pub(crate) fn index(self, _index: &TyBasic) -> Result<Ty, ()> {
-        if self.vtable.has_at {
+        if self.vtable.vtable.HAS_at {
             Ok(Ty::any())
         } else {
             Err(())

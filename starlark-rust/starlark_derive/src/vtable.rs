@@ -31,6 +31,11 @@ use syn::ReturnType;
 use syn::TraitItem;
 use syn::TraitItemFn;
 
+/// Constant/field name for a flag whether a member is overridden.
+pub(crate) fn vtable_has_field_name(name: &syn::Ident) -> syn::Ident {
+    quote::format_ident!("HAS_{}", name)
+}
+
 struct Gen {
     starlark_value: ItemTrait,
 }
@@ -253,10 +258,11 @@ impl Gen {
     }
 
     fn gen_starlark_value_vtable(&self) -> syn::Result<TokenStream> {
-        let mut fields = Vec::new();
-        let mut inits = Vec::new();
-        let mut init_black_holes = Vec::new();
+        let mut fields: Vec<syn::Field> = Vec::new();
+        let mut inits: Vec<syn::FieldValue> = Vec::new();
+        let mut init_black_holes: Vec<syn::FieldValue> = Vec::new();
         let mut starlark_value = self.starlark_value.clone();
+        let mut extra_items: Vec<syn::TraitItem> = Vec::new();
         for item in &mut starlark_value.items {
             match item {
                 TraitItem::Fn(m) => {
@@ -270,6 +276,26 @@ impl Gen {
                         inits.push(init);
                         init_black_holes.push(init_for_black_hole);
                     }
+
+                    // Generate `HAS_foo: bool` vtable entry for each `foo` function.
+                    // It is initialized with `true` if an implementation overrides the member.
+                    // This is used for example, to check if trait has `invoke` member,
+                    // and if it has, type is considered implementing `typing.Callable`.
+                    let has_name = vtable_has_field_name(&m.sig.ident);
+                    extra_items.push(syn::parse_quote_spanned! { m.sig.span() =>
+                        #[doc(hidden)]
+                        const #has_name: bool = false;
+                    });
+
+                    fields.push(Self::parse_named_field(quote_spanned! { m.sig.span()=>
+                        pub(crate) #has_name: bool
+                    })?);
+                    inits.push(syn::parse_quote_spanned! { m.sig.span() =>
+                        #has_name: T::#has_name
+                    });
+                    init_black_holes.push(syn::parse_quote_spanned! { m.sig.span() =>
+                        #has_name: false
+                    });
                 }
                 TraitItem::Type(ty) => self.process_starlark_value_vtable_type(ty),
                 TraitItem::Const(_) => {}
@@ -278,12 +304,14 @@ impl Gen {
                 }
             }
         }
+        starlark_value.items.extend(extra_items);
 
         Ok(quote_spanned! {
             self.starlark_value.span() =>
 
             #starlark_value
 
+            #[allow(non_upper_case_globals, non_snake_case, dead_code)]
             pub(crate) struct StarlarkValueVTable {
                 #(#fields),*
             }
