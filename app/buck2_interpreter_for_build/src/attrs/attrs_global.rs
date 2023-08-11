@@ -26,6 +26,7 @@ use buck2_node::provider_id_set::ProviderIdSet;
 use derive_more::Display;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use either::Either;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
@@ -48,6 +49,7 @@ use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_context::BuildContext;
 use crate::plugins::plugin_kind_from_value;
+use crate::plugins::AllPlugins;
 
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attrs.option`, if the default isn't `None`, there is no way to express `None`.";
 
@@ -330,22 +332,29 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = Vec::new())] providers: Vec<Value<'v>>,
         #[starlark(require = named, default = Vec::new())] pulls_plugins: Vec<Value<'v>>,
-        #[starlark(require = named, default = Vec::new())] pulls_and_pushes_plugins: Vec<Value<'v>>,
+        #[starlark(require = named, default = Either::Left(Vec::new()))]
+        pulls_and_pushes_plugins: Either<Vec<Value<'v>>, &'v AllPlugins>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         Attribute::check_not_relative_label(default, "attrs.dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers)?;
-        let pulls_plugins: Vec<_> = pulls_plugins
-            .into_iter()
-            .map(plugin_kind_from_value)
-            .collect::<anyhow::Result<_>>()?;
-        let pulls_and_pushes_plugins: Vec<_> = pulls_and_pushes_plugins
-            .into_iter()
-            .map(plugin_kind_from_value)
-            .collect::<anyhow::Result<_>>()?;
-        let plugin_kinds = PluginKindSet::new(pulls_plugins, pulls_and_pushes_plugins)?;
+        let plugin_kinds = match pulls_and_pushes_plugins {
+            Either::Right(_) => PluginKindSet::ALL,
+            Either::Left(pulls_and_pushes_plugins) => {
+                let pulls_and_pushes_plugins: Vec<_> = pulls_and_pushes_plugins
+                    .into_iter()
+                    .map(plugin_kind_from_value)
+                    .collect::<anyhow::Result<_>>()?;
+                let pulls_plugins: Vec<_> = pulls_plugins
+                    .into_iter()
+                    .map(plugin_kind_from_value)
+                    .collect::<anyhow::Result<_>>()?;
+                PluginKindSet::new(pulls_plugins, pulls_and_pushes_plugins)?
+            }
+        };
+
         let coercer = AttrType::dep(required_providers, plugin_kinds);
         Attribute::attr(eval, default, doc, coercer)
     }

@@ -127,6 +127,15 @@ pub(crate) fn plugin_kind_from_value<'v>(v: Value<'v>) -> anyhow::Result<PluginK
     }
 }
 
+/// The value yielded by `plugins.ALL`
+#[derive(Display, Debug, Allocative, ProvidesStaticType, NoSerialize)]
+#[display(fmt = "<all_plugins>")]
+pub struct AllPlugins;
+starlark_simple_value!(AllPlugins);
+
+#[starlark_value(type = "all_plugins")]
+impl<'v> StarlarkValue<'v> for AllPlugins {}
+
 #[starlark_module]
 fn plugins_module(registry: &mut MethodsBuilder) {
     /// Create a new plugin kind.
@@ -144,6 +153,19 @@ fn plugins_module(registry: &mut MethodsBuilder) {
         Ok(StarlarkPluginKind(RefCell::new(
             InnerStarlarkPluginKind::Unbound(cell_path),
         )))
+    }
+
+    /// A special value for use with `pulls_and_pushes_plugins`.
+    ///
+    /// This value can be passed to `pulls_and_pushes_plugins` on any `attr.dep()` to indicate that
+    /// all plugin kinds from the dep should be pulled and pushed. This is useful for rules like
+    /// `alias`.
+    ///
+    /// This value is not supported on `uses_plugins` at this time, and hence it is not useful on
+    /// `pulls_plugins` either.
+    #[starlark(attribute)]
+    fn All<'v>(#[starlark(this)] _this: Value<'v>) -> anyhow::Result<AllPlugins> {
+        Ok(AllPlugins)
     }
 }
 

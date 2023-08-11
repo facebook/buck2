@@ -67,19 +67,24 @@ impl PluginKind {
 #[derive(Copy, Clone, Dupe)]
 pub struct PluginKindSet(*const ());
 
-// We use this type in a number of memory sensitive places
-static_assertions::assert_eq_size!(PluginKindSet, usize);
-
+/// We'd ideally like to just let this type be the definition of `PluginKindSet`. Unfortunately,
+/// this type is 16 bytes in size. So instead, we store `PluginKindSet` as a pointer with `0`
+/// indicating `None` and `1` indicating `All`
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
 enum PluginKindSetUnpacked {
     None,
+    All,
     Interned(Intern<Box<[(PluginKind, bool)]>>),
 }
+
+static_assertions::assert_eq_size!(PluginKindSet, usize);
+static_assertions::assert_eq_size!(PluginKindSetUnpacked, [usize; 2]);
 
 static PLUGIN_KIND_SET_INTERNER: StaticInterner<Box<[(PluginKind, bool)]>> = StaticInterner::new();
 
 impl PluginKindSet {
     pub const EMPTY: Self = Self::pack(PluginKindSetUnpacked::None);
+    pub const ALL: Self = Self::pack(PluginKindSetUnpacked::All);
 
     pub fn new(pulls: Vec<PluginKind>, pulls_and_pushes: Vec<PluginKind>) -> anyhow::Result<Self> {
         if pulls.is_empty() && pulls_and_pushes.is_empty() {
@@ -107,6 +112,7 @@ impl PluginKindSet {
     pub fn get(&self, kind: &PluginKind) -> Option<bool> {
         match self.unpack() {
             PluginKindSetUnpacked::None => None,
+            PluginKindSetUnpacked::All => Some(true),
             PluginKindSetUnpacked::Interned(i) => i
                 .iter()
                 .find_map(|(k, v)| if k == kind { Some(*v) } else { None }),
@@ -116,6 +122,8 @@ impl PluginKindSet {
     fn unpack(self) -> PluginKindSetUnpacked {
         if self.0 as usize == 0 {
             PluginKindSetUnpacked::None
+        } else if self.0 as usize == 1 {
+            PluginKindSetUnpacked::All
         } else {
             // SAFETY: Instances of this type are only creaeted by `pack`
             PluginKindSetUnpacked::Interned(unsafe { Intern::from_ptr(self.0 as *const _) })
@@ -125,6 +133,7 @@ impl PluginKindSet {
     const fn pack(unpacked: PluginKindSetUnpacked) -> Self {
         match unpacked {
             PluginKindSetUnpacked::None => PluginKindSet(0 as *const ()),
+            PluginKindSetUnpacked::All => PluginKindSet(1 as *const ()),
             PluginKindSetUnpacked::Interned(i) => {
                 PluginKindSet(i.deref_static() as *const _ as *const ())
             }

@@ -10,6 +10,7 @@ async-trait = { workspace = true }
 bumpalo = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
+either = { workspace = true }
 fancy-regex = { workspace = true }
 futures = { workspace = true }
 glob = { workspace = true }
