@@ -67,6 +67,25 @@ impl<'a, P: AstPayload> Visit<'a, P> {
     }
 }
 
+impl<P: AstPayload> DefP<P> {
+    fn visit_children<'a>(&'a self, mut f: impl FnMut(Visit<'a, P>)) {
+        let DefP {
+            name: _,
+            params,
+            return_type,
+            body,
+            payload: _,
+        } = self;
+        params
+            .iter()
+            .for_each(|x| x.visit_expr(|x| f(Visit::Expr(x))));
+        return_type
+            .iter()
+            .for_each(|x| x.visit_expr(|x| f(Visit::Expr(x))));
+        f(Visit::Stmt(body));
+    }
+}
+
 impl<P: AstPayload> StmtP<P> {
     pub(crate) fn visit_children<'a>(&'a self, mut f: impl FnMut(Visit<'a, P>)) {
         match self {
@@ -81,21 +100,7 @@ impl<P: AstPayload> StmtP<P> {
                 f(Visit::Stmt(then_block));
                 f(Visit::Stmt(else_block));
             }
-            StmtP::Def(DefP {
-                name: _,
-                params,
-                return_type,
-                body,
-                payload: _,
-            }) => {
-                params
-                    .iter()
-                    .for_each(|x| x.visit_expr(|x| f(Visit::Expr(x))));
-                return_type
-                    .iter()
-                    .for_each(|x| x.visit_expr(|x| f(Visit::Expr(x))));
-                f(Visit::Stmt(body));
-            }
+            StmtP::Def(def) => def.visit_children(f),
             StmtP::For(ForP { var, over, body }) => {
                 var.visit_expr(|x| f(Visit::Expr(x)));
                 f(Visit::Expr(over));
