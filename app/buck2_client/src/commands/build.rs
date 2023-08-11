@@ -73,7 +73,7 @@ pub struct BuildCommand {
 
     #[clap(
         long = "show-output",
-        help = "Print the path to the output for each of the built rules relative to the cell"
+        help = "Print the path to the output for each of the built rules relative to the project root"
     )]
     show_output: bool,
 
@@ -82,6 +82,18 @@ pub struct BuildCommand {
         help = "Print the absolute path to the output for each of the built rules"
     )]
     show_full_output: bool,
+
+    #[clap(
+        long = "show-simple-output",
+        help = "Print only the path to the output for each of the built rules relative to the project root"
+    )]
+    show_simple_output: bool,
+
+    #[clap(
+        long = "show-full-simple-output",
+        help = "Print only the absolute path to the output for each of the built rules"
+    )]
+    show_full_simple_output: bool,
 
     #[clap(
         long = "show-json-output",
@@ -245,6 +257,8 @@ impl StreamingCommand for BuildCommand {
                             || self.show_full_output
                             || self.show_json_output
                             || self.show_full_json_output
+                            || self.show_simple_output
+                            || self.show_full_simple_output
                             || self.output_path.is_some(),
                         return_default_other_outputs: show_default_other_outputs,
                     }),
@@ -304,16 +318,29 @@ impl StreamingCommand for BuildCommand {
                 || self.show_full_output
                 || self.show_json_output
                 || self.show_full_json_output
+                || self.show_simple_output
+                || self.show_full_simple_output
             {
                 print_outputs(
                     &mut stdout,
                     response.build_targets,
-                    if self.show_full_output || self.show_full_json_output {
+                    if self.show_full_output
+                        || self.show_full_json_output
+                        || self.show_full_simple_output
+                    {
                         Some(response.project_root)
                     } else {
                         None
                     },
-                    self.show_json_output || self.show_full_json_output,
+                    if self.show_json_output || self.show_full_json_output {
+                        PrintOutputsFormat::Json
+                    } else if self.show_output || self.show_full_output {
+                        PrintOutputsFormat::Plain
+                    } else if self.show_simple_output || self.show_full_simple_output {
+                        PrintOutputsFormat::Simple
+                    } else {
+                        panic!("Unhandled output type");
+                    },
                     show_default_other_outputs,
                 )?;
             }
@@ -339,11 +366,18 @@ impl StreamingCommand for BuildCommand {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub(crate) enum PrintOutputsFormat {
+    Plain,
+    Json,
+    Simple,
+}
+
 pub(crate) fn print_outputs(
     mut out: impl Write,
     targets: Vec<BuildTarget>,
     root_path: Option<String>,
-    as_json: bool,
+    format: PrintOutputsFormat,
     show_all_outputs: bool,
 ) -> anyhow::Result<()> {
     #[derive(Serialize)]
@@ -394,10 +428,11 @@ pub(crate) fn print_outputs(
             }
             None => "".to_owned(),
         };
-        if as_json {
-            output_map.insert(target.clone(), output);
-        } else {
-            writeln!(&mut out, "{} {}", target, output)?;
+
+        match format {
+            PrintOutputsFormat::Json => output_map.insert(target.clone(), output),
+            PrintOutputsFormat::Plain => writeln!(&mut out, "{} {}", target, output)?,
+            PrintOutputsFormat::Simple => writeln!(&mut out, "{}", output)?,
         }
 
         Ok(())
@@ -426,7 +461,7 @@ pub(crate) fn print_outputs(
         }
     }
 
-    if as_json {
+    if format == PrintOutputsFormat::Json {
         serde_json::to_writer(&mut out, &output_map)?;
         writeln!(&mut out)?;
     }
