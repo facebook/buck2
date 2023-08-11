@@ -40,7 +40,7 @@ use crate::typing::OracleStandard;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
 use crate::values::none::NoneType;
-use crate::values::StarlarkIter;
+use crate::values::typing::StarlarkIter;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 

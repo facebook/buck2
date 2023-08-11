@@ -20,8 +20,10 @@
 pub(crate) mod any;
 pub(crate) mod callable;
 pub(crate) mod globals;
+pub(crate) mod iter;
 pub mod macro_refs;
 pub(crate) mod never;
 pub(crate) mod type_compiled;
 
+pub use crate::values::typing::iter::StarlarkIter;
 pub use crate::values::typing::never::StarlarkNever;

@@ -24,10 +24,10 @@ use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
 use crate::values::function::StarlarkFunction;
-use crate::values::iter_type::StarlarkIter;
 use crate::values::none::NoneOr;
 use crate::values::none::NoneType;
 use crate::values::regex::StarlarkRegex;
+use crate::values::typing::iter::StarlarkIter;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 

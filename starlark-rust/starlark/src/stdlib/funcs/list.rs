@@ -34,8 +34,8 @@ use crate::values::function::SpecialBuiltinFunction;
 use crate::values::list::value::FrozenList;
 use crate::values::list::AllocList;
 use crate::values::list::ListRef;
+use crate::values::typing::StarlarkIter;
 use crate::values::Heap;
-use crate::values::StarlarkIter;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 
