@@ -38,6 +38,7 @@ AndroidToolchainInfo = provider(fields = [
     "instrumentation_test_runner_main_class",
     "manifest_utils",
     "merge_android_resources",
+    "merge_android_resource_sources",
     "merge_assets",
     "mini_aapt",
     "native_libs_as_assets_metadata",
