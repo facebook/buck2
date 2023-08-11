@@ -84,6 +84,19 @@ impl<P: AstPayload> DefP<P> {
             .for_each(|x| x.visit_expr(|x| f(Visit::Expr(x))));
         f(Visit::Stmt(body));
     }
+
+    pub(crate) fn visit_children_err<'a, E>(
+        &'a self,
+        mut f: impl FnMut(Visit<'a, P>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let mut result = Ok(());
+        self.visit_children(|x| {
+            if result.is_ok() {
+                result = f(x);
+            }
+        });
+        result
+    }
 }
 
 impl<P: AstPayload> StmtP<P> {

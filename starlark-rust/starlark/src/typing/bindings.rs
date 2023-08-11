@@ -182,6 +182,91 @@ impl<'a> BindingsCollect<'a> {
         Ok(())
     }
 
+    fn visit_def(
+        &mut self,
+        def: &'a DefP<CstPayload>,
+        typecheck_mode: TypecheckMode,
+        codemap: &CodeMap,
+    ) -> Result<(), InternalError> {
+        let DefP {
+            name,
+            params,
+            return_type,
+            ..
+        } = def;
+        let mut params2 = Vec::with_capacity(params.len());
+        let mut seen_no_args = false;
+        for p in params {
+            let name_ty = match &**p {
+                ParameterP::Normal(name, ty) | ParameterP::WithDefaultValue(name, ty, _) => {
+                    let ty = Ty::from_type_expr_opt(
+                        ty,
+                        typecheck_mode,
+                        &mut self.approximations,
+                        codemap,
+                    )?;
+                    let mut param = if seen_no_args {
+                        Param::name_only(&name.0, ty.clone())
+                    } else {
+                        Param::pos_or_name(&name.0, ty.clone())
+                    };
+                    if matches!(&**p, ParameterP::WithDefaultValue(..)) {
+                        param = param.optional();
+                    }
+                    params2.push(param);
+                    Some((name, ty))
+                }
+                ParameterP::NoArgs => {
+                    seen_no_args = true;
+                    None
+                }
+                ParameterP::Args(name, ty) => {
+                    // There is the type we require people calling us use (usually any)
+                    // and then separately the type we are when we are running (always tuple)
+                    params2.push(Param::args(Ty::from_type_expr_opt(
+                        ty,
+                        typecheck_mode,
+                        &mut self.approximations,
+                        codemap,
+                    )?));
+                    Some((name, Ty::any_tuple()))
+                }
+                ParameterP::KwArgs(name, ty) => {
+                    let ty = Ty::from_type_expr_opt(
+                        ty,
+                        typecheck_mode,
+                        &mut self.approximations,
+                        codemap,
+                    )?;
+                    let ty = if ty.is_any() {
+                        Ty::dict(Ty::string(), Ty::any())
+                    } else {
+                        ty
+                    };
+                    params2.push(Param::kwargs(ty.clone()));
+                    Some((name, ty))
+                }
+            };
+            if let Some((name, ty)) = name_ty {
+                self.bindings
+                    .types
+                    .insert(name.resolved_binding_id(codemap)?, ty);
+            }
+        }
+        let ret_ty = Ty::from_type_expr_opt(
+            return_type,
+            typecheck_mode,
+            &mut self.approximations,
+            codemap,
+        )?;
+        self.bindings.types.insert(
+            name.resolved_binding_id(codemap)?,
+            Ty::function(params2, ret_ty.clone()),
+        );
+        def.visit_children_err(|x| self.visit(x, &ret_ty, typecheck_mode, codemap))?;
+        Ok(())
+    }
+
     fn visit(
         &mut self,
         x: Visit<'a, CstPayload>,
@@ -218,83 +303,8 @@ impl<'a> BindingsCollect<'a> {
                 StmtP::For(ForP { var, over, body: _ }) => {
                     self.assign(var, BindExpr::Iter(Box::new(BindExpr::Expr(over))), codemap)?
                 }
-                StmtP::Def(DefP {
-                    name,
-                    params,
-                    return_type,
-                    ..
-                }) => {
-                    let mut params2 = Vec::with_capacity(params.len());
-                    let mut seen_no_args = false;
-                    for p in params {
-                        let name_ty = match &**p {
-                            ParameterP::Normal(name, ty)
-                            | ParameterP::WithDefaultValue(name, ty, _) => {
-                                let ty = Ty::from_type_expr_opt(
-                                    ty,
-                                    typecheck_mode,
-                                    &mut self.approximations,
-                                    codemap,
-                                )?;
-                                let mut param = if seen_no_args {
-                                    Param::name_only(&name.0, ty.clone())
-                                } else {
-                                    Param::pos_or_name(&name.0, ty.clone())
-                                };
-                                if matches!(&**p, ParameterP::WithDefaultValue(..)) {
-                                    param = param.optional();
-                                }
-                                params2.push(param);
-                                Some((name, ty))
-                            }
-                            ParameterP::NoArgs => {
-                                seen_no_args = true;
-                                None
-                            }
-                            ParameterP::Args(name, ty) => {
-                                // There is the type we require people calling us use (usually any)
-                                // and then separately the type we are when we are running (always tuple)
-                                params2.push(Param::args(Ty::from_type_expr_opt(
-                                    ty,
-                                    typecheck_mode,
-                                    &mut self.approximations,
-                                    codemap,
-                                )?));
-                                Some((name, Ty::any_tuple()))
-                            }
-                            ParameterP::KwArgs(name, ty) => {
-                                let ty = Ty::from_type_expr_opt(
-                                    ty,
-                                    typecheck_mode,
-                                    &mut self.approximations,
-                                    codemap,
-                                )?;
-                                let ty = if ty.is_any() {
-                                    Ty::dict(Ty::string(), Ty::any())
-                                } else {
-                                    ty
-                                };
-                                params2.push(Param::kwargs(ty.clone()));
-                                Some((name, ty))
-                            }
-                        };
-                        if let Some((name, ty)) = name_ty {
-                            self.bindings
-                                .types
-                                .insert(name.resolved_binding_id(codemap)?, ty);
-                        }
-                    }
-                    let ret_ty = Ty::from_type_expr_opt(
-                        return_type,
-                        typecheck_mode,
-                        &mut self.approximations,
-                        codemap,
-                    )?;
-                    self.bindings.types.insert(
-                        name.resolved_binding_id(codemap)?,
-                        Ty::function(params2, ret_ty.clone()),
-                    );
-                    x.visit_children_err(|x| self.visit(x, &ret_ty, typecheck_mode, codemap))?;
+                StmtP::Def(def) => {
+                    self.visit_def(def, typecheck_mode, codemap)?;
                     // We do our own visit_children, with a different return type
                     return Ok(());
                 }
