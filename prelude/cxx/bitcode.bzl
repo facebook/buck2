@@ -35,19 +35,25 @@ def _bundle(ctx: AnalysisContext, name: str, args: cmd_args, prefer_local: bool)
 
     bundle_output = ctx.actions.declare_output(name)
 
-    command = cmd_args(llvm_link)
-    command.add("-o")
-    command.add(bundle_output.as_output())
-    command.add(args)
+    argsfile, _ = ctx.actions.write(name + ".argsfile", args, allow_args = True)
 
-    ctx.actions.run(command, category = "bitcode_bundle", identifier = name, prefer_local = prefer_local)
+    command = cmd_args(argsfile, format = "@{}", delimiter = "").hidden(args)
+    llvm_cmd = cmd_args(llvm_link)
+    llvm_cmd.add(command)
+    llvm_cmd.add("-v")
+    llvm_cmd.add("-o")
+    llvm_cmd.add(bundle_output.as_output())
+
+    ctx.actions.run(llvm_cmd, category = "bitcode_bundle", identifier = name, prefer_local = prefer_local)
     return bundle_output
 
 # Creates a static library given a list of object files.
 def make_bitcode_bundle(
         ctx: AnalysisContext,
         name: str,
-        objects: list[Artifact]) -> [BitcodeBundle.type, None]:
+        objects: list[Artifact],
+        ignore_native: bool = False,
+        override: bool = False) -> [BitcodeBundle.type, None]:
     if len(objects) == 0:
         fail("no objects to archive")
 
@@ -57,7 +63,18 @@ def make_bitcode_bundle(
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
 
-    bundle = _bundle(ctx, name, cmd_args(objects), _bundle_locally(ctx, linker_info))
+    args = cmd_args(format = "\"{}\"")
+    if ignore_native:
+        args.add("--ignore-non-bitcode")
+
+    if override and len(objects) > 1:
+        args.add(objects[0])
+        overrides = cmd_args(objects[1:], format = "--override={}")
+        args.add(overrides).hidden(objects)
+    else:
+        args.add(objects)
+
+    bundle = _bundle(ctx, name, args, _bundle_locally(ctx, linker_info))
 
     return BitcodeBundle(artifact = bundle, external_objects = objects)
 
