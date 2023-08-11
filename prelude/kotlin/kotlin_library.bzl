@@ -112,7 +112,7 @@ def _create_kotlin_sources(
     if annotation_processor_properties.annotation_processors:
         compile_kotlin_cmd.add(["--kapt_annotation_processing_jar", kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library])
         compile_kotlin_cmd.add(["--kapt_annotation_processors", ",".join([p for ap in annotation_processor_properties.annotation_processors for p in ap.processors])])
-        compile_kotlin_cmd.add(["--kapt_annotation_processor_params", ";".join([p for ap in annotation_processor_properties.annotation_processors for p in ap.params])])
+        compile_kotlin_cmd.add(["--kapt_annotation_processor_params", ";".join(annotation_processor_properties.annotation_processor_params)])
 
         annotation_processor_classpath_tsets = (
             filter(None, ([ap.deps for ap in annotation_processor_properties.annotation_processors])) +
@@ -340,6 +340,7 @@ def build_kotlin_library(
                 resources_root = ctx.attrs.resources_root,
                 annotation_processor_properties = AnnotationProcessorProperties(
                     annotation_processors = annotation_processor_properties.annotation_processors + ksp_annotation_processor_properties.annotation_processors,
+                    annotation_processor_params = annotation_processor_properties.annotation_processor_params + ksp_annotation_processor_properties.annotation_processor_params,
                 ),
                 plugin_params = create_plugin_params(ctx, ctx.attrs.plugins),
                 source_level = source_level,

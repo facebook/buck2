@@ -224,14 +224,13 @@ def encode_ap_params(annotation_processor_properties: "AnnotationProcessorProper
     encoded_ap_params = None
     if annotation_processor_properties.annotation_processors:
         encoded_ap_params = struct(
-            parameters = [],
+            parameters = annotation_processor_properties.annotation_processor_params,
             pluginProperties = [],
         )
         for ap in annotation_processor_properties.annotation_processors:
             # We should also filter out non-abi-affecting APs for source-abi, but buck1 doesn't and so we have lots that depend on not filtering them there.
             if target_type == TargetType("source_only_abi") and not ap.affects_abi:
                 continue
-            encoded_ap_params.parameters.extend(ap.params)
             if ap.deps or ap.processors:
                 encoded_ap_params.pluginProperties.append(
                     struct(

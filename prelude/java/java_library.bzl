@@ -69,10 +69,10 @@ def _process_plugins(
         joined_processors_string = ",".join([p for ap in annotation_processor_properties.annotation_processors for p in ap.processors])
 
         javac_args.add(joined_processors_string)
+        for param in annotation_processor_properties.annotation_processor_params:
+            javac_args.add("-A{}".format(param))
 
         for ap in annotation_processor_properties.annotation_processors:
-            for param in ap.params:
-                javac_args.add("-A{}".format(param))
             if ap.deps:
                 processors_classpath_tsets.append(ap.deps)
 
@@ -300,7 +300,7 @@ def compile_to_jar(
     if not remove_classes:
         remove_classes = []
     if not annotation_processor_properties:
-        annotation_processor_properties = AnnotationProcessorProperties(annotation_processors = [])
+        annotation_processor_properties = AnnotationProcessorProperties(annotation_processors = [], annotation_processor_params = [])
     if not source_only_abi_deps:
         source_only_abi_deps = []
 
