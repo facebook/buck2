@@ -208,12 +208,12 @@ pub(crate) struct BxlActions<'v> {
 }
 
 impl<'v> BxlActions<'v> {
-    pub(crate) async fn new(
+    pub(crate) async fn new<'c>(
         actions: ValueTyped<'v, AnalysisActions<'v>>,
         exec_deps: Vec<ConfiguredProvidersLabel>,
         toolchains: Vec<ConfiguredProvidersLabel>,
         eval: &mut Evaluator<'v, '_>,
-        ctx: &'v DiceComputations,
+        ctx: &'c DiceComputations,
     ) -> anyhow::Result<BxlActions<'v>> {
         let exec_deps = alloc_deps(exec_deps, eval, ctx).await?;
         let toolchains = alloc_deps(toolchains, eval, ctx).await?;
@@ -225,10 +225,10 @@ impl<'v> BxlActions<'v> {
     }
 }
 
-async fn alloc_deps<'v>(
+async fn alloc_deps<'v, 'c>(
     deps: Vec<ConfiguredProvidersLabel>,
     eval: &mut Evaluator<'v, '_>,
-    ctx: &'v DiceComputations,
+    ctx: &'c DiceComputations,
 ) -> anyhow::Result<ValueOfUnchecked<'v, DictRef<'v>>> {
     let deps: Vec<_> = deps
         .into_iter()
