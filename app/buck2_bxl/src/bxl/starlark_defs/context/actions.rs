@@ -66,14 +66,14 @@ enum BxlActionsError {
 }
 
 #[allow(unused)]
-pub(crate) async fn resolve_bxl_execution_platform<'v>(
-    ctx: &'v DiceComputations,
+pub(crate) async fn resolve_bxl_execution_platform(
+    ctx: &DiceComputations,
     cell: CellName,
     exec_deps: Vec<ProvidersLabel>,
     toolchain_deps: Vec<ProvidersLabel>,
     target_platform: Option<TargetLabel>,
     exec_compatible_with: Vec<TargetLabel>,
-    module: &'v Module,
+    module: &Module,
 ) -> anyhow::Result<BxlExecutionResolution> {
     // bxl has on transitions
     let resolved_transitions = OrderedMap::new();
