@@ -15,6 +15,7 @@
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
+#![feature(offset_of)]
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -101,8 +102,21 @@ impl<T: 'static> Deref for Intern<T> {
 
 impl<T: 'static> Intern<T> {
     #[inline]
-    pub fn deref_static(&self) -> &'static T {
+    pub const fn deref_static(&self) -> &'static T {
         &self.pointer.data
+    }
+
+    /// SAFETY: This may only be called with pointers returned from [`Self::deref_static`]
+    #[inline]
+    pub const unsafe fn from_ptr(p: *const T) -> Self {
+        // SAFETY: `p` is a pointer to the `data` field of an `InternedData<T>`
+        unsafe {
+            let p = p
+                .cast::<u8>()
+                .sub(std::mem::offset_of!(InternedData<T>, data))
+                .cast::<InternedData<T>>();
+            Self { pointer: &*p }
+        }
     }
 }
 
@@ -275,6 +289,7 @@ impl<T: 'static, H> Iterator for Iter<T, H> {
 mod tests {
     use std::collections::BTreeSet;
 
+    use crate::Intern;
     use crate::StaticInterner;
 
     static STRING_INTERNER: StaticInterner<String> = StaticInterner::new();
@@ -347,5 +362,13 @@ mod tests {
                 .collect::<BTreeSet<&'static str>>(),
             BTreeSet::from(["hello", "cat", "world"])
         );
+    }
+
+    static TEST_POINTER_INTERNER: StaticInterner<&'static str> = StaticInterner::new();
+    #[test]
+    fn test_pointer_roundtrip() {
+        let one = TEST_POINTER_INTERNER.intern("one");
+        let one_p = one.deref_static() as *const _;
+        assert_eq!(one, unsafe { Intern::from_ptr(one_p) });
     }
 }
