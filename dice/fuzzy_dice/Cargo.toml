@@ -13,6 +13,7 @@ crossbeam = "0.8"
 derive_more = "0.99.3"
 derivative = "2.1.1"
 futures = "0.3"
+higher-order-closure = { workspace = true }
 itertools = "0.10.3"
 parking_lot = { version = "0.11.2", features = ["send_guard"] }
 quickcheck = "1.0"

@@ -21,8 +21,8 @@ use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
 use futures::future;
+use futures::future::BoxFuture;
 use futures::FutureExt;
-use gazebo::prelude::*;
 use more_futures::cancellation::CancellationContext;
 use serde::Deserialize;
 use serde::Serialize;
@@ -44,10 +44,17 @@ async fn resolve_units(
     units: &[Unit],
     state: Arc<FuzzState>,
 ) -> anyhow::Result<Vec<bool>> {
-    let futs = units.map(|unit| match unit {
-        Unit::Variable(var) => ctx.eval(state.dupe(), *var),
-        Unit::Literal(lit) => async move { Ok(*lit) }.boxed(),
-    });
+    let futs = ctx.compute_many(units.iter().map(|unit| {
+        let state = state.dupe();
+        higher_order_closure! {
+            for<'x> move |ctx: &'x mut DiceComputations| -> BoxFuture<'x, Result<bool, anyhow::Error>> {
+                match unit {
+                    Unit::Variable(var) => ctx.eval(state, *var).boxed(),
+                    Unit::Literal(lit) => futures::future::ready(Ok(*lit)).boxed(),
+                }
+            }
+        }
+    }));
     future::join_all(futs).await.into_iter().collect()
 }
 

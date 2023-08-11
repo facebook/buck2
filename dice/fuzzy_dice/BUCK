@@ -16,6 +16,7 @@ rust_binary(
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:higher-order-closure",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:quickcheck",
