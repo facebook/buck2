@@ -155,7 +155,7 @@ pub(crate) async fn eval(
                         ctx,
                         &mut profiler,
                         format!("bxl:{}", key),
-                        move |provider| {
+                        move |provider, ctx| {
                             let env = Module::new();
 
                             let resolved_args = env.heap().alloc(AllocStruct(

@@ -267,7 +267,7 @@ impl<'c> DiceCalculationDelegate<'c> {
             self.ctx,
             &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", &starlark_file),
-            move |provider| {
+            move |provider, _| {
                 let evaluation = self
                     .configs
                     .eval_module(
@@ -348,7 +348,7 @@ impl<'c> DiceCalculationDelegate<'c> {
             self.ctx,
             &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", path),
-            move |provider| {
+            move |provider, _| {
                 self.configs
                     .eval_package_file(
                         path,
@@ -479,7 +479,7 @@ impl<'c> DiceCalculationDelegate<'c> {
             self.ctx,
             profiler_instrumentation,
             format!("load_buildfile:{}", &package),
-            move |provider| {
+            move |provider, _| {
                 span(start_event, move || {
                     let result = self
                         .configs

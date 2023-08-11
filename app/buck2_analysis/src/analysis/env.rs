@@ -275,7 +275,7 @@ async fn run_analysis_with_env_underlying(
         dice,
         &mut profiler,
         format!("analysis:{}", node.label()),
-        |provider| {
+        |provider, dice| {
             let mut eval = provider.make(&env)?;
             eval.set_print_handler(&print);
 

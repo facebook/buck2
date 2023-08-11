@@ -86,7 +86,7 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
             dice,
             &mut StarlarkProfilerOrInstrumentation::disabled(),
             description,
-            |_provider| {
+            |_provider, _| {
                 // But must bind the promises sequentially
                 for (promise, xs) in shape {
                     match xs {

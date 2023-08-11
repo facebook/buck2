@@ -32,7 +32,7 @@ pub async fn with_starlark_eval_provider<R>(
     ctx: &DiceComputations,
     profiler_instrumentation: &mut StarlarkProfilerOrInstrumentation<'_>,
     description: String,
-    closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider) -> anyhow::Result<R>,
+    closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider, &DiceComputations) -> anyhow::Result<R>,
 ) -> anyhow::Result<R> {
     let debugger_handle = ctx.get_starlark_debugger_handle();
     let debugger = match debugger_handle {
@@ -89,9 +89,9 @@ pub async fn with_starlark_eval_provider<R>(
         // so we could operate against a concrete type rather than injecting a trait
         // implementation.
         if debugger_handle.is_some() {
-            tokio::task::block_in_place(move || closure(&mut provider))
+            tokio::task::block_in_place(move || closure(&mut provider, ctx))
         } else {
-            closure(&mut provider)
+            closure(&mut provider, ctx)
         }
     }
 }

@@ -357,7 +357,7 @@ impl AnonTargetKey {
                     dice,
                     &mut StarlarkProfilerOrInstrumentation::disabled(),
                     format!("anon_analysis:{}", self),
-                    |provider| {
+                    |provider, dice| {
                         let mut eval = provider.make(&env)?;
                         eval.set_print_handler(&print);
 

@@ -470,7 +470,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                         dice_ctx,
                         &mut StarlarkProfilerOrInstrumentation::disabled(),
                         format!("bxl_dynamic:{}", "foo"),
-                        move |provider| {
+                        move |provider, _| {
                             tokio::task::block_in_place(|| {
                                 let mut eval = provider.make(&env)?;
                                 eval.set_print_handler(&print);
