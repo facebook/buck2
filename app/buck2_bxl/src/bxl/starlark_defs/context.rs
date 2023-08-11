@@ -746,7 +746,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     ///
     /// Note that this function does not check that this subtarget exists in the repo.
     fn unconfigured_sub_targets<'v>(
-        this: &'v BxlContext<'v>,
+        this: &BxlContext<'v>,
         labels: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
