@@ -37,6 +37,7 @@ pub mod result_report {
     use buck2_cli_proto::build_target::BuildOutput;
     use buck2_cli_proto::BuildTarget;
     use buck2_common::result::SharedError;
+    use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
     use dupe::Dupe;
@@ -160,11 +161,28 @@ pub mod result_report {
                     BuildOwner::Target(t) => (t.unconfigured().to_string(), t.cfg().to_string()),
                 };
 
+                let configured_graph_size = match &result.configured_graph_size {
+                    Some(Ok(MaybeCompatible::Compatible(v))) => Some(*v),
+                    Some(Ok(MaybeCompatible::Incompatible(..))) => None,
+                    Some(Err(e)) => {
+                        // We don't expect an error on this unless something else on this target
+                        // failed.
+                        tracing::debug!(
+                            "Graph size calculation error failed for {}: {:#}",
+                            target,
+                            e
+                        );
+                        None
+                    }
+                    None => None,
+                };
+
                 r.push(BuildTarget {
                     target,
                     configuration,
                     run_args: result.run_args.clone().unwrap_or_default(),
                     outputs: artifacts,
+                    configured_graph_size,
                 })
             };
         }
@@ -175,6 +193,7 @@ pub mod build_report {
     use std::collections::HashMap;
 
     use buck2_build_api::build::BuildProviderType;
+    use buck2_core::configuration::compatibility::MaybeCompatible;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -231,6 +250,8 @@ pub mod build_report {
         /// the hidden, implicitly built outputs of the subtarget. There are multiple outputs
         /// per subtarget
         other_outputs: HashMap<String, Vec<ProjectRelativePathBuf>>,
+        /// The size of the graph for this target, if it was produced
+        configured_graph_size: Option<u64>,
     }
 
     #[derive(Debug, Serialize)]
@@ -398,6 +419,15 @@ pub mod build_report {
                 }
                 configured_report.success = BuildOutcome::FAIL;
                 self.overall_success = false;
+            }
+
+            if let Some(Ok(MaybeCompatible::Compatible(configured_graph_size))) =
+                result.configured_graph_size
+            {
+                if let Some(report) = unconfigured_report {
+                    report.configured_graph_size = Some(configured_graph_size);
+                }
+                configured_report.configured_graph_size = Some(configured_graph_size);
             }
         }
     }

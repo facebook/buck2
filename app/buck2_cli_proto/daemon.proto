@@ -478,6 +478,9 @@ message BuildTarget {
   repeated BuildOutput outputs = 3;
   // the configuration of the target
   string configuration = 4;
+  // The dependency graph size for this target, if enabled and the target was
+  // not skipped.
+  optional uint64 configured_graph_size = 5;
 }
 
 message BuildResponse {
