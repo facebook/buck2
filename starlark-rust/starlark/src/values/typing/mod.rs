@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#![doc(hidden)]
+//! Typechecker-related types.
 
 pub(crate) mod any;
 pub(crate) mod callable;
@@ -23,3 +23,5 @@ pub(crate) mod globals;
 pub mod macro_refs;
 pub(crate) mod never;
 pub(crate) mod type_compiled;
+
+pub use crate::values::typing::never::StarlarkNever;

@@ -76,7 +76,7 @@ impl AllocFrozenValue for TypingNever {
 }
 
 /// Never type, can be used as native function return type.
-pub(crate) enum StarlarkNever {}
+pub enum StarlarkNever {}
 
 impl StarlarkTypeRepr for StarlarkNever {
     fn starlark_type_repr() -> Ty {
