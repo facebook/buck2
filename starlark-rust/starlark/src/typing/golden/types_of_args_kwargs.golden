@@ -1,0 +1,15 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+def foo(*args: tuple, **kwargs: dict[str, int]):
+    pass
+
+No errors.
+
+Types:
+args: tuple
+kwargs: dict[str, int]

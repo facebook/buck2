@@ -240,6 +240,18 @@ foo(**{1: "x"})
 }
 
 #[test]
+fn test_types_of_args_kwargs() {
+    // TODO(nga): type of `**kwargs: X` should be `dict[str, X]`.
+    TypeCheck::new().ty("args").ty("kwargs").check(
+        "types_of_args_kwargs",
+        r#"
+def foo(*args: tuple, **kwargs: dict[str, int]):
+    pass
+"#,
+    );
+}
+
+#[test]
 fn test_dot_type() {
     TypeCheck::new().check(
         "dot_type_0",
