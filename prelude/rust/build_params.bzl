@@ -79,11 +79,15 @@ Emit = enum(
 def emit_needs_codegen(emit: Emit.type) -> bool:
     return emit.value in ("asm", "llvm-bc", "llvm-ir", "obj", "link", "mir")
 
+# Represents a way of invoking rustc to produce an artifact. These values are computed from
+# information such as the rule type, linkstyle, crate type, etc.
 BuildParams = record(
     crate_type = field(CrateType.type),
     reloc_model = field(RelocModel.type),
     dep_link_style = field(LinkStyle.type),  # what link_style to use for dependencies
-    # XXX This needs to be OS-specific
+    # A prefix and suffix to use for the name of the produced artifact. Note that although we store
+    # these in this type, they are in principle computable from the remaining fields and the OS.
+    # Keeping them here just turns out to be a little more convenient.
     prefix = field(str),
     suffix = field(str),
 )
