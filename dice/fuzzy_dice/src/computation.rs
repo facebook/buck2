@@ -40,7 +40,7 @@ pub enum Unit {
 }
 
 async fn resolve_units(
-    ctx: &DiceComputations,
+    ctx: &mut DiceComputations,
     units: &[Unit],
     state: Arc<FuzzState>,
 ) -> anyhow::Result<Vec<bool>> {
@@ -69,7 +69,7 @@ pub enum Expr {
     Xor(Vec<Unit>),
 }
 
-async fn lookup_unit(ctx: &DiceComputations, var: Var) -> anyhow::Result<Arc<Expr>> {
+async fn lookup_unit(ctx: &mut DiceComputations, var: Var) -> anyhow::Result<Arc<Expr>> {
     Ok(ctx.compute(&LookupVar(var)).await?)
 }
 
@@ -108,12 +108,12 @@ impl FuzzEquations for DiceTransactionUpdater {
 
 #[async_trait]
 pub trait FuzzMath {
-    async fn eval(&self, state: Arc<FuzzState>, var: Var) -> anyhow::Result<bool>;
+    async fn eval(&mut self, state: Arc<FuzzState>, var: Var) -> anyhow::Result<bool>;
 }
 
 #[async_trait]
 impl FuzzMath for DiceComputations {
-    async fn eval(&self, state: Arc<FuzzState>, var: Var) -> anyhow::Result<bool> {
+    async fn eval(&mut self, state: Arc<FuzzState>, var: Var) -> anyhow::Result<bool> {
         Ok(*self
             .compute(&state.eval_var(var))
             .await?
@@ -262,7 +262,7 @@ mod tests {
     pub async fn test_smoke() -> anyhow::Result<()> {
         let empty_state = Arc::new(FuzzState::new());
         let dice = Dice::builder().build(DetectCycles::Disabled);
-        let ctx = {
+        let mut ctx = {
             let mut ctx = dice.updater();
             // let x1 = true
             ctx.set_equation(Var(1), Expr::Unit(Unit::Literal(true)))?;

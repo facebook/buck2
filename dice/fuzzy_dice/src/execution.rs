@@ -353,7 +353,7 @@ impl DiceExecutionOrder {
         {
             match &op {
                 Operation::Query { ctx_id, var } => {
-                    if let Some(ctx) = dice_ctxs.get(ctx_id) {
+                    if let Some(ctx) = dice_ctxs.get_mut(ctx_id) {
                         let expected = answer_key.value_of_at_ctx(*ctx_id, *var);
 
                         // quickcheck runs us single threaded, so this is safe to do.
