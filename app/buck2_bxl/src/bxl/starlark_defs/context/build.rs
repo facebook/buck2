@@ -169,7 +169,7 @@ where
 }
 
 pub(crate) fn build<'v>(
-    ctx: &'v BxlContext<'v>,
+    ctx: &BxlContext<'v>,
     materializations_map: &Arc<DashMap<BuildArtifact, ()>>,
     spec: Value<'v>,
     target_platform: Value<'v>,
