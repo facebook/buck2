@@ -59,14 +59,16 @@ CrateName = record(
 RustLinkStyleInfo = record(
     # Path to library or binary
     rlib = field(Artifact),
-    # Transitive dependencies which are relevant to consumer
-    # This is a dict from artifact to None (we don't have sets)
+    # Transitive dependencies which are relevant to the consumer. For crate types which do not
+    # propagate their deps (specifically proc macros), this set is empty
     transitive_deps = field(dict[Artifact, CrateName.type]),
 
     # Path for library metadata (used for check or pipelining)
     rmeta = field(Artifact),
-    # Transitive rmeta deps
+    # Transitive rmeta deps. This is the same dict as `transitive_deps`, except that it has the
+    # rmeta and not the rlib artifact
     transitive_rmeta_deps = field(dict[Artifact, CrateName.type]),
+
     # Path to PDB file with Windows debug data.
     pdb = field([Artifact, None]),
     # Debug info which is referenced -- but not included -- by the linkable rlib.
