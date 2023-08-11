@@ -234,7 +234,7 @@ impl DaemonCommand {
 
         let auth_token = gen_auth_token();
 
-        let (listener, process_info) = if !self.dont_daemonize {
+        let (listener, process_info, endpoint) = if !self.dont_daemonize {
             // We must create stdout/stderr before creating a listener,
             // otherwise it is race:
             // * daemon parent process exits
@@ -260,7 +260,7 @@ impl DaemonCommand {
 
             tracing::info!("Daemonized.");
 
-            (listener, process_info)
+            (listener, process_info, endpoint)
         } else {
             fs_util::write(&pid_path, format!("{}", process::id()))?;
 
@@ -279,13 +279,14 @@ impl DaemonCommand {
 
             write_process_info(&daemon_dir, &process_info)?;
 
-            (listener, process_info)
+            (listener, process_info, endpoint)
         };
 
         tracing::info!("Starting Buck2 daemon");
         tracing::info!("Version: {}", BuckVersion::get_version());
         tracing::info!("PID: {}", process::id());
         tracing::info!("ID: {}", *buck2_events::daemon_id::DAEMON_UUID);
+        tracing::info!("Endpoint: {}", endpoint);
 
         listener_created();
 
