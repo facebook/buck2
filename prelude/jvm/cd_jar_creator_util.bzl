@@ -43,11 +43,11 @@ def get_abi_generation_mode(
         abi_generation_mode: [AbiGenerationMode.type, None],
         java_toolchain: JavaToolchainInfo.type,
         srcs: list[Artifact],
-        ap_params: list["AnnotationProcessorParams"]) -> "AbiGenerationMode":
+        annotation_processor_properties: "AnnotationProcessorProperties") -> "AbiGenerationMode":
     resolved_mode = AbiGenerationMode("none") if not srcs else _resolve_abi_generation_mode(abi_generation_mode, java_toolchain)
     if resolved_mode == AbiGenerationMode("source_only"):
         def plugins_support_source_only_abi():
-            for ap in ap_params:
+            for ap in annotation_processor_properties.annotation_processors:
                 if ap.affects_abi and not ap.supports_source_only_abi:
                     return False
             return True
@@ -217,17 +217,17 @@ def _get_source_only_abi_compiling_deps(compiling_deps_tset: [JavaCompilingDepsT
     return source_only_abi_compiling_deps
 
 # buildifier: disable=unused-variable
-def encode_ap_params(ap_params: list["AnnotationProcessorParams"], target_type: TargetType.type) -> [struct.type, None]:
+def encode_ap_params(annotation_processor_properties: "AnnotationProcessorProperties", target_type: TargetType.type) -> [struct.type, None]:
     # buck1 oddly only inspects annotation processors, not plugins for
     # abi/source-only abi related things, even though the plugin rules
     # support the flags. we apply it to both.
     encoded_ap_params = None
-    if ap_params:
+    if annotation_processor_properties.annotation_processors:
         encoded_ap_params = struct(
             parameters = [],
             pluginProperties = [],
         )
-        for ap in ap_params:
+        for ap in annotation_processor_properties.annotation_processors:
             # We should also filter out non-abi-affecting APs for source-abi, but buck1 doesn't and so we have lots that depend on not filtering them there.
             if target_type == TargetType("source_only_abi") and not ap.affects_abi:
                 continue
@@ -276,7 +276,7 @@ def encode_base_jar_command(
         abi_generation_mode: [AbiGenerationMode.type, None],
         srcs: list[Artifact],
         resources_map: dict[str, Artifact],
-        ap_params: list["AnnotationProcessorParams"],
+        annotation_processor_properties: "AnnotationProcessorProperties",
         plugin_params: ["PluginParams", None],
         extra_arguments: cmd_args,
         source_only_abi_compiling_deps: list["JavaClasspathEntry"],
@@ -312,7 +312,7 @@ def encode_base_jar_command(
             targetLevel = target_level,
         ),
         debug = True,
-        javaAnnotationProcessorParams = encode_ap_params(ap_params, target_type),
+        javaAnnotationProcessorParams = encode_ap_params(annotation_processor_properties, target_type),
         standardJavacPluginParams = encode_plugin_params(plugin_params),
         extraArguments = extra_arguments,
     )

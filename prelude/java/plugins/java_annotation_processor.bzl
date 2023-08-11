@@ -39,6 +39,10 @@ AnnotationProcessorParams = record(
     isolate_class_loader = field(bool),
 )
 
+AnnotationProcessorProperties = record(
+    annotation_processors = field(list[AnnotationProcessorParams.type]),
+)
+
 # Every transitive java annotation processors dependency has to be included into processor classpath for AP/Java Plugin run
 def derive_transitive_deps(ctx: AnalysisContext, deps: list[Dependency]) -> ["JavaPackagingDepTSet", None]:
     for dep in deps:
@@ -50,25 +54,25 @@ def derive_transitive_deps(ctx: AnalysisContext, deps: list[Dependency]) -> ["Ja
         children = [dep[JavaPackagingInfo].packaging_deps for dep in deps],
     ) if deps else None
 
-def create_ap_params(
+def create_annotation_processor_properties(
         ctx: AnalysisContext,
         plugins: list[Dependency],
-        annotation_processors: list[str],
+        annotation_processor_names: list[str],
         annotation_processor_params: list[str],
-        annotation_processor_deps: list[Dependency]) -> list[AnnotationProcessorParams.type]:
-    ap_params = []
+        annotation_processor_deps: list[Dependency]) -> AnnotationProcessorProperties.type:
+    annotation_processors = []
 
     # Extend `ap_processor_deps` with java deps from `annotation_processor_deps`
-    if annotation_processors or annotation_processor_params or annotation_processor_deps:
+    if annotation_processor_names or annotation_processor_params or annotation_processor_deps:
         for ap_dep in [x.get(JavaLibraryInfo) for x in annotation_processor_deps]:
             if not ap_dep:
                 fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(annotation_processor_deps))
 
         # "legacy" annotation processors have no mechanism for indicating if they affect abi or if they support source_only
-        ap_params.append(AnnotationProcessorParams(
+        annotation_processors.append(AnnotationProcessorParams(
             affects_abi = True,
             supports_source_only_abi = False,
-            processors = annotation_processors,
+            processors = annotation_processor_names,
             params = annotation_processor_params,
             # using packaging deps to have all transitive deps collected for processors classpath
             deps = derive_transitive_deps(ctx, annotation_processor_deps),
@@ -80,7 +84,7 @@ def create_ap_params(
         if not ap_plugin:
             fail("Plugin must have a type of `java_annotation_processor` or `java_plugin`. Plugins: {}".format(plugins))
         if ap_plugin.type == JavaProcessorsType("java_annotation_processor"):
-            ap_params.append(AnnotationProcessorParams(
+            annotation_processors.append(AnnotationProcessorParams(
                 affects_abi = ap_plugin.affects_abi,
                 supports_source_only_abi = ap_plugin.supports_source_only_abi,
                 processors = ap_plugin.processors,
@@ -89,9 +93,9 @@ def create_ap_params(
                 isolate_class_loader = ap_plugin.isolate_class_loader,
             ))
 
-    return ap_params
+    return AnnotationProcessorProperties(annotation_processors = annotation_processors)
 
-def create_ksp_ap_params(ctx: AnalysisContext, plugins: list[Dependency]) -> [AnnotationProcessorParams.type, None]:
+def create_ksp_annotation_processor_properties(ctx: AnalysisContext, plugins: list[Dependency]) -> AnnotationProcessorProperties.type:
     ap_processors = []
     ap_processor_deps = []
 
@@ -105,16 +109,16 @@ def create_ksp_ap_params(ctx: AnalysisContext, plugins: list[Dependency]) -> [An
                 ap_processor_deps.append(ap_plugin.deps)
 
     if not ap_processors:
-        return None
+        return AnnotationProcessorProperties(annotation_processors = [])
 
-    return AnnotationProcessorParams(
+    return AnnotationProcessorProperties(annotation_processors = [AnnotationProcessorParams(
         processors = dedupe(ap_processors),
         params = [],
         deps = ctx.actions.tset(JavaPackagingDepTSet, children = ap_processor_deps) if ap_processor_deps else None,
         affects_abi = True,
         supports_source_only_abi = False,
         isolate_class_loader = False,
-    )
+    )])
 
 def _get_processor_type(processor_class: str) -> JavaProcessorsType.type:
     if processor_class.startswith("KSP:"):

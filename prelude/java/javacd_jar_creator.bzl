@@ -54,7 +54,7 @@ def create_jar_artifact_javacd(
         resources: list[Artifact],
         resources_root: [str, None],
         manifest_file: [Artifact, None],
-        ap_params: list["AnnotationProcessorParams"],
+        annotation_processor_properties: "AnnotationProcessorProperties",
         plugin_params: ["PluginParams", None],
         source_level: int,
         target_level: int,
@@ -77,7 +77,7 @@ def create_jar_artifact_javacd(
     _ = manifest_file  # buildifier: disable=unused-variable
 
     bootclasspath_entries = add_java_7_8_bootclasspath(target_level, bootclasspath_entries, java_toolchain)
-    abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, ap_params)
+    abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, annotation_processor_properties)
 
     should_create_class_abi = not is_creating_subtarget and (abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary)
     if should_create_class_abi:
@@ -115,7 +115,7 @@ def create_jar_artifact_javacd(
             abi_generation_mode,
             srcs,
             resources_map,
-            ap_params,
+            annotation_processor_properties,
             plugin_params,
             extra_arguments,
             source_only_abi_compiling_deps = [],
@@ -154,7 +154,7 @@ def create_jar_artifact_javacd(
             abi_generation_mode,
             srcs,
             resources_map,
-            ap_params,
+            annotation_processor_properties,
             plugin_params,
             extra_arguments,
             source_only_abi_compiling_deps = source_only_abi_compiling_deps,
