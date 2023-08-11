@@ -211,8 +211,8 @@ pub(crate) fn register_instant_function(builder: &mut GlobalsBuilder) {
     ///     ctx.output.print(time_a)
     ///     ctx.output.print(time_b)
     /// ```
-    fn now<'v>(heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc(StarlarkInstant(Instant::now())))
+    fn now() -> anyhow::Result<StarlarkInstant> {
+        Ok(StarlarkInstant(Instant::now()))
     }
 }
 
