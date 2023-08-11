@@ -189,14 +189,14 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # distinct kinds of build we actually need to deal with.
     param_lang, lang_style_param = _build_params_for_styles(ctx, compile_ctx)
 
-    artifacts = _build_library_artifacts(ctx, compile_ctx, param_lang)
+    artifacts = _build_library_artifacts(ctx, compile_ctx, param_lang.keys())
 
     rust_param_artifact = {}
     native_param_artifact = {}
     check_artifacts = None
 
-    for (lang, params), (link, meta) in artifacts.items():
-        if lang == LinkageLang("rust"):
+    for params, (link, meta) in artifacts.items():
+        if LinkageLang("rust") in param_lang[params]:
             # Grab the check output for all kinds of builds to use
             # in the check subtarget. The link style doesn't matter
             # so pick the first.
@@ -205,10 +205,8 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 check_artifacts.update(meta.diag)
 
             rust_param_artifact[params] = _handle_rust_artifact(ctx, params, link, meta)
-        elif lang == LinkageLang("c++"):
+        if LinkageLang("c++") in param_lang[params]:
             native_param_artifact[params] = link
-        else:
-            fail("Unhandled lang {}".format(lang))
 
     # Among {rustdoc, doctests, macro expand}, doctests are the only one which
     # cares about linkage. So if there is a required link style set for the
@@ -359,14 +357,14 @@ def _build_params_for_styles(
 def _build_library_artifacts(
         ctx: AnalysisContext,
         compile_ctx: CompileContext.type,
-        param_lang: dict[BuildParams.type, list[LinkageLang.type]]) -> dict[(LinkageLang.type, BuildParams.type), (RustcOutput.type, RustcOutput.type)]:
+        params: list[BuildParams.type]) -> dict[BuildParams.type, (RustcOutput.type, RustcOutput.type)]:
     """
     Generate the actual actions to build various output artifacts. Given the set
     parameters we need, return a mapping to the linkable and metadata artifacts.
     """
     param_artifact = {}
 
-    for params, langs in param_lang.items():
+    for params in params:
         link_style = params.dep_link_style
 
         # Separate actions for each emit type
@@ -381,8 +379,7 @@ def _build_library_artifacts(
             default_roots = ["lib.rs"],
         )
 
-        for lang in langs:
-            param_artifact[(lang, params)] = (link, meta)
+        param_artifact[params] = (link, meta)
 
     return param_artifact
 
