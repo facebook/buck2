@@ -25,7 +25,11 @@ impl StateProcessor {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let state = CoreState::new();
 
-        std::thread::spawn(move || StateProcessor { state, rx }.event_loop());
+        std::thread::Builder::new()
+            .name("buck2-dice".to_owned())
+            .spawn(move || StateProcessor { state, rx }.event_loop())
+            .unwrap();
+
         CoreStateHandle::new(tx)
     }
 
