@@ -43,7 +43,9 @@ use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::starlark_value;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
@@ -70,6 +72,21 @@ impl AllocFrozenValue for TypingNever {
         static NEVER: AValueRepr<AValueImpl<Basic, TypingNever>> = alloc_static(Basic, TypingNever);
 
         FrozenValue::new_repr(&NEVER)
+    }
+}
+
+/// Never type, can be used as native function return type.
+pub(crate) enum StarlarkNever {}
+
+impl StarlarkTypeRepr for StarlarkNever {
+    fn starlark_type_repr() -> Ty {
+        Ty::never()
+    }
+}
+
+impl<'v> AllocValue<'v> for StarlarkNever {
+    fn alloc_value(self, _heap: &'v crate::values::Heap) -> crate::values::Value<'v> {
+        match self {}
     }
 }
 
