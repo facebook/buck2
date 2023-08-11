@@ -30,6 +30,7 @@ use buck2_core::package::PackageLabel;
 use buck2_node::nodes::unconfigured::TargetNode;
 use derivative::Derivative;
 use derive_more::Display;
+use futures::FutureExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -49,7 +50,6 @@ use starlark::StarlarkDocs;
 use thiserror::Error;
 
 use super::BxlContext;
-use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::file_expr::FileExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkReadDirSet;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
@@ -89,10 +89,6 @@ impl<'v> BxlFilesystem<'v> {
     fn cell(&self) -> anyhow::Result<&CellInstance> {
         self.ctx.cell_resolver.get(self.ctx.cell_name)
     }
-
-    fn dice(&self) -> &'v BxlSafeDiceComputations {
-        &self.ctx.async_ctx
-    }
 }
 
 #[starlark_value(type = "fs", StarlarkTypeRepr, UnpackValue)]
@@ -129,7 +125,10 @@ impl<'v> BxlFilesystem<'v> {
         &'v self,
         expr: FileExpr<'v>,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
-        let cell_path = expr.get(self.dice(), self.cell()?)?;
+        let cell_path = self
+            .ctx
+            .async_ctx
+            .via_dice(|dice| async { expr.get(dice, self.cell()?).await }.boxed_local())?;
         self.artifact_fs().resolve_cell_path(cell_path.as_ref())
     }
 }
@@ -160,14 +159,17 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(ctx.fs.exists("bin"))
     /// ```
     fn exists<'v>(this: &'v BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
-        let path = expr.get(this.dice(), this.cell()?);
+        this.ctx.async_ctx.via_dice(|dice| {
+            async {
+                let path = expr.get(dice, this.cell()?).await;
 
-        match path {
-            Ok(p) => this
-                .dice()
-                .via_dice(async move |ctx| try_exists(&ctx.file_ops(), p.as_ref()).await),
-            Err(e) => Err(e),
-        }
+                match path {
+                    Ok(p) => try_exists(&dice.file_ops(), p.as_ref()).await,
+                    Err(e) => Err(e),
+                }
+            }
+            .boxed_local()
+        })
     }
 
     /// Returns all the contents of the given input that points to a directory.
@@ -187,19 +189,24 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         expr: FileExpr<'v>,
         #[starlark(require = named, default = false)] dirs_only: bool,
     ) -> anyhow::Result<StarlarkReadDirSet> {
-        let path = expr.get(this.dice(), this.cell()?);
+        this.ctx.async_ctx.via_dice(|dice| {
+            async {
+                let path = expr.get(dice, this.cell()?).await;
 
-        match path {
-            Ok(path) => this.dice().via_dice(async move |ctx| {
-                let read_dir_output = ctx.file_ops().read_dir(path.as_ref()).await?;
-                Ok(StarlarkReadDirSet {
-                    cell_path: path,
-                    included: read_dir_output.included,
-                    dirs_only,
-                })
-            }),
-            Err(e) => Err(e),
-        }
+                match path {
+                    Ok(path) => {
+                        let read_dir_output = dice.file_ops().read_dir(path.as_ref()).await?;
+                        Ok(StarlarkReadDirSet {
+                            cell_path: path,
+                            included: read_dir_output.included,
+                            dirs_only,
+                        })
+                    }
+                    Err(e) => Err(e),
+                }
+            }
+            .boxed_local()
+        })
     }
 
     /// Returns whether the provided path is a dir. Returns false is the dir does not exist.
@@ -268,45 +275,52 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneType)] target_hint: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let file_path_as_cell_path = expr.get(this.dice(), this.cell()?)?;
-        let file_path = this
-            .artifact_fs()
-            .resolve_cell_path(file_path_as_cell_path.as_ref())?;
+        let buck_path = this.ctx.async_ctx.via_dice(|dice| {
+            async {
+                let file_path_as_cell_path = expr.get(dice, this.cell()?).await?;
+                let file_path = this
+                    .artifact_fs()
+                    .resolve_cell_path(file_path_as_cell_path.as_ref())?;
 
-        let package_label = this.dice().via_dice(|dice| async {
-            if target_hint.is_none() {
-                dice.get_package_listing_resolver()
-                    .get_enclosing_package(file_path_as_cell_path.as_ref())
-                    .await
-            } else {
-                let target_expr =
-                    TargetExpr::<'v, TargetNode>::unpack(target_hint, this.ctx, eval).await?;
-                match target_expr {
-                    TargetExpr::Node(node) => Ok(node.label().pkg()),
-                    TargetExpr::Label(label) => Ok(label.as_ref().pkg()),
-                    _ => Err(anyhow::anyhow!(
-                        BxlFilesystemError::MultipleTargetHintsNotSupported(target_hint.to_repr())
-                    )),
-                }
+                let package_label = if target_hint.is_none() {
+                    dice.get_package_listing_resolver()
+                        .get_enclosing_package(file_path_as_cell_path.as_ref())
+                        .await
+                } else {
+                    let target_expr =
+                        TargetExpr::<'v, TargetNode>::unpack(target_hint, this.ctx, eval).await?;
+                    match target_expr {
+                        TargetExpr::Node(node) => Ok(node.label().pkg()),
+                        TargetExpr::Label(label) => Ok(label.as_ref().pkg()),
+                        _ => Err(anyhow::anyhow!(
+                            BxlFilesystemError::MultipleTargetHintsNotSupported(
+                                target_hint.to_repr()
+                            )
+                        )),
+                    }
+                }?;
+
+                let package_path = this
+                    .artifact_fs()
+                    .resolve_cell_path(package_label.as_cell_path())?;
+
+                let forward_relative_path = match file_path.strip_prefix(&package_path) {
+                    Ok(path) => path,
+                    Err(_) => {
+                        return Err(anyhow::anyhow!(BxlFilesystemError::PackageMismatch(
+                            package_label,
+                            file_path_as_cell_path,
+                        )));
+                    }
+                };
+
+                let package_relative_path =
+                    PackageRelativePath::new(forward_relative_path.as_path())?;
+                Ok(BuckPath::new(package_label, package_relative_path.into()))
             }
+            .boxed_local()
         })?;
 
-        let package_path = this
-            .artifact_fs()
-            .resolve_cell_path(package_label.as_cell_path())?;
-
-        let forward_relative_path = match file_path.strip_prefix(&package_path) {
-            Ok(path) => path,
-            Err(_) => {
-                return Err(anyhow::anyhow!(BxlFilesystemError::PackageMismatch(
-                    package_label,
-                    file_path_as_cell_path,
-                )));
-            }
-        };
-
-        let package_relative_path = PackageRelativePath::new(forward_relative_path.as_path())?;
-        let buck_path = BuckPath::new(package_label, package_relative_path.into());
         Ok(eval
             .heap()
             .alloc(StarlarkArtifact::new(SourceArtifact::new(buck_path).into())))

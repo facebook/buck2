@@ -23,6 +23,7 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::maybe_split_cell_alias_and_relative_path;
 use derive_more::Display;
+use dice::DiceComputations;
 use dupe::Dupe;
 use either::Either;
 use starlark::typing::Ty;
@@ -31,7 +32,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 
 /// FileExpr is just a simple type that can be used in starlark_module
@@ -62,9 +62,9 @@ fn parse_cell_path_as_file_expr_literal(
 }
 
 impl<'a> FileExpr<'a> {
-    pub(crate) fn get(
+    pub(crate) async fn get(
         self,
-        dice: &BxlSafeDiceComputations<'_>,
+        dice: &DiceComputations,
         cell_instance: &CellInstance,
     ) -> anyhow::Result<CellPath> {
         match self {
@@ -75,16 +75,14 @@ impl<'a> FileExpr<'a> {
                 )? {
                     Some(cell_path) => Ok(cell_path),
                     None => {
-                        let fs = dice.0.global_data().get_io_provider().project_root().dupe();
+                        let fs = dice.global_data().get_io_provider().project_root().dupe();
                         let path = Path::new(val);
                         let rel = if path.is_absolute() {
                             Cow::Owned(fs.relativize_any(AbsPath::new(path)?)?)
                         } else {
                             Cow::Borrowed(<&ProjectRelativePath>::try_from(val)?)
                         };
-                        dice.via_dice(async move |ctx| {
-                            ctx.get_cell_resolver().await?.get_cell_path(&rel)
-                        })
+                        dice.get_cell_resolver().await?.get_cell_path(&rel)
                     }
                 }
             }
