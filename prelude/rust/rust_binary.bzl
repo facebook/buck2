@@ -213,7 +213,7 @@ def rust_binary_impl(ctx: AnalysisContext) -> list[[DefaultInfo.type, RunInfo.ty
         compile_ctx = compile_ctx,
         default_roots = ["main.rs"],
         extra_flags = [],
-        allow_cache_upload = True,
+        allow_cache_upload = ctx.attrs.allow_cache_upload,
     )
 
     return providers + [RunInfo(args = args)]
