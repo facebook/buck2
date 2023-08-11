@@ -18,7 +18,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::pattern::parse_package::parse_package;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
-use buck2_interpreter::path::StarlarkModulePath;
+use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;

@@ -10,7 +10,7 @@
 use std::cell::RefCell;
 
 use buck2_core::metadata_key::MetadataKey;
-use buck2_interpreter::path::PackageFilePath;
+use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::super_package::SuperPackage;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;

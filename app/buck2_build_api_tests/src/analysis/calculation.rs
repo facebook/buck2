@@ -46,7 +46,7 @@ use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
-use buck2_interpreter::path::OwnedStarlarkModulePath;
+use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;

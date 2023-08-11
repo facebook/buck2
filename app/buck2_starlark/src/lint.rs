@@ -23,7 +23,7 @@ use buck2_common::io::IoProvider;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_interpreter::file_type::StarlarkFileType;
-use buck2_interpreter::path::StarlarkPath;
+use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;

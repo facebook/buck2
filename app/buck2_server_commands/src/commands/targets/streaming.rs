@@ -27,7 +27,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::name::TargetName;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
-use buck2_interpreter::path::PackageFilePath;
+use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;

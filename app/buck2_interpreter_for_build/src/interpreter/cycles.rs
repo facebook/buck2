@@ -11,7 +11,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use buck2_common::dice::cycles::CycleAdapterDescriptor;
-use buck2_interpreter::path::OwnedStarlarkModulePath;
+use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_util::cycle_detector::CycleDescriptor;
 use derive_more::Display;
 use gazebo::prelude::VecExt;

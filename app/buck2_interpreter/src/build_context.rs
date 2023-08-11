@@ -10,7 +10,7 @@
 use buck2_util::late_binding::LateBinding;
 use starlark::eval::Evaluator;
 
-use crate::path::StarlarkPath;
+use crate::paths::path::StarlarkPath;
 
 pub static STARLARK_PATH_FROM_BUILD_CONTEXT: LateBinding<
     for<'a> fn(&Evaluator<'_, 'a>) -> anyhow::Result<StarlarkPath<'a>>,

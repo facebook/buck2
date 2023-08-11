@@ -17,7 +17,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
-use buck2_interpreter::path::StarlarkPath;
+use buck2_interpreter::paths::path::StarlarkPath;
 use derive_more::Display;
 use dupe::Dupe;
 use serde::Serialize;

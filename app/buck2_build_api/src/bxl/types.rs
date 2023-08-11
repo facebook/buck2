@@ -11,7 +11,7 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
-use buck2_interpreter::path::BxlFilePath;
+use buck2_interpreter::paths::bxl::BxlFilePath;
 use derive_more::Display;
 use serde::Serialize;
 use serde::Serializer;

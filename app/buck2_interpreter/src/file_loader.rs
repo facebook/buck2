@@ -22,8 +22,8 @@ use starlark::eval::FileLoader;
 use starlark::values::structs::FrozenStructRef;
 use starlark::values::FrozenValue;
 
-use crate::path::OwnedStarlarkModulePath;
-use crate::path::StarlarkModulePath;
+use crate::paths::module::OwnedStarlarkModulePath;
+use crate::paths::module::StarlarkModulePath;
 
 #[derive(Debug, thiserror::Error)]
 enum FileLoaderError {

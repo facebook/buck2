@@ -36,10 +36,10 @@ use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
 use buck2_interpreter::import_paths::HasImportPaths;
-use buck2_interpreter::path::OwnedStarlarkModulePath;
-use buck2_interpreter::path::PackageFilePath;
-use buck2_interpreter::path::StarlarkModulePath;
-use buck2_interpreter::path::StarlarkPath;
+use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
+use buck2_interpreter::paths::module::StarlarkModulePath;
+use buck2_interpreter::paths::package::PackageFilePath;
+use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::super_package::SuperPackage;
@@ -516,7 +516,7 @@ impl<'c> DiceCalculationDelegate<'c> {
 
 mod keys {
     use allocative::Allocative;
-    use buck2_interpreter::path::OwnedStarlarkModulePath;
+    use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
     use derive_more::Display;
 
     #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]

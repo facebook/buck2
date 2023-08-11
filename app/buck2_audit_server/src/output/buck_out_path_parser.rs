@@ -22,7 +22,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::target::name::EQ_SIGN_SUBST;
-use buck2_interpreter::path::BxlFilePath;
+use buck2_interpreter::paths::bxl::BxlFilePath;
 use dupe::Dupe;
 use itertools::Itertools;
 
@@ -397,7 +397,7 @@ mod tests {
     use buck2_core::package::PackageLabel;
     use buck2_core::target::label::TargetLabel;
     use buck2_core::target::name::TargetNameRef;
-    use buck2_interpreter::path::BxlFilePath;
+    use buck2_interpreter::paths::bxl::BxlFilePath;
 
     use crate::output::buck_out_path_parser::BuckOutPathParser;
     use crate::output::buck_out_path_parser::BuckOutPathType;

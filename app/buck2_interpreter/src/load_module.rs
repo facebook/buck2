@@ -20,8 +20,8 @@ use starlark::environment::Globals;
 use crate::file_loader::LoadedModule;
 use crate::file_loader::ModuleDeps;
 use crate::file_type::StarlarkFileType;
-use crate::path::PackageFilePath;
-use crate::path::StarlarkModulePath;
+use crate::paths::module::StarlarkModulePath;
+use crate::paths::package::PackageFilePath;
 use crate::prelude_path::PreludePath;
 
 #[async_trait]
