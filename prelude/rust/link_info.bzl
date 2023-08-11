@@ -75,11 +75,15 @@ RustLinkStyleInfo = record(
     external_debug_info = field(ArtifactTSet.type),
 )
 
-def style_info(info: RustLinkInfo.type, dep_link_style: LinkStyle.type) -> RustLinkStyleInfo.type:
+def _adjust_link_style_for_rust_dependencies(dep_link_style: LinkStyle.type) -> LinkStyle.type:
     if FORCE_RLIB and dep_link_style == LinkStyle("shared"):
-        dep_link_style = DEFAULT_STATIC_LINK_STYLE
+        return DEFAULT_STATIC_LINK_STYLE
+    else:
+        return dep_link_style
 
-    return info.styles[dep_link_style]
+def style_info(info: RustLinkInfo.type, dep_link_style: LinkStyle.type) -> RustLinkStyleInfo.type:
+    rust_dep_link_style = _adjust_link_style_for_rust_dependencies(dep_link_style)
+    return info.styles[rust_dep_link_style]
 
 # A Rust dependency
 RustDependency = record(
@@ -210,18 +214,21 @@ def inherited_external_debug_info(
         ctx: AnalysisContext,
         dwo_output_directory: [Artifact, None],
         dep_link_style: LinkStyle.type) -> ArtifactTSet:
+    rust_dep_link_style = _adjust_link_style_for_rust_dependencies(dep_link_style)
+    non_rust_dep_link_style = dep_link_style
+
     inherited_debug_infos = []
     inherited_non_rust_link_infos = []
 
     for d in resolve_deps(ctx):
         if RustLinkInfo in d.dep:
-            inherited_debug_infos.append(d.dep[RustLinkInfo].styles[dep_link_style].external_debug_info)
+            inherited_debug_infos.append(d.dep[RustLinkInfo].styles[rust_dep_link_style].external_debug_info)
             inherited_non_rust_link_infos.append(d.dep[RustLinkInfo].non_rust_link_info)
         elif MergedLinkInfo in d.dep:
             inherited_non_rust_link_infos.append(d.dep[MergedLinkInfo])
 
     non_rust_merged_link_info = merge_link_infos(ctx, inherited_non_rust_link_infos)
-    link_args = get_link_args(non_rust_merged_link_info, dep_link_style)
+    link_args = get_link_args(non_rust_merged_link_info, non_rust_dep_link_style)
     inherited_debug_infos.append(unpack_external_debug_info(ctx.actions, link_args))
 
     return make_artifact_tset(
