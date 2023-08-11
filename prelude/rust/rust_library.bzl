@@ -113,7 +113,8 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     crate = attr_crate(ctx)
     styles = {}
     for style in LinkStyle:
-        tdeps, tmetadeps, external_debug_info = _compute_transitive_deps(ctx, style)
+        dep_link_style = style
+        tdeps, tmetadeps, external_debug_info = _compute_transitive_deps(ctx, dep_link_style)
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             children = external_debug_info,
@@ -393,12 +394,12 @@ def _handle_rust_artifact(
     is computing the right set of dependencies.
     """
 
-    link_style = params.dep_link_style
+    dep_link_style = params.dep_link_style
 
     # If we're a crate where our consumers should care about transitive deps,
     # then compute them (specifically, not proc-macro).
     if crate_type_transitive_deps(params.crate_type):
-        tdeps, tmetadeps, external_debug_info = _compute_transitive_deps(ctx, link_style)
+        tdeps, tmetadeps, external_debug_info = _compute_transitive_deps(ctx, dep_link_style)
     else:
         tdeps, tmetadeps, external_debug_info = {}, {}, []
 
@@ -681,7 +682,7 @@ def _native_providers(
 # Compute transitive deps. Caller decides whether this is necessary.
 def _compute_transitive_deps(
         ctx: AnalysisContext,
-        link_style: LinkStyle.type) -> (dict[Artifact, CrateName.type], dict[Artifact, CrateName.type], list[ArtifactTSet]):
+        dep_link_style: LinkStyle.type) -> (dict[Artifact, CrateName.type], dict[Artifact, CrateName.type], list[ArtifactTSet]):
     transitive_deps = {}
     transitive_rmeta_deps = {}
     external_debug_info = []
@@ -691,7 +692,7 @@ def _compute_transitive_deps(
         if info == None:
             continue
 
-        style = style_info(info, link_style)
+        style = style_info(info, dep_link_style)
         transitive_deps[style.rlib] = info.crate
         transitive_deps.update(style.transitive_deps)
 

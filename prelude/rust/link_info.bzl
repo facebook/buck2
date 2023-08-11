@@ -75,11 +75,11 @@ RustLinkStyleInfo = record(
     external_debug_info = field(ArtifactTSet.type),
 )
 
-def style_info(info: RustLinkInfo.type, link_style: LinkStyle.type) -> RustLinkStyleInfo.type:
-    if FORCE_RLIB and link_style == LinkStyle("shared"):
-        link_style = DEFAULT_STATIC_LINK_STYLE
+def style_info(info: RustLinkInfo.type, dep_link_style: LinkStyle.type) -> RustLinkStyleInfo.type:
+    if FORCE_RLIB and dep_link_style == LinkStyle("shared"):
+        dep_link_style = DEFAULT_STATIC_LINK_STYLE
 
-    return info.styles[link_style]
+    return info.styles[dep_link_style]
 
 # A Rust dependency
 RustDependency = record(
