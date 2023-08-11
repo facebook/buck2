@@ -19,7 +19,7 @@ use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 
 pub(crate) fn analysis<'v>(
-    ctx: &'v BxlContext<'v>,
+    ctx: &BxlContext<'v>,
     expr: ProvidersExpr<ConfiguredProvidersLabel>,
     skip_incompatible: bool,
 ) -> anyhow::Result<

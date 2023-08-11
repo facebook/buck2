@@ -952,7 +952,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// or a dict keyed by sub target labels of [`StarlarkAnalysisResult`] if the given `labels`
     /// is list-like
     fn analysis<'v>(
-        this: &'v BxlContext<'v>,
+        this: &BxlContext<'v>,
         labels: Value<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
         #[starlark(require = named, default = true)] skip_incompatible: bool,
