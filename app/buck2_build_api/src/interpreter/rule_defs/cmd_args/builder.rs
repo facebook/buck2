@@ -105,7 +105,11 @@ pub struct AbsCommandLineContext<'v>(DefaultCommandLineContext<'v>);
 
 impl<'v> AbsCommandLineContext<'v> {
     pub fn new(executor_fs: &'v ExecutorFs) -> Self {
-        Self(DefaultCommandLineContext::<'v>::new(executor_fs))
+        Self::wrap(DefaultCommandLineContext::<'v>::new(executor_fs))
+    }
+
+    pub fn wrap(default: DefaultCommandLineContext<'v>) -> Self {
+        Self(default)
     }
 }
 

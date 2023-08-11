@@ -26,6 +26,7 @@ use buck2_build_api::actions::IncrementalActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_core::category::Category;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -51,19 +52,11 @@ enum WriteActionValidationError {
     ContentsNotCommandLineValue(String),
 }
 
-#[derive(Allocative)]
+#[derive(Allocative, Debug)]
 pub(crate) struct UnregisteredWriteAction {
-    is_executable: bool,
-    macro_files: Option<IndexSet<Artifact>>,
-}
-
-impl UnregisteredWriteAction {
-    pub(crate) fn new(is_executable: bool, macro_files: Option<IndexSet<Artifact>>) -> Self {
-        Self {
-            is_executable,
-            macro_files,
-        }
-    }
+    pub(crate) is_executable: bool,
+    pub(crate) absolute: bool,
+    pub(crate) macro_files: Option<IndexSet<Artifact>>,
 }
 
 impl UnregisteredAction for UnregisteredWriteAction {
@@ -75,13 +68,7 @@ impl UnregisteredAction for UnregisteredWriteAction {
     ) -> anyhow::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
 
-        let write_action = WriteAction::new(
-            contents,
-            self.is_executable,
-            inputs,
-            self.macro_files,
-            outputs,
-        )?;
+        let write_action = WriteAction::new(contents, inputs, outputs, *self)?;
         Ok(Box::new(write_action))
     }
 }
@@ -89,18 +76,16 @@ impl UnregisteredAction for UnregisteredWriteAction {
 #[derive(Debug, Allocative)]
 struct WriteAction {
     contents: OwnedFrozenValue, // StarlarkCmdArgs
-    is_executable: bool,
-    macro_files: Option<IndexSet<Artifact>>,
     output: BuildArtifact,
+    inner: UnregisteredWriteAction,
 }
 
 impl WriteAction {
     fn new(
         contents: OwnedFrozenValue,
-        is_executable: bool,
         inputs: IndexSet<ArtifactGroup>,
-        macro_files: Option<IndexSet<Artifact>>,
         outputs: IndexSet<BuildArtifact>,
+        inner: UnregisteredWriteAction,
     ) -> anyhow::Result<Self> {
         let mut outputs = outputs.into_iter();
 
@@ -123,26 +108,34 @@ impl WriteAction {
 
         Ok(WriteAction {
             contents,
-            is_executable,
-            macro_files,
             output,
+            inner,
         })
     }
 
     fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<String> {
         let mut cli = Vec::<String>::new();
 
-        let mut ctx = if let Some(macro_files) = &self.macro_files {
+        let mut ctx = if let Some(macro_files) = &self.inner.macro_files {
             DefaultCommandLineContext::new_with_write_to_file_macros_support(fs, macro_files)
         } else {
             DefaultCommandLineContext::new(fs)
+        };
+
+        let mut abs;
+
+        let ctx = if self.inner.absolute {
+            abs = AbsCommandLineContext::wrap(ctx);
+            &mut abs as _
+        } else {
+            &mut ctx as _
         };
 
         self.contents
             .value()
             .as_command_line()
             .unwrap()
-            .add_to_command_line(&mut cli, &mut ctx)?;
+            .add_to_command_line(&mut cli, ctx)?;
 
         Ok(cli.join("\n"))
     }
@@ -182,7 +175,8 @@ impl Action for WriteAction {
             "contents".to_owned() => match self.get_contents(fs) {
                 Ok(v) => v,
                 Err(e) => format!("ERROR: constructing contents ({})", e)
-            }
+            },
+            "absolute".to_owned() => self.inner.absolute.to_string(),
         }
     }
 }
@@ -205,7 +199,7 @@ impl IncrementalActionExecutable for WriteAction {
                 Ok(vec![WriteRequest {
                     path: fs.resolve_build(self.output.get_path()),
                     content,
-                    is_executable: self.is_executable,
+                    is_executable: self.inner.is_executable,
                 }])
             }))
             .await?

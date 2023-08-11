@@ -295,6 +295,10 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// * `is_executable` (optional): indicates whether the resulting file should be marked with executable permissions
     /// * `allow_args` (optional): must be set to `True` if you want to write parameter arguments to the file (in particular, macros that write to file)
     ///     * If it is true, the result will be a pair of the `artifact` containing content and a list of artifact values that were written by macros, which should be used in hidden fields or similar
+    /// * `absolute` (optional): if set, this action will produce absolute paths in its output when
+    ///   rendering artifact paths. You generally shouldn't use this if you plan to use this action
+    ///   as the input for anything else, as this would effectively result in losing all shared
+    ///   caching.
     fn write<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
@@ -303,6 +307,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] allow_args: bool,
         // If set, add artifacts in content as associated artifacts of the output. This will only work for bound artifacts.
         #[starlark(require = named, default = false)] with_inputs: bool,
+        #[starlark(require = named, default = false)] absolute: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<
         Either<
@@ -438,7 +443,11 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             } else {
                 None
             };
-            UnregisteredWriteAction::new(is_executable, maybe_macro_files)
+            UnregisteredWriteAction {
+                is_executable,
+                macro_files: maybe_macro_files,
+                absolute,
+            }
         };
         this.register_action(
             indexset![],
