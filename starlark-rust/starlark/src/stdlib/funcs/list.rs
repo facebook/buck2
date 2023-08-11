@@ -92,7 +92,7 @@ pub(crate) fn register_list(globals: &mut GlobalsBuilder) {
     /// # "#);
     /// # starlark::assert::fail(r#"
     /// list("strings are not iterable") # error: not supported
-    /// # "#, r#"Operation `(iter)` not supported on type `string`"#);
+    /// # "#, r#"Expected type `typing.Iterable`"#);
     /// ```
     #[starlark(
     as_type = FrozenList,

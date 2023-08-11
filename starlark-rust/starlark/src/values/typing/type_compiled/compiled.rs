@@ -42,6 +42,7 @@ use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
 use crate::typing::basic::TyBasic;
 use crate::typing::custom::TyCustom;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
@@ -849,8 +850,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
         impl TypeCompiledImpl for IterableMatcher {
             fn matches(&self, value: Value) -> bool {
-                value.vtable().starlark_value.HAS_iterate
-                    || value.vtable().starlark_value.HAS_iterate_collect
+                TyStarlarkValue::is_iterable(&value.vtable().starlark_value)
             }
         }
 

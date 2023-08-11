@@ -200,6 +200,19 @@ impl TyStarlarkValue {
         Err(())
     }
 
+    #[inline]
+    pub(crate) fn is_iterable(vtable: &StarlarkValueVTable) -> bool {
+        vtable.HAS_iterate || vtable.HAS_iterate_collect
+    }
+
+    pub(crate) fn iter_item(self) -> Result<Ty, ()> {
+        if Self::is_iterable(&self.vtable.vtable) {
+            Ok(Ty::any())
+        } else {
+            Err(())
+        }
+    }
+
     /// Convert to runtime type matcher.
     pub(crate) fn type_compiled<'v>(self, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
         self.self_check();

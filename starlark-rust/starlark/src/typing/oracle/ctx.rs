@@ -375,16 +375,35 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
+    fn iter_item_basic(&self, ty: &TyBasic) -> Result<Ty, ()> {
+        match ty {
+            TyBasic::StarlarkValue(ty) => ty.iter_item(),
+            ty => ty.attribute(TypingAttr::Iter, *self),
+        }
+    }
+
     /// Item type of an iterable.
     pub(crate) fn iter_item(&self, iter: Spanned<&Ty>) -> Result<Ty, TypingError> {
-        match self.attribute_ty(iter.node, TypingAttr::Iter) {
-            Ok(x) => Ok(x),
-            Err(()) => Err(self.mk_error(
+        if iter.is_any() || iter.is_never() {
+            return Ok(iter.node.clone());
+        }
+
+        let mut good = Vec::new();
+        for ty in iter.iter_union() {
+            if let Ok(x) = self.iter_item_basic(ty) {
+                good.push(x);
+            }
+        }
+
+        if good.is_empty() {
+            Err(self.mk_error(
                 iter.span,
                 TypingOracleCtxError::NotIterable {
                     ty: iter.node.clone(),
                 },
-            )),
+            ))
+        } else {
+            Ok(Ty::unions(good))
         }
     }
 
@@ -707,11 +726,6 @@ impl<'a> TypingOracleCtx<'a> {
     /// We consider two type intersecting if either side knows if they intersect.
     /// This function checks the left side.
     fn intersects_one_side(&self, x: &TyBasic, y: &TyBasic) -> bool {
-        let itered = |ty: &TyBasic| match self.attribute(ty, TypingAttr::Iter) {
-            None => Some(Ty::any()),
-            Some(result) => result.ok(),
-        };
-
         match (x, y) {
             (TyBasic::Any, _) => true,
             (TyBasic::Name(x), TyBasic::Name(y)) => self.intersects_name(x, y),
@@ -724,9 +738,9 @@ impl<'a> TypingOracleCtx<'a> {
             }
             (TyBasic::Tuple(_), t) => t.is_tuple(),
             (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(&x, y),
-            (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match itered(y) {
-                Some(yy) => self.intersects(x, &yy),
-                None => false,
+            (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match self.iter_item_basic(y) {
+                Ok(yy) => self.intersects(x, &yy),
+                Err(()) => false,
             },
             (TyBasic::Custom(x), y) => x.intersects_with(y),
             (x, y) if x.is_function() && y.is_function() => true,

@@ -107,8 +107,7 @@ def foo(x: typing.Iterable):
     pass
 
 def bar():
-    # TODO(nga): this does not fail if there's an integer here.
-    foo(len)
+    foo(1)
 "#,
             "Expected type `typing.Iterable`",
         );
