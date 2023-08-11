@@ -272,7 +272,10 @@ impl Gen {
                     }
                 }
                 TraitItem::Type(ty) => self.process_starlark_value_vtable_type(ty),
-                _ => {}
+                TraitItem::Const(_) => {}
+                item => {
+                    return Err(syn::Error::new_spanned(item, "unexpected item"));
+                }
             }
         }
 
