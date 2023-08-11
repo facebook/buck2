@@ -135,7 +135,7 @@ def generate_rustdoc(
         # rather than full .rlibs
         emit = Emit("metadata"),
         params = params,
-        link_style = params.dep_link_style,
+        dep_link_style = params.dep_link_style,
         default_roots = default_roots,
         is_rustdoc_test = False,
     )
@@ -237,7 +237,7 @@ def generate_rustdoc_test(
         compile_ctx = compile_ctx,
         emit = Emit("link"),
         params = params,
-        link_style = params.dep_link_style,
+        dep_link_style = params.dep_link_style,
         default_roots = default_roots,
         is_rustdoc_test = True,
         extra_transitive_deps = library.transitive_deps,
@@ -302,7 +302,7 @@ def rust_compile_multi(
         compile_ctx: CompileContext.type,
         emits: list[Emit.type],
         params: BuildParams.type,
-        link_style: LinkStyle.type,
+        dep_link_style: LinkStyle.type,
         default_roots: list[str],
         extra_link_args: list[typing.Any] = [],
         predeclared_outputs: dict[Emit.type, Artifact] = {},
@@ -317,7 +317,7 @@ def rust_compile_multi(
             compile_ctx = compile_ctx,
             emit = emit,
             params = params,
-            link_style = link_style,
+            dep_link_style = dep_link_style,
             default_roots = default_roots,
             extra_link_args = extra_link_args,
             predeclared_outputs = predeclared_outputs,
@@ -337,7 +337,7 @@ def rust_compile(
         compile_ctx: CompileContext.type,
         emit: Emit.type,
         params: BuildParams.type,
-        link_style: LinkStyle.type,
+        dep_link_style: LinkStyle.type,
         default_roots: list[str],
         extra_link_args: list[typing.Any] = [],
         predeclared_outputs: dict[Emit.type, Artifact] = {},
@@ -355,7 +355,7 @@ def rust_compile(
         compile_ctx = compile_ctx,
         emit = emit,
         params = params,
-        link_style = link_style,
+        dep_link_style = dep_link_style,
         default_roots = default_roots,
         is_rustdoc_test = False,
     )
@@ -410,7 +410,7 @@ def rust_compile(
                 LinkArgs(flags = extra_link_args),
                 get_link_args(
                     inherited_non_rust_link_info(ctx),
-                    link_style,
+                    dep_link_style,
                 ),
             ],
             "{}-{}".format(subdir, tempfile),
@@ -532,7 +532,7 @@ def _dependency_args(
         compile_ctx: CompileContext.type,
         subdir: str,
         crate_type: CrateType.type,
-        link_style: LinkStyle.type,
+        dep_link_style: LinkStyle.type,
         is_check: bool,
         is_rustdoc_test: bool,
         extra_transitive_deps: dict[Artifact, CrateName.type]) -> (cmd_args, list[(CrateName.type, Label)]):
@@ -557,7 +557,7 @@ def _dependency_args(
         else:
             crate = info.crate
 
-        style = style_info(info, link_style)
+        style = style_info(info, dep_link_style)
 
         # Use rmeta dependencies whenever possible because they
         # should be cheaper to produce.
@@ -672,18 +672,18 @@ def _compute_common_args(
         compile_ctx: CompileContext.type,
         emit: Emit.type,
         params: BuildParams.type,
-        link_style: LinkStyle.type,
+        dep_link_style: LinkStyle.type,
         default_roots: list[str],
         is_rustdoc_test: bool,
         extra_transitive_deps: dict[Artifact, CrateName.type] = {}) -> CommonArgsInfo.type:
     crate_type = params.crate_type
 
-    args_key = (crate_type, emit, link_style, is_rustdoc_test)
+    args_key = (crate_type, emit, dep_link_style, is_rustdoc_test)
     if args_key in compile_ctx.common_args:
         return compile_ctx.common_args[args_key]
 
     # Keep filenames distinct in per-flavour subdirs
-    subdir = "{}-{}-{}-{}".format(crate_type.value, params.reloc_model.value, link_style.value, emit.value)
+    subdir = "{}-{}-{}-{}".format(crate_type.value, params.reloc_model.value, dep_link_style.value, emit.value)
     if is_rustdoc_test:
         subdir = "{}-rustdoc-test".format(subdir)
 
@@ -702,7 +702,7 @@ def _compute_common_args(
         compile_ctx = compile_ctx,
         subdir = subdir,
         crate_type = crate_type,
-        link_style = link_style,
+        dep_link_style = dep_link_style,
         is_check = is_check,
         is_rustdoc_test = is_rustdoc_test,
         extra_transitive_deps = extra_transitive_deps,

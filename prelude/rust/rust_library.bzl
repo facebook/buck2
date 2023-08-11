@@ -268,7 +268,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
         params = static_library_params,
-        link_style = DEFAULT_STATIC_LINK_STYLE,
+        dep_link_style = DEFAULT_STATIC_LINK_STYLE,
         default_roots = default_roots,
     )
 
@@ -365,7 +365,7 @@ def _build_library_artifacts(
     param_artifact = {}
 
     for params in params:
-        link_style = params.dep_link_style
+        dep_link_style = params.dep_link_style
 
         # Separate actions for each emit type
         #
@@ -375,7 +375,7 @@ def _build_library_artifacts(
             compile_ctx = compile_ctx,
             emits = [Emit("link"), Emit("metadata")],
             params = params,
-            link_style = link_style,
+            dep_link_style = dep_link_style,
             default_roots = ["lib.rs"],
         )
 
