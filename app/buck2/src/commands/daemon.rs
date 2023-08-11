@@ -423,23 +423,18 @@ impl DaemonCommand {
 
             tracing::info!("Initialization complete, running the server.");
 
-            // clippy doesn't get along well with the select!
-            #[allow(clippy::mut_mut)]
-            {
-                select! {
-                    _ = buckd_server => {
-                        tracing::info!("server shutdown");
-                    }
-                    reason = shutdown_future => {
-                        let reason = reason.as_deref().unwrap_or("no reason available");
-                        tracing::info!("server forced shutdown: {}", reason);
-                    },
-                };
+            select! {
+                res = buckd_server => {
+                    tracing::info!("server shutdown");
+                    res
+                }
+                reason = shutdown_future => {
+                    let reason = reason.as_deref().unwrap_or("no reason available");
+                    tracing::info!("server forced shutdown: {}", reason);
+                    anyhow::Ok(())
+                },
             }
-
-            anyhow::Ok(())
-        })?;
-        Ok(())
+        })
     }
 
     /// We start a dedicated thread to periodically check that the files in the daemon
