@@ -223,27 +223,25 @@ impl<'a> BindingsCollect<'a> {
                 ParameterP::Args(name, ty) => {
                     // There is the type we require people calling us use (usually any)
                     // and then separately the type we are when we are running (always tuple)
-                    params2.push(Param::args(Ty::from_type_expr_opt(
-                        ty,
-                        typecheck_mode,
-                        &mut self.approximations,
-                        codemap,
-                    )?));
-                    Some((name, Ty::any_tuple()))
-                }
-                ParameterP::KwArgs(name, ty) => {
-                    let ty = Ty::from_type_expr_opt(
+                    let item_ty = Ty::from_type_expr_opt(
                         ty,
                         typecheck_mode,
                         &mut self.approximations,
                         codemap,
                     )?;
-                    let ty = if ty.is_any() {
-                        Ty::dict(Ty::string(), Ty::any())
-                    } else {
-                        ty
-                    };
-                    params2.push(Param::kwargs(ty.clone()));
+                    // TODO(nga): currently there's no way to express the type `tuple[str, ...]`.
+                    params2.push(Param::args(item_ty));
+                    Some((name, Ty::any_tuple()))
+                }
+                ParameterP::KwArgs(name, ty) => {
+                    let value_ty = Ty::from_type_expr_opt(
+                        ty,
+                        typecheck_mode,
+                        &mut self.approximations,
+                        codemap,
+                    )?;
+                    let ty = Ty::dict(Ty::string(), value_ty.clone());
+                    params2.push(Param::kwargs(value_ty));
                     Some((name, ty))
                 }
             };

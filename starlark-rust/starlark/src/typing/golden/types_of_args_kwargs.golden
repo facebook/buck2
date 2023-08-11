@@ -5,7 +5,7 @@
 # ```
 
 Code:
-def foo(*args: tuple, **kwargs: dict[str, int]):
+def foo(*args: str, **kwargs: int):
     pass
 
 No errors.

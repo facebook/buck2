@@ -113,6 +113,8 @@ impl Param {
     }
 
     /// Create a [`ParamMode::Args`] parameter.
+    ///
+    /// `ty` is a tuple item type.
     pub fn args(ty: Ty) -> Self {
         Self {
             mode: ParamMode::Args,
@@ -122,6 +124,8 @@ impl Param {
     }
 
     /// Create a [`ParamMode::Kwargs`] parameter.
+    ///
+    /// `ty` is a dict value type.
     pub fn kwargs(ty: Ty) -> Self {
         Self {
             mode: ParamMode::Kwargs,
