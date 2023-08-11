@@ -64,13 +64,22 @@ impl PluginKind {
 ///
 /// It stores a list of plugin kinds and a bool for each indicating whether that kind is pushed in
 /// addition to pulled.
+#[derive(Copy, Clone, Dupe)]
+pub struct PluginKindSet(*const ());
+
+// We use this type in a number of memory sensitive places
+static_assertions::assert_eq_size!(PluginKindSet, usize);
+
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
-pub struct PluginKindSet(Option<Intern<Box<[(PluginKind, bool)]>>>);
+enum PluginKindSetUnpacked {
+    None,
+    Interned(Intern<Box<[(PluginKind, bool)]>>),
+}
 
 static PLUGIN_KIND_SET_INTERNER: StaticInterner<Box<[(PluginKind, bool)]>> = StaticInterner::new();
 
 impl PluginKindSet {
-    pub const EMPTY: Self = Self(None);
+    pub const EMPTY: Self = Self::pack(PluginKindSetUnpacked::None);
 
     pub fn new(pulls: Vec<PluginKind>, pulls_and_pushes: Vec<PluginKind>) -> anyhow::Result<Self> {
         if pulls.is_empty() && pulls_and_pushes.is_empty() {
@@ -86,7 +95,9 @@ impl PluginKindSet {
         }
         let kinds = kinds.into_iter().collect::<Vec<_>>();
 
-        Ok(Self(Some(PLUGIN_KIND_SET_INTERNER.intern(&kinds[..]))))
+        Ok(Self::pack(PluginKindSetUnpacked::Interned(
+            PLUGIN_KIND_SET_INTERNER.intern(&kinds[..]),
+        )))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -94,12 +105,74 @@ impl PluginKindSet {
     }
 
     pub fn get(&self, kind: &PluginKind) -> Option<bool> {
-        self.0
-            .as_ref()?
-            .iter()
-            .find_map(|(k, v)| if k == kind { Some(*v) } else { None })
+        match self.unpack() {
+            PluginKindSetUnpacked::None => None,
+            PluginKindSetUnpacked::Interned(i) => i
+                .iter()
+                .find_map(|(k, v)| if k == kind { Some(*v) } else { None }),
+        }
+    }
+
+    fn unpack(self) -> PluginKindSetUnpacked {
+        if self.0 as usize == 0 {
+            PluginKindSetUnpacked::None
+        } else {
+            // SAFETY: Instances of this type are only creaeted by `pack`
+            PluginKindSetUnpacked::Interned(unsafe { Intern::from_ptr(self.0 as *const _) })
+        }
+    }
+
+    const fn pack(unpacked: PluginKindSetUnpacked) -> Self {
+        match unpacked {
+            PluginKindSetUnpacked::None => PluginKindSet(0 as *const ()),
+            PluginKindSetUnpacked::Interned(i) => {
+                PluginKindSet(i.deref_static() as *const _ as *const ())
+            }
+        }
     }
 }
+
+impl std::fmt::Debug for PluginKindSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self.unpack(), f)
+    }
+}
+
+impl PartialEq<PluginKindSet> for PluginKindSet {
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(&self.unpack(), &other.unpack())
+    }
+}
+
+impl Eq for PluginKindSet {}
+
+impl std::hash::Hash for PluginKindSet {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(&self.unpack(), state)
+    }
+}
+
+impl PartialOrd for PluginKindSet {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        PartialOrd::partial_cmp(&self.unpack(), &other.unpack())
+    }
+}
+
+impl Ord for PluginKindSet {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        Ord::cmp(&self.unpack(), &other.unpack())
+    }
+}
+
+impl Allocative for PluginKindSet {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
+        Allocative::visit(&self.unpack(), visitor)
+    }
+}
+
+// SAFETY: `PluginKindSet` is a trivial wrapper only changing the representation
+unsafe impl Sync for PluginKindSet where PluginKindSetUnpacked: Sync {}
+unsafe impl Send for PluginKindSet where PluginKindSetUnpacked: Send {}
 
 /// Elements in the plugin list come in three kinds: Either they appear as direct `plugin_dep`s on
 /// the rule, or they arrive indirectly and may or may not need to be propagated.
