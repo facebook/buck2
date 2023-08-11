@@ -125,7 +125,11 @@ impl CoreState {
 
     pub(super) fn unstable_drop_everything(&mut self) {
         self.version_tracker.write().commit();
-        self.graph.last_n.clear();
+
+        // Do the actual drop on a different thread because we may have to drop a lot of stuff
+        // here.
+        let map = std::mem::take(&mut self.graph.last_n);
+        std::thread::spawn(move || drop(map));
     }
 
     pub(super) fn metrics(&self) -> Metrics {
