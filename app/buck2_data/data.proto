@@ -44,6 +44,7 @@ message BuckEvent {
 
 // An event that begins a span.
 message SpanStartEvent {
+  reserved 83;
   // TODO(swgillespie) add fields common to span events
   // bool suspending = 1;
   oneof data {
@@ -81,7 +82,6 @@ message SpanStartEvent {
     ReleaseLocalResourcesStart release_local_resources = 81;
     // Measure total time it takes to ensure BXL artifacts.
     BxlEnsureArtifactsStart bxl_ensure_artifacts = 82;
-    QueryEvaluationStart query_evaluation = 83;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -89,6 +89,7 @@ message SpanStartEvent {
 
 // An event that ends a span.
 message SpanEndEvent {
+  reserved 84;
   SpanStats stats = 1;
   // The total duration of this span, as observed by the client.
   google.protobuf.Duration duration = 2;
@@ -128,7 +129,6 @@ message SpanEndEvent {
     SetupLocalResourcesEnd local_resources = 81;
     ReleaseLocalResourcesEnd release_local_resources = 82;
     BxlEnsureArtifactsEnd bxl_ensure_artifacts = 83;
-    QueryEvaluationEnd query_evaluation = 84;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1801,10 +1801,6 @@ message BxlDiceInvocationEnd {}
 message BxlEnsureArtifactsStart {}
 
 message BxlEnsureArtifactsEnd {}
-
-message QueryEvaluationStart {}
-
-message QueryEvaluationEnd {}
 
 message DiceBlockConcurrentCommandStart {
   string current_active_trace_id = 1;

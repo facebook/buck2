@@ -460,7 +460,6 @@ impl SpanTrackable for BuckEvent {
                 }
             }
             Some(Data::BxlDiceInvocation(..)) => true,
-            Some(Data::QueryEvaluation(..)) => true,
             _ => false,
         }
     }
@@ -540,8 +539,7 @@ pub fn is_span_shown(event: &BuckEvent) -> bool {
             | Data::ReUpload(..)
             | Data::ConnectToInstaller(..)
             | Data::LocalResources(..)
-            | Data::ReleaseLocalResources(..)
-            | Data::QueryEvaluation(..),
+            | Data::ReleaseLocalResources(..),
         ) => true,
         None => false,
     }

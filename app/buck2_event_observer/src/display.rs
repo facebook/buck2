@@ -315,7 +315,6 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
             Data::LocalResources(..) => Ok("Local resources setup".to_owned()),
             Data::ReleaseLocalResources(..) => Ok("Releasing local resources".to_owned()),
-            Data::QueryEvaluation(..) => Ok("Evaluating query".to_owned()),
             Data::BxlEnsureArtifacts(..) => Err(ParseEventError::UnexpectedEvent.into()),
         };
 
