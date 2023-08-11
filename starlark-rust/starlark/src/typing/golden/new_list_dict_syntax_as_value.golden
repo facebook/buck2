@@ -10,6 +10,6 @@ y = dict[int, bool]
 
 No errors.
 
-Interfaces:
+Types:
 x: typing.Any
 y: typing.Any

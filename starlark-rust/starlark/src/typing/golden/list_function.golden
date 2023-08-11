@@ -9,5 +9,5 @@ x = list([1, 2])
 
 No errors.
 
-Interfaces:
+Types:
 x: list[int]

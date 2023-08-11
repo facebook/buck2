@@ -9,5 +9,5 @@ x = zip([1,2], [True, False], ["a", "b"])
 
 No errors.
 
-Interfaces:
+Types:
 x: list[(int, bool, str)]

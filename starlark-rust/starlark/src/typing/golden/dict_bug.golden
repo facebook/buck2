@@ -11,5 +11,5 @@ y = x[44]
 
 No errors.
 
-Interfaces:
+Types:
 y: typing.Never

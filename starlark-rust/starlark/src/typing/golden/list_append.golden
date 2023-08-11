@@ -12,5 +12,5 @@ x.append("")
 
 No errors.
 
-Interfaces:
+Types:
 x: list[int | str]

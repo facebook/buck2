@@ -9,5 +9,5 @@ x = struct(a = 1, b = "test")
 
 No errors.
 
-Interfaces:
+Types:
 x: struct(a = int, b = str)

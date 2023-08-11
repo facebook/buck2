@@ -20,7 +20,7 @@ error: Unary operator `~` is not available on the type `bool`
   |     ^^^^^
   |
 
-Interfaces:
+Types:
 x: int
 y: typing.Never
 z: int

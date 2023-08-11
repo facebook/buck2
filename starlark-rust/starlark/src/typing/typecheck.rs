@@ -147,6 +147,21 @@ impl Display for TypeMap {
     }
 }
 
+impl TypeMap {
+    #[cfg(test)]
+    pub(crate) fn find_bindings_by_name<'a>(&'a self, name: &str) -> Vec<&'a Ty> {
+        self.bindings
+            .entries_sorted()
+            .into_iter()
+            .filter_map(
+                |(_binding_id, (n, _span, ty))| {
+                    if name == n { Some(ty) } else { None }
+                },
+            )
+            .collect()
+    }
+}
+
 impl AstModule {
     /// Typecheck a module
     pub fn typecheck(

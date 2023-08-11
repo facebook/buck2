@@ -11,5 +11,5 @@ y = hash(foo("magic"))
 
 No errors.
 
-Interfaces:
+Types:
 y: int
