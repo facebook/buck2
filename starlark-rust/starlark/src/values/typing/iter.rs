@@ -17,8 +17,22 @@
 
 use std::marker::PhantomData;
 
+use allocative::Allocative;
+use starlark_derive::starlark_value;
+use starlark_derive::NoSerialize;
+use starlark_derive::ProvidesStaticType;
+
+use crate as starlark;
 use crate::typing::Ty;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::Basic;
+use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::AllocFrozenValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::StarlarkValue;
 
 enum NonInstantiable {}
 
@@ -28,5 +42,75 @@ pub struct StarlarkIter<T: StarlarkTypeRepr>(PhantomData<T>, NonInstantiable);
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkIter<T> {
     fn starlark_type_repr() -> Ty {
         Ty::iter(T::starlark_type_repr())
+    }
+}
+
+#[derive(
+    Debug,
+    derive_more::Display,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize
+)]
+#[display(fmt = "{}", Self::TYPE)]
+pub(crate) struct TypingIterable;
+
+#[starlark_value(type = "typing.Iterable")]
+impl<'v> StarlarkValue<'v> for TypingIterable {
+    fn eval_type(&self) -> Option<Ty> {
+        Some(Ty::iter(Ty::any()))
+    }
+
+    // TODO(nga): support `[]`.
+}
+
+impl AllocFrozenValue for TypingIterable {
+    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
+        static ANY: AValueRepr<AValueImpl<Basic, TypingIterable>> =
+            alloc_static(Basic, TypingIterable);
+
+        FrozenValue::new_repr(&ANY)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::assert;
+
+    #[test]
+    fn test_iterable_runtime() {
+        assert::is_true("isinstance([1, 2, 3], typing.Iterable)");
+        assert::is_true("isinstance((1, 2, 3), typing.Iterable)");
+        assert::is_true("isinstance(range(10), typing.Iterable)");
+        assert::is_false("isinstance('', typing.Iterable)");
+        assert::is_false("isinstance(1, typing.Iterable)");
+    }
+
+    #[test]
+    fn test_iterable_compile_time_pass() {
+        assert::pass(
+            r#"
+def foo(x: typing.Iterable):
+    pass
+
+def bar():
+    foo([1, 2, 3])
+"#,
+        );
+    }
+
+    #[test]
+    fn test_iterable_compile_time_fail() {
+        assert::fail(
+            r#"
+def foo(x: typing.Iterable):
+    pass
+
+def bar():
+    # TODO(nga): this does not fail if there's an integer here.
+    foo(len)
+"#,
+            "Expected type `typing.Iterable`",
+        );
     }
 }

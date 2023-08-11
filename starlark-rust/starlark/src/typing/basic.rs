@@ -147,7 +147,13 @@ impl Display for TyBasic {
             TyBasic::Any => write!(f, "{}", TypingAny::TYPE),
             TyBasic::Name(x) => write!(f, "{}", x),
             TyBasic::StarlarkValue(x) => write!(f, "{}", x),
-            TyBasic::Iter(x) => write!(f, "iter({})", x),
+            TyBasic::Iter(x) => {
+                if x.is_any() {
+                    write!(f, "typing.Iterable")
+                } else {
+                    write!(f, "typing.Iterable[{}]", x)
+                }
+            }
             TyBasic::List(x) => write!(f, "list[{}]", x),
             TyBasic::Tuple(xs) => {
                 if xs.len() == 1 {

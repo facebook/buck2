@@ -843,6 +843,20 @@ impl<'v> TypeCompiled<Value<'v>> {
         }
     }
 
+    fn iter(item: &Ty, heap: &'v Heap) -> Self {
+        #[derive(Copy, Clone, Dupe, Debug, Hash, Eq, PartialEq, Allocative)]
+        struct IterableMatcher;
+
+        impl TypeCompiledImpl for IterableMatcher {
+            fn matches(&self, value: Value) -> bool {
+                value.vtable().starlark_value.HAS_iterate
+                    || value.vtable().starlark_value.HAS_iterate_collect
+            }
+        }
+
+        TypeCompiled::alloc(IterableMatcher, Ty::iter(item.clone()), heap)
+    }
+
     fn from_ty_basic(ty: &TyBasic, heap: &'v Heap) -> Self {
         match ty {
             TyBasic::Any => TypeCompiled::type_anything(),
@@ -862,9 +876,7 @@ impl<'v> TypeCompiled<Value<'v>> {
                 let v = TypeCompiled::from_ty(v, heap);
                 TypeCompiled::type_dict_of(k, v, heap)
             }
-            TyBasic::Iter(_) => {
-                TypeCompiled::<Value>::type_anything().patch_ty(Ty::basic(ty.clone()), heap)
-            }
+            TyBasic::Iter(item) => TypeCompiled::iter(item, heap),
             TyBasic::Custom(custom) => TypeCompiled::ty_custom(custom, heap),
         }
     }
