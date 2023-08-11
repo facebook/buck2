@@ -379,7 +379,10 @@ fn build_targets_in_universe<'a>(
                     &materialization_context,
                     p,
                     &providers_to_build,
-                    build::BuildConfiguredLabelOptions { skippable: false },
+                    build::BuildConfiguredLabelOptions {
+                        skippable: false,
+                        want_configured_graph_size: false,
+                    },
                 )
                 .await;
 
@@ -546,6 +549,7 @@ async fn build_target<'a>(
             providers_to_build,
             build::BuildConfiguredLabelOptions {
                 skippable: spec.skippable,
+                want_configured_graph_size: false,
             },
         )
         .await

@@ -200,7 +200,10 @@ pub(crate) fn build<'v>(
                         run: true,
                         tests: true,
                     }, // TODO support skipping/configuring?
-                    BuildConfiguredLabelOptions { skippable: false },
+                    BuildConfiguredLabelOptions {
+                        skippable: false,
+                        want_configured_graph_size: false,
+                    },
                 )
                 .await;
 

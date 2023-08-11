@@ -54,6 +54,8 @@ use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 
+mod graph_size;
+
 /// The types of provider to build on the configured providers label
 #[derive(Debug, Clone, Dupe, Allocative)]
 pub enum BuildProviderType {
@@ -68,6 +70,7 @@ pub struct BuildTargetResultGen<T> {
     pub outputs: Vec<T>,
     pub providers: FrozenProviderCollectionValue,
     pub run_args: Option<Vec<String>>,
+    pub configured_graph_size: Option<SharedResult<MaybeCompatible<u64>>>,
 }
 
 pub type BuildTargetResult = BuildTargetResultGen<SharedResult<ProviderArtifacts>>;
@@ -97,6 +100,7 @@ impl BuildTargetResult {
                             outputs: Vec::new(),
                             providers,
                             run_args,
+                            configured_graph_size: None,
                         }));
                 }
                 BuildEventVariant::Output { index, output } => {
@@ -113,6 +117,15 @@ impl BuildTargetResult {
                         break;
                     }
                 }
+                BuildEventVariant::GraphSize {
+                    configured_graph_size,
+                } => {
+                    res.get_mut(label.as_ref())
+                        .with_context(|| format!("BuildEventVariant::GraphSize before BuildEventVariant::Prepared for {} (internal error)", label))?
+                        .as_mut()
+                        .with_context(|| format!("BuildEventVariant::GraphSize for a skipped target: `{}` (internal error)", label))?
+                        .configured_graph_size = Some(configured_graph_size);
+                }
             }
         }
 
@@ -126,6 +139,7 @@ impl BuildTargetResult {
                         mut outputs,
                         providers,
                         run_args,
+                        configured_graph_size,
                     } = result;
 
                     // No need for a stable sort: the indices are unique (see below).
@@ -143,6 +157,7 @@ impl BuildTargetResult {
                             .collect(),
                         providers,
                         run_args,
+                        configured_graph_size,
                     }
                 });
 
@@ -165,6 +180,9 @@ enum BuildEventVariant {
         /// Ensure a stable ordering of outputs.
         index: usize,
     },
+    GraphSize {
+        configured_graph_size: SharedResult<MaybeCompatible<u64>>,
+    },
 }
 
 /// Events to be accumulated using BuildTargetResult::collect_stream.
@@ -176,6 +194,7 @@ pub struct BuildEvent {
 #[derive(Copy, Clone, Dupe, Debug)]
 pub struct BuildConfiguredLabelOptions {
     pub skippable: bool,
+    pub want_configured_graph_size: bool,
 }
 
 pub async fn build_configured_label<'a>(
@@ -321,10 +340,27 @@ pub async fn build_configured_label<'a>(
             run_args,
         },
     }))
-    .chain(outputs)
-    .boxed();
+    .chain(outputs);
 
-    Ok(stream)
+    if opts.want_configured_graph_size {
+        let stream = stream.chain(futures::stream::once(async move {
+            let configured_graph_size =
+                graph_size::get_configured_graph_size(ctx, providers_label.target())
+                    .await
+                    .map_err(|e| e.into());
+
+            BuildEvent {
+                label: providers_label,
+                variant: BuildEventVariant::GraphSize {
+                    configured_graph_size,
+                },
+            }
+        }));
+
+        Ok(stream.boxed())
+    } else {
+        Ok(stream.boxed())
+    }
 }
 pub async fn materialize_artifact_group_owned(
     ctx: &DiceComputations,
