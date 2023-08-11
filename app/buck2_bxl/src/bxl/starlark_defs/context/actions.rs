@@ -164,8 +164,8 @@ pub(crate) struct BxlExecutionResolution {
     pub(crate) toolchain_deps_configured: Vec<ConfiguredProvidersLabel>,
 }
 
-pub(crate) fn validate_action_instantiation<'v>(
-    this: &BxlContext<'v>,
+pub(crate) fn validate_action_instantiation(
+    this: &BxlContext<'_>,
     bxl_execution_resolution: &BxlExecutionResolution,
 ) -> anyhow::Result<()> {
     let mut registry = this.state.state.borrow_mut();
