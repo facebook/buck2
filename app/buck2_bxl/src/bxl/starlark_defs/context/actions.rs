@@ -138,7 +138,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
 
 pub(crate) async fn get_dependency_for_label<'v>(
     configured: ConfiguredProvidersLabel,
-    ctx: &'v DiceComputations,
+    ctx: &DiceComputations,
     module: &'v Module,
 ) -> anyhow::Result<Dependency<'v>> {
     let analysis_result = ctx
