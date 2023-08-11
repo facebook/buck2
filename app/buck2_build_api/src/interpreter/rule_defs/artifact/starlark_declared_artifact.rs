@@ -43,6 +43,7 @@ use starlark::values::ValueTyped;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifactHelpers;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -254,10 +255,10 @@ fn declared_artifact_methods(builder: &mut MethodsBuilder) {
         heap: &Heap,
     ) -> anyhow::Result<StringValue<'v>> {
         this.artifact.get_path().with_filename(|filename| {
-            Ok(match filename?.extension() {
-                None => heap.alloc_str(""),
-                Some(x) => heap.alloc_str_concat(".", x),
-            })
+            Ok(StarlarkArtifactHelpers::alloc_extension(
+                filename?.extension(),
+                heap,
+            ))
         })
     }
 

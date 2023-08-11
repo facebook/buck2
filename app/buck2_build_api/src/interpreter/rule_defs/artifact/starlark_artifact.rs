@@ -264,10 +264,10 @@ impl StarlarkArtifactHelpers {
         heap: &'v Heap,
     ) -> anyhow::Result<StringValue<'v>> {
         artifact.get_path().with_filename(|filename| {
-            Ok(match filename?.extension() {
-                None => heap.alloc_str(""),
-                Some(x) => heap.alloc_str_concat(".", x),
-            })
+            Ok(StarlarkArtifactHelpers::alloc_extension(
+                filename?.extension(),
+                heap,
+            ))
         })
     }
 
@@ -297,6 +297,13 @@ impl StarlarkArtifactHelpers {
         artifact
             .get_path()
             .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
+    }
+
+    pub(crate) fn alloc_extension<'v>(extension: Option<&str>, heap: &'v Heap) -> StringValue<'v> {
+        match extension {
+            None => heap.alloc_str(""),
+            Some(x) => heap.alloc_str_concat(".", x),
+        }
     }
 }
 

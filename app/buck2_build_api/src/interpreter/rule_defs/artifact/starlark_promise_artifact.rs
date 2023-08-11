@@ -12,6 +12,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use anyhow::Context as _;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -61,6 +62,8 @@ enum PromiseArtifactError {
         "`short_path` was called on promise artifact ({0}), but no short path was promised. To access the short path on an unresolved promise artifact, `short_path` arg needs to be passed into `artifact_promise()`"
     )]
     NoShortPathPromised(StarlarkPromiseArtifact),
+    #[error("The promise artifact ({0}) short_path has no file name")]
+    PromisedShortPathHasNoFileName(StarlarkPromiseArtifact),
 }
 
 /// An artifact wrapper for a StarlarkPromise that will resolve to an artifact
@@ -92,7 +95,9 @@ impl Display for StarlarkPromiseArtifact {
         if let Some(location) = &self.declaration_location {
             write!(f, " declared at {}", location)?;
         }
-
+        if let Some(short_path) = &self.short_path {
+            write!(f, " with short_path `{}`", short_path)?;
+        }
         if let Some(v) = self.artifact.get() {
             write!(f, " resolved to {}", v)?;
         }
@@ -229,7 +234,15 @@ fn promise_artifact_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StringValue<'v>> {
         match this.artifact.get() {
             Some(v) => StarlarkArtifactHelpers::basename(v, heap),
-            None => Err(PromiseArtifactError::MethodUnsupported(this.clone(), "basename").into()),
+            None => match &this.short_path {
+                Some(short_path) => {
+                    let file_name = short_path.file_name().context(
+                        PromiseArtifactError::PromisedShortPathHasNoFileName(this.clone()),
+                    )?;
+                    Ok(heap.alloc_str(file_name.as_str()))
+                }
+                None => Err(PromiseArtifactError::NoShortPathPromised(this.clone()).into()),
+            },
         }
     }
 
@@ -242,7 +255,19 @@ fn promise_artifact_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StringValue<'v>> {
         match this.artifact.get() {
             Some(v) => StarlarkArtifactHelpers::extension(v, heap),
-            None => Err(PromiseArtifactError::MethodUnsupported(this.clone(), "extension").into()),
+            None => match &this.short_path {
+                Some(short_path) => {
+                    let file_name = short_path.file_name().context(
+                        PromiseArtifactError::PromisedShortPathHasNoFileName(this.clone()),
+                    )?;
+
+                    Ok(StarlarkArtifactHelpers::alloc_extension(
+                        file_name.extension(),
+                        heap,
+                    ))
+                }
+                None => Err(PromiseArtifactError::NoShortPathPromised(this.clone()).into()),
+            },
         }
     }
 
