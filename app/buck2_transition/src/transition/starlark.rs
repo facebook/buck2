@@ -15,7 +15,7 @@ use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
-use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
+use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL;
 use buck2_interpreter::functions::transition::REGISTER_TRANSITION;
 use buck2_interpreter::types::transition::TransitionValue;
@@ -182,7 +182,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
             .map(|(n, r)| Ok((n, TargetLabelTrace((COERCE_TARGET_LABEL.get()?)(eval, &r)?))))
             .collect::<anyhow::Result<_>>()?;
 
-        let path: ImportPath = (*(STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?
+        let path: ImportPath = (*starlark_path_from_build_context(eval)?
             .unpack_load_file()
             .ok_or(TransitionError::OnlyBzl)?)
         .clone();

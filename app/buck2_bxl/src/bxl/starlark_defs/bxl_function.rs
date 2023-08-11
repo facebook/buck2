@@ -15,7 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
+use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::path::BxlFilePath;
 use buck2_util::collections::ordered_map::OrderedMap;
 use cli_args::CliArgs;
@@ -66,7 +66,7 @@ fn bxl_impl<'v>(
 ) -> anyhow::Result<Value<'v>> {
     let implementation = r#impl;
 
-    let bxl_path = (*(STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?
+    let bxl_path = (*starlark_path_from_build_context(eval)?
         .unpack_bxl_file()
         .ok_or_else(|| anyhow::anyhow!("`bxl` can only be declared in bxl files"))?)
     .clone();

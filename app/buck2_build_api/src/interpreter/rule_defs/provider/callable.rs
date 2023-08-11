@@ -15,7 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
-use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
+use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
 use either::Either;
@@ -408,7 +408,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> anyhow::Result<UserProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
-        let path = (STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?.path();
+        let path = starlark_path_from_build_context(eval)?.path();
 
         let (field_names, field_docs) = match fields {
             Either::Left(f) => {

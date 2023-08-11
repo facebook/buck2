@@ -16,7 +16,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::bzl::ImportPath;
-use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
+use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::path::StarlarkPath;
 use derive_more::Display;
 use dupe::Dupe;
@@ -442,7 +442,7 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
             };
         }
 
-        let starlark_path: StarlarkPath = (STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?;
+        let starlark_path: StarlarkPath = starlark_path_from_build_context(eval)?;
         Ok(TransitiveSetDefinition::new(
             match starlark_path {
                 StarlarkPath::LoadFile(import_path) => import_path.clone(),
