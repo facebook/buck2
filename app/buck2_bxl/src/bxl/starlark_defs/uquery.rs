@@ -74,9 +74,13 @@ impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
 
 pub(crate) async fn get_uquery_env<'v>(
     ctx: &'v BxlContext<'v>,
-) -> anyhow::Result<Box<dyn BxlUqueryFunctions<'v> + 'v>> {
-    (NEW_BXL_UQUERY_FUNCTIONS.get()?)(ctx.async_ctx.0, ctx.project_root().dupe(), ctx.cell_name)
-        .await
+) -> anyhow::Result<Box<dyn BxlUqueryFunctions>> {
+    (NEW_BXL_UQUERY_FUNCTIONS.get()?)(
+        ctx.project_root().dupe(),
+        ctx.cell_name,
+        ctx.cell_resolver.dupe(),
+    )
+    .await
 }
 
 impl<'v> AllocValue<'v> for StarlarkUQueryCtx<'v> {
@@ -106,6 +110,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             get_uquery_env(this.ctx)
                 .await?
                 .allpaths(
+                    dice,
                     &*TargetExpr::<'v, TargetNode>::unpack(from, this.ctx, dice, eval)
                         .await?
                         .get(dice)
@@ -131,6 +136,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             get_uquery_env(this.ctx)
                 .await?
                 .somepath(
+                    dice,
                     &*TargetExpr::<'v, TargetNode>::unpack(from, this.ctx, dice, eval)
                         .await?
                         .get(dice)
@@ -237,6 +243,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 get_uquery_env(this.ctx)
                     .await?
                     .deps(
+                        dice,
                         &*TargetExpr::<'v, TargetNode>::unpack(universe, this.ctx, dice, eval)
                             .await?
                             .get(dice)
@@ -273,6 +280,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 get_uquery_env(this.ctx)
                     .await?
                     .rdeps(
+                        dice,
                         &*TargetExpr::<'v, TargetNode>::unpack(universe, this.ctx, dice, eval)
                             .await?
                             .get(dice)
@@ -333,6 +341,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 get_uquery_env(this.ctx)
                     .await?
                     .testsof(
+                        dice,
                         &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, dice, eval)
                             .await?
                             .get(dice)
@@ -384,10 +393,10 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         this.ctx
             .async_ctx
-            .via(|| async {
+            .via_dice(|dice| async {
                 get_uquery_env(this.ctx)
                     .await?
-                    .owner((files.get(this.ctx).await?).as_ref())
+                    .owner(dice, (files.get(this.ctx).await?).as_ref())
                     .await
             })
             .map(StarlarkTargetSet::from)

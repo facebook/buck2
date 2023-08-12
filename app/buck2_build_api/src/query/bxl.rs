@@ -72,34 +72,43 @@ pub trait BxlCqueryFunctions: Send {
 }
 
 #[async_trait]
-pub trait BxlUqueryFunctions<'c>: Send + 'c {
+pub trait BxlUqueryFunctions: Send {
     async fn allpaths(
         &self,
+        dice: &DiceComputations,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn somepath(
         &self,
+        dice: &DiceComputations,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn deps(
         &self,
+        dice: &DiceComputations,
         targets: &TargetSet<TargetNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn rdeps(
         &self,
+        dice: &DiceComputations,
         universe: &TargetSet<TargetNode>,
         targets: &TargetSet<TargetNode>,
         depth: Option<i32>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn testsof(
         &self,
+        dice: &DiceComputations,
         targets: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
-    async fn owner(&self, file_set: &FileSet) -> anyhow::Result<TargetSet<TargetNode>>;
+    async fn owner(
+        &self,
+        dice: &DiceComputations,
+        file_set: &FileSet,
+    ) -> anyhow::Result<TargetSet<TargetNode>>;
 }
 
 pub static NEW_BXL_CQUERY_FUNCTIONS: LateBinding<
@@ -113,11 +122,9 @@ pub static NEW_BXL_CQUERY_FUNCTIONS: LateBinding<
 > = LateBinding::new("NEW_BXL_CQUERY_FUNCTIONS");
 
 pub static NEW_BXL_UQUERY_FUNCTIONS: LateBinding<
-    for<'c> fn(
-        &'c DiceComputations,
+    fn(
         ProjectRoot,
         CellName,
-    ) -> Pin<
-        Box<dyn Future<Output = anyhow::Result<Box<dyn BxlUqueryFunctions<'c> + 'c>>> + 'c>,
-    >,
+        CellResolver,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Box<dyn BxlUqueryFunctions>>>>>,
 > = LateBinding::new("NEW_BXL_UQUERY_FUNCTIONS");
