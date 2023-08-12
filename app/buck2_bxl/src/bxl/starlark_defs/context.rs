@@ -750,7 +750,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
         labels: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let providers = ProvidersExpr::<ProvidersLabel>::unpack(labels, this, eval)?;
+        let providers = this
+            .async_ctx
+            .via_dice(|_| ProvidersExpr::<ProvidersLabel>::unpack(labels, this, eval))?;
 
         let res = match providers {
             ProvidersExpr::Literal(provider) => {
@@ -865,7 +867,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
                     let exec_deps = if exec_deps.is_none() {
                         Vec::new()
                     } else {
-                        ProvidersExpr::<ProvidersLabel>::unpack(exec_deps, this, eval)?
+                        ProvidersExpr::<ProvidersLabel>::unpack(exec_deps, this, eval)
+                            .await?
                             .labels()
                             .cloned()
                             .collect()
@@ -874,7 +877,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
                     let toolchains = if toolchains.is_none() {
                         Vec::new()
                     } else {
-                        ProvidersExpr::<ProvidersLabel>::unpack(toolchains, this, eval)?
+                        ProvidersExpr::<ProvidersLabel>::unpack(toolchains, this, eval)
+                            .await?
                             .labels()
                             .cloned()
                             .collect()
@@ -958,17 +962,20 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = true)] skip_incompatible: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let providers =
-            ProvidersExpr::<ConfiguredProvidersLabel>::unpack(labels, target_platform, this, eval)?;
-
-        let res: anyhow::Result<_> = this
-            .async_ctx
-            .via_dice(|dice| analysis::analysis(dice, this, providers, skip_incompatible));
+        let res: anyhow::Result<_> = this.async_ctx.via_dice(|dice| async {
+            let providers = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
+                labels,
+                target_platform,
+                this,
+                dice,
+                eval,
+            )
+            .await?;
+            analysis::analysis(dice, this, providers, skip_incompatible).await
+        });
 
         Ok(match res? {
-            Either::Left(single) => single.map_or(eval.heap().alloc(NoneType), |single| {
-                eval.heap().alloc(single)
-            }),
+            Either::Left(single) => eval.heap().alloc(single),
             Either::Right(many) => eval.heap().alloc(Dict::new(
                 many.into_iter()
                     .map(|(t, v)| {

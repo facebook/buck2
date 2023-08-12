@@ -23,7 +23,11 @@ use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
+use dice::DiceComputations;
 use dupe::Dupe;
+use futures::future::BoxFuture;
+use futures::future::LocalBoxFuture;
+use futures::FutureExt;
 use itertools::Either;
 use starlark::eval::Evaluator;
 use starlark::values::list::ListRef;
@@ -54,10 +58,11 @@ pub(crate) enum ProvidersExpr<P: ProvidersLabelMaybeConfigured> {
 }
 
 impl ProvidersExpr<ConfiguredProvidersLabel> {
-    pub(crate) fn unpack<'v>(
+    pub(crate) async fn unpack<'v, 'c>(
         value: Value<'v>,
         target_platform: Value<'v>,
-        ctx: &BxlContext,
+        ctx: &BxlContext<'_>,
+        dice: &'c DiceComputations,
         eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Self> {
         let target_platform = target_platform.parse_target_platforms(
@@ -68,11 +73,14 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         )?;
 
         Ok(
-            if let Some(resolved) = Self::unpack_literal(value, &target_platform, ctx)? {
+            if let Some(resolved) = Self::unpack_literal(value, &target_platform, ctx, dice).await?
+            {
                 resolved
             } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval, |v, ctx| {
-                Self::unpack_literal(v, &target_platform, ctx)
-            })? {
+                Self::unpack_literal(v, &target_platform, ctx, dice)
+            })
+            .await?
+            {
                 resolved
             } else {
                 return Err(anyhow::anyhow!(ProviderExprError::NotAListOfTargets(
@@ -82,50 +90,59 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         )
     }
 
-    fn unpack_literal<'v>(
+    fn unpack_literal<'v, 'c>(
         value: Value<'v>,
-        target_platform: &Option<TargetLabel>,
-        ctx: &BxlContext,
-    ) -> anyhow::Result<Option<Self>> {
+        target_platform: &'c Option<TargetLabel>,
+        ctx: &BxlContext<'_>,
+        dice: &'c DiceComputations,
+    ) -> BoxFuture<'c, anyhow::Result<Option<Self>>> {
         if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
-            Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
+            futures::future::ready(Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
                 configured_target.0.label().dupe(),
                 ProvidersName::Default,
-            ))))
+            )))))
+            .boxed()
         } else if let Some(configured_target) =
             value.downcast_ref::<StarlarkConfiguredTargetLabel>()
         {
-            Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
+            futures::future::ready(Ok(Some(Self::Literal(ConfiguredProvidersLabel::new(
                 configured_target.label().dupe(),
                 ProvidersName::Default,
-            ))))
+            )))))
+            .boxed()
         } else if let Some(configured_target) =
             value.downcast_ref::<StarlarkConfiguredProvidersLabel>()
         {
-            Ok(Some(Self::Literal(configured_target.label().clone())))
+            futures::future::ready(Ok(Some(Self::Literal(configured_target.label().clone()))))
+                .boxed()
         } else {
-            Self::unpack_providers_label(value, ctx)?.map_or(Ok(None), |label| {
-                let result: anyhow::Result<_> = try {
-                    Self::Literal(ctx.async_ctx.via_dice(|ctx| {
-                        ctx.get_configured_provider_label(&label, target_platform.as_ref())
-                    })?)
-                };
-                result.map(Some)
-            })
+            match Self::unpack_providers_label(value, ctx) {
+                Ok(Some(label)) => async move {
+                    dice.get_configured_provider_label(&label, target_platform.as_ref())
+                        .map(|res| res.map(|r| Some(Self::Literal(r))))
+                        .await
+                }
+                .boxed(),
+                Ok(None) => futures::future::ready(Ok(None)).boxed(),
+                Err(e) => futures::future::ready(Err(e)).boxed(),
+            }
         }
     }
 }
 
 impl ProvidersExpr<ProvidersLabel> {
-    pub(crate) fn unpack<'v>(
+    pub(crate) async fn unpack<'v>(
         value: Value<'v>,
         ctx: &BxlContext<'_>,
         eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Self> {
         Ok(if let Some(resolved) = Self::unpack_literal(value, ctx)? {
             resolved
-        } else if let Some(resolved) =
-            Self::unpack_iterable(value, ctx, eval, Self::unpack_literal)?
+        } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval, |value, ctx| {
+            let res = Self::unpack_literal(value, ctx);
+            async move { res }.boxed()
+        })
+        .await?
         {
             resolved
         } else {
@@ -182,38 +199,38 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
         })
     }
 
-    fn unpack_iterable<'v>(
+    async fn unpack_iterable<'c, 'v: 'c>(
         value: Value<'v>,
-        ctx: &BxlContext<'_>,
+        ctx: &'c BxlContext<'_>,
         eval: &Evaluator<'v, '_>,
-        unpack_literal: impl for<'a> Fn(
+        unpack_literal: impl Fn(
             Value<'v>,
-            &BxlContext<'a>,
-        ) -> anyhow::Result<Option<ProvidersExpr<P>>>,
+            &'c BxlContext<'_>,
+        ) -> LocalBoxFuture<'c, anyhow::Result<Option<ProvidersExpr<P>>>>,
     ) -> anyhow::Result<Option<ProvidersExpr<P>>> {
-        Ok(Some(Self::Iterable(
-            #[allow(clippy::manual_map)] // `if else if` looks better here
-            if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-                Some(Either::Left(Either::Left(s.iter(eval.heap()))))
-            } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>()
-            {
-                Some(Either::Left(Either::Right(s.iter(eval.heap()))))
-            } else if let Some(iterable) = ListRef::from_value(value) {
-                Some(Either::Right(iterable.iter()))
+        #[allow(clippy::manual_map)] // `if else if` looks better here
+        let iterable = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
+            Some(Either::Left(Either::Left(s.iter(eval.heap()))))
+        } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
+            Some(Either::Left(Either::Right(s.iter(eval.heap()))))
+        } else if let Some(iterable) = ListRef::from_value(value) {
+            Some(Either::Right(iterable.iter()))
+        } else {
+            None
+        }
+        .ok_or_else(|| ProviderExprError::NotATarget(value.to_repr()))?;
+
+        let mut res = Vec::new();
+        for val in iterable {
+            if let Some(ProvidersExpr::Literal(resolved_val)) = unpack_literal(val, ctx).await? {
+                res.push(resolved_val)
             } else {
-                None
+                return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
+                    val.to_repr()
+                )));
             }
-            .ok_or_else(|| ProviderExprError::NotATarget(value.to_repr()))?
-            .map(|val| {
-                if let Some(ProvidersExpr::Literal(resolved_val)) = unpack_literal(val, ctx)? {
-                    Ok(resolved_val)
-                } else {
-                    Err(anyhow::anyhow!(ProviderExprError::NotATarget(
-                        val.to_repr()
-                    )))
-                }
-            })
-            .collect::<anyhow::Result<_>>()?,
-        )))
+        }
+
+        Ok(Some(Self::Iterable(res)))
     }
 }

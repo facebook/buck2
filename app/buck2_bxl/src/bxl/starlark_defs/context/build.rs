@@ -177,13 +177,19 @@ pub(crate) fn build<'v>(
     materializations: Materializations,
     eval: &Evaluator<'v, '_>,
 ) -> anyhow::Result<SmallMap<Value<'v>, Value<'v>>> {
-    let build_spec =
-        ProvidersExpr::<ConfiguredProvidersLabel>::unpack(spec, target_platform, ctx, eval)?;
-
     let materializations =
         ConvertMaterializationContext::with_existing_map(materializations, materializations_map);
 
     let build_result = ctx.async_ctx.via_dice(async move |dice| {
+        let build_spec = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
+            spec,
+            target_platform,
+            ctx,
+            dice,
+            eval,
+        )
+        .await?;
+
         let materializations = &materializations;
 
         let stream = build_spec
