@@ -196,10 +196,6 @@ impl<'v> Compiler<'v, '_, '_> {
                 let xs = xs.into_try_map(|x| self.eval_expr_as_type(x))?;
                 Ok(TypeCompiled::type_any_of(xs, self.eval.heap()))
             }
-            TypeExprUnpackP::ListOf(x) => {
-                let x = self.eval_expr_as_type(*x)?;
-                Ok(TypeCompiled::type_list_of(x, self.eval.heap()))
-            }
             TypeExprUnpackP::DictOf(k, v) => {
                 let k = self.eval_expr_as_type(*k)?;
                 let v = self.eval_expr_as_type(*v)?;

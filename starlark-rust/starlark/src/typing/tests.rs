@@ -205,7 +205,7 @@ fn test_load() {
     let interface = TypeCheck::new().check(
         "load_0",
         r#"
-def foo(x: [bool.type]) -> str.type:
+def foo(x: list[bool]) -> str:
     return "test"
    "#,
     );
@@ -306,7 +306,7 @@ fn test_call_not_callable() {
     TypeCheck::new().check(
         "call_not_callable",
         r#"
-def foo(x: [""]):
+def foo(x: list):
     x()
 "#,
     );

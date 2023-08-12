@@ -51,7 +51,6 @@ pub(crate) enum TypeExprUnpackP<'a, P: AstPayload> {
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
     ),
     Union(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
-    ListOf(Box<Spanned<TypeExprUnpackP<'a, P>>>),
     DictOf(
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
@@ -174,12 +173,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                         codemap,
                     ))
                 } else if xs.len() == 1 {
-                    Ok(Spanned {
-                        span,
-                        node: TypeExprUnpackP::ListOf(Box::new(TypeExprUnpackP::unpack(
-                            &xs[0], codemap,
-                        )?)),
-                    })
+                    err("list of 1 element")
                 } else {
                     let xs = xs.try_map(|x| TypeExprUnpackP::unpack(x, codemap))?;
                     Ok(Spanned {

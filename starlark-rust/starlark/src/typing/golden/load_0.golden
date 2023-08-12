@@ -5,7 +5,7 @@
 # ```
 
 Code:
-def foo(x: [bool.type]) -> str.type:
+def foo(x: list[bool]) -> str:
     return "test"
 
 No errors.

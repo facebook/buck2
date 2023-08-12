@@ -50,7 +50,7 @@ Some extra details can go here,
     and indentation is kept as expected
 """
 
-def f1(a, b: "string", c:"int" = 5, *, d:"string" = "some string", **kwargs) -> ["string"]:
+def f1(a, b: str, c: int = 5, *, d: str = "some string", **kwargs) -> list[str]:
     """
     Summary line goes here
 
@@ -66,7 +66,7 @@ def f1(a, b: "string", c:"int" = 5, *, d:"string" = "some string", **kwargs) -> 
     """
     return [str((a, b, c, d, repr(kwargs)))]
 
-def f2(a, *args: ["string"]):
+def f2(a, *args: list[str]):
     """
     This is a function with *args, and no return type
 
@@ -75,10 +75,10 @@ def f2(a, *args: ["string"]):
     """
     return None
 
-def f3(a: "string") -> "string":
+def f3(a: str) -> str:
     return a
 
-def f4(a: "string") -> "string":
+def f4(a: str) -> str:
     """ This is a docstring with no 'Args:' section """
     return a
 

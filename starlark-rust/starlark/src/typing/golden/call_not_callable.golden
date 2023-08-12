@@ -5,7 +5,7 @@
 # ```
 
 Code:
-def foo(x: [""]):
+def foo(x: list):
     x()
 
 Error:
