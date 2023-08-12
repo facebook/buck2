@@ -961,7 +961,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
         let providers =
             ProvidersExpr::<ConfiguredProvidersLabel>::unpack(labels, target_platform, this, eval)?;
 
-        let res: anyhow::Result<_> = analysis::analysis(this, providers, skip_incompatible);
+        let res: anyhow::Result<_> = this
+            .async_ctx
+            .via_dice(|dice| analysis::analysis(dice, this, providers, skip_incompatible));
 
         Ok(match res? {
             Either::Left(single) => single.map_or(eval.heap().alloc(NoneType), |single| {
