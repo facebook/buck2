@@ -42,8 +42,8 @@ serde = { version = "1.0", features = ["derive"] }
 logos = "0.12"
 serde_json = "1.0"
 maplit = "1.0.2"
-lsp-server = "0.5"
-lsp-types = "0.93.0"
+lsp-server = "0.7.2"
+lsp-types = "0.94.1"
 memchr = "2.4.1"
 debugserver-types = "0.5.0"
 hashbrown = { version = "0.12.3", features = ["raw"] }
