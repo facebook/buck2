@@ -456,10 +456,6 @@ impl Ty {
             TypeExprUnpackP::Union(xs) => {
                 Ty::unions(xs.map(|x| Self::from_expr_impl(x, approximations)))
             }
-            TypeExprUnpackP::DictOf(k, v) => Ty::dict(
-                Self::from_expr_impl(k, approximations),
-                Self::from_expr_impl(v, approximations),
-            ),
             TypeExprUnpackP::Literal(x) => {
                 if x.is_empty() || x.starts_with('_') {
                     Ty::any()

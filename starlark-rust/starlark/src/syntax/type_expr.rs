@@ -32,8 +32,6 @@ enum TypeExprUnpackError {
     InvalidType(&'static str),
     #[error("Empty list is not allowed in type expression")]
     EmptyListInType,
-    #[error("Only dict literal with single entry is allowed in type expression")]
-    DictNot1InType,
     #[error("Only dot expression of form `ident.ident` is allowed in type expression")]
     DotInType,
 }
@@ -51,10 +49,6 @@ pub(crate) enum TypeExprUnpackP<'a, P: AstPayload> {
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
     ),
     Union(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
-    DictOf(
-        Box<Spanned<TypeExprUnpackP<'a, P>>>,
-        Box<Spanned<TypeExprUnpackP<'a, P>>>,
-    ),
     Tuple(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     Literal(Spanned<&'a str>),
 }
@@ -182,24 +176,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                     })
                 }
             }
-            ExprP::Dict(xs) => {
-                if xs.len() != 1 {
-                    Err(EvalException::new(
-                        TypeExprUnpackError::DictNot1InType.into(),
-                        expr.span,
-                        codemap,
-                    ))
-                } else {
-                    let (k, v) = &xs[0];
-                    Ok(Spanned {
-                        span,
-                        node: TypeExprUnpackP::DictOf(
-                            Box::new(TypeExprUnpackP::unpack(k, codemap)?),
-                            Box::new(TypeExprUnpackP::unpack(v, codemap)?),
-                        ),
-                    })
-                }
-            }
+            ExprP::Dict(..) => err("dict"),
             ExprP::ListComprehension(..) => err("list comprehension"),
             ExprP::DictComprehension(..) => err("dict comprehension"),
             ExprP::FString(..) => err("f-string"),
