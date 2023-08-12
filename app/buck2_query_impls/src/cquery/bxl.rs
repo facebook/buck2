@@ -37,25 +37,26 @@ fn cquery_functions<'v>() -> DefaultQueryFunctions<CqueryEnvironment<'v>> {
     DefaultQueryFunctions::new()
 }
 
-struct BxlCqueryFunctionsImpl<'c> {
-    ctx: &'c DiceComputations,
+struct BxlCqueryFunctionsImpl {
     target_platform: Option<TargetLabel>,
     project_root: ProjectRoot,
     working_dir: ProjectRelativePathBuf,
 }
 
-impl<'c> BxlCqueryFunctionsImpl<'c> {
-    async fn setup_dice_query_delegate(&self) -> anyhow::Result<Arc<DiceQueryDelegate<'c>>> {
-        let cell_resolver = self.ctx.get_cell_resolver().await?;
+impl BxlCqueryFunctionsImpl {
+    async fn setup_dice_query_delegate<'c>(
+        &self,
+        dice: &'c DiceComputations,
+    ) -> anyhow::Result<Arc<DiceQueryDelegate<'c>>> {
+        let cell_resolver = dice.get_cell_resolver().await?;
 
-        let package_boundary_exceptions = self.ctx.get_package_boundary_exceptions().await?;
-        let target_alias_resolver = self
-            .ctx
+        let package_boundary_exceptions = dice.get_package_boundary_exceptions().await?;
+        let target_alias_resolver = dice
             .target_alias_resolver_for_working_dir(&self.working_dir)
             .await?;
 
         Ok(Arc::new(DiceQueryDelegate::new(
-            self.ctx,
+            dice,
             &self.working_dir,
             self.project_root.dupe(),
             cell_resolver,
@@ -65,11 +66,12 @@ impl<'c> BxlCqueryFunctionsImpl<'c> {
         )?))
     }
 
-    async fn cquery_env(
+    async fn cquery_env<'c>(
         &self,
+        dice: &'c DiceComputations,
         universe: Option<&TargetSet<ConfiguredTargetNode>>,
     ) -> anyhow::Result<CqueryEnvironment<'c>> {
-        let dice_query_delegate = self.setup_dice_query_delegate().await?;
+        let dice_query_delegate = self.setup_dice_query_delegate(dice).await?;
         let universe = match universe {
             Some(u) => Some(CqueryUniverse::build(u).await?),
             None => None,
@@ -83,8 +85,11 @@ impl<'c> BxlCqueryFunctionsImpl<'c> {
         ))
     }
 
-    async fn cquery_env_legacy(&self) -> anyhow::Result<CqueryEnvironment<'c>> {
-        let dice_query_delegate = self.setup_dice_query_delegate().await?;
+    async fn cquery_env_legacy<'c>(
+        &self,
+        dice: &'c DiceComputations,
+    ) -> anyhow::Result<CqueryEnvironment<'c>> {
+        let dice_query_delegate = self.setup_dice_query_delegate(dice).await?;
         Ok(CqueryEnvironment::new(
             dice_query_delegate.dupe(),
             dice_query_delegate,
@@ -97,50 +102,54 @@ impl<'c> BxlCqueryFunctionsImpl<'c> {
 }
 
 #[async_trait]
-impl<'c> BxlCqueryFunctions<'c> for BxlCqueryFunctionsImpl<'c> {
+impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
     async fn allpaths(
         &self,
+        dice: &DiceComputations,
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(cquery_functions()
-            .allpaths(&self.cquery_env(None).await?, from, to)
+            .allpaths(&self.cquery_env(dice, None).await?, from, to)
             .await?)
     }
 
     async fn somepath(
         &self,
+        dice: &DiceComputations,
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(cquery_functions()
-            .somepath(&self.cquery_env(None).await?, from, to)
+            .somepath(&self.cquery_env(dice, None).await?, from, to)
             .await?)
     }
 
     async fn owner(
         &self,
+        dice: &DiceComputations,
         file_set: &FileSet,
         target_universe: Option<&TargetSet<ConfiguredTargetNode>>,
         is_legacy: bool,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         let cquery_env = if is_legacy {
-            self.cquery_env_legacy().await?
+            self.cquery_env_legacy(dice).await?
         } else {
-            self.cquery_env(target_universe).await?
+            self.cquery_env(dice, target_universe).await?
         };
         Ok(cquery_functions().owner(&cquery_env, file_set).await?)
     }
 
     async fn deps(
         &self,
+        dice: &DiceComputations,
         targets: &TargetSet<ConfiguredTargetNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(cquery_functions()
             .deps(
-                &self.cquery_env(None).await?,
+                &self.cquery_env(dice, None).await?,
                 &DefaultQueryFunctionsModule::new(),
                 targets,
                 deps,
@@ -151,45 +160,51 @@ impl<'c> BxlCqueryFunctions<'c> for BxlCqueryFunctionsImpl<'c> {
 
     async fn rdeps(
         &self,
+        dice: &DiceComputations,
         universe: &TargetSet<ConfiguredTargetNode>,
         targets: &TargetSet<ConfiguredTargetNode>,
         depth: Option<i32>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(cquery_functions()
-            .rdeps(&self.cquery_env(None).await?, universe, targets, depth)
+            .rdeps(
+                &self.cquery_env(dice, None).await?,
+                universe,
+                targets,
+                depth,
+            )
             .await?)
     }
 
     async fn testsof(
         &self,
+        dice: &DiceComputations,
         targets: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(cquery_functions()
-            .testsof(&self.cquery_env(None).await?, targets)
+            .testsof(&self.cquery_env(dice, None).await?, targets)
             .await?)
     }
 
     async fn testsof_with_default_target_platform(
         &self,
+        dice: &DiceComputations,
         targets: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         Ok(cquery_functions()
-            .testsof_with_default_target_platform(&self.cquery_env(None).await?, targets)
+            .testsof_with_default_target_platform(&self.cquery_env(dice, None).await?, targets)
             .await?)
     }
 }
 
 pub(crate) fn init_new_bxl_cquery_functions() {
-    NEW_BXL_CQUERY_FUNCTIONS.init(|ctx, target_platform, project_root, cell_name| {
+    NEW_BXL_CQUERY_FUNCTIONS.init(|target_platform, project_root, cell_name, cell_resolver| {
         Box::pin(async move {
-            let cell_resolver = ctx.get_cell_resolver().await?;
             let cell = cell_resolver.get(cell_name)?;
             // TODO(nga): working as as cell root is not right.
             //   Should be either the project root or user's current working directory.
             let working_dir = cell.path().as_project_relative_path().to_buf();
 
             Result::<Box<dyn BxlCqueryFunctions>, _>::Ok(Box::new(BxlCqueryFunctionsImpl {
-                ctx,
                 target_platform,
                 project_root,
                 working_dir,

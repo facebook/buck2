@@ -84,15 +84,15 @@ impl<'v> AllocValue<'v> for StarlarkCQueryCtx<'v> {
     }
 }
 
-pub(crate) async fn get_cquery_env<'v>(
-    ctx: &'v BxlContext<'v>,
+pub(crate) async fn get_cquery_env(
+    ctx: &BxlContext<'_>,
     target_platform: Option<TargetLabel>,
-) -> anyhow::Result<Box<dyn BxlCqueryFunctions<'v> + 'v>> {
+) -> anyhow::Result<Box<dyn BxlCqueryFunctions>> {
     (NEW_BXL_CQUERY_FUNCTIONS.get()?)(
-        ctx.async_ctx.0,
         target_platform,
         ctx.project_root().dupe(),
         ctx.cell_name,
+        ctx.cell_resolver.dupe(),
     )
     .await
 }
@@ -135,6 +135,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             get_cquery_env(this.ctx, this.target_platform.dupe())
                 .await?
                 .allpaths(
+                    dice,
                     &filter_incompatible(
                         TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                             from,
@@ -180,6 +181,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             get_cquery_env(this.ctx, this.target_platform.dupe())
                 .await?
                 .somepath(
+                    dice,
                     &filter_incompatible(
                         TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                             from,
@@ -349,10 +351,27 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
                     .owner(
+                        dice,
                         files.get(this.ctx).await?.as_ref(),
                         universe.as_ref(),
                         false,
                     )
+                    .await
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
+    /// DO NOT USE - will be deprecated
+    fn owner_legacy<'v>(
+        this: &StarlarkCQueryCtx,
+        files: FileSetExpr,
+    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        this.ctx
+            .async_ctx
+            .via_dice(|dice| async {
+                get_cquery_env(this.ctx, this.target_platform.dupe())
+                    .await?
+                    .owner(dice, files.get(this.ctx).await?.as_ref(), None, true)
                     .await
             })
             .map(StarlarkTargetSet::from)
@@ -383,6 +402,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
                     .deps(
+                        dice,
                         &filter_incompatible(
                             TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                                 universe,
@@ -490,20 +510,23 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|dice| async {
                 get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
-                    .testsof(&filter_incompatible(
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                            targets,
-                            &this.target_platform,
+                    .testsof(
+                        dice,
+                        &filter_incompatible(
+                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                                targets,
+                                &this.target_platform,
+                                this.ctx,
+                                dice,
+                                eval,
+                            )
+                            .await?
+                            .get(dice)
+                            .await?
+                            .into_iter(),
                             this.ctx,
-                            dice,
-                            eval,
-                        )
-                        .await?
-                        .get(dice)
-                        .await?
-                        .into_iter(),
-                        this.ctx,
-                    )?)
+                        )?,
+                    )
                     .await
             })
             .map(StarlarkTargetSet::from)
@@ -521,20 +544,23 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|dice| async {
                 let maybe_compatibles = get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
-                    .testsof_with_default_target_platform(&filter_incompatible(
-                        TargetExpr::<'v, ConfiguredTargetNode>::unpack(
-                            targets,
-                            &this.target_platform,
+                    .testsof_with_default_target_platform(
+                        dice,
+                        &filter_incompatible(
+                            TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                                targets,
+                                &this.target_platform,
+                                this.ctx,
+                                dice,
+                                eval,
+                            )
+                            .await?
+                            .get(dice)
+                            .await?
+                            .into_iter(),
                             this.ctx,
-                            dice,
-                            eval,
-                        )
-                        .await?
-                        .get(dice)
-                        .await?
-                        .into_iter(),
-                        this.ctx,
-                    )?)
+                        )?,
+                    )
                     .await?;
 
                 filter_incompatible(maybe_compatibles.into_iter(), this.ctx)
@@ -563,6 +589,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
                     .rdeps(
+                        dice,
                         &filter_incompatible(
                             TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                                 universe,
