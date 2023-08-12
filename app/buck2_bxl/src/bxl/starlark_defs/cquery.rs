@@ -144,7 +144,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             eval,
                         )
                         .await?
-                        .get(this.ctx.async_ctx.0)
+                        .get(dice)
                         .await?
                         .into_iter(),
                         this.ctx,
@@ -158,7 +158,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             eval,
                         )
                         .await?
-                        .get(this.ctx.async_ctx.0)
+                        .get(dice)
                         .await?
                         .into_iter(),
                         this.ctx,
@@ -189,7 +189,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             eval,
                         )
                         .await?
-                        .get(this.ctx.async_ctx.0)
+                        .get(dice)
                         .await?
                         .into_iter(),
                         this.ctx,
@@ -203,7 +203,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             eval,
                         )
                         .await?
-                        .get(this.ctx.async_ctx.0)
+                        .get(dice)
                         .await?
                         .into_iter(),
                         this.ctx,
@@ -232,7 +232,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     eval,
                 )
                 .await?
-                .get(this.ctx.async_ctx.0)
+                .get(dice)
                 .await?
                 .into_iter(),
                 this.ctx,
@@ -266,7 +266,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     eval,
                 )
                 .await?
-                .get(this.ctx.async_ctx.0)
+                .get(dice)
                 .await?
                 .into_iter(),
                 this.ctx,
@@ -301,7 +301,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     eval,
                 )
                 .await?
-                .get(this.ctx.async_ctx.0)
+                .get(dice)
                 .await?
                 .into_iter(),
                 this.ctx,
@@ -392,7 +392,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 eval,
                             )
                             .await?
-                            .get(this.ctx.async_ctx.0)
+                            .get(dice)
                             .await?
                             .into_iter(),
                             this.ctx,
@@ -434,7 +434,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(this.ctx.async_ctx.0)
+                    .get(dice)
                     .await?
                     .into_iter(),
                     this.ctx,
@@ -469,7 +469,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(this.ctx.async_ctx.0)
+                    .get(dice)
                     .await?
                     .into_iter(),
                     this.ctx,
@@ -499,7 +499,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             eval,
                         )
                         .await?
-                        .get(this.ctx.async_ctx.0)
+                        .get(dice)
                         .await?
                         .into_iter(),
                         this.ctx,
@@ -530,7 +530,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             eval,
                         )
                         .await?
-                        .get(this.ctx.async_ctx.0)
+                        .get(dice)
                         .await?
                         .into_iter(),
                         this.ctx,
@@ -572,7 +572,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 eval,
                             )
                             .await?
-                            .get(this.ctx.async_ctx.0)
+                            .get(dice)
                             .await?
                             .into_iter(),
                             this.ctx,
@@ -586,7 +586,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 eval,
                             )
                             .await?
-                            .get(this.ctx.async_ctx.0)
+                            .get(dice)
                             .await?
                             .into_iter(),
                             this.ctx,
@@ -686,7 +686,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         eval,
                     )
                     .await?
-                    .get(this.ctx.async_ctx.0)
+                    .get(dice)
                     .await?
                     .into_iter(),
                     this.ctx,
