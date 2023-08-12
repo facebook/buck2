@@ -64,7 +64,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
     /// in order to get the `TargetSet<ConfiguredTargetNode>`.
     pub(crate) async fn get(
         self,
-        dice: &'v DiceComputations,
+        dice: &DiceComputations,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         match self {
             TargetExpr::Node(val) => Ok(vec![dice.get_configured_target_node(val.label()).await?]),
@@ -183,17 +183,18 @@ pub(crate) enum TargetExprError {
 }
 
 impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
-    pub(crate) async fn unpack(
+    pub(crate) async fn unpack<'c>(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContext<'v>,
-        eval: &Evaluator<'v, '_>,
+        dice: &DiceComputations,
+        eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<TargetExpr<'v, ConfiguredTargetNode>> {
         Ok(
-            if let Some(resolved) = Self::unpack_literal(value, target_platform, ctx).await? {
+            if let Some(resolved) = Self::unpack_literal(value, target_platform, ctx, dice).await? {
                 resolved
             } else if let Some(resolved) =
-                Self::unpack_iterable(value, target_platform, ctx, eval).await?
+                Self::unpack_iterable(value, target_platform, ctx, dice, eval).await?
             {
                 resolved
             } else {
@@ -207,7 +208,8 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
     async fn unpack_literal(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
-        ctx: &BxlContext<'v>,
+        ctx: &BxlContext<'_>,
+        dice: &DiceComputations,
     ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
         if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
             Ok(Some(Self::Node(configured_target.0.dupe())))
@@ -225,22 +227,19 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
             )? {
                 ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
                     Ok(Some(Self::Label(Cow::Owned(
-                        ctx.async_ctx
-                            .0
-                            .get_configured_target(
-                                &TargetLabel::new(pkg, name.as_ref()),
-                                target_platform.as_ref(),
-                            )
-                            .await?,
+                        dice.get_configured_target(
+                            &TargetLabel::new(pkg, name.as_ref()),
+                            target_platform.as_ref(),
+                        )
+                        .await?,
                     ))))
                 }
                 pattern => {
                     let loaded_patterns =
-                        load_patterns(ctx.async_ctx.0, vec![pattern], MissingTargetBehavior::Fail)
-                            .await?;
+                        load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
 
                     let maybe_compatible = get_maybe_compatible_targets(
-                        ctx.async_ctx.0,
+                        dice,
                         loaded_patterns.iter_loaded_targets_by_package(),
                         target_platform.dupe(),
                     )
@@ -255,20 +254,19 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
             match unpack_target_label(value) {
                 None => Ok(None),
                 Some(label) => Ok(Some(Self::Label(Cow::Owned(
-                    ctx.async_ctx
-                        .0
-                        .get_configured_target(label, target_platform.as_ref())
+                    dice.get_configured_target(label, target_platform.as_ref())
                         .await?,
                 )))),
             }
         }
     }
 
-    async fn unpack_iterable(
+    async fn unpack_iterable<'c>(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
-        ctx: &BxlContext<'v>,
-        eval: &Evaluator<'v, '_>,
+        ctx: &BxlContext<'_>,
+        dice: &DiceComputations,
+        eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
         if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
             return Ok(Some(Self::TargetSet(Cow::Borrowed(s))));
@@ -287,7 +285,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         let mut resolved = vec![];
 
         for item in items {
-            let unpacked = Self::unpack_literal(item, target_platform, ctx).await?;
+            let unpacked = Self::unpack_literal(item, target_platform, ctx, dice).await?;
 
             match unpacked {
                 Some(TargetExpr::Node(node)) => resolved.push(Either::Left(node)),
@@ -312,15 +310,16 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
 }
 
 impl<'v> TargetExpr<'v, TargetNode> {
-    pub(crate) async fn unpack(
+    pub(crate) async fn unpack<'c>(
         value: Value<'v>,
-        ctx: &BxlContext<'v>,
-        eval: &Evaluator<'v, '_>,
+        ctx: &BxlContext<'_>,
+        dice: &DiceComputations,
+        eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<TargetExpr<'v, TargetNode>> {
         Ok(
-            if let Some(resolved) = Self::unpack_literal(value, ctx).await? {
+            if let Some(resolved) = Self::unpack_literal(value, ctx, dice).await? {
                 resolved
-            } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval).await? {
+            } else if let Some(resolved) = Self::unpack_iterable(value, ctx, dice, eval).await? {
                 resolved
             } else {
                 return Err(anyhow::anyhow!(TargetExprError::NotAListOfTargets(
@@ -332,7 +331,8 @@ impl<'v> TargetExpr<'v, TargetNode> {
 
     async fn unpack_literal(
         value: Value<'v>,
-        ctx: &BxlContext<'v>,
+        ctx: &BxlContext<'_>,
+        dice: &DiceComputations,
     ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
         if let Some(target) = value.downcast_ref::<StarlarkTargetNode>() {
             Ok(Some(Self::Node(target.0.dupe())))
@@ -351,8 +351,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
                 ))),
                 pattern => {
                     let loaded_patterns =
-                        load_patterns(ctx.async_ctx.0, vec![pattern], MissingTargetBehavior::Fail)
-                            .await?;
+                        load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
                     let mut target_set = TargetSet::new();
                     for (_package, results) in loaded_patterns.into_iter() {
                         target_set.extend(results?.into_values());
@@ -368,10 +367,11 @@ impl<'v> TargetExpr<'v, TargetNode> {
         }
     }
 
-    async fn unpack_iterable(
+    async fn unpack_iterable<'c>(
         value: Value<'v>,
-        ctx: &BxlContext<'v>,
-        eval: &Evaluator<'v, '_>,
+        ctx: &BxlContext<'_>,
+        dice: &DiceComputations,
+        eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
         if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
             return Ok(Some(Self::TargetSet(Cow::Borrowed(s))));
@@ -390,7 +390,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
         let mut resolved = vec![];
 
         for item in items {
-            let unpacked = Self::unpack_literal(item, ctx).await?;
+            let unpacked = Self::unpack_literal(item, ctx, dice).await?;
 
             match unpacked {
                 Some(TargetExpr::Node(node)) => resolved.push(Either::Left(node)),

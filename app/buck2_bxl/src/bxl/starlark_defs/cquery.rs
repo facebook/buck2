@@ -131,7 +131,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         to: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.async_ctx.via(|| async {
+        this.ctx.async_ctx.via_dice(|dice| async {
             get_cquery_env(this.ctx, this.target_platform.dupe())
                 .await?
                 .allpaths(
@@ -140,6 +140,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             from,
                             &this.target_platform,
                             this.ctx,
+                            dice,
                             eval,
                         )
                         .await?
@@ -153,6 +154,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             to,
                             &this.target_platform,
                             this.ctx,
+                            dice,
                             eval,
                         )
                         .await?
@@ -174,7 +176,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         to: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.async_ctx.via(|| async {
+        this.ctx.async_ctx.via_dice(|dice| async {
             get_cquery_env(this.ctx, this.target_platform.dupe())
                 .await?
                 .somepath(
@@ -183,6 +185,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             from,
                             &this.target_platform,
                             this.ctx,
+                            dice,
                             eval,
                         )
                         .await?
@@ -196,6 +199,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             to,
                             &this.target_platform,
                             this.ctx,
+                            dice,
                             eval,
                         )
                         .await?
@@ -218,12 +222,13 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         targets: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.async_ctx.via(|| async {
+        this.ctx.async_ctx.via_dice(|dice| async {
             filter_incompatible(
                 TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                     targets,
                     &this.target_platform,
                     this.ctx,
+                    dice,
                     eval,
                 )
                 .await?
@@ -251,12 +256,13 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         targets: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.async_ctx.via(|| async {
+        this.ctx.async_ctx.via_dice(|dice| async {
             filter_incompatible(
                 TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                     targets,
                     &this.target_platform,
                     this.ctx,
+                    dice,
                     eval,
                 )
                 .await?
@@ -285,12 +291,13 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         targets: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.async_ctx.via(|| async {
+        this.ctx.async_ctx.via_dice(|dice| async {
             filter_incompatible(
                 TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                     targets,
                     &this.target_platform,
                     this.ctx,
+                    dice,
                     eval,
                 )
                 .await?
@@ -320,13 +327,14 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .async_ctx
-            .via(|| async {
+            .via_dice(|dice| async {
                 let universe = match universe.into_option() {
                     Some(universe) => Some(filter_incompatible(
                         TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                             universe,
                             &this.target_platform,
                             this.ctx,
+                            dice,
                             eval,
                         )
                         .await?
@@ -367,7 +375,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .async_ctx
-            .via(|| async {
+            .via_dice(|dice| async {
                 let filter = filter
                     .into_option()
                     .try_map(buck2_query_parser::parse_expr)?;
@@ -380,6 +388,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 universe,
                                 &this.target_platform,
                                 this.ctx,
+                                dice,
                                 eval,
                             )
                             .await?
@@ -415,12 +424,13 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .async_ctx
-            .via(|| async {
+            .via_dice(|dice| async {
                 filter_incompatible(
                     TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                         targets,
                         &this.target_platform,
                         this.ctx,
+                        dice,
                         eval,
                     )
                     .await?
@@ -449,12 +459,13 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkFileSet> {
         this.ctx
             .async_ctx
-            .via(|| async {
+            .via_dice(|dice| async {
                 filter_incompatible(
                     TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                         targets,
                         &this.target_platform,
                         this.ctx,
+                        dice,
                         eval,
                     )
                     .await?
@@ -476,7 +487,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .async_ctx
-            .via(|| async {
+            .via_dice(|dice| async {
                 get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
                     .testsof(&filter_incompatible(
@@ -484,6 +495,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             targets,
                             &this.target_platform,
                             this.ctx,
+                            dice,
                             eval,
                         )
                         .await?
@@ -506,7 +518,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .async_ctx
-            .via(|| async {
+            .via_dice(|dice| async {
                 let maybe_compatibles = get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
                     .testsof_with_default_target_platform(&filter_incompatible(
@@ -514,6 +526,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             targets,
                             &this.target_platform,
                             this.ctx,
+                            dice,
                             eval,
                         )
                         .await?
@@ -546,7 +559,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .async_ctx
-            .via(|| async {
+            .via_dice(|dice| async {
                 get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
                     .rdeps(
@@ -555,6 +568,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 universe,
                                 &this.target_platform,
                                 this.ctx,
+                                dice,
                                 eval,
                             )
                             .await?
@@ -568,6 +582,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 from,
                                 &this.target_platform,
                                 this.ctx,
+                                dice,
                                 eval,
                             )
                             .await?
@@ -661,12 +676,13 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkFileSet> {
         this.ctx
             .async_ctx
-            .via(|| async {
+            .via_dice(|dice| async {
                 let targets = &filter_incompatible(
                     TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                         targets,
                         &this.target_platform,
                         this.ctx,
+                        dice,
                         eval,
                     )
                     .await?

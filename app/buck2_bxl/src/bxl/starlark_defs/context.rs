@@ -662,6 +662,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                     labels,
                     &target_platform,
                     this,
+                    ctx,
                     eval,
                 )
                 .await?
@@ -714,7 +715,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let res: anyhow::Result<Value<'v>> = this.async_ctx.via_dice(|ctx| async move {
             Ok(
-                match TargetExpr::<'v, TargetNode>::unpack(labels, this, eval).await? {
+                match TargetExpr::<'v, TargetNode>::unpack(labels, this, ctx, eval).await? {
                     TargetExpr::Label(label) => {
                         let node = ctx.get_target_node(&label).await?;
 
@@ -887,7 +888,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                     let exec_compatible_with = if exec_compatible_with.is_none() {
                         Vec::new()
                     } else {
-                        TargetExpr::<TargetNode>::unpack(exec_compatible_with, this, eval)
+                        TargetExpr::<TargetNode>::unpack(exec_compatible_with, this, ctx, eval)
                             .await?
                             .get(ctx)
                             .await?
