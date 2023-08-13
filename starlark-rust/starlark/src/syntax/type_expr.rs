@@ -25,6 +25,7 @@ use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::BinOp;
 use crate::syntax::ast::ExprP;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[derive(Debug, thiserror::Error)]
 enum TypeExprUnpackError {
@@ -34,6 +35,8 @@ enum TypeExprUnpackError {
     EmptyListInType,
     #[error("Only dot expression of form `ident.ident` is allowed in type expression")]
     DotInType,
+    #[error(r#"`""` or `"_xxx"` is not allowed in type expression, use `typing.Any` instead"#)]
+    EmptyStrInType,
 }
 
 /// This type should be used instead of `TypeExprP`, but a lot of code needs to be updated.
@@ -139,10 +142,19 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                 node: TypeExprUnpackP::Path(ident, Vec::new()),
             }),
             ExprP::Lambda(..) => err("lambda"),
-            ExprP::Literal(AstLiteral::String(s)) => Ok(Spanned {
-                span,
-                node: TypeExprUnpackP::Literal(s.as_ref().map(|x| x.as_str())),
-            }),
+            ExprP::Literal(AstLiteral::String(s)) => {
+                if TypeCompiled::is_wildcard(s) {
+                    return Err(EvalException::new(
+                        TypeExprUnpackError::EmptyStrInType.into(),
+                        expr.span,
+                        codemap,
+                    ));
+                }
+                Ok(Spanned {
+                    span,
+                    node: TypeExprUnpackP::Literal(s.as_ref().map(|x| x.as_str())),
+                })
+            }
             ExprP::Literal(AstLiteral::Int(_)) => err("int"),
             ExprP::Literal(AstLiteral::Float(_)) => err("float"),
             ExprP::Not(..) => err("not"),

@@ -58,12 +58,18 @@ fn test_type_assign_annotation() {
     assert::pass(
         r#"
 x : str.type = "test"
-xs: "" = [1,2]
+xs: typing.Any = [1,2]
 xs[0] : int.type = 4
 "#,
     );
-    assert::fail("a, b : '' = 1, 2", "not allowed on multiple assignments");
-    assert::fail("a = 1\na : '' += 1", "not allowed on augmented assignments");
+    assert::fail(
+        "a, b : typing.Any = 1, 2",
+        "not allowed on multiple assignments",
+    );
+    assert::fail(
+        "a = 1\na : typing.Any += 1",
+        "not allowed on augmented assignments",
+    );
     assert::fail(
         "a : str.type = noop(1)",
         "does not match the type annotation",
