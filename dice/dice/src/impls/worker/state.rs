@@ -9,6 +9,9 @@
 
 //! The main worker thread for the dice task
 
+use std::sync::Arc;
+
+use dupe::Dupe;
 use more_futures::cancellable_future::DisableCancellationGuard;
 use more_futures::cancellation::ExplicitCancellationContext;
 use more_futures::cancellation::IgnoreCancellationGuard;
@@ -16,12 +19,16 @@ use more_futures::cancellation::IgnoreCancellationGuard;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::KeyEvaluationResult;
 use crate::impls::key::DiceKey;
+use crate::impls::key::DiceKeyErased;
+use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
+use crate::ActivationData;
+use crate::ActivationTracker;
 
 /// Represents when we are in a spawned dice task worker and are currently waiting for the previous
 /// cancelled instance of this task to finish cancelling.
@@ -195,7 +202,10 @@ impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
         }
     }
 
-    pub(crate) fn deps_match(self) -> CancellableResult<DiceWorkerStateFinished<'a, 'b>> {
+    pub(crate) fn deps_match(
+        self,
+        activation_info: Option<ActivationInfo>,
+    ) -> CancellableResult<DiceWorkerStateFinished<'a, 'b>> {
         debug!(msg = "reusing previous value because deps didn't change. Updating caches");
 
         let guard = match self
@@ -213,6 +223,7 @@ impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
         Ok(DiceWorkerStateFinished {
             _prevent_cancellation: guard,
             internals: self.internals,
+            activation_info,
         })
     }
 
@@ -261,6 +272,7 @@ impl<'a, 'b> DiceWorkerStateEvaluating<'a, 'b> {
         self,
         cycles: KeyComputingUserCycleDetectorData,
         result: KeyEvaluationResult,
+        activation_info: Option<ActivationInfo>,
     ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
         debug!(msg = "evaluation finished. updating caches");
 
@@ -282,6 +294,7 @@ impl<'a, 'b> DiceWorkerStateEvaluating<'a, 'b> {
             state: DiceWorkerStateFinished {
                 _prevent_cancellation: guard,
                 internals: self.internals,
+                activation_info,
             },
             result,
         })
@@ -300,16 +313,55 @@ pub(crate) struct DiceWorkerStateFinishedEvaluating<'a, 'b> {
 pub(crate) struct DiceWorkerStateFinished<'a, 'b> {
     _prevent_cancellation: DisableCancellationGuard,
     internals: &'a mut DiceTaskHandle<'b>,
+    activation_info: Option<ActivationInfo>,
 }
 
 impl<'a, 'b> DiceWorkerStateFinished<'a, 'b> {
-    pub(crate) fn cached(self, value: DiceComputedValue) -> DiceWorkerStateFinishedAndCached {
+    pub(crate) fn cached(mut self, value: DiceComputedValue) -> DiceWorkerStateFinishedAndCached {
         debug!(msg = "Update caches complete");
 
+        if let Some(activation_info) = self.activation_info.take() {
+            activation_info.activation_tracker.key_activated(
+                activation_info.key.as_any(),
+                &mut activation_info.deps.iter().map(|k| k.as_any()),
+                activation_info.activation_data,
+            )
+        }
         self.internals.finished(value);
 
         DiceWorkerStateFinishedAndCached {
             _prevent_cancellation: self._prevent_cancellation,
+        }
+    }
+}
+
+pub(crate) struct ActivationInfo {
+    activation_tracker: Arc<dyn ActivationTracker>,
+    key: DiceKeyErased,
+    deps: Vec<DiceKeyErased>,
+    activation_data: ActivationData,
+}
+
+impl ActivationInfo {
+    pub(crate) fn new<'a>(
+        key_index: &DiceKeyIndex,
+        activation_tracker: &Option<Arc<dyn ActivationTracker>>,
+        key: DiceKey,
+        deps: impl Iterator<Item = &'a DiceKey>,
+        activation_data: ActivationData,
+    ) -> Option<ActivationInfo> {
+        if let Some(activation_tracker) = activation_tracker {
+            let key = key_index.get(key).dupe();
+            let deps = deps.map(|dep| key_index.get(*dep).dupe()).collect();
+
+            Some(ActivationInfo {
+                activation_tracker: activation_tracker.dupe(),
+                key,
+                deps,
+                activation_data,
+            })
+        } else {
+            None
         }
     }
 }

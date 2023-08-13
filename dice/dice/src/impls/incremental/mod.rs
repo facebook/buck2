@@ -38,13 +38,13 @@ use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
-use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
+use crate::impls::worker::state::ActivationInfo;
 use crate::impls::worker::state::DiceWorkerStateCheckingDeps;
 use crate::impls::worker::state::DiceWorkerStateComputing;
 use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
@@ -54,7 +54,6 @@ use crate::result::CancellableResult;
 use crate::result::Cancelled;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRanges;
-use crate::ActivationTracker;
 
 #[cfg(test)]
 mod tests;
@@ -219,13 +218,13 @@ impl IncrementalEngine {
                             .await
                     }
                     DidDepsChange::NoChange => {
-                        let activation_deps = mismatch
-                            .deps_to_validate
-                            .iter()
-                            .copied()
-                            .collect::<Vec<_>>();
-
-                        let task_state = task_state.deps_match()?;
+                        let task_state = task_state.deps_match(ActivationInfo::new(
+                            &eval.dice.key_index,
+                            &eval.user_data.activation_tracker,
+                            k,
+                            mismatch.deps_to_validate.iter(),
+                            ActivationData::Reused,
+                        ))?;
 
                         // report reuse
                         let (tx, rx) = oneshot::channel();
@@ -237,17 +236,7 @@ impl IncrementalEngine {
                             resp: tx,
                         });
 
-                        rx.await.unwrap().map(|r| {
-                            report_key_activation(
-                                &eval.dice.key_index,
-                                eval.user_data.activation_tracker.as_deref(),
-                                k,
-                                activation_deps.into_iter(),
-                                ActivationData::Reused,
-                            );
-
-                            task_state.cached(r)
-                        })
+                        rx.await.unwrap().map(|r| task_state.cached(r))
                     }
                 }
             }
@@ -274,9 +263,6 @@ impl IncrementalEngine {
         let eval_result_state = eval.evaluate(k, task_state).await?;
         let eval_result = eval_result_state.result;
 
-        let activation_deps = eval_result.deps.iter().copied().collect::<Vec<_>>();
-        let activation_data = eval_result.evaluation_data.into_activation_data();
-
         let res = {
             match eval_result.value.into_valid_value() {
                 Ok(value) => {
@@ -299,17 +285,7 @@ impl IncrementalEngine {
             }
         };
 
-        res.map(|res| {
-            report_key_activation(
-                &eval.dice.key_index,
-                eval.user_data.activation_tracker.as_deref(),
-                k,
-                activation_deps.into_iter(),
-                activation_data,
-            );
-
-            eval_result_state.state.cached(res)
-        })
+        res.map(|res| eval_result_state.state.cached(res))
     }
 
     /// determines if the given 'Dependency' has changed between versions 'last_version' and
@@ -372,20 +348,6 @@ enum DidDepsChange {
     Changed,
     NoChange,
     NoDeps,
-}
-
-fn report_key_activation(
-    key_index: &DiceKeyIndex,
-    activation_tracker: Option<&dyn ActivationTracker>,
-    key: DiceKey,
-    deps: impl Iterator<Item = DiceKey>,
-    activation_data: ActivationData,
-) {
-    if let Some(activation_tracker) = &activation_tracker {
-        let key = key_index.get(key).as_any();
-        let mut iter = deps.map(|dep| key_index.get(dep).as_any());
-        activation_tracker.key_activated(key, &mut iter, activation_data);
-    }
 }
 
 #[cfg(test)]

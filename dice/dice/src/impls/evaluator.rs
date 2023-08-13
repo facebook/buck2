@@ -17,7 +17,6 @@ use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
-use crate::impls::ctx::EvaluationData;
 use crate::impls::ctx::ModernComputeCtx;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
@@ -26,9 +25,11 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::impls::worker::state::ActivationInfo;
 use crate::impls::worker::state::DiceWorkerStateComputing;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::result::CancellableResult;
+use crate::ActivationData;
 use crate::HashSet;
 
 /// Evaluates Keys
@@ -82,14 +83,22 @@ impl AsyncEvaluator {
                         .finalize(),
                 };
 
+                let activation = ActivationInfo::new(
+                    &self.dice.key_index,
+                    &self.user_data.activation_tracker,
+                    key,
+                    deps.iter(),
+                    evaluation_data.into_activation_data(), // Projection keys can't set this.
+                );
+
                 state.finished(
                     cycles,
                     KeyEvaluationResult {
                         value: MaybeValidDiceValue::new(value, dep_validity),
                         deps,
                         storage: key_dyn.storage_type(),
-                        evaluation_data,
                     },
+                    activation,
                 )
             }
             DiceKeyErased::Projection(proj) => {
@@ -110,14 +119,22 @@ impl AsyncEvaluator {
 
                 let value = proj.proj().compute(base.value(), &ctx);
 
+                let activation = ActivationInfo::new(
+                    &self.dice.key_index,
+                    &self.user_data.activation_tracker,
+                    key,
+                    [proj.base()].iter(),
+                    ActivationData::Evaluated(None), // Projection keys can't set this.
+                );
+
                 state.finished(
                     cycles,
                     KeyEvaluationResult {
                         value: MaybeValidDiceValue::new(value, base.value().validity()),
                         deps: [proj.base()].into_iter().collect(),
                         storage: proj.proj().storage_type(),
-                        evaluation_data: EvaluationData::none(), // Projection keys can't set this.
                     },
+                    activation,
                 )
             }
         }
@@ -163,7 +180,6 @@ impl SyncEvaluator {
                     value: MaybeValidDiceValue::new(value, self.base.validity()),
                     deps: [proj.base()].into_iter().collect(),
                     storage: proj.proj().storage_type(),
-                    evaluation_data: EvaluationData::none(), // Projection keys can't set this.
                 }
             }
         }
@@ -174,5 +190,4 @@ pub(crate) struct KeyEvaluationResult {
     pub(crate) value: MaybeValidDiceValue,
     pub(crate) deps: HashSet<DiceKey>,
     pub(crate) storage: StorageType,
-    pub(crate) evaluation_data: EvaluationData,
 }
