@@ -645,6 +645,7 @@ def _native_providers(
                     linker_type = linker_type,
                     link_whole = True,
                 )],
+                external_debug_info = external_debug_infos[LinkStyle("static_pic")],
             ),
         ),
         deps = inherited_non_rust_link_deps,
