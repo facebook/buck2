@@ -561,16 +561,20 @@ def _native_providers(
         return providers
 
     libraries = {}
+    external_debug_infos = {}
     link_infos = {}
     for link_style in LinkStyle:
         params = lang_style_param[(LinkageLang("c++"), link_style)]
         lib = param_artifact[params]
         libraries[link_style] = lib
+
         external_debug_info = inherited_external_debug_info(
             ctx = ctx,
             dwo_output_directory = None,  # TODO(T147665047) pass lib's dwo output directory
             dep_link_style = params.dep_link_style,
         )
+        external_debug_infos[link_style] = external_debug_info
+
         if link_style in STATIC_LINK_STYLES:
             link_infos[link_style] = LinkInfos(
                 default = LinkInfo(
@@ -610,6 +614,7 @@ def _native_providers(
     if get_actual_link_style(LinkStyle("shared"), preferred_linkage, compile_ctx.cxx_toolchain_info.pic_behavior) == LinkStyle("shared"):
         solibs[shlib_name] = LinkedObject(
             output = libraries[LinkStyle("shared")].output,
+            external_debug_info = external_debug_infos[LinkStyle("shared")],
         )
 
     # Native shared library provider.
