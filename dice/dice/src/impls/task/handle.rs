@@ -9,6 +9,7 @@
 
 //! Handle to the DiceTask as seen by the thread responsible for completing the task
 
+use dupe::Dupe;
 use more_futures::cancellation::ExplicitCancellationContext;
 
 use crate::arc::Arc;
@@ -20,6 +21,11 @@ use crate::impls::value::DiceComputedValue;
 pub(crate) struct DiceTaskHandle<'a> {
     pub(super) internal: Arc<DiceTaskInternal>,
     pub(super) cancellations: &'a ExplicitCancellationContext,
+    completion_handle: TaskCompletionHandle,
+}
+
+pub(crate) struct TaskCompletionHandle {
+    internal: Arc<DiceTaskInternal>,
     // holds the result while `DiceTaskHandle` is not dropped, then upon drop, stores it into
     // `DiceTaskInternal`. So the result is never held in two spots at the same time.
     result: Option<DiceComputedValue>,
@@ -40,9 +46,12 @@ impl<'a> DiceTaskHandle<'a> {
         cancellations: &'a ExplicitCancellationContext,
     ) -> Self {
         Self {
-            internal,
+            internal: internal.dupe(),
             cancellations,
-            result: None,
+            completion_handle: TaskCompletionHandle {
+                internal,
+                result: None,
+            },
         }
     }
 
@@ -59,7 +68,7 @@ impl<'a> DiceTaskHandle<'a> {
     }
 
     pub(crate) fn finished(&mut self, value: DiceComputedValue) {
-        let _ignore = self.result.insert(value);
+        self.completion_handle.finished(value)
     }
 
     pub(crate) fn cancellation_ctx(&self) -> &'a ExplicitCancellationContext {
@@ -68,15 +77,25 @@ impl<'a> DiceTaskHandle<'a> {
 
     #[cfg(test)]
     pub(crate) fn testing_new() -> DiceTaskHandle<'static> {
+        let internal = DiceTaskInternal::new(crate::impls::key::DiceKey { index: 99999 });
         DiceTaskHandle::<'static> {
-            internal: DiceTaskInternal::new(crate::impls::key::DiceKey { index: 99999 }),
+            internal: internal.dupe(),
             cancellations: ExplicitCancellationContext::testing(),
-            result: None,
+            completion_handle: TaskCompletionHandle {
+                internal,
+                result: None,
+            },
         }
     }
 }
 
-impl<'a> Drop for DiceTaskHandle<'a> {
+impl TaskCompletionHandle {
+    pub(crate) fn finished(&mut self, value: DiceComputedValue) {
+        let _ignore = self.result.insert(value);
+    }
+}
+
+impl Drop for TaskCompletionHandle {
     fn drop(&mut self) {
         if let Some(value) = self.result.take() {
             // okay to ignore as it only errors on cancelled, in which case we don't care to set
