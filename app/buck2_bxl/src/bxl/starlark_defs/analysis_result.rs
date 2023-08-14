@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
@@ -19,8 +20,10 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
 use starlark::values::FrozenValue;
+use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::Value;
 use starlark::StarlarkDocs;
 
 #[derive(
@@ -78,6 +81,40 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
                 .lookup_inner(&this.label)?
                 .value()
                 .to_frozen_value())
+        }
+    }
+
+    /// Converts the analysis result into a `dependency`. Currently, you can only get a `dependency` without any
+    /// transitions. This means that you cannot create an exec dep or toolchain from an analysis result.
+
+    /// We may support other dependency transition types in the future.
+    ///
+
+    /// This is useful for passing in the results of `ctx.analysis()` into anon targets.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_dependency(ctx):
+    ///     node = ctx.configured_targets("root//bin:the_binary")
+    ///     dependency = ctx.analysis(node).as_dependency()
+    /// ```
+    fn as_dependency<'v>(
+        this: &'v StarlarkAnalysisResult,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
+        unsafe {
+            // SAFETY:: this actually just returns a FrozenValue from in the StarlarkAnalysisResult
+            // which is kept alive for 'v
+            Ok(heap.alloc(Dependency::new(
+                heap,
+                this.label.clone(),
+                this.analysis
+                    .lookup_inner(&this.label)?
+                    .value()
+                    .to_frozen_value()
+                    .to_value(),
+                None,
+            )))
         }
     }
 }
