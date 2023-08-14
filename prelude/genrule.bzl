@@ -267,12 +267,27 @@ def process_genrule(
     # into the sandboxed source dir and relative all paths to that.
     if not _requires_build_root(ctx):
         srcs_dir = srcs_artifact
-        if not is_windows:
+
+        if is_windows:
+            rewrite_scratch_path = cmd_args(
+                cmd_args(ctx.label.project_root).relative_to(srcs_artifact),
+                format = 'set "BUCK_SCRATCH_PATH={}/$BUCK_SCRATCH_PATH"',
+            )
+        else:
             srcs_dir = cmd_args(srcs_dir, quote = "shell")
+            rewrite_scratch_path = cmd_args(
+                cmd_args(ctx.label.project_root, quote = "shell").relative_to(srcs_artifact),
+                format = "export BUCK_SCRATCH_PATH={}/$BUCK_SCRATCH_PATH",
+            )
+
         script = (
-            # Change to the directory that genrules expect.
-            [cmd_args(srcs_dir, format = "cd {}")] +
-            # Relative all paths in the command to the sandbox dir.
+            [
+                # Rewrite BUCK_SCRATCH_PATH
+                rewrite_scratch_path,
+                # Change to the directory that genrules expect.
+                cmd_args(srcs_dir, format = "cd {}"),
+            ] +
+            # Relativize all paths in the command to the sandbox dir.
             [cmd.relative_to(srcs_artifact) for cmd in script]
         )
 
