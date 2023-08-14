@@ -196,3 +196,10 @@ impl TargetInfo {
         panic!("Invariant broken: rust-project is unable to determine a root module")
     }
 }
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct ExpandedAndResolved {
+    pub expanded_targets: Vec<Target>,
+    pub queried_proc_macros: BTreeMap<Target, MacroOutput>,
+    pub resolved_deps: BTreeMap<Target, TargetInfo>,
+}

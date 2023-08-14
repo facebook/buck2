@@ -20,7 +20,6 @@ use std::process::Stdio;
 
 use anyhow::Context;
 use serde::Deserialize;
-use tracing::debug;
 use tracing::enabled;
 use tracing::info;
 use tracing::instrument;
@@ -32,6 +31,7 @@ use crate::json_project::Edition;
 use crate::json_project::JsonProject;
 use crate::json_project::Sysroot;
 use crate::target::AliasedTargetInfo;
+use crate::target::ExpandedAndResolved;
 use crate::target::Kind;
 use crate::target::MacroOutput;
 use crate::target::Target;
@@ -42,14 +42,18 @@ use crate::Dep;
 
 pub fn to_json_project(
     sysroot: Sysroot,
-    targets: Vec<Target>,
-    target_map: BTreeMap<Target, TargetInfo>,
+    expanded_and_resolved: ExpandedAndResolved,
     aliases: BTreeMap<Target, AliasedTargetInfo>,
-    proc_macros: BTreeMap<Target, MacroOutput>,
     relative_paths: bool,
 ) -> Result<JsonProject, anyhow::Error> {
     let mode = select_mode(None);
     let buck = Buck::new(mode);
+
+    let ExpandedAndResolved {
+        expanded_targets: targets,
+        queried_proc_macros: proc_macros,
+        resolved_deps: target_map,
+    } = expanded_and_resolved;
 
     let targets: BTreeSet<_> = targets.into_iter().collect();
     let target_index = merge_unit_test_targets(target_map);
@@ -337,108 +341,24 @@ impl Buck {
         Ok(files)
     }
 
-    /// Expands a Buck target expression.
-    ///
-    /// Since `rust-project` accepts Buck target experssions like '//common/rust/tools/rust-project/...',
-    /// it is necessary to expand the target expression to query the *actual* targets.
     #[instrument(skip_all)]
-    pub fn expand_targets(&self, targets: &[Target]) -> Result<Vec<Target>, anyhow::Error> {
-        let mut command = self.command();
-        command.arg("bxl");
-        if let Some(mode) = &self.mode {
-            command.arg(mode);
-        }
-        command.args([
-            "prelude//rust/rust-analyzer/resolve_deps.bxl:expand_targets",
-            "--",
-            "--targets",
-        ]);
-        command.args(targets);
-        tracing::info!(?targets);
-        let raw = deserialize_output(command.output(), &command)?;
-        if enabled!(Level::TRACE) {
-            for target in &raw {
-                trace!(%target, "Expanded target from buck");
-            }
-        }
-        Ok(raw)
-    }
-
-    #[instrument(skip_all)]
-    pub fn resolve_deps(
-        &self,
-        targets: &[Target],
-    ) -> Result<BTreeMap<Target, TargetInfo>, anyhow::Error> {
+    pub fn expand_and_resolve(&self, targets: &[Target]) -> anyhow::Result<ExpandedAndResolved> {
         let mut command = self.command();
         command.args(["--isolation-dir", ".rust-analyzer"]);
-
         command.arg("bxl");
         command.args(["--oncall", "rust_devx", "-c", "client.id=rust-project"]);
-
         if let Some(mode) = &self.mode {
             command.arg(mode);
         }
-
         command.args([
-            "prelude//rust/rust-analyzer/resolve_deps.bxl:query",
+            "prelude//rust/rust-analyzer/resolve_deps.bxl:expand_and_resolve",
             "-c=rust.failure_filter=true",
             "-c=rust.incremental=true",
             "--",
             "--targets",
         ]);
         command.args(targets);
-
-        if targets.len() <= 10 {
-            // printing out 10 targets is pretty reasonable information for the user
-            info!(
-                targets_num = targets.len(),
-                ?targets,
-                "resolving dependencies"
-            );
-        } else {
-            // after 10 targets, however, things tend to get a bit unwieldy.
-            info!(targets_num = targets.len(), "resolving dependencies");
-            debug!(?targets);
-        }
-        let raw = deserialize_output(command.output(), &command)?;
-
-        if enabled!(Level::TRACE) {
-            for (target, info) in &raw {
-                trace!(%target, ?info, "parsed target from buck");
-            }
-        }
-        Ok(raw)
-    }
-
-    #[instrument(skip_all)]
-    pub fn query_proc_macros(
-        &self,
-        targets: &[Target],
-    ) -> Result<BTreeMap<Target, MacroOutput>, anyhow::Error> {
-        let mut command = self.command();
-
-        command.args(["--isolation-dir", ".rust-analyzer"]);
-
-        command.arg("bxl");
-        command.args(["--oncall", "rust_devx", "-c", "client.id=rust-project"]);
-
-        if let Some(mode) = &self.mode {
-            command.arg(mode);
-        }
-
-        command.args([
-            "prelude//rust/rust-analyzer/resolve_deps.bxl:expand_proc_macros",
-            "-c=rust.failure_filter=true",
-            "-c=rust.incremental=true",
-            "--",
-            "--targets",
-        ]);
-        command.args(targets);
-
-        info!("building proc macros");
-        let raw: BTreeMap<Target, MacroOutput> = deserialize_output(command.output(), &command)?;
-
-        Ok(raw)
+        deserialize_output(command.output(), &command)
     }
 
     #[instrument(skip_all)]

@@ -67,9 +67,7 @@ def _process_target_config(ctx, target):
     copy["kind"] = target.rule_type
     return copy
 
-def cquery_impl(ctx):
-    top_targets = ctx.cli_args.targets
-
+def cquery_inner(ctx, top_targets):
     # the set that we have at home.
     targets = [target for top_target in top_targets for target in ctx.cquery().deps(top_target)]
     outputs = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", targets)
@@ -80,7 +78,12 @@ def cquery_impl(ctx):
 
     for target in outputs:
         out[target.label.raw_target()] = _process_target_config(ctx, target)
-    ctx.output.print_json(out)
+    return out
+
+def cquery_impl(ctx):
+    # equivalent of `flat_map`ing
+    targets = [target for sublist in ctx.cli_args.targets for target in sublist]
+    ctx.output.print_json(cquery_inner(ctx, targets))
 
 query = bxl_main(
     impl = cquery_impl,
@@ -89,9 +92,7 @@ query = bxl_main(
     },
 )
 
-def expand_proc_macros_impl(ctx):
-    # equivalent of `flat_map`ing
-    targets = [target for sublist in ctx.cli_args.targets for target in sublist]
+def expand_proc_macros_inner(ctx, targets):
     targets = ctx.cquery().deps(targets)
     outputs = ctx.cquery().kind("^(configured_alias)$", targets)
 
@@ -113,7 +114,12 @@ def expand_proc_macros_impl(ctx):
         so = analysis.providers()[DefaultInfo].sub_targets["shared"][DefaultInfo].default_outputs[0]
         macros[alias] = {"actual": actual.label, "dylib": ctx.output.ensure(so).abs_path()}
 
-    ctx.output.print_json(macros)
+    return macros
+
+def expand_proc_macros_impl(ctx):
+    # equivalent of `flat_map`ing
+    targets = [target for sublist in ctx.cli_args.targets for target in sublist]
+    ctx.output.print_json(expand_proc_macros_inner(ctx, targets))
 
 expand_proc_macros = bxl_main(
     impl = expand_proc_macros_impl,
@@ -122,19 +128,42 @@ expand_proc_macros = bxl_main(
     },
 )
 
-def expand_targets_impl(ctx):
-    # equivalent of `flat_map`ing
-    targets = [target for sublist in ctx.cli_args.targets for target in sublist]
+def expand_targets_inner(ctx, targets):
     kind_target_list = ctx.cquery().kind("^(rust_binary|rust_library|rust_test|alias)$", targets)
 
     # Allow targets to opt-in to being treated as rust-analyzer-compatible.
     # This is used for cross-compilation targets that apply Buck transitions to Rust rules.
     labeled_target_list = ctx.cquery().attrfilter("labels", "rust_analyzer_target", targets)
     expanded_target_list = kind_target_list + labeled_target_list
-    ctx.output.print_json([target.label.raw_target() for target in expanded_target_list])
+    return [target.label.raw_target() for target in expanded_target_list]
+
+def expand_targets_impl(ctx):
+    # equivalent of `flat_map`ing
+    targets = [target for sublist in ctx.cli_args.targets for target in sublist]
+    ctx.output.print_json(expand_targets_inner(ctx, targets))
 
 expand_targets = bxl_main(
     impl = expand_targets_impl,
+    cli_args = {
+        "targets": cli_args.list(cli_args.target_expr()),
+    },
+)
+
+def expand_and_resolve_impl(ctx):
+    # equivalent of `flat_map`ing
+    targets = [target for sublist in ctx.cli_args.targets for target in sublist]
+    expanded_targets = expand_targets_inner(ctx, targets)
+    queried_proc_macros = expand_proc_macros_inner(ctx, expanded_targets)
+    resolved_deps = cquery_inner(ctx, expanded_targets)
+
+    ctx.output.print_json({
+        "expanded_targets": expanded_targets,
+        "queried_proc_macros": queried_proc_macros,
+        "resolved_deps": resolved_deps,
+    })
+
+expand_and_resolve = bxl(
+    impl = expand_and_resolve_impl,
     cli_args = {
         "targets": cli_args.list(cli_args.target_expr()),
     },
