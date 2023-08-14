@@ -33,7 +33,7 @@ enum AttributeAsStarlarkValueError {
     NoSerialize,
     Allocative
 )]
-pub struct AttributeAsStarlarkValue(Attribute);
+pub(crate) struct AttributeAsStarlarkValue(Attribute);
 
 starlark_simple_value!(AttributeAsStarlarkValue);
 

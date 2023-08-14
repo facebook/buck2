@@ -64,7 +64,7 @@ enum AttrError {
     DefaultOnlyMustHaveDefault,
 }
 
-pub trait AttributeExt {
+pub(crate) trait AttributeExt {
     /// Helper to create an attribute from attrs.foo functions
     fn attr<'v>(
         eval: &mut Evaluator<'v, '_>,

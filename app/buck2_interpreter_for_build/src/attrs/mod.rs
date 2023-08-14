@@ -20,7 +20,7 @@ use starlark::values::Value;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::error::CoercionError;
 
-pub mod attribute_as_starlark_value;
+pub(crate) mod attribute_as_starlark_value;
 pub mod attrs_global;
 pub mod coerce;
 
