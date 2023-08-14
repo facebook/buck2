@@ -36,10 +36,8 @@ use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
@@ -51,7 +49,6 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
 pub struct SerializeValue<'a, 'v> {
     pub value: Value<'v>,
     pub fs: Option<&'a ExecutorFs<'a>>,
-    pub absolute: bool,
 }
 
 impl<'a, 'v> SerializeValue<'a, 'v> {
@@ -59,7 +56,6 @@ impl<'a, 'v> SerializeValue<'a, 'v> {
         Self {
             value: x,
             fs: self.fs,
-            absolute: self.absolute,
         }
     }
 }
@@ -69,22 +65,6 @@ fn err<R, E: serde::ser::Error>(res: anyhow::Result<R>) -> Result<R, E> {
         Ok(v) => Ok(v),
         Err(e) => Err(serde::ser::Error::custom(format!("{:#}", e))),
     }
-}
-
-fn with_command_line_context<F, T>(fs: &ExecutorFs<'_>, absolute: bool, f: F) -> T
-where
-    F: FnOnce(&mut dyn CommandLineContext) -> T,
-{
-    let mut ctx = DefaultCommandLineContext::new(fs);
-    let mut abs;
-    let ctx = if absolute {
-        abs = AbsCommandLineContext::wrap(ctx);
-        &mut abs as _
-    } else {
-        &mut ctx as _
-    };
-
-    f(ctx)
 }
 
 /// Grab the value as an artifact, if you can.
@@ -208,11 +188,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         serializer.serialize_str("")
                     }
                     Some(fs) => {
-                        let path = err(err(x())?.resolve_path(fs.fs()))?;
-                        let path = with_command_line_context(fs, self.absolute, |ctx| {
-                            err(ctx.resolve_project_path(path)).map(|loc| loc.into_string())
-                        })?;
-                        serializer.serialize_str(&path)
+                        serializer.serialize_str(err(err(x())?.resolve_path(fs.fs()))?.as_str())
                     }
                 }
             }
@@ -231,11 +207,8 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         // WriteJsonCommandLineArgGen assumes that any args/write-to-file macros are
                         // rejected here and needs to be updated if that changes.
                         let mut items = Vec::<String>::new();
-
-                        with_command_line_context(fs, self.absolute, |ctx| {
-                            err(x.add_to_command_line(&mut items, ctx))
-                        })?;
-
+                        let mut ctx = DefaultCommandLineContext::new(fs);
+                        err(x.add_to_command_line(&mut items, &mut ctx))?;
                         // We change the type, based on the value - singleton = String, otherwise list.
                         // That's a little annoying (type based on value), but otherwise there would be
                         // no way to produce a cmd_args as a single string.
@@ -270,24 +243,12 @@ fn is_singleton_cmdargs(x: Value) -> bool {
 }
 
 pub fn validate_json(x: Value) -> anyhow::Result<()> {
-    write_json(x, None, &mut sink(), false)
+    write_json(x, None, &mut sink())
 }
 
-pub fn write_json(
-    x: Value,
-    fs: Option<&ExecutorFs>,
-    writer: impl Write,
-    absolute: bool,
-) -> anyhow::Result<()> {
-    serde_json::ser::to_writer(
-        writer,
-        &SerializeValue {
-            value: x,
-            fs,
-            absolute,
-        },
-    )
-    .context("Error converting to JSON for `write_json`")
+pub fn write_json(x: Value, fs: Option<&ExecutorFs>, writer: impl Write) -> anyhow::Result<()> {
+    serde_json::ser::to_writer(writer, &SerializeValue { value: x, fs })
+        .context("Error converting to JSON for `write_json`")
 }
 
 pub fn visit_json_artifacts(

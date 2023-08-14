@@ -68,12 +68,14 @@ enum WriteJsonActionValidationError {
     TooManyOutputs,
 }
 
-#[derive(Allocative, Debug)]
-pub(crate) struct UnregisteredWriteJsonAction {
-    pub absolute: bool,
-}
+#[derive(Allocative)]
+pub(crate) struct UnregisteredWriteJsonAction;
 
 impl UnregisteredWriteJsonAction {
+    pub(crate) fn new() -> Self {
+        Self
+    }
+
     pub(crate) fn cli<'v>(
         artifact: Value<'v>,
         content: Value<'v>,
@@ -90,7 +92,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
         starlark_data: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
-        let action = WriteJsonAction::new(contents, inputs, outputs, *self)?;
+        let action = WriteJsonAction::new(contents, inputs, outputs)?;
         Ok(Box::new(action))
     }
 }
@@ -99,7 +101,6 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
 struct WriteJsonAction {
     contents: OwnedFrozenValue, // JSON value
     output: BuildArtifact,
-    inner: UnregisteredWriteJsonAction,
 }
 
 impl WriteJsonAction {
@@ -107,7 +108,6 @@ impl WriteJsonAction {
         contents: OwnedFrozenValue,
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
-        inner: UnregisteredWriteJsonAction,
     ) -> anyhow::Result<Self> {
         validate_json(contents.value())?;
 
@@ -125,15 +125,11 @@ impl WriteJsonAction {
             return Err(WriteJsonActionValidationError::TooManyInputs.into());
         }
 
-        Ok(WriteJsonAction {
-            contents,
-            output,
-            inner,
-        })
+        Ok(WriteJsonAction { contents, output })
     }
 
     fn write(&self, fs: &ExecutorFs, writer: impl Write) -> anyhow::Result<()> {
-        json::write_json(self.contents.value(), Some(fs), writer, self.inner.absolute)
+        json::write_json(self.contents.value(), Some(fs), writer)
     }
 
     fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<Vec<u8>> {
@@ -179,8 +175,7 @@ impl Action for WriteJsonAction {
             "contents".to_owned() => match res {
                 Ok(v) => v,
                 Err(e) => format!("ERROR: constructing contents ({})", e)
-            },
-            "absolute".to_owned() => self.inner.absolute.to_string(),
+            }
         }
     }
 }

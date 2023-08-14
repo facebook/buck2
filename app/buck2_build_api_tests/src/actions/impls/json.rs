@@ -65,14 +65,9 @@ fn test_tagging() -> anyhow::Result<()> {
             let json1 = serde_json::to_string(&SerializeValue {
                 value: tagged,
                 fs: None,
-                absolute: false,
             })?;
 
-            let json2 = serde_json::to_string(&SerializeValue {
-                value,
-                fs: None,
-                absolute: false,
-            })?;
+            let json2 = serde_json::to_string(&SerializeValue { value, fs: None })?;
 
             assert_eq!(json1, json2);
 
