@@ -27,7 +27,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.2", features = ["v4"] }
 
 dupe = { workspace = true }
-gazebo = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
