@@ -12,13 +12,10 @@ use std::marker::PhantomData;
 
 use allocative::Allocative;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_util::late_binding::LateBinding;
 use starlark::any::AnyLifetime;
-use starlark::values::dict::DictOf;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueTyped;
 
 use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
 

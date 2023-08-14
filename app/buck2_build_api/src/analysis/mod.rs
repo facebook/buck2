@@ -19,8 +19,7 @@ use crate::deferred::types::DeferredTable;
 
 // TODO(@wendyy) move into `buck2_node`
 pub mod anon_promises_dyn;
-#[allow(unused)] // TODO(@wendyy) temporary
-// TODO(@wendyy) move out of buck2_build_api and into `buck2_interpreter_for_build`
+// TODO(@wendyy) move into `buck2_interpreter_for_build`
 pub mod anon_targets_registry;
 pub mod calculation;
 pub(crate) mod promise_artifacts;
