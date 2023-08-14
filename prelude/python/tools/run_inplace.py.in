@@ -57,18 +57,14 @@ if decorate_main_module:
     os.environ["PAR_MAIN_ORIGINAL"] = main_module
     main_module = decorate_main_module
 
-module_call = "runpy._run_module_as_main({main_module!r}, False)".format(
-    main_module=main_module
-)
-
 # Note: this full block of code will be included as the argument to Python,
 # and will be the first thing that shows up in the process arguments as displayed
 # by programs like ps and top.
 #
-# We include arg0 at the start of this comment just to make it more visible what program
+# We include sys.argv[0] at the start of this comment just to make it more visible what program
 # is being run in the ps and top output.
-STARTUP = """\
-# {arg0!r}
+STARTUP = f"""\
+# {sys.argv[0]}
 # Wrap everything in a private function to prevent globals being captured by
 # the `runpy._run_module_as_main` below.
 def __run():
@@ -83,11 +79,11 @@ def __run():
 
     # Set `argv[0]` to the executing script.
     assert sys.argv[0] == '-c'
-    sys.argv[0] = {arg0!r}
+    sys.argv[0] = {sys.argv[0]!r}
 
     # Replace the working directory with location of the modules directory.
     assert sys.path[0] == ''
-    sys.path[0] = {pythonpath!r}
+    sys.path[0] = {os.path.join(dirpath, modules_dir)!r}
 
     import os
     import runpy
@@ -102,18 +98,11 @@ def __run():
         for k, v in d.items():
             setenv(k, v)
 
-    restoreenv({env_vals!r})
-    {module_call}
+    restoreenv({env_vals_to_restore!r})
+    runpy._run_module_as_main({main_module!r}, False)
 
 __run()
-""".format(
-    arg0=sys.argv[0],
-    pythonpath=os.path.join(dirpath, modules_dir),
-    env_vals=env_vals_to_restore,
-    main_module=main_module,
-    this_file=__file__,
-    module_call=module_call,
-)
+"""
 
 args = [sys.executable]
 if interpreter_flags:
@@ -125,7 +114,7 @@ args.extend(["-c", STARTUP])
 # pass this down using the command line.
 warnings = os.environ.get("PYTHONWARNINGS", "d").split(",")
 for item in reversed(warnings):
-    args.insert(1, "-W{0}".format(item.strip()))
+    args.insert(1, f"-W{item.strip()}")
 
 # Allow users to disable byte code generation by setting the standard environment var.
 # Same as above, because of -E we have to pass this down using the command line.
