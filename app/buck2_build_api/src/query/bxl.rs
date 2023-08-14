@@ -43,7 +43,6 @@ pub trait BxlCqueryFunctions: Send {
         dice: &DiceComputations,
         file_set: &FileSet,
         target_universe: Option<&TargetSet<ConfiguredTargetNode>>,
-        is_legacy: bool,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
     async fn deps(
         &self,

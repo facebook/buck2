@@ -350,28 +350,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
 
                 get_cquery_env(this.ctx, this.target_platform.dupe())
                     .await?
-                    .owner(
-                        dice,
-                        files.get(this.ctx).await?.as_ref(),
-                        universe.as_ref(),
-                        false,
-                    )
-                    .await
-            })
-            .map(StarlarkTargetSet::from)
-    }
-
-    /// DO NOT USE - will be deprecated
-    fn owner_legacy<'v>(
-        this: &StarlarkCQueryCtx,
-        files: FileSetExpr,
-    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx
-            .async_ctx
-            .via_dice(|dice| async {
-                get_cquery_env(this.ctx, this.target_platform.dupe())
-                    .await?
-                    .owner(dice, files.get(this.ctx).await?.as_ref(), None, true)
+                    .owner(dice, files.get(this.ctx).await?.as_ref(), universe.as_ref())
                     .await
             })
             .map(StarlarkTargetSet::from)

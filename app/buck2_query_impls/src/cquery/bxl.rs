@@ -79,24 +79,8 @@ impl BxlCqueryFunctionsImpl {
         Ok(CqueryEnvironment::new(
             dice_query_delegate.dupe(),
             dice_query_delegate,
-            // TODO(nga): add universe.
             universe,
             CqueryOwnerBehavior::Correct,
-        ))
-    }
-
-    async fn cquery_env_legacy<'c>(
-        &self,
-        dice: &'c DiceComputations,
-    ) -> anyhow::Result<CqueryEnvironment<'c>> {
-        let dice_query_delegate = self.setup_dice_query_delegate(dice).await?;
-        Ok(CqueryEnvironment::new(
-            dice_query_delegate.dupe(),
-            dice_query_delegate,
-            // TODO(nga): add universe.
-            None,
-            // TODO(nga): use proper owner behavior.
-            CqueryOwnerBehavior::Deprecated,
         ))
     }
 }
@@ -130,13 +114,8 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         dice: &DiceComputations,
         file_set: &FileSet,
         target_universe: Option<&TargetSet<ConfiguredTargetNode>>,
-        is_legacy: bool,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
-        let cquery_env = if is_legacy {
-            self.cquery_env_legacy(dice).await?
-        } else {
-            self.cquery_env(dice, target_universe).await?
-        };
+        let cquery_env = self.cquery_env(dice, target_universe).await?;
         Ok(cquery_functions().owner(&cquery_env, file_set).await?)
     }
 
