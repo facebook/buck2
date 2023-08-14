@@ -44,7 +44,7 @@ PexProviders = record(
     run_cmd = cmd_args.type,
 )
 
-def make_pex_providers(
+def make_py_package_providers(
         python_toolchain: PythonToolchainInfo.type,
         pex: PexProviders.type) -> list[Provider]:
     providers = [
@@ -122,11 +122,11 @@ def _fail(
 # TODO(nmj): Figure out how to harmonize these flags w/ existing make_xar
 #                 invocations. It might be perfectly reasonable to just have a wrapper
 #                 script that invokes make_xar in a slightly different way.
-def make_pex(
+def make_py_package(
         ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo.type,
         # A rule-provided tool to use to build the PEX.
-        make_pex_cmd: [RunInfo.type, None],
+        make_py_package_cmd: [RunInfo.type, None],
         package_style: PackageStyle.type,
         build_args: list[ArgLike],
         pex_modules: PexModules.type,
@@ -135,7 +135,7 @@ def make_pex(
         hidden_resources: [None, list[ArgLike]],
         allow_cache_upload: bool) -> PexProviders.type:
     """
-    Passes a standardized set of flags to a `make_pex` binary to create a python
+    Passes a standardized set of flags to a `make_py_package` binary to create a python
     "executable".
 
     Arguments:
@@ -159,10 +159,10 @@ def make_pex(
         {name: lib for name, (lib, _) in shared_libraries.items()},
     )
 
-    default = _make_pex_impl(
+    default = _make_py_package_impl(
         ctx,
         python_toolchain,
-        make_pex_cmd,
+        make_py_package_cmd,
         package_style,
         build_args,
         shared_libraries,
@@ -177,10 +177,10 @@ def make_pex(
         allow_cache_upload = allow_cache_upload,
     )
     for style in PackageStyle.values():
-        pex_providers = default if style == package_style.value else _make_pex_impl(
+        pex_providers = default if style == package_style.value else _make_py_package_impl(
             ctx,
             python_toolchain,
-            make_pex_cmd,
+            make_py_package_cmd,
             PackageStyle(style),
             build_args,
             shared_libraries,
@@ -194,13 +194,13 @@ def make_pex(
             output_suffix = "-{}".format(style),
             allow_cache_upload = allow_cache_upload,
         )
-        default.sub_targets[style] = make_pex_providers(python_toolchain, pex_providers)
+        default.sub_targets[style] = make_py_package_providers(python_toolchain, pex_providers)
     return default
 
-def _make_pex_impl(
+def _make_py_package_impl(
         ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo.type,
-        make_pex_cmd: [RunInfo.type, None],
+        make_py_package_cmd: [RunInfo.type, None],
         package_style: PackageStyle.type,
         build_args: list[ArgLike],
         shared_libraries: dict[str, (LinkedObject.type, bool)],
@@ -230,22 +230,22 @@ def _make_pex_impl(
 
     symlink_tree_path = None
     if standalone:
-        if python_toolchain.make_pex_standalone == None:
+        if python_toolchain.make_py_package_standalone == None:
             return _fail(
                 ctx,
                 python_toolchain,
                 output_suffix,
-                "Python toolchain does not provide make_pex_standalone",
+                "Python toolchain does not provide make_py_package_standalone",
             )
 
         # TODO: Other par_styles should migrate to using this manifest as well
         if ctx.attrs.par_style != "pex":
-            # manifest generation is handled by make_pex_standalone (make_par), except for pex
+            # manifest generation is handled by make_py_package_standalone (make_par), except for pex
             manifest_module = None
     else:
         symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True)
-    if make_pex_cmd != None:
-        manifest_module = None  # manifest generation is handled by make_pex_cmd
+    if make_py_package_cmd != None:
+        manifest_module = None  # manifest generation is handled by make_py_package_cmd
 
     modules_args = _pex_modules_args(
         ctx,
@@ -282,7 +282,7 @@ def _make_pex_impl(
         prefer_local = package_python_locally(ctx, python_toolchain)
 
         cmd = cmd_args(
-            make_pex_cmd if make_pex_cmd != None else python_toolchain.make_pex_standalone,
+            make_py_package_cmd if make_py_package_cmd != None else python_toolchain.make_py_package_standalone,
         )
         cmd.add(modules_args)
         cmd.add(bootstrap_args)
@@ -297,17 +297,17 @@ def _make_pex_impl(
     else:
         runtime_files.extend(dep_artifacts)
         runtime_files.append((symlink_tree_path, symlink_tree_path.short_path))
-        if make_pex_cmd != None:
-            cmd = cmd_args(make_pex_cmd)
+        if make_py_package_cmd != None:
+            cmd = cmd_args(make_py_package_cmd)
             cmd.add(modules_args)
             cmd.add(bootstrap_args)
             ctx.actions.run(cmd, category = "par", identifier = "inplace{}".format(output_suffix))
         else:
-            modules = cmd_args(python_toolchain.make_pex_modules)
+            modules = cmd_args(python_toolchain.make_py_package_modules)
             modules.add(modules_args)
             ctx.actions.run(modules, category = "par", identifier = "modules{}".format(output_suffix))
 
-            bootstrap = cmd_args(python_toolchain.make_pex_inplace)
+            bootstrap = cmd_args(python_toolchain.make_py_package_inplace)
             bootstrap.add(bootstrap_args)
             ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap{}".format(output_suffix))
 
@@ -549,7 +549,7 @@ def generate_manifest_module(
         "__module_manifests.txt",
         _srcs(src_manifests, format = "--module-manifest={}"),
     )
-    cmd = cmd_args(python_toolchain.make_pex_manifest_module)
+    cmd = cmd_args(python_toolchain.make_py_package_manifest_module)
     cmd.add(["--manifest-entries", entries_json])
     cmd.add(cmd_args(src_manifests_path, format = "@{}"))
     cmd.hidden(src_manifests)

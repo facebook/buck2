@@ -31,8 +31,8 @@ prelude.export_file(
 )
 
 prelude.python_bootstrap_binary(
-    name = "make_pex_inplace.py",
-    main = "make_pex_inplace.py",
+    name = "make_py_package_inplace.py",
+    main = "make_py_package_inplace.py",
     visibility = ["PUBLIC"],
 )
 
@@ -47,15 +47,15 @@ prelude.export_file(
 )
 
 prelude.command_alias(
-    name = "make_pex_inplace",
-    exe = ":make_pex_inplace.py",
+    name = "make_py_package_inplace",
+    exe = ":make_py_package_inplace.py",
     args = ["--template", "$(location :run_inplace.py.in)", "--template-lite", "$(location :run_inplace_lite.py.in)"],
     visibility = ["PUBLIC"],
 )
 
 prelude.python_bootstrap_binary(
-    name = "make_pex_modules",
-    main = "make_pex_modules.py",
+    name = "make_py_package_modules",
+    main = "make_py_package_modules.py",
     visibility = ["PUBLIC"],
 )
 
@@ -111,8 +111,8 @@ prelude.export_file(
 )
 
 prelude.python_bootstrap_binary(
-    name = "make_pex_manifest_module",
-    main = "make_pex_manifest_module.py",
+    name = "make_py_package_manifest_module",
+    main = "make_py_package_manifest_module.py",
     visibility = ["PUBLIC"],
 )
 

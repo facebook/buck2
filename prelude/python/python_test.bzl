@@ -12,7 +12,7 @@ load(
 )
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
-load(":make_pex.bzl", "PexProviders", "make_default_info")
+load(":make_py_package.bzl", "PexProviders", "make_default_info")
 load(":python_binary.bzl", "python_executable")
 load(":python_library.bzl", "py_attr_resources", "qualify_srcs")
 

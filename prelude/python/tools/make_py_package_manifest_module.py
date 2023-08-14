@@ -62,7 +62,7 @@ def main() -> None:
         with open(module_manifest_file) as f:
             for pkg_path, *_ in json.load(f):
                 modules.add(pkg_path)
-                # Add artificial __init__.py files like in make_pex_modules.py
+                # Add artificial __init__.py files like in make_py_package_modules.py
                 for parent in Path(pkg_path).parents:
                     if parent == Path("") or parent == Path("."):
                         continue

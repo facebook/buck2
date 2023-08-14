@@ -69,7 +69,7 @@ load(
     ":interface.bzl",
     "PythonLibraryInterface",  # @unused Used as a type
 )
-load(":make_pex.bzl", "PexModules", "PexProviders", "make_default_info", "make_pex")
+load(":make_py_package.bzl", "PexModules", "PexProviders", "make_default_info", "make_py_package")
 load(
     ":manifest.bzl",
     "create_dep_manifest_for_source_map",
@@ -631,10 +631,10 @@ def _convert_python_library_to_executable(
     hidden_resources = library.hidden_resources() if library.has_hidden_resources() else None
 
     # Build the PEX.
-    pex = make_pex(
+    pex = make_py_package(
         ctx,
         python_toolchain,
-        ctx.attrs.make_pex[RunInfo] if ctx.attrs.make_pex != None else None,
+        ctx.attrs.make_py_package[RunInfo] if ctx.attrs.make_py_package != None else None,
         package_style,
         ctx.attrs.build_args,
         pex_modules,

@@ -19,7 +19,7 @@ A full usage might be something like this:
 
 $ cat template.in
 (see prelude/python/run_inplace_lite.py.in)
-$ ./make_pex_inplace.py  \\
+$ ./make_py_package_inplace.py  \\
     --template prelude/python/run_inplace.py.in \\
     # These two args create the hashbang for the bootstrapper script \\
     --python="/usr/bin/python3" \\

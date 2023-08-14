@@ -308,7 +308,7 @@ def _python_executable_attrs():
         "link_group_map": link_group_map_attr(),
         "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
         "link_style": attrs.enum(LinkableDepType, default = "static"),
-        "make_pex": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "make_py_package": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         # entries for the generated __manifest__ python module
         "manifest_module_entries": attrs.option(attrs.dict(key = attrs.string(), value = attrs.dict(key = attrs.string(), value = attrs.any())), default = None),
         "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),

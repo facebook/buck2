@@ -33,7 +33,7 @@ baz/tp_foo.py
 baz/tp_bar.py
 $ cat template.in
 (see prelude/python/run_inplace_lite.py.in)
-$ ./make_pex_inplace.py  \\
+$ ./make_py_package_inplace.py  \\
     --template prelude/python/run_inplace.py.in \\
     --module-srcs=@srcs \\
     --module-dests=@dests \\
