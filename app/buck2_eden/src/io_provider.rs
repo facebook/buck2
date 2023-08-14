@@ -233,7 +233,10 @@ impl IoProvider for EdenIoProvider {
                     }
                 };
 
-                let digest = TrackedFileDigest::new(digest, self.fs.cas_digest_config());
+                let digest = TrackedFileDigest::new(
+                    digest,
+                    self.fs.cas_digest_config().source_files_config(),
+                );
 
                 let is_executable = source_control_type == SourceControlType::EXECUTABLE_FILE;
 
