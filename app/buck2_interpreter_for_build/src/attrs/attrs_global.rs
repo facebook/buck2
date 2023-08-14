@@ -44,6 +44,7 @@ use starlark::StarlarkDocs;
 use thiserror::Error;
 use tracing::error;
 
+use crate::attrs::attribute_as_starlark_value::register_attr_type;
 use crate::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
@@ -636,6 +637,7 @@ impl<'v> StarlarkValue<'v> for Attrs {
 
 pub fn register_attrs(globals: &mut GlobalsBuilder) {
     globals.set("attrs", globals.frozen_heap().alloc_simple(Attrs));
+    register_attr_type(globals);
 }
 
 #[cfg(test)]

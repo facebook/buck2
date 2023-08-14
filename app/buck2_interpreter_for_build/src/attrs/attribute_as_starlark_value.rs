@@ -15,8 +15,11 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 
@@ -64,4 +67,10 @@ impl AttributeAsStarlarkValue {
     pub fn default(&self) -> Option<&Arc<CoercedAttr>> {
         self.0.default()
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_attr_type(globals: &mut GlobalsBuilder) {
+    /// Starlark type of the attribute object (for example, returned from `attrs.string()`).
+    const Attr: StarlarkValueAsType<AttributeAsStarlarkValue> = StarlarkValueAsType::new();
 }
