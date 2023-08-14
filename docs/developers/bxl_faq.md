@@ -34,7 +34,7 @@ During 2023, there is a plan to add finer grain incrementality to make better us
 
 An `ensured_artifact` prints out the relative or absolute path via `ctx.output.print()`, depending on if called with `abs_path()` or `rel_path`(), but will print out `<ensured artifact bound to <some path>>` via `print()`.
 
-This is intentional because when the ensured artifact is created with BXL within BXL, it has not been materialized yet. It will be materialized after the BXL script finishes executing, and Buck2 core performs some additional actions after the BXL script.
+This is intentional because when the ensured artifact is created within BXL, it has not been materialized yet. It will be materialized after the BXL script finishes executing, and Buck2 core performs some additional actions after the BXL script.
 
 This is a safeguard to prevent people from misusing the artifact path and passing it into an action without the artifact having been materialized or passing an absolute path into RE, which can actually mess up RE and render the action not shareable across users. In addition, it makes these actions separately cacheable from the BXL execution.
 
