@@ -26,14 +26,17 @@ load(
     "create_link_groups",
     "find_relevant_roots",
     "get_filtered_labels_to_links_map",
+    "get_filtered_links",
+    "get_filtered_targets",
     "get_link_group",
     "get_link_group_info",
     "get_link_group_preferred_linkage",
 )
 load(
     "@prelude//linking:link_info.bzl",
-    "LinkArgs",  #@unused Used as a type
-    "LinkStyle",  #@unused Used as a type
+    "LinkArgs",
+    "LinkInfo",
+    "LinkStyle",
     "MergedLinkInfo",
     "get_link_args",
     "merge_link_infos",
@@ -200,8 +203,7 @@ def _non_rust_link_deps(
 def _non_rust_link_infos(
         ctx: AnalysisContext,
         include_doc_deps: bool = False,
-        link_style: [LinkStyle.type, None] = None,
-        is_binary: bool = False) -> list[MergedLinkInfo.type]:
+        link_style: [LinkStyle.type, None] = None) -> list[MergedLinkInfo.type]:
     """
     Return all first-order native link infos of all transitive Rust libraries.
 
@@ -312,7 +314,6 @@ def inherited_non_rust_link_group_args(
         if root in linkable_graph_node_map:
             filtered_roots.append(root)
 
-    # @unused will be resolved in a later diff
     labels_to_links_map = get_filtered_labels_to_links_map(
         linkable_graph_node_map,
         link_group,
@@ -331,29 +332,25 @@ def inherited_non_rust_link_group_args(
         force_static_follows_dependents = True,
     )
 
+    filtered_links = get_filtered_links(labels_to_links_map)
+    filtered_targets = get_filtered_targets(labels_to_links_map)  # @unused will be resolved in a later diff
+    # TODO(@christylee): create subtarget to retrive filtered_targets
+
     # TODO(@christylee): Check that this works with unittests
     # TODO(@christylee): Make sure we set up symlink tree by passing link groups shared libs to
     # _non_rust_shared_lib_infos
     # TODO(@christylee): Handle split-dwarf
-    # TODO(@christylee): add symbol_files params
-    return get_link_args(
-        # TODO: placeholder
-        inherited_non_rust_link_info(
-            ctx,
-            include_doc_deps = False,
-            link_style = link_style,
-            is_binary = is_binary,
-        ),
-        link_style,
-    )
+    filtered_links.append(LinkInfo(
+        pre_flags = linked_link_groups.symbol_ldflags,
+    ))
+    return LinkArgs(infos = filtered_links)
 
 def inherited_non_rust_link_info(
         ctx: AnalysisContext,
         include_doc_deps: bool = False,
-        link_style: [LinkStyle.type, None] = None,
-        is_binary: bool = False) -> MergedLinkInfo.type:
+        link_style: [LinkStyle.type, None] = None) -> MergedLinkInfo.type:
     infos = []
-    infos.extend(_non_rust_link_infos(ctx, include_doc_deps, link_style, is_binary))
+    infos.extend(_non_rust_link_infos(ctx, include_doc_deps, link_style))
     infos.extend([d.non_rust_link_info for d in _rust_link_infos(ctx, include_doc_deps)])
     return merge_link_infos(ctx, infos)
 

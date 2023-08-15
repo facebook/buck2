@@ -426,7 +426,6 @@ def rust_compile(
                     ctx,
                     include_doc_deps = False,
                     link_style = dep_link_style,
-                    is_binary = is_binary,
                 ),
                 dep_link_style,
             )
