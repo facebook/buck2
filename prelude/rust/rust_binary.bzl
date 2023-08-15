@@ -10,7 +10,10 @@ load(
     "create_resource_db",
     "gather_resources",
 )
-load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps")
+load(
+    "@prelude//cxx:cxx_library_utility.bzl",
+    "cxx_attr_deps",
+)
 load("@prelude//cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
 load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET")
 load(
@@ -50,6 +53,8 @@ load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LINK_STYLE",
     "attr_simple_crate_for_filenames",
+    "enable_link_groups",
+    "inherited_non_rust_link_group_info",
     "inherited_non_rust_shared_libs",
 )
 load(":resources.bzl", "rust_attr_resources")
@@ -95,6 +100,14 @@ def _rust_binary_common(
 
         # Gather and setup symlink tree of transitive shared library deps.
         shared_libs = {}
+        rust_cxx_link_group_info = None
+
+        if enable_link_groups(ctx, link_style, is_binary = True):
+            rust_cxx_link_group_info = inherited_non_rust_link_group_info(
+                ctx,
+                include_doc_deps = False,
+                link_style = link_style,
+            )
 
         # As per v1, we only setup a shared library symlink tree for the shared
         # link style.
@@ -106,6 +119,9 @@ def _rust_binary_common(
             )
             for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
                 shared_libs[soname] = shared_lib.lib
+
+        # link groups shared libraries link args are directly added to the link command,
+        # we don't have to add them here
         extra_link_args, runtime_files, _ = executable_shared_lib_arguments(
             ctx.actions,
             compile_ctx.cxx_toolchain_info,
@@ -128,6 +144,7 @@ def _rust_binary_common(
             extra_flags = extra_flags,
             is_binary = True,
             allow_cache_upload = allow_cache_upload,
+            rust_cxx_link_group_info = rust_cxx_link_group_info,
         )
 
         args = cmd_args(link.output).hidden(runtime_files)

@@ -34,7 +34,6 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
-    "LinkArgs",
     "LinkInfo",
     "LinkStyle",
     "MergedLinkInfo",
@@ -111,14 +110,6 @@ RustLinkStyleInfo = record(
     external_debug_info = field(ArtifactTSet.type),
 )
 
-def enable_link_groups(
-        ctx: AnalysisContext,
-        link_style: [LinkStyle.type, None] = None,
-        is_binary: bool = False):
-    if not cxx_is_gnu(ctx) or link_style == LinkStyle("shared") or not is_binary:
-        return False
-    return ctx.attrs.auto_link_groups and ctx.attrs.link_group_map
-
 def _adjust_link_style_for_rust_dependencies(dep_link_style: LinkStyle.type) -> LinkStyle.type:
     if FORCE_RLIB and dep_link_style == LinkStyle("shared"):
         return DEFAULT_STATIC_LINK_STYLE
@@ -138,6 +129,24 @@ RustDependency = record(
     # Any flags for the dependency (`flagged_deps`), which are passed on to rustc.
     flags = field(list[str]),
 )
+
+# Information about cxx link groups that rust depends on
+RustCxxLinkGroupInfo = record(
+    # cxx link infos to link against
+    filtered_links = field(list[LinkInfo.type]),
+    # symbol files args to ensure we export the required symbols
+    symbol_files_info = field(LinkInfo.type),
+    # targets to link against
+    filtered_targets = field(list["target_label"]),
+)
+
+def enable_link_groups(
+        ctx: AnalysisContext,
+        link_style: [LinkStyle.type, None],
+        is_binary: bool):
+    if not cxx_is_gnu(ctx) or link_style == LinkStyle("shared") or not is_binary:
+        return False
+    return ctx.attrs.auto_link_groups and ctx.attrs.link_group_map
 
 # Returns all first-order dependencies.
 def _do_resolve_deps(
@@ -251,11 +260,10 @@ def inherited_non_rust_exported_link_deps(ctx: AnalysisContext) -> list[Dependen
             deps[dep.label] = dep
     return deps.values()
 
-def inherited_non_rust_link_group_args(
+def inherited_non_rust_link_group_info(
         ctx: AnalysisContext,
         include_doc_deps: bool = False,
-        link_style: [LinkStyle.type, None] = None,  # @unused will be resolved in a later diff
-        is_binary: bool = False) -> LinkArgs:  # @unused will be resolved in a later diff
+        link_style: [LinkStyle.type, None] = None) -> RustCxxLinkGroupInfo:
     link_deps = _non_rust_link_deps(ctx, include_doc_deps) + inherited_non_rust_exported_link_deps(ctx)
 
     # Assume a rust executable wants to use link groups if a link group map
@@ -291,13 +299,11 @@ def inherited_non_rust_link_group_args(
 
     auto_link_groups = {}
     link_group_libs = {}
-    link_flags = []  # @unused will be resolved in a later diff
 
     for name, linked_link_group in linked_link_groups.libs.items():
         auto_link_groups[name] = linked_link_group.artifact
         if linked_link_group.library != None:
             link_group_libs[name] = linked_link_group.library
-    link_flags += linked_link_groups.symbol_ldflags
 
     # Some third-party dependencies are stored in the linkable_graph_node_map as
     # third-party-buck, but the non_rust_link_deps contain the unresolved third-party
@@ -332,18 +338,18 @@ def inherited_non_rust_link_group_args(
         force_static_follows_dependents = True,
     )
 
-    filtered_links = get_filtered_links(labels_to_links_map)
-    filtered_targets = get_filtered_targets(labels_to_links_map)  # @unused will be resolved in a later diff
     # TODO(@christylee): create subtarget to retrive filtered_targets
-
     # TODO(@christylee): Check that this works with unittests
     # TODO(@christylee): Make sure we set up symlink tree by passing link groups shared libs to
     # _non_rust_shared_lib_infos
     # TODO(@christylee): Handle split-dwarf
-    filtered_links.append(LinkInfo(
-        pre_flags = linked_link_groups.symbol_ldflags,
-    ))
-    return LinkArgs(infos = filtered_links)
+    return RustCxxLinkGroupInfo(
+        filtered_links = get_filtered_links(labels_to_links_map),
+        symbol_files_info = LinkInfo(
+            pre_flags = linked_link_groups.symbol_ldflags,
+        ),
+        filtered_targets = get_filtered_targets(labels_to_links_map),
+    )
 
 def inherited_non_rust_link_info(
         ctx: AnalysisContext,

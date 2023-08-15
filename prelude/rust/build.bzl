@@ -27,7 +27,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
-    "LinkStyle",  #@unused Used as a type
+    "LinkStyle",
     "get_link_args",
 )
 load(
@@ -59,13 +59,13 @@ load(
 load(
     ":link_info.bzl",
     "CrateName",  #@unused Used as a type
+    "RustCxxLinkGroupInfo",  #@unused Used as a type
     "RustLinkInfo",
     "RustLinkStyleInfo",
     "attr_crate",
     "attr_simple_crate_for_filenames",
     "enable_link_groups",
     "inherited_external_debug_info",
-    "inherited_non_rust_link_group_args",
     "inherited_non_rust_link_info",
     "inherited_non_rust_shared_libs",
     "normalize_crate",
@@ -316,7 +316,8 @@ def rust_compile_multi(
         predeclared_outputs: dict[Emit.type, Artifact] = {},
         extra_flags: list[[str, "resolved_macro"]] = [],
         is_binary: bool = False,
-        allow_cache_upload: bool = False) -> list[RustcOutput.type]:
+        allow_cache_upload: bool = False,
+        rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None) -> list[RustcOutput.type]:
     outputs = []
 
     for emit in emits:
@@ -332,6 +333,7 @@ def rust_compile_multi(
             extra_flags = extra_flags,
             is_binary = is_binary,
             allow_cache_upload = allow_cache_upload,
+            rust_cxx_link_group_info = rust_cxx_link_group_info,
         )
         outputs.append(outs)
 
@@ -351,7 +353,8 @@ def rust_compile(
         predeclared_outputs: dict[Emit.type, Artifact] = {},
         extra_flags: list[[str, "resolved_macro"]] = [],
         is_binary: bool = False,
-        allow_cache_upload: bool = False) -> RustcOutput.type:
+        allow_cache_upload: bool = False,
+        rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None) -> RustcOutput.type:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
@@ -414,12 +417,10 @@ def rust_compile(
         # of that style.
 
         if enable_link_groups(ctx, dep_link_style, is_binary):
-            inherited_non_rust_link_args = inherited_non_rust_link_group_args(
-                ctx,
-                include_doc_deps = False,
-                link_style = dep_link_style,
-                is_binary = is_binary,
+            inherited_non_rust_link_args = LinkArgs(
+                infos = rust_cxx_link_group_info.filtered_links + [rust_cxx_link_group_info.symbol_files_info],
             )
+
         else:
             inherited_non_rust_link_args = get_link_args(
                 inherited_non_rust_link_info(
