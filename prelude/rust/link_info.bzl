@@ -356,7 +356,6 @@ def inherited_non_rust_link_group_info(
 
     # TODO(@christylee): create subtarget to retrive filtered_targets
     # TODO(@christylee): Check that this works with unittests
-    # TODO(@christylee): Handle split-dwarf
     return RustCxxLinkGroupInfo(
         filtered_links = get_filtered_links(labels_to_links_map),
         symbol_files_info = LinkInfo(

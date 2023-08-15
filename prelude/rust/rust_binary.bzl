@@ -76,6 +76,7 @@ def _rust_binary_common(
     styles = {}
     dwp_target = None
     style_param = {}  # style -> param
+    sub_targets = {}
 
     specified_link_style = LinkStyle(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STYLE
 
@@ -143,7 +144,7 @@ def _rust_binary_common(
 
         # link groups shared libraries link args are directly added to the link command,
         # we don't have to add them here
-        extra_link_args, runtime_files, _ = executable_shared_lib_arguments(
+        extra_link_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
             ctx.actions,
             compile_ctx.cxx_toolchain_info,
             output,
@@ -189,7 +190,25 @@ def _rust_binary_common(
             args.hidden(resources_hidden)
             runtime_files.extend(resources_hidden)
 
-        styles[link_style] = (link.output, args, extra_targets, runtime_files)
+        shared_libraries_info = DefaultInfo(
+            default_output = ctx.actions.write_json(
+                name + ".shared-libraries.json",
+                {
+                    "libraries": ["{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, name) for name in shared_libs.keys()],
+                    "librariesdwp": ["{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, name) for name, lib in shared_libs.items() if lib.dwp],
+                    "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if shared_libs_symlink_tree else [],
+                },
+            ),
+            sub_targets = {
+                name: [DefaultInfo(
+                    default_output = lib.output,
+                    sub_targets = {"dwp": [DefaultInfo(default_output = lib.dwp)]} if lib.dwp else {},
+                )]
+                for name, lib in shared_libs.items()
+            },
+        )
+
+        styles[link_style] = (link.output, args, extra_targets, runtime_files, shared_libraries_info)
         if link_style == specified_link_style and link.dwp_output:
             dwp_target = link.dwp_output
 
@@ -203,7 +222,7 @@ def _rust_binary_common(
         extra_flags = extra_flags,
     )
 
-    (link, args, extra_targets, runtime_files) = styles[specified_link_style]
+    (link, args, extra_targets, runtime_files, _) = styles[specified_link_style]
     extra_targets += [
         ("doc", generate_rustdoc(
             ctx = ctx,
@@ -215,14 +234,14 @@ def _rust_binary_common(
         ("expand", expand.output),
         ("sources", compile_ctx.symlinked_srcs),
     ]
-    sub_targets = {k: [DefaultInfo(default_output = v)] for k, v in extra_targets}
-    for (k, (sub_link, sub_args, _sub_extra, sub_runtime_files)) in styles.items():
+    sub_targets.update({k: [DefaultInfo(default_output = v)] for k, v in extra_targets})
+    for (k, (sub_link, sub_args, _sub_extra, sub_runtime_files, sub_shared_libraries_info)) in styles.items():
         sub_targets[k.value] = [
             DefaultInfo(
                 default_output = sub_link,
                 other_outputs = sub_runtime_files,
                 # Check/save-analysis for each link style?
-                # sub_targets = { k: [DefaultInfo(default_output = v)] for k, v in sub_extra }
+                sub_targets = {"shared-libraries": [sub_shared_libraries_info]},
             ),
             RunInfo(args = sub_args),
         ]
