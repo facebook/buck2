@@ -415,7 +415,12 @@ def rust_compile(
             [
                 LinkArgs(flags = extra_link_args),
                 get_link_args(
-                    inherited_non_rust_link_info(ctx),
+                    inherited_non_rust_link_info(
+                        ctx,
+                        include_doc_deps = False,
+                        link_style = dep_link_style,
+                        is_binary = is_binary,
+                    ),
                     dep_link_style,
                 ),
             ],

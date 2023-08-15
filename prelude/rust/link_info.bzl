@@ -17,12 +17,18 @@ load(
     "get_auto_link_group_specs",
 )
 load(
+    "@prelude//cxx:cxx_library_utility.bzl",
+    "cxx_is_gnu",
+)
+load(
     "@prelude//cxx:link_groups.bzl",
+    "create_link_groups",
     "get_link_group_info",
+    "get_link_group_preferred_linkage",
 )
 load(
     "@prelude//linking:link_info.bzl",
-    "LinkStyle",
+    "LinkStyle",  #@unused Used as a type
     "MergedLinkInfo",
     "get_link_args",
     "merge_link_infos",
@@ -32,6 +38,7 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",
     "create_linkable_graph",
+    "get_linkable_graph_node_map_func",
 )
 load(
     "@prelude//linking:linkables.bzl",
@@ -96,9 +103,13 @@ RustLinkStyleInfo = record(
     external_debug_info = field(ArtifactTSet.type),
 )
 
-def enable_link_groups(ctx: AnalysisContext):
-    return (hasattr(ctx.attrs, "auto_link_groups") and ctx.attrs.auto_link_groups and
-            hasattr(ctx.attrs, "link_group_map") and ctx.attrs.link_group_map)
+def enable_link_groups(
+        ctx: AnalysisContext,
+        link_style: [LinkStyle.type, None] = None,
+        is_binary: bool = False):
+    if not cxx_is_gnu(ctx) or link_style == LinkStyle("shared") or not is_binary:
+        return False
+    return ctx.attrs.auto_link_groups and ctx.attrs.link_group_map
 
 def _adjust_link_style_for_rust_dependencies(dep_link_style: LinkStyle.type) -> LinkStyle.type:
     if FORCE_RLIB and dep_link_style == LinkStyle("shared"):
@@ -183,7 +194,9 @@ def _non_rust_link_deps(
 # Returns native link dependencies.
 def _non_rust_link_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> list[MergedLinkInfo.type]:
+        include_doc_deps: bool = False,
+        link_style: [LinkStyle.type, None] = None,
+        is_binary: bool = False) -> list[MergedLinkInfo.type]:
     """
     Return all first-order native link infos of all transitive Rust libraries.
 
@@ -193,12 +206,12 @@ def _non_rust_link_infos(
     rolled up in a tset.
     """
     link_deps = _non_rust_link_deps(ctx, include_doc_deps)
-    if enable_link_groups(ctx):
+
+    if enable_link_groups(ctx, link_style, is_binary):
         # Assume a rust executable wants to use link groups if a link group map
         # is present
         link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, link_deps))
 
-        # @unused will be resolved in a later diff
         auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info)
 
         # @unused will be resolved in a later diff
@@ -206,6 +219,25 @@ def _non_rust_link_infos(
             ctx,
             link_deps,
         )
+        linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+
+        # @unused will be resolved in a later diff
+        linked_link_groups = create_link_groups(
+            ctx = ctx,
+            link_groups = link_group_info.groups,
+            link_group_mappings = link_group_info.mappings,
+            link_group_preferred_linkage = get_link_group_preferred_linkage(link_group_info.groups.values()),
+            executable_deps = [],  # TODO: do we need this?
+            linker_flags = [],
+            link_group_specs = auto_link_group_specs,
+            root_link_group = ctx.attrs.link_group,
+            linkable_graph_node_map = linkable_graph_node_map,
+            other_roots = [],
+            prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
+            anonymous = False,  # TODO: support anonymous link groups
+            output_suffix = "_" + str(link_style).replace('"', ""),
+        )
+
         # TODO(@christylee): Make sure we set up symlink tree by passing link groups shared libs to
         # _non_rust_shared_lib_infos
 
@@ -249,9 +281,11 @@ def inherited_non_rust_exported_link_deps(ctx: AnalysisContext) -> list[Dependen
 
 def inherited_non_rust_link_info(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False) -> MergedLinkInfo.type:
+        include_doc_deps: bool = False,
+        link_style: [LinkStyle.type, None] = None,
+        is_binary: bool = False) -> MergedLinkInfo.type:
     infos = []
-    infos.extend(_non_rust_link_infos(ctx, include_doc_deps))
+    infos.extend(_non_rust_link_infos(ctx, include_doc_deps, link_style, is_binary))
     infos.extend([d.non_rust_link_info for d in _rust_link_infos(ctx, include_doc_deps)])
     return merge_link_infos(ctx, infos)
 

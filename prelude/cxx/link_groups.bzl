@@ -530,7 +530,8 @@ def _create_link_group(
         link_group_libs: dict[str, ([Label, None], LinkInfos.type)] = {},
         prefer_stripped_objects: bool = False,
         category_suffix: [str, None] = None,
-        anonymous: bool = False) -> LinkedObject.type:
+        anonymous: bool = False,
+        output_suffix: str = "") -> LinkedObject.type:
     """
     Link a link group library, described by a `LinkGroupLibSpec`.  This is
     intended to handle regular shared libs and e.g. Python extensions.
@@ -601,14 +602,18 @@ def _create_link_group(
     )
     inputs.extend(get_filtered_links(filtered_labels_to_links_map, public_nodes))
 
+    output_name = paths.join("__link_groups__", spec.name)
+    if output_suffix:
+        output_name = paths.join(output_name, output_suffix)
+
     # link the rule
     link_result = cxx_link_shared_library(
         ctx = ctx,
-        output = paths.join("__link_groups__", spec.name),
+        output = output_name,
         name = spec.name if spec.is_shared_lib else None,
         opts = link_options(
             links = [LinkArgs(infos = inputs)],
-            category_suffix = category_suffix,
+            category_suffix = category_suffix + output_suffix,
             identifier = spec.name,
             enable_distributed_thinlto = spec.group.attrs.enable_distributed_thinlto,
             link_execution_preference = LinkExecutionPreference("any"),
@@ -621,15 +626,16 @@ def _stub_library(
         ctx: AnalysisContext,
         name: str,
         extra_ldflags: list[typing.Any] = [],
-        anonymous: bool = False) -> LinkInfos.type:
+        anonymous: bool = False,
+        output_suffix: str = "") -> LinkInfos.type:
     link_result = cxx_link_shared_library(
         ctx = ctx,
-        output = name + ".stub",
+        output = name + ".stub" + output_suffix,
         name = name,
         opts = link_options(
             links = [LinkArgs(flags = extra_ldflags)],
             identifier = name,
-            category_suffix = "stub_library",
+            category_suffix = "stub_library" + output_suffix,
             link_execution_preference = LinkExecutionPreference("any"),
         ),
         anonymous = anonymous,
@@ -682,7 +688,8 @@ def _symbol_files_for_link_group(
 def _symbol_flags_for_link_groups(
         ctx: AnalysisContext,
         undefined_symfiles: list[Artifact] = [],
-        global_symfiles: list[Artifact] = []) -> list[ArgLike]:
+        global_symfiles: list[Artifact] = [],
+        output_suffix: str = "") -> list[ArgLike]:
     """
     Generate linker flags which, when applied to the main executable, make sure
     required symbols are included in the link *and* exported to the dynamic
@@ -696,9 +703,9 @@ def _symbol_flags_for_link_groups(
     sym_linker_flags.append(
         get_undefined_symbols_args(
             ctx = ctx,
-            name = "undefined_symbols.linker_script",
+            name = "undefined_symbols.linker_script" + output_suffix,
             symbol_files = undefined_symfiles,
-            category = "link_groups_undefined_syms_script",
+            category = "link_groups_undefined_syms_script" + output_suffix,
         ),
     )
 
@@ -706,9 +713,9 @@ def _symbol_flags_for_link_groups(
     # linker flags.
     dynamic_list_vers = create_dynamic_list_version_script(
         actions = ctx.actions,
-        name = "dynamic_list.vers",
+        name = "dynamic_list.vers" + output_suffix,
         symbol_files = global_symfiles,
-        category = "link_groups_dynamic_list",
+        category = "link_groups_dynamic_list" + output_suffix,
     )
     sym_linker_flags.extend([
         "-Wl,--dynamic-list",
@@ -729,7 +736,8 @@ def create_link_groups(
         linkable_graph_node_map: dict[Label, LinkableNode.type] = {},
         link_group_preferred_linkage: dict[Label, Linkage.type] = {},
         link_group_mappings: [dict[Label, str], None] = None,
-        anonymous: bool = False) -> _LinkedLinkGroups.type:
+        anonymous: bool = False,
+        output_suffix: str = "") -> _LinkedLinkGroups.type:
     # Generate stubs first, so that subsequent links can link against them.
     link_group_shared_links = {}
     specs = []
@@ -746,6 +754,7 @@ def create_link_groups(
                 name = link_group_spec.name,
                 extra_ldflags = linker_flags,
                 anonymous = anonymous,
+                output_suffix = output_suffix,
             )
 
     linked_link_groups = {}
@@ -787,13 +796,14 @@ def create_link_groups(
             prefer_stripped_objects = prefer_stripped_objects,
             category_suffix = "link_group",
             anonymous = anonymous,
+            output_suffix = output_suffix,
         )
 
         # On GNU, use shlib interfaces.
         if cxx_is_gnu(ctx):
             shlib_for_link = cxx_mk_shlib_intf(
                 ctx = ctx,
-                name = link_group_spec.name,
+                name = link_group_spec.name + output_suffix,
                 shared_lib = link_group_lib.output,
             )
         else:
@@ -835,6 +845,7 @@ def create_link_groups(
                 ctx = ctx,
                 undefined_symfiles = undefined_symfiles,
                 global_symfiles = global_symfiles,
+                output_suffix = output_suffix,
             ),
         )
 
