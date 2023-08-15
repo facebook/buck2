@@ -47,9 +47,9 @@ your_function_name = bxl_main(
 )
 ```
 
-The implementation function takes a single context as parameter (see the documentation for `BxlContext`). Using it, you'll be able to access functions that enable you to perform queries, analysis, builds, and even create your own actions within BXL to build artifacts as part of a BXL function.
+The implementation function takes a single context as parameter (see the documentation for [`BxlContext`](https://buck2.build/docs/api/bxl/bxl_ctx/)). Using it, you'll be able to access functions that enable you to perform queries, analysis, builds, and even create your own actions within BXL to build artifacts as part of a BXL function.
 
-The primary method to return information from BXL is to either print them, or build some artifact (for details, see the `OutputStream` documentation, available as part of `ctx.output`).
+The primary method to return information from BXL is to either print them, or build some artifact (for details, see the [`OutputStream`](https://buck2.build/docs/api/bxl/bxl_output_stream/) documentation, available as part of `ctx.output`).
 At high level, `ctx.output.print(..)` prints results to stdout, and `ctx.output.ensure(artifact)` marks artifacts as to be materialized into buck-out by the end of the BXL
 function, returning an object that lets you print the output path via `ctx.output.print(ensured)`.
 
