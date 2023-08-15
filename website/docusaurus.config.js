@@ -16,7 +16,7 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 (module.exports = {
   title: 'Buck2',
-  url: 'https://your-docusaurus-test-site.com',
+  url: 'https://buck2.build',
   baseUrl: '/',
   onBrokenLinks: 'throw',
   trailingSlash: true,
