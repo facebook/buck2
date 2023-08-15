@@ -89,9 +89,11 @@ _RUST_COMMON_ATTRIBUTES = {
 }
 
 _RUST_EXECUTABLE_ATTRIBUTES = {
+    # Unlike cxx which supports pre-defined link groups, we only support
+    # auto_link_groups in rust
+    "auto_link_groups": attrs.bool(default = True),
     # TODO: enable distributed thinlto
     "enable_distributed_thinlto": attrs.bool(default = False),
-    # TODO: enable link groups
     "link_group": attrs.option(attrs.string(), default = None),
     "link_group_map": link_group_map_attr(),
     "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),

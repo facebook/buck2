@@ -13,6 +13,14 @@ load(
     "make_artifact_tset",
 )
 load(
+    "@prelude//cxx:cxx.bzl",
+    "get_auto_link_group_specs",
+)
+load(
+    "@prelude//cxx:link_groups.bzl",
+    "get_link_group_info",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
     "MergedLinkInfo",
@@ -32,6 +40,10 @@ load(
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
+)
+load(
+    "@prelude//utils:utils.bzl",
+    "filter_and_map_idx",
 )
 
 # Link style for targets which do not set an explicit `link_style` attribute.
@@ -83,6 +95,10 @@ RustLinkStyleInfo = record(
     # Debug info which is referenced -- but not included -- by the linkable rlib.
     external_debug_info = field(ArtifactTSet.type),
 )
+
+def enable_link_groups(ctx: AnalysisContext):
+    return (hasattr(ctx.attrs, "auto_link_groups") and ctx.attrs.auto_link_groups and
+            hasattr(ctx.attrs, "link_group_map") and ctx.attrs.link_group_map)
 
 def _adjust_link_style_for_rust_dependencies(dep_link_style: LinkStyle.type) -> LinkStyle.type:
     if FORCE_RLIB and dep_link_style == LinkStyle("shared"):
@@ -177,12 +193,22 @@ def _non_rust_link_infos(
     rolled up in a tset.
     """
     link_deps = _non_rust_link_deps(ctx, include_doc_deps)
-    if hasattr(ctx.attrs, "link_group_map") and ctx.attrs.link_group_map:
+    if enable_link_groups(ctx):
+        # Assume a rust executable wants to use link groups if a link group map
+        # is present
+        link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, link_deps))
+
+        # @unused will be resolved in a later diff
+        auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info)
+
         # @unused will be resolved in a later diff
         linkable_graph = _non_rust_linkable_graph(
             ctx,
             link_deps,
         )
+        # TODO(@christylee): Make sure we set up symlink tree by passing link groups shared libs to
+        # _non_rust_shared_lib_infos
+
     return [d[MergedLinkInfo] for d in link_deps]
 
 # Returns native link dependencies.
