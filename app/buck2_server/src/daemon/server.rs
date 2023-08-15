@@ -269,7 +269,6 @@ impl BuckdServer {
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
         callbacks: &'static dyn BuckdServerDependencies,
         rt: Handle,
-        use_tonic_rt: bool,
     ) -> anyhow::Result<()> {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;
@@ -293,16 +292,7 @@ impl BuckdServer {
         };
 
         let daemon_state = Arc::new(
-            DaemonState::new(
-                fb,
-                paths,
-                init_ctx,
-                rt.clone(),
-                use_tonic_rt,
-                materializations,
-                cwd,
-            )
-            .await,
+            DaemonState::new(fb, paths, init_ctx, rt.clone(), materializations, cwd).await,
         );
 
         let auth_token = process_info.auth_token.clone();

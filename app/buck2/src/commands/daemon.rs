@@ -12,7 +12,6 @@
 use std::fs::File;
 use std::path::PathBuf;
 use std::process;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -32,7 +31,6 @@ use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_core::logging::LogConfigurationReloadHandle;
-use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_server::builtin_docs::docs::docs_command;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
@@ -330,30 +328,14 @@ impl DaemonCommand {
         let rt = builder.build().context("Error creating Tokio runtime")?;
         let handle = rt.handle().clone();
 
-        let use_tonic_rt = server_init_ctx
-            .daemon_startup_config
-            .use_tonic_rt
-            .as_deref()
-            .map(RolloutPercentage::from_str)
-            .transpose()
-            .context("Invalid use_tonic_rt")?
-            .unwrap_or_else(RolloutPercentage::never)
-            .roll();
-
-        // TODO(@wendyy) - use tonic_rt after rollout is stable
-        let rt = if use_tonic_rt {
-            tracing::info!("Starting tonic tokio runtime...");
-            Builder::new_multi_thread()
-                .enable_all()
-                .thread_name("buck2-tn")
-                // These values are arbitrary, but I/O shouldn't take up many threads.
-                .worker_threads(2)
-                .max_blocking_threads(2)
-                .build()
-                .context("Error creating Tonic Tokio runtime")?
-        } else {
-            rt
-        };
+        let rt = Builder::new_multi_thread()
+            .enable_all()
+            .thread_name("buck2-tn")
+            // These values are arbitrary, but I/O shouldn't take up many threads.
+            .worker_threads(2)
+            .max_blocking_threads(2)
+            .build()
+            .context("Error creating Tonic Tokio runtime")?;
 
         rt.block_on(async move {
             // Once any item is received on the hard_shutdown_receiver, the daemon process will exit immediately.
@@ -402,7 +384,6 @@ impl DaemonCommand {
                 Box::pin(listener),
                 &BuckdServerDependenciesImpl,
                 handle,
-                use_tonic_rt,
             )
             .fuse();
             let shutdown_future = async move { hard_shutdown_receiver.next().await }.fuse();
@@ -637,7 +618,6 @@ mod tests {
             Box::pin(listener),
             &BuckdServerDependenciesImpl,
             Handle::current(),
-            true,
         ));
 
         let mut client = new_daemon_api_client(endpoint.clone(), process_info.auth_token)

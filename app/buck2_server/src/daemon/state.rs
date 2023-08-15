@@ -170,9 +170,6 @@ pub struct DaemonStateData {
 
     /// Spawner
     pub spawner: Arc<BuckSpawner>,
-
-    /// Did we enable running tonic on a separate runtime?
-    pub use_tonic_rt: bool,
 }
 
 impl DaemonStateData {
@@ -199,20 +196,12 @@ impl DaemonState {
         paths: InvocationPaths,
         init_ctx: BuckdServerInitPreferences,
         rt: Handle,
-        use_tonic_rt: bool,
         materializations: MaterializationMethod,
         working_directory: Option<WorkingDirectory>,
     ) -> Self {
-        let data = Self::init_data(
-            fb,
-            paths.clone(),
-            init_ctx,
-            rt.clone(),
-            use_tonic_rt,
-            materializations,
-        )
-        .await
-        .context("Error initializing DaemonStateData");
+        let data = Self::init_data(fb, paths.clone(), init_ctx, rt.clone(), materializations)
+            .await
+            .context("Error initializing DaemonStateData");
 
         if let Ok(data) = &data {
             crate::daemon::panic::initialize(data.dupe());
@@ -238,7 +227,6 @@ impl DaemonState {
         paths: InvocationPaths,
         init_ctx: BuckdServerInitPreferences,
         rt: Handle,
-        use_tonic_rt: bool,
         materializations: MaterializationMethod,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
         let daemon_state_data_rt = rt.clone();
@@ -511,7 +499,6 @@ impl DaemonState {
                 http_client,
                 paranoid,
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
-                use_tonic_rt,
             }))
         })
         .await?
@@ -680,7 +667,6 @@ impl DaemonState {
                 data.disk_state_options.sqlite_materializer_state
             ),
             format!("paranoid:{}", data.paranoid.is_some()),
-            format!("use_tonic_rt:{}", data.use_tonic_rt),
         ];
 
         dispatcher.instant_event(buck2_data::TagEvent { tags });
