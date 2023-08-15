@@ -18,11 +18,11 @@ Most of these examples use the [`buck query`](https://buck.build/command/query.h
 
 ### How do I get a list of all the rules that Buck supports,** ***from the command line*, so that I can process them with** **`grep`,** **`sed`, etc?
 
-Use [`buck audit`](https://buck.build/command/audit.html) with the `ruletypes` (plural) subcommand, which returns an alphabetized list of all the rules that Buck supports.
-The following command line uses `buck audit ruletypes` with the `grep` command to print all the build rules that have the string `android` in their names.
+Use [`buck audit`](https://buck.build/command/audit.html) with the `prelude` subcommand, which returns an alphabetized list of all the rules that Buck supports.
+The following command line uses `buck audit prelude` with the `grep` command to print all the build rules that have the string `android` in their names.
 
 ```
-buck audit ruletypes | grep android
+buck audit prelude | grep android
 ```
 
 Note that these are not all the rules that Buck provides for Android development. For example, the rules `apk_genrule` and `ndk_library` support Android development, but do not themselves contain the string `android` in their names.
