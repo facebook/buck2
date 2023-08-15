@@ -94,8 +94,10 @@ def link_group_map_attr():
         default = None,
     )
 
-def _make_info_subtarget_providers(ctx: AnalysisContext) -> list[Provider]:
-    info_json = {}
+def _make_info_subtarget_providers(ctx: AnalysisContext, link_group_info: LinkGroupInfo.type) -> list[Provider]:
+    info_json = {
+        "mappings": link_group_info.mappings,
+    }
     json_output = ctx.actions.write_json("link_group_map_info.json", info_json)
     return [DefaultInfo(default_output = json_output)]
 
@@ -111,11 +113,12 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         ],
     )
     link_groups = parse_groups_definitions(ctx.attrs.map, lambda root: root.label)
+    link_group_info = build_link_group_info(linkable_graph, link_groups)
     return [
         DefaultInfo(sub_targets = {
-            "info": _make_info_subtarget_providers(ctx),
+            "info": _make_info_subtarget_providers(ctx, link_group_info),
         }),
-        build_link_group_info(linkable_graph, link_groups),
+        link_group_info,
     ]
 
 registration_spec = RuleRegistrationSpec(
