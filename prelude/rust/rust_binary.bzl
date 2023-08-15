@@ -17,6 +17,10 @@ load(
 load("@prelude//cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
 load(
     "@prelude//cxx:link_groups.bzl",
+    "LINK_GROUP_MAPPINGS_FILENAME_SUFFIX",
+    "LINK_GROUP_MAPPINGS_SUB_TARGET",
+    "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
+    "get_link_group_map_json",
     "is_link_group_shlib",
 )
 load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET")
@@ -35,6 +39,7 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executor_from_props",
 )
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(
@@ -62,6 +67,14 @@ load(
     "inherited_non_rust_shared_libs",
 )
 load(":resources.bzl", "rust_attr_resources")
+
+_CompileOutputs = record(
+    link = field(Artifact),
+    args = field(ArgLike),
+    extra_targets = field(list[(str, Artifact)]),
+    runtime_files = field(list[ArgLike]),
+    sub_targets = field(dict[str, [DefaultInfo]]),
+)
 
 def _rust_binary_common(
         ctx: AnalysisContext,
@@ -111,6 +124,7 @@ def _rust_binary_common(
         link_group_libs = []
         link_group_preferred_linkage = {}
         labels_to_links_map = {}
+        filtered_targets = []
 
         if enable_link_groups(ctx, link_style, is_binary = True):
             rust_cxx_link_group_info = inherited_non_rust_link_group_info(
@@ -122,6 +136,7 @@ def _rust_binary_common(
             link_group_libs = rust_cxx_link_group_info.link_group_libs
             link_group_preferred_linkage = rust_cxx_link_group_info.link_group_preferred_linkage
             labels_to_links_map = rust_cxx_link_group_info.labels_to_links_map
+            filtered_targets = rust_cxx_link_group_info.filtered_targets
 
         # As per v1, we only setup a shared library symlink tree for the shared
         # link style.
@@ -190,7 +205,9 @@ def _rust_binary_common(
             args.hidden(resources_hidden)
             runtime_files.extend(resources_hidden)
 
-        shared_libraries_info = DefaultInfo(
+        sub_targets_for_link_style = {}
+
+        sub_targets_for_link_style["shared-libraries"] = [DefaultInfo(
             default_output = ctx.actions.write_json(
                 name + ".shared-libraries.json",
                 {
@@ -206,9 +223,28 @@ def _rust_binary_common(
                 )]
                 for name, lib in shared_libs.items()
             },
+        )]
+
+        if rust_cxx_link_group_info:
+            sub_targets_for_link_style[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets, output_suffix = "_" + str(link_style).replace('"', ""))]
+            readable_mappings = {}
+            for node, group in link_group_mappings.items():
+                readable_mappings[group] = readable_mappings.get(group, []) + ["{}//{}:{}".format(node.cell, node.package, node.name)]
+            sub_targets_for_link_style[LINK_GROUP_MAPPINGS_SUB_TARGET] = [DefaultInfo(
+                default_output = ctx.actions.write_json(
+                    name + LINK_GROUP_MAPPINGS_FILENAME_SUFFIX,
+                    readable_mappings,
+                ),
+            )]
+
+        styles[link_style] = _CompileOutputs(
+            link = link.output,
+            args = args,
+            extra_targets = extra_targets,
+            runtime_files = runtime_files,
+            sub_targets = sub_targets_for_link_style,
         )
 
-        styles[link_style] = (link.output, args, extra_targets, runtime_files, shared_libraries_info)
         if link_style == specified_link_style and link.dwp_output:
             dwp_target = link.dwp_output
 
@@ -222,8 +258,8 @@ def _rust_binary_common(
         extra_flags = extra_flags,
     )
 
-    (link, args, extra_targets, runtime_files, _) = styles[specified_link_style]
-    extra_targets += [
+    compiled_outputs = styles[specified_link_style]
+    extra_compiled_targets = (compiled_outputs.extra_targets + [
         ("doc", generate_rustdoc(
             ctx = ctx,
             compile_ctx = compile_ctx,
@@ -233,17 +269,17 @@ def _rust_binary_common(
         )),
         ("expand", expand.output),
         ("sources", compile_ctx.symlinked_srcs),
-    ]
-    sub_targets.update({k: [DefaultInfo(default_output = v)] for k, v in extra_targets})
-    for (k, (sub_link, sub_args, _sub_extra, sub_runtime_files, sub_shared_libraries_info)) in styles.items():
+    ])
+    sub_targets.update({k: [DefaultInfo(default_output = v)] for k, v in extra_compiled_targets})
+    for (k, sub_compiled_outputs) in styles.items():
         sub_targets[k.value] = [
             DefaultInfo(
-                default_output = sub_link,
-                other_outputs = sub_runtime_files,
+                default_output = sub_compiled_outputs.link,
+                other_outputs = sub_compiled_outputs.runtime_files,
                 # Check/save-analysis for each link style?
-                sub_targets = {"shared-libraries": [sub_shared_libraries_info]},
+                sub_targets = sub_compiled_outputs.sub_targets,
             ),
-            RunInfo(args = sub_args),
+            RunInfo(args = sub_compiled_outputs.args),
         ]
 
     if dwp_target:
@@ -255,12 +291,12 @@ def _rust_binary_common(
 
     providers = [
         DefaultInfo(
-            default_output = link,
-            other_outputs = runtime_files,
+            default_output = compiled_outputs.link,
+            other_outputs = compiled_outputs.runtime_files,
             sub_targets = sub_targets,
         ),
     ]
-    return (providers, args)
+    return (providers, compiled_outputs.args)
 
 def rust_binary_impl(ctx: AnalysisContext) -> list[[DefaultInfo.type, RunInfo.type]]:
     compile_ctx = compile_context(ctx)

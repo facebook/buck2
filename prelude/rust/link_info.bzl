@@ -354,7 +354,6 @@ def inherited_non_rust_link_group_info(
         force_static_follows_dependents = True,
     )
 
-    # TODO(@christylee): create subtarget to retrive filtered_targets
     # TODO(@christylee): Check that this works with unittests
     return RustCxxLinkGroupInfo(
         filtered_links = get_filtered_links(labels_to_links_map),
