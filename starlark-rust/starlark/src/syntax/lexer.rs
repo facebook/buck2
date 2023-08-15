@@ -783,6 +783,8 @@ pub enum Token {
     LessLessEqual,
     #[token(">>=")]
     GreaterGreaterEqual,
+    #[token("...")]
+    Ellipsis,
 
     // Brackets
     #[token("[")]
@@ -894,6 +896,7 @@ impl Display for Token {
             Token::CaretEqual => write!(f, "symbol '^='"),
             Token::LessLessEqual => write!(f, "symbol '<<='"),
             Token::GreaterGreaterEqual => write!(f, "symbol '>>='"),
+            Token::Ellipsis => write!(f, "symbol '...'"),
             Token::OpeningSquare => write!(f, "symbol '['"),
             Token::OpeningCurly => write!(f, "symbol '{{'"),
             Token::OpeningRound => write!(f, "symbol '('"),
