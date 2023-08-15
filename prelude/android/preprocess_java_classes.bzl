@@ -57,7 +57,7 @@ def get_preprocessed_java_classes(ctx: AnalysisContext, input_jars = {"artifact"
         jar_name = unscrubbed_output_jar.basename
         output_jar = ctx.actions.declare_output("preprocessed_java_classes/output_dir/{}".format(jar_name))
         scrub_cmd = cmd_args(zip_scrubber, unscrubbed_output_jar, output_jar.as_output())
-        ctx.actions.run(scrub_cmd, category = "scrub_preprocessed_java_class", identifier = jar_name)
+        ctx.actions.run(scrub_cmd, category = "scrub_preprocessed_java_class", identifier = jar_name, local_only = True)
         output_jars_to_owners[output_jar] = target_label
 
     return output_jars_to_owners
