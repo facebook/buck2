@@ -12,17 +12,24 @@ load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_package_config.bzl", "IpaCompressionLevel")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
-load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
+load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
 def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
-    ipa_contents = _get_ipa_contents(ctx)
+    apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
+    unprocessed_ipa_contents = _get_ipa_contents(ctx)
+    package = ctx.actions.declare_output("{}.ipa".format(ctx.attrs.bundle.label.name))
     compression_level = _compression_level_arg(IpaCompressionLevel(ctx.attrs._ipa_compression_level))
 
-    package = ctx.actions.declare_output("{}.ipa".format(ctx.attrs.bundle.label.name))
-
-    # TODO(T110378117): Pull this into a shared zip utility function
-    zip = cmd_args(["(cd \"", cmd_args(ipa_contents), "\" && zip -X -r {} - .) > ".format(compression_level), package.as_output()], delimiter = "")
-    ctx.actions.run(["sh", "-c", zip], category = "apple_package_zip")
+    process_ipa_cmd = cmd_args([
+        apple_tools.ipa_package_maker,
+        "--ipa-contents-dir",
+        unprocessed_ipa_contents,
+        "--ipa-output-path",
+        package.as_output(),
+        "--compression-level",
+        compression_level,
+    ])
+    ctx.actions.run(process_ipa_cmd, category = "apple_package_make")
 
     return [DefaultInfo(default_output = package)]
 
@@ -116,12 +123,12 @@ def _get_scan_folder_args(dest: AppleBundleDestination.type, bundle_output: Arti
 
 def _compression_level_arg(compression_level: IpaCompressionLevel.type) -> str:
     if compression_level.value == "none":
-        return "-0"
+        return "0"
     elif compression_level.value == "default":
-        return "-6"
+        return "6"
     elif compression_level.value == "min":
-        return "-1"
+        return "1"
     elif compression_level.value == "max":
-        return "-9"
+        return "9"
     else:
         fail("Unknown .ipa compression level: " + str(compression_level))
