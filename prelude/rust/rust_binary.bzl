@@ -126,7 +126,7 @@ def _rust_binary_common(
         labels_to_links_map = {}
         filtered_targets = []
 
-        if enable_link_groups(ctx, link_style, is_binary = True):
+        if enable_link_groups(ctx, link_style, specified_link_style, is_binary = True):
             rust_cxx_link_group_info = inherited_non_rust_link_group_info(
                 ctx,
                 include_doc_deps = False,
@@ -226,7 +226,7 @@ def _rust_binary_common(
         )]
 
         if rust_cxx_link_group_info:
-            sub_targets_for_link_style[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets, output_suffix = "_" + str(link_style).replace('"', ""))]
+            sub_targets_for_link_style[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
             readable_mappings = {}
             for node, group in link_group_mappings.items():
                 readable_mappings[group] = readable_mappings.get(group, []) + ["{}//{}:{}".format(node.cell, node.package, node.name)]

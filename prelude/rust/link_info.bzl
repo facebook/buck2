@@ -43,7 +43,6 @@ load(
     "LinkInfo",
     "LinkStyle",
     "Linkage",  # @unused Used as a type
-    "LinkedObject",  # @unused Used as a type
     "MergedLinkInfo",
     "get_link_args",
     "merge_link_infos",
@@ -159,9 +158,16 @@ RustCxxLinkGroupInfo = record(
 def enable_link_groups(
         ctx: AnalysisContext,
         link_style: [LinkStyle.type, None],
+        specified_link_style: LinkStyle.type,
         is_binary: bool):
-    if not cxx_is_gnu(ctx) or link_style == LinkStyle("shared") or not is_binary:
+    if not (cxx_is_gnu(ctx) and is_binary):
+        # check minium requirements
         return False
+    if link_style == LinkStyle("shared") or link_style != specified_link_style:
+        # check whether we should run link groups analysis for the given link style
+        return False
+
+    # check whether link groups is enabled
     return ctx.attrs.auto_link_groups and ctx.attrs.link_group_map
 
 # Returns all first-order dependencies.
@@ -310,7 +316,6 @@ def inherited_non_rust_link_group_info(
         other_roots = [],
         prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
         anonymous = False,  # TODO: support anonymous link groups
-        output_suffix = "_" + str(link_style).replace('"', ""),
     )
 
     auto_link_groups = {}

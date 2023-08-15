@@ -64,7 +64,6 @@ load(
     "RustLinkStyleInfo",
     "attr_crate",
     "attr_simple_crate_for_filenames",
-    "enable_link_groups",
     "inherited_external_debug_info",
     "inherited_non_rust_link_info",
     "inherited_non_rust_shared_libs",
@@ -416,7 +415,7 @@ def rust_compile(
         # If this crate type has an associated native dep link style, include deps
         # of that style.
 
-        if enable_link_groups(ctx, dep_link_style, is_binary):
+        if rust_cxx_link_group_info:
             inherited_non_rust_link_args = LinkArgs(
                 infos = rust_cxx_link_group_info.filtered_links + [rust_cxx_link_group_info.symbol_files_info],
             )
