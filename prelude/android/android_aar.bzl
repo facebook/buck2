@@ -56,6 +56,9 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         r_dot_txt = get_text_symbols(ctx, merged_resource_sources_dir, [dep for dep in deps if AndroidResourceInfo in dep or ExportedAndroidResourceInfo in dep])
         entries.extend([merged_resource_sources_dir, r_dot_txt])
 
+        assets_dirs = [resource_infos.assets for resource_infos in resource_infos if resource_infos.assets]
+        entries.extend(assets_dirs)
+
     zip_file_toolchain = ctx.attrs._zip_file_toolchain[ZipFileToolchainInfo]
     create_zip_tool = zip_file_toolchain.create_zip
 
