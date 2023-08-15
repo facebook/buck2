@@ -47,7 +47,6 @@ load(
     "LinkInfo",
     "LinkOrdering",  # @unused Used as a type
     "LinkStyle",
-    "Linkage",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
     "merge_link_infos",
@@ -126,6 +125,7 @@ load(
     "get_link_group",
     "get_link_group_map_json",
     "get_link_group_preferred_linkage",
+    "is_link_group_shlib",
 )
 load(
     ":link_types.bzl",
@@ -394,28 +394,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
             ),
         )
 
-        def is_link_group_shlib(label: Label):
-            # If this maps to a link group which we have a `LinkGroupLibInfo` for,
-            # then we'll handlet his below.
-            # buildifier: disable=uninitialized
-            if label in link_group_mappings and link_group_mappings[label] in link_group_libs:
-                return False
-
-            # buildifier: disable=uninitialized
-            if link_group_preferred_linkage.get(label, Linkage("any")) == Linkage("shared"):
-                return True
-
-            # if using link_groups, only materialize the link_group shlibs
-            # buildifier: disable=uninitialized
-            node_link = labels_to_links_map.get(label)
-            if node_link != None and node_link.link_style == LinkStyle("shared"):
-                return True
-
-            return False
-
         for name, shared_lib in traverse_shared_library_info(shlib_info).items():
             label = shared_lib.label
-            if not gnu_use_link_groups or is_link_group_shlib(label):
+            if not gnu_use_link_groups or is_link_group_shlib(label, link_group_mappings, link_group_libs, link_group_preferred_linkage, labels_to_links_map):
                 shared_libs[name] = shared_lib.lib
 
     if gnu_use_link_groups:

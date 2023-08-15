@@ -211,6 +211,29 @@ def get_link_group_preferred_linkage(link_groups: list[Group.type]) -> dict[Labe
         if mapping.root != None and mapping.preferred_linkage != None
     }
 
+def is_link_group_shlib(
+        label: Label,
+        link_group_mappings: [dict[Label, str], None],
+        link_group_libs: dict[str, _LinkedLinkGroup.type],
+        link_group_preferred_linkage: dict[Label, Linkage.type],
+        labels_to_links_map: dict[Label, LinkGroupLinkInfo.type]):
+    # If this maps to a link group which we have a `LinkGroupLibInfo` for,
+    # then we'll handle this outside of this function
+    if label in link_group_mappings and link_group_mappings[label] in link_group_libs:
+        return False
+
+    # buildifier: disable=uninitialized
+    if link_group_preferred_linkage.get(label, Linkage("any")) == Linkage("shared"):
+        return True
+
+    # if using link_groups, only materialize the link_group shlibs
+    # buildifier: disable=uninitialized
+    node_link = labels_to_links_map.get(label)
+    if node_link != None and node_link.link_style == LinkStyle("shared"):
+        return True
+
+    return False
+
 def _transitively_update_shared_linkage(
         linkable_graph_node_map: dict[Label, LinkableNode.type],
         link_group: [str, None],
