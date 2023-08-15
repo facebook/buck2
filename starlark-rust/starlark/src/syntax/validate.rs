@@ -26,6 +26,7 @@ use crate::eval::compiler::EvalException;
 use crate::syntax::ast::Argument;
 use crate::syntax::ast::AstArgument;
 use crate::syntax::ast::AstExpr;
+use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
@@ -33,6 +34,7 @@ use crate::syntax::ast::ForP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::dialect::DialectError;
 use crate::syntax::Dialect;
+use crate::syntax::DialectTypes;
 
 #[derive(Error, Debug)]
 enum ValidateError {
@@ -199,6 +201,23 @@ impl Stmt {
             }
         }
 
-        f(codemap, dialect, stmt, true, false, false)
+        fn expr(expr: &AstExpr, dialect: &Dialect, codemap: &CodeMap) -> Result<(), EvalException> {
+            if let Expr::Literal(AstLiteral::Ellipsis) = &expr.node {
+                if dialect.enable_types == DialectTypes::Disable {
+                    return Err(EvalException::new(
+                        DialectError::Ellipsis.into(),
+                        expr.span,
+                        codemap,
+                    ));
+                }
+            }
+            Ok(())
+        }
+
+        f(codemap, dialect, stmt, true, false, false)?;
+
+        stmt.visit_expr_result(|x| expr(x, dialect, codemap))?;
+
+        Ok(())
     }
 }

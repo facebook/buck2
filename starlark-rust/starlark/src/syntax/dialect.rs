@@ -35,6 +35,8 @@ pub(crate) enum DialectError {
     Def,
     #[error("`lambda` is not allowed in this dialect")]
     Lambda,
+    #[error("`...` is not allowed in this dialect")]
+    Ellipsis,
     #[error("`load` is not allowed in this dialect")]
     Load,
     #[error("* keyword-only-arguments is not allowed in this dialect")]

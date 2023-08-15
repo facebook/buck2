@@ -23,6 +23,7 @@ use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::syntax::DialectTypes;
 use crate::tests::golden_test_template::golden_test_template;
 
 fn parse_fails_with_dialect(name: &str, dialect: &Dialect, programs: &[&str]) {
@@ -341,6 +342,20 @@ fn test_lambda() {
     // able to either (we follow it in this position). Fortunately, its
     // a mostly meaningless program.
     // [x for x in [1, 2] if lambda : None]
+}
+
+#[test]
+fn test_ellipsis() {
+    parse_fails_with_dialect(
+        "ellipsis",
+        &Dialect {
+            enable_types: DialectTypes::Disable,
+            ..Dialect::Extended
+        },
+        &["x = ..."],
+    );
+
+    assert_eq!(assert::parse("x = ..."), "x = ...\n");
 }
 
 #[test]

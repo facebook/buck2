@@ -420,6 +420,7 @@ impl TypingContext<'_> {
                 AstLiteral::Int(_) => Ok(Ty::int()),
                 AstLiteral::Float(_) => Ok(Ty::float()),
                 AstLiteral::String(_) => Ok(Ty::string()),
+                AstLiteral::Ellipsis => Ok(Ty::any()),
             },
             ExprP::Not(x) => {
                 if self.expression_type(x)?.is_never() {

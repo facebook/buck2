@@ -247,6 +247,19 @@ impl<P: AstPayload> StmtP<P> {
         self.visit_children(|x| pick(x, &mut f))
     }
 
+    pub(crate) fn visit_expr_result<'a, E>(
+        &'a self,
+        mut f: impl FnMut(&'a AstExprP<P>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let mut result = Ok(());
+        self.visit_expr(|x| {
+            if result.is_ok() {
+                result = f(x);
+            }
+        });
+        result
+    }
+
     pub(crate) fn visit_stmt_result<E>(
         &self,
         mut f: impl FnMut(&AstStmtP<P>) -> Result<(), E>,

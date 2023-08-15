@@ -266,6 +266,8 @@ Operand: AstExpr = {
         => Expr::Literal(AstLiteral::Float(f)).ast(l, r),
     <l:@L> <s:string> <r:@R>
         => Expr::Literal(AstLiteral::String(s)).ast(l, r),
+    <l:@L> "..." <r:@R>
+        => Expr::Literal(AstLiteral::Ellipsis).ast(l, r),
     <l:@L> "[" <e:COMMA<Test>> "]" <r:@R>
         => Expr::List(e).ast(l, r),
     ListComp,
@@ -476,6 +478,7 @@ extern {
       "^=" => lexer::Token::CaretEqual,
       "<<=" => lexer::Token::LessLessEqual,
       ">>=" => lexer::Token::GreaterGreaterEqual,
+      "..." => lexer::Token::Ellipsis,
       // Brackets
       "[" => lexer::Token::OpeningSquare,
       "{" => lexer::Token::OpeningCurly,

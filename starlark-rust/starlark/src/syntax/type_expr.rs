@@ -157,6 +157,7 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             }
             ExprP::Literal(AstLiteral::Int(_)) => err("int"),
             ExprP::Literal(AstLiteral::Float(_)) => err("float"),
+            ExprP::Literal(AstLiteral::Ellipsis) => err("ellipsis"),
             ExprP::Not(..) => err("not"),
             ExprP::Minus(..) => err("minus"),
             ExprP::Plus(..) => err("plus"),

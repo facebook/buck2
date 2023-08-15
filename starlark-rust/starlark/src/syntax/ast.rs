@@ -139,6 +139,7 @@ pub(crate) enum AstLiteral {
     Int(AstInt),
     Float(AstFloat),
     String(AstString),
+    Ellipsis,
 }
 
 #[derive(Debug, Clone)]
@@ -459,6 +460,7 @@ impl Display for AstLiteral {
             AstLiteral::Int(i) => write!(f, "{}", &i.node),
             AstLiteral::Float(n) => write!(f, "{}", &n.node),
             AstLiteral::String(s) => fmt_string_literal(f, &s.node),
+            AstLiteral::Ellipsis => f.write_str("..."),
         }
     }
 }

@@ -65,6 +65,7 @@ use crate::values::list::ListRef;
 use crate::values::string::interpolation::parse_percent_s_one;
 use crate::values::types::bool::StarlarkBool;
 use crate::values::types::dict::Dict;
+use crate::values::types::ellipsis::Ellipsis;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::types::inline_int::InlineInt;
 use crate::values::types::list::value::FrozenListData;
@@ -1027,6 +1028,7 @@ impl AstLiteral {
             AstLiteral::Int(i) => heap.alloc(i.node.0.clone()),
             AstLiteral::Float(f) => heap.alloc(f.node),
             AstLiteral::String(x) => heap.alloc(x.node.as_str()),
+            AstLiteral::Ellipsis => heap.alloc(Ellipsis),
         }
     }
 }
