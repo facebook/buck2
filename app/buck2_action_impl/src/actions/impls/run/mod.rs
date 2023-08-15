@@ -552,6 +552,7 @@ impl Action for RunAction {
             },
             "no_outputs_cleanup".to_owned() => self.inner.no_outputs_cleanup.to_string(),
             "allow_cache_upload".to_owned() => self.inner.allow_cache_upload.to_string(),
+            "allow_dep_file_cache_upload".to_owned() => self.inner.allow_dep_file_cache_upload.to_string(),
         }
     }
 }
@@ -642,9 +643,12 @@ impl IncrementalActionExecutable for RunAction {
                 }
                 _ => (None, None),
             };
-            result.did_cache_upload = ctx
+            let upload_result = ctx
                 .cache_upload(prepared_action.action.dupe(), &result, dep_file_entry)
                 .await?;
+
+            result.did_cache_upload = upload_result.did_cache_upload;
+            result.did_dep_file_cache_upload = upload_result.did_dep_file_cache_upload;
             result.dep_file_key = dep_file_key;
         }
 

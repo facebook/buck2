@@ -23,6 +23,7 @@ use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
 
+use super::cache_uploader::CacheUploadResult;
 use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
@@ -124,7 +125,7 @@ impl CommandExecutor {
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
-    ) -> anyhow::Result<bool> {
+    ) -> anyhow::Result<CacheUploadResult> {
         self.0
             .cache_uploader
             .upload(info, execution_result, dep_file_entry)

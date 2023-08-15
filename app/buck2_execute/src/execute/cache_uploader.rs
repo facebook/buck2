@@ -27,6 +27,11 @@ pub struct DepFileEntry {
     pub entry: RemoteDepFile,
 }
 
+pub struct CacheUploadResult {
+    pub did_cache_upload: bool,
+    pub did_dep_file_cache_upload: bool,
+}
+
 /// A single purpose trait to handle cache uploads
 #[async_trait]
 pub trait UploadCache: Send + Sync {
@@ -38,7 +43,7 @@ pub trait UploadCache: Send + Sync {
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
-    ) -> anyhow::Result<bool>;
+    ) -> anyhow::Result<CacheUploadResult>;
 }
 
 /// A no-op cache uploader for when cache uploading is disabled
@@ -51,7 +56,10 @@ impl UploadCache for NoOpCacheUploader {
         _info: &CacheUploadInfo<'_>,
         _execution_result: &CommandExecutionResult,
         _dep_file_entry: Option<DepFileEntry>,
-    ) -> anyhow::Result<bool> {
-        Ok(false)
+    ) -> anyhow::Result<CacheUploadResult> {
+        Ok(CacheUploadResult {
+            did_cache_upload: false,
+            did_dep_file_cache_upload: false,
+        })
     }
 }

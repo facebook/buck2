@@ -56,6 +56,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_execute::execute::cache_uploader::CacheUploadResult;
 use buck2_execute::execute::cache_uploader::DepFileEntry;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
@@ -217,7 +218,7 @@ pub trait ActionExecutionCtx: Send + Sync {
         action_digest: ActionDigest,
         execution_result: &CommandExecutionResult,
         dep_file_entry: Option<DepFileEntry>,
-    ) -> anyhow::Result<bool>;
+    ) -> anyhow::Result<CacheUploadResult>;
 
     /// Executes a command
     /// TODO(bobyf) this seems like it deserves critical sections?

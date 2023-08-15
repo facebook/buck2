@@ -65,6 +65,7 @@ pub struct TExecutedActionMetadata {
     pub execution_attempts: i32,
     pub last_queued_timestamp: TTimestamp,
     pub instruction_counts: TPerfCount,
+    pub auxiliary_metadata: Vec<TAny>,
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
 }
