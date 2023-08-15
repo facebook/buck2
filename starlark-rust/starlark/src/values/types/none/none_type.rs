@@ -31,6 +31,10 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::typing::Ty;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::Basic;
+use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -117,6 +121,9 @@ impl Serialize for NoneType {
         serializer.serialize_none()
     }
 }
+
+pub(crate) static VALUE_NONE: AValueRepr<AValueImpl<Basic, NoneType>> =
+    alloc_static(Basic, NoneType);
 
 impl AllocFrozenValue for NoneType {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {

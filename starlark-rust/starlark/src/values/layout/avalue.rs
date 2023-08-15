@@ -26,19 +26,15 @@ use allocative::Allocative;
 use derive_more::Display;
 use serde::Serialize;
 use serde::Serializer;
-use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::cast::transmute;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::StarlarkHashValue;
 use crate::eval::compiler::def::FrozenDef;
 use crate::private::Private;
 use crate::slice_vec_ext::SliceExt;
-use crate::values::bool::StarlarkBool;
-use crate::values::dict::value::DictGen;
-use crate::values::dict::value::FrozenDictData;
+use crate::values::array::VALUE_EMPTY_ARRAY;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::heap::arena::MIN_ALLOC;
 use crate::values::layout::heap::repr::AValueForward;
@@ -48,7 +44,7 @@ use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::ListGen;
-use crate::values::none::NoneType;
+use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
 use crate::values::string::StarlarkStr;
 use crate::values::types::any_array::AnyArray;
 use crate::values::types::array::Array;
@@ -75,54 +71,8 @@ where
     AValueRepr::with_metadata(AValueVTable::new::<AValueImpl<M, T>>(), payload)
 }
 
-pub(crate) static VALUE_NONE: AValueRepr<AValueImpl<Basic, NoneType>> =
-    alloc_static(Basic, NoneType);
-
-pub(crate) static VALUE_FALSE: AValueRepr<AValueImpl<Basic, StarlarkBool>> =
-    alloc_static(Basic, StarlarkBool(false));
-pub(crate) static VALUE_TRUE: AValueRepr<AValueImpl<Basic, StarlarkBool>> =
-    alloc_static(Basic, StarlarkBool(true));
-
 pub(crate) const VALUE_STR_A_VALUE_PTR: AValueHeader =
     AValueHeader::new_const::<StarlarkStrAValue>();
-
-pub(crate) static VALUE_EMPTY_TUPLE: AValueRepr<AValueImpl<Direct, FrozenTuple>> =
-    alloc_static(Direct, unsafe { FrozenTuple::new(0) });
-
-pub(crate) static VALUE_EMPTY_FROZEN_LIST: AValueRepr<AValueImpl<Direct, ListGen<FrozenListData>>> =
-    alloc_static(Direct, unsafe { ListGen(FrozenListData::new(0)) });
-
-pub(crate) static VALUE_EMPTY_FROZEN_DICT: AValueRepr<AValueImpl<Simple, DictGen<FrozenDictData>>> =
-    alloc_static(
-        Simple,
-        DictGen(FrozenDictData {
-            content: SmallMap::new(),
-        }),
-    );
-
-/// `Array` is not `Sync`, so wrap it into this struct to store it in static variable.
-/// Empty `Array` is logically `Sync`.
-pub(crate) struct ValueEmptyArray(AValueRepr<AValueImpl<Direct, Array<'static>>>);
-unsafe impl Sync for ValueEmptyArray {}
-
-pub(crate) static VALUE_EMPTY_ARRAY: ValueEmptyArray =
-    ValueEmptyArray(alloc_static(Direct, unsafe { Array::new(0, 0) }));
-
-impl ValueEmptyArray {
-    pub(crate) fn repr<'v>(
-        &'static self,
-    ) -> &'v AValueRepr<impl AValue<'v, StarlarkValue = Array<'v>>> {
-        // Cast lifetimes. Cannot use `crate::cast::ptr_lifetime` here
-        // because type parameter of `AValue` also need to be casted.
-        unsafe {
-            transmute!(
-                &AValueRepr<AValueImpl<Direct, Array>>,
-                &AValueRepr<AValueImpl<Direct, Array>>,
-                &self.0
-            )
-        }
-    }
-}
 
 #[derive(Debug, thiserror::Error)]
 enum AValueError {
@@ -547,7 +497,7 @@ impl<'v> AValue<'v> for AValueImpl<Direct, Array<'v>> {
         );
 
         if (*me).payload.1.len() == 0 {
-            return FrozenValue::new_repr(&VALUE_EMPTY_ARRAY.0).to_value();
+            return FrozenValue::new_repr(VALUE_EMPTY_ARRAY.repr()).to_value();
         }
 
         AValueForward::assert_does_not_overwrite_extra::<Self>();

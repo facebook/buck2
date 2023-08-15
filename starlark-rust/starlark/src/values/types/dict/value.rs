@@ -50,7 +50,10 @@ use crate::values::dict::refcell::unleak_borrow;
 use crate::values::dict::DictOf;
 use crate::values::dict::DictRef;
 use crate::values::error::ValueError;
-use crate::values::layout::avalue::VALUE_EMPTY_FROZEN_DICT;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::Simple;
+use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::string::hash_string_value;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
@@ -114,6 +117,14 @@ pub(crate) struct FrozenDictData {
 
 /// Alias is used in `StarlarkDocs` derive.
 pub(crate) type FrozenDict = DictGen<FrozenDictData>;
+
+pub(crate) static VALUE_EMPTY_FROZEN_DICT: AValueRepr<AValueImpl<Simple, DictGen<FrozenDictData>>> =
+    alloc_static(
+        Simple,
+        DictGen(FrozenDictData {
+            content: SmallMap::new(),
+        }),
+    );
 
 unsafe impl<'v> Coerce<Dict<'v>> for FrozenDictData {}
 

@@ -18,7 +18,7 @@
 //! The `None` type.
 
 mod none_or;
-mod none_type;
+pub(crate) mod none_type;
 
 pub use none_or::NoneOr;
 pub use none_type::NoneType;

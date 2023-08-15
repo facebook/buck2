@@ -49,6 +49,10 @@ use crate::values::comparison::equals_slice;
 use crate::values::error::ValueError;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::Direct;
+use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::list::ListRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
@@ -103,6 +107,9 @@ impl Debug for FrozenListData {
 
 /// Alias is used in `StarlarkDocs` derive.
 pub(crate) type FrozenList = ListGen<FrozenListData>;
+
+pub(crate) static VALUE_EMPTY_FROZEN_LIST: AValueRepr<AValueImpl<Direct, ListGen<FrozenListData>>> =
+    alloc_static(Direct, unsafe { ListGen(FrozenListData::new(0)) });
 
 impl ListGen<FrozenListData> {
     pub(crate) fn offset_of_content() -> usize {

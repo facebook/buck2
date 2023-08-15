@@ -33,7 +33,13 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::cast::transmute;
 use crate::private::Private;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::Direct;
+use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::types::list::value::display_list;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -73,6 +79,30 @@ impl<'v> Debug for Array<'v> {
             .field("iter_count", unsafe { &*self.iter_count.get() })
             .field("content", &self.content())
             .finish()
+    }
+}
+
+/// `Array` is not `Sync`, so wrap it into this struct to store it in static variable.
+/// Empty `Array` is logically `Sync`.
+pub(crate) struct ValueEmptyArray(AValueRepr<AValueImpl<Direct, Array<'static>>>);
+unsafe impl Sync for ValueEmptyArray {}
+
+pub(crate) static VALUE_EMPTY_ARRAY: ValueEmptyArray =
+    ValueEmptyArray(alloc_static(Direct, unsafe { Array::new(0, 0) }));
+
+impl ValueEmptyArray {
+    pub(crate) fn repr<'v>(
+        &'static self,
+    ) -> &'v AValueRepr<impl AValue<'v, StarlarkValue = Array<'v>>> {
+        // Cast lifetimes. Cannot use `crate::cast::ptr_lifetime` here
+        // because type parameter of `AValue` also need to be casted.
+        unsafe {
+            transmute!(
+                &AValueRepr<AValueImpl<Direct, Array>>,
+                &AValueRepr<AValueImpl<Direct, Array>>,
+                &self.0
+            )
+        }
     }
 }
 

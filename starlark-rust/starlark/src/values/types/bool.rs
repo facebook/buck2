@@ -36,6 +36,10 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::typing::Ty;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::Basic;
+use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -65,6 +69,11 @@ impl Display for StarlarkBool {
         }
     }
 }
+
+pub(crate) static VALUE_FALSE: AValueRepr<AValueImpl<Basic, StarlarkBool>> =
+    alloc_static(Basic, StarlarkBool(false));
+pub(crate) static VALUE_TRUE: AValueRepr<AValueImpl<Basic, StarlarkBool>> =
+    alloc_static(Basic, StarlarkBool(true));
 
 impl<'v> AllocValue<'v> for bool {
     fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
