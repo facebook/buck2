@@ -39,8 +39,9 @@ use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
 use crate::syntax::ast::ForP;
 use crate::syntax::ast::IdentP;
-use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::StmtP;
+use crate::syntax::def::DefParamKind;
+use crate::syntax::def::DefParams;
 use crate::syntax::uniplate::Visit;
 use crate::typing::error::InternalError;
 use crate::typing::function::Param;
@@ -195,32 +196,31 @@ impl<'a> BindingsCollect<'a> {
             ..
         } = def;
         let mut params2 = Vec::with_capacity(params.len());
-        let mut seen_no_args = false;
-        for p in params {
-            let name_ty = match &**p {
-                ParameterP::Normal(name, ty) | ParameterP::WithDefaultValue(name, ty, _) => {
+        let def_params =
+            DefParams::unpack(params, codemap).map_err(InternalError::from_eval_exception)?;
+        for (i, p) in def_params.params.iter().enumerate() {
+            let name = &p.node.ident;
+            let ty = p.node.ty;
+            let name_ty = match &p.node.kind {
+                DefParamKind::Regular(default_value) => {
                     let ty = Ty::from_type_expr_opt(
                         ty,
                         typecheck_mode,
                         &mut self.approximations,
                         codemap,
                     )?;
-                    let mut param = if seen_no_args {
+                    let mut param = if i >= def_params.num_positional as usize {
                         Param::name_only(&name.0, ty.clone())
                     } else {
                         Param::pos_or_name(&name.0, ty.clone())
                     };
-                    if matches!(&**p, ParameterP::WithDefaultValue(..)) {
+                    if default_value.is_some() {
                         param = param.optional();
                     }
                     params2.push(param);
                     Some((name, ty))
                 }
-                ParameterP::NoArgs => {
-                    seen_no_args = true;
-                    None
-                }
-                ParameterP::Args(name, ty) => {
+                DefParamKind::Args => {
                     // There is the type we require people calling us use (usually any)
                     // and then separately the type we are when we are running (always tuple)
                     let item_ty = Ty::from_type_expr_opt(
@@ -233,7 +233,7 @@ impl<'a> BindingsCollect<'a> {
                     params2.push(Param::args(item_ty));
                     Some((name, Ty::any_tuple()))
                 }
-                ParameterP::KwArgs(name, ty) => {
+                DefParamKind::Kwargs => {
                     let value_ty = Ty::from_type_expr_opt(
                         ty,
                         typecheck_mode,
@@ -252,7 +252,7 @@ impl<'a> BindingsCollect<'a> {
             }
         }
         let ret_ty = Ty::from_type_expr_opt(
-            return_type,
+            return_type.as_deref(),
             typecheck_mode,
             &mut self.approximations,
             codemap,

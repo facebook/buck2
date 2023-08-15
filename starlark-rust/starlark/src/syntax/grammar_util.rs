@@ -17,8 +17,6 @@
 
 //! Code called by the parser to handle complex cases not handled by the grammar.
 
-use std::collections::HashSet;
-
 use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
@@ -30,7 +28,6 @@ use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTarget;
 use crate::syntax::ast::AssignTargetP;
-use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstAssignTarget;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstFString;
@@ -44,10 +41,10 @@ use crate::syntax::ast::ExprP;
 use crate::syntax::ast::FStringP;
 use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LambdaP;
-use crate::syntax::ast::Parameter;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
 use crate::syntax::ast::ToAst;
+use crate::syntax::def::DefParams;
 use crate::syntax::lexer::lex_exactly_one_identifier;
 use crate::syntax::lexer::TokenFString;
 use crate::syntax::state::ParserState;
@@ -142,79 +139,9 @@ pub(crate) fn check_assignment(
     })
 }
 
-#[derive(thiserror::Error, Debug)]
-enum ArgumentUseOrderError {
-    #[error("duplicated parameter name")]
-    DuplicateParameterName,
-    #[error("positional parameter after non positional")]
-    PositionalThenNonPositional,
-    #[error("Default parameter after args array or kwargs dictionary")]
-    DefaultParameterAfterStars,
-    #[error("Args parameter after another args or kwargs parameter")]
-    ArgsParameterAfterStars,
-    #[error("Multiple kwargs dictionary in parameters")]
-    MultipleKwargs,
-}
-
-fn test_param_name<'a, T>(
-    argset: &mut HashSet<&'a str>,
-    n: &'a AstAssignIdent,
-    arg: &Spanned<T>,
-    parser_state: &mut ParserState,
-) {
-    if argset.contains(n.node.0.as_str()) {
-        parser_state.error(arg.span, ArgumentUseOrderError::DuplicateParameterName);
-    }
-    argset.insert(&n.node.0);
-}
-
 fn check_parameters<'a>(parameters: &[AstParameter], parser_state: &mut ParserState<'a>) {
-    // you can't repeat argument names
-    let mut argset = HashSet::new();
-    // You can't have more than one *args/*, **kwargs
-    // **kwargs must be last
-    // You can't have a required `x` after an optional `y=1`
-    let mut seen_args = false;
-    let mut seen_kwargs = false;
-    let mut seen_optional = false;
-
-    for arg in parameters.iter() {
-        match &arg.node {
-            Parameter::Normal(n, ..) => {
-                if seen_kwargs || seen_optional {
-                    parser_state
-                        .error(arg.span, ArgumentUseOrderError::PositionalThenNonPositional);
-                }
-                test_param_name(&mut argset, n, arg, parser_state);
-            }
-            Parameter::WithDefaultValue(n, ..) => {
-                if seen_kwargs {
-                    parser_state.error(arg.span, ArgumentUseOrderError::DefaultParameterAfterStars);
-                }
-                seen_optional = true;
-                test_param_name(&mut argset, n, arg, parser_state);
-            }
-            Parameter::NoArgs => {
-                if seen_args || seen_kwargs {
-                    parser_state.error(arg.span, ArgumentUseOrderError::ArgsParameterAfterStars);
-                }
-                seen_args = true;
-            }
-            Parameter::Args(n, ..) => {
-                if seen_args || seen_kwargs {
-                    parser_state.error(arg.span, ArgumentUseOrderError::ArgsParameterAfterStars);
-                }
-                seen_args = true;
-                test_param_name(&mut argset, n, arg, parser_state);
-            }
-            Parameter::KwArgs(n, ..) => {
-                if seen_kwargs {
-                    parser_state.error(arg.span, ArgumentUseOrderError::MultipleKwargs);
-                }
-                seen_kwargs = true;
-                test_param_name(&mut argset, n, arg, parser_state);
-            }
-        }
+    if let Err(e) = DefParams::unpack(parameters, parser_state.codemap) {
+        parser_state.errors.push(e);
     }
 }
 

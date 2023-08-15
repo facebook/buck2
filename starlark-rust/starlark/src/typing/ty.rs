@@ -388,7 +388,7 @@ impl Ty {
     }
 
     pub(crate) fn from_type_expr_opt(
-        x: &Option<Box<CstTypeExpr>>,
+        x: Option<&CstTypeExpr>,
         typecheck_mode: TypecheckMode,
         approximations: &mut Vec<Approximation>,
         codemap: &CodeMap,

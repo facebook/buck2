@@ -24,6 +24,7 @@ pub use parser::AstLoad;
 
 pub(crate) mod ast;
 pub(crate) mod cursors;
+pub(crate) mod def;
 mod dialect;
 #[cfg(test)]
 mod grammar_tests;

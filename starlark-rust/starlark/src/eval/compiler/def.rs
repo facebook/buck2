@@ -37,6 +37,7 @@ use starlark_derive::VisitSpanMut;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::codemap::CodeMap;
+use crate::codemap::Spanned;
 use crate::collections::Hashed;
 use crate::const_frozen_string;
 use crate::docs::DocFunction;
@@ -53,6 +54,7 @@ use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
 use crate::eval::compiler::scope::payload::CstParameter;
+use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::scope::Captured;
@@ -74,7 +76,9 @@ use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Arguments;
 use crate::slice_vec_ext::SliceExt;
 use crate::starlark_complex_values;
-use crate::syntax::ast::ParameterP;
+use crate::syntax::def::DefParam;
+use crate::syntax::def::DefParamKind;
+use crate::syntax::def::DefParams;
 use crate::typing::Ty;
 use crate::values::frozen_ref::AtomicFrozenRefOption;
 use crate::values::function::FUNCTION_TYPE;
@@ -354,32 +358,32 @@ impl Compiler<'_, '_, '_> {
     /// Compile a parameter. Return `None` for `*` pseudo parameter.
     fn parameter(
         &mut self,
-        x: &CstParameter,
-    ) -> Option<IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>>> {
+        x: &Spanned<DefParam<'_, CstPayload>>,
+    ) -> IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, x.span));
-        Some(IrSpanned {
+        let parameter_name = self.parameter_name(x.ident);
+        IrSpanned {
             span,
-            node: match &x.node {
-                ParameterP::Normal(x, t) => ParameterCompiled::Normal(
-                    self.parameter_name(x),
-                    self.expr_for_type(t.as_deref()).map(|t| t.node),
+            node: match &x.node.kind {
+                DefParamKind::Regular(None) => ParameterCompiled::Normal(
+                    parameter_name,
+                    self.expr_for_type(x.ty).map(|t| t.node),
                 ),
-                ParameterP::WithDefaultValue(x, t, v) => ParameterCompiled::WithDefaultValue(
-                    self.parameter_name(x),
-                    self.expr_for_type(t.as_deref()).map(|t| t.node),
-                    self.expr(v),
+                DefParamKind::Regular(Some(default_value)) => ParameterCompiled::WithDefaultValue(
+                    parameter_name,
+                    self.expr_for_type(x.ty).map(|t| t.node),
+                    self.expr(default_value),
                 ),
-                ParameterP::NoArgs => return None,
-                ParameterP::Args(x, t) => ParameterCompiled::Args(
-                    self.parameter_name(x),
-                    self.expr_for_type(t.as_deref()).map(|t| t.node),
+                DefParamKind::Args => ParameterCompiled::Args(
+                    parameter_name,
+                    self.expr_for_type(x.ty).map(|t| t.node),
                 ),
-                ParameterP::KwArgs(x, t) => ParameterCompiled::KwArgs(
-                    self.parameter_name(x),
-                    self.expr_for_type(t.as_deref()).map(|t| t.node),
+                DefParamKind::Kwargs => ParameterCompiled::KwArgs(
+                    parameter_name,
+                    self.expr_for_type(x.ty).map(|t| t.node),
                 ),
             },
-        })
+        }
     }
 
     pub fn function(
@@ -395,23 +399,14 @@ impl Compiler<'_, '_, '_> {
         let function_name = format!("{}.{}", file.file.filename(), name);
         let name = self.eval.frozen_heap().alloc_str(name);
 
+        let def_params = DefParams::unpack(params, &self.codemap).expect("verified at parse time");
+
         // The parameters run in the scope of the parent, so compile them with the outer
         // scope
-        let num_positional = params
-            .iter()
-            .position(|x| {
-                matches!(
-                    &x.node,
-                    ParameterP::NoArgs | ParameterP::Args(..) | ParameterP::KwArgs(..)
-                )
-            })
-            .unwrap_or(params.len())
-            .try_into()
-            .unwrap();
-        let params = params.iter().filter_map(|x| self.parameter(x)).collect();
+        let params = def_params.params.map(|x| self.parameter(x));
         let params = ParametersCompiled {
             params,
-            num_positional,
+            num_positional: def_params.num_positional,
         };
         let return_type = self.expr_for_type(return_type).map(|t| t.node);
 
