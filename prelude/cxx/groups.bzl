@@ -122,7 +122,7 @@ def parse_groups_definitions(
         map: list,
         # Function to parse a root label from the input type, allowing different
         # callers to have different top-level types for the `root`s.
-        parse_root: "function" = lambda d: d) -> list[Group.type]:
+        parse_root: typing.Callable = lambda d: d) -> list[Group.type]:
     groups = []
     for map_entry in map:
         name = map_entry[0]

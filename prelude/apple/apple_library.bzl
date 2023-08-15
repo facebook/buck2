@@ -94,7 +94,7 @@ AppleLibraryAdditionalParams = record(
     # linking against the bundle loader.
     shared_library_flags = field([SharedLibraryFlagOverrides.type, None], None),
     # Function to use for setting Xcode attributes for the Xcode data sub target.
-    populate_xcode_attributes_func = field("function", apple_populate_xcode_attributes),
+    populate_xcode_attributes_func = field(typing.Callable, apple_populate_xcode_attributes),
     # Define which sub targets to generate.
     generate_sub_targets = field(CxxRuleSubTargetParams.type, CxxRuleSubTargetParams()),
     # Define which providers to generate.
@@ -333,7 +333,7 @@ def _xcode_populate_attributes(
         ctx,
         srcs: list["CxxSrcWithFlags"],
         argsfiles: dict[str, CompileArgsfile.type],
-        populate_xcode_attributes_func: "function",
+        populate_xcode_attributes_func: typing.Callable,
         **_kwargs) -> dict[str, typing.Any]:
     # Overwrite the product name
     data = populate_xcode_attributes_func(ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)

@@ -329,7 +329,7 @@ def _get_secondary_dex_jar_metadata_config(
         actions: AnalysisActions,
         secondary_dex_path: str,
         module: str,
-        module_to_canary_class_name_function: "function",
+        module_to_canary_class_name_function: typing.Callable,
         index: int) -> SecondaryDexMetadataConfig.type:
     secondary_dex_metadata_path = secondary_dex_path + ".meta"
     return SecondaryDexMetadataConfig(
@@ -343,7 +343,7 @@ def _get_secondary_dex_jar_metadata_config(
 def _get_secondary_dex_raw_metadata_config(
         actions: AnalysisActions,
         module: str,
-        module_to_canary_class_name_function: "function",
+        module_to_canary_class_name_function: typing.Callable,
         index: int) -> SecondaryDexMetadataConfig.type:
     return SecondaryDexMetadataConfig(
         secondary_dex_compression = "raw",
@@ -623,8 +623,8 @@ def _sort_pre_dexed_files(
         artifacts,
         pre_dexed_libs_with_class_names_and_weight_estimates_files: list["DexInputsWithClassNamesAndWeightEstimatesFile"],
         split_dex_merge_config: "SplitDexMergeConfig",
-        get_module_from_target: "function",
-        module_to_canary_class_name_function: "function") -> list[_SortedPreDexedInputs.type]:
+        get_module_from_target: typing.Callable,
+        module_to_canary_class_name_function: typing.Callable) -> list[_SortedPreDexedInputs.type]:
     sorted_pre_dexed_inputs_map = {}
     current_secondary_dex_size_map = {}
     current_secondary_dex_inputs_map = {}
@@ -726,7 +726,7 @@ def _create_canary_class(
         ctx: AnalysisContext,
         index: int,
         module: str,
-        module_to_canary_class_name_function: "function",
+        module_to_canary_class_name_function: typing.Callable,
         dex_toolchain: DexToolchainInfo.type) -> DexInputWithSpecifiedClasses.type:
     prefix = module_to_canary_class_name_function(module)
     index_string = str(index)
@@ -743,7 +743,7 @@ def _create_canary_class(
         dex_class_names = [_get_fully_qualified_canary_class_name(module, module_to_canary_class_name_function, index).replace(".", "/") + ".class"],
     )
 
-def _get_fully_qualified_canary_class_name(module: str, module_to_canary_class_name_function: "function", index: int) -> str:
+def _get_fully_qualified_canary_class_name(module: str, module_to_canary_class_name_function: typing.Callable, index: int) -> str:
     prefix = module_to_canary_class_name_function(module)
     index_string = str(index)
     if len(index_string) == 1:

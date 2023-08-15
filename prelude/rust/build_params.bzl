@@ -96,7 +96,7 @@ RustcFlags = record(
     crate_type = field(CrateType.type),
     reloc_model = field(RelocModel.type),
     dep_link_style = field(LinkStyle.type),
-    platform_to_affix = field("function"),
+    platform_to_affix = field(typing.Callable),
 )
 
 # Filenames used for various emitted forms

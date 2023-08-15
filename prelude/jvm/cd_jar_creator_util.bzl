@@ -466,8 +466,8 @@ def generate_abi_jars(
         source_only_abi_deps: list[Dependency],
         class_abi_jar: [Artifact, None],
         class_abi_output_dir: [Artifact, None],
-        encode_abi_command: "function",
-        define_action: "function") -> tuple.type:
+        encode_abi_command: typing.Callable,
+        define_action: typing.Callable) -> tuple.type:
     class_abi = None
     source_abi = None
     source_only_abi = None

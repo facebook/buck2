@@ -30,7 +30,7 @@ LinkOptions = record(
     identifier = [str, None],
     strip = bool,
     # A function/lambda which will generate the strip args using the ctx.
-    strip_args_factory = ["function", None],
+    strip_args_factory = [typing.Callable, None],
     import_library = [Artifact, None],
     allow_cache_upload = bool,
     # Force callers to use link_options() or merge_link_options() to create.

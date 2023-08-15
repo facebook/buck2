@@ -91,7 +91,7 @@ CxxRuleAdditionalParams = record(
     shared_external_debug_info = field(list[ArtifactTSet.type], []),
     subtargets = field(dict, {}),  # [str: ["provider"]]
     # Might be used to expose additional providers to cxx layer (e.g to support #headers subtarget for Swift)
-    additional_providers_factory = field(["function", None], None),  # (["CPreprocessorInfo", None]) -> ["provider"]:
+    additional_providers_factory = field([typing.Callable, None], None),  # (["CPreprocessorInfo", None]) -> ["provider"]:
 )
 
 # Parameters that allows to configure/extend generic implementation of C++ rules.
@@ -137,7 +137,7 @@ CxxRuleConstructorParams = record(
     additional = field(CxxRuleAdditionalParams.type, CxxRuleAdditionalParams()),
     # A function which enables the caller to inject subtargets into the link_style provider
     # as well as create custom providers based on the link styles.
-    link_style_sub_targets_and_providers_factory = field("function", lambda _link_style, _context, _output: ({}, [])),
+    link_style_sub_targets_and_providers_factory = field(typing.Callable, lambda _link_style, _context, _output: ({}, [])),
     # Linker flags that tell the linker to create shared libraries, overriding the default shared library flags.
     # e.g. when building Apple tests, we want to link with `-bundle` instead of `-shared` to allow
     # linking against the bundle loader.
@@ -147,13 +147,13 @@ CxxRuleConstructorParams = record(
     # If passed to cxx_executable, this field will be used to determine
     # a shared subtarget's default output should be stripped.
     strip_executable = field(bool, False),
-    strip_args_factory = field("function", lambda _: cmd_args()),
+    strip_args_factory = field(typing.Callable, lambda _: cmd_args()),
     # Whether to embed the library name as the SONAME.
     use_soname = field(bool, True),
     # Use link group's linking logic regardless whether a link group map's present.
     force_link_group_linking = field(bool, False),
     # Function to use for setting Xcode attributes for the Xcode data sub target.
-    cxx_populate_xcode_attributes_func = field("function", cxx_populate_xcode_attributes),
+    cxx_populate_xcode_attributes_func = field(typing.Callable, cxx_populate_xcode_attributes),
     # Define which sub targets to generate.
     generate_sub_targets = field(CxxRuleSubTargetParams.type, CxxRuleSubTargetParams()),
     # Define which providers to generate.
@@ -184,7 +184,7 @@ CxxRuleConstructorParams = record(
     # "follow" their dependents across link group boundaries.
     link_groups_force_static_follows_dependents = field(bool, True),
     # The intended return type is: (["_arglike"], {str: [DefaultInfo.type]}).
-    extra_linker_outputs_factory = field("function", lambda _context: ([], {})),
+    extra_linker_outputs_factory = field(typing.Callable, lambda _context: ([], {})),
     # Whether to allow cache uploads for locally-linked executables.
     exe_allow_cache_upload = field(bool, False),
 )

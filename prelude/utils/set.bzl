@@ -30,16 +30,16 @@
 # Name the record `set_record` to enable users to use `set` to initialize a set.
 set_record = record(
     _entries = field(dict),
-    list = field("function"),
+    list = field(typing.Callable),
     # Adds the value to the set, returning whether the value existed in the set
-    add = field("function"),
+    add = field(typing.Callable),
     # Removes the value if the value is in the set, returning whether the value existed in the set
-    remove = field("function"),
+    remove = field(typing.Callable),
     # Adds the values to the set, returning the values that were added
-    update = field("function"),
+    update = field(typing.Callable),
     # Returns whether the value is in the set
-    contains = field("function"),
-    size = field("function"),
+    contains = field(typing.Callable),
+    size = field(typing.Callable),
 )
 
 # For typing a set, you may use `set_type` or `set_record.type`, the former is

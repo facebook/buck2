@@ -7,7 +7,7 @@
 
 # General utilities shared between multiple rules.
 
-def is_any(predicate: "function", iterable: list[typing.Any]) -> bool:
+def is_any(predicate: typing.Callable, iterable: list[typing.Any]) -> bool:
     """
     This expression lazily iterates the container with 0 new allocations.
     In the event that the iterable is empty, it will return False.
@@ -28,7 +28,7 @@ def is_any(predicate: "function", iterable: list[typing.Any]) -> bool:
             return True
     return False
 
-def is_all(predicate: "function", iterable: list[typing.Any]) -> bool:
+def is_all(predicate: typing.Callable, iterable: list[typing.Any]) -> bool:
     """
     This expression lazily iterates the container with 0 new allocations.
     In the event that the iterable is empty, it will return False.
@@ -117,7 +117,7 @@ def idx(x: [typing.Any, None], key: typing.Any) -> [typing.Any, None]:
 def dedupe_by_value(vals: list[typing.Any]) -> list[typing.Any]:
     return {val: None for val in vals}.keys()
 
-def map_val(func: "function", val: [typing.Any, None]) -> [typing.Any, None]:
+def map_val(func: typing.Callable, val: [typing.Any, None]) -> [typing.Any, None]:
     """
     If `val` if `None`, return `None`, else apply `func` to `val` and return the
     result.

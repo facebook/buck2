@@ -11,62 +11,62 @@
 PythonLibraryInterface = record(
     # Shared libraries used by this Python library.
     # {str: SharedLibraryInfo.type}
-    shared_libraries = field("function"),
+    shared_libraries = field(typing.Callable),
 
     # An iterator of PythonLibraryManifests objects. This is used to collect extensions.
     # iterator of PythonLibraryManifests
-    iter_manifests = field("function"),
+    iter_manifests = field(typing.Callable),
 
     # A PythonLibraryManifestsInterface. This is used to convert manifests to
     # arguments for pexing. Unlike iter_manifests this allows for more
     # efficient calls, such as using t-sets projections.
     # PythonLibraryManifestsInterface
-    manifests = field("function"),
+    manifests = field(typing.Callable),
 
     # Returns whether this Python library includes hidden resources.
     # bool
-    has_hidden_resources = field("function"),
+    has_hidden_resources = field(typing.Callable),
 
     # Converts the hidden resources in this Python library to arguments.
     # _arglike of hidden resources
-    hidden_resources = field("function"),
+    hidden_resources = field(typing.Callable),
 )
 
 PythonLibraryManifestsInterface = record(
     # Returns the source manifests for this Python library.
     # [_arglike] of source manifests
-    src_manifests = field("function"),
+    src_manifests = field(typing.Callable),
 
     # Returns the files referenced by source manifests for this Python library.
     # [_arglike] of source artifacts
-    src_artifacts = field("function"),
-    src_artifacts_with_paths = field("function"),
+    src_artifacts = field(typing.Callable),
+    src_artifacts_with_paths = field(typing.Callable),
 
     # Returns the source manifests for this Python library.
     # [_arglike] of source manifests
-    src_type_manifests = field("function"),
+    src_type_manifests = field(typing.Callable),
 
     # Returns the files referenced by source manifests for this Python library.
     # [_arglike] of source artifacts
-    src_type_artifacts = field("function"),
-    src_type_artifacts_with_path = field("function"),
+    src_type_artifacts = field(typing.Callable),
+    src_type_artifacts_with_path = field(typing.Callable),
 
     # Returns the bytecode manifests for this Python library, given a PycInvalidationMode.
     # PycInvalidationMode -> [_arglike] of bytecode manifests (compiled with that mode)
-    bytecode_manifests = field("function"),
+    bytecode_manifests = field(typing.Callable),
 
     # Returns the files referenced by bytecode manifests for this Python library.
     # PycInvalidationMode -> [_arglike] of bytecode artifacts
-    bytecode_artifacts = field("function"),
+    bytecode_artifacts = field(typing.Callable),
     # PycInvalidationMode -> [[artifact, _path]]
-    bytecode_artifacts_with_paths = field("function"),
+    bytecode_artifacts_with_paths = field(typing.Callable),
 
     # Returns the resources manifests for this Python library.
     # [_arglike] of resource manifests
-    resource_manifests = field("function"),
+    resource_manifests = field(typing.Callable),
 
     # Returns the files referenced by resource manifests for this Python library.
     # [_arglike] of resource artifacts
-    resource_artifacts = field("function"),
-    resource_artifacts_with_paths = field("function"),
+    resource_artifacts = field(typing.Callable),
+    resource_artifacts_with_paths = field(typing.Callable),
 )

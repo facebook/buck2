@@ -19,7 +19,7 @@ prelude_rule = record(
     examples = field([str, None], None),
     further = field([str, None], None),
     attrs = field(dict[str, "attribute"]),
-    impl = field(["function", None], None),
+    impl = field([typing.Callable, None], None),
 )
 
 AbiGenerationMode = ["unknown", "class", "source", "migrating_to_source_only", "source_only", "unrecognized"]

@@ -189,7 +189,7 @@ def _get_exopackage_info(
 
 def _get_native_libs_and_assets(
         ctx: AnalysisContext,
-        get_module_from_target: "function",
+        get_module_from_target: typing.Callable,
         all_prebuilt_native_library_dirs: list["PrebuiltNativeLibraryDir"],
         platform_to_native_linkables: dict[str, dict[str, "SharedLibrary"]]) -> _NativeLibsAndAssetsInfo.type:
     is_packaging_native_libs_as_assets_supported = getattr(ctx.attrs, "package_asset_libraries", False)
@@ -342,7 +342,7 @@ _StrippedNativeLinkables = record(
 def _get_native_linkables(
         ctx: AnalysisContext,
         platform_to_native_linkables: dict[str, dict[str, "SharedLibrary"]],
-        get_module_from_target: "function",
+        get_module_from_target: typing.Callable,
         package_native_libs_as_assets_enabled: bool) -> _StrippedNativeLinkables.type:
     stripped_native_linkables_srcs = {}
     stripped_native_linkables_always_in_primary_apk_srcs = {}

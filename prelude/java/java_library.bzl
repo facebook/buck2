@@ -255,7 +255,7 @@ def _copy_resources(
 
 def _jar_creator(
         javac_tool: [typing.Any, None],
-        java_toolchain: JavaToolchainInfo.type) -> "function":
+        java_toolchain: JavaToolchainInfo.type) -> typing.Callable:
     if javac_tool or java_toolchain.javac_protocol == "classic":
         return _create_jar_artifact
     elif java_toolchain.javac_protocol == "javacd":

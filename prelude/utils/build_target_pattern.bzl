@@ -23,8 +23,8 @@ BuildTargetPattern = record(
     cell = field([str, None], None),
     path = field(str),
     name = field([str, None], None),
-    matches = field("function"),
-    as_string = field("function"),
+    matches = field(typing.Callable),
+    as_string = field(typing.Callable),
 )
 
 def parse_build_target_pattern(pattern: str) -> BuildTargetPattern.type:

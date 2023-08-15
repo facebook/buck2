@@ -75,7 +75,7 @@ _HeadersDepFiles = record(
     # A function that produces new cmd_args to append to the compile command to
     # get it to emit the dep file. This will receive the output dep file as an
     # input.
-    mk_flags = field("function"),
+    mk_flags = field(typing.Callable),
     # Dependency tracking mode to know how to generate dep file
     dep_tracking_mode = field(DepTrackingMode.type),
 )

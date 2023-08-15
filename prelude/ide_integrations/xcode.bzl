@@ -16,7 +16,7 @@ def generate_xcode_data(
         ctx: AnalysisContext,
         rule_type: str,
         output: [Artifact, None],
-        populate_rule_specific_attributes_func: ["function", None] = None,
+        populate_rule_specific_attributes_func: [typing.Callable, None] = None,
         **kwargs) -> (list[DefaultInfo.type], XcodeDataInfo.type):
     data = {
         "rule_type": rule_type,

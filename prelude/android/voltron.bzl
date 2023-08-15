@@ -202,9 +202,9 @@ def all_targets_in_root_module(_module: str) -> str:
 
 APKModuleGraphInfo = record(
     module_list = list[str],
-    target_to_module_mapping_function = "function",
-    module_to_canary_class_name_function = "function",
-    module_to_module_deps_function = "function",
+    target_to_module_mapping_function = typing.Callable,
+    module_to_canary_class_name_function = typing.Callable,
+    module_to_module_deps_function = typing.Callable,
 )
 
 def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo.type:
