@@ -16,6 +16,7 @@ use crossbeam::queue::SegQueue;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceComputationsParallel;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
@@ -47,7 +48,7 @@ async fn resolve_units(
     let futs = ctx.compute_many(units.iter().map(|unit| {
         let state = state.dupe();
         higher_order_closure! {
-            for<'x> move |ctx: &'x mut DiceComputations| -> BoxFuture<'x, Result<bool, anyhow::Error>> {
+            for<'x> move |ctx: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, Result<bool, anyhow::Error>> {
                 match unit {
                     Unit::Variable(var) => ctx.eval(state, *var).boxed(),
                     Unit::Literal(lit) => futures::future::ready(Ok(*lit)).boxed(),

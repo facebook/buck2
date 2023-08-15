@@ -27,6 +27,7 @@ use parking_lot::MutexGuard;
 
 use crate::api::activation_tracker::ActivationData;
 use crate::api::computations::DiceComputations;
+use crate::api::computations::DiceComputationsParallel;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
@@ -209,10 +210,14 @@ impl ModernComputeCtx {
     pub(crate) fn compute_many<'a, T: 'a>(
         &'a self,
         computes: impl IntoIterator<
-            Item = impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+            Item = impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
         >,
-    ) -> Vec<Either<Pin<Box<OwningFuture<T, DiceComputations>>>, impl Future<Output = T> + 'a>>
-    {
+    ) -> Vec<
+        Either<
+            Pin<Box<OwningFuture<T, DiceComputationsParallel<'a>>>>,
+            impl Future<Output = T> + 'a,
+        >,
+    > {
         match self {
             ModernComputeCtx::Regular(ctx) => ctx
                 .compute_many(computes)
@@ -227,8 +232,8 @@ impl ModernComputeCtx {
 
     pub(crate) fn compute2<'a, T: 'a, U: 'a>(
         &'a self,
-        compute1: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
-        compute2: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, U> + Send,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
         match self {
             ModernComputeCtx::Regular(ctx) => {
@@ -387,13 +392,13 @@ impl PerComputeCtx {
     pub(crate) fn compute_many<'a, T: 'a>(
         &'a self,
         computes: impl IntoIterator<
-            Item = impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+            Item = impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
         >,
     ) -> impl Iterator<Item = impl Future<Output = T> + 'a> {
         computes.into_iter().map(|work| {
             OwningFuture::new(
-                DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::Parallel(
-                    PerParallelComputeCtx::new(self.ctx_data.as_ref()),
+                DiceComputationsParallel::new(DiceComputations(DiceComputationsImpl::Modern(
+                    ModernComputeCtx::Parallel(PerParallelComputeCtx::new(self.ctx_data.as_ref())),
                 ))),
                 |ctx| work(ctx),
             )
@@ -401,6 +406,7 @@ impl PerComputeCtx {
                 // TODO record structured dependencies instead of flat list
                 self.dep_trackers.lock().record_parallel_ctx_deps(
                     ctx.0
+                        .0
                         .into_modern()
                         .expect("modern dice")
                         .into_parallel()
@@ -416,13 +422,13 @@ impl PerComputeCtx {
 
     pub(crate) fn compute2<'a, T: 'a, U: 'a>(
         &'a self,
-        compute1: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
-        compute2: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, U> + Send,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
         (
             OwningFuture::new(
-                DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::Parallel(
-                    PerParallelComputeCtx::new(self.ctx_data.as_ref()),
+                DiceComputationsParallel::new(DiceComputations(DiceComputationsImpl::Modern(
+                    ModernComputeCtx::Parallel(PerParallelComputeCtx::new(self.ctx_data.as_ref())),
                 ))),
                 compute1,
             )
@@ -430,6 +436,7 @@ impl PerComputeCtx {
                 // TODO record structured dependencies instead of flat list
                 self.dep_trackers.lock().record_parallel_ctx_deps(
                     ctx.0
+                        .0
                         .into_modern()
                         .expect("modern dice")
                         .into_parallel()
@@ -441,8 +448,8 @@ impl PerComputeCtx {
                 res
             }),
             OwningFuture::new(
-                DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::Parallel(
-                    PerParallelComputeCtx::new(self.ctx_data.as_ref()),
+                DiceComputationsParallel::new(DiceComputations(DiceComputationsImpl::Modern(
+                    ModernComputeCtx::Parallel(PerParallelComputeCtx::new(self.ctx_data.as_ref())),
                 ))),
                 compute2,
             )
@@ -450,6 +457,7 @@ impl PerComputeCtx {
                 // TODO record structured dependencies instead of flat list
                 self.dep_trackers.lock().record_parallel_ctx_deps(
                     ctx.0
+                        .0
                         .into_modern()
                         .expect("modern dice")
                         .into_parallel()
@@ -565,13 +573,13 @@ impl PerParallelComputeCtx {
     pub(crate) fn compute_many<'a: 'i, 'i, T: 'a>(
         &'a self,
         computes: impl IntoIterator<
-            Item = impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+            Item = impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
         > + 'i,
     ) -> impl Iterator<Item = impl Future<Output = T> + 'a> + 'i {
         computes.into_iter().map(|work| {
             OwningFuture::new(
-                DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::Parallel(
-                    PerParallelComputeCtx::new(self.ctx_data.dupe()),
+                DiceComputationsParallel::new(DiceComputations(DiceComputationsImpl::Modern(
+                    ModernComputeCtx::Parallel(PerParallelComputeCtx::new(self.ctx_data.dupe())),
                 ))),
                 |ctx| work(ctx),
             )
@@ -580,19 +588,19 @@ impl PerParallelComputeCtx {
 
     pub(crate) fn compute2<'a, T: 'a, U: 'a>(
         &'a self,
-        compute1: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
-        compute2: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, U> + Send,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
         (
             OwningFuture::new(
-                DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::Parallel(
-                    PerParallelComputeCtx::new(self.ctx_data.dupe()),
+                DiceComputationsParallel::new(DiceComputations(DiceComputationsImpl::Modern(
+                    ModernComputeCtx::Parallel(PerParallelComputeCtx::new(self.ctx_data.dupe())),
                 ))),
                 compute1,
             ),
             OwningFuture::new(
-                DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::Parallel(
-                    PerParallelComputeCtx::new(self.ctx_data.dupe()),
+                DiceComputationsParallel::new(DiceComputations(DiceComputationsImpl::Modern(
+                    ModernComputeCtx::Parallel(PerParallelComputeCtx::new(self.ctx_data.dupe())),
                 ))),
                 compute2,
             ),

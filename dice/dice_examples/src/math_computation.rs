@@ -20,6 +20,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceComputationsParallel;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
@@ -167,7 +168,7 @@ async fn resolve_units(
 ) -> Result<Vec<i64>, Arc<anyhow::Error>> {
     let futs = ctx.compute_many(units.iter().map(|unit|
         higher_order_closure! {
-            for<'x> move |ctx: &'x mut DiceComputations| -> BoxFuture<'x, Result<i64, Arc<anyhow::Error>>> {
+            for<'x> move |ctx: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, Result<i64, Arc<anyhow::Error>>> {
                 match unit {
                     Unit::Var(var) => ctx.eval(var.clone()).boxed(),
                     Unit::Literal(lit) => futures::future::ready(Ok(*lit)).boxed(),

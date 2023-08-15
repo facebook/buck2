@@ -28,7 +28,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dashmap::DashMap;
 use derive_more::Display;
-use dice::DiceComputations;
+use dice::DiceComputationsParallel;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
@@ -201,7 +201,7 @@ pub(crate) fn build<'v>(
                     let target = target.clone();
                     let materializations = materializations.dupe();
                     higher_order_closure! {
-                        for <'x> move |dice: &'x mut DiceComputations| -> BoxFuture<'x, Vec<anyhow::Result<BuildEvent>>> {
+                        for <'x> move |dice: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, Vec<anyhow::Result<BuildEvent>>> {
                             async move {
                                 build_configured_label(
                                     dice,

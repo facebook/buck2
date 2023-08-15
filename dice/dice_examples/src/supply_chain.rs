@@ -27,6 +27,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceComputationsParallel;
 use dice::DiceResult;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
@@ -165,7 +166,7 @@ impl Setup for DiceTransactionUpdater {
         let remote_resources = join_all(state
             .compute_many(resources.iter().map(|res| {
                 higher_order_closure! {
-                    move |ctx: &'_ mut DiceComputations| -> BoxFuture<'_, DiceResult<Arc<Vec<LookupCompany>>>> {
+                    for <'x> move |ctx: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, DiceResult<Arc<Vec<LookupCompany>>>> {
                         ctx.compute(res).boxed()
                     }
                 }
@@ -242,7 +243,7 @@ fn lookup_company_resource_cost<'a>(
             let mut futs : FuturesUnordered<_> =
                 ctx.compute_many(recipe.ingredients.iter().map(|(required, resource)| {
                     higher_order_closure! {
-                        move |ctx: &'_ mut DiceComputations| -> BoxFuture<'_, Result<Option<u16>, Arc<anyhow::Error>>> {
+                        for <'x> move |ctx: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, Result<Option<u16>, Arc<anyhow::Error>>> {
                             ctx.resource_cost(resource).map(|res| {
                                 Ok::<_, Arc<anyhow::Error>>(res?.map(|x| x * *required as u16))
                             }).boxed()
@@ -300,7 +301,7 @@ impl Cost for DiceComputations {
                 let costs = join_all(ctx
                     .compute_many(companies.iter().map(|company| {
                         higher_order_closure! {
-                            move |ctx: &'_ mut DiceComputations| -> BoxFuture<'_, Result<Option<u16>, Arc<anyhow::Error>>> {
+                            for <'x> move |ctx: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, Result<Option<u16>, Arc<anyhow::Error>>> {
                                 lookup_company_resource_cost(ctx, company, &self.0).boxed()
                             }
                         }

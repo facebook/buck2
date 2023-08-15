@@ -8,6 +8,9 @@
  */
 
 use std::future::Future;
+use std::marker::PhantomData;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
 use allocative::Allocative;
 use futures::future::BoxFuture;
@@ -69,7 +72,7 @@ impl DiceComputations {
     pub fn compute_many<'a, T: 'a>(
         &'a self,
         computes: impl IntoIterator<
-            Item = impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+            Item = impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
         >,
     ) -> Vec<impl Future<Output = T> + 'a> {
         self.0.compute_many(computes)
@@ -78,8 +81,8 @@ impl DiceComputations {
     /// Computes all the given tasks in parallel, returning an unordered Stream
     pub fn compute2<'a, T: 'a, U: 'a>(
         &'a self,
-        compute1: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
-        compute2: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, U> + Send,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
         self.0.compute2(compute1, compute2)
     }
@@ -107,6 +110,35 @@ impl DiceComputations {
     /// executing.
     pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
         self.0.store_evaluation_data(value)
+    }
+}
+
+/// For a `compute_many` and `compute2` request, the DiceComputations provided to each lambda
+/// is a reference that's only available for some specific lifetime `'x`. This is express as a
+/// higher rank lifetime bound `for <'x>` in rust. However, `for <'x>` bounds do not have constraints
+/// on them so rust infers them to be any lifetime, including 'static, which is wrong. So, we
+/// introduce an extra lifetime here which forces rust compiler to infer additional bounds on
+/// the `for <'x>` as a `&'x DiceComputationParallel<'a>` cannot live more than `'a`, so using this
+/// type as the argument to the closure forces the correct lifetime bounds to be inferred by rust.
+pub struct DiceComputationsParallel<'a>(pub(crate) DiceComputations, PhantomData<&'a ()>);
+
+impl<'a> DiceComputationsParallel<'a> {
+    pub(crate) fn new(ctx: DiceComputations) -> Self {
+        Self(ctx, PhantomData)
+    }
+}
+
+impl<'a> Deref for DiceComputationsParallel<'a> {
+    type Target = DiceComputations;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> DerefMut for DiceComputationsParallel<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 

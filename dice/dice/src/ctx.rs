@@ -18,6 +18,7 @@ use gazebo::variants::UnpackVariants;
 use more_futures::owning_future::OwningFuture;
 
 use crate::api::computations::DiceComputations;
+use crate::api::computations::DiceComputationsParallel;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
@@ -82,7 +83,7 @@ impl DiceComputationsImpl {
     pub(crate) fn compute_many<'a, T: 'a>(
         &'a self,
         computes: impl IntoIterator<
-            Item = impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
+            Item = impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
         >,
     ) -> Vec<impl Future<Output = T> + 'a> {
         match self {
@@ -92,7 +93,9 @@ impl DiceComputationsImpl {
                     .into_iter()
                     .map(|work| {
                         OwningFuture::new(
-                            DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
+                            DiceComputationsParallel::new(DiceComputations(
+                                DiceComputationsImpl::Legacy(ctx.dupe()),
+                            )),
                             work,
                         )
                         .left_future()
@@ -105,20 +108,24 @@ impl DiceComputationsImpl {
 
     pub(crate) fn compute2<'a, T: 'a, U: 'a>(
         &'a self,
-        compute1: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, T> + Send,
-        compute2: impl for<'x> FnOnce(&'x mut DiceComputations) -> BoxFuture<'x, U> + Send,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
         match self {
             DiceComputationsImpl::Legacy(ctx) => {
                 // legacy dice does nothing special
                 (
                     OwningFuture::new(
-                        DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
+                        DiceComputationsParallel::new(DiceComputations(
+                            DiceComputationsImpl::Legacy(ctx.dupe()),
+                        )),
                         compute1,
                     )
                     .left_future(),
                     OwningFuture::new(
-                        DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
+                        DiceComputationsParallel::new(DiceComputations(
+                            DiceComputationsImpl::Legacy(ctx.dupe()),
+                        )),
                         compute2,
                     )
                     .left_future(),
