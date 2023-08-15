@@ -469,7 +469,17 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
     # - sub-sub-targets that reference shared library dependencies and their respective dwp
     # - [shared-libraries] - a json map that references the above rules.
     if shared_libs_symlink_tree:
-        sub_targets["rpath-tree"] = [DefaultInfo(default_output = shared_libs_symlink_tree)]
+        sub_targets["rpath-tree"] = [DefaultInfo(
+            default_output = shared_libs_symlink_tree,
+            other_outputs = [
+                lib.output
+                for lib in shared_libs.values()
+            ] + [
+                lib.dwp
+                for lib in shared_libs.values()
+                if lib.dwp
+            ],
+        )]
     sub_targets["shared-libraries"] = [DefaultInfo(
         default_output = ctx.actions.write_json(
             binary.output.basename + ".shared-libraries.json",
