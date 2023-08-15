@@ -71,7 +71,7 @@ impl<'v> Compiler<'v, '_, '_> {
         }
         let expr = expr?;
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
-        let Some(type_value) = expr.payload else {
+        let Some(ty) = &expr.payload else {
             // This is unreachable. But unfortunately we do not return error here.
             // Still make an error in panic to produce nice panic message.
             panic!(
@@ -83,9 +83,11 @@ impl<'v> Compiler<'v, '_, '_> {
                 )
             );
         };
+        let type_value = TypeCompiled::from_ty(ty, self.eval.heap());
         if type_value.is_runtime_wildcard() {
             return None;
         }
+        let type_value = type_value.to_frozen(self.eval.frozen_heap());
         Some(IrSpanned {
             span,
             node: type_value,
@@ -218,8 +220,7 @@ impl<'v> Compiler<'v, '_, '_> {
         // This should not fail because we validated it at parse time.
         let unpack = TypeExprUnpackP::unpack(&type_expr.expr, &self.codemap)?;
         let type_value = self.eval_expr_as_type(unpack)?;
-        let type_value = type_value.to_frozen(self.eval.frozen_heap());
-        type_expr.payload = Some(type_value);
+        type_expr.payload = Some(type_value.as_ty().clone());
         Ok(())
     }
 

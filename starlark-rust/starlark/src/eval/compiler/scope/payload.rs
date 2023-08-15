@@ -42,8 +42,7 @@ use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::payload_map::AstPayloadFunction;
 use crate::typing::error::InternalError;
 use crate::typing::Interface;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::FrozenValue;
+use crate::typing::Ty;
 
 /// Compiler-specific AST payload.
 #[derive(Debug, Clone)]
@@ -68,7 +67,7 @@ impl AstPayload for CstPayload {
     type IdentAssignPayload = Option<BindingId>;
     type DefPayload = ScopeId;
     /// Populated before evaluation of top level statements.
-    type TypeExprPayload = Option<TypeCompiled<FrozenValue>>;
+    type TypeExprPayload = Option<Ty>;
 }
 
 struct CompilerAstMap<'a, 'f> {
@@ -96,7 +95,7 @@ impl AstPayloadFunction<AstNoPayload, CstPayload> for CompilerAstMap<'_, '_> {
         self.scope_data.new_scope().0
     }
 
-    fn map_type_expr(&mut self, (): ()) -> Option<TypeCompiled<FrozenValue>> {
+    fn map_type_expr(&mut self, (): ()) -> Option<Ty> {
         None
     }
 }
