@@ -7,6 +7,7 @@
 
 load("@prelude//android:android_binary_resources_rules.bzl", "get_manifest")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
+load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:utils.bzl", "flatten")
@@ -33,10 +34,28 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
     ctx.actions.run(classes_jar_cmd, category = "create_classes_jar")
 
+    entries = [android_manifest, classes_jar]
+
+    resource_infos = list(android_packageable_info.resource_infos.traverse()) if android_packageable_info.resource_infos else []
+
+    if resource_infos:
+        res_dirs = [resource_info.res for resource_info in resource_infos if resource_info.res]
+        merged_resource_sources_dir = ctx.actions.declare_output("merged_resource_sources_dir/res", dir = True)
+        android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
+        merge_resource_sources_cmd = cmd_args([
+            android_toolchain.merge_android_resource_sources[RunInfo],
+            "--resource-paths",
+            ctx.actions.write("resource_paths.txt", res_dirs),
+            "--output",
+            merged_resource_sources_dir.as_output(),
+        ]).hidden(res_dirs)
+
+        ctx.actions.run(merge_resource_sources_cmd, category = "merge_android_resource_sources")
+        entries.append(merged_resource_sources_dir)
+
     zip_file_toolchain = ctx.attrs._zip_file_toolchain[ZipFileToolchainInfo]
     create_zip_tool = zip_file_toolchain.create_zip
 
-    entries = [android_manifest, classes_jar]
     entries_file = ctx.actions.write("entries.txt", flatten([[entry, "ignored_short_path", "false"] for entry in entries]))
 
     aar = ctx.actions.declare_output("{}.aar".format(ctx.label.name))
