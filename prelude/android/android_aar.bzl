@@ -6,7 +6,8 @@
 # of this source tree.
 
 load("@prelude//android:android_binary_resources_rules.bzl", "get_manifest")
-load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
+load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "merge_android_packageable_info")
+load("@prelude//android:android_resource.bzl", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
@@ -51,7 +52,9 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         ]).hidden(res_dirs)
 
         ctx.actions.run(merge_resource_sources_cmd, category = "merge_android_resource_sources")
-        entries.append(merged_resource_sources_dir)
+
+        r_dot_txt = get_text_symbols(ctx, merged_resource_sources_dir, [dep for dep in deps if AndroidResourceInfo in dep or ExportedAndroidResourceInfo in dep])
+        entries.extend([merged_resource_sources_dir, r_dot_txt])
 
     zip_file_toolchain = ctx.attrs._zip_file_toolchain[ZipFileToolchainInfo]
     create_zip_tool = zip_file_toolchain.create_zip
