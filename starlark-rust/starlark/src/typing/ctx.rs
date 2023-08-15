@@ -18,10 +18,9 @@
 use std::cell::RefCell;
 use std::fmt::Debug;
 
-use thiserror::Error;
-
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::docs::DocMember;
 use crate::eval::compiler::scope::payload::CstArgument;
 use crate::eval::compiler::scope::payload::CstAssign;
 use crate::eval::compiler::scope::payload::CstExpr;
@@ -50,17 +49,9 @@ use crate::typing::oracle::traits::TypingUnOp;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::typing::unordered_map::UnorderedMap;
-use crate::typing::OracleDocs;
-
-#[derive(Error, Debug)]
-enum TypingContextError {
-    #[error("The builtin `{name}` is not known")]
-    UnknownBuiltin { name: String },
-}
 
 pub(crate) struct TypingContext<'a> {
     pub(crate) oracle: TypingOracleCtx<'a>,
-    pub(crate) global_docs: OracleDocs,
     // We'd prefer this to be a &mut self,
     // but that makes writing the code more fiddly, so just RefCell the errors
     pub(crate) errors: RefCell<Vec<TypingError>>,
@@ -69,12 +60,6 @@ pub(crate) struct TypingContext<'a> {
 }
 
 impl TypingContext<'_> {
-    fn add_error(&self, span: Span, err: TypingContextError) -> Ty {
-        let err = self.oracle.mk_error(span, err);
-        self.errors.borrow_mut().push(err);
-        Ty::never()
-    }
-
     pub(crate) fn approximation(&self, category: &'static str, message: impl Debug) -> Ty {
         self.approximoations
             .borrow_mut()
@@ -122,18 +107,6 @@ impl TypingContext<'_> {
     pub(crate) fn validate_type(&self, got: &Ty, require: &Ty, span: Span) {
         if let Err(e) = self.oracle.validate_type(got, require, span) {
             self.errors.borrow_mut().push(e);
-        }
-    }
-
-    fn builtin(&self, name: &str, span: Span) -> Ty {
-        match self.global_docs.builtin(name) {
-            Ok(x) => x,
-            Err(()) => self.add_error(
-                span,
-                TypingContextError::UnknownBuiltin {
-                    name: name.to_owned(),
-                },
-            ),
         }
     }
 
@@ -378,7 +351,7 @@ impl TypingContext<'_> {
                 if let Some(t) = g.to_value().get_ref().typechecker_ty() {
                     t
                 } else {
-                    self.builtin(&x.node.0, x.span)
+                    Ty::from_docs_member(&DocMember::from_value(g.to_value()))
                 }
             }
             None => {

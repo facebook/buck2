@@ -67,36 +67,6 @@ fn test_oracle() {
             Ty::string()
         )))
     );
-    assert_eq!(
-        b.builtin("hash"),
-        Ok(Ty::function(vec![Param::pos_only(Ty::string())], Ty::int()))
-    );
-    assert_eq!(
-        b.builtin("any"),
-        Ok(Ty::function(
-            vec![Param::pos_only(Ty::iter(Ty::any()))],
-            Ty::bool()
-        ))
-    );
-    assert_eq!(
-        b.builtin("fail"),
-        Ok(Ty::function(vec![Param::args(Ty::any())], Ty::never()))
-    );
-    assert_eq!(b.builtin("not_a_symbol"), Err(()));
-
-    fn has_type(x: &Result<Ty, ()>) -> bool {
-        match x.as_ref().map(|x| x.iter_union()) {
-            Ok([TyBasic::Custom(c)]) => {
-                matches!(c.0.attribute_dyn(TypingAttr::Regular("type")), Ok(_))
-            }
-            _ => false,
-        }
-    }
-
-    assert!(has_type(&b.builtin("int")));
-    assert!(has_type(&b.builtin("str")));
-    assert!(has_type(&b.builtin("list")));
-    assert!(!has_type(&b.builtin("hash")));
 }
 
 #[derive(Default)]

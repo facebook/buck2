@@ -49,13 +49,11 @@ use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::typing::unordered_map::UnorderedMap;
-use crate::typing::OracleDocs;
 use crate::values::FrozenHeap;
 
 // Things which are None in the map have type void - they are never constructed
 pub(crate) fn solve_bindings(
     oracle: &dyn TypingOracle,
-    globals: &Globals,
     bindings: Bindings,
     codemap: &CodeMap,
 ) -> Result<(Vec<TypingError>, HashMap<BindingId, Ty>, Vec<Approximation>), InternalError> {
@@ -69,11 +67,8 @@ pub(crate) fn solve_bindings(
     }
     // FIXME: Should be a fixed point, just do 10 iterations since that probably converges
     let mut changed = false;
-    let mut global_docs = OracleDocs::new();
-    global_docs.add_module(&globals.documentation());
     let mut ctx = TypingContext {
         oracle: TypingOracleCtx { oracle, codemap },
-        global_docs,
         errors: RefCell::new(Vec::new()),
         approximoations: RefCell::new(Vec::new()),
         types,
@@ -212,7 +207,7 @@ impl AstModule {
         };
         let mut approximations = bindings.approximations;
         let (solve_errors, types, solve_approximations) =
-            match solve_bindings(oracle, globals, bindings.bindings, &codemap) {
+            match solve_bindings(oracle, bindings.bindings, &codemap) {
                 Ok(x) => x,
                 Err(e) => {
                     return (

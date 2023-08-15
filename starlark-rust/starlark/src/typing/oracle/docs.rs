@@ -83,10 +83,6 @@ impl OracleDocs {
     pub fn known_object(&self, name: &str) -> bool {
         self.objects.contains_key(name)
     }
-
-    pub(crate) fn builtin(&self, name: &str) -> Result<Ty, ()> {
-        Ok(self.functions.get(name).ok_or(())?.clone())
-    }
 }
 
 impl TypingOracle for OracleDocs {
