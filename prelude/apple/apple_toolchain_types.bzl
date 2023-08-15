@@ -45,6 +45,7 @@ AppleToolsInfo = provider(fields = [
     "adhoc_codesign_tool",  # "RunInfo"
     "selective_debugging_scrubber",  # "RunInfo"
     "info_plist_processor",  # RunInfo
+    "ipa_package_maker",  # RunInfo
     "make_modulemap",  # "RunInfo"
     "make_vfsoverlay",  # "RunInfo"
     "swift_objc_header_postprocess",  # "RunInfo"
