@@ -68,8 +68,8 @@ commands:
           command: |
             choco uninstall -y rust
             choco install -y rustup.install
-            write-output "[net]`ngit-fetch-with-cli = true" | out-file -append -encoding utf8 $Env:USERPROFILE/.cargo/config
-            type $Env:USERPROFILE/.cargo/config
+            write-output "[net]`ngit-fetch-with-cli = true" | out-file -append -encoding utf8 $Env:USERPROFILE/.cargo/config.toml
+            type $Env:USERPROFILE/.cargo/config.toml
       - run:
           name: Create python3 symlink
           command: |
