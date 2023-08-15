@@ -15,6 +15,7 @@ derivative = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
+higher-order-closure = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 once_cell = { workspace = true }

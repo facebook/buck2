@@ -385,7 +385,6 @@ fn build_targets_in_universe<'a>(
     provider_labels
         .into_iter()
         .map(|p| {
-            let materialization_context = materialization_context.dupe();
             let providers_to_build = providers_to_build.clone();
             async move {
                 let res = build::build_configured_label(
@@ -525,7 +524,6 @@ fn build_targets_for_spec<'a>(
         let stream = todo_targets
             .into_iter()
             .map(|build_spec| {
-                let materialization_context = materialization_context.dupe();
                 let providers_to_build = providers_to_build.clone();
                 async move {
                     build_target(

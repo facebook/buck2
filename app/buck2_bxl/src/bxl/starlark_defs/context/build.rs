@@ -16,6 +16,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::BuildConfiguredLabelOptions;
+use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::ProvidersToBuild;
@@ -27,8 +28,11 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dashmap::DashMap;
 use derive_more::Display;
+use dice::DiceComputations;
 use dupe::Dupe;
+use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
+use futures::FutureExt;
 use futures::StreamExt;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
@@ -180,49 +184,54 @@ pub(crate) fn build<'v>(
     let materializations =
         ConvertMaterializationContext::with_existing_map(materializations, materializations_map);
 
-    let build_result = ctx.via_dice(async move |dice, ctx| {
-        let build_spec = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
-            spec,
-            target_platform,
-            ctx,
-            dice,
-            eval,
-        )
-        .await?;
+    let build_result = ctx.via_dice(
+        |dice, ctx| {
+        async {
+            let build_spec = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
+                spec,
+                target_platform,
+                ctx,
+                dice,
+                eval,
+            )
+            .await?;
 
-        let materializations = &materializations;
+            let stream = dice
+                .compute_many(build_spec.labels().unique().map(|target| {
+                    let target = target.clone();
+                    let materializations = materializations.dupe();
+                    higher_order_closure! {
+                        for <'x> move |dice: &'x mut DiceComputations| -> BoxFuture<'x, Vec<anyhow::Result<BuildEvent>>> {
+                            async move {
+                                build_configured_label(
+                                    dice,
+                                    &materializations,
+                                    target,
+                                    &ProvidersToBuild {
+                                        default: true,
+                                        default_other: true,
+                                        run: true,
+                                        tests: true,
+                                    }, // TODO support skipping/configuring?
+                                    BuildConfiguredLabelOptions {
+                                        skippable: false,
+                                        want_configured_graph_size: false,
+                                    },
+                                ).await
+                            }.then(|res| async move {
+                                match res {
+                                    Ok(stream) => stream.map(Ok).collect::<Vec<_>>().await,
+                                    Err(e) => vec![Err(e)],
+                                }
+                            }).boxed()
+                        }
+                    }
+                }))
+                .into_iter().collect::<FuturesUnordered<_>>().map(|v| v.into_iter().map(futures::future::ready).collect::<FuturesUnordered<_>>()).flatten();
 
-        let stream = build_spec
-            .labels()
-            .unique()
-            .map(|target| async move {
-                let res = build_configured_label(
-                    dice,
-                    materializations,
-                    target.clone(),
-                    &ProvidersToBuild {
-                        default: true,
-                        default_other: true,
-                        run: true,
-                        tests: true,
-                    }, // TODO support skipping/configuring?
-                    BuildConfiguredLabelOptions {
-                        skippable: false,
-                        want_configured_graph_size: false,
-                    },
-                )
-                .await;
-
-                match res {
-                    Ok(stream) => stream.map(Ok).left_stream(),
-                    Err(e) => futures::stream::once(futures::future::ready(Err(e))).right_stream(),
-                }
-            })
-            .collect::<FuturesUnordered<_>>()
-            .flatten_unordered(None);
-
-        // TODO (torozco): support --fail-fast in BXL.
-        BuildTargetResult::collect_stream(stream, false).await
+            // TODO (torozco): support --fail-fast in BXL.
+            BuildTargetResult::collect_stream(stream, false).await
+        }.boxed_local()
     })?;
 
     build_result

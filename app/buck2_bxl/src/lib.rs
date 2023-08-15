@@ -12,6 +12,9 @@
 #![feature(try_blocks)]
 #![feature(provide_any)]
 
+#[macro_use]
+extern crate higher_order_closure;
+
 use std::sync::Once;
 
 pub(crate) mod bxl;
