@@ -74,7 +74,7 @@ impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
 }
 
 pub(crate) async fn get_uquery_env<'v>(
-    ctx: &'v BxlContextNoDice<'v>,
+    ctx: &BxlContextNoDice<'v>,
 ) -> anyhow::Result<Box<dyn BxlUqueryFunctions>> {
     (NEW_BXL_UQUERY_FUNCTIONS.get()?)(
         ctx.project_root().dupe(),
