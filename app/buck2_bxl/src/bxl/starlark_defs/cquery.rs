@@ -314,7 +314,10 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         })
     }
 
-    /// The owner query for finding targets that own specified files.
+    /// The owner query for finding targets that own specified files. Note that if you do not pass in a cell
+    /// path (where the format is `<cell>//path/to/file`), the path is resolved against the cell that the BXL
+    /// script lives in. If you need to evaluate a file path that lives in a different cell, you must pass in
+    /// the fully qualified cell path.
     ///
     /// Sample usage:
     /// ```text
