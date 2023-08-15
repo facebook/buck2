@@ -24,7 +24,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
-use buck2_interpreter::dice::starlark_types::SetDisableStarlarkTypes;
+use buck2_interpreter::dice::starlark_types::SetStarlarkTypes;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -103,7 +103,7 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     ctx.set_legacy_configs(cell_configs).unwrap();
     ctx.set_starlark_profiler_instrumentation_override(StarlarkProfilerConfiguration::default())
         .unwrap();
-    ctx.set_disable_starlark_types(false).unwrap();
+    ctx.set_starlark_types(false, false).unwrap();
     ctx.commit().await
 }
 

@@ -18,7 +18,7 @@ use buck2_common::legacy_configs::view::LegacyBuckConfigsView;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
-use buck2_interpreter::dice::starlark_types::GetDisableStarlarkTypes;
+use buck2_interpreter::dice::starlark_types::GetStarlarkTypes;
 use buck2_interpreter::file_type::StarlarkFileType;
 use dice::DiceComputations;
 use dice::Key;
@@ -61,6 +61,9 @@ pub struct GlobalInterpreterState {
 
     /// Check types in Starlark (or just parse and ignore).
     pub disable_starlark_types: bool,
+
+    /// Static typechecking for bzl and bxl files.
+    pub unstable_typecheck: bool,
 }
 
 impl GlobalInterpreterState {
@@ -69,6 +72,7 @@ impl GlobalInterpreterState {
         cell_resolver: CellResolver,
         interpreter_configuror: Arc<BuildInterpreterConfiguror>,
         disable_starlark_types: bool,
+        unstable_typecheck: bool,
     ) -> anyhow::Result<Self> {
         // TODO: There should be one of these that also does not have native functions
         // in the global       namespace so that it can be configured per-cell
@@ -93,6 +97,7 @@ impl GlobalInterpreterState {
             bxl_file_global_env,
             configuror: interpreter_configuror,
             disable_starlark_types,
+            unstable_typecheck,
         })
     }
 
@@ -146,12 +151,14 @@ impl HasGlobalInterpreterState for DiceComputations {
                 let legacy_configs = ctx.get_legacy_configs_on_dice().await?;
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let disable_starlark_types = ctx.get_disable_starlark_types().await?;
+                let unstable_typecheck = ctx.get_unstable_typecheck().await?;
 
                 Ok(GisValue(Arc::new(GlobalInterpreterState::new(
                     &legacy_configs,
                     cell_resolver,
                     interpreter_configuror,
                     disable_starlark_types,
+                    unstable_typecheck,
                 )?)))
             }
 

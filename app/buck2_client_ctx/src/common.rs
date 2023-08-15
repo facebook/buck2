@@ -189,6 +189,10 @@ pub struct CommonBuildConfigurationOptions {
     #[clap(long)]
     pub disable_starlark_types: bool,
 
+    /// Typecheck bzl and bxl files during evaluation.
+    #[clap(long, hidden(true))]
+    pub unstable_typecheck: bool,
+
     /// Record or show target call stacks.
     ///
     /// Starlark call stacks will be included in duplicate targets error.
@@ -311,6 +315,7 @@ impl CommonBuildConfigurationOptions {
             fake_arch: None,
             fake_xcode_version: None,
             disable_starlark_types: false,
+            unstable_typecheck: false,
             target_call_stacks: false,
             skip_targets_with_duplicate_names: false,
             reuse_current_config: false,

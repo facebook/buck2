@@ -101,6 +101,7 @@ message ClientContext {
   HostPlatformOverride host_platform = 6;
   string oncall = 7;
   bool disable_starlark_types = 8;
+  bool unstable_typecheck = 84;
   /// Record call stacks of rule function invocations.
   bool target_call_stacks = 81;
   bool skip_targets_with_duplicate_names = 82;

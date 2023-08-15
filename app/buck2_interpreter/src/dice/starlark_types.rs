@@ -14,6 +14,12 @@ use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
 
+#[derive(Debug, Clone, Dupe, Eq, PartialEq, Allocative)]
+struct StarlarkTypesValue {
+    disable_starlark_types: bool,
+    unstable_typecheck: bool,
+}
+
 #[derive(
     Debug,
     derive_more::Display,
@@ -26,34 +32,56 @@ use dupe::Dupe;
     Allocative
 )]
 #[display(fmt = "{:?}", self)]
-struct DisableStarlarkTypesKey;
+struct StarlarkTypesKey;
 
-impl InjectedKey for DisableStarlarkTypesKey {
-    type Value = bool;
+impl InjectedKey for StarlarkTypesKey {
+    type Value = StarlarkTypesValue;
 
-    fn equality(x: &bool, y: &bool) -> bool {
+    fn equality(x: &StarlarkTypesValue, y: &StarlarkTypesValue) -> bool {
         x == y
     }
 }
 
-pub trait SetDisableStarlarkTypes {
-    fn set_disable_starlark_types(&mut self, disable_starlark_types: bool) -> anyhow::Result<()>;
+pub trait SetStarlarkTypes {
+    fn set_starlark_types(
+        &mut self,
+        disable_starlark_types: bool,
+        unstable_typecheck: bool,
+    ) -> anyhow::Result<()>;
 }
 
-impl SetDisableStarlarkTypes for DiceTransactionUpdater {
-    fn set_disable_starlark_types(&mut self, disable_starlark_types: bool) -> anyhow::Result<()> {
-        Ok(self.changed_to([(DisableStarlarkTypesKey, disable_starlark_types)])?)
+impl SetStarlarkTypes for DiceTransactionUpdater {
+    fn set_starlark_types(
+        &mut self,
+        disable_starlark_types: bool,
+        unstable_typecheck: bool,
+    ) -> anyhow::Result<()> {
+        Ok(self.changed_to([(
+            StarlarkTypesKey,
+            StarlarkTypesValue {
+                disable_starlark_types,
+                unstable_typecheck,
+            },
+        )])?)
     }
 }
 
 #[async_trait]
-pub trait GetDisableStarlarkTypes {
+pub trait GetStarlarkTypes {
     async fn get_disable_starlark_types(&self) -> anyhow::Result<bool>;
+    async fn get_unstable_typecheck(&self) -> anyhow::Result<bool>;
 }
 
 #[async_trait]
-impl GetDisableStarlarkTypes for DiceComputations {
+impl GetStarlarkTypes for DiceComputations {
     async fn get_disable_starlark_types(&self) -> anyhow::Result<bool> {
-        Ok(self.compute(&DisableStarlarkTypesKey).await?)
+        Ok(self
+            .compute(&StarlarkTypesKey)
+            .await?
+            .disable_starlark_types)
+    }
+
+    async fn get_unstable_typecheck(&self) -> anyhow::Result<bool> {
+        Ok(self.compute(&StarlarkTypesKey).await?.unstable_typecheck)
     }
 }

@@ -437,6 +437,7 @@ impl InterpreterForCell {
         loaded_modules: LoadedModules,
         extra_context: PerFileTypeContext,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
+        unstable_typecheck: bool,
     ) -> anyhow::Result<PerFileTypeContext> {
         let import = extra_context.starlark_path();
         let globals = self
@@ -458,6 +459,7 @@ impl InterpreterForCell {
         let print = EventDispatcherPrintHandler(get_dispatcher());
         {
             let mut eval = eval_provider.make(env)?;
+            eval.enable_static_typechecking(unstable_typecheck);
             eval.set_print_handler(&print);
             eval.set_loader(&file_loader);
             eval.extra = Some(&extra);
@@ -506,6 +508,7 @@ impl InterpreterForCell {
             loaded_modules,
             extra_context,
             eval_provider,
+            self.global_state.unstable_typecheck,
         )?;
         env.freeze()
     }
@@ -540,6 +543,7 @@ impl InterpreterForCell {
             loaded_modules,
             extra_context,
             eval_provider,
+            false,
         )?;
 
         let package_file_eval_ctx = per_file_context.into_package_file()?;
@@ -578,6 +582,7 @@ impl InterpreterForCell {
                 loaded_modules,
                 PerFileTypeContext::Build(internals),
                 eval_provider,
+                false,
             )?
             .into_build()?;
 

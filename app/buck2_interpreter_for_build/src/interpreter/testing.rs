@@ -218,6 +218,7 @@ impl Tester {
                     }))),
                 )?,
                 false,
+                false,
             )?),
             Arc::new(import_paths),
         )?))

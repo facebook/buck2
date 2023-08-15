@@ -186,6 +186,7 @@ pub struct ServerCommandContext<'a> {
     record_target_call_stacks: bool,
     skip_targets_with_duplicate_names: bool,
     disable_starlark_types: bool,
+    unstable_typecheck: bool,
 
     pub buck_out_dir: ProjectRelativePathBuf,
     isolation_prefix: FileNameBuf,
@@ -319,6 +320,7 @@ impl<'a> ServerCommandContext<'a> {
             record_target_call_stacks: client_context.target_call_stacks,
             skip_targets_with_duplicate_names: client_context.skip_targets_with_duplicate_names,
             disable_starlark_types: client_context.disable_starlark_types,
+            unstable_typecheck: client_context.unstable_typecheck,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
             daemon_uuid_from_client: client_context.daemon_uuid.clone(),
             command_name: client_context.command_name.clone(),
@@ -434,6 +436,7 @@ impl<'a> ServerCommandContext<'a> {
                 .starlark_profiler_instrumentation_override
                 .dupe(),
             disable_starlark_types: self.disable_starlark_types,
+            unstable_typecheck: self.unstable_typecheck,
             skip_targets_with_duplicate_names: self.skip_targets_with_duplicate_names,
             record_target_call_stacks: self.record_target_call_stacks,
         })
@@ -670,6 +673,7 @@ struct DiceCommandUpdater {
     interpreter_xcode_version: Option<XcodeVersionInfo>,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
     disable_starlark_types: bool,
+    unstable_typecheck: bool,
     record_target_call_stacks: bool,
     skip_targets_with_duplicate_names: bool,
 }
@@ -714,6 +718,7 @@ impl DiceUpdater for DiceCommandUpdater {
             legacy_configs,
             self.starlark_profiler_instrumentation_override.dupe(),
             self.disable_starlark_types,
+            self.unstable_typecheck,
         )?;
 
         Ok(ctx)

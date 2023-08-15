@@ -15,7 +15,7 @@ use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_core::cells::CellResolver;
 use buck2_interpreter::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
-use buck2_interpreter::dice::starlark_types::SetDisableStarlarkTypes;
+use buck2_interpreter::dice::starlark_types::SetStarlarkTypes;
 use dice::DiceTransactionUpdater;
 
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
@@ -29,6 +29,7 @@ pub fn setup_interpreter(
     legacy_configs: LegacyBuckConfigs,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
     disable_starlark_types: bool,
+    unstable_typecheck: bool,
 ) -> anyhow::Result<()> {
     updater.set_cell_resolver(cell_resolver)?;
     updater.set_interpreter_context(configuror)?;
@@ -36,7 +37,7 @@ pub fn setup_interpreter(
     updater.set_starlark_profiler_instrumentation_override(
         starlark_profiler_instrumentation_override,
     )?;
-    updater.set_disable_starlark_types(disable_starlark_types)?;
+    updater.set_starlark_types(disable_starlark_types, unstable_typecheck)?;
 
     Ok(())
 }
@@ -53,6 +54,7 @@ pub fn setup_interpreter_basic(
         configuror,
         legacy_configs,
         StarlarkProfilerConfiguration::default(),
+        false,
         false,
     )
 }
