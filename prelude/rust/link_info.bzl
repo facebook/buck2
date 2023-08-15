@@ -21,6 +21,15 @@ load(
     "unpack_external_debug_info",
 )
 load(
+    "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",
+    "create_linkable_graph",
+)
+load(
+    "@prelude//linking:linkables.bzl",
+    "linkables",
+)
+load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
 )
@@ -126,6 +135,17 @@ def resolve_deps(
 
     return dependencies
 
+def _non_rust_linkable_graph(
+        ctx: AnalysisContext,
+        deps: list[Dependency]) -> LinkableGraph.type:
+    linkable_graph = create_linkable_graph(
+        ctx,
+        children = filter(None, (
+            [d.linkable_graph for d in linkables(deps)]
+        )),
+    )
+    return linkable_graph
+
 # Returns native link dependencies.
 def _non_rust_link_deps(
         ctx: AnalysisContext,
@@ -156,7 +176,14 @@ def _non_rust_link_infos(
     MergedLinkInfo is a mapping from link style to all the transitive deps
     rolled up in a tset.
     """
-    return [d[MergedLinkInfo] for d in _non_rust_link_deps(ctx, include_doc_deps)]
+    link_deps = _non_rust_link_deps(ctx, include_doc_deps)
+    if hasattr(ctx.attrs, "link_group_map") and ctx.attrs.link_group_map:
+        # @unused will be resolved in a later diff
+        linkable_graph = _non_rust_linkable_graph(
+            ctx,
+            link_deps,
+        )
+    return [d[MergedLinkInfo] for d in link_deps]
 
 # Returns native link dependencies.
 def _non_rust_shared_lib_infos(
