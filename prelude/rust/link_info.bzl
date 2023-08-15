@@ -23,6 +23,8 @@ load(
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:link_groups.bzl",
+    "LinkGroupInfo",  # @unused Used as a type
+    "LinkGroupLinkInfo",  # @unused Used as a type
     "create_link_groups",
     "find_relevant_roots",
     "get_filtered_labels_to_links_map",
@@ -33,9 +35,15 @@ load(
     "get_link_group_preferred_linkage",
 )
 load(
+    "@prelude//linking:link_groups.bzl",
+    "LinkGroupLib",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",
     "LinkStyle",
+    "Linkage",  # @unused Used as a type
+    "LinkedObject",  # @unused Used as a type
     "MergedLinkInfo",
     "get_link_args",
     "merge_link_infos",
@@ -138,6 +146,14 @@ RustCxxLinkGroupInfo = record(
     symbol_files_info = field(LinkInfo.type),
     # targets to link against
     filtered_targets = field(list["target_label"]),
+    # information about the link groups
+    link_group_info = field([LinkGroupInfo.type, None]),
+    # shared libraries created from link groups
+    link_group_libs = field(dict[str, [LinkGroupLib.type, None]]),
+    # mapping from target labels to the corresponding link group link_info
+    labels_to_links_map = field(dict[Label, LinkGroupLinkInfo.type]),
+    # prefrred linkage mode for link group libraries
+    link_group_preferred_linkage = field(dict[Label, Linkage.type]),
 )
 
 def enable_link_groups(
@@ -340,8 +356,6 @@ def inherited_non_rust_link_group_info(
 
     # TODO(@christylee): create subtarget to retrive filtered_targets
     # TODO(@christylee): Check that this works with unittests
-    # TODO(@christylee): Make sure we set up symlink tree by passing link groups shared libs to
-    # _non_rust_shared_lib_infos
     # TODO(@christylee): Handle split-dwarf
     return RustCxxLinkGroupInfo(
         filtered_links = get_filtered_links(labels_to_links_map),
@@ -349,6 +363,10 @@ def inherited_non_rust_link_group_info(
             pre_flags = linked_link_groups.symbol_ldflags,
         ),
         filtered_targets = get_filtered_targets(labels_to_links_map),
+        link_group_info = link_group_info,
+        link_group_libs = link_group_libs,
+        labels_to_links_map = labels_to_links_map,
+        link_group_preferred_linkage = link_group_preferred_linkage,
     )
 
 def inherited_non_rust_link_info(

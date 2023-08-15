@@ -15,6 +15,10 @@ load(
     "cxx_attr_deps",
 )
 load("@prelude//cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
+load(
+    "@prelude//cxx:link_groups.bzl",
+    "is_link_group_shlib",
+)
 load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET")
 load(
     "@prelude//linking:link_info.bzl",
@@ -100,7 +104,12 @@ def _rust_binary_common(
 
         # Gather and setup symlink tree of transitive shared library deps.
         shared_libs = {}
+
         rust_cxx_link_group_info = None
+        link_group_mappings = {}
+        link_group_libs = []
+        link_group_preferred_linkage = {}
+        labels_to_links_map = {}
 
         if enable_link_groups(ctx, link_style, is_binary = True):
             rust_cxx_link_group_info = inherited_non_rust_link_group_info(
@@ -108,17 +117,29 @@ def _rust_binary_common(
                 include_doc_deps = False,
                 link_style = link_style,
             )
+            link_group_mappings = rust_cxx_link_group_info.link_group_info.mappings
+            link_group_libs = rust_cxx_link_group_info.link_group_libs
+            link_group_preferred_linkage = rust_cxx_link_group_info.link_group_preferred_linkage
+            labels_to_links_map = rust_cxx_link_group_info.labels_to_links_map
 
         # As per v1, we only setup a shared library symlink tree for the shared
         # link style.
         # XXX need link tree for dylib crates
-        if link_style == LinkStyle("shared"):
+        if link_style == LinkStyle("shared") or rust_cxx_link_group_info != None:
             shlib_info = merge_shared_libraries(
                 ctx.actions,
                 deps = inherited_non_rust_shared_libs(ctx),
             )
             for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
-                shared_libs[soname] = shared_lib.lib
+                label = shared_lib.label
+                if rust_cxx_link_group_info == None or is_link_group_shlib(label, link_group_mappings, link_group_libs, link_group_preferred_linkage, labels_to_links_map):
+                    shared_libs[soname] = shared_lib.lib
+
+        if rust_cxx_link_group_info:
+            # When there are no matches for a pattern based link group,
+            # `link_group_mappings` will not have an entry associated with the lib.
+            for _name, link_group_lib in link_group_libs.items():
+                shared_libs.update(link_group_lib.shared_libs)
 
         # link groups shared libraries link args are directly added to the link command,
         # we don't have to add them here
