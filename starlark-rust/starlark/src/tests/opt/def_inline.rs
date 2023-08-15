@@ -72,7 +72,7 @@ fn test_do_not_inline_functions_with_return_type() {
     bc_golden_test(
         "def_inline_return_type_inlined",
         r#"
-def smth() -> "string":
+def smth() -> str:
     return "10"
 
 def test():

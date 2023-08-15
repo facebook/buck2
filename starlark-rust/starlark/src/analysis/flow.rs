@@ -350,7 +350,7 @@ mod tests {
     fn test_lint_returns() {
         let m = module(
             r#"
-def no1() -> "string":
+def no1() -> str:
     pass
 def no2():
     if x:
@@ -360,12 +360,12 @@ def no3():
         return
     return 1
 def ok():
-    def no4() -> "int":
+    def no4() -> int:
         no4()
     pass
 def yes1():
     pass
-def yes2() -> "string":
+def yes2() -> str:
     yes1()
     if x:
         return "x"
@@ -375,7 +375,7 @@ def yes3():
     if x:
         return
     pass
-def yes4() -> "string":
+def yes4() -> str:
     fail("die")
 "#,
         );

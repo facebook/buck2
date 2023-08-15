@@ -31,8 +31,5 @@ fn test_return_type_erased() {
 #[test]
 fn test_return_type_present() {
     // Self-check for previous test.
-    bc_golden_test(
-        "opt_return_type_present",
-        "def test() -> 'string': return 'x'",
-    );
+    bc_golden_test("opt_return_type_present", "def test() -> str: return 'x'");
 }

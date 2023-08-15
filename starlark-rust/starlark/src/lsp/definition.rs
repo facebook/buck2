@@ -809,7 +809,7 @@ mod test {
         x = 1
         y = 2
 
-        def add(y: "int"):
+        def add(y: int):
             return x + y
 
         def invalid_symbol():
@@ -856,7 +856,7 @@ mod test {
         x = 1
         y = 2
 
-        def <add>add</add>(y: "int"):
+        def <add>add</add>(y: int):
             return x + y
 
         def <invalid_symbol>invalid_symbol</invalid_symbol>():
@@ -920,7 +920,7 @@ mod test {
         <x>x</x> = 1
         y = 2
 
-        def add(y: "int"):
+        def add(y: int):
             return x + y
 
         def invalid_symbol():
@@ -959,7 +959,7 @@ mod test {
         <x>x</x> = 1
         <y1>y</y1> = 2
 
-        def add(<y2>y</y2>: "int"):
+        def add(<y2>y</y2>: int):
             return <x_var>x</x_var> + <y_var1>y</y_var1>
 
         def invalid_symbol():
@@ -1031,7 +1031,7 @@ mod test {
         x = 1
         y = 2
 
-        def <no_def>add</no_def>(y: "int"):
+        def <no_def>add</no_def>(y: int):
             return x + y
 
         def invalid_symbol():

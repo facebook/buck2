@@ -235,7 +235,7 @@ fn test_repr_str() {
 fn test_eval_function() {
     let fun = assert::pass(
         r#"
-def fun(a, *, y: "string", x = 1) -> "string":
+def fun(a, *, y: str, x = 1) -> str:
     return str((a, y, x))
 fun
 "#,

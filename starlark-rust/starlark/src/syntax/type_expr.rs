@@ -37,6 +37,8 @@ enum TypeExprUnpackError {
     DotInType,
     #[error(r#"`""` or `"_xxx"` is not allowed in type expression, use `typing.Any` instead"#)]
     EmptyStrInType,
+    #[error(r#"`"{0}"` is not allowed in type expression, use `{1}` instead"#)]
+    StrBanReplace(&'static str, &'static str),
 }
 
 /// This type should be used instead of `TypeExprP`, but a lot of code needs to be updated.
@@ -149,6 +151,29 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                         expr.span,
                         codemap,
                     ));
+                }
+                let ban_replace = [
+                    ("str", "str"),
+                    ("string", "str"),
+                    ("int", "int"),
+                    ("float", "float"),
+                    ("bool", "bool"),
+                    ("list", "list"),
+                    ("dict", "dict"),
+                    ("tuple", "tuple"),
+                    ("NoneType", "None"),
+                    ("None", "None"),
+                    // TODO(nga): ban `"function"` too.
+                    // ("function", "typing.Callable"),
+                ];
+                for (ban, replace) in ban_replace {
+                    if s.as_str() == ban {
+                        return Err(EvalException::new(
+                            TypeExprUnpackError::StrBanReplace(ban, replace).into(),
+                            expr.span,
+                            codemap,
+                        ));
+                    }
                 }
                 Ok(Spanned {
                     span,
