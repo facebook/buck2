@@ -12,6 +12,7 @@ use buck2_analysis::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::package::PackageLabel;
+use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use dupe::Dupe;
 use starlark::values::dict::Dict;
@@ -93,6 +94,9 @@ impl AnonTargetAttrExt for AnonTargetAttr {
             AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.clone()))),
             AnonTargetAttr::Arg(a) => a.resolve(ctx),
             AnonTargetAttr::PromiseArtifact(artifact) => Ok(ctx.heap().alloc(artifact.clone())),
+            AnonTargetAttr::Label(label) => {
+                Ok(ctx.heap().alloc(StarlarkProvidersLabel::new(label.clone())))
+            }
         }
     }
 }

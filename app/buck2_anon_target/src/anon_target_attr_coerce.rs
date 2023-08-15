@@ -15,7 +15,10 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
+use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
@@ -157,6 +160,21 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 },
                 None => Err(AnonTargetCoercionError::type_error("resolved_macro", value).into()),
             },
+            AttrTypeInner::Label(_) => {
+                if let Some(label) = StarlarkProvidersLabel::from_value(value) {
+                    Ok(AnonTargetAttr::Label(label.label().clone()))
+                } else if let Some(label) = StarlarkTargetLabel::from_value(value) {
+                    Ok(AnonTargetAttr::Label(ProvidersLabel::default_for(
+                        label.label().clone(),
+                    )))
+                } else {
+                    Err(AnonTargetCoercionError::type_error(
+                        "providers_label or target_label",
+                        value,
+                    )
+                    .into())
+                }
+            }
             _ => Err(AnonTargetCoercionError::AttrTypeNotSupported(self.to_string()).into()),
         }
     }
