@@ -225,6 +225,19 @@ def _rust_binary_common(
             },
         )]
 
+        if shared_libs_symlink_tree:
+            sub_targets_for_link_style["rpath-tree"] = [DefaultInfo(
+                default_output = shared_libs_symlink_tree,
+                other_outputs = [
+                    lib.output
+                    for lib in shared_libs.values()
+                ] + [
+                    lib.dwp
+                    for lib in shared_libs.values()
+                    if lib.dwp
+                ],
+            )]
+
         if rust_cxx_link_group_info:
             sub_targets_for_link_style[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
             readable_mappings = {}
