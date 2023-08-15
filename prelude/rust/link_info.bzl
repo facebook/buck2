@@ -20,9 +20,13 @@ load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_is_gnu",
 )
+load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:link_groups.bzl",
     "create_link_groups",
+    "find_relevant_roots",
+    "get_filtered_labels_to_links_map",
+    "get_link_group",
     "get_link_group_info",
     "get_link_group_preferred_linkage",
 )
@@ -254,7 +258,12 @@ def inherited_non_rust_link_group_args(
 
     # Assume a rust executable wants to use link groups if a link group map
     # is present
+    link_group = get_link_group(ctx)
     link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, link_deps))
+    link_groups = link_group_info.groups
+    link_group_mappings = link_group_info.mappings
+    link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups.values())
+
     auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info)
     linkable_graph = _non_rust_linkable_graph(
         ctx,
@@ -262,16 +271,15 @@ def inherited_non_rust_link_group_args(
     )
     linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
 
-    # @unused will be resolved in a later diff
     linked_link_groups = create_link_groups(
         ctx = ctx,
-        link_groups = link_group_info.groups,
-        link_group_mappings = link_group_info.mappings,
-        link_group_preferred_linkage = get_link_group_preferred_linkage(link_group_info.groups.values()),
+        link_groups = link_groups,
+        link_group_mappings = link_group_mappings,
+        link_group_preferred_linkage = link_group_preferred_linkage,
         executable_deps = [],  # TODO: do we need this?
         linker_flags = [],
         link_group_specs = auto_link_group_specs,
-        root_link_group = ctx.attrs.link_group,
+        root_link_group = link_group,
         linkable_graph_node_map = linkable_graph_node_map,
         other_roots = [],
         prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
@@ -279,13 +287,57 @@ def inherited_non_rust_link_group_args(
         output_suffix = "_" + str(link_style).replace('"', ""),
     )
 
+    auto_link_groups = {}
+    link_group_libs = {}
+    link_flags = []  # @unused will be resolved in a later diff
+
+    for name, linked_link_group in linked_link_groups.libs.items():
+        auto_link_groups[name] = linked_link_group.artifact
+        if linked_link_group.library != None:
+            link_group_libs[name] = linked_link_group.library
+    link_flags += linked_link_groups.symbol_ldflags
+
+    # Some third-party dependencies are stored in the linkable_graph_node_map as
+    # third-party-buck, but the non_rust_link_deps contain the unresolved third-party
+    # path. Filter out the unresolved paths from the roots to avoid traversal error.
+    filtered_roots = []
+    roots = ([d.label for d in link_deps] +
+             find_relevant_roots(
+                 link_group = link_group,
+                 linkable_graph_node_map = linkable_graph_node_map,
+                 link_group_mappings = link_group_mappings,
+                 roots = [],
+             ))
+    for root in roots:
+        if root in linkable_graph_node_map:
+            filtered_roots.append(root)
+
+    # @unused will be resolved in a later diff
+    labels_to_links_map = get_filtered_labels_to_links_map(
+        linkable_graph_node_map,
+        link_group,
+        link_groups,
+        link_group_mappings,
+        link_group_preferred_linkage,
+        pic_behavior = PicBehavior("always_enabled") if link_style == LinkStyle("static_pic") else PicBehavior("supported"),
+        link_group_libs = {
+            name: (lib.label, lib.shared_link_infos)
+            for name, lib in link_group_libs.items()
+        },
+        link_style = link_style,
+        roots = filtered_roots,
+        is_executable_link = True,
+        prefer_stripped = False,
+        force_static_follows_dependents = True,
+    )
+
+    # TODO(@christylee): Check that this works with unittests
     # TODO(@christylee): Make sure we set up symlink tree by passing link groups shared libs to
     # _non_rust_shared_lib_infos
     # TODO(@christylee): Handle split-dwarf
     # TODO(@christylee): add symbol_files params
-
-    # TODO: we aren't ready to link against link groups yet, use a placeholder for now
     return get_link_args(
+        # TODO: placeholder
         inherited_non_rust_link_info(
             ctx,
             include_doc_deps = False,
