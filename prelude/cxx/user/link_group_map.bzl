@@ -94,6 +94,11 @@ def link_group_map_attr():
         default = None,
     )
 
+def _make_info_subtarget_providers(ctx: AnalysisContext) -> list[Provider]:
+    info_json = {}
+    json_output = ctx.actions.write_json("link_group_map_info.json", info_json)
+    return [DefaultInfo(default_output = json_output)]
+
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     # Extract graphs from the roots via the raw attrs, as `parse_groups_definitions`
     # parses them as labels.
@@ -107,7 +112,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     )
     link_groups = parse_groups_definitions(ctx.attrs.map, lambda root: root.label)
     return [
-        DefaultInfo(),
+        DefaultInfo(sub_targets = {
+            "info": _make_info_subtarget_providers(ctx),
+        }),
         build_link_group_info(linkable_graph, link_groups),
     ]
 
