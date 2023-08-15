@@ -11,11 +11,22 @@ syntax = "proto3";
 
 package action_metadata;
 
+message DepFileInputs {
+  string dep_file_path = 1;
+  // A digest of
+  //  1. all untagged inputs for the action
+  //  2. tagged inputs for this dep file that was acutally used (in the dep
+  //  file)
+  bytes filtered_fingerprint = 2;
+}
+
 // Contains everything we should check before declaring it as a dep file hit
 message RemoteDepFile {
-  string declared_dep_files_digest = 1;
-  string declared_outputs_digest = 2;
-  string commandline_cli_digest = 3;
-  string commandline_directory_digest = 4;
-  string input_fingerprint_digest = 5;
+  // A digest of the command line
+  bytes commandline_cli_digest = 1;
+  // A digest of all output paths
+  bytes output_paths_digest = 2;
+  // Inputs to this action that are not tracked by any dep files
+  bytes untagged_inputs_digest = 3;
+  repeated DepFileInputs dep_file_inputs = 4;
 }

@@ -13,7 +13,7 @@ use dice::UserComputationData;
 use dupe::Dupe;
 
 #[derive(Clone, Default, Dupe)]
-pub struct Mergebase(pub Arc<Option<String>>);
+pub struct Mergebase(pub Arc<Option<String>>); // Base revision
 
 pub trait SetMergebase {
     fn set_mergebase(&mut self, mergebase: Mergebase);

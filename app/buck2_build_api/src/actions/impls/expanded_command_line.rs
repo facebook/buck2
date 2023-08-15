@@ -24,6 +24,12 @@ pub struct ExpandedCommandLineDigest(
     #[allocative(skip)] blake3::Hash,
 );
 
+impl ExpandedCommandLineDigest {
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+}
+
 impl ExpandedCommandLine {
     /// Obtain a hash of this command line. Conceptually this is as if we serialized the command
     /// line to a length-prefixed list then hashed it, except we never actually produce the

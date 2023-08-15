@@ -564,7 +564,7 @@ impl IncrementalActionExecutable for RunAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let knobs = ctx.run_action_knobs();
         let process_dep_files = !self.inner.dep_files.labels.is_empty() || knobs.hash_all_commands;
-        let (prepared_run_action, dep_file_bundle) = if !process_dep_files {
+        let (prepared_run_action, dep_file_visitor) = if !process_dep_files {
             (
                 self.prepare(&mut SimpleCommandLineArtifactVisitor::new(), ctx)?,
                 None,
@@ -572,9 +572,9 @@ impl IncrementalActionExecutable for RunAction {
         } else {
             let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
             let prepared = self.prepare(&mut visitor, ctx)?;
-            let dep_file_bundle = make_dep_file_bundle(ctx, visitor, &prepared)?;
-            (prepared, Some(dep_file_bundle))
+            (prepared, Some(visitor))
         };
+        let cmdline_digest = prepared_run_action.expanded.fingerprint();
 
         // Run actions are assumed to be shared
         let host_sharing_requirements = HostSharingRequirements::Shared(self.inner.weight);
@@ -590,10 +590,21 @@ impl IncrementalActionExecutable for RunAction {
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
             .with_unique_input_inodes(self.inner.unique_input_inodes);
 
+        let dep_file_bundle = if let Some(visitor) = dep_file_visitor {
+            Some(make_dep_file_bundle(
+                ctx,
+                visitor,
+                cmdline_digest,
+                req.paths(),
+            )?)
+        } else {
+            None
+        };
+
         // First prepare the action, check the action cache, check dep_files if needed, and execute the command
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
-        let (mut result, dep_file_bundle) = match ctx
+        let (mut result, mut dep_file_bundle) = match ctx
             .action_cache(manager, &req, &prepared_action)
             .await
         {
@@ -620,10 +631,21 @@ impl IncrementalActionExecutable for RunAction {
             }
         };
 
-        if self.inner.allow_cache_upload {
+        // If there is a dep file entry AND if dep file cache upload is enabled, upload it
+        let upload_dep_file = self.inner.allow_dep_file_cache_upload && dep_file_bundle.is_some();
+        if self.inner.allow_cache_upload || upload_dep_file {
+            let (dep_file_entry, dep_file_key) = match &mut dep_file_bundle {
+                Some(dep_file_bundle) if self.inner.allow_dep_file_cache_upload => {
+                    let entry = dep_file_bundle.make_remote_dep_file_entry(ctx).await?;
+                    let key = entry.key.raw_digest().to_string();
+                    (Some(entry), Some(key))
+                }
+                _ => (None, None),
+            };
             result.did_cache_upload = ctx
-                .cache_upload(prepared_action.action.dupe(), &result, None)
+                .cache_upload(prepared_action.action.dupe(), &result, dep_file_entry)
                 .await?;
+            result.dep_file_key = dep_file_key;
         }
 
         let (outputs, metadata) = ctx.unpack_command_execution_result(
