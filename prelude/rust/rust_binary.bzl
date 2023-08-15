@@ -271,6 +271,7 @@ def _rust_binary_common(
         ("sources", compile_ctx.symlinked_srcs),
     ])
     sub_targets.update({k: [DefaultInfo(default_output = v)] for k, v in extra_compiled_targets})
+    sub_targets.update(compiled_outputs.sub_targets)
     for (k, sub_compiled_outputs) in styles.items():
         sub_targets[k.value] = [
             DefaultInfo(
