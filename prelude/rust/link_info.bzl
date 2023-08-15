@@ -233,8 +233,7 @@ def _non_rust_link_deps(
 # Returns native link dependencies.
 def _non_rust_link_infos(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False,
-        link_style: [LinkStyle.type, None] = None) -> list[MergedLinkInfo.type]:
+        include_doc_deps: bool = False) -> list[MergedLinkInfo.type]:
     """
     Return all first-order native link infos of all transitive Rust libraries.
 
@@ -374,10 +373,9 @@ def inherited_non_rust_link_group_info(
 
 def inherited_non_rust_link_info(
         ctx: AnalysisContext,
-        include_doc_deps: bool = False,
-        link_style: [LinkStyle.type, None] = None) -> MergedLinkInfo.type:
+        include_doc_deps: bool = False) -> MergedLinkInfo.type:
     infos = []
-    infos.extend(_non_rust_link_infos(ctx, include_doc_deps, link_style))
+    infos.extend(_non_rust_link_infos(ctx, include_doc_deps))
     infos.extend([d.non_rust_link_info for d in _rust_link_infos(ctx, include_doc_deps)])
     return merge_link_infos(ctx, infos)
 

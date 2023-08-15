@@ -256,7 +256,6 @@ def generate_rustdoc_test(
             LinkArgs(flags = extra_link_args),
             get_link_args(
                 inherited_non_rust_link_info(ctx, include_doc_deps = True),
-                link_style,
             ),
         ],
         "{}-{}".format(common_args.subdir, common_args.tempfile),
@@ -425,7 +424,6 @@ def rust_compile(
                 inherited_non_rust_link_info(
                     ctx,
                     include_doc_deps = False,
-                    link_style = dep_link_style,
                 ),
                 dep_link_style,
             )
