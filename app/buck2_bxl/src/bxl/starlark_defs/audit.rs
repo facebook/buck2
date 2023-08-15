@@ -121,13 +121,13 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> anyhow::Result<Option<Value<'v>>> {
         let target_platform = target_platform.parse_target_platforms(
-            &this.ctx.target_alias_resolver,
-            &this.ctx.cell_resolver,
-            this.ctx.cell_name,
+            &this.ctx.data.target_alias_resolver,
+            &this.ctx.data.cell_resolver,
+            this.ctx.data.cell_name,
             &this.global_target_platform,
         )?;
 
-        this.ctx.async_ctx.via_dice(|ctx| async move {
+        this.ctx.via_dice(|ctx, _| async move {
             audit_output(
                 output_path,
                 &this.working_dir,

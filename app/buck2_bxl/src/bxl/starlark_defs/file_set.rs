@@ -36,7 +36,7 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
-use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::context::BxlContextNoDice;
 
 /// FileSetExpr is just a simple type that can be used in starlark_module
 /// functions for arguments that should be file sets. It will accept either a
@@ -49,7 +49,7 @@ pub(crate) enum FileSetExpr<'a> {
 }
 
 impl<'a> FileSetExpr<'a> {
-    pub(crate) async fn get(self, bxl: &BxlContext<'_>) -> anyhow::Result<Cow<'a, FileSet>> {
+    pub(crate) async fn get(self, bxl: &BxlContextNoDice<'_>) -> anyhow::Result<Cow<'a, FileSet>> {
         let set = match self {
             FileSetExpr::Literal(val) => Cow::Owned(FileSet::from_iter([FileNode(
                 bxl.parse_query_file_literal(val)?,

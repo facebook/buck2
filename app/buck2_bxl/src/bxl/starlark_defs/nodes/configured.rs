@@ -240,13 +240,11 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let configured_node = &this.0;
 
-        let dep_analysis: anyhow::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>, _> = ctx
-            .async_ctx
-            .via_dice(|dice_ctx| get_dep_analysis(configured_node, dice_ctx));
+        let dep_analysis: anyhow::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>, _> =
+            ctx.via_dice(|dice_ctx, _| get_dep_analysis(configured_node, dice_ctx));
 
-        let query_results = ctx
-            .async_ctx
-            .via_dice(|dice_ctx| resolve_queries(dice_ctx, configured_node))?;
+        let query_results =
+            ctx.via_dice(|dice_ctx, _| resolve_queries(dice_ctx, configured_node))?;
 
         let resolution_ctx = RuleAnalysisAttrResolutionContext {
             module: eval.module(),
@@ -333,7 +331,6 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         let path = Path::new(path);
         let fs = ctx
             .async_ctx
-            .0
             .global_data()
             .get_io_provider()
             .project_root()
@@ -349,9 +346,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             )?)
         };
 
-        let cell_path = ctx
-            .async_ctx
-            .via_dice(async move |ctx| ctx.get_cell_resolver().await?.get_cell_path(&path))?;
+        let cell_path =
+            ctx.via_dice(
+                |ctx, _| async move { ctx.get_cell_resolver().await?.get_cell_path(&path) },
+            )?;
 
         struct SourceFinder {
             found: Option<StarlarkArtifact>,

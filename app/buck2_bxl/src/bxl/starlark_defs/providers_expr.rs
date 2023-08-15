@@ -35,7 +35,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
@@ -61,7 +61,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack<'v, 'c>(
         value: Value<'v>,
         target_platform: Value<'v>,
-        ctx: &BxlContext<'_>,
+        ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
         eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Self> {
@@ -93,7 +93,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     fn unpack_literal<'v, 'c>(
         value: Value<'v>,
         target_platform: &'c Option<TargetLabel>,
-        ctx: &BxlContext<'_>,
+        ctx: &BxlContextNoDice<'_>,
         dice: &'c DiceComputations,
     ) -> BoxFuture<'c, anyhow::Result<Option<Self>>> {
         if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
@@ -133,7 +133,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
 impl ProvidersExpr<ProvidersLabel> {
     pub(crate) async fn unpack<'v>(
         value: Value<'v>,
-        ctx: &BxlContext<'_>,
+        ctx: &BxlContextNoDice<'_>,
         eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Self> {
         Ok(if let Some(resolved) = Self::unpack_literal(value, ctx)? {
@@ -152,7 +152,10 @@ impl ProvidersExpr<ProvidersLabel> {
         })
     }
 
-    fn unpack_literal<'v>(value: Value<'v>, ctx: &BxlContext<'_>) -> anyhow::Result<Option<Self>> {
+    fn unpack_literal<'v>(
+        value: Value<'v>,
+        ctx: &BxlContextNoDice<'_>,
+    ) -> anyhow::Result<Option<Self>> {
         Self::unpack_providers_label(value, ctx)?
             .map_or(Ok(None), |label| Ok(Some(Self::Literal(label))))
     }
@@ -168,7 +171,7 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
 
     fn unpack_providers_label<'v>(
         value: Value<'v>,
-        ctx: &BxlContext<'_>,
+        ctx: &BxlContextNoDice<'_>,
     ) -> anyhow::Result<Option<ProvidersLabel>> {
         #[allow(clippy::manual_map)] // `if else if` looks better here
         Ok(if let Some(s) = value.unpack_str() {
@@ -201,11 +204,11 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
 
     async fn unpack_iterable<'c, 'v: 'c>(
         value: Value<'v>,
-        ctx: &'c BxlContext<'_>,
+        ctx: &'c BxlContextNoDice<'_>,
         eval: &Evaluator<'v, '_>,
         unpack_literal: impl Fn(
             Value<'v>,
-            &'c BxlContext<'_>,
+            &'c BxlContextNoDice<'_>,
         ) -> LocalBoxFuture<'c, anyhow::Result<Option<ProvidersExpr<P>>>>,
     ) -> anyhow::Result<Option<ProvidersExpr<P>>> {
         #[allow(clippy::manual_map)] // `if else if` looks better here

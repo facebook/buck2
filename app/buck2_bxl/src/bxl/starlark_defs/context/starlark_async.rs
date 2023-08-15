@@ -14,6 +14,7 @@ use buck2_data::BxlDiceInvocationEnd;
 use buck2_data::BxlDiceInvocationStart;
 use buck2_events::dispatch::with_dispatcher_async;
 use dice::DiceComputations;
+use dice::DiceData;
 use dupe::Dupe;
 use futures::future::select;
 use futures::future::Either;
@@ -33,36 +34,25 @@ enum ViaError {
 /// code.
 /// This also provides a handle for dice.
 #[derive(Clone, Dupe)]
-pub(crate) struct BxlSafeDiceComputations<'a>(
-    pub(crate) &'a DiceComputations,
-    CancellationObserver,
-);
+pub struct BxlSafeDiceComputations<'a>(pub(super) &'a DiceComputations, CancellationObserver);
 
 impl<'a> BxlSafeDiceComputations<'a> {
-    pub(crate) fn new(dice: &'a DiceComputations, cancellation: CancellationObserver) -> Self {
+    pub fn new(dice: &'a DiceComputations, cancellation: CancellationObserver) -> Self {
         Self(dice, cancellation)
     }
 
-    /// runs the async computation over dice as sync
-    pub(crate) fn via_dice<Fut, T>(
+    /// runs any async computation
+    pub(super) fn via<Fut, T>(
         &self,
         f: impl FnOnce(&'a DiceComputations) -> Fut,
     ) -> anyhow::Result<T>
     where
         Fut: Future<Output = anyhow::Result<T>>,
     {
-        self.via(|| f(self.0))
-    }
-
-    /// runs any async computation
-    pub(crate) fn via<Fut, T>(&self, f: impl FnOnce() -> Fut) -> anyhow::Result<T>
-    where
-        Fut: Future<Output = anyhow::Result<T>>,
-    {
         let dispatcher = self.0.per_transaction_data().get_dispatcher().dupe();
 
         dispatcher.span(BxlDiceInvocationStart {}, || {
-            let fut = with_dispatcher_async(dispatcher.clone(), f());
+            let fut = with_dispatcher_async(dispatcher.clone(), f(self.0));
             let fut = async move {
                 futures::pin_mut!(fut);
 
@@ -77,5 +67,9 @@ impl<'a> BxlSafeDiceComputations<'a> {
                 BxlDiceInvocationEnd {},
             )
         })
+    }
+
+    pub fn global_data(&self) -> &DiceData {
+        self.0.global_data()
     }
 }

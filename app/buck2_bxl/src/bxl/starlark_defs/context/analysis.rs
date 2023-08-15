@@ -15,13 +15,13 @@ use dice::DiceComputations;
 use either::Either;
 use gazebo::prelude::*;
 
-use super::BxlContext;
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
+use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 
 pub(crate) async fn analysis<'v>(
     dice: &DiceComputations,
-    ctx: &BxlContext<'v>,
+    ctx: &BxlContextNoDice<'v>,
     expr: ProvidersExpr<ConfiguredProvidersLabel>,
     skip_incompatible: bool,
 ) -> anyhow::Result<

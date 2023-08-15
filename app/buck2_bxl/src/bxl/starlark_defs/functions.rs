@@ -128,8 +128,8 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
         let path = get_artifact_path_display(
             this.artifact().get_path(),
             abs,
-            &ctx.project_fs,
-            &ctx.artifact_fs,
+            &ctx.data.project_fs,
+            &ctx.data.artifact_fs,
         )?;
 
         Ok(heap.alloc_str(&path))
@@ -170,7 +170,7 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
 
                 let mut paths = Vec::new();
 
-                let _result = ctx.async_ctx.via_dice(|dice_ctx| {
+                let _result = ctx.via_dice(|dice_ctx, bxl_ctx| {
                     visit_artifact_path_without_associated_deduped(
                         &result,
                         abs,
@@ -178,8 +178,8 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
                             let path = get_artifact_path_display(
                                 artifact_path,
                                 abs,
-                                &ctx.project_fs,
-                                &ctx.artifact_fs,
+                                &bxl_ctx.project_fs,
+                                &bxl_ctx.artifact_fs,
                             )?;
 
                             paths.push(path);

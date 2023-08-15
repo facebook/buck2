@@ -55,7 +55,7 @@ use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 use thiserror::Error;
 
-use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::context::BxlContextNoDice;
 
 #[derive(Debug, Error)]
 enum BxlActionsError {
@@ -165,7 +165,7 @@ pub(crate) struct BxlExecutionResolution {
 }
 
 pub(crate) fn validate_action_instantiation(
-    this: &BxlContext<'_>,
+    this: &BxlContextNoDice<'_>,
     bxl_execution_resolution: &BxlExecutionResolution,
 ) -> anyhow::Result<()> {
     let mut registry = this.state.state.borrow_mut();

@@ -180,7 +180,7 @@ pub(crate) fn build<'v>(
     let materializations =
         ConvertMaterializationContext::with_existing_map(materializations, materializations_map);
 
-    let build_result = ctx.async_ctx.via_dice(async move |dice| {
+    let build_result = ctx.via_dice(async move |dice, ctx| {
         let build_spec = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
             spec,
             target_platform,

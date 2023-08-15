@@ -12,6 +12,7 @@
 
 use std::cell::RefCell;
 use std::fmt::Display;
+use std::future::Future;
 use std::io::Write;
 use std::iter;
 use std::sync::Arc;
@@ -191,6 +192,17 @@ impl<'v> Display for BxlContextType<'v> {
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub(crate) struct BxlContext<'v> {
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    #[allocative(skip)]
+    pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
+    pub(crate) data: BxlContextNoDice<'v>,
+}
+
+#[derive(Derivative, Display, Trace, NoSerialize, Allocative)]
+#[derivative(Debug)]
+#[display(fmt = "{:?}", self)]
+pub(crate) struct BxlContextNoDice<'v> {
     pub(crate) current_bxl: BxlKey,
     #[derivative(Debug = "ignore")]
     pub(crate) target_alias_resolver: BuckConfigTargetAliasResolver,
@@ -198,10 +210,6 @@ pub(crate) struct BxlContext<'v> {
     pub(crate) cell_root_abs: AbsNormPathBuf,
     #[derivative(Debug = "ignore")]
     pub(crate) cell_resolver: CellResolver,
-    #[trace(unsafe_ignore)]
-    #[derivative(Debug = "ignore")]
-    #[allocative(skip)]
-    pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
     pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
     pub(crate) global_target_platform: Option<TargetLabel>,
     pub(crate) context_type: BxlContextType<'v>,
@@ -239,13 +247,13 @@ impl<'v> BxlContext<'v> {
                 project_fs.clone(),
                 artifact_fs.clone(),
                 output_sink,
-                async_ctx.clone(),
+                async_ctx.dupe(),
             )),
             error_stream: heap.alloc_typed(OutputStream::new(
                 project_fs.clone(),
                 artifact_fs.clone(),
                 error_sink,
-                async_ctx.clone(),
+                async_ctx.dupe(),
             )),
             materializations: Arc::new(DashMap::new()),
         };
@@ -253,25 +261,28 @@ impl<'v> BxlContext<'v> {
         let context_type = BxlContextType::Root(root_data);
 
         Ok(Self {
-            current_bxl,
-            target_alias_resolver,
-            cell_name,
-            cell_root_abs,
-            cell_resolver,
             async_ctx: async_ctx.clone(),
-            state: heap.alloc_typed(AnalysisActions {
-                state: RefCell::new(None),
-                // TODO(nga): attributes struct should not be accessible to BXL.
-                attributes: ValueOfUnchecked::new_checked(heap.alloc(AllocStruct::EMPTY)).unwrap(),
-                plugins: heap
-                    .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
-                    .into(),
-                digest_config,
-            }),
-            global_target_platform,
-            context_type,
-            project_fs,
-            artifact_fs,
+            data: BxlContextNoDice {
+                current_bxl,
+                target_alias_resolver,
+                cell_name,
+                cell_root_abs,
+                cell_resolver,
+                state: heap.alloc_typed(AnalysisActions {
+                    state: RefCell::new(None),
+                    // TODO(nga): attributes struct should not be accessible to BXL.
+                    attributes: ValueOfUnchecked::new_checked(heap.alloc(AllocStruct::EMPTY))
+                        .unwrap(),
+                    plugins: heap
+                        .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                        .into(),
+                    digest_config,
+                }),
+                global_target_platform,
+                context_type,
+                project_fs,
+                artifact_fs,
+            },
         })
     }
 
@@ -297,28 +308,116 @@ impl<'v> BxlContext<'v> {
         );
 
         Ok(Self {
-            current_bxl,
-            target_alias_resolver,
-            cell_name,
-            cell_root_abs,
-            cell_resolver,
             async_ctx: async_ctx.clone(),
-            state: heap.alloc_typed(AnalysisActions {
-                state: RefCell::new(Some(analysis_registry)),
-                // TODO(nga): attributes struct should not be accessible to BXL.
-                attributes: ValueOfUnchecked::new_checked(heap.alloc(AllocStruct::EMPTY)).unwrap(),
-                plugins: heap
-                    .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
-                    .into(),
-                digest_config,
-            }),
-            global_target_platform,
-            context_type: BxlContextType::Dynamic(dynamic_data),
-            project_fs,
-            artifact_fs,
+            data: BxlContextNoDice {
+                current_bxl,
+                target_alias_resolver,
+                cell_name,
+                cell_root_abs,
+                cell_resolver,
+                state: heap.alloc_typed(AnalysisActions {
+                    state: RefCell::new(Some(analysis_registry)),
+                    // TODO(nga): attributes struct should not be accessible to BXL.
+                    attributes: ValueOfUnchecked::new_checked(heap.alloc(AllocStruct::EMPTY))
+                        .unwrap(),
+                    plugins: heap
+                        .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                        .into(),
+                    digest_config,
+                }),
+                global_target_platform,
+                context_type: BxlContextType::Dynamic(dynamic_data),
+                project_fs,
+                artifact_fs,
+            },
         })
     }
 
+    /// runs the async computation over dice as sync,
+    /// This should generally only be called at the top level functions in bxl.
+    /// Within the lambdas, use the existing reference to Dice provided instead of calling nested
+    /// via_dice, as that breaks borrow invariants of the dice computations.
+    pub fn via_dice<'a, 'b, 'c, Fut, T>(
+        &'b self,
+        f: impl FnOnce(&'a DiceComputations, &'c BxlContextNoDice<'v>) -> Fut,
+    ) -> anyhow::Result<T>
+    where
+        'v: 'a,
+        'v: 'b,
+        'b: 'a,
+        'b: 'c,
+        Fut: Future<Output = anyhow::Result<T>> + 'a,
+    {
+        let data = &self.data;
+        self.async_ctx.via(move |dice| f(dice, data))
+    }
+
+    pub(crate) fn project_root(&self) -> &ProjectRoot {
+        self.data.project_root()
+    }
+
+    /// Working dir for resolving literals.
+    /// Note, unlike buck2 command line UI, we resolve targets and literals
+    /// against the cell root instead of user working dir.
+    pub(crate) fn working_dir(&self) -> anyhow::Result<ProjectRelativePathBuf> {
+        self.data.working_dir()
+    }
+
+    /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
+    pub(crate) fn take_state(
+        value: ValueTyped<'v, BxlContext<'v>>,
+    ) -> anyhow::Result<(
+        Option<AnalysisRegistry<'v>>,
+        IndexSet<ArtifactGroup>,
+        Arc<DashMap<BuildArtifact, ()>>,
+    )> {
+        let this = value.as_ref();
+        let root_data = this.data.context_type.unpack_root()?;
+        let output_stream = &root_data.output_stream;
+        let materializations = &root_data.materializations;
+
+        Ok((
+            this.data.state.as_ref().state.borrow_mut().take(),
+            // artifacts should be bound by now as the bxl has finished running
+            output_stream
+                .as_ref()
+                .take_artifacts()
+                .into_iter()
+                .map(|ensured_artifact_type| match ensured_artifact_type {
+                    EnsuredArtifactOrGroup::Artifact(artifact) => {
+                        let as_artifact = artifact.as_artifact();
+                        let bound_artifact = as_artifact.get_bound_artifact()?;
+                        let associated_artifacts = as_artifact.get_associated_artifacts();
+
+                        Ok(associated_artifacts
+                            .iter()
+                            .flat_map(|v| v.iter())
+                            .cloned()
+                            .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
+                            .collect::<Vec<_>>())
+                    }
+                    EnsuredArtifactOrGroup::ArtifactGroup(ag) => Ok(vec![ag]),
+                })
+                .flatten_ok()
+                .collect::<anyhow::Result<IndexSet<ArtifactGroup>>>()?,
+            materializations.dupe(),
+        ))
+    }
+
+    /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
+    pub(crate) fn take_state_dynamic(&self) -> anyhow::Result<AnalysisRegistry<'v>> {
+        let state = self.data.state.as_ref();
+        state.state().assert_no_promises()?;
+
+        Ok(state
+            .state
+            .borrow_mut()
+            .take()
+            .expect("nothing to have stolen state yet"))
+    }
+}
+
+impl<'v> BxlContextNoDice<'v> {
     // Used for caching error logs emitted from within the BXL core.
     pub(crate) fn print_to_error_stream(&self, msg: String) -> anyhow::Result<()> {
         match &self.context_type {
@@ -354,59 +453,6 @@ impl<'v> BxlContext<'v> {
             &self.cell_root_abs,
             self.project_root(),
         )
-    }
-
-    /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
-    pub(crate) fn take_state(
-        value: ValueTyped<'v, BxlContext<'v>>,
-    ) -> anyhow::Result<(
-        Option<AnalysisRegistry<'v>>,
-        IndexSet<ArtifactGroup>,
-        Arc<DashMap<BuildArtifact, ()>>,
-    )> {
-        let this = value.as_ref();
-        let root_data = this.context_type.unpack_root()?;
-        let output_stream = &root_data.output_stream;
-        let materializations = &root_data.materializations;
-
-        Ok((
-            this.state.as_ref().state.borrow_mut().take(),
-            // artifacts should be bound by now as the bxl has finished running
-            output_stream
-                .as_ref()
-                .take_artifacts()
-                .into_iter()
-                .map(|ensured_artifact_type| match ensured_artifact_type {
-                    EnsuredArtifactOrGroup::Artifact(artifact) => {
-                        let as_artifact = artifact.as_artifact();
-                        let bound_artifact = as_artifact.get_bound_artifact()?;
-                        let associated_artifacts = as_artifact.get_associated_artifacts();
-
-                        Ok(associated_artifacts
-                            .iter()
-                            .flat_map(|v| v.iter())
-                            .cloned()
-                            .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
-                            .collect::<Vec<_>>())
-                    }
-                    EnsuredArtifactOrGroup::ArtifactGroup(ag) => Ok(vec![ag]),
-                })
-                .flatten_ok()
-                .collect::<anyhow::Result<IndexSet<ArtifactGroup>>>()?,
-            materializations.dupe(),
-        ))
-    }
-
-    /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
-    pub(crate) fn take_state_dynamic(&self) -> anyhow::Result<AnalysisRegistry<'v>> {
-        let state = self.state.as_ref();
-        state.state().assert_no_promises()?;
-
-        Ok(state
-            .state
-            .borrow_mut()
-            .take()
-            .expect("nothing to have stolen state yet"))
     }
 }
 
@@ -588,6 +634,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn output<'v>(this: &'v BxlContext) -> anyhow::Result<Value<'v>> {
         let output_stream = this
+            .data
             .context_type
             .unpack_root()
             .context(BxlContextDynamicError::Unsupported("output".to_owned()))?
@@ -600,6 +647,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
     fn root<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<String> {
         let _root_type = this
+            .data
             .context_type
             .unpack_root()
             .context(BxlContextDynamicError::Unsupported("root".to_owned()))?;
@@ -619,10 +667,11 @@ fn context_methods(builder: &mut MethodsBuilder) {
     /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
     fn cell_root<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<String> {
         let _root_type = this
+            .data
             .context_type
             .unpack_root()
             .context(BxlContextDynamicError::Unsupported("root".to_owned()))?;
-        Ok(this.cell_root_abs.to_owned().to_string())
+        Ok(this.data.cell_root_abs.to_owned().to_string())
     }
 
     /// Gets the target nodes for the `labels`, accepting an optional `target_platform` which is the
@@ -650,23 +699,24 @@ fn context_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let target_platform = target_platform.parse_target_platforms(
-            &this.target_alias_resolver,
-            &this.cell_resolver,
-            this.cell_name,
-            &this.global_target_platform,
+            &this.data.target_alias_resolver,
+            &this.data.cell_resolver,
+            this.data.cell_name,
+            &this.data.global_target_platform,
         )?;
 
-        let res: anyhow::Result<Value<'v>> = this.async_ctx.via_dice(|ctx| async move {
-            Ok(
-                match TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+        let res: anyhow::Result<Value<'v>> = this.via_dice(|ctx, this| {
+            async move {
+                let target_expr = TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                     labels,
                     &target_platform,
                     this,
                     ctx,
                     eval,
                 )
-                .await?
-                {
+                .await?;
+
+                Ok(match target_expr {
                     TargetExpr::Label(label) => {
                         let set = filter_incompatible(
                             iter::once(ctx.get_configured_target_node(&label).await?),
@@ -688,11 +738,11 @@ fn context_methods(builder: &mut MethodsBuilder) {
                     multi => eval
                         .heap()
                         .alloc(StarlarkTargetSet::from(filter_incompatible(
-                            multi.get(this.async_ctx.0).await?.into_iter(),
+                            multi.get(ctx).await?.into_iter(),
                             this,
                         )?)),
-                },
-            )
+                })
+            }
         });
 
         res
@@ -713,7 +763,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         labels: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let res: anyhow::Result<Value<'v>> = this.async_ctx.via_dice(|ctx| async move {
+        let res: anyhow::Result<Value<'v>> = this.via_dice(|ctx, this| async move {
             Ok(
                 match TargetExpr::<'v, TargetNode>::unpack(labels, this, ctx, eval).await? {
                     TargetExpr::Label(label) => {
@@ -751,9 +801,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
         labels: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let providers = this
-            .async_ctx
-            .via_dice(|_| ProvidersExpr::<ProvidersLabel>::unpack(labels, this, eval))?;
+        let providers =
+            this.via_dice(|_, this| ProvidersExpr::<ProvidersLabel>::unpack(labels, this, eval))?;
 
         let res = match providers {
             ProvidersExpr::Literal(provider) => {
@@ -793,8 +842,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         // TODO(brasselsprouts): I would like to strongly type this.
         #[starlark(default = NoneType)] target_platform: Value<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
-        this.async_ctx
-            .via(|| StarlarkCQueryCtx::new(this, target_platform, &this.global_target_platform))
+        StarlarkCQueryCtx::new(this, target_platform, &this.data.global_target_platform)
     }
 
     /// Returns the bxl actions to create and register actions for this
@@ -855,16 +903,16 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneType)] exec_compatible_with: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<BxlActions<'v>> {
-        this.async_ctx.via_dice(|ctx| async {
+        let target_platform = target_platform.parse_target_platforms(
+            &this.data.target_alias_resolver,
+            &this.data.cell_resolver,
+            this.data.cell_name,
+            &this.data.global_target_platform,
+        )?;
+
+        this.via_dice(|ctx, this| async {
             let (exec_deps, toolchains) = match &this.context_type {
                 BxlContextType::Root { .. } => {
-                    let target_platform = target_platform.parse_target_platforms(
-                        &this.target_alias_resolver,
-                        &this.cell_resolver,
-                        this.cell_name,
-                        &this.global_target_platform,
-                    )?;
-
                     let exec_deps = if exec_deps.is_none() {
                         Vec::new()
                     } else {
@@ -918,7 +966,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                 BxlContextType::Dynamic(data) => {
                     if !exec_deps.is_none()
                         || !toolchains.is_none()
-                        || !target_platform.is_none()
+                        || target_platform.is_some()
                         || !exec_compatible_with.is_none()
                     {
                         return Err(
@@ -963,16 +1011,16 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = true)] skip_incompatible: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let res: anyhow::Result<_> = this.async_ctx.via_dice(|dice| async {
+        let res: anyhow::Result<_> = this.via_dice(|dice, ctx| async {
             let providers = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                 labels,
                 target_platform,
-                this,
+                ctx,
                 dice,
                 eval,
             )
             .await?;
-            analysis::analysis(dice, this, providers, skip_incompatible).await
+            analysis::analysis(dice, ctx, providers, skip_incompatible).await
         });
 
         Ok(match res? {
@@ -1015,6 +1063,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let materialization_setting = materializations;
         let materializations = &this
+            .data
             .context_type
             .unpack_root()
             .context(BxlContextDynamicError::Unsupported("build".to_owned()))?
@@ -1047,6 +1096,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn cli_args<'v>(this: &BxlContext<'v>) -> anyhow::Result<Value<'v>> {
         let cli_args = this
+            .data
             .context_type
             .unpack_root()
             .context(BxlContextDynamicError::Unsupported("cli_args".to_owned()))?
@@ -1063,21 +1113,23 @@ fn context_methods(builder: &mut MethodsBuilder) {
 
     /// Returns the [`StarlarkAuditCtx`] that holds all the audit functions.
     fn audit<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkAuditCtx<'v>> {
-        this.async_ctx.via_dice(|ctx| async move {
-            let working_dir = this
-                .cell_resolver
-                .get(this.cell_name)?
-                .path()
-                .as_project_relative_path();
-            let cell_resolver = ctx.get_cell_resolver().await?;
+        let (working_dir, cell_resolver) = this.via_dice(|ctx, this| async move {
+            Ok((
+                this.cell_resolver
+                    .get(this.cell_name)?
+                    .path()
+                    .as_project_relative_path()
+                    .to_buf(),
+                ctx.get_cell_resolver().await?,
+            ))
+        })?;
 
-            StarlarkAuditCtx::new(
-                this,
-                working_dir.to_buf(),
-                cell_resolver,
-                this.global_target_platform.clone(),
-            )
-        })
+        StarlarkAuditCtx::new(
+            this,
+            working_dir,
+            cell_resolver,
+            this.data.global_target_platform.clone(),
+        )
     }
 
     /// Awaits a promise and returns an optional value of the promise.
@@ -1106,7 +1158,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Option<Value<'v>>> {
-        this.async_ctx.via_dice(|dice| {
+        this.via_dice(|dice, this| {
             action_factory.run_promises(dice, eval, format!("bxl$promises:{}", &this.current_bxl))
         })?;
         Ok(promise.get())

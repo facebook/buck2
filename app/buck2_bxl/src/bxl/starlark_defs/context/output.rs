@@ -177,7 +177,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                 )?;
                 write(&path)?;
             } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg) {
-                this.async_ctx.via_dice(|ctx| {
+                this.async_ctx.via(|dice| {
                     ensured.visit_artifact_path_without_associated_deduped(
                         |artifact_path, abs| {
                             let path = get_artifact_path_display(
@@ -188,7 +188,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                             )?;
                             write(&path)
                         },
-                        ctx,
+                        dice,
                     )
                 })?;
             } else {
@@ -258,7 +258,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                     let mut seq_ser = serializer.serialize_seq(None)?;
 
                     self.async_ctx
-                        .via_dice(|ctx| {
+                        .via(|dice| {
                             ensured.visit_artifact_path_without_associated_deduped(
                                 |artifact_path, abs| {
                                     let path = get_artifact_path_display(
@@ -272,7 +272,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                                         .map_err(|err| anyhow::anyhow!(format!("{:#}", err)))?;
                                     Ok(())
                                 },
-                                ctx,
+                                dice,
                             )
                         })
                         .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;

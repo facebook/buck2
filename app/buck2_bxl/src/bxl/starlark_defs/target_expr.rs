@@ -41,7 +41,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
@@ -97,7 +97,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
 // Filters out incompatible targets and emits the error message
 pub(crate) fn filter_incompatible(
     targets: impl Iterator<Item = MaybeCompatible<ConfiguredTargetNode>>,
-    bxl_ctx: &BxlContext,
+    bxl_ctx: &BxlContextNoDice,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     let mut target_set = TargetSet::new();
     let mut incompatible_targets = SmallSet::new();
@@ -186,7 +186,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
     pub(crate) async fn unpack<'c>(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
-        ctx: &BxlContext<'v>,
+        ctx: &BxlContextNoDice<'v>,
         dice: &DiceComputations,
         eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<TargetExpr<'v, ConfiguredTargetNode>> {
@@ -208,7 +208,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
     async fn unpack_literal(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
-        ctx: &BxlContext<'_>,
+        ctx: &BxlContextNoDice<'_>,
         dice: &DiceComputations,
     ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
         if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
@@ -264,7 +264,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
     async fn unpack_iterable<'c>(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
-        ctx: &BxlContext<'_>,
+        ctx: &BxlContextNoDice<'_>,
         dice: &DiceComputations,
         eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
@@ -312,7 +312,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
 impl<'v> TargetExpr<'v, TargetNode> {
     pub(crate) async fn unpack<'c>(
         value: Value<'v>,
-        ctx: &BxlContext<'_>,
+        ctx: &BxlContextNoDice<'_>,
         dice: &DiceComputations,
         eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<TargetExpr<'v, TargetNode>> {
@@ -331,7 +331,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
 
     async fn unpack_literal(
         value: Value<'v>,
-        ctx: &BxlContext<'_>,
+        ctx: &BxlContextNoDice<'_>,
         dice: &DiceComputations,
     ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
         if let Some(target) = value.downcast_ref::<StarlarkTargetNode>() {
@@ -369,7 +369,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
 
     async fn unpack_iterable<'c>(
         value: Value<'v>,
-        ctx: &BxlContext<'_>,
+        ctx: &BxlContextNoDice<'_>,
         dice: &DiceComputations,
         eval: &Evaluator<'v, 'c>,
     ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
