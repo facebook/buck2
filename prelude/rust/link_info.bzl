@@ -28,6 +28,7 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LinkArgs",  #@unused Used as a type
     "LinkStyle",  #@unused Used as a type
     "MergedLinkInfo",
     "get_link_args",
@@ -206,41 +207,6 @@ def _non_rust_link_infos(
     rolled up in a tset.
     """
     link_deps = _non_rust_link_deps(ctx, include_doc_deps)
-
-    if enable_link_groups(ctx, link_style, is_binary):
-        # Assume a rust executable wants to use link groups if a link group map
-        # is present
-        link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, link_deps))
-
-        auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info)
-
-        # @unused will be resolved in a later diff
-        linkable_graph = _non_rust_linkable_graph(
-            ctx,
-            link_deps,
-        )
-        linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
-
-        # @unused will be resolved in a later diff
-        linked_link_groups = create_link_groups(
-            ctx = ctx,
-            link_groups = link_group_info.groups,
-            link_group_mappings = link_group_info.mappings,
-            link_group_preferred_linkage = get_link_group_preferred_linkage(link_group_info.groups.values()),
-            executable_deps = [],  # TODO: do we need this?
-            linker_flags = [],
-            link_group_specs = auto_link_group_specs,
-            root_link_group = ctx.attrs.link_group,
-            linkable_graph_node_map = linkable_graph_node_map,
-            other_roots = [],
-            prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
-            anonymous = False,  # TODO: support anonymous link groups
-            output_suffix = "_" + str(link_style).replace('"', ""),
-        )
-
-        # TODO(@christylee): Make sure we set up symlink tree by passing link groups shared libs to
-        # _non_rust_shared_lib_infos
-
     return [d[MergedLinkInfo] for d in link_deps]
 
 # Returns native link dependencies.
@@ -278,6 +244,56 @@ def inherited_non_rust_exported_link_deps(ctx: AnalysisContext) -> list[Dependen
         for dep in info.non_rust_exported_link_deps:
             deps[dep.label] = dep
     return deps.values()
+
+def inherited_non_rust_link_group_args(
+        ctx: AnalysisContext,
+        include_doc_deps: bool = False,
+        link_style: [LinkStyle.type, None] = None,  # @unused will be resolved in a later diff
+        is_binary: bool = False) -> LinkArgs:  # @unused will be resolved in a later diff
+    link_deps = _non_rust_link_deps(ctx, include_doc_deps) + inherited_non_rust_exported_link_deps(ctx)
+
+    # Assume a rust executable wants to use link groups if a link group map
+    # is present
+    link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, link_deps))
+    auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info)
+    linkable_graph = _non_rust_linkable_graph(
+        ctx,
+        link_deps,
+    )
+    linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+
+    # @unused will be resolved in a later diff
+    linked_link_groups = create_link_groups(
+        ctx = ctx,
+        link_groups = link_group_info.groups,
+        link_group_mappings = link_group_info.mappings,
+        link_group_preferred_linkage = get_link_group_preferred_linkage(link_group_info.groups.values()),
+        executable_deps = [],  # TODO: do we need this?
+        linker_flags = [],
+        link_group_specs = auto_link_group_specs,
+        root_link_group = ctx.attrs.link_group,
+        linkable_graph_node_map = linkable_graph_node_map,
+        other_roots = [],
+        prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
+        anonymous = False,  # TODO: support anonymous link groups
+        output_suffix = "_" + str(link_style).replace('"', ""),
+    )
+
+    # TODO(@christylee): Make sure we set up symlink tree by passing link groups shared libs to
+    # _non_rust_shared_lib_infos
+    # TODO(@christylee): Handle split-dwarf
+    # TODO(@christylee): add symbol_files params
+
+    # TODO: we aren't ready to link against link groups yet, use a placeholder for now
+    return get_link_args(
+        inherited_non_rust_link_info(
+            ctx,
+            include_doc_deps = False,
+            link_style = link_style,
+            is_binary = is_binary,
+        ),
+        link_style,
+    )
 
 def inherited_non_rust_link_info(
         ctx: AnalysisContext,

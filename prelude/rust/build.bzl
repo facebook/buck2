@@ -63,7 +63,9 @@ load(
     "RustLinkStyleInfo",
     "attr_crate",
     "attr_simple_crate_for_filenames",
+    "enable_link_groups",
     "inherited_external_debug_info",
+    "inherited_non_rust_link_group_args",
     "inherited_non_rust_link_info",
     "inherited_non_rust_shared_libs",
     "normalize_crate",
@@ -410,19 +412,30 @@ def rust_compile(
 
         # If this crate type has an associated native dep link style, include deps
         # of that style.
+
+        if enable_link_groups(ctx, dep_link_style, is_binary):
+            inherited_non_rust_link_args = inherited_non_rust_link_group_args(
+                ctx,
+                include_doc_deps = False,
+                link_style = dep_link_style,
+                is_binary = is_binary,
+            )
+        else:
+            inherited_non_rust_link_args = get_link_args(
+                inherited_non_rust_link_info(
+                    ctx,
+                    include_doc_deps = False,
+                    link_style = dep_link_style,
+                    is_binary = is_binary,
+                ),
+                dep_link_style,
+            )
+
         (link_args, hidden, pdb_artifact) = make_link_args(
             ctx,
             [
                 LinkArgs(flags = extra_link_args),
-                get_link_args(
-                    inherited_non_rust_link_info(
-                        ctx,
-                        include_doc_deps = False,
-                        link_style = dep_link_style,
-                        is_binary = is_binary,
-                    ),
-                    dep_link_style,
-                ),
+                inherited_non_rust_link_args,
             ],
             "{}-{}".format(subdir, tempfile),
             output_short_path = emit_output.short_path,
