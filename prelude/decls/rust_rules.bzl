@@ -89,6 +89,7 @@ _RUST_COMMON_ATTRIBUTES = {
 }
 
 _RUST_EXECUTABLE_ATTRIBUTES = {
+    "anonymous_link_groups": attrs.bool(default = True),
     # Unlike cxx which supports pre-defined link groups, we only support
     # auto_link_groups in rust
     "auto_link_groups": attrs.bool(default = True),

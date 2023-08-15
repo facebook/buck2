@@ -315,7 +315,7 @@ def inherited_non_rust_link_group_info(
         linkable_graph_node_map = linkable_graph_node_map,
         other_roots = [],
         prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
-        anonymous = False,  # TODO: support anonymous link groups
+        anonymous = ctx.attrs.anonymous_link_groups,
     )
 
     auto_link_groups = {}
