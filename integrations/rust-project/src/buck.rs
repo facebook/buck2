@@ -400,7 +400,16 @@ impl Buck {
     ) -> Result<HashMap<PathBuf, Vec<Target>>, anyhow::Error> {
         let mut command = self.command();
 
-        command.args(["uquery", "--json", "owner(\"%s\")", "--"]);
+        command.args([
+            "uquery",
+            // Limit fb_xplat to just generate CXX targets (unsuffixed)
+            // so that we don't end up with a bunch of duplicate targets
+            // pointing to the same crate
+            "-c=xplat.available_platforms=CXX",
+            "--json",
+            "owner(\"%s\")",
+            "--",
+        ]);
         command.args(&files);
 
         info!(?files, "Querying buck to determine owner");
