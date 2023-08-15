@@ -118,7 +118,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Returns a struct of all the attributes of this target node. The structs fields are the
-    /// attributes names, and the values are [`StarlarkConfiguredValue`].
+    /// attributes names, and the values are [`StarlarkConfiguredAttr`].
     ///
     /// If you need to access many or all attrs on the same node, then this is the preferred way. Otherwise,
     /// using `attrs_lazy()` would be a better option for only accessing only a few attrs, although this really
@@ -147,13 +147,13 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             .map(|a| {
                 (
                     a.name,
-                    StarlarkConfiguredValue(a.value, this.0.label().pkg().dupe()),
+                    StarlarkConfiguredAttr(a.value, this.0.label().pkg().dupe()),
                 )
             })
             .chain(special_attrs_iter.map(|(name, attr)| {
                 (
                     name,
-                    StarlarkConfiguredValue(attr, this.0.label().pkg().dupe()),
+                    StarlarkConfiguredAttr(attr, this.0.label().pkg().dupe()),
                 )
             }));
 
@@ -389,9 +389,9 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
 #[derive(Debug, Clone, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[repr(C)]
 #[starlark_docs(directory = "bxl")]
-pub(crate) struct StarlarkConfiguredValue(ConfiguredAttr, PackageLabel);
+pub(crate) struct StarlarkConfiguredAttr(ConfiguredAttr, PackageLabel);
 
-impl Display for StarlarkConfiguredValue {
+impl Display for StarlarkConfiguredAttr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(
             &AttrFmtContext {
@@ -402,7 +402,7 @@ impl Display for StarlarkConfiguredValue {
     }
 }
 
-impl Serialize for StarlarkConfiguredValue {
+impl Serialize for StarlarkConfiguredAttr {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -416,19 +416,19 @@ impl Serialize for StarlarkConfiguredValue {
     }
 }
 
-starlark_simple_value!(StarlarkConfiguredValue);
+starlark_simple_value!(StarlarkConfiguredAttr);
 
 #[starlark_value(type = "configured_attr_val")]
-impl<'v> StarlarkValue<'v> for StarlarkConfiguredValue {
+impl<'v> StarlarkValue<'v> for StarlarkConfiguredAttr {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(configured_value_methods)
+        RES.methods(configured_attr_methods)
     }
 }
 
 /// Methods on configured target node's attributes.
 #[starlark_module]
-fn configured_value_methods(builder: &mut MethodsBuilder) {
+fn configured_attr_methods(builder: &mut MethodsBuilder) {
     /// Returns the type name of the attribute
     ///
     /// Sample usage:
@@ -439,7 +439,7 @@ fn configured_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(attrs.name.type)
     /// ```
     #[starlark(attribute)]
-    fn r#type<'v>(this: &StarlarkConfiguredValue) -> anyhow::Result<&'v str> {
+    fn r#type<'v>(this: &StarlarkConfiguredAttr) -> anyhow::Result<&'v str> {
         this.0.starlark_type()
     }
 
@@ -452,7 +452,7 @@ fn configured_value_methods(builder: &mut MethodsBuilder) {
     ///     attrs = node.attrs_eager()
     ///     ctx.output.print(attrs.name.value())
     /// ```
-    fn value<'v>(this: &StarlarkConfiguredValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn value<'v>(this: &StarlarkConfiguredAttr, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         this.0.to_value(this.1.dupe(), heap)
     }
 }
@@ -504,7 +504,7 @@ impl<'v> StarlarkLazyAttrs<'v> {
 /// The context for getting attrs lazily on a `StarlarkConfiguredTargetNode`.
 #[starlark_module]
 fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
-    /// Gets a single attribute. Returns an optional `[StarlarkConfiguredValue]`.
+    /// Gets a single attribute. Returns an optional `[StarlarkConfiguredAttr]`.
     ///
     /// def _impl_attrs_lazy(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
@@ -515,13 +515,13 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
     fn get<'v>(
         this: &StarlarkLazyAttrs<'v>,
         attr: &str,
-    ) -> anyhow::Result<Option<StarlarkConfiguredValue>> {
+    ) -> anyhow::Result<Option<StarlarkConfiguredAttr>> {
         Ok(this
             .configured_target_node
             .0
             .get(attr, AttrInspectOptions::All)
             .map(|a| {
-                StarlarkConfiguredValue(a.value, this.configured_target_node.0.label().pkg().dupe())
+                StarlarkConfiguredAttr(a.value, this.configured_target_node.0.label().pkg().dupe())
             }))
     }
 }
