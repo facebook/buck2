@@ -12,7 +12,7 @@ def materialize(ctx, target):
     # Ensures the srcs folder will be present
     return ctx.output.ensure(sources).abs_path()
 
-def _process_target_config(ctx, target):
+def _process_target_config(ctx, target, in_workspace):
     # convert all source paths to absolute paths
     resolved_attrs = target.resolved_attrs_eager(ctx)
 
@@ -65,6 +65,7 @@ def _process_target_config(ctx, target):
     copy["source_folder"] = materialize(ctx, target)
     copy["label"] = target.label.raw_target()
     copy["kind"] = target.rule_type
+    copy["in_workspace"] = in_workspace
     return copy
 
 def cquery_deps(ctx, top_targets):
@@ -77,7 +78,8 @@ def cquery_deps(ctx, top_targets):
     ctx.analysis(outputs)
 
     for target in outputs:
-        out[target.label.raw_target()] = _process_target_config(ctx, target)
+        in_workspace = target.label.raw_target() in top_targets
+        out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace)
     return out
 
 def expand_proc_macros(ctx, targets):
