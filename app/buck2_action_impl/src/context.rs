@@ -180,13 +180,13 @@ fn copy_file_impl<'v>(
 ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
     let src = src.0;
 
-    let artifact = src.get_bound_artifact()?;
+    let artifact = src.get_artifact_group()?;
     let associated_artifacts = src.get_associated_artifacts();
     let mut this = this.state();
     let (declaration, output_artifact) = this.get_or_declare_output(eval, dest, output_type)?;
 
     this.register_action(
-        indexset![ArtifactGroup::Artifact(artifact)],
+        indexset![artifact],
         indexset![output_artifact],
         UnregisteredCopyAction::new(copy),
         None,
