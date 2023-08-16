@@ -20,7 +20,6 @@ use std::fmt::Debug;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::docs::DocMember;
 use crate::eval::compiler::scope::payload::CstArgument;
 use crate::eval::compiler::scope::payload::CstAssign;
 use crate::eval::compiler::scope::payload::CstExpr;
@@ -347,13 +346,7 @@ impl TypingContext<'_> {
                     Ty::any()
                 }
             }
-            Some(ResolvedIdent::Global(g)) => {
-                if let Some(t) = g.to_value().get_ref().typechecker_ty() {
-                    t
-                } else {
-                    Ty::from_docs_member(&DocMember::from_value(g.to_value()))
-                }
-            }
+            Some(ResolvedIdent::Global(g)) => Ty::of_value(g.to_value()),
             None => {
                 // All identifiers must be resolved at this point,
                 // but we don't stop after scope resolution error,

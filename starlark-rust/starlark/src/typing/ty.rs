@@ -56,6 +56,7 @@ use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::Value;
 
 /// A typing operation wasn't able to produce a precise result,
 /// so made some kind of approximation.
@@ -557,6 +558,14 @@ impl Ty {
         match member {
             DocMember::Property(x) => x.typ.clone(),
             DocMember::Function(x) => Self::from_docs_function(x),
+        }
+    }
+
+    pub(crate) fn of_value(value: Value) -> Ty {
+        if let Some(t) = value.get_ref().typechecker_ty() {
+            t
+        } else {
+            Ty::from_docs_member(&DocMember::from_value(value))
         }
     }
 
