@@ -25,6 +25,7 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::values::list::ListOf;
 use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::Heap;
@@ -44,6 +45,7 @@ use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -66,6 +68,8 @@ enum PromiseArtifactError {
     NoShortPathPromised(StarlarkPromiseArtifact),
     #[error("The promise artifact ({0}) short_path has no file name")]
     PromisedShortPathHasNoFileName(StarlarkPromiseArtifact),
+    #[error("Promise artifacts do not support associated artifacts")]
+    CannotAddAssociatedArtifacts,
 }
 
 /// An artifact wrapper for a StarlarkPromise that will resolve to an artifact
@@ -320,10 +324,21 @@ fn promise_artifact_methods(builder: &mut MethodsBuilder) {
         Err(PromiseArtifactError::CannotProject(this.clone()).into())
     }
 
-    // Returns a `StarlarkPromiseArtifact` instance which is identical to the original artifact, except with no associated artifacts
+    /// Returns a `StarlarkPromiseArtifact` instance which is identical to the original artifact,
+    /// except with no associated artifacts
     fn without_associated_artifacts(
         this: &StarlarkPromiseArtifact,
     ) -> anyhow::Result<StarlarkPromiseArtifact> {
         Ok(this.clone())
+    }
+
+    /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, but with
+    /// potentially additional artifacts. The artifacts must be bound.
+    fn with_associated_artifacts<'v>(
+        this: &'v StarlarkDeclaredArtifact,
+        artifacts: ListOf<'v, ValueAsArtifactLike<'v>>,
+    ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+        let _unused = (this, artifacts);
+        Err(PromiseArtifactError::CannotAddAssociatedArtifacts.into())
     }
 }

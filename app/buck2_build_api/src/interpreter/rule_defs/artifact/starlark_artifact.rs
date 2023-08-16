@@ -25,6 +25,7 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::values::list::ListOf;
 use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::Heap;
@@ -38,6 +39,7 @@ use thiserror::Error;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
@@ -386,11 +388,32 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
         )))
     }
 
-    // Returns a `StarlarkArtifact` instance which is identical to the original artifact, except with no associated artifacts
+    /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, except
+    /// with no associated artifacts
     fn without_associated_artifacts(this: &StarlarkArtifact) -> anyhow::Result<StarlarkArtifact> {
         Ok(StarlarkArtifact {
             artifact: this.artifact.dupe(),
             associated_artifacts: AssociatedArtifacts::new(),
+        })
+    }
+
+    /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, but with
+    /// potentially additional artifacts. The artifacts must be bound.
+    fn with_associated_artifacts<'v>(
+        this: &'v StarlarkArtifact,
+        artifacts: ListOf<'v, ValueAsArtifactLike<'v>>,
+    ) -> anyhow::Result<StarlarkArtifact> {
+        let artifacts = artifacts
+            .to_vec()
+            .iter()
+            .map(|a| a.0.get_artifact_group())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let artifacts = AssociatedArtifacts::from(artifacts);
+
+        Ok(StarlarkArtifact {
+            artifact: this.artifact.dupe(),
+            associated_artifacts: this.associated_artifacts.union(artifacts),
         })
     }
 }
