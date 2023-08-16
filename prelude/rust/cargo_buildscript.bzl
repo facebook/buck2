@@ -118,14 +118,7 @@ def buildscript_run(
             name = filegroup_name,
             srcs = {
                 path.removeprefix(prefix_with_trailing_slash): path
-                for path in glob(
-                    include = ["{}/**".format(prefix)],
-                    exclude = [
-                        "{}/METADATA.bzl".format(prefix),
-                        "{}/rust-toolchain".format(prefix),
-                        "{}/rust-toolchain.toml".format(prefix),
-                    ],
-                )
+                for path in glob(["{}/**".format(prefix)])
             },
             copy = False,
             visibility = [],
