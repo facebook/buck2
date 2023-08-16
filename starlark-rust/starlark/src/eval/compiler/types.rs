@@ -18,9 +18,7 @@
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::constants::Constants;
-use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstIdent;
-use crate::eval::compiler::scope::payload::CstParameter;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
@@ -33,11 +31,7 @@ use crate::eval::compiler::EvalException;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::slice_vec_ext::VecExt;
-use crate::syntax::ast::AssignP;
-use crate::syntax::ast::ExprP;
-use crate::syntax::ast::StmtP;
 use crate::syntax::type_expr::TypeExprUnpackP;
-use crate::syntax::uniplate::VisitMut;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Value;
@@ -224,49 +218,8 @@ impl<'v> Compiler<'v, '_, '_> {
         Ok(())
     }
 
-    fn populate_types_in_params(
-        &mut self,
-        params: &mut [CstParameter],
-    ) -> Result<(), EvalException> {
-        for param in params {
-            let (_, ty, _) = param.split_mut();
-            if let Some(ty) = ty {
-                self.populate_types_in_type_expr(ty)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn populate_types_in_expr(&mut self, expr: &mut CstExpr) -> Result<(), EvalException> {
-        match &mut expr.node {
-            ExprP::Lambda(lambda) => {
-                self.populate_types_in_params(&mut lambda.params)?;
-            }
-            _ => {}
-        }
-        expr.visit_expr_err_mut(|expr| self.populate_types_in_expr(expr))
-    }
-
-    #[allow(clippy::collapsible_match)]
     fn populate_types_in_stmt(&mut self, stmt: &mut CstStmt) -> Result<(), EvalException> {
-        match &mut stmt.node {
-            StmtP::Assign(AssignP { ty, .. }) => {
-                if let Some(ty) = ty {
-                    self.populate_types_in_type_expr(ty)?;
-                }
-            }
-            StmtP::Def(def) => {
-                self.populate_types_in_params(&mut def.params)?;
-                if let Some(ret) = &mut def.return_type {
-                    self.populate_types_in_type_expr(ret)?;
-                }
-            }
-            _ => {}
-        }
-        stmt.visit_children_err_mut(|visit| match visit {
-            VisitMut::Stmt(stmt) => self.populate_types_in_stmt(stmt),
-            VisitMut::Expr(expr) => self.populate_types_in_expr(expr),
-        })
+        stmt.visit_type_expr_err_mut(&mut |type_expr| self.populate_types_in_type_expr(type_expr))
     }
 
     pub(crate) fn populate_types_in_stmts(
