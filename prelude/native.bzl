@@ -21,6 +21,7 @@ load("@prelude//cxx:cxx_toolchain_macro_layer.bzl", "cxx_toolchain_macro_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
 load("@prelude//erlang:erlang.bzl", _erlang_application = "erlang_application", _erlang_tests = "erlang_tests")
 load("@prelude//python:toolchain.bzl", _python = "python")
+load("@prelude//rust:rust_common.bzl", "rust_common_macro_wrapper")
 load("@prelude//user:all.bzl", _user_rules = "rules")
 load("@prelude//utils:selects.bzl", "selects")
 load("@prelude//utils:utils.bzl", "expect")
@@ -383,6 +384,18 @@ def _erlang_tests_macro_stub(**kwargs):
         **kwargs
     )
 
+def _rust_library_macro_stub(**kwargs):
+    rust_library = rust_common_macro_wrapper(__rules__["rust_library"])
+    rust_library(**kwargs)
+
+def _rust_binary_macro_stub(**kwargs):
+    rust_binary = rust_common_macro_wrapper(__rules__["rust_binary"])
+    rust_binary(**kwargs)
+
+def _rust_test_macro_stub(**kwargs):
+    rust_test = rust_common_macro_wrapper(__rules__["rust_test"])
+    rust_test(**kwargs)
+
 # TODO(cjhopman): These macro wrappers should be handled in prelude/rules.bzl+rule_impl.bzl.
 # Probably good if they were defined to take in the base rule that
 # they are wrapping and return the wrapped one.
@@ -403,6 +416,9 @@ __extra_rules__ = {
     "export_file": _export_file_macro_stub,
     "prebuilt_cxx_library": _prebuilt_cxx_library_macro_stub,
     "python_library": _python_library_macro_stub,
+    "rust_binary": _rust_binary_macro_stub,
+    "rust_library": _rust_library_macro_stub,
+    "rust_test": _rust_test_macro_stub,
     "swift_toolchain": _swift_toolchain_macro_stub,
     "versioned_alias": _versioned_alias_macro_stub,
 }
