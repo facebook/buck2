@@ -364,6 +364,7 @@ impl Buck {
         &self,
         targets: &[Target],
     ) -> Result<BTreeMap<Target, AliasedTargetInfo>, anyhow::Error> {
+        // FIXME: Do this in bxl as well instead of manually writing a separate query
         let mut command = self.command();
 
         // Fetch all aliases used by transitive deps. This is so we
