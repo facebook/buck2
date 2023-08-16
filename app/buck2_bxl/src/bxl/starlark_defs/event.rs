@@ -12,6 +12,8 @@
 
 use std::collections::HashMap;
 
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_data::starlark_user_metadata_value::Value::BoolValue;
 use buck2_data::starlark_user_metadata_value::Value::DictValue;
 use buck2_data::starlark_user_metadata_value::Value::IntValue;
@@ -27,6 +29,9 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use thiserror::Error;
 
+use super::artifacts::EnsuredArtifact;
+use super::context::output::get_artifact_path_display;
+
 #[derive(Error, Debug)]
 enum StarlarkUserEventUnpack {
     #[error(
@@ -41,78 +46,100 @@ enum StarlarkUserEventUnpack {
     InvalidValue(String, String),
 }
 
-pub(crate) fn to_starlark_user_event<'v>(
-    id: &str,
-    metadata: Value<'v>,
-) -> anyhow::Result<StarlarkUserEvent> {
-    Ok(StarlarkUserEvent {
-        id: id.to_owned(),
-        metadata: unpack_metadata_map(metadata)?,
-    })
+pub(crate) struct StarlarkUserEventParser<'v> {
+    pub(crate) artifact_fs: &'v ArtifactFs,
+    pub(crate) project_fs: &'v ProjectRoot,
 }
 
-fn unpack_metadata_map<'v>(
-    metadata: Value<'v>,
-) -> anyhow::Result<HashMap<String, StarlarkUserMetadataValue>> {
-    let metadata = match DictRef::from_value(metadata) {
-        Some(metadata) => metadata,
-        None => {
-            return Err(
-                StarlarkUserEventUnpack::InvalidMetadata(metadata.get_type().to_owned()).into(),
-            );
-        }
-    };
+impl<'v> StarlarkUserEventParser<'v> {
+    pub(crate) fn parse(&self, id: &str, metadata: Value<'v>) -> anyhow::Result<StarlarkUserEvent> {
+        Ok(StarlarkUserEvent {
+            id: id.to_owned(),
+            metadata: self.unpack_metadata_map(metadata)?,
+        })
+    }
 
-    metadata
-        .iter()
-        .map(|(k, v)| {
-            let k = match k.unpack_str() {
-                Some(k) => k.to_owned(),
-                None => {
-                    return Err(StarlarkUserEventUnpack::InvalidKey(k.get_type().to_owned()).into());
-                }
-            };
+    fn unpack_metadata_map(
+        &self,
+        metadata: Value<'v>,
+    ) -> anyhow::Result<HashMap<String, StarlarkUserMetadataValue>> {
+        let metadata = match DictRef::from_value(metadata) {
+            Some(metadata) => metadata,
+            None => {
+                return Err(StarlarkUserEventUnpack::InvalidMetadata(
+                    metadata.get_type().to_owned(),
+                )
+                .into());
+            }
+        };
 
-            let v = get_metadata_value(&k, v)?;
-            Ok((k, v))
-        })
-        .collect::<anyhow::Result<HashMap<_, _>>>()
-}
-
-fn get_metadata_value<'v>(k: &str, v: Value<'v>) -> anyhow::Result<StarlarkUserMetadataValue> {
-    if let Some(v) = v.unpack_str() {
-        Ok(StarlarkUserMetadataValue {
-            value: Some(StringValue(v.into())),
-        })
-    } else if let Some(v) = v.unpack_bool() {
-        Ok(StarlarkUserMetadataValue {
-            value: Some(BoolValue(v)),
-        })
-    } else if let Some(v) = v.unpack_i32() {
-        Ok(StarlarkUserMetadataValue {
-            value: Some(IntValue(v)),
-        })
-    // Let's also accept floats since `instant()` methods return floats, but cast them to ints
-    } else if let Some(v) = f64::unpack_value(v) {
-        Ok(StarlarkUserMetadataValue {
-            value: Some(IntValue(v as i32)),
-        })
-    } else if DictRef::from_value(v).is_some() {
-        let dict = unpack_metadata_map(v)?;
-        let dict = StarlarkUserMetadataDictValue { value: dict };
-        Ok(StarlarkUserMetadataValue {
-            value: Some(DictValue(dict)),
-        })
-    } else if let Some(v) = ListRef::from_value(v) {
-        let list = v
+        metadata
             .iter()
-            .map(|e| get_metadata_value(k, e))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        let list = StarlarkUserMetadataListValue { value: list };
-        Ok(StarlarkUserMetadataValue {
-            value: Some(ListValue(list)),
-        })
-    } else {
-        Err(StarlarkUserEventUnpack::InvalidValue(k.to_owned(), v.get_type().to_owned()).into())
+            .map(|(k, v)| {
+                let k = match k.unpack_str() {
+                    Some(k) => k.to_owned(),
+                    None => {
+                        return Err(
+                            StarlarkUserEventUnpack::InvalidKey(k.get_type().to_owned()).into()
+                        );
+                    }
+                };
+
+                let v = self.get_metadata_value(&k, v)?;
+                Ok((k, v))
+            })
+            .collect::<anyhow::Result<HashMap<_, _>>>()
+    }
+
+    fn get_metadata_value(
+        &self,
+        k: &str,
+        v: Value<'v>,
+    ) -> anyhow::Result<StarlarkUserMetadataValue> {
+        if let Some(v) = v.unpack_str() {
+            Ok(StarlarkUserMetadataValue {
+                value: Some(StringValue(v.into())),
+            })
+        } else if let Some(v) = v.unpack_bool() {
+            Ok(StarlarkUserMetadataValue {
+                value: Some(BoolValue(v)),
+            })
+        } else if let Some(v) = v.unpack_i32() {
+            Ok(StarlarkUserMetadataValue {
+                value: Some(IntValue(v)),
+            })
+        // Let's also accept floats since `instant()` methods return floats, but cast them to ints
+        } else if let Some(v) = f64::unpack_value(v) {
+            Ok(StarlarkUserMetadataValue {
+                value: Some(IntValue(v as i32)),
+            })
+        } else if let Some(v) = <&EnsuredArtifact>::unpack_value(v) {
+            let path = get_artifact_path_display(
+                v.get_artifact_path(),
+                v.abs(),
+                self.project_fs,
+                self.artifact_fs,
+            )?;
+            Ok(StarlarkUserMetadataValue {
+                value: Some(StringValue(path)),
+            })
+        } else if DictRef::from_value(v).is_some() {
+            let dict = self.unpack_metadata_map(v)?;
+            let dict = StarlarkUserMetadataDictValue { value: dict };
+            Ok(StarlarkUserMetadataValue {
+                value: Some(DictValue(dict)),
+            })
+        } else if let Some(v) = ListRef::from_value(v) {
+            let list = v
+                .iter()
+                .map(|e| self.get_metadata_value(k, e))
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            let list = StarlarkUserMetadataListValue { value: list };
+            Ok(StarlarkUserMetadataValue {
+                value: Some(ListValue(list)),
+            })
+        } else {
+            Err(StarlarkUserEventUnpack::InvalidValue(k.to_owned(), v.get_type().to_owned()).into())
+        }
     }
 }
