@@ -37,7 +37,6 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::Wor
 use buck2_core::category::Category;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::request::ActionMetadataBlob;
@@ -398,15 +397,13 @@ impl RunAction {
             extra_env.push((metadata_param.env_var.to_owned(), env));
         }
 
-        let scratch = ctx.target().scratch_path();
-        let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
-
         if ctx.run_action_knobs().expose_action_scratch_path {
+            let scratch = ctx.target().scratch_path();
+            let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
+
             extra_env.push((
                 "BUCK_SCRATCH_PATH".to_owned(),
-                cli_ctx
-                    .resolve_project_path(scratch_path.clone())?
-                    .into_string(),
+                cli_ctx.resolve_project_path(scratch_path)?.into_string(),
             ));
 
             inputs.push(CommandExecutionInput::ScratchPath(scratch));
@@ -430,7 +427,6 @@ impl RunAction {
             extra_env,
             paths,
             worker,
-            scratch_path,
         })
     }
 }
@@ -440,7 +436,6 @@ pub(crate) struct PreparedRunAction {
     extra_env: Vec<(String, String)>,
     paths: CommandExecutionPaths,
     worker: Option<WorkerSpec>,
-    scratch_path: ProjectRelativePathBuf,
 }
 
 impl PreparedRunAction {
@@ -450,16 +445,13 @@ impl PreparedRunAction {
             extra_env,
             paths,
             worker,
-            scratch_path,
         } = self;
 
         for (k, v) in extra_env {
             env.insert(k, v);
         }
 
-        CommandExecutionRequest::new(exe, args, paths, env)
-            .with_worker(worker)
-            .with_scratch_path(scratch_path)
+        CommandExecutionRequest::new(exe, args, paths, env).with_worker(worker)
     }
 }
 

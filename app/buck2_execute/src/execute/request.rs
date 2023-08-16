@@ -268,8 +268,6 @@ pub struct CommandExecutionRequest {
     env: SortedVectorMap<String, String>,
     timeout: Option<Duration>,
     executor_preference: ExecutorPreference,
-    // Run with a custom $TMPDIR, or just the standard system one
-    scratch_path: Option<ProjectRelativePathBuf>,
     host_sharing_requirements: HostSharingRequirements,
     // Used to disable the low pass filter for concurrent local actions. Enabled by default
     low_pass_filter: bool,
@@ -310,7 +308,6 @@ impl CommandExecutionRequest {
             env,
             timeout: None,
             executor_preference: ExecutorPreference::Default,
-            scratch_path: None,
             host_sharing_requirements: HostSharingRequirements::default(),
             low_pass_filter: true,
             working_directory: None,
@@ -336,15 +333,6 @@ impl CommandExecutionRequest {
 
     pub fn with_executor_preference(mut self, executor_preference: ExecutorPreference) -> Self {
         self.executor_preference = executor_preference;
-        self
-    }
-
-    pub fn scratch_path(&self) -> Option<&ProjectRelativePath> {
-        self.scratch_path.as_deref()
-    }
-
-    pub fn with_scratch_path(mut self, scratch_path: ProjectRelativePathBuf) -> Self {
-        self.scratch_path = Some(scratch_path);
         self
     }
 
