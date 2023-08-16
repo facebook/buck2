@@ -18,6 +18,7 @@ load(
     "get_swift_anonymous_targets",
     "get_swift_debug_infos",
     "get_swift_dependency_info",
+    "get_swiftmodule_linkable",
     "uses_explicit_modules",
 )
 load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
@@ -98,6 +99,8 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
         swiftmodule = swift_compile.swiftmodule if swift_compile else None
         swift_debug_info = get_swift_debug_infos(ctx, swiftmodule, swift_dependency_info)
 
+        swiftmodule_linkable = get_swiftmodule_linkable(ctx, swift_dependency_info)
+
         constructor_params = CxxRuleConstructorParams(
             rule_type = "apple_binary",
             headers_layout = get_apple_cxx_headers_layout(ctx),
@@ -112,6 +115,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
                 static_external_debug_info = swift_debug_info.static,
                 shared_external_debug_info = swift_debug_info.shared,
             ),
+            swiftmodule_linkable = swiftmodule_linkable,
             extra_link_input = swift_object_files,
             extra_link_input_has_external_debug_info = True,
             extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre] + swift_preprocessor,
