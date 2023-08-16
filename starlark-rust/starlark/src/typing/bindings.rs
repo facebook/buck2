@@ -125,7 +125,7 @@ impl<'a> BindingsCollect<'a> {
     ///
     /// This function only fails on internal errors.
     pub(crate) fn collect(
-        xs: &'a [CstStmt],
+        xs: &'a [&'a mut CstStmt],
         typecheck_mode: TypecheckMode,
         codemap: &CodeMap,
     ) -> Result<Self, InternalError> {

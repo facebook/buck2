@@ -224,7 +224,7 @@ impl<'v> Compiler<'v, '_, '_> {
 
     pub(crate) fn populate_types_in_stmts(
         &mut self,
-        stmts: &mut [CstStmt],
+        stmts: &mut [&mut CstStmt],
         up_to: TopLevelStmtIndex,
     ) -> Result<(), EvalException> {
         if self.last_stmt_with_populated_types >= up_to {

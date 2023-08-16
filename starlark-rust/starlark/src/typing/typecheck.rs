@@ -19,7 +19,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
-use std::slice;
 
 use dupe::Dupe;
 
@@ -33,8 +32,8 @@ use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::BindingSource;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::EvalException;
-use crate::syntax::ast::StmtP;
 use crate::syntax::ast::Visibility;
+use crate::syntax::top_level_stmts::top_level_stmts_mut;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::bindings::Bindings;
@@ -171,7 +170,7 @@ impl AstModule {
         let (
             scope_errors,
             ModuleScopes {
-                cst,
+                mut cst,
                 scope_data,
                 module_bindings,
                 ..
@@ -187,11 +186,8 @@ impl AstModule {
         );
         // We don't really need to properly unpack top-level statements,
         // but make it safe against future changes.
-        let cst: &[CstStmt] = match &cst.node {
-            StmtP::Statements(x) => x,
-            _ => slice::from_ref(&cst),
-        };
-        let bindings = match BindingsCollect::collect(cst, TypecheckMode::Lint, &codemap) {
+        let cst: Vec<&mut CstStmt> = top_level_stmts_mut(&mut cst);
+        let bindings = match BindingsCollect::collect(&cst, TypecheckMode::Lint, &codemap) {
             Ok(bindings) => bindings,
             Err(e) => {
                 return (

@@ -17,8 +17,6 @@
 
 //! Compile and evaluate module top-level statements.
 
-use std::slice;
-
 use crate::codemap::Spanned;
 use crate::const_frozen_string;
 use crate::eval::bc::frame::alloca_frame;
@@ -35,6 +33,7 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::syntax::ast::LoadP;
 use crate::syntax::ast::StmtP;
+use crate::syntax::top_level_stmts::top_level_stmts_mut;
 use crate::typing::bindings::BindingsCollect;
 use crate::typing::error::InternalError;
 use crate::typing::mode::TypecheckMode;
@@ -128,15 +127,13 @@ impl<'v> Compiler<'v, '_, '_> {
         )
     }
 
+    #[allow(clippy::mut_mut)] // Another false positive.
     fn eval_top_level_stmt(
         &mut self,
         stmt: &mut CstStmt,
         local_names: FrozenRef<'static, [FrozenStringValue]>,
     ) -> Result<Value<'v>, EvalException> {
-        let stmts: &mut [CstStmt] = match &mut stmt.node {
-            StmtP::Statements(stmts) => stmts,
-            _ => slice::from_mut(stmt),
-        };
+        let mut stmts = top_level_stmts_mut(stmt);
 
         if stmts.len() != self.top_level_stmt_count {
             return Err(EvalException::new(
@@ -147,12 +144,12 @@ impl<'v> Compiler<'v, '_, '_> {
         }
 
         if self.last_stmt_defining_type.is_none() {
-            self.typecheck(stmts)?;
+            self.typecheck(&mut stmts)?;
         }
 
         let mut last = Value::new_none();
         for i in 0..stmts.len() {
-            self.populate_types_in_stmts(stmts, TopLevelStmtIndex(i + 1))?;
+            self.populate_types_in_stmts(&mut stmts, TopLevelStmtIndex(i + 1))?;
 
             let stmt = &mut stmts[i];
 
@@ -168,13 +165,13 @@ impl<'v> Compiler<'v, '_, '_> {
             }
 
             if Some(TopLevelStmtIndex(i)) == self.last_stmt_defining_type {
-                self.typecheck(stmts)?;
+                self.typecheck(&mut stmts)?;
             }
         }
         Ok(last)
     }
 
-    fn typecheck(&mut self, stmts: &mut [CstStmt]) -> Result<(), EvalException> {
+    fn typecheck(&mut self, stmts: &mut [&mut CstStmt]) -> Result<(), EvalException> {
         if !self.eval.static_typechecking {
             return Ok(());
         }
