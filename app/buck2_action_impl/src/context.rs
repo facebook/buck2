@@ -594,11 +594,10 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///
     /// Actions also get exclusive access to a "scratch" path that is exposed via the environment
     /// variable `BUCK_SCRATCH_PATH`. This path is expressed as a path relative to the working
-    /// directory (i.e. relative to the project).
+    /// directory (i.e. relative to the project). This path is guaranteed to exist when the action
+    /// executes.
     ///
-    /// The scratch path is not guaranteed to exist when the action executes. If an action wants to
-    /// use the scratch path, the action should create that directory (Buck does guarantee that the
-    /// directory can be created).
+    /// When actions run locally, the scratch path is also used as the `TMPDIR`.
     fn run<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] arguments: Value<'v>,
