@@ -24,37 +24,23 @@ use either::Either;
 use serde::Serialize;
 use serde::Serializer;
 
-use crate::codemap::CodeMap;
-use crate::codemap::Spanned;
 use crate::docs::DocFunction;
 use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
-use crate::eval::compiler::constants::Constants;
-use crate::eval::compiler::scope::payload::CstIdent;
-use crate::eval::compiler::scope::payload::CstPayload;
-use crate::eval::compiler::scope::payload::CstTypeExpr;
-use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::small_vec_1::SmallVec1;
-use crate::slice_vec_ext::SliceExt;
-use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::typing::basic::TyBasic;
 use crate::typing::custom::TyCustom;
 use crate::typing::custom::TyCustomImpl;
-use crate::typing::error::InternalError;
 use crate::typing::function::Param;
 use crate::typing::function::ParamMode;
 use crate::typing::function::TyCustomFunction;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::function::TyFunction;
-use crate::typing::mode::TypecheckMode;
 use crate::typing::structs::TyStruct;
 use crate::values::bool::StarlarkBool;
 use crate::values::tuple::value::FrozenTuple;
 use crate::values::typing::never::TypingNever;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::FrozenValue;
-use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
@@ -386,172 +372,6 @@ impl Ty {
                 .map(|x| x.indexed(i))
                 .collect(),
         )
-    }
-
-    pub(crate) fn from_type_expr_opt(
-        x: Option<&CstTypeExpr>,
-        typecheck_mode: TypecheckMode,
-        approximations: &mut Vec<Approximation>,
-        codemap: &CodeMap,
-    ) -> Result<Self, InternalError> {
-        match x {
-            None => Ok(Ty::any()),
-            Some(x) => Self::from_type_expr(x, typecheck_mode, approximations, codemap),
-        }
-    }
-
-    pub(crate) fn from_type_expr(
-        x: &CstTypeExpr,
-        typecheck_mode: TypecheckMode,
-        approximations: &mut Vec<Approximation>,
-        codemap: &CodeMap,
-    ) -> Result<Self, InternalError> {
-        match typecheck_mode {
-            TypecheckMode::Lint => {
-                // TODO(nga): remove this branch: in lint, populate types in CstPayload
-                //   before running typechecking, and always fetch the type from the payload.
-                Self::from_type_expr_for_lint(x, codemap, approximations)
-            }
-            TypecheckMode::Compiler => match &x.payload.compiler_ty {
-                Some(ty) => Ok(ty.clone()),
-                None => Err(InternalError::msg(
-                    "type payload is not populated",
-                    x.span,
-                    codemap,
-                )),
-            },
-        }
-    }
-
-    fn from_type_expr_for_lint(
-        x: &CstTypeExpr,
-        codemap: &CodeMap,
-        approximations: &mut Vec<Approximation>,
-    ) -> Result<Self, InternalError> {
-        let x = TypeExprUnpackP::unpack(&x.expr, codemap)
-            .map_err(InternalError::from_eval_exception)?;
-        Ok(Self::from_expr_impl(&x, approximations))
-    }
-
-    // This should go away when `ExprType` is disconnected from `Expr`.
-    fn from_expr_impl(
-        x: &Spanned<TypeExprUnpackP<CstPayload>>,
-        approximations: &mut Vec<Approximation>,
-    ) -> Self {
-        let mut unknown = || {
-            approximations.push(Approximation::new("Unknown type", x));
-            Ty::any()
-        };
-
-        fn ident_global(ident: &CstIdent) -> Option<FrozenValue> {
-            match &ident.node.1 {
-                Some(ResolvedIdent::Global(x)) => Some(*x),
-                _ => None,
-            }
-        }
-
-        match &x.node {
-            TypeExprUnpackP::Tuple(xs) => {
-                Ty::tuple(xs.map(|x| Self::from_expr_impl(x, approximations)))
-            }
-            TypeExprUnpackP::Union(xs) => {
-                Ty::unions(xs.map(|x| Self::from_expr_impl(x, approximations)))
-            }
-            TypeExprUnpackP::Literal(x) => {
-                if x.is_empty() || x.starts_with('_') {
-                    Ty::any()
-                } else {
-                    Ty::name(x)
-                }
-            }
-            TypeExprUnpackP::Path(first, rem) => {
-                if rem.is_empty() {
-                    if let Some(v) = ident_global(first) {
-                        let heap = Heap::new();
-                        match TypeCompiled::new(v.to_value(), &heap) {
-                            Ok(ty) => ty.as_ty().clone(),
-                            Err(_) => unknown(),
-                        }
-                    } else {
-                        unknown()
-                    }
-                } else if rem.len() == 1 {
-                    if rem[0].node == "type" {
-                        if first.node.0 == "str" {
-                            Ty::string()
-                        } else {
-                            Ty::name(&first.node.0)
-                        }
-                    } else {
-                        unknown()
-                    }
-                } else {
-                    unknown()
-                }
-            }
-            TypeExprUnpackP::Index(a, i) => {
-                if let Some(a) = ident_global(a) {
-                    if !a.to_value().ptr_eq(Constants::get().fn_list.0.to_value()) {
-                        approximations.push(Approximation::new("Not list", x));
-                        return Ty::any();
-                    }
-                    let i = Self::from_expr_impl(i, approximations);
-                    let heap = Heap::new();
-                    let i = TypeCompiled::from_ty(&i, &heap);
-                    match a.to_value().get_ref().at(i.to_inner(), &heap) {
-                        Ok(t) => match TypeCompiled::new(t, &heap) {
-                            Ok(ty) => ty.as_ty().clone(),
-                            Err(_) => {
-                                approximations
-                                    .push(Approximation::new("TypeCompiled::new failed", x));
-                                Ty::any()
-                            }
-                        },
-                        Err(e) => {
-                            approximations.push(Approximation::new("Getitem failed", e));
-                            Ty::any()
-                        }
-                    }
-                } else {
-                    approximations.push(Approximation::new("Not global", x));
-                    Ty::any()
-                }
-            }
-            TypeExprUnpackP::Index2(a, i0, i1) => {
-                if let Some(a) = ident_global(a) {
-                    if !a.to_value().ptr_eq(Constants::get().fn_dict.0.to_value()) {
-                        approximations.push(Approximation::new("Not dict", x));
-                        return Ty::any();
-                    }
-                    let i0 = Self::from_expr_impl(i0, approximations);
-                    let i1 = Self::from_expr_impl(i1, approximations);
-                    let heap = Heap::new();
-                    let i0 = TypeCompiled::from_ty(&i0, &heap);
-                    let i1 = TypeCompiled::from_ty(&i1, &heap);
-                    match a
-                        .to_value()
-                        .get_ref()
-                        .at2(i0.to_inner(), i1.to_inner(), &heap)
-                    {
-                        Ok(t) => match TypeCompiled::new(t, &heap) {
-                            Ok(ty) => ty.as_ty().clone(),
-                            Err(_) => {
-                                approximations
-                                    .push(Approximation::new("TypeCompiled::new failed", x));
-                                Ty::any()
-                            }
-                        },
-                        Err(e) => {
-                            approximations.push(Approximation::new("Getitem2 failed", e));
-                            Ty::any()
-                        }
-                    }
-                } else {
-                    approximations.push(Approximation::new("Not global", x));
-                    Ty::any()
-                }
-            }
-        }
     }
 
     pub(crate) fn from_docs_member(member: &DocMember) -> Self {

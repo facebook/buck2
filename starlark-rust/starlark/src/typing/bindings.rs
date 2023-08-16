@@ -28,6 +28,7 @@ use crate::eval::compiler::scope::payload::CstAssign;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
+use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::syntax::ast::AssignOp;
@@ -114,13 +115,12 @@ impl Interface {
     }
 }
 
-#[derive(Default)]
-pub(crate) struct BindingsCollect<'a> {
+pub(crate) struct BindingsCollect<'a, 'b> {
     pub(crate) bindings: Bindings<'a>,
-    pub(crate) approximations: Vec<Approximation>,
+    pub(crate) approximations: &'b mut Vec<Approximation>,
 }
 
-impl<'a> BindingsCollect<'a> {
+impl<'a, 'b> BindingsCollect<'a, 'b> {
     /// Collect all the assignments to variables.
     ///
     /// This function only fails on internal errors.
@@ -128,8 +128,13 @@ impl<'a> BindingsCollect<'a> {
         xs: &'a [&'a mut CstStmt],
         typecheck_mode: TypecheckMode,
         codemap: &CodeMap,
+        approximations: &'b mut Vec<Approximation>,
     ) -> Result<Self, InternalError> {
-        let mut res = BindingsCollect::default();
+        let mut res = BindingsCollect {
+            bindings: Bindings::default(),
+            approximations,
+        };
+
         for x in xs {
             res.visit(Visit::Stmt(x), &Ty::any(), typecheck_mode, codemap)?;
         }
@@ -183,6 +188,37 @@ impl<'a> BindingsCollect<'a> {
         Ok(())
     }
 
+    /// Type must be populated earlier.
+    fn resolved_ty(
+        expr: &CstTypeExpr,
+        typecheck_mode: TypecheckMode,
+        codemap: &CodeMap,
+    ) -> Result<Ty, InternalError> {
+        let ty = match typecheck_mode {
+            TypecheckMode::Lint => expr.payload.typechecker_ty.clone(),
+            TypecheckMode::Compiler => expr.payload.compiler_ty.clone(),
+        };
+        match ty {
+            Some(ty) => Ok(ty),
+            None => Err(InternalError::msg(
+                "Type must be populated earlier",
+                expr.span,
+                codemap,
+            )),
+        }
+    }
+
+    fn resolve_ty_opt(
+        expr: Option<&CstTypeExpr>,
+        typecheck_mode: TypecheckMode,
+        codemap: &CodeMap,
+    ) -> Result<Ty, InternalError> {
+        match expr {
+            Some(expr) => Self::resolved_ty(expr, typecheck_mode, codemap),
+            None => Ok(Ty::any()),
+        }
+    }
+
     fn visit_def(
         &mut self,
         def: &'a DefP<CstPayload>,
@@ -203,12 +239,7 @@ impl<'a> BindingsCollect<'a> {
             let ty = p.node.ty;
             let name_ty = match &p.node.kind {
                 DefParamKind::Regular(default_value) => {
-                    let ty = Ty::from_type_expr_opt(
-                        ty,
-                        typecheck_mode,
-                        &mut self.approximations,
-                        codemap,
-                    )?;
+                    let ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
                     let mut param = if i >= def_params.num_positional as usize {
                         Param::name_only(&name.0, ty.clone())
                     } else {
@@ -223,23 +254,13 @@ impl<'a> BindingsCollect<'a> {
                 DefParamKind::Args => {
                     // There is the type we require people calling us use (usually any)
                     // and then separately the type we are when we are running (always tuple)
-                    let item_ty = Ty::from_type_expr_opt(
-                        ty,
-                        typecheck_mode,
-                        &mut self.approximations,
-                        codemap,
-                    )?;
+                    let item_ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
                     // TODO(nga): currently there's no way to express the type `tuple[str, ...]`.
                     params2.push(Param::args(item_ty));
                     Some((name, Ty::any_tuple()))
                 }
                 DefParamKind::Kwargs => {
-                    let value_ty = Ty::from_type_expr_opt(
-                        ty,
-                        typecheck_mode,
-                        &mut self.approximations,
-                        codemap,
-                    )?;
+                    let value_ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
                     let ty = Ty::dict(Ty::string(), value_ty.clone());
                     params2.push(Param::kwargs(value_ty));
                     Some((name, ty))
@@ -251,12 +272,7 @@ impl<'a> BindingsCollect<'a> {
                     .insert(name.resolved_binding_id(codemap)?, ty);
             }
         }
-        let ret_ty = Ty::from_type_expr_opt(
-            return_type.as_deref(),
-            typecheck_mode,
-            &mut self.approximations,
-            codemap,
-        )?;
+        let ret_ty = Self::resolve_ty_opt(return_type.as_deref(), typecheck_mode, codemap)?;
         self.bindings.types.insert(
             name.resolved_binding_id(codemap)?,
             Ty::function(params2, ret_ty.clone()),
@@ -276,12 +292,7 @@ impl<'a> BindingsCollect<'a> {
             Visit::Stmt(x) => match &**x {
                 StmtP::Assign(AssignP { lhs, ty, rhs }) => {
                     if let Some(ty) = ty {
-                        let ty2 = Ty::from_type_expr(
-                            ty,
-                            typecheck_mode,
-                            &mut self.approximations,
-                            codemap,
-                        )?;
+                        let ty2 = Self::resolved_ty(ty, typecheck_mode, codemap)?;
                         self.bindings
                             .check_type
                             .push((ty.span, Some(rhs), ty2.clone()));

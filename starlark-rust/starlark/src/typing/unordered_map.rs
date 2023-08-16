@@ -16,6 +16,7 @@
  */
 
 use std::borrow::Borrow;
+use std::collections::hash_map;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Index;
@@ -73,6 +74,10 @@ impl<K: Eq + Hash, V> UnorderedMap<K, V> {
         Q: Hash + Eq + ?Sized,
     {
         self.map.contains_key(key)
+    }
+
+    pub(crate) fn entry(&mut self, key: K) -> hash_map::Entry<K, V> {
+        self.map.entry(key)
     }
 
     pub(crate) fn insert(&mut self, key: K, value: V) -> Option<V> {

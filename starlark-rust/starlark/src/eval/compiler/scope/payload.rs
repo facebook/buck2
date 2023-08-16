@@ -71,8 +71,10 @@ impl AstPayload for CstPayload {
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct CstTypeExprPayload {
-    /// Populated before evaluation of top level statements.
+    /// Populated before evaluation of top level statements in normal evaluation.
     pub(crate) compiler_ty: Option<Ty>,
+    /// Populated during lightweight evaluation for the lint type checker.
+    pub(crate) typechecker_ty: Option<Ty>,
 }
 
 struct CompilerAstMap<'a, 'f> {

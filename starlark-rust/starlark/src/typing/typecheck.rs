@@ -31,7 +31,7 @@ use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::BindingSource;
 use crate::eval::compiler::scope::ModuleScopes;
-use crate::eval::compiler::EvalException;
+use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::Visibility;
 use crate::syntax::top_level_stmts::top_level_stmts_mut;
 use crate::syntax::AstModule;
@@ -42,6 +42,7 @@ use crate::typing::bindings::Interface;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
+use crate::typing::fill_types_for_lint::fill_types_for_lint_typechecker;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingOracle;
@@ -183,14 +184,42 @@ impl AstModule {
             frozen_heap.alloc_any_display_from_debug(self.codemap.dupe()),
             &Dialect::Extended,
         );
+        let scope_errors = scope_errors.into_map(TypingError::from_eval_exception);
         // We don't really need to properly unpack top-level statements,
         // but make it safe against future changes.
-        let cst: Vec<&mut CstStmt> = top_level_stmts_mut(&mut cst);
+        let mut cst: Vec<&mut CstStmt> = top_level_stmts_mut(&mut cst);
         let oracle = TypingOracleCtx {
             codemap: &codemap,
             oracle,
         };
-        let bindings = match BindingsCollect::collect(&cst, TypecheckMode::Lint, &codemap) {
+
+        let mut approximations = Vec::new();
+        let fill_types_errors = match fill_types_for_lint_typechecker(
+            &mut cst,
+            oracle,
+            &scope_data,
+            &mut approximations,
+        ) {
+            Ok(fill_types_errors) => fill_types_errors,
+            Err(e) => {
+                return (
+                    vec![InternalError::into_anyhow(e)],
+                    TypeMap {
+                        codemap,
+                        bindings: UnorderedMap::new(),
+                    },
+                    Interface::default(),
+                    Vec::new(),
+                );
+            }
+        };
+
+        let bindings = match BindingsCollect::collect(
+            &cst,
+            TypecheckMode::Lint,
+            &codemap,
+            &mut approximations,
+        ) {
             Ok(bindings) => bindings,
             Err(e) => {
                 return (
@@ -204,7 +233,6 @@ impl AstModule {
                 );
             }
         };
-        let mut approximations = bindings.approximations;
         let (solve_errors, types, solve_approximations) =
             match solve_bindings(bindings.bindings, oracle) {
                 Ok(x) => x,
@@ -238,10 +266,10 @@ impl AstModule {
             codemap: codemap.dupe(),
         };
 
-        let errors = scope_errors
+        let errors = [scope_errors, fill_types_errors, solve_errors]
             .into_iter()
-            .map(EvalException::into_anyhow)
-            .chain(solve_errors.into_iter().map(TypingError::into_anyhow))
+            .flatten()
+            .map(TypingError::into_anyhow)
             .collect();
 
         let mut res = HashMap::new();

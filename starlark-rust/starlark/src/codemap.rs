@@ -97,6 +97,10 @@ impl Span {
         }
     }
 
+    pub(crate) fn merge_all(spans: impl Iterator<Item = Span>) -> Span {
+        spans.reduce(Span::merge).unwrap_or_default()
+    }
+
     /// Empty span in the end of this span.
     pub(crate) fn end_span(self) -> Span {
         Span {

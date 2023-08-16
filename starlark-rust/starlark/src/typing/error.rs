@@ -73,6 +73,11 @@ impl TypingError {
     }
 
     #[cold]
+    pub(crate) fn from_eval_exception(e: EvalException) -> TypingError {
+        TypingError(e)
+    }
+
+    #[cold]
     pub(crate) fn into_anyhow(self) -> anyhow::Error {
         self.0.into_anyhow()
     }

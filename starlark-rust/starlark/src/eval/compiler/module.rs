@@ -183,9 +183,13 @@ impl<'v> Compiler<'v, '_, '_> {
             oracle: &OracleAny,
             codemap: &self.codemap,
         };
-        let BindingsCollect { bindings, .. } =
-            BindingsCollect::collect(stmts, TypecheckMode::Compiler, &self.codemap)
-                .map_err(InternalError::into_eval_exception)?;
+        let BindingsCollect { bindings, .. } = BindingsCollect::collect(
+            stmts,
+            TypecheckMode::Compiler,
+            &self.codemap,
+            &mut Vec::new(),
+        )
+        .map_err(InternalError::into_eval_exception)?;
         let (errors, ..) = match solve_bindings(bindings, oracle) {
             Ok(x) => x,
             Err(e) => return Err(e.into_eval_exception()),

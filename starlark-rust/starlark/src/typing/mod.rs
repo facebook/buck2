@@ -28,6 +28,7 @@ pub(crate) mod bindings;
 pub(crate) mod ctx;
 pub(crate) mod custom;
 pub(crate) mod error;
+pub(crate) mod fill_types_for_lint;
 pub(crate) mod function;
 pub(crate) mod mode;
 pub(crate) mod oracle;

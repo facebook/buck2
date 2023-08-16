@@ -12,8 +12,5 @@ def f(x: MyList):
 
 No errors.
 
-Approximations:
-Approximation: Unknown type = "Spanned { node: Path(Spanned { node: IdentP(\"MyList\", Some(Slot(Module(ModuleSlotId(0)), BindingId(0)))), span: Span { begin: Pos(30), end: Pos(36) } }, []), span: Span { begin: Pos(30), end: Pos(36) } }"
-
 Types:
-x: typing.Any
+x: list[int]
