@@ -65,7 +65,7 @@ impl<'v> Compiler<'v, '_, '_> {
         }
         let expr = expr?;
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
-        let Some(ty) = &expr.payload else {
+        let Some(ty) = &expr.payload.compiler_ty else {
             // This is unreachable. But unfortunately we do not return error here.
             // Still make an error in panic to produce nice panic message.
             panic!(
@@ -204,7 +204,7 @@ impl<'v> Compiler<'v, '_, '_> {
         &mut self,
         type_expr: &mut CstTypeExpr,
     ) -> Result<(), EvalException> {
-        if type_expr.payload.is_some() {
+        if type_expr.payload.compiler_ty.is_some() {
             return Err(EvalException::new(
                 TypesError::TypeAlreadySet.into(),
                 type_expr.span,
@@ -214,7 +214,7 @@ impl<'v> Compiler<'v, '_, '_> {
         // This should not fail because we validated it at parse time.
         let unpack = TypeExprUnpackP::unpack(&type_expr.expr, &self.codemap)?;
         let type_value = self.eval_expr_as_type(unpack)?;
-        type_expr.payload = Some(type_value.as_ty().clone());
+        type_expr.payload.compiler_ty = Some(type_value.as_ty().clone());
         Ok(())
     }
 

@@ -412,7 +412,7 @@ impl Ty {
                 //   before running typechecking, and always fetch the type from the payload.
                 Self::from_type_expr_for_lint(x, codemap, approximations)
             }
-            TypecheckMode::Compiler => match &x.payload {
+            TypecheckMode::Compiler => match &x.payload.compiler_ty {
                 Some(ty) => Ok(ty.clone()),
                 None => Err(InternalError::msg(
                     "type payload is not populated",
