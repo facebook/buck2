@@ -27,6 +27,7 @@ def get_android_binary_resources_info(
         apk_module_graph_file: [Artifact, None] = None,
         manifest_entries: dict = {},
         resource_infos_to_exclude: [set_type, None] = None,
+        r_dot_java_packages_to_exclude: [list[str], None] = [],
         generate_strings_and_ids_separately: [bool, None] = True,
         aapt2_min_sdk: [str, None] = None,
         aapt2_preferred_density: [str, None] = None) -> AndroidBinaryResourcesInfo.type:
@@ -139,6 +140,7 @@ def get_android_binary_resources_info(
         getattr(ctx.attrs, "resource_union_package", None),
         referenced_resources_lists,
         generate_strings_and_ids_separately = generate_strings_and_ids_separately,
+        remove_classes = r_dot_java_packages_to_exclude,
     )
     string_source_map = _maybe_generate_string_source_map(
         ctx.actions,

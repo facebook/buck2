@@ -96,6 +96,7 @@ AndroidApkUnderTestInfo = provider(
         "platforms",  # [str]
         "primary_platform",  # str
         "resource_infos",  # set_type("ResourceInfos")
+        "r_dot_java_packages",  # [str]
         "shared_libraries",  # set_type("SharedLibrary")
     ],
 )
@@ -159,6 +160,8 @@ AndroidResourceInfo = provider(
         "assets",  # ["artifact", None]
         # manifest file used by the resources, if resources are present
         "manifest_file",  # ["artifact", None]
+        # the package specified by the android_resource rule itself
+        "specified_r_dot_java_package",  # [str, None]
         # package used for R.java, if resources are present
         "r_dot_java_package",  # ["artifact", None]
         # resources defined by this rule. May be empty
