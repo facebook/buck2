@@ -117,6 +117,7 @@ load(
     "LINK_GROUP_MAPPINGS_FILENAME_SUFFIX",
     "LINK_GROUP_MAPPINGS_SUB_TARGET",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
+    "LinkGroupContext",
     "create_link_groups",
     "find_relevant_roots",
     "get_filtered_labels_to_links_map",
@@ -394,9 +395,15 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
             ),
         )
 
+        link_group_ctx = LinkGroupContext(
+            link_group_mappings = link_group_mappings,
+            link_group_libs = link_group_libs,
+            link_group_preferred_linkage = link_group_preferred_linkage,
+            labels_to_links_map = labels_to_links_map,
+        )
         for name, shared_lib in traverse_shared_library_info(shlib_info).items():
             label = shared_lib.label
-            if not gnu_use_link_groups or is_link_group_shlib(label, link_group_mappings, link_group_libs, link_group_preferred_linkage, labels_to_links_map):
+            if not gnu_use_link_groups or is_link_group_shlib(label, link_group_ctx):
                 shared_libs[name] = shared_lib.lib
 
     if gnu_use_link_groups:

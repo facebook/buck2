@@ -20,6 +20,7 @@ load(
     "LINK_GROUP_MAPPINGS_FILENAME_SUFFIX",
     "LINK_GROUP_MAPPINGS_SUB_TARGET",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
+    "LinkGroupContext",
     "get_link_group_map_json",
     "is_link_group_shlib",
 )
@@ -121,7 +122,7 @@ def _rust_binary_common(
 
         rust_cxx_link_group_info = None
         link_group_mappings = {}
-        link_group_libs = []
+        link_group_libs = {}
         link_group_preferred_linkage = {}
         labels_to_links_map = {}
         filtered_targets = []
@@ -146,9 +147,16 @@ def _rust_binary_common(
                 ctx.actions,
                 deps = inherited_non_rust_shared_libs(ctx),
             )
+
+            link_group_ctx = LinkGroupContext(
+                link_group_mappings = link_group_mappings,
+                link_group_libs = link_group_libs,
+                link_group_preferred_linkage = link_group_preferred_linkage,
+                labels_to_links_map = labels_to_links_map,
+            )
             for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
                 label = shared_lib.label
-                if rust_cxx_link_group_info == None or is_link_group_shlib(label, link_group_mappings, link_group_libs, link_group_preferred_linkage, labels_to_links_map):
+                if rust_cxx_link_group_info == None or is_link_group_shlib(label, link_group_ctx):
                     shared_libs[soname] = shared_lib.lib
 
         if rust_cxx_link_group_info:
