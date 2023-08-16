@@ -576,7 +576,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
         actions = ctx.actions,
         children = (
             [binary.external_debug_info] +
-            [s.external_debug_info for s in shared_libs.values()]
+            [s.external_debug_info for s in shared_libs.values()] +
+            impl_params.additional.static_external_debug_info
         ),
     )
     materialize_external_debug_info = ctx.actions.write(

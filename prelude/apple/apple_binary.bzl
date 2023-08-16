@@ -5,7 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "project_artifacts")
+load(
+    "@prelude//:artifact_tset.bzl",
+    "project_artifacts",
+)
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
@@ -13,13 +16,23 @@ load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "compile_swift",
     "get_swift_anonymous_targets",
+    "get_swift_debug_infos",
+    "get_swift_dependency_info",
     "uses_explicit_modules",
 )
 load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
+load(
+    "@prelude//cxx:argsfiles.bzl",
+    "CompileArgsfiles",
+)
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
-load("@prelude//cxx:cxx_types.bzl", "CxxRuleConstructorParams")
+load(
+    "@prelude//cxx:cxx_types.bzl",
+    "CxxRuleAdditionalParams",
+    "CxxRuleConstructorParams",
+)
 load(
     "@prelude//cxx:headers.bzl",
     "cxx_attr_headers",
@@ -80,11 +93,25 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
         framework_search_path_pre = CPreprocessor(
             relative_args = CPreprocessorArgs(args = [framework_search_path_flags]),
         )
+
+        swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, None, None)
+        swiftmodule = swift_compile.swiftmodule if swift_compile else None
+        swift_debug_info = get_swift_debug_infos(ctx, swiftmodule, swift_dependency_info)
+
         constructor_params = CxxRuleConstructorParams(
             rule_type = "apple_binary",
             headers_layout = get_apple_cxx_headers_layout(ctx),
             extra_link_flags = extra_link_flags,
             srcs = cxx_srcs,
+            additional = CxxRuleAdditionalParams(
+                srcs = swift_srcs,
+                argsfiles = swift_compile.argsfiles if swift_compile else CompileArgsfiles(),
+                # We need to add any swift modules that we include in the link, as
+                # these will end up as `N_AST` entries that `dsymutil` will need to
+                # follow.
+                static_external_debug_info = swift_debug_info.static,
+                shared_external_debug_info = swift_debug_info.shared,
+            ),
             extra_link_input = swift_object_files,
             extra_link_input_has_external_debug_info = True,
             extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre] + swift_preprocessor,

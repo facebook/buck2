@@ -7,8 +7,6 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
-    "ArtifactTSet",  # @unused Used as a type
-    "make_artifact_tset",
     "project_artifacts",
 )
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
@@ -16,9 +14,9 @@ load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
-    "SwiftDependencyInfo",  # @unused Used as a type
     "compile_swift",
     "get_swift_anonymous_targets",
+    "get_swift_debug_infos",
     "get_swift_dependency_info",
     "get_swift_pcm_uncompile_info",
     "get_swiftmodule_linkable",
@@ -49,10 +47,6 @@ load(
     "CxxRuleSubTargetParams",
 )
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers")
-load(
-    "@prelude//cxx:link_groups.bzl",
-    "get_link_group",
-)
 load(
     "@prelude//cxx:linker.bzl",
     "SharedLibraryFlagOverrides",
@@ -169,16 +163,9 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     # When linking, we expect each linked object to provide the transitively required swiftmodule AST entries for linking.
     swiftmodule_linkable = get_swiftmodule_linkable(ctx, swift_compile.dependency_info) if swift_compile else None
 
-    swift_static_debug_info = _get_swift_static_debug_info(ctx, swift_compile.swiftmodule) if swift_compile else []
-
-    # When determing the debug info for shared libraries, if the shared library is a link group, we rely on the link group links to
-    # obtain the debug info for linked libraries and only need to provide any swift debug info for this library itself. Otherwise
-    # if linking standard shared, we need to obtain the transitive debug info.
-    swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, exported_pre, None)
-    if get_link_group(ctx):
-        swift_shared_debug_info = swift_static_debug_info
-    else:
-        swift_shared_debug_info = _get_swift_shared_debug_info(swift_dependency_info) if swift_dependency_info else []
+    swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, None, None)
+    swiftmodule = swift_compile.swiftmodule if swift_compile else None
+    swift_debug_info = get_swift_debug_infos(ctx, swiftmodule, swift_dependency_info)
 
     modular_pre = CPreprocessor(
         uses_modules = ctx.attrs.uses_modules,
@@ -231,8 +218,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             # We need to add any swift modules that we include in the link, as
             # these will end up as `N_AST` entries that `dsymutil` will need to
             # follow.
-            static_external_debug_info = swift_static_debug_info,
-            shared_external_debug_info = swift_shared_debug_info,
+            static_external_debug_info = swift_debug_info.static,
+            shared_external_debug_info = swift_debug_info.shared,
             subtargets = {
                 "swift-compile": [DefaultInfo(default_output = swift_compile.object_file if swift_compile else None)],
             },
@@ -315,16 +302,6 @@ def _get_link_style_sub_targets_and_providers(
         providers += [AppleBundleLinkerMapInfo(linker_maps = [output.linker_map.map])]
 
     return (subtargets, providers)
-
-def _get_swift_static_debug_info(ctx: AnalysisContext, swiftmodule: Artifact) -> list[ArtifactTSet.type]:
-    return [make_artifact_tset(
-        actions = ctx.actions,
-        label = ctx.label,
-        artifacts = [swiftmodule],
-    )]
-
-def _get_swift_shared_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> list[ArtifactTSet.type]:
-    return [swift_dependency_info.debug_info_tset] if swift_dependency_info.debug_info_tset else []
 
 def _get_linker_flags(ctx: AnalysisContext) -> cmd_args:
     return cmd_args(get_min_deployment_version_target_linker_flags(ctx))
