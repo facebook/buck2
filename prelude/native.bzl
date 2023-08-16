@@ -22,6 +22,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
 load("@prelude//erlang:erlang.bzl", _erlang_application = "erlang_application", _erlang_tests = "erlang_tests")
 load("@prelude//python:toolchain.bzl", _python = "python")
 load("@prelude//rust:rust_common.bzl", "rust_common_macro_wrapper")
+load("@prelude//rust:with_workspace.bzl", "with_rust_workspace")
 load("@prelude//user:all.bzl", _user_rules = "rules")
 load("@prelude//utils:selects.bzl", "selects")
 load("@prelude//utils:utils.bzl", "expect")
@@ -424,6 +425,7 @@ __extra_rules__ = {
     "rust_binary": _rust_binary_macro_stub,
     "rust_library": _rust_library_macro_stub,
     "rust_test": _rust_test_macro_stub,
+    "rust_with_workspace": with_rust_workspace,
     "swift_toolchain": _swift_toolchain_macro_stub,
     "versioned_alias": _versioned_alias_macro_stub,
 }

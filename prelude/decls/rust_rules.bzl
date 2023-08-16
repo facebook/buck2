@@ -176,6 +176,7 @@ rust_binary = prelude_rule(
             "framework": attrs.bool(default = False),
         } |
         rust_common.toolchains_args() |
+        rust_common.workspaces_arg() |
         buck.allow_cache_upload_arg()
     ),
 )
@@ -245,7 +246,8 @@ rust_library = prelude_rule(
             "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
             "_omnibus_environment": omnibus_environment_attr(),
         } |
-        rust_common.toolchains_args()
+        rust_common.toolchains_args() |
+        rust_common.workspaces_arg()
     ),
 )
 
@@ -321,7 +323,8 @@ rust_test = prelude_rule(
             "framework": attrs.bool(default = True),
             "remote_execution": buck.re_opts_for_tests_arg(),
         } |
-        rust_common.toolchains_args()
+        rust_common.toolchains_args() |
+        rust_common.workspaces_arg()
     ),
 )
 

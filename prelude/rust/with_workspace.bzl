@@ -5,11 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":with_workspace.bzl", "package_key")
+package_key = "rust.workspaces"
 
-def rust_common_macro_wrapper(rust_rule):
-    def rust_common_impl(**kwargs):
-        workspaces = read_package_value(package_key) or []
-        rust_rule(_workspaces = workspaces, **kwargs)
+def with_rust_workspace(targets):
+    if isinstance(targets, str):
+        targets = [targets]
 
-    return rust_common_impl
+    parent = read_parent_package_value(package_key) or []
+    write_package_value(package_key, parent + targets, overwrite = True)
