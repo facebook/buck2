@@ -421,7 +421,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
                     label = ctx.label,
                     artifacts = (
                         [out.object for out in cxx_outs if out.object_has_external_debug_info] +
-                        [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
+                        [out.external_debug_info for out in cxx_outs if out.external_debug_info != None] +
+                        (impl_params.extra_link_input if impl_params.extra_link_input_has_external_debug_info else [])
                     ),
                 ),
             ),

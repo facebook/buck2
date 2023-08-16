@@ -86,6 +86,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
             extra_link_flags = extra_link_flags,
             srcs = cxx_srcs,
             extra_link_input = swift_object_files,
+            extra_link_input_has_external_debug_info = True,
             extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre] + swift_preprocessor,
             strip_executable = ctx.attrs.stripped,
             strip_args_factory = apple_strip_args,
