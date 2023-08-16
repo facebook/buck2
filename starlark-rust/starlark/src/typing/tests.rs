@@ -501,3 +501,16 @@ def func_which_returns_union(p) -> str | int:
 "#,
     );
 }
+
+#[test]
+fn test_type_alias() {
+    TypeCheck::new().ty("x").check(
+        "type_alias",
+        r#"
+MyList = list[int]
+
+def f(x: MyList):
+    pass
+"#,
+    );
+}
