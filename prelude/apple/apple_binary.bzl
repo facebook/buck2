@@ -99,7 +99,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
         swiftmodule = swift_compile.swiftmodule if swift_compile else None
         swift_debug_info = get_swift_debug_infos(ctx, swiftmodule, swift_dependency_info)
 
-        swiftmodule_linkable = get_swiftmodule_linkable(ctx, swift_dependency_info)
+        swiftmodule_linkable = get_swiftmodule_linkable(swift_compile)
 
         constructor_params = CxxRuleConstructorParams(
             rule_type = "apple_binary",

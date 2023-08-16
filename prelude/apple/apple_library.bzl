@@ -161,7 +161,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         exported_pre = None
 
     # When linking, we expect each linked object to provide the transitively required swiftmodule AST entries for linking.
-    swiftmodule_linkable = get_swiftmodule_linkable(ctx, swift_compile.dependency_info) if swift_compile else None
+    swiftmodule_linkable = get_swiftmodule_linkable(swift_compile) if swift_compile else None
 
     swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, None, None)
     swiftmodule = swift_compile.swiftmodule if swift_compile else None

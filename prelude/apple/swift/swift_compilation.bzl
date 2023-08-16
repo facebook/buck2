@@ -78,7 +78,6 @@ ExportedHeadersTSet = transitive_set()
 SwiftDependencyInfo = provider(fields = [
     "exported_headers",  # ExportedHeadersTSet of {"module_name": [exported_headers]}
     "exported_swiftmodule_paths",  # SwiftmodulePathsTSet of artifact that includes only paths through exported_deps, used for compilation
-    "transitive_swiftmodule_paths",  # SwiftmodulePathsTSet of artifact that includes all transitive paths, used for linking
     "debug_info_tset",  # ArtifactTSet
 ])
 
@@ -593,13 +592,6 @@ def _get_swift_paths_tsets(deps: list[Dependency]) -> list[SwiftmodulePathsTSet.
         if SwiftDependencyInfo in d
     ]
 
-def _get_transitive_swift_paths_tsets(deps: list[Dependency]) -> list[SwiftmodulePathsTSet.type]:
-    return [
-        d[SwiftDependencyInfo].transitive_swiftmodule_paths
-        for d in deps
-        if SwiftDependencyInfo in d
-    ]
-
 def _get_external_debug_info_tsets(deps: list[Dependency]) -> list[ArtifactTSet.type]:
     return [
         d[SwiftDependencyInfo].debug_info_tset
@@ -651,10 +643,8 @@ def get_swift_dependency_info(
 
     if output_module:
         exported_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, value = output_module, children = _get_swift_paths_tsets(exported_deps))
-        transitive_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, value = output_module, children = _get_transitive_swift_paths_tsets(all_deps))
     else:
         exported_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(exported_deps))
-        transitive_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_transitive_swift_paths_tsets(all_deps))
 
     debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
@@ -666,7 +656,6 @@ def get_swift_dependency_info(
     return SwiftDependencyInfo(
         exported_headers = _get_exported_headers_tset(ctx, exported_headers),
         exported_swiftmodule_paths = exported_swiftmodules,
-        transitive_swiftmodule_paths = transitive_swiftmodules,
         debug_info_tset = debug_info_tset,
     )
 
@@ -680,8 +669,8 @@ def uses_explicit_modules(ctx: AnalysisContext) -> bool:
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     return ctx.attrs.uses_explicit_modules and is_sdk_modules_provided(swift_toolchain)
 
-def get_swiftmodule_linkable(ctx: AnalysisContext, dependency_info: SwiftDependencyInfo.type) -> SwiftmoduleLinkable.type:
-    return SwiftmoduleLinkable(tset = ctx.actions.tset(SwiftmodulePathsTSet, children = [dependency_info.transitive_swiftmodule_paths]))
+def get_swiftmodule_linkable(swift_compile_output: [SwiftCompilationOutput.type, None]) -> [SwiftmoduleLinkable.type, None]:
+    return SwiftmoduleLinkable(swiftmodule = swift_compile_output.swiftmodule) if swift_compile_output else None
 
 def extract_swiftmodule_linkables(link_infos: [list[LinkInfo.type], None]) -> list[SwiftmoduleLinkable.type]:
     swift_module_type = LinkableType("swiftmodule")
@@ -694,11 +683,8 @@ def extract_swiftmodule_linkables(link_infos: [list[LinkInfo.type], None]) -> li
 
     return linkables
 
-def merge_swiftmodule_linkables(ctx: AnalysisContext, swiftmodule_linkables: list[[SwiftmoduleLinkable.type, None]]) -> SwiftmoduleLinkable.type:
-    return SwiftmoduleLinkable(tset = ctx.actions.tset(SwiftmodulePathsTSet, children = [linkable.tset for linkable in swiftmodule_linkables if linkable]))
-
-def get_swiftmodule_linker_flags(swiftmodule_linkable: [SwiftmoduleLinkable.type, None]) -> cmd_args:
-    return cmd_args(swiftmodule_linkable.tset.project_as_args("linker_args")) if swiftmodule_linkable else cmd_args()
+def get_swiftmodule_linker_flags(swiftmodule_linkable: list[[SwiftmoduleLinkable.type, None]]) -> cmd_args:
+    return cmd_args([cmd_args(linkable.swiftmodule, format = "-Wl,-add_ast_path,{}") for linkable in swiftmodule_linkable if linkable != None])
 
 def _get_xctest_swiftmodule_search_path(ctx: AnalysisContext) -> cmd_args:
     # With explicit modules we don't need to search at all.

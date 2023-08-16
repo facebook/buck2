@@ -129,7 +129,8 @@ CxxRuleConstructorParams = record(
     extra_link_input_has_external_debug_info = field(bool, False),
     # Additional args to be used to link the target.
     extra_link_args = field(list[LinkArgs.type], []),
-    # The swift module linkable that should be included for linking.
+    # The swift module linkable that should be included for linking,
+    # used for link_groups and regular linking.
     swiftmodule_linkable = field([SwiftmoduleLinkable.type, None], None),
     # The source files to compile as part of this rule. This list can be generated
     # from ctx.attrs with the `get_srcs_with_flags` function.
