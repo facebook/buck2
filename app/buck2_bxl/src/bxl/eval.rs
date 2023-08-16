@@ -128,15 +128,22 @@ pub(crate) async fn eval(
                         .buck_out_path_resolver()
                         .resolve_gen(&output_stream);
 
-                    let file = RefCell::new(Box::new(project_fs.create_file(&file_path, false)?));
+                    let file = RefCell::new(Box::new(
+                        project_fs
+                            .create_file(&file_path, false)
+                            .context("Failed to create output cache for BXL")?,
+                    ));
 
                     let error_stream = mk_stream_cache("error", &key);
                     let error_file_path = artifact_fs
                         .buck_out_path_resolver()
                         .resolve_gen(&error_stream);
 
-                    let error_file =
-                        RefCell::new(Box::new(project_fs.create_file(&error_file_path, false)?));
+                    let error_file = RefCell::new(Box::new(
+                        project_fs
+                            .create_file(&error_file_path, false)
+                            .context("Failed to create error cache for BXL")?,
+                    ));
 
                     let print = EventDispatcherPrintHandler(dispatcher.clone());
 
