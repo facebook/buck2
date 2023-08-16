@@ -397,17 +397,13 @@ impl RunAction {
             extra_env.push((metadata_param.env_var.to_owned(), env));
         }
 
-        if ctx.run_action_knobs().expose_action_scratch_path {
-            let scratch = ctx.target().scratch_path();
-            let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
-
-            extra_env.push((
-                "BUCK_SCRATCH_PATH".to_owned(),
-                cli_ctx.resolve_project_path(scratch_path)?.into_string(),
-            ));
-
-            inputs.push(CommandExecutionInput::ScratchPath(scratch));
-        }
+        let scratch = ctx.target().scratch_path();
+        let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
+        extra_env.push((
+            "BUCK_SCRATCH_PATH".to_owned(),
+            cli_ctx.resolve_project_path(scratch_path)?.into_string(),
+        ));
+        inputs.push(CommandExecutionInput::ScratchPath(scratch));
 
         let paths = CommandExecutionPaths::new(
             inputs,

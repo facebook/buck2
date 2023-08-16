@@ -593,10 +593,6 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .parse::<bool>("buck2", "enforce_re_timeouts")?
             .unwrap_or(true);
 
-        run_action_knobs.expose_action_scratch_path = root_config
-            .parse::<bool>("buck2", "expose_action_scratch_path")?
-            .unwrap_or(false);
-
         let mut data = UserComputationData {
             data,
             tracker: Arc::new(BuckDiceTracker::new(self.events.dupe())),
