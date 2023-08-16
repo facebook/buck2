@@ -39,6 +39,7 @@ use crate::typing::error::InternalError;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::traits::OracleAny;
 use crate::typing::typecheck::solve_bindings;
+use crate::typing::TypingOracleCtx;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
@@ -178,11 +179,14 @@ impl<'v> Compiler<'v, '_, '_> {
 
         self.populate_types_in_stmts(stmts, TopLevelStmtIndex(stmts.len()))?;
 
+        let oracle = TypingOracleCtx {
+            oracle: &OracleAny,
+            codemap: &self.codemap,
+        };
         let BindingsCollect { bindings, .. } =
             BindingsCollect::collect(stmts, TypecheckMode::Compiler, &self.codemap)
                 .map_err(InternalError::into_eval_exception)?;
-
-        let (errors, ..) = match solve_bindings(&OracleAny, bindings, &self.codemap) {
+        let (errors, ..) = match solve_bindings(bindings, oracle) {
             Ok(x) => x,
             Err(e) => return Err(e.into_eval_exception()),
         };

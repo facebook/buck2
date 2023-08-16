@@ -52,9 +52,8 @@ use crate::values::FrozenHeap;
 
 // Things which are None in the map have type void - they are never constructed
 pub(crate) fn solve_bindings(
-    oracle: &dyn TypingOracle,
     bindings: Bindings,
-    codemap: &CodeMap,
+    oracle: TypingOracleCtx,
 ) -> Result<(Vec<TypingError>, HashMap<BindingId, Ty>, Vec<Approximation>), InternalError> {
     let mut types = bindings
         .expressions
@@ -67,7 +66,7 @@ pub(crate) fn solve_bindings(
     // FIXME: Should be a fixed point, just do 10 iterations since that probably converges
     let mut changed = false;
     let mut ctx = TypingContext {
-        oracle: TypingOracleCtx { oracle, codemap },
+        oracle,
         errors: RefCell::new(Vec::new()),
         approximoations: RefCell::new(Vec::new()),
         types,
@@ -187,6 +186,10 @@ impl AstModule {
         // We don't really need to properly unpack top-level statements,
         // but make it safe against future changes.
         let cst: Vec<&mut CstStmt> = top_level_stmts_mut(&mut cst);
+        let oracle = TypingOracleCtx {
+            codemap: &codemap,
+            oracle,
+        };
         let bindings = match BindingsCollect::collect(&cst, TypecheckMode::Lint, &codemap) {
             Ok(bindings) => bindings,
             Err(e) => {
@@ -203,7 +206,7 @@ impl AstModule {
         };
         let mut approximations = bindings.approximations;
         let (solve_errors, types, solve_approximations) =
-            match solve_bindings(oracle, bindings.bindings, &codemap) {
+            match solve_bindings(bindings.bindings, oracle) {
                 Ok(x) => x,
                 Err(e) => {
                     return (
