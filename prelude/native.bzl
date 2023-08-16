@@ -279,16 +279,21 @@ def _configured_alias_macro_stub(
         # Whether to fallback to a unconfigured `alias` if `platform` is `None`.
         fallback_to_unconfigured_alias = False,
         **kwargs):
-    # `actual` needs to be a pair of target + platform, as that's the format
-    # expected by the `configured_dep()` field
+    pred = lambda platform: platform != None or not fallback_to_unconfigured_alias
     __rules__["configured_alias"](
         name = name,
+        # `actual` needs to be a pair of target + platform, as that's the format
+        # expected by the `configured_dep()` field
         # Use a select map to make this thing `None` if `platform` is `None`.
         configured_actual = selects.apply(
             platform,
-            lambda platform: (actual, platform) if platform != None or not fallback_to_unconfigured_alias else None,
+            lambda platform: (actual, platform) if pred(platform) else None,
         ),
-        fallback_actual = actual if fallback_to_unconfigured_alias else None,
+        # Make sure that exactly one of `configured_actual` or `fallback_actual` is set
+        fallback_actual = selects.apply(
+            platform,
+            lambda platform: None if pred(platform) else actual,
+        ),
         # Unused.
         actual = actual,
         platform = platform,
