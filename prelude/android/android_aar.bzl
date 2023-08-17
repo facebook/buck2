@@ -64,6 +64,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
     android_binary_native_library_info = get_android_binary_native_library_info(ctx, android_packageable_info, deps_by_platform)
     native_libs_file = ctx.actions.write("native_libs_entries.txt", android_binary_native_library_info.native_libs_for_primary_apk)
+    native_libs_assets_file = ctx.actions.write("native_libs_assets_entries.txt", android_binary_native_library_info.root_module_native_lib_assets)
 
     entries_file = ctx.actions.write("entries.txt", entries)
 
@@ -78,7 +79,9 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         "fail",
         "--native_libs_file",
         native_libs_file,
-    ]).hidden(entries, android_binary_native_library_info.native_libs_for_primary_apk)
+        "--native_libs_assets_file",
+        native_libs_assets_file,
+    ]).hidden(entries, android_binary_native_library_info.native_libs_for_primary_apk, android_binary_native_library_info.root_module_native_lib_assets)
 
     ctx.actions.run(create_aar_cmd, category = "create_aar")
 

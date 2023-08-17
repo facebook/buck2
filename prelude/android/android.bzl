@@ -104,9 +104,11 @@ FORCE_SINGLE_DEFAULT_CPU = read_root_config("buck2", "android_force_single_defau
 extra_attributes = {
     "android_aar": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
+        "compress_asset_libraries": attrs.default_only(attrs.bool(default = False)),
         "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = ALL_CPU_FILTERS),
         "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
+        "package_asset_libraries": attrs.default_only(attrs.bool(default = True)),
         "resources_root": attrs.option(attrs.string(), default = None),
         "_android_toolchain": android_toolchain(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
