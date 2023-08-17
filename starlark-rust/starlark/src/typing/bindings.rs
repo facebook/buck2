@@ -16,9 +16,7 @@
  */
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
-use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::codemap::CodeMap;
@@ -92,27 +90,6 @@ pub(crate) struct Bindings<'a> {
     /// ```
     pub(crate) check: Vec<&'a CstExpr>,
     pub(crate) check_type: Vec<(Span, Option<&'a CstExpr>, Ty)>,
-}
-
-/// Interface representing the types of all bindings in a module.
-#[derive(Default, Dupe, Clone, Debug)]
-pub struct Interface(Arc<HashMap<String, Ty>>);
-
-impl Interface {
-    /// Create an empty interface, with no bindings.
-    pub fn empty() -> Self {
-        Self::default()
-    }
-
-    /// Create a new interface with the given bindings.
-    pub fn new(bindings: HashMap<String, Ty>) -> Self {
-        Self(Arc::new(bindings))
-    }
-
-    /// Get the type for a given binding.
-    pub fn get(&self, name: &str) -> Option<&Ty> {
-        self.0.get(name)
-    }
 }
 
 pub(crate) struct BindingsCollect<'a, 'b> {

@@ -41,7 +41,7 @@ use crate::syntax::ast::AstStmtP;
 use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::payload_map::AstPayloadFunction;
 use crate::typing::error::InternalError;
-use crate::typing::Interface;
+use crate::typing::interface::Interface;
 use crate::typing::Ty;
 
 /// Compiler-specific AST payload.
