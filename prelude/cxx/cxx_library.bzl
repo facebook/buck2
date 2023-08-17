@@ -1325,6 +1325,7 @@ def _shared_library(
                 links = [LinkArgs(infos = [link_info])],
                 identifier = soname + "-interface",
                 link_execution_preference = link_execution_preference,
+                strip = impl_params.strip_executable,
             ),
             name = soname,
         )
