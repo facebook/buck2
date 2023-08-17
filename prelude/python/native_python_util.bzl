@@ -196,7 +196,7 @@ def _write_syms_file(
     # objcopy uses a list of symbol name followed by updated name e.g. 'PyInit_hello PyInit_hello_package_module'
     script = (
         "set -euo pipefail; " +  # fail if any command in the script fails
-        '"$NM" --no-sort --defined-only -j @"$OBJECTS" | sed "/:$/d;/^$/d" | sort -u'
+        '"$NM" --no-sort --defined-only -j @"$OBJECTS" | sed "/:$/d;/^$/d"'
     )
 
     if not suffix_all:
@@ -208,7 +208,7 @@ def _write_syms_file(
     script += ' | grep -v "^\\(__\\)\\?\\(a\\|t\\)san"'
 
     script += (
-        ' | awk \'{{print $1" "$1"_{suffix}"}}\' > '.format(suffix = suffix) +
+        ' | awk \'{{print $1" "$1"_{suffix}"}}\' | sort -u > '.format(suffix = suffix) +
         '"$SYMSFILE";'
     )
 
