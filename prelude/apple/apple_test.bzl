@@ -30,7 +30,7 @@ load(
 )
 load(":apple_bundle.bzl", "AppleBundlePartListConstructorParams", "get_apple_bundle_part_list")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
-load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_bundle_dir_name")
+load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_bundle_utility.bzl", "get_product_name")
 load(":apple_dsym.bzl", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "get_apple_dsym")
@@ -103,7 +103,11 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
 
         binary_part = AppleBundlePart(source = test_binary, destination = AppleBundleDestination("executables"), new_name = ctx.attrs.name)
         part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = [binary_part]))
-        sub_targets = assemble_bundle(ctx, xctest_bundle, part_list_output.parts, part_list_output.info_plist_part, None)
+
+        primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, binary_part)
+        swift_stdlib_args = SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path)
+
+        sub_targets = assemble_bundle(ctx, xctest_bundle, part_list_output.parts, part_list_output.info_plist_part, swift_stdlib_args)
 
         sub_targets.update(cxx_library_output.sub_targets)
         (debuginfo,) = sub_targets[DEBUGINFO_SUBTARGET]
