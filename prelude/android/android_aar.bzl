@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
-load("@prelude//android:android_binary_resources_rules.bzl", "get_manifest")
+load("@prelude//android:android_binary_resources_rules.bzl", "get_cxx_resources", "get_manifest")
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "merge_android_packageable_info")
 load("@prelude//android:android_resource.bzl", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
@@ -61,6 +61,10 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
         assets_dirs = [resource_infos.assets for resource_infos in resource_infos if resource_infos.assets]
         entries.extend(assets_dirs)
+
+    cxx_resources = get_cxx_resources(ctx, deps, dir_name = "assets")
+    if cxx_resources:
+        entries.append(cxx_resources)
 
     android_binary_native_library_info = get_android_binary_native_library_info(ctx, android_packageable_info, deps_by_platform)
     native_libs_file = ctx.actions.write("native_libs_entries.txt", android_binary_native_library_info.native_libs_for_primary_apk)

@@ -80,7 +80,7 @@ def get_android_binary_resources_info(
 
     prebuilt_jars = [packaging_dep.jar for packaging_dep in java_packaging_deps if packaging_dep.is_prebuilt_jar]
 
-    cxx_resources = _get_cxx_resources(ctx, deps)
+    cxx_resources = get_cxx_resources(ctx, deps)
     is_exopackaged_enabled_for_resources = "resources" in getattr(ctx.attrs, "exopackage_modes", [])
     primary_resources_apk, exopackaged_assets, exopackaged_assets_hash = _merge_assets(
         ctx,
@@ -583,7 +583,7 @@ def get_effective_banned_duplicate_resource_types(
     else:
         fail("Unrecognized duplicate_resource_behavior: {}".format(duplicate_resource_behavior))
 
-def _get_cxx_resources(ctx: AnalysisContext, deps: list[Dependency]) -> [Artifact, None]:
+def get_cxx_resources(ctx: AnalysisContext, deps: list[Dependency], dir_name: str = "cxx_resources_dir") -> [Artifact, None]:
     cxx_resources = gather_resources(
         label = ctx.label,
         resources = {},
@@ -596,7 +596,7 @@ def _get_cxx_resources(ctx: AnalysisContext, deps: list[Dependency]) -> [Artifac
         for name, (resource, _other) in resource_map.items():
             symlink_tree_dict["cxx-resources/{}".format(name)] = resource
 
-    return ctx.actions.symlinked_dir("cxx_resources_dir", symlink_tree_dict) if symlink_tree_dict else None
+    return ctx.actions.symlinked_dir(dir_name, symlink_tree_dict) if symlink_tree_dict else None
 
 def _is_store_strings_as_assets(resource_compression: str) -> bool:
     return resource_compression == "enabled_strings_only" or resource_compression == "enabled_with_strings_as_assets"
