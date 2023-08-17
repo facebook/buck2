@@ -517,7 +517,6 @@ def f(x: MyList):
 
 #[test]
 fn test_incorrect_type_dot() {
-    // TODO(nga): error should be recorded.
     TypeCheck::new().check(
         "incorrect_type_dot",
         r#"

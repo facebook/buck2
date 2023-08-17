@@ -457,15 +457,26 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
             return Ok(None);
         };
         for x in rem {
-            let Ok(Some(new_value)) = value.get_attr(x, self.heap) else {
-                return Ok(None);
-            };
-            value = new_value;
+            match value.get_attr_error(x, self.heap) {
+                Ok(v) => value = v,
+                Err(e) => {
+                    let span = first.span.merge(x.span);
+                    self.errors
+                        .push(TypingError::new(e, span, self.ctx.codemap));
+                    return Ok(Some(Ty::any()));
+                }
+            }
         }
-        let Ok(ty) = TypeCompiled::new(value, self.heap) else {
-            return Ok(None);
-        };
-        Ok(Some(ty.as_ty().clone()))
+        match TypeCompiled::new(value, self.heap) {
+            Ok(ty) => Ok(Some(ty.as_ty().clone())),
+            Err(e) => {
+                let span =
+                    Span::merge_all(iter::once(first.span).chain(rem.iter().map(|x| x.span)));
+                self.errors
+                    .push(TypingError::new(e, span, self.ctx.codemap));
+                Ok(Some(Ty::any()))
+            }
+        }
     }
 
     fn path_ty(&mut self, first: &CstIdent, rem: &[Spanned<&str>]) -> Result<Ty, InternalError> {

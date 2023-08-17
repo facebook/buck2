@@ -8,7 +8,10 @@ Code:
 def foo(x: list.foo.bar):
     pass
 
-No errors.
-
-Approximations:
-Approximation: Unknown type = "Span { begin: Pos(12), end: Pos(24) }"
+Error:
+error: Operation `.foo` not supported on type `function`
+ --> filename:2:12
+  |
+2 | def foo(x: list.foo.bar):
+  |            ^^^^^^^^
+  |
