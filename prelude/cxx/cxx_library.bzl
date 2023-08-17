@@ -114,6 +114,7 @@ load(
 )
 load(
     ":compile.bzl",
+    "AutoPchType",
     "CxxCompileCommandOutput",
     "compile_cxx",
     "create_compile_cmds",
@@ -845,12 +846,12 @@ def cxx_compile_srcs(
     )
 
     # Define object files.
-    pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True)
+    pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True, auto_pch = AutoPchType(ctx.attrs.auto_pch))
     pic = _get_library_compile_output(ctx, pic_cxx_outs, impl_params.extra_link_input)
 
     non_pic = None
     if preferred_linkage != Linkage("shared"):
-        non_pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = False)
+        non_pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = False, auto_pch = AutoPchType(ctx.attrs.auto_pch))
         non_pic = _get_library_compile_output(ctx, non_pic_cxx_outs, impl_params.extra_link_input)
 
     return _CxxCompiledSourcesOutput(

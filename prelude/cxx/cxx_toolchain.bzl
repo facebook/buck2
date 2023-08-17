@@ -32,6 +32,8 @@ def cxx_toolchain_impl(ctx):
         preprocessor = c_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
+        extract_pch_includes = ctx.attrs._extract_pch_includes[RunInfo],
+        supports_pch = False,
     )
     cxx_compiler = _get_maybe_wrapped_msvc(ctx.attrs.cxx_compiler[RunInfo], ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
     cxx_info = CxxCompilerInfo(
@@ -41,6 +43,8 @@ def cxx_toolchain_impl(ctx):
         preprocessor = cxx_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
+        extract_pch_includes = ctx.attrs._extract_pch_includes[RunInfo],
+        supports_pch = False,
     )
     asm_info = AsmCompilerInfo(
         compiler = ctx.attrs.asm_compiler[RunInfo],
@@ -48,6 +52,8 @@ def cxx_toolchain_impl(ctx):
         compiler_flags = cmd_args(ctx.attrs.asm_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.asm_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
+        extract_pch_includes = ctx.attrs._extract_pch_includes[RunInfo],
+        supports_pch = False,
     ) if ctx.attrs.asm_compiler else None
     as_info = AsCompilerInfo(
         compiler = ctx.attrs.assembler[RunInfo],
@@ -55,6 +61,8 @@ def cxx_toolchain_impl(ctx):
         compiler_flags = cmd_args(ctx.attrs.assembler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.assembler_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
+        extract_pch_includes = ctx.attrs._extract_pch_includes[RunInfo],
+        supports_pch = False,
     ) if ctx.attrs.assembler else None
     cuda_info = CudaCompilerInfo(
         compiler = ctx.attrs.cuda_compiler[RunInfo],
@@ -62,12 +70,15 @@ def cxx_toolchain_impl(ctx):
         compiler_flags = cmd_args(ctx.attrs.cuda_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.cuda_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
+        extract_pch_includes = ctx.attrs._extract_pch_includes[RunInfo],
+        supports_pch = False,
     ) if ctx.attrs.cuda_compiler else None
     hip_info = HipCompilerInfo(
         compiler = ctx.attrs.hip_compiler[RunInfo],
         compiler_type = ctx.attrs.hip_compiler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.hip_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.hip_preprocessor_flags),
+        supports_pch = False,
     ) if ctx.attrs.hip_compiler else None
 
     linker_info = LinkerInfo(
@@ -197,6 +208,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "use_dep_files": attrs.option(attrs.bool(), default = None),
         "_dep_files_processor": dep_type(providers = [RunInfo], default = "prelude//cxx/tools:dep_file_processor"),
         "_dist_lto_tools": attrs.default_only(dep_type(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools")),
+        "_extract_pch_includes": dep_type(providers = [RunInfo], default = "prelude//cxx/tools:extract_pch_includes"),
         "_mk_comp_db": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_mk_hmap": attrs.default_only(dep_type(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper")),

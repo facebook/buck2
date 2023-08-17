@@ -85,6 +85,7 @@ load(
 )
 load(
     ":compile.bzl",
+    "AutoPchType",
     "compile_cxx",
     "create_compile_cmds",
 )
@@ -194,7 +195,12 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
         inherited_preprocessor_infos,
         absolute_path_prefix,
     )
-    cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_style != LinkStyle("static"))
+    cxx_outs = compile_cxx(
+        ctx = ctx,
+        src_compile_cmds = compile_cmd_output.src_compile_cmds,
+        pic = link_style != LinkStyle("static"),
+        auto_pch = AutoPchType(ctx.attrs.auto_pch),
+    )
 
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, "argsfiles")]
     if absolute_path_prefix:

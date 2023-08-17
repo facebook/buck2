@@ -12,6 +12,8 @@
 
 load(":common.bzl", "CxxSourceType", "IncludeType")
 
+AutoPchType = ["none", "source"]
+
 def _srcs_arg():
     return {
         "srcs": attrs.list(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.list(attrs.arg()))), default = [], doc = """
@@ -414,6 +416,14 @@ def _public_system_include_directories_arg():
 """),
     }
 
+def _auto_pch_arg():
+    return {
+        "auto_pch": attrs.enum(AutoPchType, default = "none", doc = """
+    Enable automatic generation/use of PCH files, to speed up compilaiton in
+    iterative workflows (clang/C++ only).
+"""),
+    }
+
 cxx_common = struct(
     srcs_arg = _srcs_arg,
     deps_arg = _deps_arg,
@@ -454,4 +464,5 @@ cxx_common = struct(
     include_directories_arg = _include_directories_arg,
     public_include_directories_arg = _public_include_directories_arg,
     public_system_include_directories_arg = _public_system_include_directories_arg,
+    auto_pch_arg = _auto_pch_arg,
 )

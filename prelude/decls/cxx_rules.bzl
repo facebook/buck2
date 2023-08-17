@@ -93,6 +93,7 @@ cxx_binary = prelude_rule(
         buck.deps_query_arg() |
         cxx_common.raw_headers_arg() |
         cxx_common.include_directories_arg() |
+        cxx_common.auto_pch_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
@@ -518,6 +519,7 @@ cxx_library = prelude_rule(
         cxx_common.include_directories_arg() |
         cxx_common.public_include_directories_arg() |
         cxx_common.public_system_include_directories_arg() |
+        cxx_common.auto_pch_arg() |
         {
             "soname": attrs.option(attrs.string(), default = None, doc = """
                 Sets the soname ("shared object name") of any shared library produced from this rule.
@@ -755,6 +757,7 @@ cxx_test = prelude_rule(
         cxx_common.compiler_flags_arg() |
         cxx_common.linker_flags_arg() |
         cxx_common.precompiled_header_arg() |
+        cxx_common.auto_pch_arg() |
         buck.deps_query_arg() |
         {
             "resources": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """

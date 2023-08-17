@@ -79,6 +79,7 @@ cxx_python_extension = prelude_rule(
         cxx_common.linker_extra_outputs_arg() |
         cxx_common.linker_flags_arg() |
         cxx_common.platform_linker_flags_arg() |
+        cxx_common.auto_pch_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),

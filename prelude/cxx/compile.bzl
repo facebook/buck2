@@ -39,6 +39,14 @@ load(
     "get_flags_for_compiler_type",
 )
 
+AutoPchType = enum(
+    "none",
+    # Automatically generate a PCH for each C/C++ source, containing all it's
+    # leading `#include`s (up to the first C/C++ token).
+    "source",
+    "source_codegen",
+)
+
 # Supported Cxx file extensions
 CxxExtension = enum(
     ".cpp",
@@ -101,6 +109,8 @@ CxxSrcCompileCommand = record(
     cxx_compile_cmd = field(_CxxCompileCommand.type),
     # Arguments specific to the source file.
     args = field(list[typing.Any]),
+    # The C/C++ source extension.
+    ext = field(CxxExtension.type),
 )
 
 # Output of creating compile commands for Cxx source files.
@@ -230,9 +240,14 @@ def create_compile_cmds(
 
         src_args = []
         src_args.extend(src.flags)
-        src_args.extend(["-c", src.file])
 
-        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index)
+        src_compile_command = CxxSrcCompileCommand(
+            src = src.file,
+            cxx_compile_cmd = cxx_compile_cmd,
+            args = src_args,
+            index = src.index,
+            ext = ext,
+        )
         src_compile_cmds.append(src_compile_command)
 
     argsfile_by_ext.update(impl_params.additional.argsfiles.relative)
@@ -253,7 +268,8 @@ def create_compile_cmds(
 def compile_cxx(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand.type],
-        pic: bool = False) -> list[CxxCompileOutput.type]:
+        pic: bool = False,
+        auto_pch: AutoPchType.type = AutoPchType("none")) -> list[CxxCompileOutput.type]:
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
@@ -277,6 +293,15 @@ def compile_cxx(
         # LTO always produces bitcode object in any mode (thin, full, etc)
         default_object_format = CxxObjectFormat("bitcode")
 
+    # If we're building with split debugging, where the debug info is in the
+    # original object, then add the object as external debug info, *unless*
+    # we're doing LTO, which generates debug info at link time (*except* for
+    # fat LTO, which still generates native code and, therefore, debug info).
+    object_has_external_debug_info = (
+        toolchain.split_debug_mode == SplitDebugMode("single") and
+        linker_info.lto_mode in (LtoMode("none"), LtoMode("fat"))
+    )
+
     objects = []
     for src_compile_cmd in src_compile_cmds:
         identifier = src_compile_cmd.src.short_path
@@ -284,7 +309,10 @@ def compile_cxx(
             # Add a unique postfix if we have duplicate source files with different flags
             identifier = identifier + "_" + str(src_compile_cmd.index)
 
-        filename_base = identifier + (".pic" if pic else "")
+        filename_base, ext = paths.split_extension(identifier)
+        if pic:
+            filename_base += ".pic"
+        filename_base += ext
         object = ctx.actions.declare_output(
             "__objects__",
             "{}.{}".format(filename_base, linker_info.object_file_extension),
@@ -293,7 +321,6 @@ def compile_cxx(
         cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
 
         compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
-        cmd.add(get_output_flags(compiler_type, object))
 
         args = cmd_args()
 
@@ -306,29 +333,35 @@ def compile_cxx(
         cmd.add(args)
         cmd.add(bitcode_args)
 
-        action_dep_files = {}
+        def _dep_files(filename_base, cmd):
+            # @lint-ignore BUILDIFIERLINT
+            action_dep_files = {}
 
-        headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
-        if headers_dep_files:
-            dep_file = ctx.actions.declare_output(
-                paths.join("__dep_files__", filename_base),
-            ).as_output()
+            headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
+            if headers_dep_files:
+                dep_file = ctx.actions.declare_output(
+                    paths.join("__dep_files__", filename_base),
+                ).as_output()
 
-            processor_flags, compiler_flags = headers_dep_files.mk_flags(ctx.actions, filename_base, src_compile_cmd.src)
-            cmd.add(compiler_flags)
+                processor_flags, compiler_flags = headers_dep_files.mk_flags(ctx.actions, filename_base, src_compile_cmd.src)
 
-            # API: First argument is the dep file source path, second is the
-            # dep file destination path, other arguments are the actual compile
-            # command.
-            cmd = cmd_args([
-                headers_dep_files.processor,
-                headers_dep_files.dep_tracking_mode.value,
-                processor_flags,
-                headers_dep_files.tag.tag_artifacts(dep_file),
-                cmd,
-            ])
+                # API: First argument is the dep file source path, second is the
+                # dep file destination path, other arguments are the actual compile
+                # command.
+                cmd = cmd_args([
+                    headers_dep_files.processor,
+                    headers_dep_files.dep_tracking_mode.value,
+                    processor_flags,
+                    headers_dep_files.tag.tag_artifacts(dep_file),
+                    cmd,
+                    compiler_flags,
+                ])
 
-            action_dep_files["headers"] = headers_dep_files.tag
+                # @lint-ignore BUILDIFIERLINT
+                action_dep_files["headers"] = headers_dep_files.tag
+
+            # @lint-ignore BUILDIFIERLINT
+            return cmd, action_dep_files
 
         if pic:
             identifier += " (pic)"
@@ -341,14 +374,63 @@ def compile_cxx(
             )
             cmd.hidden(clang_remarks.as_output())
 
+        compiler_info = _get_compiler_info(toolchain, src_compile_cmd.ext)
+        if (auto_pch == AutoPchType("source") and
+            compiler_info.supports_pch and
+            compiler_type == "clang"):
+            # Split the source into two files: the leading `#include`s to pre-
+            # compile and the remaining source w/o these `#include`s.
+            # TODO(agallagher): Why is it necessary to re-gen the source w/o
+            # the leading includes?  This might cause issues w/ things like
+            # source-relative includes and obscure error messages w/ a output
+            # path that's confusing to users.
+            pch_header = ctx.actions.declare_output(paths.join("__pch__", filename_base + ".hpp"))
+            new_src = ctx.actions.declare_output(paths.join("__pch__", filename_base))
+            pch_header_cmd = cmd_args()
+            pch_header_cmd.add(compiler_info.extract_pch_includes)
+            pch_header_cmd.add("--header", pch_header.as_output())
+            pch_header_cmd.add("--source", new_src.as_output())
+            pch_header_cmd.add(src_compile_cmd.src)
+            ctx.actions.run(pch_header_cmd, category = "pch_header", identifier = identifier)
+
+            # Compile the leading `#include`s into PCH file.
+            pch = ctx.actions.declare_output(paths.join("__pch__", filename_base + ".pch"))
+            pch_cmd = cmd_args()
+            pch_cmd.add(cmd)
+            pch_cmd.add("-x", "c++-header")
+            pch_cmd.add("-Xclang", "-emit-pch")
+            pch_cmd.add("-fpch-instantiate-templates")
+            pch_cmd.add(get_output_flags(compiler_type, pch))
+            pch_cmd.add(pch_header)
+            pch_cmd, action_dep_files = _dep_files(filename_base + ".pch", pch_cmd)
+            ctx.actions.run(pch_cmd, category = "pch", identifier = identifier, dep_files = action_dep_files)
+
+            cmd = cmd_args(cmd)
+
+            # Add the PCH header to the compile command.
+            cmd.add("-include-pch", pch)
+            cmd.hidden(pch_header)
+
+            # Prevent clang from checking mtimes.
+            cmd.add("-Xclang", "-fno-validate-pch")
+
+            cmd.add(new_src)
+
+        else:
+            cmd.add(src_compile_cmd.src)
+
+        cmd.add("-c")
+        cmd.add(get_output_flags(compiler_type, object))
+
         clang_trace = None
         if toolchain.clang_trace and compiler_type == "clang":
-            args.add(["-ftime-trace"])
+            cmd.add("-ftime-trace")
             clang_trace = ctx.actions.declare_output(
                 paths.join("__objects__", "{}.json".format(filename_base)),
             )
             cmd.hidden(clang_trace.as_output())
 
+        cmd, action_dep_files = _dep_files(filename_base, cmd)
         ctx.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files)
 
         # If we're building with split debugging, where the debug info is in the

@@ -105,6 +105,8 @@ _compiler_fields = [
     "preprocessor_type",
     "preprocessor_flags",
     "dep_files_processor",
+    "extract_pch_includes",
+    "supports_pch",
 ]
 
 HipCompilerInfo = provider(fields = _compiler_fields)
