@@ -189,6 +189,7 @@ def _write_syms_file(
     # Compile symbols defined by all object files into a de-duplicated list of symbols to rename
     # --no-sort tells nm not to sort the output because we are sorting it to dedupe anyway
     # --defined-only prints only the symbols defined by this extension this way we won't rename symbols defined externally e.g. PyList_GetItem, etc...
+    # --extern-only if suffix_all is not set, we are only interested in the externally visible PyInit symbols
     # -j print only the symbol name
     # sed removes filenames generated from objcopy (lines ending with ":") and empty lines
     # sort -u sorts the combined list of symbols and removes any duplicate entries
@@ -196,8 +197,8 @@ def _write_syms_file(
     # objcopy uses a list of symbol name followed by updated name e.g. 'PyInit_hello PyInit_hello_package_module'
     script = (
         "set -euo pipefail; " +  # fail if any command in the script fails
-        '"$NM" --no-sort --defined-only -j @"$OBJECTS" | sed "/:$/d;/^$/d"'
-    )
+        '"$NM" --no-sort --defined-only -j {}@"$OBJECTS" | sed "/:$/d;/^$/d"'
+    ).format("--extern-only " if not suffix_all else "")
 
     if not suffix_all:
         script += ' | grep "^PyInit_"'
