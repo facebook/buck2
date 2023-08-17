@@ -1,0 +1,14 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+def foo(x: list.foo.bar):
+    pass
+
+No errors.
+
+Approximations:
+Approximation: Unknown type = "Span { begin: Pos(12), end: Pos(24) }"
