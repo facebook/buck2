@@ -9,13 +9,17 @@ load("@prelude//android:android_binary_resources_rules.bzl", "get_manifest")
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "merge_android_packageable_info")
 load("@prelude//android:android_resource.bzl", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//android:configuration.bzl", "get_deps_by_platform")
+load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:utils.bzl", "flatten")
 load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 
 def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
-    deps = ctx.attrs.deps
+    deps_by_platform = get_deps_by_platform(ctx)
+    primary_platform = CPU_FILTER_FOR_PRIMARY_PLATFORM if CPU_FILTER_FOR_PRIMARY_PLATFORM in deps_by_platform else CPU_FILTER_FOR_DEFAULT_PLATFORM
+    deps = deps_by_platform[primary_platform]
 
     java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps)]
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
