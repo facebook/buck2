@@ -548,6 +548,18 @@ def test():
 }
 
 #[test]
+fn test_int_mul_list() {
+    // TODO(nga): fix.
+    TypeCheck::new().ty("x").check(
+        "int_mul_list",
+        r#"
+def test():
+    x = 1 * ["a"]
+"#,
+    );
+}
+
+#[test]
 fn test_un_op() {
     TypeCheck::new().ty("x").ty("y").ty("z").check(
         "un_op",

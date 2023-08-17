@@ -1,0 +1,28 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+Code:
+def test():
+    x = 1 * ["a"]
+
+Error:
+error: Binary operator `*` is not available on the types `int` and `list[str]`
+ --> filename:3:9
+  |
+3 |     x = 1 * ["a"]
+  |         ^^^^^^^^^
+  |
+
+Types:
+x: typing.Never
+
+Compiler typechecker (eval):
+error: Binary operator `*` is not available on the types `int` and `list[str]`
+ --> filename:3:9
+  |
+3 |     x = 1 * ["a"]
+  |         ^^^^^^^^^
+  |
