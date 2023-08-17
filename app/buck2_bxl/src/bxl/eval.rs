@@ -66,7 +66,7 @@ use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 
 pub(crate) async fn eval(
-    ctx: &DiceComputations,
+    ctx: &mut DiceComputations,
     key: BxlKey,
     profile_mode_or_instrumentation: StarlarkProfileModeOrInstrumentation,
     liveness: CancellationObserver,
@@ -176,6 +176,8 @@ pub(crate) async fn eval(
                             let frozen_callable = get_bxl_callable(key.label(), &bxl_module)?;
                             eval.set_print_handler(&print);
 
+                            let bxl_dice = BxlSafeDiceComputations::new(ctx, liveness);
+
                             let bxl_ctx = BxlContext::new(
                                 eval.heap(),
                                 key,
@@ -185,7 +187,7 @@ pub(crate) async fn eval(
                                 artifact_fs,
                                 cell_resolver,
                                 bxl_cell.name(),
-                                BxlSafeDiceComputations::new(ctx, liveness),
+                                bxl_dice,
                                 file,
                                 error_file,
                                 digest_config,

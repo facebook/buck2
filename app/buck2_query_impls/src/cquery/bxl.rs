@@ -46,7 +46,7 @@ struct BxlCqueryFunctionsImpl {
 impl BxlCqueryFunctionsImpl {
     async fn setup_dice_query_delegate<'c>(
         &self,
-        dice: &'c DiceComputations,
+        dice: &'c mut DiceComputations,
     ) -> anyhow::Result<Arc<DiceQueryDelegate<'c>>> {
         let cell_resolver = dice.get_cell_resolver().await?;
 
@@ -68,7 +68,7 @@ impl BxlCqueryFunctionsImpl {
 
     async fn cquery_env<'c>(
         &self,
-        dice: &'c DiceComputations,
+        dice: &'c mut DiceComputations,
         universe: Option<&TargetSet<ConfiguredTargetNode>>,
     ) -> anyhow::Result<CqueryEnvironment<'c>> {
         let dice_query_delegate = self.setup_dice_query_delegate(dice).await?;
@@ -89,7 +89,7 @@ impl BxlCqueryFunctionsImpl {
 impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
     async fn allpaths(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
@@ -100,7 +100,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
 
     async fn somepath(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
@@ -111,7 +111,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
 
     async fn owner(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         file_set: &FileSet,
         target_universe: Option<&TargetSet<ConfiguredTargetNode>>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
@@ -121,7 +121,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
 
     async fn deps(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         targets: &TargetSet<ConfiguredTargetNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
@@ -139,7 +139,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
 
     async fn rdeps(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         universe: &TargetSet<ConfiguredTargetNode>,
         targets: &TargetSet<ConfiguredTargetNode>,
         depth: Option<i32>,
@@ -156,7 +156,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
 
     async fn testsof(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         targets: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(cquery_functions()
@@ -166,7 +166,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
 
     async fn testsof_with_default_target_platform(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         targets: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         Ok(cquery_functions()

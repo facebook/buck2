@@ -8,6 +8,7 @@
  */
 
 use std::ops::Deref;
+use std::ops::DerefMut;
 
 use buck2_common::events::HasEvents;
 use buck2_data::BxlDiceInvocationEnd;
@@ -15,6 +16,7 @@ use buck2_data::BxlDiceInvocationStart;
 use buck2_events::dispatch::with_dispatcher_async;
 use dice::DiceComputations;
 use dice::DiceData;
+use dice::UserComputationData;
 use dupe::Dupe;
 use futures::future::select;
 use futures::future::Either;
@@ -34,8 +36,7 @@ enum ViaError {
 /// This is not exposed to starlark but rather, used by operations exposed to starlark to run
 /// code.
 /// This also provides a handle for dice.
-#[derive(Clone, Dupe)]
-pub struct BxlSafeDiceComputations<'a>(pub(super) &'a DiceComputations, CancellationObserver);
+pub struct BxlSafeDiceComputations<'a>(pub(super) &'a mut DiceComputations, CancellationObserver);
 
 /// For a `via_dice`, the DiceComputations provided to each lambda is a reference that's only
 /// available for some specific lifetime `'x`. This is express as a higher rank lifetime bound
@@ -44,7 +45,7 @@ pub struct BxlSafeDiceComputations<'a>(pub(super) &'a DiceComputations, Cancella
 /// here which forces rust compiler to infer additional bounds on the `for <'x>` as a
 /// `&'x DiceComputationRef<'a>` cannot live more than `'a`, so using this type as the argument
 /// to the closure forces the correct lifetime bounds to be inferred by rust.
-pub struct DiceComputationsRef<'s>(&'s DiceComputations);
+pub struct DiceComputationsRef<'s>(&'s mut DiceComputations);
 
 impl<'s> Deref for DiceComputationsRef<'s> {
     type Target = DiceComputations;
@@ -54,15 +55,21 @@ impl<'s> Deref for DiceComputationsRef<'s> {
     }
 }
 
+impl<'s> DerefMut for DiceComputationsRef<'s> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0
+    }
+}
+
 impl<'a> BxlSafeDiceComputations<'a> {
-    pub fn new(dice: &'a DiceComputations, cancellation: CancellationObserver) -> Self {
+    pub fn new(dice: &'a mut DiceComputations, cancellation: CancellationObserver) -> Self {
         Self(dice, cancellation)
     }
 
     /// runs any async computation
-    pub(super) fn via<'s, T>(
-        &'s self,
-        f: impl for<'x> FnOnce(&'x DiceComputationsRef<'s>) -> LocalBoxFuture<'x, anyhow::Result<T>>,
+    pub fn via<'s, T>(
+        &'s mut self,
+        f: impl for<'x> FnOnce(&'x mut DiceComputationsRef<'s>) -> LocalBoxFuture<'x, anyhow::Result<T>>,
     ) -> anyhow::Result<T>
     where
         'a: 's,
@@ -70,14 +77,15 @@ impl<'a> BxlSafeDiceComputations<'a> {
         let dispatcher = self.0.per_transaction_data().get_dispatcher().dupe();
 
         dispatcher.span(BxlDiceInvocationStart {}, || {
+            let liveness = self.1.dupe();
             let fut = with_dispatcher_async(dispatcher.clone(), async move {
-                let ctx = DiceComputationsRef(self.0);
-                f(&ctx).await
+                let mut ctx = DiceComputationsRef(self.0);
+                f(&mut ctx).await
             });
             let fut = async move {
                 futures::pin_mut!(fut);
 
-                match select(fut, self.1.dupe()).await {
+                match select(fut, liveness).await {
                     Either::Left((res, _)) => res,
                     Either::Right(((), _)) => Err(ViaError::Cancelled.into()),
                 }
@@ -92,5 +100,9 @@ impl<'a> BxlSafeDiceComputations<'a> {
 
     pub fn global_data(&self) -> &DiceData {
         self.0.global_data()
+    }
+
+    pub fn per_transaction_data(&self) -> &UserComputationData {
+        self.0.per_transaction_data()
     }
 }

@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use std::fmt::Display;
 use std::io::Write;
 use std::ops::DerefMut;
+use std::rc::Rc;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -89,7 +90,7 @@ pub(crate) struct OutputStream<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
+    pub(crate) async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
 }
 
 /// We can ensure either an `Artifact` or an `ArtifactGroup`. When we want to ensure a `CommandLineArgLike` object,
@@ -106,7 +107,7 @@ impl<'v> OutputStream<'v> {
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
         sink: RefCell<Box<dyn Write>>,
-        async_ctx: BxlSafeDiceComputations<'v>,
+        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
     ) -> Self {
         Self {
             sink,
@@ -178,7 +179,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                 )?;
                 write(&path)?;
             } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg) {
-                this.async_ctx.via(|dice| {
+                this.async_ctx.borrow_mut().via(|dice| {
                     ensured
                         .visit_artifact_path_without_associated_deduped(
                             |artifact_path, abs| {
@@ -229,7 +230,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             value: Value<'v>,
             artifact_fs: &'a ArtifactFs,
             project_fs: &'a ProjectRoot,
-            async_ctx: &'v BxlSafeDiceComputations<'v>,
+            async_ctx: &'a Rc<RefCell<BxlSafeDiceComputations<'v>>>,
         }
 
         impl<'a, 'v> SerializeValue<'a, 'v> {
@@ -261,6 +262,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                     let mut seq_ser = serializer.serialize_seq(None)?;
 
                     self.async_ctx
+                        .borrow_mut()
                         .via(|dice| {
                             ensured
                                 .visit_artifact_path_without_associated_deduped(

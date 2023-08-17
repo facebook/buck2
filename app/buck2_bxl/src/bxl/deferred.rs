@@ -67,7 +67,7 @@ mod tests {
         async fn execute(
             &self,
             _ctx: &mut dyn DeferredCtx,
-            _dice: &DiceComputations,
+            _dice: &mut DiceComputations,
         ) -> anyhow::Result<DeferredValue<Self::Output>> {
             self.2.store(true, Ordering::SeqCst);
             Ok(DeferredValue::Ready(self.0))

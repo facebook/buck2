@@ -185,7 +185,8 @@ pub(crate) fn build<'v>(
         ConvertMaterializationContext::with_existing_map(materializations, materializations_map);
 
     let build_result = ctx.via_dice(
-        |dice, ctx| {
+        |mut dice, ctx|
+            dice.via(|dice|
         async {
             let build_spec = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                 spec,
@@ -231,8 +232,8 @@ pub(crate) fn build<'v>(
 
             // TODO (torozco): support --fail-fast in BXL.
             BuildTargetResult::collect_stream(stream, false).await
-        }.boxed_local()
-    })?;
+        }.boxed_local())
+    )?;
 
     build_result
         .into_iter()

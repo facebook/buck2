@@ -24,7 +24,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
         &'v Arc<dyn BaseDeferredKeyDyn>,
         &'v DynamicLambda,
         &'v mut dyn DeferredCtx,
-        &'v DiceComputations,
+        &'v mut DiceComputations,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<ActionKey>>> + Send + 'v>>,
 > = LateBinding::new("EVAL_BXL_FOR_DYNAMIC_OUTPUT");
 
@@ -33,7 +33,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v Arc<dyn BaseDeferredKeyDyn>,
     dynamic_lambda: &'v DynamicLambda,
     deferred_ctx: &'v mut dyn DeferredCtx,
-    dice_ctx: &'v DiceComputations,
+    dice_ctx: &'v mut DiceComputations,
 ) -> anyhow::Result<Vec<ActionKey>> {
     (EVAL_BXL_FOR_DYNAMIC_OUTPUT.get()?)(base_deferred_key, dynamic_lambda, deferred_ctx, dice_ctx)
         .await

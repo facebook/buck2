@@ -41,7 +41,7 @@ struct BxlUqueryFunctionsImpl {
 impl BxlUqueryFunctionsImpl {
     async fn uquery_env<'c>(
         &self,
-        dice: &'c DiceComputations,
+        dice: &'c mut DiceComputations,
     ) -> anyhow::Result<UqueryEnvironment<'c>> {
         let cell_resolver = dice.get_cell_resolver().await?;
 
@@ -70,7 +70,7 @@ impl BxlUqueryFunctionsImpl {
 impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     async fn allpaths(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
@@ -80,7 +80,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     }
     async fn somepath(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
@@ -90,7 +90,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     }
     async fn deps(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         targets: &TargetSet<TargetNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
@@ -107,7 +107,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     }
     async fn rdeps(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         universe: &TargetSet<TargetNode>,
         targets: &TargetSet<TargetNode>,
         depth: Option<i32>,
@@ -118,7 +118,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     }
     async fn testsof(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         targets: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         Ok(uquery_functions()
@@ -127,7 +127,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     }
     async fn owner(
         &self,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         file_set: &FileSet,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         Ok(uquery_functions()

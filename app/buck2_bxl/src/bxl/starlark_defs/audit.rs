@@ -128,7 +128,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
             &this.global_target_platform,
         )?;
 
-        this.ctx.via_dice(|ctx, _| {
+        this.ctx.async_ctx.borrow_mut().via(|ctx| {
             async move {
                 audit_output(
                     output_path,

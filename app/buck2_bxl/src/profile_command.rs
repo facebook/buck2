@@ -116,7 +116,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                                 async move {
                                     anyhow::Ok(
                                         eval(
-                                            &ctx,
+                                            &mut ctx,
                                             bxl_key,
                                             StarlarkProfileModeOrInstrumentation::Profile(
                                                 profile_mode,
