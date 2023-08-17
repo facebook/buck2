@@ -23,7 +23,10 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
+use dice::DiceComputationsParallel;
 use dupe::Dupe;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use gazebo::prelude::VecExt;
 use starlark_map::small_set::SmallSet;
 
@@ -50,29 +53,37 @@ fn split_compatible_incompatible(
     Ok((target_set, incompatible_targets))
 }
 
-pub async fn get_maybe_compatible_targets(
-    ctx: &DiceComputations,
+pub async fn get_maybe_compatible_targets<'a>(
+    ctx: &'a DiceComputations,
     loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
-    global_target_platform: Option<TargetLabel>,
+    global_target_platform: Option<&TargetLabel>,
 ) -> anyhow::Result<impl Iterator<Item = anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>>> {
-    let mut by_package_futs: Vec<_> = Vec::new();
+    let mut by_package_fns: Vec<_> = Vec::new();
+
     for (_package, result) in loaded_targets {
         let targets = result?;
 
-        by_package_futs.extend({
-            let global_target_platform = global_target_platform.as_ref();
-            let target_futs: Vec<_> = targets.into_map(|target| async move {
-                let target = ctx
-                    .get_configured_target(target.label(), global_target_platform)
-                    .await?;
-                anyhow::Ok(ctx.get_configured_target_node(&target).await?)
-            });
+        by_package_fns.extend({
+            let target_fns: Vec<_> = targets.into_map(|target|
+                higher_order_closure! {
+                    #![with<'a>]
+                    for<'x> |ctx: &'x mut DiceComputationsParallel<'a>| -> BoxFuture<'x, anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>> {
+                        async move {
+                            let target = ctx
+                                .get_configured_target(target.label(), global_target_platform)
+                                .await?;
+                            anyhow::Ok(ctx.get_configured_target_node(&target).await?)
+                        }.boxed()
+                    }
+                });
 
-            target_futs
+            target_fns
         });
     }
 
-    Ok(futures::future::join_all(by_package_futs).await.into_iter())
+    Ok(futures::future::join_all(ctx.compute_many(by_package_fns))
+        .await
+        .into_iter())
 }
 
 /// Converts target nodes to a set of compatible configured target nodes.
@@ -82,7 +93,7 @@ pub async fn get_compatible_targets(
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     let maybe_compatible_targets =
-        get_maybe_compatible_targets(ctx, loaded_targets, global_target_platform).await?;
+        get_maybe_compatible_targets(ctx, loaded_targets, global_target_platform.as_ref()).await?;
 
     let (compatible_targets, incompatible_targets) =
         split_compatible_incompatible(maybe_compatible_targets)?;

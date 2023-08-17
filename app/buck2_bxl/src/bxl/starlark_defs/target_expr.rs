@@ -241,7 +241,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
                     let maybe_compatible = get_maybe_compatible_targets(
                         dice,
                         loaded_patterns.iter_loaded_targets_by_package(),
-                        target_platform.dupe(),
+                        target_platform.as_ref(),
                     )
                     .await?
                     .collect::<Result<Vec<_>, _>>()?;

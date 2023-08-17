@@ -20,6 +20,7 @@ rust_library(
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:fnv",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:higher-order-closure",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:internment",
         "fbsource//third-party/rust:inventory",

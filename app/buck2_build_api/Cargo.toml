@@ -13,6 +13,7 @@ blake3 = { workspace = true }
 derive_more = { workspace = true }
 derivative = { workspace = true }
 once_cell = { workspace = true }
+higher-order-closure = { workspace = true }
 inventory = { workspace = true }
 futures = { workspace = true }
 internment = { workspace = true }
