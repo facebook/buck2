@@ -11,6 +11,7 @@ AndroidPlatformInfo = provider(fields = [
 
 AndroidToolchainInfo = provider(fields = [
     "aapt2",
+    "aar_builder",
     "adb",
     "aidl",
     "android_jar",

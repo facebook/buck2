@@ -13,8 +13,6 @@ load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@prelude//utils:utils.bzl", "flatten")
-load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 
 def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     deps_by_platform = get_deps_by_platform(ctx)
@@ -43,10 +41,10 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
     resource_infos = list(android_packageable_info.resource_infos.traverse()) if android_packageable_info.resource_infos else []
 
+    android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     if resource_infos:
         res_dirs = [resource_info.res for resource_info in resource_infos if resource_info.res]
         merged_resource_sources_dir = ctx.actions.declare_output("merged_resource_sources_dir/res", dir = True)
-        android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
         merge_resource_sources_cmd = cmd_args([
             android_toolchain.merge_android_resource_sources[RunInfo],
             "--resource-paths",
@@ -63,14 +61,11 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         assets_dirs = [resource_infos.assets for resource_infos in resource_infos if resource_infos.assets]
         entries.extend(assets_dirs)
 
-    zip_file_toolchain = ctx.attrs._zip_file_toolchain[ZipFileToolchainInfo]
-    create_zip_tool = zip_file_toolchain.create_zip
-
-    entries_file = ctx.actions.write("entries.txt", flatten([[entry, "ignored_short_path", "false"] for entry in entries]))
+    entries_file = ctx.actions.write("entries.txt", entries)
 
     aar = ctx.actions.declare_output("{}.aar".format(ctx.label.name))
     create_aar_cmd = cmd_args([
-        create_zip_tool,
+        android_toolchain.aar_builder,
         "--output_path",
         aar.as_output(),
         "--entries_file",
