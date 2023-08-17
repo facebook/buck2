@@ -5,6 +5,7 @@
 # ```
 
 Code:
-fail("Expected variable expansion in string: `{}`".format("x"))
+def test():
+    fail("Expected variable expansion in string: `{}`".format("x"))
 
 No errors.

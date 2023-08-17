@@ -6,7 +6,8 @@
 
 Code:
 load("foo.bzl", "foo")
-res = [foo([])]
+def test():
+    res = [foo([])]
 
 No errors.
 

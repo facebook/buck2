@@ -7,6 +7,8 @@
 Code:
 def foo(x: list.type) -> bool.type:
     return type(x) == list.type
-foo([1,2,3])
+
+def bar():
+    foo([1,2,3])
 
 No errors.

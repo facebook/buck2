@@ -5,6 +5,7 @@
 # ```
 
 Code:
-accepts_iterable([1, ()])
+def test():
+    accepts_iterable([1, ()])
 
 No errors.

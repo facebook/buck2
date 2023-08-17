@@ -7,7 +7,9 @@
 Code:
 def foo(x: str.type) -> str.type:
     return x.removeprefix("test")
-y = hash(foo("magic"))
+
+def bar():
+    y = hash(foo("magic"))
 
 No errors.
 

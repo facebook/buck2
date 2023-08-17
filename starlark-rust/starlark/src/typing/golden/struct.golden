@@ -5,7 +5,8 @@
 # ```
 
 Code:
-x = struct(a = 1, b = "test")
+def test():
+    x = struct(a = 1, b = "test")
 
 No errors.
 

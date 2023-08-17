@@ -160,8 +160,10 @@ fn test_success() {
         r#"
 def foo(x: str.type) -> str.type:
     return x.removeprefix("test")
-y = hash(foo("magic"))
-   "#,
+
+def bar():
+    y = hash(foo("magic"))
+"#,
     );
 }
 
@@ -183,7 +185,8 @@ def foo(x: list[bool]) -> str:
         "load_1",
         r#"
 load("foo.bzl", "foo")
-res = [foo([])]
+def test():
+    res = [foo([])]
 "#,
     );
 }
@@ -193,7 +196,10 @@ res = [foo([])]
 fn test_false_negative() {
     TypeCheck::new().check(
         "false_negative",
-        r#"fail("Expected variable expansion in string: `{}`".format("x"))"#,
+        r#"
+def test():
+    fail("Expected variable expansion in string: `{}`".format("x"))
+"#,
     );
 }
 
@@ -204,7 +210,9 @@ fn test_type_kwargs() {
         r#"
 def foo(**kwargs):
     pass
-foo(**{1: "x"})
+
+def bar():
+    foo(**{1: "x"})
 "#,
     );
 }
@@ -227,7 +235,9 @@ fn test_dot_type() {
         r#"
 def foo(x: list.type) -> bool.type:
     return type(x) == list.type
-foo([1,2,3])
+
+def bar():
+    foo([1,2,3])
 "#,
     );
     TypeCheck::new().check(
@@ -235,7 +245,9 @@ foo([1,2,3])
         r#"
 def foo(x: list.type) -> bool.type:
     return type(x) == []
-foo(True)
+
+def bar():
+    foo(True)
 "#,
     );
 }
@@ -245,7 +257,8 @@ fn test_special_function_zip() {
     TypeCheck::new().ty("x").check(
         "zip",
         r#"
-x = zip([1,2], [True, False], ["a", "b"])
+def test():
+    x = zip([1,2], [True, False], ["a", "b"])
 "#,
     );
 }
@@ -255,7 +268,8 @@ fn test_special_function_struct() {
     TypeCheck::new().ty("x").check(
         "struct",
         r#"
-x = struct(a = 1, b = "test")
+def test():
+    x = struct(a = 1, b = "test")
 "#,
     );
 }
@@ -347,11 +361,12 @@ fn test_test_new_syntax_without_dot_type() {
         r#"
 def foo(x: str): pass
 
-# good
-foo("test")
+def bar():
+    # good
+    foo("test")
 
-# bad
-foo(1)
+    # bad
+    foo(1)
 "#,
     );
 }
@@ -363,11 +378,12 @@ fn test_calls() {
         r#"
 def f(y): pass
 
-# Extra parameter.
-f(1, 2)
+def g():
+    # Extra parameter.
+    f(1, 2)
 
-# Not enough parameters.
-f()
+    # Not enough parameters.
+    f()
 "#,
     );
 }
@@ -377,10 +393,11 @@ fn test_list_append() {
     TypeCheck::new().ty("x").check(
         "list_append",
         r#"
-# Type of `x` should be inferred as list of either `int` or `str`.
-x = []
-x.append(1)
-x.append("")
+def test():
+    # Type of `x` should be inferred as list of either `int` or `str`.
+    x = []
+    x.append(1)
+    x.append("")
 "#,
     );
 }
@@ -391,8 +408,9 @@ fn test_list_append_bug() {
     TypeCheck::new().ty("x").check(
         "list_append_bug",
         r#"
-x = []
-x.append(x)
+def test():
+    x = []
+    x.append(x)
 "#,
     );
 }
@@ -402,7 +420,8 @@ fn test_list_function() {
     TypeCheck::new().ty("x").check(
         "list_function",
         r#"
-x = list([1, 2])
+def test():
+    x = list([1, 2])
 "#,
     );
 }
@@ -412,7 +431,8 @@ fn test_accepts_iterable() {
     TypeCheck::new().check(
         "accepts_iterable",
         r#"
-accepts_iterable([1, ()])
+def test():
+    accepts_iterable([1, ()])
 "#,
     );
 
@@ -428,9 +448,10 @@ fn test_dict_bug() {
     TypeCheck::new().ty("y").check(
         "dict_bug",
         r#"
-x = {}
-x.setdefault(33, "x")
-y = x[44]
+def test():
+    x = {}
+    x.setdefault(33, "x")
+    y = x[44]
 "#,
     );
 }
@@ -443,8 +464,9 @@ fn test_new_list_dict_syntax() {
 def new_list_dict_syntax(d: dict[str, int]) -> list[str]:
     return list(d.keys())
 
-# Check type is properly parsed from the function return type.
-x = new_list_dict_syntax({"a": 1, "b": 2})
+def test():
+    # Check type is properly parsed from the function return type.
+    x = new_list_dict_syntax({"a": 1, "b": 2})
 "#,
     );
 }
@@ -455,8 +477,9 @@ fn test_new_list_dict_syntax_as_value() {
     TypeCheck::new().ty("x").ty("y").check(
         "new_list_dict_syntax_as_value",
         r#"
-x = list[str]
-y = dict[int, bool]
+def test():
+    x = list[str]
+    y = dict[int, bool]
 "#,
     );
 }
@@ -466,7 +489,8 @@ fn test_int_plus_float() {
     TypeCheck::new().ty("x").check(
         "int_plus_float",
         r#"
-x = 1 + 1.0
+def test():
+    x = 1 + 1.0
 "#,
     );
 }
@@ -476,12 +500,13 @@ fn test_un_op() {
     TypeCheck::new().ty("x").ty("y").ty("z").check(
         "un_op",
         r#"
-# Good.
-x = -1
-# Bad.
-y = ~True
-# Union good and bad.
-z = -(1 if True else "")
+def test():
+    # Good.
+    x = -1
+    # Bad.
+    y = ~True
+    # Union good and bad.
+    z = -(1 if True else "")
 "#,
     );
 }

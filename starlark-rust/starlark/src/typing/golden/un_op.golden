@@ -5,19 +5,20 @@
 # ```
 
 Code:
-# Good.
-x = -1
-# Bad.
-y = ~True
-# Union good and bad.
-z = -(1 if True else "")
+def test():
+    # Good.
+    x = -1
+    # Bad.
+    y = ~True
+    # Union good and bad.
+    z = -(1 if True else "")
 
 Error:
 error: Unary operator `~` is not available on the type `bool`
- --> filename:5:5
+ --> filename:6:9
   |
-5 | y = ~True
-  |     ^^^^^
+6 |     y = ~True
+  |         ^^^^^
   |
 
 Types:

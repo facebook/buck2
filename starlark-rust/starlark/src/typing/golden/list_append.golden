@@ -5,10 +5,11 @@
 # ```
 
 Code:
-# Type of `x` should be inferred as list of either `int` or `str`.
-x = []
-x.append(1)
-x.append("")
+def test():
+    # Type of `x` should be inferred as list of either `int` or `str`.
+    x = []
+    x.append(1)
+    x.append("")
 
 No errors.
 

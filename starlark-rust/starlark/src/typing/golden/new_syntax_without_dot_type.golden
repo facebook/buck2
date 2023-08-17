@@ -7,16 +7,17 @@
 Code:
 def foo(x: str): pass
 
-# good
-foo("test")
+def bar():
+    # good
+    foo("test")
 
-# bad
-foo(1)
+    # bad
+    foo(1)
 
 Error:
 error: Expected type `str` but got `int`
- --> filename:8:5
+ --> filename:9:9
   |
-8 | foo(1)
-  |     ^
+9 |     foo(1)
+  |         ^
   |

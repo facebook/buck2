@@ -7,14 +7,16 @@
 Code:
 def foo(x: list.type) -> bool.type:
     return type(x) == []
-foo(True)
+
+def bar():
+    foo(True)
 
 Error:
 error: Expected type `list[typing.Any]` but got `bool`
- --> filename:4:5
+ --> filename:6:9
   |
-4 | foo(True)
-  |     ^^^^
+6 |     foo(True)
+  |         ^^^^
   |
 
 Error:

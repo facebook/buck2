@@ -5,8 +5,9 @@
 # ```
 
 Code:
-x = []
-x.append(x)
+def test():
+    x = []
+    x.append(x)
 
 No errors.
 

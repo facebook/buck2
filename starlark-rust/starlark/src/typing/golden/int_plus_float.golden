@@ -5,7 +5,8 @@
 # ```
 
 Code:
-x = 1 + 1.0
+def test():
+    x = 1 + 1.0
 
 No errors.
 

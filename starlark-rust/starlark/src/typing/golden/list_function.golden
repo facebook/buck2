@@ -5,7 +5,8 @@
 # ```
 
 Code:
-x = list([1, 2])
+def test():
+    x = list([1, 2])
 
 No errors.
 

@@ -5,9 +5,10 @@
 # ```
 
 Code:
-x = {}
-x.setdefault(33, "x")
-y = x[44]
+def test():
+    x = {}
+    x.setdefault(33, "x")
+    y = x[44]
 
 No errors.
 

@@ -5,7 +5,8 @@
 # ```
 
 Code:
-x = zip([1,2], [True, False], ["a", "b"])
+def test():
+    x = zip([1,2], [True, False], ["a", "b"])
 
 No errors.
 

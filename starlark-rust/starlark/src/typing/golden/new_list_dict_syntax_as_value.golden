@@ -5,8 +5,9 @@
 # ```
 
 Code:
-x = list[str]
-y = dict[int, bool]
+def test():
+    x = list[str]
+    y = dict[int, bool]
 
 No errors.
 
