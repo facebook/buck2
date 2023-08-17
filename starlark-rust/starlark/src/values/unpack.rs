@@ -184,6 +184,10 @@ impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for Vec<T> {
         if let Some(o) = ListRef::from_value(value) {
             o.iter().map(T::unpack_value).collect::<Option<Vec<_>>>()
         } else if let Some(o) = Tuple::from_value(value) {
+            // TODO(nga): `StarlarkTypeRepr` for `Vec` says is `list`,
+            //   but here we also accept `tuple`.
+            //   So native function declaring it accepts `Vec`,
+            //   does not accept tuple at compile time, but accepts it at runtime.
             o.iter().map(T::unpack_value).collect::<Option<Vec<_>>>()
         } else {
             None
