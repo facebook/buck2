@@ -916,18 +916,17 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneType)] exec_compatible_with: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<BxlActions<'v>> {
-        let target_platform = target_platform.parse_target_platforms(
-            &this.data.target_alias_resolver,
-            &this.data.cell_resolver,
-            this.data.cell_name,
-            &this.data.global_target_platform,
-        )?;
-
         this.via_dice(|mut ctx, this| {
             ctx.via(|ctx| {
                 async {
                     let (exec_deps, toolchains) = match &this.context_type {
                         BxlContextType::Root { .. } => {
+                            let target_platform = target_platform.parse_target_platforms(
+                                &this.target_alias_resolver,
+                                &this.cell_resolver,
+                                this.cell_name,
+                                &this.global_target_platform,
+                            )?;
                             let exec_deps = if exec_deps.is_none() {
                                 Vec::new()
                             } else {
@@ -986,7 +985,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         BxlContextType::Dynamic(data) => {
                             if !exec_deps.is_none()
                                 || !toolchains.is_none()
-                                || target_platform.is_some()
+                                || !target_platform.is_none()
                                 || !exec_compatible_with.is_none()
                             {
                                 return Err(
