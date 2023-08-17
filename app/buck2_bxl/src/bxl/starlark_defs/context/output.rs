@@ -27,6 +27,7 @@ use buck2_execute::path::artifact_path::ArtifactPath;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use futures::FutureExt;
 use gazebo::prelude::SliceExt;
 use serde::ser::SerializeSeq;
 use serde::Serialize;
@@ -178,18 +179,20 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                 write(&path)?;
             } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg) {
                 this.async_ctx.via(|dice| {
-                    ensured.visit_artifact_path_without_associated_deduped(
-                        |artifact_path, abs| {
-                            let path = get_artifact_path_display(
-                                artifact_path,
-                                abs,
-                                &this.project_fs,
-                                &this.artifact_fs,
-                            )?;
-                            write(&path)
-                        },
-                        dice,
-                    )
+                    ensured
+                        .visit_artifact_path_without_associated_deduped(
+                            |artifact_path, abs| {
+                                let path = get_artifact_path_display(
+                                    artifact_path,
+                                    abs,
+                                    &this.project_fs,
+                                    &this.artifact_fs,
+                                )?;
+                                write(&path)
+                            },
+                            dice,
+                        )
+                        .boxed_local()
                 })?;
             } else {
                 write(&arg.to_str())?;
@@ -259,21 +262,23 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
 
                     self.async_ctx
                         .via(|dice| {
-                            ensured.visit_artifact_path_without_associated_deduped(
-                                |artifact_path, abs| {
-                                    let path = get_artifact_path_display(
-                                        artifact_path,
-                                        abs,
-                                        self.project_fs,
-                                        self.artifact_fs,
-                                    )?;
-                                    seq_ser
-                                        .serialize_element(&path)
-                                        .map_err(|err| anyhow::anyhow!(format!("{:#}", err)))?;
-                                    Ok(())
-                                },
-                                dice,
-                            )
+                            ensured
+                                .visit_artifact_path_without_associated_deduped(
+                                    |artifact_path, abs| {
+                                        let path = get_artifact_path_display(
+                                            artifact_path,
+                                            abs,
+                                            self.project_fs,
+                                            self.artifact_fs,
+                                        )?;
+                                        seq_ser
+                                            .serialize_element(&path)
+                                            .map_err(|err| anyhow::anyhow!(format!("{:#}", err)))?;
+                                        Ok(())
+                                    },
+                                    dice,
+                                )
+                                .boxed_local()
                         })
                         .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;
                     seq_ser.end()

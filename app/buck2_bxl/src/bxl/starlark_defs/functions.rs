@@ -22,6 +22,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dupe::Dupe;
+use futures::FutureExt;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::list::AllocList;
@@ -187,6 +188,7 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
                         },
                         dice_ctx,
                     )
+                    .boxed_local()
                 });
                 Ok(heap.alloc(paths))
             }
