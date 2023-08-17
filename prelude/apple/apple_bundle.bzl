@@ -198,7 +198,7 @@ def _get_deps_debuggable_infos(ctx: AnalysisContext) -> list[AppleDebuggableInfo
     )
     return deps_debuggable_infos
 
-def _get_bundle_binary_dsym_artifacts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput.type, run_cmd: ArgLike) -> list[Artifact]:
+def _get_bundle_binary_dsym_artifacts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput.type, executable_arg: ArgLike) -> list[Artifact]:
     # We don't care to process the watchkit stub binary.
     if binary_output.is_watchkit_stub_binary:
         return []
@@ -209,7 +209,7 @@ def _get_bundle_binary_dsym_artifacts(ctx: AnalysisContext, binary_output: Apple
         binary_debuggable_info = binary_output.debuggable_info
         bundle_binary_dsym_artifact = get_apple_dsym_ext(
             ctx = ctx,
-            executable = run_cmd,
+            executable = executable_arg,
             debug_info = project_artifacts(
                 actions = ctx.actions,
                 tsets = [binary_debuggable_info.debug_info_tset] if binary_debuggable_info else [],
@@ -272,13 +272,13 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets.update(aggregated_debug_info.sub_targets)
 
     primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
-    run_cmd = cmd_args(primary_binary_path).hidden(bundle)
+    executable_arg = cmd_args(primary_binary_path).hidden(bundle)
 
     linker_maps_directory, linker_map_info = _linker_maps_data(ctx)
     sub_targets["linker-maps"] = [DefaultInfo(default_output = linker_maps_directory)]
 
     # dsyms
-    binary_dsym_artifacts = _get_bundle_binary_dsym_artifacts(ctx, binary_outputs, run_cmd)
+    binary_dsym_artifacts = _get_bundle_binary_dsym_artifacts(ctx, binary_outputs, executable_arg)
     dep_dsym_artifacts = flatten([info.dsyms for info in deps_debuggable_infos])
 
     dsym_artifacts = binary_dsym_artifacts + dep_dsym_artifacts
@@ -327,7 +327,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
                 "options": install_data,
             },
         ),
-        RunInfo(args = run_cmd),
+        RunInfo(args = executable_arg),
         linker_map_info,
         xcode_data_info,
         extra_output_provider,
