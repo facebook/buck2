@@ -12,3 +12,6 @@ No errors.
 
 Types:
 x: list[(int, bool, str)]
+
+Compiler typechecker (eval):
+No errors.

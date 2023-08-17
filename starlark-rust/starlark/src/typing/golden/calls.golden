@@ -29,3 +29,11 @@ error: Missing required parameter `y`
 9 |     f()
   |     ^^^
   |
+
+Compiler typechecker (eval):
+error: Too many positional arguments
+ --> filename:6:10
+  |
+6 |     f(1, 2)
+  |          ^
+  |

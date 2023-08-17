@@ -18,13 +18,18 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::assert::Assert;
+use crate::environment::FrozenModule;
 use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;
+use crate::environment::Module;
+use crate::eval::runtime::file_loader::ReturnOwnedFileLoader;
+use crate::eval::Evaluator;
 use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
@@ -72,7 +77,7 @@ fn test_oracle() {
 #[derive(Default)]
 struct TypeCheck {
     expect_types: Vec<String>,
-    loads: HashMap<String, Interface>,
+    loads: HashMap<String, (Interface, FrozenModule)>,
 }
 
 #[starlark_module]
@@ -95,19 +100,36 @@ impl TypeCheck {
         self
     }
 
-    fn load(mut self, file: &str, interface: Interface) -> Self {
-        self.loads.insert(file.to_owned(), interface);
+    fn load(mut self, file: &str, interface: Interface, module: FrozenModule) -> Self {
+        self.loads.insert(file.to_owned(), (interface, module));
         self
     }
 
-    fn check(&self, test_name: &str, code: &str) -> Interface {
+    fn mk_file_loader(&self) -> ReturnOwnedFileLoader {
+        let modules = self
+            .loads
+            .iter()
+            .map(|(name, (_, module))| (name.clone(), module.dupe()))
+            .collect();
+        ReturnOwnedFileLoader { modules }
+    }
+
+    fn check(&self, test_name: &str, code: &str) -> (Interface, FrozenModule) {
         let globals = GlobalsBuilder::extended()
             .with(register_typecheck_globals)
             .build();
-        let (errors, typemap, interface, approximations) =
-            AstModule::parse("filename", code.to_owned(), &Dialect::Extended)
-                .unwrap()
-                .typecheck(&mk_oracle(), &globals, &self.loads);
+        // `AstModule` is not `Clone`. Parse twice.
+        let ast0 = AstModule::parse("filename", code.to_owned(), &Dialect::Extended).unwrap();
+        let ast1 = AstModule::parse("filename", code.to_owned(), &Dialect::Extended).unwrap();
+        let (errors, typemap, interface, approximations) = ast0.typecheck(
+            &mk_oracle(),
+            &globals,
+            &self
+                .loads
+                .iter()
+                .map(|(name, (intf, _))| (name.clone(), intf.clone()))
+                .collect(),
+        );
 
         let mut output = String::new();
         writeln!(output, "Code:").unwrap();
@@ -116,7 +138,7 @@ impl TypeCheck {
             writeln!(output).unwrap();
             writeln!(output, "No errors.").unwrap();
         } else {
-            for error in errors {
+            for error in &errors {
                 writeln!(output).unwrap();
                 writeln!(output, "Error:").unwrap();
                 // Note we are using `:#` here instead of `:?` because
@@ -147,9 +169,36 @@ impl TypeCheck {
             }
         }
 
+        let loader = self.mk_file_loader();
+        let module = {
+            writeln!(output).unwrap();
+            writeln!(output, "Compiler typechecker (eval):").unwrap();
+            let module = Module::new();
+            let mut eval = Evaluator::new(&module);
+
+            eval.set_loader(&loader);
+
+            eval.enable_static_typechecking(true);
+            let eval_result = eval.eval_module(ast1, &globals);
+            match &eval_result {
+                Ok(_) => writeln!(output, "No errors.").unwrap(),
+                Err(err) => writeln!(output, "{}", err).unwrap(),
+            }
+
+            if eval_result.is_ok() != errors.is_empty() {
+                writeln!(output).unwrap();
+                writeln!(output, "Compiler typechecker and eval results mismatch.").unwrap();
+            }
+
+            // Help borrow checker.
+            drop(eval);
+
+            module.freeze().unwrap()
+        };
+
         golden_test_template(&format!("src/typing/golden/{}.golden", test_name), &output);
 
-        interface
+        (interface, module)
     }
 }
 
@@ -174,21 +223,24 @@ fn test_failure() {
 
 #[test]
 fn test_load() {
-    let interface = TypeCheck::new().check(
+    let (interface, module) = TypeCheck::new().check(
         "load_0",
         r#"
 def foo(x: list[bool]) -> str:
     return "test"
    "#,
     );
-    TypeCheck::new().load("foo.bzl", interface).ty("res").check(
-        "load_1",
-        r#"
+    TypeCheck::new()
+        .load("foo.bzl", interface, module)
+        .ty("res")
+        .check(
+            "load_1",
+            r#"
 load("foo.bzl", "foo")
 def test():
     res = [foo([])]
 "#,
-    );
+        );
 }
 
 /// Test things that have previous claimed incorrectly they were type errors

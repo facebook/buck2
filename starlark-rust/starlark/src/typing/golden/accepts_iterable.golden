@@ -9,3 +9,6 @@ def test():
     accepts_iterable([1, ()])
 
 No errors.
+
+Compiler typechecker (eval):
+No errors.

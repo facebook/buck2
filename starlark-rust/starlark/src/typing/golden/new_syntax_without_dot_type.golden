@@ -21,3 +21,11 @@ error: Expected type `str` but got `int`
 9 |     foo(1)
   |         ^
   |
+
+Compiler typechecker (eval):
+error: Expected type `str` but got `int`
+ --> filename:9:9
+  |
+9 |     foo(1)
+  |         ^
+  |

@@ -14,3 +14,6 @@ No errors.
 Types:
 x: typing.Any
 y: typing.Any
+
+Compiler typechecker (eval):
+No errors.

@@ -12,3 +12,6 @@ def bar():
     foo([1,2,3])
 
 No errors.
+
+Compiler typechecker (eval):
+No errors.

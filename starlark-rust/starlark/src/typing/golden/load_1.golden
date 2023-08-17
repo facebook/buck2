@@ -13,3 +13,6 @@ No errors.
 
 Types:
 res: list[str]
+
+Compiler typechecker (eval):
+No errors.

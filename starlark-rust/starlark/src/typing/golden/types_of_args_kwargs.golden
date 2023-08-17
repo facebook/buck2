@@ -13,3 +13,6 @@ No errors.
 Types:
 args: tuple
 kwargs: dict[str, int]
+
+Compiler typechecker (eval):
+No errors.

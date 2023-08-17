@@ -26,3 +26,11 @@ error: Expected type `list[typing.Never]` but got `str`
 3 |     return type(x) == []
   |            ^^^^^^^^^^^^^
   |
+
+Compiler typechecker (eval):
+error: Expected type `list[typing.Any]` but got `bool`
+ --> filename:6:9
+  |
+6 |     foo(True)
+  |         ^^^^
+  |

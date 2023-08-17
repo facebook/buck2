@@ -14,3 +14,11 @@ error: Expected type `str` but got `int`
 1 | hash(1)
   |      ^
   |
+
+Compiler typechecker (eval):
+error: Expected type `str` but got `int`
+ --> filename:1:6
+  |
+1 | hash(1)
+  |      ^
+  |

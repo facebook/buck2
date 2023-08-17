@@ -16,3 +16,6 @@ No errors.
 
 Types:
 x: list[str]
+
+Compiler typechecker (eval):
+No errors.

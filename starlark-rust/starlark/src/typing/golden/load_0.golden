@@ -9,3 +9,6 @@ def foo(x: list[bool]) -> str:
     return "test"
 
 No errors.
+
+Compiler typechecker (eval):
+No errors.

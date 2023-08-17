@@ -15,3 +15,11 @@ error: Operation `.foo` not supported on type `function`
 2 | def foo(x: list.foo.bar):
   |            ^^^^^^^^
   |
+
+Compiler typechecker (eval):
+error: Operation `.foo` not supported on type `function`
+ --> filename:2:17
+  |
+2 | def foo(x: list.foo.bar):
+  |                 ^^^
+  |

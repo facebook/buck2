@@ -15,3 +15,11 @@ error: Call to a non-callable type `list[typing.Any]`
 3 |     x()
   |     ^^^
   |
+
+Compiler typechecker (eval):
+error: Call to a non-callable type `list[typing.Any]`
+ --> filename:3:5
+  |
+3 |     x()
+  |     ^^^
+  |

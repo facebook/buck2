@@ -9,3 +9,6 @@ def test():
     fail("Expected variable expansion in string: `{}`".format("x"))
 
 No errors.
+
+Compiler typechecker (eval):
+No errors.

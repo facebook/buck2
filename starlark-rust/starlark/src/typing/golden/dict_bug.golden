@@ -14,3 +14,6 @@ No errors.
 
 Types:
 y: typing.Never
+
+Compiler typechecker (eval):
+No errors.

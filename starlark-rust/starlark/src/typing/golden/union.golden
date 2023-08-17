@@ -20,3 +20,11 @@ error: Expected type `int | str` but got `list[typing.Never]`
 8 |         return []
   |         ^^^^^^^^^
   |
+
+Compiler typechecker (eval):
+error: Expected type `int | str` but got `list[typing.Never]`
+ --> filename:8:9
+  |
+8 |         return []
+  |         ^^^^^^^^^
+  |

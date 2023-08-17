@@ -12,3 +12,6 @@ No errors.
 
 Types:
 x: struct(a = int, b = str)
+
+Compiler typechecker (eval):
+No errors.
