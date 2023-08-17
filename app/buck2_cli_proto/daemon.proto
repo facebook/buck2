@@ -121,6 +121,8 @@ message ClientContext {
   bool exit_when_different_state = 16;
   // The name of the command the client thinks it's running.
   string command_name = 17;
+  // Any --client-metadata passed by the user.
+  repeated buck.data.ClientMetadata client_metadata = 18;
 
   /// Contents of `BUCK2_HARD_ERROR` environment variable.
   string buck2_hard_error = 20;

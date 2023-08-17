@@ -187,6 +187,11 @@ impl<'a> ClientCommandContext<'a> {
             buck2_hard_error: BUCK2_HARD_ERROR_ENV_VAR.get()?.cloned().unwrap_or_default(),
             command_name: command_name.to_owned(),
             exit_when_different_state: false,
+            client_metadata: self
+                .client_metadata
+                .iter()
+                .map(ClientMetadata::to_proto)
+                .collect(),
         })
     }
 
