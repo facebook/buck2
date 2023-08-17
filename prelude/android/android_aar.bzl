@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
 load("@prelude//android:android_binary_resources_rules.bzl", "get_manifest")
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "merge_android_packageable_info")
 load("@prelude//android:android_resource.bzl", "get_text_symbols")
@@ -61,6 +62,9 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         assets_dirs = [resource_infos.assets for resource_infos in resource_infos if resource_infos.assets]
         entries.extend(assets_dirs)
 
+    android_binary_native_library_info = get_android_binary_native_library_info(ctx, android_packageable_info, deps_by_platform)
+    native_libs_file = ctx.actions.write("native_libs_entries.txt", android_binary_native_library_info.native_libs_for_primary_apk)
+
     entries_file = ctx.actions.write("entries.txt", entries)
 
     aar = ctx.actions.declare_output("{}.aar".format(ctx.label.name))
@@ -72,7 +76,9 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         entries_file,
         "--on_duplicate_entry",
         "fail",
-    ]).hidden(entries)
+        "--native_libs_file",
+        native_libs_file,
+    ]).hidden(entries, android_binary_native_library_info.native_libs_for_primary_apk)
 
     ctx.actions.run(create_aar_cmd, category = "create_aar")
 
