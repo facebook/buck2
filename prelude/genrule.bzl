@@ -35,6 +35,7 @@ _BUILD_ROOT_LABELS = {label: True for label in [
     "redex_genrule",  # T148016945
     "pxl",  # T151533831
     "app_modules_genrule",  # produces JSON containing file paths that are read from the root dir.
+    "android_langpack_strings",  # produces JSON containing file paths that are read from the root dir.
 ]}
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
