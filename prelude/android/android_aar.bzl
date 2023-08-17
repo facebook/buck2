@@ -36,6 +36,15 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         classes_jar.as_output(),
     ]).hidden(jars)
 
+    if ctx.attrs.remove_classes:
+        remove_classes_file = ctx.actions.write("remove_classes.txt", ctx.attrs.remove_classes)
+        classes_jar_cmd.add([
+            "--blocklist-patterns",
+            remove_classes_file,
+            "--blocklist-patterns-matcher",
+            "remove_classes_patterns_matcher",
+        ])
+
     ctx.actions.run(classes_jar_cmd, category = "create_classes_jar")
 
     entries = [android_manifest, classes_jar]
