@@ -48,7 +48,7 @@ Buck guarantees that any dependencies that a rule lists that are required in ord
 
 ### Visibility
 
-In order for a build rule to take a dependency on another build rule, the build rule on which the dependency is taken must be *visible* to the build rule taking the dependency. A build rule's `visibility` argument is a list of [build target pattern](https://buck.build/concept/build_target_pattern.html)s that specify the rules that can take that rule as a dependency. For more information about the concept of visibility in Buck, see the [Visibility](https://buck.build/concept/Visibility.html) topic.
+In order for a build rule to take a dependency on another build rule, the build rule on which the dependency is taken must be *visible* to the build rule taking the dependency. A build rule's `visibility` argument is a list of [build target pattern](https://buck.build/concept/build_target_pattern.html)s that specify the rules that can take that rule as a dependency. For more information about the concept of visibility in Buck, see the [Visibility](https://buck.build/concept/visibility.html) topic.
 
 ### Dependencies define a graph
 
