@@ -182,6 +182,7 @@ impl<'v> Compiler<'v, '_, '_> {
         let oracle = TypingOracleCtx {
             oracle: &OracleAny,
             codemap: &self.codemap,
+            typecheck_mode: TypecheckMode::Compiler,
         };
         let BindingsCollect { bindings, .. } = BindingsCollect::collect(
             stmts,

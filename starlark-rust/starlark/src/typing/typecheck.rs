@@ -191,6 +191,7 @@ impl AstModule {
         let oracle = TypingOracleCtx {
             codemap: &codemap,
             oracle,
+            typecheck_mode: TypecheckMode::Lint,
         };
 
         let mut approximations = Vec::new();

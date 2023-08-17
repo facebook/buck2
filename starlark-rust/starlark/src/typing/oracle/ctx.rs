@@ -31,6 +31,7 @@ use crate::typing::function::Arg;
 use crate::typing::function::Param;
 use crate::typing::function::ParamMode;
 use crate::typing::function::TyFunction;
+use crate::typing::mode::TypecheckMode;
 use crate::typing::Ty;
 use crate::typing::TyName;
 use crate::typing::TypingAttr;
@@ -79,6 +80,7 @@ enum TypingOracleCtxError {
 pub struct TypingOracleCtx<'a> {
     pub(crate) oracle: &'a dyn TypingOracle,
     pub(crate) codemap: &'a CodeMap,
+    pub(crate) typecheck_mode: TypecheckMode,
 }
 
 impl<'a> TypingOracle for TypingOracleCtx<'a> {
@@ -108,7 +110,15 @@ impl<'a> TypingOracle for TypingOracleCtx<'a> {
     }
 
     fn subtype(&self, require: &TyName, got: &TyName) -> bool {
-        self.oracle.subtype(require, got)
+        match self.typecheck_mode {
+            TypecheckMode::Lint => self.oracle.subtype(require, got),
+            TypecheckMode::Compiler => {
+                // Compiler typechecker does not have oracle,
+                // so it does not know anything about opaque types.
+                // This code should go away when we get rid of `Ty::name`.
+                true
+            }
+        }
     }
 }
 
