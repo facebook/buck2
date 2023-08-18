@@ -255,12 +255,9 @@ impl RageCommand {
 
             buck2_client_ctx::eprintln!("Collecting debug info...")?;
 
-            let thread_dump = {
-                let title = "Thread dump";
-                RageSection::get(title, timeout, || {
-                    thread_dump::upload_thread_dump(&info, &manifold, &manifold_id)
-                })
-            };
+            let thread_dump = RageSection::get("Thread dump", timeout, || {
+                thread_dump::upload_thread_dump(&info, &manifold, &manifold_id)
+            });
             let build_info_command = {
                 let title = "Associated invocation info";
                 match selected_invocation.as_ref() {
