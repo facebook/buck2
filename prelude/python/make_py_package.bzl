@@ -118,59 +118,6 @@ def _fail(
     # occur at analysis time
     fail(msg)
 
-def _get_make_par_build_args(ctx):
-    args = cmd_args()
-    if ctx.attrs.build_info_mode:
-        args.add(cmd_args(ctx.attrs.build_info_mode, format = "--passthrough=--build-info={}"))
-    if ctx.attrs.argcomplete:
-        args.add("--passthrough=--argcomplete")
-    if ctx.attrs.strict_tabs == False:
-        args.add("--passthrough=--no-strict-tabs")
-    if ctx.attrs.compile == False:
-        args.add("--passthrough=--no-compile")
-    if ctx.attrs.optimize:
-        args.add("--passthrough=--optimize")
-    if ctx.attrs.xar_compression_level:
-        args.add(cmd_args(str(ctx.attrs.xar_compression_level), format = "--passthrough=--xar-compression-level={}"))
-    if ctx.attrs.extra_xar_trampoline_names:
-        args.add(cmd_args(ctx.attrs.extra_xar_trampoline_names, format = "--passthrough=--extra-xar-trampoline-names={}"))
-    if ctx.attrs.ld_library_path:
-        args.add(cmd_args(ctx.attrs.ld_library_path, format = "--passthrough=--ld-library={}"))
-    if ctx.attrs.build_info:
-        for k, v in ctx.attrs.build_info.items():
-            val = "--build-info-{}={}".format(k, v)
-            args.add(cmd_args(val, format = "--passthrough={}"))
-    if ctx.attrs.debug_info:
-        args.add(cmd_args(ctx.attrs.debug_info, format = "--passthrough=--debug-info={}"))
-    if ctx.attrs.runtime_files:
-        args.add(cmd_args(ctx.attrs.runtime_files["manifest"], format = "--passthrough=--runtime-manifest={}"))
-        args.add(cmd_args(ctx.attrs.runtime_files["root"], format = "--passthrough=--runtime-root={}"))
-    if ctx.attrs.bytecode_compiler:
-        args.add(cmd_args(ctx.attrs.bytecode_compiler, format = "--passthrough=--compiler={}"))
-    for k, v in ctx.attrs.runtime_env.items():
-        val = "{}={}".format(k, v)
-        args.add(cmd_args(val, format = "--passthrough=--runtime_env={}"))
-    for k, v in ctx.attrs.manifest_env.items():
-        val = "{}={}".format(k, v)
-        args.add(cmd_args(val, format = "--passthrough=--manifest-env={}"))
-    if ctx.attrs.extra_build_info:
-        for k, v in ctx.attrs.extra_build_info.items():
-            val = "--build-info-value={}={}".format(k, v)
-            args.add(cmd_args(val, format = "--passthrough={}"))
-
-    if ctx.attrs.python:
-        args.add(cmd_args(ctx.attrs.python, format = "--python-override={}"))
-    if ctx.attrs.omnibus_debug_info:
-        args.add(cmd_args(ctx.attrs.omnibus_debug_info, format = "--omnibus-debug-info={}"))
-    if ctx.attrs.package_dwp:
-        args.add("--package-split-dwarf-dwp=true")
-    if ctx.attrs.inherit_native_lib_path:
-        args.add("--passthrough=--inherit-native-lib-path")
-    else:
-        args.add("--passthrough=--no-inherit-native-lib-path")
-
-    return args
-
 # TODO(nmj): Resources
 # TODO(nmj): Figure out how to harmonize these flags w/ existing make_xar
 #                 invocations. It might be perfectly reasonable to just have a wrapper
@@ -181,7 +128,7 @@ def make_py_package(
         # A rule-provided tool to use to build the PEX.
         make_py_package_cmd: [RunInfo.type, None],
         package_style: PackageStyle.type,
-        extra_build_args: list[ArgLike],
+        build_args: list[ArgLike],
         pex_modules: PexModules.type,
         shared_libraries: dict[str, (LinkedObject.type, bool)],
         main: EntryPoint,
@@ -203,8 +150,6 @@ def make_py_package(
           resulting binary.
         - hidden_resources: extra resources the binary depends on.
     """
-    build_args = _get_make_par_build_args(ctx)
-    build_args.add(extra_build_args)
 
     preload_libraries = _preload_libraries_args(ctx, shared_libraries)
     manifest_module = generate_manifest_module(ctx, python_toolchain, pex_modules.manifests.src_manifests())
@@ -219,7 +164,6 @@ def make_py_package(
         python_toolchain,
         make_py_package_cmd,
         package_style,
-        ctx.attrs.par_style,
         build_args,
         shared_libraries,
         preload_libraries,
@@ -238,7 +182,6 @@ def make_py_package(
             python_toolchain,
             make_py_package_cmd,
             PackageStyle(style),
-            None,  # Set par_style to None when building non-default modes
             build_args,
             shared_libraries,
             preload_libraries,
@@ -259,8 +202,7 @@ def _make_py_package_impl(
         python_toolchain: PythonToolchainInfo.type,
         make_py_package_cmd: [RunInfo.type, None],
         package_style: PackageStyle.type,
-        par_style: [str.type, None],
-        build_args: "cmd_args",
+        build_args: list[ArgLike],
         shared_libraries: dict[str, (LinkedObject.type, bool)],
         preload_libraries: cmd_args,
         common_modules_args: cmd_args,
@@ -328,12 +270,13 @@ def _make_py_package_impl(
         symlink_tree_path,
         package_style,
     )
+    bootstrap_args.add(build_args)
+    if package_style == PackageStyle("standalone"):
+        bootstrap_args.add(ctx.attrs.standalone_build_args)
+    else:
+        bootstrap_args.add(ctx.attrs.inplace_build_args)
 
     if standalone:
-        bootstrap_args.add(build_args)
-        if par_style:
-            bootstrap_args.add(cmd_args(par_style, format = "--passthrough=--par-style={}"))
-
         # We support building _standalone_ packages locally to e.g. support fbcode's
         # current style of build info stamping (e.g. T10696178).
         prefer_local = package_python_locally(ctx, python_toolchain)
@@ -355,10 +298,6 @@ def _make_py_package_impl(
         runtime_files.extend(dep_artifacts)
         runtime_files.append((symlink_tree_path, symlink_tree_path.short_path))
         if make_py_package_cmd != None:
-            bootstrap_args.add(build_args)
-
-            # If using make_par for inplace set the correct par_style
-            bootstrap_args.add(cmd_args("--passthrough=--par-style=live"))
             cmd = cmd_args(make_py_package_cmd)
             cmd.add(modules_args)
             cmd.add(bootstrap_args)
