@@ -218,7 +218,6 @@ impl RageCommand {
         buck2_core::facebook_only();
 
         ctx.with_runtime(async move |mut ctx| {
-            let timeout = Duration::from_secs(self.timeout);
             let paths = ctx.paths.as_ref().map_err(|e| e.dupe())?;
             let daemon_dir = paths.daemon_dir()?;
             let stderr_path = daemon_dir.buckd_stderr();
@@ -266,12 +265,11 @@ impl RageCommand {
 
             buck2_client_ctx::eprintln!("Collecting debug info...")?;
 
-            let thread_dump = RageSection::get("Thread dump", timeout, || {
+            let thread_dump = self.section("Thread dump", || {
                 thread_dump::upload_thread_dump(&info, &manifold, &manifold_id)
             });
-            let build_info_command = RageSection::get_skippable(
+            let build_info_command = self.skippable_section(
                 "Associated invocation info",
-                timeout,
                 selected_invocation
                     .as_ref()
                     .map(|inv| || build_info::get(inv)),
@@ -284,17 +282,16 @@ impl RageCommand {
                 build_info_command
             );
 
-            let system_info_command = RageSection::get("System info", timeout, system_info::get);
-            let daemon_stderr_command = RageSection::get("Daemon stderr", timeout, || {
+            let system_info_command = self.section("System info", system_info::get);
+            let daemon_stderr_command = self.section("Daemon stderr", || {
                 upload_daemon_stderr(stderr_path, &manifold, &manifold_id)
             });
-            let hg_snapshot_id_command =
-                RageSection::get("Source control", timeout, source_control::get_info);
-            let dice_dump_command = RageSection::get("Dice dump", timeout, || async {
+            let hg_snapshot_id_command = self.section("Source control", source_control::get_info);
+            let dice_dump_command = self.section("Dice dump", || async {
                 dice::upload_dice_dump(buckd.clone().await?, dice_dump_dir, &manifold, &manifold_id)
                     .await
             });
-            let materializer_state = RageSection::get("Materializer state", timeout, || {
+            let materializer_state = self.section("Materializer state", || {
                 materializer::upload_materializer_data(
                     buckd.clone(),
                     &client_ctx,
@@ -303,7 +300,7 @@ impl RageCommand {
                     MaterializerRageUploadData::State,
                 )
             });
-            let materializer_fsck = RageSection::get("Materializer fsck", timeout, || {
+            let materializer_fsck = self.section("Materializer fsck", || {
                 materializer::upload_materializer_data(
                     buckd.clone(),
                     &client_ctx,
@@ -312,17 +309,15 @@ impl RageCommand {
                     MaterializerRageUploadData::Fsck,
                 )
             });
-            let event_log_command = RageSection::get_skippable(
+            let event_log_command = self.skippable_section(
                 "Event log upload",
-                timeout,
                 selected_invocation
                     .as_ref()
                     .map(|path| || upload_event_logs(path, &manifold, &manifold_id)),
             );
 
-            let re_logs_command = RageSection::get_skippable(
+            let re_logs_command = self.skippable_section(
                 "RE logs upload",
-                timeout,
                 build_info
                     .get_field(|o| o.re_session_id.clone())
                     .map(|id| || upload_re_logs_impl(&manifold, &re_logs_dir, id)),
@@ -449,6 +444,32 @@ impl RageCommand {
             },
         )
         .await
+    }
+
+    fn section<'a, Fut, T>(
+        &'a self,
+        title: &'a str,
+        command: impl FnOnce() -> Fut,
+    ) -> LocalBoxFuture<RageSection<T>>
+    where
+        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        T: std::fmt::Display + 'a,
+    {
+        let timeout = Duration::from_secs(self.timeout);
+        RageSection::get(title, timeout, command)
+    }
+
+    fn skippable_section<'a, Fut, T>(
+        &'a self,
+        title: &'a str,
+        command: Option<impl FnOnce() -> Fut>,
+    ) -> LocalBoxFuture<RageSection<T>>
+    where
+        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        T: std::fmt::Display + 'a,
+    {
+        let timeout = Duration::from_secs(self.timeout);
+        RageSection::get_skippable(title, timeout, command)
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
