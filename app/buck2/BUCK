@@ -76,6 +76,7 @@ rust_library(
 buck_rust_binary(
     name = "buck2-bin",
     srcs = ["bin/buck2.rs"],
+    crate = "buck2",
     crate_root = "bin/buck2.rs",
     env = {
         # This is only set for release builds.
