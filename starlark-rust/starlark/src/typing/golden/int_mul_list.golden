@@ -8,21 +8,10 @@ Code:
 def test():
     x = 1 * ["a"]
 
-Error:
-error: Binary operator `*` is not available on the types `int` and `list[str]`
- --> filename:3:9
-  |
-3 |     x = 1 * ["a"]
-  |         ^^^^^^^^^
-  |
+No errors.
 
 Types:
-x: typing.Never
+x: list[str]
 
 Compiler typechecker (eval):
-error: Binary operator `*` is not available on the types `int` and `list[str]`
- --> filename:3:9
-  |
-3 |     x = 1 * ["a"]
-  |         ^^^^^^^^^
-  |
+No errors.

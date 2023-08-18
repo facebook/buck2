@@ -117,6 +117,11 @@ impl TyBasic {
         self.as_name() == Some("tuple")
     }
 
+    /// Type is a list, with specified or unspecified member types.
+    pub(crate) fn is_list(&self) -> bool {
+        self.as_name() == Some("list")
+    }
+
     /// If I do `self[i]` what will the resulting type be.
     pub(crate) fn indexed(self, i: usize) -> Ty {
         match self {

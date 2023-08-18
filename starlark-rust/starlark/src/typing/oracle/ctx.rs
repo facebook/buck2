@@ -558,6 +558,50 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
+    fn expr_bin_op_ty_basic_lhs(
+        &self,
+        span: Span,
+        lhs: &TyBasic,
+        bin_op: TypingBinOp,
+        rhs: Spanned<&TyBasic>,
+    ) -> Result<Ty, ()> {
+        if let TyBasic::StarlarkValue(lhs) = lhs {
+            return lhs.bin_op(bin_op, rhs.node);
+        }
+
+        let fun = match self.oracle.attribute(lhs, TypingAttr::BinOp(bin_op)) {
+            Some(Ok(fun)) => fun,
+            Some(Err(())) => return Err(()),
+            None => return Ok(Ty::any()),
+        };
+        self.validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.clone())))])
+            .map_err(|_| ())
+    }
+
+    fn expr_bin_op_ty_basic_rhs(
+        &self,
+        lhs: &TyBasic,
+        bin_op: TypingBinOp,
+        rhs: &TyBasic,
+    ) -> Result<Ty, ()> {
+        if let TyBasic::StarlarkValue(rhs) = rhs {
+            return rhs.rbin_op(bin_op, lhs);
+        }
+
+        if rhs.is_list() {
+            if self.intersects_basic(lhs, &TyBasic::int()) {
+                return Ok(Ty::basic(rhs.clone()));
+            }
+        }
+        if rhs.is_tuple() {
+            if self.intersects_basic(lhs, &TyBasic::int()) {
+                return Ok(Ty::any_tuple());
+            }
+        }
+
+        Err(())
+    }
+
     fn expr_bin_op_ty_basic(
         &self,
         span: Span,
@@ -565,38 +609,25 @@ impl<'a> TypingOracleCtx<'a> {
         bin_op: TypingBinOp,
         rhs: Spanned<&TyBasic>,
     ) -> Result<Ty, TypingOrInternalError> {
-        if let TyBasic::StarlarkValue(lhs) = &lhs.node {
-            match lhs.bin_op(bin_op, rhs.node) {
-                Ok(x) => return Ok(x),
-                Err(()) => {
-                    // TODO(nga): check RHS too for radd.
-                    return Err(self.mk_error_as_maybe_internal(
-                        span,
-                        TypingOracleCtxError::BinaryOperatorNotAvailable {
-                            bin_op,
-                            left: Ty::basic(TyBasic::StarlarkValue(*lhs)),
-                            right: Ty::basic(rhs.node.clone()),
-                        },
-                    ));
-                }
-            }
+        if let TyBasic::Any = lhs.node {
+            return Ok(Ty::any());
         }
 
-        let fun = match self.oracle.attribute(&lhs.node, TypingAttr::BinOp(bin_op)) {
-            Some(Ok(fun)) => fun,
-            Some(Err(())) => {
-                return Err(self.mk_error_as_maybe_internal(
-                    span,
-                    TypingOracleCtxError::BinaryOperatorNotAvailable {
-                        bin_op,
-                        left: Ty::basic(lhs.node.clone()),
-                        right: Ty::basic(rhs.node.clone()),
-                    },
-                ));
-            }
-            None => return Ok(Ty::any()),
-        };
-        self.validate_call(span, &fun, &[rhs.map(|t| Arg::Pos(Ty::basic(t.clone())))])
+        if let Ok(r) = self.expr_bin_op_ty_basic_lhs(span, lhs.node, bin_op, rhs) {
+            return Ok(r);
+        }
+        if let Ok(r) = self.expr_bin_op_ty_basic_rhs(&lhs.node, bin_op, rhs.node) {
+            return Ok(r);
+        }
+
+        Err(self.mk_error_as_maybe_internal(
+            span,
+            TypingOracleCtxError::BinaryOperatorNotAvailable {
+                bin_op,
+                left: Ty::basic(lhs.node.clone()),
+                right: Ty::basic(rhs.node.clone()),
+            },
+        ))
     }
 
     pub(crate) fn expr_bin_op_ty(

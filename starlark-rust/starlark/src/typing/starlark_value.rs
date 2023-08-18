@@ -160,9 +160,14 @@ impl TyStarlarkValue {
     }
 
     pub(crate) fn bin_op(self, op: TypingBinOp, rhs: &TyBasic) -> Result<Ty, ()> {
-        // TODO(nga): use `rbin_op_ty` too.
-        let _todo_use_rbin_op_ty_too = self.vtable.vtable.rbin_op_ty;
         match (self.vtable.vtable.bin_op_ty)(op, rhs) {
+            Some(ty) => Ok(ty),
+            None => Err(()),
+        }
+    }
+
+    pub(crate) fn rbin_op(self, op: TypingBinOp, lhs: &TyBasic) -> Result<Ty, ()> {
+        match (self.vtable.vtable.rbin_op_ty)(lhs, op) {
             Some(ty) => Ok(ty),
             None => Err(()),
         }
