@@ -110,7 +110,7 @@ def _write_final_ghci_script(
         "-fexternal-dynamic-refs",
     ])
 
-    if (enable_profiling):
+    if enable_profiling:
         compiler_flags.add([
             "-prof",
             "-osuf p_o",
@@ -522,16 +522,16 @@ def _symlink_ghci_binary(ctx, ghci_bin: Artifact):
 
 def _first_order_haskell_deps(
         ctx: AnalysisContext,
-        _enable_profiling: bool) -> list[HaskellLibraryInfo.type]:
-    return dedupe(
-        flatten(
-            [
-                dep[HaskellLibraryProvider].lib.values()
-                for dep in ctx.attrs.deps
-                if HaskellLibraryProvider in dep
-            ],
-        ),
-    )
+        enable_profiling: bool) -> list[HaskellLibraryInfo.type]:
+    libs = []
+    for dep in ctx.attrs.deps:
+        if HaskellLibraryProvider in dep:
+            if enable_profiling:
+                libs.append(dep[HaskellLibraryProvider].prof_lib.values())
+            else:
+                libs.append(dep[HaskellLibraryProvider].lib.values())
+
+    return dedupe(flatten(libs))
 
 # Creates the start.ghci script used to load the packages during startup
 def _write_start_ghci(
@@ -607,6 +607,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         link_style,
         specify_pkg_version = True,
+        enable_profiling = enable_profiling,
     )
 
     # Create package db symlinks
@@ -625,14 +626,14 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
                 package_symlinks_root,
                 lib.name,
             )
-            artifact_suffix = get_artifact_suffix(
-                link_style,
-                lib.profiling_enabled,
-            )
             lib_symlinks = {
-                ("hi-" + artifact_suffix): lib.import_dirs[0],
                 "packagedb": lib.db,
             }
+
+            for prof, import_dir in lib.import_dirs.items():
+                artifact_suffix = get_artifact_suffix(link_style, prof)
+                lib_symlinks["hi-" + artifact_suffix] = import_dir
+
             for o in lib.libs:
                 lib_symlinks[o.short_path] = o
 
