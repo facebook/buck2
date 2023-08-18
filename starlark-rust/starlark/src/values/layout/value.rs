@@ -572,7 +572,13 @@ impl<'v> Value<'v> {
 
     /// `x * other`.
     pub fn mul(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        self.get_ref().mul(other, heap)
+        if let Some(r) = self.get_ref().mul(other, heap) {
+            r
+        } else if let Some(r) = other.get_ref().mul(self, heap) {
+            r
+        } else {
+            ValueError::unsupported_owned(self.get_type(), "*", Some(other.get_type()))
+        }
     }
 
     /// `x % other`.

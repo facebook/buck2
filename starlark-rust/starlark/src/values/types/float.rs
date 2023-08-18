@@ -304,11 +304,8 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
         }
     }
 
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            Some(other) => Ok(heap.alloc(NumRef::Float(self.0) * other)),
-            None => ValueError::unsupported_with(self, "*", other),
-        }
+    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        Some(Ok(heap.alloc(NumRef::Float(self.0) * other.unpack_num()?)))
     }
 
     fn div(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

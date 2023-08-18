@@ -692,7 +692,15 @@ pub trait StarlarkValue<'v>:
         ValueError::unsupported_with(self, "-", other)
     }
 
+    /// Called on `rhs` of `lhs * rhs` when `lhs.mul` returns `None`.
+    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        let _ignore = (lhs, heap);
+        None
+    }
+
     /// Multiply the current value with `other`.
+    ///
+    /// When this function returns `None`, starlark-rust calls `rhs.rmul(lhs)`.
     ///
     /// # Examples
     ///
@@ -704,8 +712,8 @@ pub trait StarlarkValue<'v>:
     /// (1, 2, 3) * 3 == (1, 2, 3, 1, 2, 3, 1, 2, 3)
     /// # "#);
     /// ```
-    fn mul(&self, other: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        ValueError::unsupported_with(self, "*", other)
+    fn mul(&self, _rhs: Value<'v>, _heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        None
     }
 
     /// Divide the current value by `other`. Always results in a float value.

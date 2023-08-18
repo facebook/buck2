@@ -224,11 +224,10 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
             None => ValueError::unsupported_with(self, "-", other),
         }
     }
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Small(self.get())) * other)),
-            None => other.mul(Value::new_int(self.get()), heap),
-        }
+    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        Some(Ok(heap.alloc(
+            NumRef::Int(StarlarkIntRef::Small(self.get())) * other.unpack_num()?,
+        )))
     }
     fn div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {

@@ -195,11 +195,10 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         }
     }
 
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)) * other)),
-            None => ValueError::unsupported_with(self, "*", other),
-        }
+    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        Some(Ok(heap.alloc(
+            NumRef::Int(StarlarkIntRef::Big(self)) * other.unpack_num()?,
+        )))
     }
 
     fn div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

@@ -364,13 +364,17 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         }
     }
 
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let l = i32::unpack_param(other)?;
+    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        let l = i32::unpack_value(other)?;
         let mut result = String::with_capacity(self.len() * cmp::max(0, l) as usize);
         for _i in 0..l {
             result.push_str(self)
         }
-        Ok(heap.alloc(result))
+        Some(Ok(heap.alloc(result)))
+    }
+
+    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
+        self.mul(lhs, heap)
     }
 
     fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

@@ -301,16 +301,19 @@ impl ImplStarlarkValue {
     }
 
     fn rbin_op_ty_impl(&self) -> syn::Result<Option<syn::ImplItem>> {
-        let radd = self.bin_op_arm("Add", "radd");
-        if radd.is_none() {
+        let arms = [
+            self.bin_op_arm("Add", "radd"),
+            self.bin_op_arm("Mul", "rmul"),
+        ];
+        if arms.iter().all(Option::is_none) {
+            // Use default implementation.
             return Ok(None);
         }
         Ok(Some(syn::parse_quote_spanned! {self.span()=>
             fn rbin_op_ty(_lhs: &starlark::typing::TyBasic, op: starlark::typing::TypingBinOp) -> Option<starlark::typing::Ty> {
                 match op {
-                    #radd
+                    #( #arms )*
                     _ => {
-                        // Unreachable, because we only support radd at the moment.
                         None
                     }
                 }
