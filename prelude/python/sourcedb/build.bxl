@@ -24,7 +24,7 @@ def do_build(
         targets: list["configured_target_label"]) -> dict["target_label", Artifact]:
     # Build sourcedbs of all targets
     configured_sub_targets = [
-        configured_sub_target(target, ["source-db-no-deps"])
+        target.with_sub_target(["source-db-no-deps"])
         for target in targets
     ]
     build_results = ctx.build(configured_sub_targets)
