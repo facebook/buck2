@@ -138,7 +138,7 @@ impl LiteralParser {
 pub struct DiceQueryDelegate<'c> {
     ctx: &'c DiceComputations,
     cell_resolver: CellResolver,
-    literal_parser: Arc<LiteralParser>,
+    literal_parser: LiteralParser,
     global_target_platform: Option<TargetLabel>,
     package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
 }
@@ -164,14 +164,14 @@ impl<'c> DiceQueryDelegate<'c> {
             ctx,
             global_target_platform,
             cell_resolver: cell_resolver.dupe(),
-            literal_parser: Arc::new(LiteralParser {
+            literal_parser: LiteralParser {
                 working_dir_abs,
                 working_dir: cell_path,
                 project_root,
                 cell_resolver,
                 cell_alias_resolver,
                 target_alias_resolver,
-            }),
+            },
             package_boundary_exceptions,
         })
     }
