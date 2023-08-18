@@ -335,7 +335,14 @@ impl Buck {
 
         command.args(["--use-clippy", &use_clippy.to_string()]);
 
-        let files = deserialize_output(command.output(), &command)?;
+        let output = command.output();
+        if let Ok(output) = &output {
+            if output.stdout.is_empty() {
+                return Ok(vec![]);
+            }
+        }
+
+        let files = deserialize_output(output, &command)?;
         Ok(files)
     }
 
