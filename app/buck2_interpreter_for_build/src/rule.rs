@@ -122,25 +122,8 @@ impl<'v> AllocValue<'v> for RuleCallable<'v> {
     }
 }
 
-#[starlark_value(type = "rule")]
-impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
-    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
-        *self.id.borrow_mut() = Some(StarlarkRuleType {
-            import_path: self.import_path.clone(),
-            name: variable_name.to_owned(),
-        });
-    }
-
-    fn invoke(
-        &self,
-        _me: Value<'v>,
-        _args: &Arguments<'v, '_>,
-        _eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        Err(RuleError::RuleCalledBeforeFreezing.into())
-    }
-
-    fn documentation(&self) -> Option<DocItem> {
+impl<'v> RuleCallable<'v> {
+    fn documentation_impl(&self) -> DocItem {
         let name = self
             .id
             .borrow()
@@ -165,7 +148,30 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
             None,
         );
 
-        Some(DocItem::Function(function_docs))
+        DocItem::Function(function_docs)
+    }
+}
+
+#[starlark_value(type = "rule")]
+impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
+    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
+        *self.id.borrow_mut() = Some(StarlarkRuleType {
+            import_path: self.import_path.clone(),
+            name: variable_name.to_owned(),
+        });
+    }
+
+    fn invoke(
+        &self,
+        _me: Value<'v>,
+        _args: &Arguments<'v, '_>,
+        _eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        Err(RuleError::RuleCalledBeforeFreezing.into())
+    }
+
+    fn documentation(&self) -> Option<DocItem> {
+        Some(self.documentation_impl())
     }
 }
 
@@ -173,7 +179,7 @@ impl<'v> Freeze for RuleCallable<'v> {
     type Frozen = FrozenRuleCallable;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let frozen_impl = self.implementation.freeze(freezer)?;
-        let rule_docs = self.documentation();
+        let rule_docs = self.documentation_impl();
         let id = match self.id.into_inner() {
             Some(x) => x,
             None => return Err(RuleError::RuleNotAssigned(self.import_path).into()),
@@ -207,7 +213,7 @@ pub struct FrozenRuleCallable {
     rule_type: Arc<StarlarkRuleType>,
     implementation: FrozenValue,
     signature: ParametersSpec<FrozenValue>,
-    rule_docs: Option<DocItem>,
+    rule_docs: DocItem,
     ignore_attrs_for_profiling: bool,
 }
 starlark_simple_value!(FrozenRuleCallable);
@@ -271,7 +277,7 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        self.rule_docs.clone()
+        Some(self.rule_docs.clone())
     }
 }
 
