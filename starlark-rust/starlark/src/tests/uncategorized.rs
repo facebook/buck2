@@ -37,6 +37,7 @@ use crate::eval::Evaluator;
 use crate::starlark_simple_value;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::tests::golden_test_template::golden_test_template;
 use crate::values::none::NoneType;
 use crate::values::Freeze;
 use crate::values::Freezer;
@@ -401,6 +402,15 @@ assert_eq(names[str], "str")
     );
 }
 
+/// There's no anyhow API to print error without rust backtrace
+/// ([issue](https://github.com/dtolnay/anyhow/issues/300)).
+fn trim_rust_backtrace(error: &str) -> &str {
+    match error.find("\nStack backtrace:") {
+        Some(pos) => error[..pos].trim_end(),
+        None => error.trim_end(),
+    }
+}
+
 #[test]
 // Tests diagnostics error display.
 //
@@ -426,7 +436,6 @@ fn test_diagnostics_display() {
         }
     }
 
-    let display = std::env::var("EYEBALL") == Ok("1".to_owned());
     let mut a = Assert::new();
     a.globals_add(module);
 
@@ -450,60 +459,17 @@ should_fail()"#,
         "rust failure",
     );
 
-    if display {
-        Diagnostic::eprint(&err);
-    }
-
     let diag = err.downcast::<Diagnostic>().unwrap();
 
-    // Checking using `contains()` because `RUST_BACKTRACE` is set to `full` for CI, and we
-    // only want to validate that the `Caused by` is printed out here.
-    assert!(format!("\n{}", diag).contains(
-        r#"
-Traceback (most recent call last):
-  * assert.bzl:3, in <module>
-      should_fail()
-  * imported.bzl:9, in should_fail
-      rust_failure()
-error: rust failure
- --> imported.bzl:9:5
-  |
-9 |     rust_failure()
-  |     ^^^^^^^^^^^^^^
-  |
+    golden_test_template(
+        "src/tests/uncategorized_diagnostics_display_default.golden",
+        trim_rust_backtrace(&format!("{}", diag)),
+    );
 
-
-rust failure
-
-Caused by:
-    0: fail 3
-    1: fail 2
-    2: fail 1
-"#
-    ));
-    assert!(format!("\n{:#}", diag).contains(
-        r#"
-Traceback (most recent call last):
-  * assert.bzl:3, in <module>
-      should_fail()
-  * imported.bzl:9, in should_fail
-      rust_failure()
-error: rust failure
- --> imported.bzl:9:5
-  |
-9 |     rust_failure()
-  |     ^^^^^^^^^^^^^^
-  |
-
-
-rust failure
-
-Caused by:
-    0: fail 3
-    1: fail 2
-    2: fail 1
-"#
-    ));
+    golden_test_template(
+        "src/tests/uncategorized_diagnostics_display_hash.golden",
+        trim_rust_backtrace(&format!("{:#}", diag)),
+    );
 }
 
 #[test]
