@@ -34,6 +34,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueTyped;
 use thiserror::Error;
 
 use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecutionPlatformResolution;
@@ -144,8 +145,10 @@ where
 #[starlark_module]
 fn dependency_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn label<'v>(this: &Dependency) -> anyhow::Result<Value<'v>> {
-        Ok(this.label.to_value())
+    fn label<'v>(
+        this: &Dependency,
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkConfiguredProvidersLabel>> {
+        Ok(ValueTyped::new(this.label).unwrap())
     }
 
     // TODO(nga): should return provider collection.
