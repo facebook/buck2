@@ -24,6 +24,9 @@ pub struct RunActionKnobs {
     /// for network actions (download_file, cas_artifact). Used to support offline
     /// builds.
     pub use_network_action_output_cache: bool,
+
+    /// Whether to tell RE to respect executable bits on inputs.
+    pub respect_exec_bit_on_re: bool,
 }
 
 pub trait HasRunActionKnobs {

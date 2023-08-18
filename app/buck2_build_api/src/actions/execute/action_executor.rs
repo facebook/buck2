@@ -264,6 +264,7 @@ impl HasActionExecutor for DiceComputations {
                 artifact_fs,
                 executor_config.options,
                 platform,
+                run_action_knobs.respect_exec_bit_on_re,
             ),
             blocking_executor,
             materializer,
@@ -769,6 +770,7 @@ mod tests {
                     path_separator: PathSeparatorKind::Unix,
                     output_paths_behavior: Default::default(),
                 },
+                Default::default(),
                 Default::default(),
             ),
             Arc::new(DummyBlockingExecutor {

@@ -17,6 +17,7 @@ use std::time::Duration;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
+use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -702,6 +703,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             cache_checker: _,
             cache_uploader: _,
         } = self.dice.get_command_executor(fs, executor_config)?;
+        let run_action_knobs = self.dice.per_transaction_data().get_run_action_knobs();
         let executor = CommandExecutor::new(
             executor,
             // Caching is not enabled for tests yet. Use the NoOp
@@ -710,6 +712,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             fs.clone(),
             executor_config.options,
             platform,
+            run_action_knobs.respect_exec_bit_on_re,
         );
         Ok(executor)
     }
@@ -728,6 +731,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             cache_checker: _,
             cache_uploader: _,
         } = self.dice.get_command_executor(fs, &executor_config)?;
+        let run_action_knobs = self.dice.per_transaction_data().get_run_action_knobs();
         let executor = CommandExecutor::new(
             executor,
             Arc::new(NoOpCommandExecutor {}),
@@ -735,6 +739,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             fs.clone(),
             executor_config.options,
             platform,
+            run_action_knobs.respect_exec_bit_on_re,
         );
         Ok(executor)
     }
