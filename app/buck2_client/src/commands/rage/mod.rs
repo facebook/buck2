@@ -132,10 +132,21 @@ where
         .boxed_local()
     }
 
-    fn get_skipped(title: &str) -> LocalBoxFuture<'a, Self> {
-        let status = CommandStatus::Skipped;
-        let title = title.to_owned();
-        async { RageSection { title, status } }.boxed_local()
+    fn get_skippable<Fut>(
+        title: &str,
+        timeout: Duration,
+        command: Option<impl FnOnce() -> Fut>,
+    ) -> LocalBoxFuture<'a, Self>
+    where
+        Fut: Future<Output = anyhow::Result<T>> + 'a,
+    {
+        if let Some(command) = command {
+            Self::get(title, timeout, command)
+        } else {
+            let status = CommandStatus::Skipped;
+            let title = title.to_owned();
+            async { RageSection { title, status } }.boxed_local()
+        }
     }
 
     fn output(&self) -> String {
@@ -258,15 +269,13 @@ impl RageCommand {
             let thread_dump = RageSection::get("Thread dump", timeout, || {
                 thread_dump::upload_thread_dump(&info, &manifold, &manifold_id)
             });
-            let build_info_command = {
-                let title = "Associated invocation info";
-                match selected_invocation.as_ref() {
-                    None => RageSection::get_skipped(title),
-                    Some(invocation) => {
-                        RageSection::get(title, timeout, || build_info::get(invocation))
-                    }
-                }
-            };
+            let build_info_command = RageSection::get_skippable(
+                "Associated invocation info",
+                timeout,
+                selected_invocation
+                    .as_ref()
+                    .map(|inv| || build_info::get(inv)),
+            );
 
             let (thread_dump, build_info) = tokio::join!(
                 // Get thread dump before making any new connections to daemon (T159606309)
@@ -303,25 +312,21 @@ impl RageCommand {
                     MaterializerRageUploadData::Fsck,
                 )
             });
-            let event_log_command = {
-                let title = "Event log upload";
-                match selected_invocation.as_ref() {
-                    None => RageSection::get_skipped(title),
-                    Some(path) => RageSection::get(title, timeout, || {
-                        upload_event_logs(path, &manifold, &manifold_id)
-                    }),
-                }
-            };
-            let re_logs_command = {
-                let title = "RE logs upload";
-                let re_session_id = build_info.get_field(|o| o.re_session_id.clone());
-                match re_session_id {
-                    None => RageSection::get_skipped(title),
-                    Some(re_session_id) => RageSection::get(title, timeout, || {
-                        upload_re_logs_impl(&manifold, &re_logs_dir, re_session_id)
-                    }),
-                }
-            };
+            let event_log_command = RageSection::get_skippable(
+                "Event log upload",
+                timeout,
+                selected_invocation
+                    .as_ref()
+                    .map(|path| || upload_event_logs(path, &manifold, &manifold_id)),
+            );
+
+            let re_logs_command = RageSection::get_skippable(
+                "RE logs upload",
+                timeout,
+                build_info
+                    .get_field(|o| o.re_session_id.clone())
+                    .map(|id| || upload_re_logs_impl(&manifold, &re_logs_dir, id)),
+            );
 
             let (
                 system_info,
