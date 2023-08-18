@@ -85,8 +85,12 @@ pub(crate) async fn preresolve_literals_and_build_universe(
     CqueryUniverse,
     PreresolvedQueryLiterals<ConfiguredTargetNode>,
 )> {
-    let resolved_literals =
-        PreresolvedQueryLiterals::pre_resolve(dice_query_delegate, literals).await;
+    let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
+        dice_query_delegate,
+        literals,
+        dice_query_delegate.ctx(),
+    )
+    .await;
     let universe = CqueryUniverse::build(&resolved_literals.literals()?).await?;
     Ok((universe, resolved_literals))
 }
@@ -122,7 +126,9 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
     // TODO(cjhopman): We should probably also resolve the literals to TargetNode so that
     // we can get errors for packages or targets that don't exist or fail to load.
     let refs: Vec<_> = universe.map(|v| v.as_ref());
-    let universe_resolved = dice_query_delegate.eval_literals(&refs).await?;
+    let universe_resolved = dice_query_delegate
+        .eval_literals(&refs, dice_query_delegate.ctx())
+        .await?;
 
     let universe = CqueryUniverse::build(&universe_resolved).await?;
 

@@ -251,6 +251,10 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
         let cell_path = self.literal_parser.parse_file_literal(literal)?;
         Ok(FileSet::new(indexset![FileNode(cell_path)]))
     }
+
+    fn ctx(&self) -> &DiceComputations {
+        self.ctx
+    }
 }
 
 #[async_trait]
@@ -297,6 +301,10 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
             .get_configured_target(target, self.global_target_platform.as_ref())
             .await
     }
+
+    fn ctx(&self) -> &DiceComputations {
+        self.ctx
+    }
 }
 
 #[async_trait]
@@ -304,10 +312,11 @@ impl<'c> QueryLiterals<ConfiguredTargetNode> for DiceQueryDelegate<'c> {
     async fn eval_literals(
         &self,
         literals: &[&str],
+        ctx: &DiceComputations,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         load_compatible_patterns(
-            self.ctx,
+            ctx,
             parsed_patterns,
             self.global_target_platform.dupe(),
             MissingTargetBehavior::Fail,
@@ -318,10 +327,14 @@ impl<'c> QueryLiterals<ConfiguredTargetNode> for DiceQueryDelegate<'c> {
 
 #[async_trait]
 impl<'c> QueryLiterals<TargetNode> for DiceQueryDelegate<'c> {
-    async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<TargetNode>> {
+    async fn eval_literals(
+        &self,
+        literals: &[&str],
+        ctx: &DiceComputations,
+    ) -> anyhow::Result<TargetSet<TargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         let loaded_patterns =
-            load_patterns(self.ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
+            load_patterns(ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
         let mut target_set = TargetSet::new();
         for (_package, results) in loaded_patterns.into_iter() {
             target_set.extend(results?.into_values());

@@ -279,6 +279,10 @@ impl<'c> AqueryDelegate for DiceAqueryDelegate<'c> {
         &self.base_delegate
     }
 
+    fn ctx(&self) -> &DiceComputations {
+        self.base_delegate.ctx()
+    }
+
     async fn get_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
         self.get_action_node(key).await
     }
@@ -300,7 +304,11 @@ impl<'c> AqueryDelegate for DiceAqueryDelegate<'c> {
 
 #[async_trait]
 impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
-    async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    async fn eval_literals(
+        &self,
+        literals: &[&str],
+        dice: &DiceComputations,
+    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
         // For literal evaluation, we resolve the providers pattern to the analysis result, pull out
         // the default outputs and look up the corresponding actions.
         // TODO(cjhopman): This is a common pattern and we should probably pull it out to a common
@@ -314,21 +322,14 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
             match label {
                 ParsedPattern::Target(package, target_name, providers) => {
                     let label = providers.into_providers_label(package, target_name.as_ref());
-                    let configured_label = self
-                        .base_delegate
-                        .ctx()
+                    let configured_label = dice
                         .get_configured_provider_label(
                             &label,
                             self.base_delegate.global_target_platform(),
                         )
                         .await?;
 
-                    match self
-                        .base_delegate
-                        .ctx()
-                        .get_analysis_result(configured_label.target())
-                        .await?
-                    {
+                    match dice.get_analysis_result(configured_label.target()).await? {
                         MaybeCompatible::Incompatible(_) => {
                             // ignored
                         }
@@ -341,7 +342,15 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
                                 .default_outputs()
                             {
                                 if let Some(action_key) = output.artifact().action_key() {
-                                    result.insert(self.get_action_node(action_key).await?);
+                                    result.insert(
+                                        get_action_node(
+                                            self.nodes_cache.dupe(),
+                                            dice,
+                                            action_key.dupe(),
+                                            self.artifact_fs.dupe(),
+                                        )
+                                        .await?,
+                                    );
                                 }
                             }
 

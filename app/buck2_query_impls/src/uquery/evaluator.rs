@@ -36,8 +36,12 @@ impl UqueryEvaluator<'_> {
         query_args: &[String],
     ) -> anyhow::Result<QueryEvaluationResult<TargetNode>> {
         eval_query(&self.functions, query, query_args, async move |literals| {
-            let resolved_literals =
-                PreresolvedQueryLiterals::pre_resolve(&*self.dice_query_delegate, &literals).await;
+            let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
+                &*self.dice_query_delegate,
+                &literals,
+                self.dice_query_delegate.ctx(),
+            )
+            .await;
             Ok(UqueryEnvironment::new(
                 self.dice_query_delegate.dupe(),
                 Arc::new(resolved_literals),
