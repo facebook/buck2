@@ -175,6 +175,14 @@ impl DiceQueryData {
             global_target_platform,
         })
     }
+
+    pub(crate) fn literal_parser(&self) -> &LiteralParser {
+        &self.literal_parser
+    }
+
+    pub(crate) fn global_target_platform(&self) -> Option<&TargetLabel> {
+        self.global_target_platform.as_ref()
+    }
 }
 
 impl<'c> DiceQueryDelegate<'c> {
@@ -198,14 +206,6 @@ impl<'c> DiceQueryDelegate<'c> {
 
     pub(crate) fn query_data(&self) -> &Arc<DiceQueryData> {
         &self.query_data
-    }
-
-    pub(crate) fn literal_parser(&self) -> &LiteralParser {
-        &self.query_data.literal_parser
-    }
-
-    pub(crate) fn global_target_platform(&self) -> Option<&TargetLabel> {
-        self.query_data.global_target_platform.as_ref()
     }
 }
 

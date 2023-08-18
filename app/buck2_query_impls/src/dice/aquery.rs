@@ -49,6 +49,7 @@ use tokio::sync::oneshot;
 
 use crate::aquery::environment::AqueryDelegate;
 use crate::cquery::environment::CqueryDelegate;
+use crate::dice::DiceQueryData;
 use crate::dice::DiceQueryDelegate;
 use crate::uquery::environment::QueryLiterals;
 
@@ -139,8 +140,13 @@ impl DiceAqueryNodesCache {
 
 pub(crate) struct DiceAqueryDelegate<'c> {
     base_delegate: DiceQueryDelegate<'c>,
-    nodes_cache: DiceAqueryNodesCache,
+    query_data: Arc<AqueryData>,
+}
+
+pub(crate) struct AqueryData {
     artifact_fs: Arc<ArtifactFs>,
+    delegate_query_data: Arc<DiceQueryData>,
+    nodes_cache: DiceAqueryNodesCache,
 }
 
 /// Converts artifact inputs into aquery's ActionInput. This is mostly a matter of resolving the indirect
@@ -255,19 +261,23 @@ impl<'c> DiceAqueryDelegate<'c> {
         base_delegate: DiceQueryDelegate<'c>,
     ) -> anyhow::Result<DiceAqueryDelegate<'c>> {
         let artifact_fs = Arc::new(base_delegate.ctx().get_artifact_fs().await?);
+        let query_data = Arc::new(AqueryData {
+            artifact_fs,
+            delegate_query_data: base_delegate.query_data().dupe(),
+            nodes_cache: DiceAqueryNodesCache::new(),
+        });
         Ok(DiceAqueryDelegate {
             base_delegate,
-            nodes_cache: DiceAqueryNodesCache::new(),
-            artifact_fs,
+            query_data,
         })
     }
 
     pub async fn get_action_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
         get_action_node(
-            self.nodes_cache.dupe(),
+            self.query_data.nodes_cache.dupe(),
             self.base_delegate.ctx(),
             key.dupe(),
-            self.artifact_fs.dupe(),
+            self.query_data.artifact_fs.dupe(),
         )
         .await
     }
@@ -291,8 +301,12 @@ impl<'c> AqueryDelegate for DiceAqueryDelegate<'c> {
         &self,
         artifacts: &[ArtifactGroup],
     ) -> anyhow::Result<Vec<ActionQueryNode>> {
-        let inputs =
-            convert_inputs(self.base_delegate.ctx(), self.nodes_cache.dupe(), artifacts).await?;
+        let inputs = convert_inputs(
+            self.base_delegate.ctx(),
+            self.query_data.nodes_cache.dupe(),
+            artifacts,
+        )
+        .await?;
 
         let refs = iter_action_inputs(&inputs)
             .map(|i| i.require_action())
@@ -316,7 +330,8 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
         let mut result = TargetSet::new();
         for literal in literals {
             let label = self
-                .base_delegate
+                .query_data
+                .delegate_query_data
                 .literal_parser()
                 .parse_providers_pattern(literal)?;
             match label {
@@ -325,7 +340,7 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
                     let configured_label = dice
                         .get_configured_provider_label(
                             &label,
-                            self.base_delegate.global_target_platform(),
+                            self.query_data.delegate_query_data.global_target_platform(),
                         )
                         .await?;
 
@@ -344,10 +359,10 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
                                 if let Some(action_key) = output.artifact().action_key() {
                                     result.insert(
                                         get_action_node(
-                                            self.nodes_cache.dupe(),
+                                            self.query_data.nodes_cache.dupe(),
                                             dice,
                                             action_key.dupe(),
-                                            self.artifact_fs.dupe(),
+                                            self.query_data.artifact_fs.dupe(),
                                         )
                                         .await?,
                                     );
