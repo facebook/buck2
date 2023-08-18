@@ -128,12 +128,10 @@ def process_genrule(
 
     # TODO(cjhopman): verify output paths are ".", "./", or forward-relative.
     if out_attr != None:
-        out_env = out_attr
         out_artifact = _declare_output(ctx, out_attr)
         named_outputs = {}
         default_outputs = [out_artifact]
     elif outs_attr != None:
-        out_env = ""
         out_artifact = ctx.actions.declare_output("out", dir = True)
 
         named_outputs = {
@@ -196,13 +194,10 @@ def process_genrule(
     srcs = cmd_args()
     for symlink in symlinks:
         srcs.add(cmd_args(srcs_artifact, format = path_sep.join([".", "{}", symlink.replace("/", path_sep)])))
-    out_fmt = path_sep.join([".", "{}", "..", "out"])
-    if out_env != "":
-        out_fmt += path_sep + out_env.replace("/", path_sep)
     env_vars = {
         "ASAN_OPTIONS": cmd_args("detect_leaks=0,detect_odr_violation=0"),
         "GEN_DIR": cmd_args("GEN_DIR_DEPRECATED"),  # ctx.relpath(ctx.output_root_dir(), srcs_path)
-        "OUT": cmd_args(srcs_artifact, format = out_fmt),
+        "OUT": cmd_args(out_artifact.as_output()),
         "SRCDIR": cmd_args(srcs_artifact, format = path_sep.join([".", "{}"])),
         "SRCS": srcs,
     } | {k: cmd_args(v) for k, v in getattr(ctx.attrs, "env", {}).items()}
