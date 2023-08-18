@@ -24,7 +24,7 @@ load(
     "get_link_group_map_json",
     "is_link_group_shlib",
 )
-load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET")
+load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET", "get_pdb_providers")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -89,6 +89,7 @@ def _rust_binary_common(
 
     styles = {}
     dwp_target = None
+    pdb = None
     style_param = {}  # style -> param
     sub_targets = {}
 
@@ -194,8 +195,6 @@ def _rust_binary_common(
 
         args = cmd_args(link.output).hidden(runtime_files)
         extra_targets = [("check", meta.output)] + meta.diag.items()
-        if link.pdb:
-            extra_targets.append((PDB_SUB_TARGET, link.pdb))
 
         # If we have some resources, write it to the resources JSON file and add
         # it and all resources to "runtime_files" so that we make to materialize
@@ -268,6 +267,8 @@ def _rust_binary_common(
 
         if link_style == specified_link_style and link.dwp_output:
             dwp_target = link.dwp_output
+        if link_style == specified_link_style and link.pdb:
+            pdb = link.pdb
 
     expand = rust_compile(
         ctx = ctx,
@@ -310,6 +311,9 @@ def _rust_binary_common(
                 default_output = dwp_target,
             ),
         ]
+
+    if pdb:
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb)
 
     providers = [
         DefaultInfo(

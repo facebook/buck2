@@ -26,7 +26,7 @@ load(
     "CxxRuleSubTargetParams",
 )
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
-load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET")
+load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET", "get_pdb_providers")
 load(
     "@prelude//cxx:omnibus.bzl",
     "create_linkable_root",
@@ -133,7 +133,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
     sub_targets = cxx_library_info.sub_targets
     if extension.pdb:
-        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = extension.pdb)]
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(extension.pdb)
 
     providers.append(DefaultInfo(
         default_output = shared_output.default,

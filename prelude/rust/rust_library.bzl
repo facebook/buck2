@@ -20,6 +20,7 @@ load(
     "@prelude//cxx:linker.bzl",
     "PDB_SUB_TARGET",
     "get_default_shared_library_name",
+    "get_pdb_providers",
 )
 load(
     "@prelude//cxx:omnibus.bzl",
@@ -453,7 +454,7 @@ def _default_providers(
         link_style_info = param_artifact[lang_style_param[(LinkageLang("rust"), link_style)]]
         nested_sub_targets = {}
         if link_style_info.pdb:
-            nested_sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = link_style_info.pdb)]
+            nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(link_style_info.pdb)
         sub_targets[link_style.value] = [DefaultInfo(
             default_output = link_style_info.rlib,
             sub_targets = nested_sub_targets,

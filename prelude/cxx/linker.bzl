@@ -265,3 +265,7 @@ def is_pdb_generated(
             # The last one should be not /DEBUG:NONE
             return not flag.endswith('DEBUG:NONE"')
     return False
+
+def get_pdb_providers(
+        pdb: "artifact"):
+    return [DefaultInfo(default_output = pdb)]

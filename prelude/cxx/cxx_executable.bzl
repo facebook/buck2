@@ -138,6 +138,7 @@ load(
 load(
     ":linker.bzl",
     "PDB_SUB_TARGET",
+    "get_pdb_providers",
 )
 load(
     ":preprocessor.bzl",
@@ -559,7 +560,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
 
     if binary.pdb:
         # A `pdb` sub-target which generates the `.pdb` file for this binary.
-        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = binary.pdb)]
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(binary.pdb)
 
     # If bolt is not ran, binary.prebolt_output will be the same as binary.output. Only
     # expose binary.prebolt_output if cxx_use_bolt(ctx) is True to avoid confusion

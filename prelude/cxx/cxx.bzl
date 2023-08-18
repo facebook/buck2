@@ -108,6 +108,7 @@ load(
     ":linker.bzl",
     "PDB_SUB_TARGET",
     "get_link_whole_args",
+    "get_pdb_providers",
     "get_shared_library_name",
     "get_shared_library_name_for_param",
 )
@@ -141,7 +142,7 @@ def _get_shared_link_style_sub_targets_and_providers(
     if output.dwp != None:
         sub_targets["dwp"] = [DefaultInfo(default_output = output.dwp)]
     if output.pdb != None:
-        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = output.pdb)]
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(output.pdb)
     if output.linker_map != None:
         sub_targets["linker-map"] = [DefaultInfo(default_output = output.linker_map.map, other_outputs = [output.linker_map.binary])]
     return (sub_targets, providers)
@@ -439,7 +440,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     sub_targets["soname-lib"] = [DefaultInfo(default_output = soname_lib)]
 
                     if shared_lib.pdb:
-                        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = shared_lib.pdb)]
+                        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(shared_lib.pdb)
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[link_style] = out
