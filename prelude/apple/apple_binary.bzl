@@ -50,6 +50,7 @@ load(
     "CPreprocessorArgs",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
+load("@prelude//utils:utils.bzl", "expect")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
@@ -133,11 +134,17 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
             actions = ctx.actions,
             tsets = [cxx_output.external_debug_info],
         )
+        if ctx.attrs.stripped:
+            expect(cxx_output.unstripped_binary != None, "Expect to save unstripped_binary when stripped is enabled")
+            cxx_output.sub_targets["unstripped"] = [DefaultInfo(default_output = cxx_output.unstripped_binary)]
+            dsym_input_binary = cxx_output.unstripped_binary
+        else:
+            dsym_input_binary = cxx_output.binary
         dsym_artifact = get_apple_dsym(
             ctx = ctx,
-            executable = cxx_output.binary,
+            executable = dsym_input_binary,
             debug_info = debug_info,
-            action_identifier = cxx_output.binary.short_path,
+            action_identifier = dsym_input_binary.short_path,
         )
         cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
         cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = debug_info)]

@@ -106,6 +106,17 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput.type:
 
         return _maybe_scrub_binary(ctx, binary_dep)
 
+def _get_unstripped_binary(ctx: AnalysisContext) -> [Artifact, None]:
+    # No binary means we are building watchOS bundle. In v1 bundle binary is present, but its sources are empty.
+    if ctx.attrs.binary == None:
+        return _get_watch_kit_stub_artifact(ctx)
+
+    binary_dep = get_default_binary_dep(ctx)
+    if "unstripped" in binary_dep[DefaultInfo].sub_targets:
+        return binary_dep[DefaultInfo].sub_targets["unstripped"][DefaultInfo].default_outputs[0]
+    else:
+        return None
+
 def _get_bundle_dsym_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_bundle_dir_name(ctx), ".dSYM")
 
@@ -271,14 +282,13 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets = assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part, SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path))
     sub_targets.update(aggregated_debug_info.sub_targets)
 
-    primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
-    executable_arg = cmd_args(primary_binary_path).hidden(bundle)
-
     linker_maps_directory, linker_map_info = _linker_maps_data(ctx)
     sub_targets["linker-maps"] = [DefaultInfo(default_output = linker_maps_directory)]
 
     # dsyms
-    binary_dsym_artifacts = _get_bundle_binary_dsym_artifacts(ctx, binary_outputs, executable_arg)
+    unstripped_binary = _get_unstripped_binary(ctx)
+    dsym_input_binary = cmd_args(unstripped_binary if unstripped_binary != None else binary_outputs.binary)
+    binary_dsym_artifacts = _get_bundle_binary_dsym_artifacts(ctx, binary_outputs, dsym_input_binary)
     dep_dsym_artifacts = flatten([info.dsyms for info in deps_debuggable_infos])
 
     dsym_artifacts = binary_dsym_artifacts + dep_dsym_artifacts
@@ -306,6 +316,8 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     # @oss-disable: extra_output_subtargets = subtargets_for_apple_bundle_extra_outputs(ctx, extra_output_provider) 
     # @oss-disable: sub_targets.update(extra_output_subtargets) 
 
+    primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
+    executable_arg = cmd_args(primary_binary_path).hidden(bundle)
     return [
         DefaultInfo(default_output = bundle, sub_targets = sub_targets),
         AppleBundleInfo(

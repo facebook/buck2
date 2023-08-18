@@ -62,6 +62,7 @@ load(
     "LinkStyle",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
+load("@prelude//utils:utils.bzl", "expect")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
@@ -282,11 +283,17 @@ def _get_link_style_sub_targets_and_providers(
         actions = ctx.actions,
         tsets = [output.external_debug_info],
     )
+
+    if ctx.attrs.stripped:
+        expect(output.unstripped != None, "Expecting unstripped output to be non-null when stripping is enabled.")
+        dsym_executable = output.unstripped
+    else:
+        dsym_executable = output.default
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
-        executable = output.default,
+        executable = dsym_executable,
         debug_info = debug_info,
-        action_identifier = output.default.short_path,
+        action_identifier = dsym_executable.short_path,
     )
     subtargets = {
         DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
