@@ -48,4 +48,5 @@ def apple_universal_executable_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [
         DefaultInfo(default_output = binary_outputs.binary, sub_targets = sub_targets),
+        RunInfo(args = cmd_args(binary_outputs.binary)),
     ]
