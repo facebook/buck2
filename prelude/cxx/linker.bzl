@@ -269,3 +269,28 @@ def is_pdb_generated(
 def get_pdb_providers(
         pdb: "artifact"):
     return [DefaultInfo(default_output = pdb)]
+
+DUMPBIN_SUB_TARGET = "dumpbin"
+
+def get_dumpbin_providers(
+        ctx: AnalysisContext,
+        binary: Artifact,
+        dumpbin_toolchain_path: Artifact) -> list[Provider]:
+    dumpbin_headers_out = ctx.actions.declare_output(binary.short_path + ".dumpbin_headers")
+    ctx.actions.run(
+        cmd_args(
+            cmd_args(dumpbin_toolchain_path, format = "{}/dumpbin.exe"),
+            # We could use /ALL to display all information in one action, but that's too
+            # expensive in practice
+            "/HEADERS",
+            binary,
+            cmd_args(dumpbin_headers_out.as_output(), format = "/OUT:{}"),
+        ),
+        category = "dumpbin_headers",
+        identifier = binary.short_path,
+    )
+    return [DefaultInfo(sub_targets = {
+        "headers": [DefaultInfo(
+            default_output = dumpbin_headers_out,
+        )],
+    })]

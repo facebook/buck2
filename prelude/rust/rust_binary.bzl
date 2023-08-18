@@ -24,7 +24,7 @@ load(
     "get_link_group_map_json",
     "is_link_group_shlib",
 )
-load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET", "get_pdb_providers")
+load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_dumpbin_providers", "get_pdb_providers")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -314,6 +314,10 @@ def _rust_binary_common(
 
     if pdb:
         sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb)
+
+    dupmbin_toolchain = compile_ctx.cxx_toolchain_info.dumpbin_toolchain_path
+    if dupmbin_toolchain:
+        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, compiled_outputs.link, dupmbin_toolchain)
 
     providers = [
         DefaultInfo(

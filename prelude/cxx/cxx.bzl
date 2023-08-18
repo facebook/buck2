@@ -106,7 +106,9 @@ load(
 )
 load(
     ":linker.bzl",
+    "DUMPBIN_SUB_TARGET",
     "PDB_SUB_TARGET",
+    "get_dumpbin_providers",
     "get_link_whole_args",
     "get_pdb_providers",
     "get_shared_library_name",
@@ -133,7 +135,7 @@ load(
 
 def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
-        _ctx: AnalysisContext,
+        ctx: AnalysisContext,
         output: [CxxLibraryOutput.type, None]) -> (dict[str, list[Provider]], list[Provider]):
     if link_style != LinkStyle("shared") or output == None:
         return ({}, [])
@@ -143,6 +145,9 @@ def _get_shared_link_style_sub_targets_and_providers(
         sub_targets["dwp"] = [DefaultInfo(default_output = output.dwp)]
     if output.pdb != None:
         sub_targets[PDB_SUB_TARGET] = get_pdb_providers(output.pdb)
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    if cxx_toolchain.dumpbin_toolchain_path != None:
+        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, output.default, cxx_toolchain.dumpbin_toolchain_path)
     if output.linker_map != None:
         sub_targets["linker-map"] = [DefaultInfo(default_output = output.linker_map.map, other_outputs = [output.linker_map.binary])]
     return (sub_targets, providers)
@@ -441,6 +446,9 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
                     if shared_lib.pdb:
                         sub_targets[PDB_SUB_TARGET] = get_pdb_providers(shared_lib.pdb)
+                    dumpbin_toolchain_path = get_cxx_toolchain_info(ctx).dumpbin_toolchain_path
+                    if dumpbin_toolchain_path != None:
+                        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, shared_lib.output, dumpbin_toolchain_path)
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[link_style] = out

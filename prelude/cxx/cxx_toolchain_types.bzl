@@ -169,6 +169,7 @@ CxxToolchainInfo = provider(fields = [
     "split_debug_mode",
     "bolt_enabled",
     "pic_behavior",
+    "dumpbin_toolchain_path",
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments
@@ -216,7 +217,8 @@ def cxx_toolchain_infos(
         bolt_enabled = False,
         llvm_link = None,
         platform_deps_aliases = [],
-        pic_behavior = PicBehavior("supported")):
+        pic_behavior = PicBehavior("supported"),
+        dumpbin_toolchain_path = None):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -255,6 +257,7 @@ def cxx_toolchain_infos(
         split_debug_mode = split_debug_mode,
         bolt_enabled = bolt_enabled,
         pic_behavior = pic_behavior,
+        dumpbin_toolchain_path = dumpbin_toolchain_path,
     )
 
     # Provide placeholder mappings, used primarily by cxx_genrule.

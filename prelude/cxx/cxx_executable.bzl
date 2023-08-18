@@ -137,7 +137,9 @@ load(
 )
 load(
     ":linker.bzl",
+    "DUMPBIN_SUB_TARGET",
     "PDB_SUB_TARGET",
+    "get_dumpbin_providers",
     "get_pdb_providers",
 )
 load(
@@ -562,6 +564,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
     if binary.pdb:
         # A `pdb` sub-target which generates the `.pdb` file for this binary.
         sub_targets[PDB_SUB_TARGET] = get_pdb_providers(binary.pdb)
+
+    if toolchain_info.dumpbin_toolchain_path:
+        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, binary.output, toolchain_info.dumpbin_toolchain_path)
 
     # If bolt is not ran, binary.prebolt_output will be the same as binary.output. Only
     # expose binary.prebolt_output if cxx_use_bolt(ctx) is True to avoid confusion

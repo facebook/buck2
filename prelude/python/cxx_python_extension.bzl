@@ -26,7 +26,7 @@ load(
     "CxxRuleSubTargetParams",
 )
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
-load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET", "get_pdb_providers")
+load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_dumpbin_providers", "get_pdb_providers")
 load(
     "@prelude//cxx:omnibus.bzl",
     "create_linkable_root",
@@ -135,6 +135,11 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     if extension.pdb:
         sub_targets[PDB_SUB_TARGET] = get_pdb_providers(extension.pdb)
 
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    dumpbin_toolchain_path = cxx_toolchain.dumpbin_toolchain_path
+    if dumpbin_toolchain_path:
+        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, extension.output, dumpbin_toolchain_path)
+
     providers.append(DefaultInfo(
         default_output = shared_output.default,
         other_outputs = shared_output.other,
@@ -159,7 +164,6 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
             suffix = base_module.replace("/", "$") + module_name
             static_output = libraries.outputs[LinkStyle("static")]
             static_pic_output = libraries.outputs[LinkStyle("static_pic")]
-            cxx_toolchain = get_cxx_toolchain_info(ctx)
             link_infos = rewrite_static_symbols(
                 ctx,
                 suffix,
@@ -202,7 +206,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
         merged_link_info = create_merged_link_info(
             ctx = ctx,
-            pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
+            pic_behavior = cxx_toolchain.pic_behavior,
             link_infos = link_infos,
             preferred_linkage = Linkage("static"),
             deps = [d.merged_link_info for d in link_deps],

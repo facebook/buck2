@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:open_source.bzl", "is_open_source")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "PicBehavior", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
@@ -150,6 +151,7 @@ def cxx_toolchain_impl(ctx):
         clang_trace = value_or(ctx.attrs.clang_trace, False),
         cpp_dep_tracking_mode = DepTrackingMode(ctx.attrs.cpp_dep_tracking_mode),
         cuda_dep_tracking_mode = DepTrackingMode(ctx.attrs.cuda_dep_tracking_mode),
+        dumpbin_toolchain_path = ctx.attrs._dumpbin_toolchain_path[DefaultInfo].default_outputs[0] if ctx.attrs._dumpbin_toolchain_path else None,
     )
 
 def cxx_toolchain_extra_attributes(is_toolchain_rule):
@@ -197,6 +199,19 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "use_dep_files": attrs.option(attrs.bool(), default = None),
         "_dep_files_processor": dep_type(providers = [RunInfo], default = "prelude//cxx/tools:dep_file_processor"),
         "_dist_lto_tools": attrs.default_only(dep_type(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools")),
+        # TODO(scottcao): Figure out a slightly better way to integrate this. In theory, this is only needed for clang toolchain.
+        # If we were using msvc, we should be able to use dumpbin directly.
+        "_dumpbin_toolchain_path": attrs.default_only(attrs.option(dep_type(providers = [DefaultInfo]), default = select({
+            "DEFAULT": None,
+            "ovr_config//os:windows": select({
+                # Unfortunately, it seems like an unresolved select when resolve exec platforms causes the whole resolution
+                # to fail, so I need a DEFAULT here when some target without cpu constraint tries to configure against the
+                # windows exec platform.
+                "DEFAULT": None,
+                "ovr_config//cpu:x86_32": "fbsource//arvr/third-party/toolchains/visual_studio:14.28.29910-cl_32_and_tools",
+                "ovr_config//cpu:x86_64": "fbsource//arvr/third-party/toolchains/visual_studio:14.28.29910-cl_64_and_tools",
+            }),
+        }) if not is_open_source() else None)),
         "_mk_comp_db": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_mk_hmap": attrs.default_only(dep_type(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper")),
