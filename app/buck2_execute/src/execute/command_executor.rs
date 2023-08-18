@@ -74,7 +74,6 @@ struct CommandExecutorData {
     artifact_fs: ArtifactFs,
     options: CommandGenerationOptions,
     re_platform: RE::Platform,
-    enforce_re_timeouts: bool,
     cache_uploader: Arc<dyn UploadCache>,
 }
 
@@ -86,7 +85,6 @@ impl CommandExecutor {
         artifact_fs: ArtifactFs,
         options: CommandGenerationOptions,
         re_platform: RE::Platform,
-        enforce_re_timeouts: bool,
     ) -> Self {
         Self(Arc::new(CommandExecutorData {
             inner,
@@ -94,7 +92,6 @@ impl CommandExecutor {
             artifact_fs,
             options,
             re_platform,
-            enforce_re_timeouts,
             cache_uploader,
         }))
     }
@@ -177,11 +174,7 @@ impl CommandExecutor {
                 request.env(),
                 input_digest,
                 action_metadata_blobs,
-                if self.0.enforce_re_timeouts {
-                    request.timeout()
-                } else {
-                    None
-                },
+                request.timeout(),
                 self.0.re_platform.clone(),
                 false,
                 digest_config,

@@ -264,7 +264,6 @@ impl HasActionExecutor for DiceComputations {
                 artifact_fs,
                 executor_config.options,
                 platform,
-                run_action_knobs.enforce_re_timeouts,
             ),
             blocking_executor,
             materializer,
@@ -771,7 +770,6 @@ mod tests {
                     output_paths_behavior: Default::default(),
                 },
                 Default::default(),
-                false,
             ),
             Arc::new(DummyBlockingExecutor {
                 fs: project_fs.dupe(),
