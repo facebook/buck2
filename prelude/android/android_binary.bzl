@@ -47,7 +47,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
     build_config_infos = list(android_packageable_info.build_config_infos.traverse()) if android_packageable_info.build_config_infos else []
 
-    build_config_libs = _get_build_config_java_libraries(ctx, build_config_infos)
+    build_config_libs = get_build_config_java_libraries(ctx, build_config_infos, ctx.attrs.package_type, ctx.attrs.exopackage_modes)
     java_packaging_deps += get_all_java_packaging_deps_from_packaging_infos(ctx, build_config_libs)
 
     has_proguard_config = ctx.attrs.proguard_config != None or ctx.attrs.android_sdk_proguard_config == "default" or ctx.attrs.android_sdk_proguard_config == "optimized"
@@ -166,16 +166,20 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         resources_info = resources_info,
     )
 
-def _get_build_config_java_libraries(ctx: AnalysisContext, build_config_infos: list["AndroidBuildConfigInfo"]) -> list[JavaPackagingInfo.type]:
+def get_build_config_java_libraries(
+        ctx: AnalysisContext,
+        build_config_infos: list["AndroidBuildConfigInfo"],
+        package_type: str,
+        exopackage_modes: list[str]) -> list[JavaPackagingInfo.type]:
     # BuildConfig deps should not be added for instrumented APKs because BuildConfig.class has
     # already been added to the APK under test.
-    if ctx.attrs.package_type == "instrumented":
+    if package_type == "instrumented":
         return []
 
     build_config_constants = [
-        BuildConfigField(type = "boolean", name = "DEBUG", value = str(ctx.attrs.package_type != "release").lower()),
-        BuildConfigField(type = "boolean", name = "IS_EXOPACKAGE", value = str(len(ctx.attrs.exopackage_modes) > 0).lower()),
-        BuildConfigField(type = "int", name = "EXOPACKAGE_FLAGS", value = str(get_exopackage_flags(ctx.attrs.exopackage_modes))),
+        BuildConfigField(type = "boolean", name = "DEBUG", value = str(package_type != "release").lower()),
+        BuildConfigField(type = "boolean", name = "IS_EXOPACKAGE", value = str(len(exopackage_modes) > 0).lower()),
+        BuildConfigField(type = "int", name = "EXOPACKAGE_FLAGS", value = str(get_exopackage_flags(exopackage_modes))),
     ]
 
     default_build_config_fields = get_build_config_fields(ctx.attrs.build_config_values)

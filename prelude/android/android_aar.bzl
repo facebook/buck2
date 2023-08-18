@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//android:android_binary.bzl", "get_build_config_java_libraries")
 load("@prelude//android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
 load("@prelude//android:android_binary_resources_rules.bzl", "get_cxx_resources", "get_manifest")
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "merge_android_packageable_info")
@@ -12,7 +13,7 @@ load("@prelude//android:android_resource.bzl", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
-load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps")
+load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 
 def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -24,6 +25,13 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
 
     android_manifest = get_manifest(ctx, android_packageable_info, manifest_entries = {})
+
+    if ctx.attrs.include_build_config_class:
+        build_config_infos = list(android_packageable_info.build_config_infos.traverse()) if android_packageable_info.build_config_infos else []
+        java_packaging_deps.extend(get_all_java_packaging_deps_from_packaging_infos(
+            ctx,
+            get_build_config_java_libraries(ctx, build_config_infos, package_type = "release", exopackage_modes = []),
+        ))
 
     jars = [dep.jar for dep in java_packaging_deps if dep.jar]
     classes_jar = ctx.actions.declare_output("classes.jar")
