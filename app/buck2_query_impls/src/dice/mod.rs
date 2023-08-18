@@ -138,22 +138,25 @@ impl LiteralParser {
 pub struct DiceQueryDelegate<'c> {
     ctx: &'c DiceComputations,
     cell_resolver: CellResolver,
-    literal_parser: LiteralParser,
-    global_target_platform: Option<TargetLabel>,
+    query_data: Arc<DiceQueryData>,
     package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
 }
 
-impl<'c> DiceQueryDelegate<'c> {
-    pub fn new<'a>(
-        ctx: &'c DiceComputations,
-        working_dir: &'a ProjectRelativePath,
-        project_root: ProjectRoot,
-        cell_resolver: CellResolver,
+pub struct DiceQueryData {
+    literal_parser: LiteralParser,
+    global_target_platform: Option<TargetLabel>,
+}
+
+impl DiceQueryData {
+    pub fn new(
         global_target_platform: Option<TargetLabel>,
-        package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
+        cell_resolver: CellResolver,
+        working_dir: &ProjectRelativePath,
+        project_root: ProjectRoot,
         target_alias_resolver: BuckConfigTargetAliasResolver,
     ) -> anyhow::Result<Self> {
         let cell_path = cell_resolver.get_cell_path(working_dir)?;
+
         let cell_alias_resolver = cell_resolver
             .get(cell_path.cell())?
             .cell_alias_resolver()
@@ -161,9 +164,6 @@ impl<'c> DiceQueryDelegate<'c> {
         let working_dir_abs = project_root.resolve(working_dir);
 
         Ok(Self {
-            ctx,
-            global_target_platform,
-            cell_resolver: cell_resolver.dupe(),
             literal_parser: LiteralParser {
                 working_dir_abs,
                 working_dir: cell_path,
@@ -172,8 +172,24 @@ impl<'c> DiceQueryDelegate<'c> {
                 cell_alias_resolver,
                 target_alias_resolver,
             },
-            package_boundary_exceptions,
+            global_target_platform,
         })
+    }
+}
+
+impl<'c> DiceQueryDelegate<'c> {
+    pub fn new(
+        ctx: &'c DiceComputations,
+        cell_resolver: CellResolver,
+        package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
+        query_data: Arc<DiceQueryData>,
+    ) -> Self {
+        Self {
+            ctx,
+            cell_resolver: cell_resolver.dupe(),
+            query_data,
+            package_boundary_exceptions,
+        }
     }
 
     pub(crate) fn ctx(&self) -> &'c DiceComputations {
@@ -181,11 +197,11 @@ impl<'c> DiceQueryDelegate<'c> {
     }
 
     pub(crate) fn literal_parser(&self) -> &LiteralParser {
-        &self.literal_parser
+        &self.query_data.literal_parser
     }
 
     pub(crate) fn global_target_platform(&self) -> Option<&TargetLabel> {
-        self.global_target_platform.as_ref()
+        self.query_data.global_target_platform.as_ref()
     }
 }
 
@@ -219,7 +235,8 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
         &self,
         patterns: &[&str],
     ) -> anyhow::Result<ResolvedPattern<TargetPatternExtra>> {
-        let parsed_patterns = patterns.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
+        let parsed_patterns =
+            patterns.try_map(|p| self.query_data.literal_parser.parse_target_pattern(p))?;
         let file_ops = self.ctx.file_ops();
         resolve_target_patterns(&self.cell_resolver, &parsed_patterns, &file_ops).await
     }
@@ -248,7 +265,7 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
     }
 
     async fn eval_file_literal(&self, literal: &str) -> anyhow::Result<FileSet> {
-        let cell_path = self.literal_parser.parse_file_literal(literal)?;
+        let cell_path = self.query_data.literal_parser.parse_file_literal(literal)?;
         Ok(FileSet::new(indexset![FileNode(cell_path)]))
     }
 
@@ -269,7 +286,7 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         let target = self
             .ctx
-            .get_configured_target(target, self.global_target_platform.as_ref())
+            .get_configured_target(target, self.query_data.global_target_platform.as_ref())
             .await?;
         Ok(self.ctx.get_configured_target_node(&target).await?)
     }
@@ -298,7 +315,7 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
         target: &TargetLabel,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
         self.ctx
-            .get_configured_target(target, self.global_target_platform.as_ref())
+            .get_configured_target(target, self.query_data.global_target_platform.as_ref())
             .await
     }
 
@@ -314,11 +331,12 @@ impl<'c> QueryLiterals<ConfiguredTargetNode> for DiceQueryDelegate<'c> {
         literals: &[&str],
         ctx: &DiceComputations,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
-        let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
+        let parsed_patterns =
+            literals.try_map(|p| self.query_data.literal_parser.parse_target_pattern(p))?;
         load_compatible_patterns(
             ctx,
             parsed_patterns,
-            self.global_target_platform.dupe(),
+            self.query_data.global_target_platform.dupe(),
             MissingTargetBehavior::Fail,
         )
         .await
@@ -332,7 +350,8 @@ impl<'c> QueryLiterals<TargetNode> for DiceQueryDelegate<'c> {
         literals: &[&str],
         ctx: &DiceComputations,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
-        let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
+        let parsed_patterns =
+            literals.try_map(|p| self.query_data.literal_parser.parse_target_pattern(p))?;
         let loaded_patterns =
             load_patterns(ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
         let mut target_set = TargetSet::new();
@@ -358,13 +377,16 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a>(
         .get_io_provider()
         .project_root()
         .to_owned();
-    DiceQueryDelegate::new(
+    Ok(DiceQueryDelegate::new(
         ctx,
-        working_dir,
-        project_root,
-        cell_resolver,
-        global_target_platform,
+        cell_resolver.dupe(),
         package_boundary_exceptions,
-        target_alias_resolver,
-    )
+        Arc::new(DiceQueryData::new(
+            global_target_platform,
+            cell_resolver,
+            working_dir,
+            project_root,
+            target_alias_resolver,
+        )?),
+    ))
 }

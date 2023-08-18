@@ -26,6 +26,7 @@ use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use dice::DiceComputations;
 use dupe::Dupe;
 
+use crate::dice::DiceQueryData;
 use crate::dice::DiceQueryDelegate;
 use crate::uquery::environment::UqueryEnvironment;
 
@@ -50,15 +51,19 @@ impl BxlUqueryFunctionsImpl {
             .target_alias_resolver_for_working_dir(&self.working_dir)
             .await?;
 
-        let dice_query_delegate = Arc::new(DiceQueryDelegate::new(
-            dice,
+        let query_data = Arc::new(DiceQueryData::new(
+            None,
+            cell_resolver.dupe(),
             &self.working_dir,
             self.project_root.dupe(),
-            cell_resolver,
-            None,
-            package_boundary_exceptions,
             target_alias_resolver,
         )?);
+        let dice_query_delegate = Arc::new(DiceQueryDelegate::new(
+            dice,
+            cell_resolver,
+            package_boundary_exceptions,
+            query_data,
+        ));
         Ok(UqueryEnvironment::new(
             dice_query_delegate.dupe(),
             dice_query_delegate,

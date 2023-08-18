@@ -31,6 +31,7 @@ use dice::DiceComputations;
 use dupe::Dupe;
 
 use crate::cquery::environment::CqueryEnvironment;
+use crate::dice::DiceQueryData;
 use crate::dice::DiceQueryDelegate;
 
 fn cquery_functions<'v>() -> DefaultQueryFunctions<CqueryEnvironment<'v>> {
@@ -57,13 +58,16 @@ impl BxlCqueryFunctionsImpl {
 
         Ok(Arc::new(DiceQueryDelegate::new(
             dice,
-            &self.working_dir,
-            self.project_root.dupe(),
-            cell_resolver,
-            self.target_platform.dupe(),
+            cell_resolver.dupe(),
             package_boundary_exceptions,
-            target_alias_resolver,
-        )?))
+            Arc::new(DiceQueryData::new(
+                self.target_platform.dupe(),
+                cell_resolver,
+                &self.working_dir,
+                self.project_root.dupe(),
+                target_alias_resolver,
+            )?),
+        )))
     }
 
     async fn cquery_env<'c>(
