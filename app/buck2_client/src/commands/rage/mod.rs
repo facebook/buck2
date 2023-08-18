@@ -110,7 +110,7 @@ where
     T: std::fmt::Display + 'a,
 {
     fn get<Fut>(
-        title: String,
+        title: &str,
         timeout: Duration,
         command: impl FnOnce() -> Fut,
     ) -> LocalBoxFuture<'a, Self>
@@ -118,6 +118,7 @@ where
         Fut: Future<Output = anyhow::Result<T>> + 'a,
     {
         let fut = command();
+        let title = title.to_owned();
         async move {
             let status = match tokio::time::timeout(timeout, fut).await {
                 Err(_) => CommandStatus::Timeout,
@@ -131,8 +132,9 @@ where
         .boxed_local()
     }
 
-    fn get_skipped(title: String) -> LocalBoxFuture<'a, Self> {
+    fn get_skipped(title: &str) -> LocalBoxFuture<'a, Self> {
         let status = CommandStatus::Skipped;
+        let title = title.to_owned();
         async { RageSection { title, status } }.boxed_local()
     }
 
@@ -254,13 +256,13 @@ impl RageCommand {
             buck2_client_ctx::eprintln!("Collecting debug info...")?;
 
             let thread_dump = {
-                let title = "Thread dump".to_owned();
+                let title = "Thread dump";
                 RageSection::get(title, timeout, || {
                     thread_dump::upload_thread_dump(&info, &manifold, &manifold_id)
                 })
             };
             let build_info_command = {
-                let title = "Associated invocation info".to_owned();
+                let title = "Associated invocation info";
                 match selected_invocation.as_ref() {
                     None => RageSection::get_skipped(title),
                     Some(invocation) => {
@@ -276,43 +278,36 @@ impl RageCommand {
                 build_info_command
             );
 
-            let system_info_command =
-                RageSection::get("System info".to_owned(), timeout, system_info::get);
-            let daemon_stderr_command =
-                RageSection::get("Daemon stderr".to_owned(), timeout, || {
-                    upload_daemon_stderr(stderr_path, &manifold, &manifold_id)
-                });
-            let hg_snapshot_id_command = RageSection::get(
-                "Source control".to_owned(),
-                timeout,
-                source_control::get_info,
-            );
-            let dice_dump_command = RageSection::get("Dice dump".to_owned(), timeout, || async {
+            let system_info_command = RageSection::get("System info", timeout, system_info::get);
+            let daemon_stderr_command = RageSection::get("Daemon stderr", timeout, || {
+                upload_daemon_stderr(stderr_path, &manifold, &manifold_id)
+            });
+            let hg_snapshot_id_command =
+                RageSection::get("Source control", timeout, source_control::get_info);
+            let dice_dump_command = RageSection::get("Dice dump", timeout, || async {
                 dice::upload_dice_dump(buckd.clone().await?, dice_dump_dir, &manifold, &manifold_id)
                     .await
             });
-            let materializer_state =
-                RageSection::get("Materializer state".to_owned(), timeout, || {
-                    materializer::upload_materializer_data(
-                        buckd.clone(),
-                        &client_ctx,
-                        &manifold,
-                        &manifold_id,
-                        MaterializerRageUploadData::State,
-                    )
-                });
-            let materializer_fsck =
-                RageSection::get("Materializer fsck".to_owned(), timeout, || {
-                    materializer::upload_materializer_data(
-                        buckd.clone(),
-                        &client_ctx,
-                        &manifold,
-                        &manifold_id,
-                        MaterializerRageUploadData::Fsck,
-                    )
-                });
+            let materializer_state = RageSection::get("Materializer state", timeout, || {
+                materializer::upload_materializer_data(
+                    buckd.clone(),
+                    &client_ctx,
+                    &manifold,
+                    &manifold_id,
+                    MaterializerRageUploadData::State,
+                )
+            });
+            let materializer_fsck = RageSection::get("Materializer fsck", timeout, || {
+                materializer::upload_materializer_data(
+                    buckd.clone(),
+                    &client_ctx,
+                    &manifold,
+                    &manifold_id,
+                    MaterializerRageUploadData::Fsck,
+                )
+            });
             let event_log_command = {
-                let title = "Event log upload".to_owned();
+                let title = "Event log upload";
                 match selected_invocation.as_ref() {
                     None => RageSection::get_skipped(title),
                     Some(path) => RageSection::get(title, timeout, || {
@@ -321,7 +316,7 @@ impl RageCommand {
                 }
             };
             let re_logs_command = {
-                let title = "RE logs upload".to_owned();
+                let title = "RE logs upload";
                 let re_session_id = build_info.get_field(|o| o.re_session_id.clone());
                 match re_session_id {
                     None => RageSection::get_skipped(title),
