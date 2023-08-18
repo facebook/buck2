@@ -88,6 +88,8 @@ def build_apk(
         android_toolchain.zipalign[RunInfo],
     ])
 
+    if android_toolchain.package_meta_inf_version_files:
+        apk_builder_args.add("--package-meta-inf-version-files")
     if compress_resources_dot_arsc:
         apk_builder_args.add("--compress-resources-dot-arsc")
 
