@@ -90,7 +90,8 @@ impl Diagnostic {
     /// Modify an error by attaching diagnostic information to it - e.g. `span`/`call_stack`.
     /// If given an [`anyhow::Error`] which is a [`Diagnostic`], it will add the information to the
     /// existing [`Diagnostic`]. If not, it will wrap the error in [`Diagnostic`].
-    pub fn modify(mut err: anyhow::Error, f: impl FnOnce(&mut Diagnostic)) -> anyhow::Error {
+    #[cold]
+    pub(crate) fn modify(mut err: anyhow::Error, f: impl FnOnce(&mut Diagnostic)) -> anyhow::Error {
         match err.downcast_mut::<Diagnostic>() {
             Some(diag) => {
                 f(diag);
@@ -117,7 +118,7 @@ impl Diagnostic {
     }
 
     /// Set the [`Diagnostic::call_stack`] field, unless it's already been set.
-    pub fn set_call_stack(&mut self, call_stack: impl FnOnce() -> CallStack) {
+    pub(crate) fn set_call_stack(&mut self, call_stack: impl FnOnce() -> CallStack) {
         if self.call_stack.is_empty() {
             // We want the best call stack, which is likely the first person to set it
             self.call_stack = call_stack();
@@ -130,7 +131,7 @@ impl Diagnostic {
     /// Note that this function doesn't print any context information if the error is a
     /// [`Diagnostic`], so you might prefer to use `eprintln!("{:#}"), err)`
     /// if you suspect there is useful context (although you won't get pretty colors).
-    pub fn eprint(err: &anyhow::Error) {
+    pub(crate) fn eprint(err: &anyhow::Error) {
         match err.downcast_ref::<Diagnostic>() {
             None => eprintln!("{:#}", err),
             Some(diag) => diagnostic_stderr(diag),
