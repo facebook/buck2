@@ -89,8 +89,17 @@ def parse_args() -> argparse.Namespace:
         default="-Es",
         help="The interpreter flags for the hashbang",
     )
-    parser.add_argument(
-        "--entry-point", required=True, help="The main module to execute"
+    entry_point = parser.add_mutually_exclusive_group(required=True)
+    entry_point.add_argument(
+        "--entry-point",
+        help="The main module to execute. Mutually exclusive with --main-function.",
+    )
+    entry_point.add_argument(
+        "--main-function",
+        help=(
+            "Fully qualified name of the function that serves as the entry point."
+            " Mutually exclusive with --entry-point."
+        ),
     )
     parser.add_argument(
         "--modules-dir",
@@ -152,7 +161,12 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     #    "<PYTHON_INTERPRETER_FLAGS>", args.python_interpreter_flags
     # )
     new_data = new_data.replace("<MODULES_DIR>", str(relative_modules_dir))
-    new_data = new_data.replace("<MAIN_MODULE>", args.entry_point)
+    new_data = new_data.replace(
+        "<MAIN_MODULE>", args.entry_point if args.entry_point else ""
+    )
+    new_data = new_data.replace(
+        "<MAIN_FUNCTION>", args.main_function if args.main_function else ""
+    )
 
     # Things that are only required for the full template
     new_data = new_data.replace("<NATIVE_LIBS_ENV_VAR>", args.native_libs_env_var)

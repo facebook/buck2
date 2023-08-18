@@ -19,7 +19,7 @@ load(
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":compile.bzl", "PycInvalidationMode")
-load(":interface.bzl", "PythonLibraryManifestsInterface")
+load(":interface.bzl", "EntryPoint", "EntryPointKind", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")  # @unused Used as a type
 load(":toolchain.bzl", "PackageStyle", "PythonToolchainInfo")
 
@@ -184,7 +184,7 @@ def make_py_package(
         extra_build_args: list[ArgLike],
         pex_modules: PexModules.type,
         shared_libraries: dict[str, (LinkedObject.type, bool)],
-        main_module: str,
+        main: EntryPoint,
         hidden_resources: [None, list[ArgLike]],
         allow_cache_upload: bool) -> PexProviders.type:
     """
@@ -199,7 +199,7 @@ def make_py_package(
         - pex_modules: Manifests for sources to package.
         - shared_libraries: Shared libraries to link in. Mapping of soname to
           artifact and whether they should be preloaded.
-        - main_module: the name of the module to execute when running the
+        - main: the name of the entry point to execute when running the
           resulting binary.
         - hidden_resources: extra resources the binary depends on.
     """
@@ -225,7 +225,7 @@ def make_py_package(
         preload_libraries,
         common_modules_args,
         dep_artifacts,
-        main_module,
+        main,
         hidden_resources,
         manifest_module,
         pex_modules,
@@ -244,7 +244,7 @@ def make_py_package(
             preload_libraries,
             common_modules_args,
             dep_artifacts,
-            main_module,
+            main,
             hidden_resources,
             manifest_module,
             pex_modules,
@@ -265,7 +265,7 @@ def _make_py_package_impl(
         preload_libraries: cmd_args,
         common_modules_args: cmd_args,
         dep_artifacts: list[(ArgLike, str)],
-        main_module: str,
+        main: EntryPoint,
         hidden_resources: [None, list[ArgLike]],
         manifest_module: [None, ArgLike],
         pex_modules: PexModules.type,
@@ -321,7 +321,7 @@ def _make_py_package_impl(
         python_toolchain.interpreter,
         None,
         python_toolchain.host_interpreter,
-        main_module,
+        main,
         output,
         shared_libraries,
         preload_libraries,
@@ -406,7 +406,7 @@ def _pex_bootstrap_args(
         python_interpreter: ArgLike,
         python_interpreter_flags: [None, str],
         python_host_interpreter: ArgLike,
-        main_module: str,
+        main: EntryPoint,
         output: Artifact,
         shared_libraries: dict[str, (LinkedObject.type, bool)],
         preload_libraries: cmd_args,
@@ -419,9 +419,11 @@ def _pex_bootstrap_args(
         python_interpreter,
         "--host-python",
         python_host_interpreter,
-        "--entry-point",
-        main_module,
     ])
+    if main[0] == EntryPointKind("module"):
+        cmd.add(["--entry-point", main[1]])
+    else:
+        cmd.add(["--main-function", main[1]])
     if python_interpreter_flags:
         cmd.add("--python-interpreter-flags", python_interpreter_flags)
     if symlink_tree_path != None:

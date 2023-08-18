@@ -67,7 +67,9 @@ load("@prelude//resources.bzl", "gather_resources")
 load(":compile.bzl", "compile_manifests")
 load(
     ":interface.bzl",
-    "PythonLibraryInterface",  # @unused Used as a type
+    "EntryPoint",
+    "EntryPointKind",
+    "PythonLibraryInterface",
 )
 load(":make_py_package.bzl", "PexModules", "PexProviders", "make_default_info", "make_py_package")
 load(
@@ -285,7 +287,7 @@ def _get_link_group_info(
 
 def python_executable(
         ctx: AnalysisContext,
-        main_module: str,
+        main: EntryPoint,
         srcs: dict[str, Artifact],
         resources: dict[str, (Artifact, list[ArgLike])],
         compile: bool,
@@ -344,7 +346,7 @@ def python_executable(
 
     exe = _convert_python_library_to_executable(
         ctx,
-        main_module,
+        main,
         info_to_interface(library_info),
         flatten(raw_deps),
         compile,
@@ -352,7 +354,7 @@ def python_executable(
         dbg_source_db,
     )
     if python_toolchain.emit_dependency_metadata:
-        exe.sub_targets["dep-report"] = [create_dep_report(ctx, python_toolchain, main_module, library_info)]
+        exe.sub_targets["dep-report"] = [create_dep_report(ctx, python_toolchain, main[1], library_info)]
     if dep_manifest:
         exe.sub_targets["dep-manifest"] = [DefaultInfo(default_output = dep_manifest.manifest, other_outputs = dep_manifest.artifacts)]
     exe.sub_targets.update({
@@ -366,12 +368,12 @@ def python_executable(
 def create_dep_report(
         ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo.type,
-        main_module: str,
+        main: str,
         library_info: PythonLibraryInfo.type) -> DefaultInfo.type:
     out = ctx.actions.declare_output("dep-report.json")
     cmd = cmd_args()
     cmd.add(python_toolchain.traverse_dep_manifest)
-    cmd.add(cmd_args(main_module, format = "--main={}"))
+    cmd.add(cmd_args(main, format = "--main={}"))
     cmd.add(cmd_args(out.as_output(), format = "--outfile={}"))
     cmd.add(cmd_args(library_info.manifests.project_as_args("dep_manifests")))
     cmd.hidden(library_info.manifests.project_as_args("dep_artifacts"))
@@ -380,7 +382,7 @@ def create_dep_report(
 
 def _convert_python_library_to_executable(
         ctx: AnalysisContext,
-        main_module: str,
+        main: EntryPoint,
         library: PythonLibraryInterface.type,
         deps: list[Dependency],
         compile: bool,
@@ -640,7 +642,7 @@ def _convert_python_library_to_executable(
         ctx.attrs.build_args,
         pex_modules,
         shared_libraries,
-        main_module,
+        main,
         hidden_resources,
         allow_cache_upload,
     )
@@ -651,8 +653,13 @@ def _convert_python_library_to_executable(
 
 def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     main_module = ctx.attrs.main_module
-    if ctx.attrs.main_module != None and ctx.attrs.main != None:
-        fail("Only one of main_module or main may be set. Prefer main_module as main is considered deprecated")
+    main_function = ctx.attrs.main_function
+    if main_module != None and ctx.attrs.main != None:
+        fail("Only one of main_module or main may be set. Prefer main_function as main and main_module are considered deprecated")
+    elif main_module != None and main_function != None:
+        fail("Only one of main_module or main_function may be set. Prefer main_function.")
+    elif main_function != None and ctx.attrs.main != None:
+        fail("Only one of main_function or main may be set. Prefer main_function.")
     elif ctx.attrs.main != None:
         base_module = ctx.attrs.base_module
         if base_module == None:
@@ -663,6 +670,11 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         if main_module.endswith(".py"):
             main_module = main_module[:-3]
 
+    if main_module != None:
+        main = (EntryPointKind("module"), main_module)
+    else:
+        main = (EntryPointKind("function"), main_function)
+
     srcs = {}
     if ctx.attrs.main != None:
         srcs[ctx.attrs.main.short_path] = ctx.attrs.main
@@ -670,7 +682,7 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     pex = python_executable(
         ctx,
-        main_module,
+        main,
         srcs,
         {},
         compile = value_or(ctx.attrs.compile, False),
