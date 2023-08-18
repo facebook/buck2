@@ -29,6 +29,7 @@ use gazebo::prelude::*;
 use crate::analysis::evaluator::eval_query;
 use crate::cquery::environment::CqueryEnvironment;
 use crate::dice::get_dice_query_delegate;
+use crate::dice::DiceQueryData;
 use crate::dice::DiceQueryDelegate;
 use crate::uquery::environment::PreresolvedQueryLiterals;
 use crate::uquery::environment::QueryLiterals;
@@ -59,11 +60,11 @@ impl CqueryEvaluator<'_> {
                     }
                     // In the absence of a user-provided target universe, we use the target
                     // literals in the cquery as the universe.
-                    resolve_literals_in_universe(&self.dice_query_delegate, &literals, &literals)
+                    resolve_literals_in_universe(&self.dice_query_delegate, self.dice_query_delegate.query_data().dupe(), &literals, &literals)
                         .await?
                 }
                 Some(universe) => {
-                    resolve_literals_in_universe(&self.dice_query_delegate, &literals, universe)
+                    resolve_literals_in_universe(&self.dice_query_delegate, self.dice_query_delegate.query_data().dupe(), &literals, universe)
                         .await?
                 }
             };
@@ -80,17 +81,15 @@ impl CqueryEvaluator<'_> {
 
 pub(crate) async fn preresolve_literals_and_build_universe(
     dice_query_delegate: &DiceQueryDelegate<'_>,
+    dice_query_data: &DiceQueryData,
     literals: &[String],
 ) -> anyhow::Result<(
     CqueryUniverse,
     PreresolvedQueryLiterals<ConfiguredTargetNode>,
 )> {
-    let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
-        dice_query_delegate,
-        literals,
-        dice_query_delegate.ctx(),
-    )
-    .await;
+    let resolved_literals =
+        PreresolvedQueryLiterals::pre_resolve(dice_query_data, literals, dice_query_delegate.ctx())
+            .await;
     let universe = CqueryUniverse::build(&resolved_literals.literals()?).await?;
     Ok((universe, resolved_literals))
 }
@@ -117,6 +116,7 @@ pub async fn get_cquery_evaluator<'a, 'c: 'a>(
 // the deps. From there, it resolves the literals to any matching nodes in the universe deps.
 async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
     dice_query_delegate: &DiceQueryDelegate<'_>,
+    query_literals: Arc<DiceQueryData>,
     literals: &[L],
     universe: &[U],
 ) -> anyhow::Result<(
@@ -126,7 +126,7 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
     // TODO(cjhopman): We should probably also resolve the literals to TargetNode so that
     // we can get errors for packages or targets that don't exist or fail to load.
     let refs: Vec<_> = universe.map(|v| v.as_ref());
-    let universe_resolved = dice_query_delegate
+    let universe_resolved = query_literals
         .eval_literals(&refs, dice_query_delegate.ctx())
         .await?;
 

@@ -92,10 +92,12 @@ impl QueryFrontend for QueryFrontendImpl {
         global_target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<CqueryUniverse> {
         let query_delegate = get_dice_query_delegate(ctx, cwd, global_target_platform).await?;
-        Ok(
-            preresolve_literals_and_build_universe(&query_delegate, literals)
-                .await?
-                .0,
+        Ok(preresolve_literals_and_build_universe(
+            &query_delegate,
+            query_delegate.query_data(),
+            literals,
         )
+        .await?
+        .0)
     }
 }

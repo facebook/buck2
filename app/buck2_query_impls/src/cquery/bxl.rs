@@ -56,17 +56,19 @@ impl BxlCqueryFunctionsImpl {
             .target_alias_resolver_for_working_dir(&self.working_dir)
             .await?;
 
+        let query_data = Arc::new(DiceQueryData::new(
+            self.target_platform.dupe(),
+            cell_resolver.dupe(),
+            &self.working_dir,
+            self.project_root.dupe(),
+            target_alias_resolver,
+        )?);
+
         Ok(Arc::new(DiceQueryDelegate::new(
             dice,
-            cell_resolver.dupe(),
+            cell_resolver,
             package_boundary_exceptions,
-            Arc::new(DiceQueryData::new(
-                self.target_platform.dupe(),
-                cell_resolver,
-                &self.working_dir,
-                self.project_root.dupe(),
-                target_alias_resolver,
-            )?),
+            query_data.dupe(),
         )))
     }
 
@@ -80,9 +82,10 @@ impl BxlCqueryFunctionsImpl {
             Some(u) => Some(CqueryUniverse::build(u).await?),
             None => None,
         };
+        let literals = dice_query_delegate.query_data().dupe();
         Ok(CqueryEnvironment::new(
-            dice_query_delegate.dupe(),
             dice_query_delegate,
+            literals,
             universe,
             CqueryOwnerBehavior::Correct,
         ))

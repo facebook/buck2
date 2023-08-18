@@ -66,7 +66,7 @@ impl BxlUqueryFunctionsImpl {
         ));
         Ok(UqueryEnvironment::new(
             dice_query_delegate.dupe(),
-            dice_query_delegate,
+            dice_query_delegate.query_data().dupe(),
         ))
     }
 }
