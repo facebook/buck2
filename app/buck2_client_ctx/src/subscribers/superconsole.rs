@@ -861,7 +861,7 @@ mod tests {
         let mut console = StatefulSuperConsole::new_with_root_forced(
             trace_id.dupe(),
             "test",
-            Verbosity::Default,
+            Verbosity::default(),
             true,
             None,
             None,
@@ -927,7 +927,7 @@ mod tests {
             "build",
             trace_id.dupe(),
             test_console(),
-            Verbosity::Default,
+            Verbosity::default(),
             true,
             Default::default(),
             Default::default(),

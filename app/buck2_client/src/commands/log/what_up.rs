@@ -64,7 +64,7 @@ impl WhatUpCommand {
             let mut super_console_state = SuperConsoleState::new(
                 None,
                 invocation.trace_id,
-                Verbosity::Default,
+                Verbosity::default(),
                 true,
                 SuperConsoleConfig {
                     max_lines: 1000000,
