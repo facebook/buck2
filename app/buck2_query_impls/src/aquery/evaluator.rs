@@ -39,7 +39,7 @@ impl AqueryEvaluator<'_> {
 
         eval_query(&functions, query, query_args, async move |literals| {
             let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
-                &*self.dice_query_delegate,
+                &**self.dice_query_delegate.query_data(),
                 &literals,
                 self.dice_query_delegate.ctx(),
             )

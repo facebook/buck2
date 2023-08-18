@@ -272,6 +272,10 @@ impl<'c> DiceAqueryDelegate<'c> {
         })
     }
 
+    pub fn query_data(&self) -> &Arc<AqueryData> {
+        &self.query_data
+    }
+
     pub async fn get_action_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
         get_action_node(
             self.query_data.nodes_cache.dupe(),
@@ -317,7 +321,7 @@ impl<'c> AqueryDelegate for DiceAqueryDelegate<'c> {
 }
 
 #[async_trait]
-impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
+impl QueryLiterals<ActionQueryNode> for AqueryData {
     async fn eval_literals(
         &self,
         literals: &[&str],
@@ -330,7 +334,6 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
         let mut result = TargetSet::new();
         for literal in literals {
             let label = self
-                .query_data
                 .delegate_query_data
                 .literal_parser()
                 .parse_providers_pattern(literal)?;
@@ -340,7 +343,7 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
                     let configured_label = dice
                         .get_configured_provider_label(
                             &label,
-                            self.query_data.delegate_query_data.global_target_platform(),
+                            self.delegate_query_data.global_target_platform(),
                         )
                         .await?;
 
@@ -359,10 +362,10 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
                                 if let Some(action_key) = output.artifact().action_key() {
                                     result.insert(
                                         get_action_node(
-                                            self.query_data.nodes_cache.dupe(),
+                                            self.nodes_cache.dupe(),
                                             dice,
                                             action_key.dupe(),
-                                            self.query_data.artifact_fs.dupe(),
+                                            self.artifact_fs.dupe(),
                                         )
                                         .await?,
                                     );
