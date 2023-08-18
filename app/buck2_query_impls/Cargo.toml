@@ -36,3 +36,6 @@ buck2_interpreter = { workspace = true }
 buck2_node = { workspace = true }
 buck2_query = { workspace = true }
 buck2_query_parser = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
