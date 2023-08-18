@@ -7,26 +7,33 @@
  * of this source tree.
  */
 
+use buck2_util::late_binding::LateBinding;
+
+pub struct Buck2BuildInfo {
+    pub revision: Option<&'static str>,
+    pub win_internal_version: Option<&'static str>,
+    pub release_timestamp: Option<&'static str>,
+}
+
+pub static BUCK2_BUILD_INFO: LateBinding<Buck2BuildInfo> = LateBinding::new("BUCK2_BUILD_INFO");
+
 /// Get the source control revision for this binary, if available. We provide this externally when
 /// building Buck2 for release.
 pub fn revision() -> Option<&'static str> {
-    if let Some(rev) = std::option_env!("BUCK2_SET_EXPLICIT_VERSION") {
-        if !rev.is_empty() {
-            return Some(rev);
-        }
-    }
-
-    None
+    BUCK2_BUILD_INFO
+        .get()
+        .ok()
+        .and_then(|i| i.revision)
+        .filter(|s| !s.is_empty())
 }
 
 /// Get the generated version for the windows binary. We use this for defining bucks internal version
 pub fn win_internal_version() -> Option<&'static str> {
-    if let Some(win) = std::option_env!("BUCK2_WIN_INTERNAL_VERSION") {
-        if !win.is_empty() {
-            return Some(win);
-        }
-    }
-    None
+    BUCK2_BUILD_INFO
+        .get()
+        .ok()
+        .and_then(|i| i.win_internal_version)
+        .filter(|s| !s.is_empty())
 }
 
 /// Get the time at which this binary was built, if available.
@@ -48,10 +55,9 @@ pub fn time_iso8601() -> Option<&'static str> {
 /// We use this in Ingress when dealing with panic and soft error reports to omit logging for older
 /// versions.
 pub fn release_timestamp() -> Option<&'static str> {
-    if let Some(ts) = std::option_env!("BUCK2_RELEASE_TIMESTAMP") {
-        if !ts.is_empty() {
-            return Some(ts);
-        }
-    }
-    None
+    BUCK2_BUILD_INFO
+        .get()
+        .ok()
+        .and_then(|i| i.release_timestamp)
+        .filter(|s| !s.is_empty())
 }
