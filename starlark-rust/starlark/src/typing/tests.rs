@@ -218,7 +218,13 @@ def bar():
 
 #[test]
 fn test_failure() {
-    TypeCheck::new().check("failure", r#"hash(1)"#);
+    TypeCheck::new().check(
+        "failure",
+        r#"
+def test():
+    hash(1)
+"#,
+    );
 }
 
 #[test]

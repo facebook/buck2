@@ -5,20 +5,21 @@
 # ```
 
 Code:
-hash(1)
+def test():
+    hash(1)
 
 Error:
 error: Expected type `str` but got `int`
- --> filename:1:6
+ --> filename:3:10
   |
-1 | hash(1)
-  |      ^
+3 |     hash(1)
+  |          ^
   |
 
 Compiler typechecker (eval):
 error: Expected type `str` but got `int`
- --> filename:1:6
+ --> filename:3:10
   |
-1 | hash(1)
-  |      ^
+3 |     hash(1)
+  |          ^
   |

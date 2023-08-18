@@ -44,7 +44,12 @@ f(8) == False"#,
         "Value `1` of type `int` does not match the type annotation `bool` for argument `i`",
     );
     a.fail(
-        "def f_compile_time(i: bool.type):\n pass\nf_compile_time(1)",
+        r#"
+def f_compile_time(i: bool):
+    pass
+def g():
+    f_compile_time(1)
+"#,
         "Expected type `bool` but got `int`",
     );
     a.pass(
@@ -64,7 +69,12 @@ def f(v: Bar):
         "Value `1` of type `int` does not match the type annotation `bool` for return type",
     );
     a.fail(
-        "def f_return_compile_time() -> bool.type:\n return 1\nf_return_compile_time()",
+        r#"
+def f_return_compile_time() -> bool:
+    return 1
+def g():
+    f_return_compile_time()
+"#,
         "Expected type `bool` but got `int`",
     );
     // And for functions without return
@@ -79,7 +89,12 @@ def f(v: Bar):
         &["type annotation", "`None`", "`bool`", "return"],
     );
     a.fail(
-        "def f_none_bool_compile_time() -> None:\n return True\nf_none_bool_compile_time()",
+        r#"
+def f_none_bool_compile_time() -> None:
+    return True
+def g():
+    f_none_bool_compile_time()
+"#,
         "Expected type `None` but got `bool`",
     );
     a.pass("def f() -> None:\n pass\nf()");
@@ -223,8 +238,9 @@ ty = eval_type(int.type)
 def f(x: ty):
     pass
 
-# Compile-time error.
-f("x")
+def g():
+    # Compile-time error.
+    f("x")
 "#,
         "Expected type `int` but got `str`",
     );
@@ -255,7 +271,8 @@ fn test_new_list_dict_syntax_fail_compile_time() {
 def uuu(x: list[int]):
     pass
 
-uuu(["mm"])
+def www():
+    uuu(["mm"])
 "#,
         "Expected type `list[int]` but got `list[str]`",
     );
