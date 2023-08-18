@@ -597,6 +597,7 @@ def _convert_python_library_to_executable(
         extra_artifacts.update(dict(extension_info.artifacts))
         native_libs["runtime/bin/{}".format(ctx.attrs.executable_name)] = LinkedObject(
             output = executable_info.binary,
+            unstripped_output = executable_info.binary,
             dwp = executable_info.dwp,
         )
 

@@ -148,6 +148,7 @@ load(
 
 CxxExecutableOutput = record(
     binary = Artifact,
+    unstripped_binary = Artifact,
     bitcode_bundle = field([Artifact, None], None),
     dwp = field([Artifact, None]),
     # Files that will likely need to be included as .hidden() arguments
@@ -599,6 +600,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
 
     return CxxExecutableOutput(
         binary = binary.output,
+        unstripped_binary = binary.unstripped_output,
         dwp = binary.dwp,
         runtime_files = runtime_files,
         sub_targets = sub_targets,

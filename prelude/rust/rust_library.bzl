@@ -615,6 +615,7 @@ def _native_providers(
     if get_actual_link_style(LinkStyle("shared"), preferred_linkage, compile_ctx.cxx_toolchain_info.pic_behavior) == LinkStyle("shared"):
         solibs[shlib_name] = LinkedObject(
             output = libraries[LinkStyle("shared")].output,
+            unstripped_output = libraries[LinkStyle("shared")].output,
             external_debug_info = external_debug_infos[LinkStyle("shared")],
         )
 

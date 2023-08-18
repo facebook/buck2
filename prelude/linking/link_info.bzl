@@ -280,6 +280,8 @@ LinkedObject = record(
     output = field([Artifact, "promise"]),
     # The combined bitcode from this linked object and any static libraries
     bitcode_bundle = field([Artifact, None], None),
+    # the generated linked output before running stripping(and bolt).
+    unstripped_output = field(Artifact),
     # the generated linked output before running bolt, may be None if bolt is not used.
     prebolt_output = field([Artifact, None], None),
     # A linked object (binary/shared library) may have an associated dwp file with

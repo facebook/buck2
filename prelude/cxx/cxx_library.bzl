@@ -190,6 +190,7 @@ load(
 # `other` outputs that should also be materialized along with it.
 CxxLibraryOutput = record(
     default = field(Artifact),
+    unstripped = field(Artifact),
     # The object files used to create the artifact in `default`.
     object_files = field(list[Artifact], []),
     # Additional outputs that are implicitly used along with the above output
@@ -755,6 +756,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
         additional_providers.append(bc_provider)
 
     if impl_params.generate_providers.default:
+        if default_output != None and default_output.unstripped != None:
+            sub_targets["unstripped"] = [DefaultInfo(
+                default_outputs = [default_output.unstripped],
+            )]
         default_info = DefaultInfo(
             default_output = default_output.default if default_output != None else None,
             other_outputs = default_output.other if default_output != None else [],
@@ -964,6 +969,7 @@ def _form_library_outputs(
                 info = result.info
                 output = CxxLibraryOutput(
                     default = shlib.output,
+                    unstripped = shlib.unstripped_output,
                     object_files = compiled_srcs.pic.objects,
                     external_debug_info = shlib.external_debug_info,
                     dwp = shlib.dwp,
@@ -1193,6 +1199,7 @@ def _static_library(
     return (
         CxxLibraryOutput(
             default = archive.artifact,
+            unstripped = archive.artifact,
             object_files = objects,
             bitcode_bundle = bitcode_bundle,
             other = archive.external_objects,

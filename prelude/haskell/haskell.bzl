@@ -316,7 +316,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     solibs = {}
     for soname, lib in ctx.attrs.shared_libs.items():
-        solibs[soname] = LinkedObject(output = lib)
+        solibs[soname] = LinkedObject(output = lib, unstripped_output = lib)
 
     linkable_graph = create_linkable_graph(
         ctx,
@@ -727,7 +727,7 @@ def _build_haskell_lib(
             category = "haskell_link" + artifact_suffix.replace("-", "_"),
         )
 
-        solibs[libfile] = LinkedObject(output = lib)
+        solibs[libfile] = LinkedObject(output = lib, unstripped_output = lib)
         libs = [lib]
         link_infos = LinkInfos(
             default = LinkInfo(linkables = [SharedLibLinkable(lib = lib)]),

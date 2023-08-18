@@ -193,14 +193,12 @@ def cxx_link_into(
     else:
         bitcode_artifact = None
 
-    external_debug_info = ArtifactTSet()
-    if not (opts.strip or getattr(ctx.attrs, "prefer_stripped_objects", False)):
-        external_debug_info = link_external_debug_info(
-            ctx = ctx,
-            links = opts.links,
-            split_debug_output = split_debug_output,
-            pdb = pdb_artifact,
-        )
+    external_debug_info = link_external_debug_info(
+        ctx = ctx,
+        links = opts.links,
+        split_debug_output = split_debug_output,
+        pdb = pdb_artifact,
+    )
 
     if linker_info.type == "windows":
         shell_quoted_args = cmd_args(all_link_args)
@@ -249,6 +247,7 @@ def cxx_link_into(
         force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
         allow_cache_upload = opts.allow_cache_upload,
     )
+    unstripped_output = output
     if opts.strip:
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
         output = strip_object(ctx, cxx_toolchain_info, output, strip_args, opts.category_suffix)
@@ -280,6 +279,7 @@ def cxx_link_into(
         output = final_output,
         bitcode_bundle = bitcode_artifact.artifact if bitcode_artifact else None,
         prebolt_output = output,
+        unstripped_output = unstripped_output,
         dwp = dwp_artifact,
         external_debug_info = external_debug_info,
         linker_argsfile = argfile,
@@ -357,6 +357,7 @@ def _anon_cxx_link(
     return CxxLinkResult(
         linked_object = LinkedObject(
             output = output,
+            unstripped_output = output,
             dwp = dwp,
             external_debug_info = external_debug_info,
         ),

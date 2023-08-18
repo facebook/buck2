@@ -375,7 +375,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             else:  # shared
                 # If no shared library was provided, link one from the static libraries.
                 if shared_lib != None:
-                    shared_lib = LinkedObject(output = shared_lib)
+                    shared_lib = LinkedObject(output = shared_lib, unstripped_output = shared_lib)
                 else:
                     lib = static_pic_lib or static_lib
                     if lib:
