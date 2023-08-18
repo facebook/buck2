@@ -824,12 +824,12 @@ pub trait StarlarkValue<'v>:
 
     /// Typecheck `this op rhs`.
     fn bin_op_ty(_op: TypingBinOp, _rhs: &TyBasic) -> Option<Ty> {
-        Some(Ty::any())
+        None
     }
 
     /// Typecheck `lhs op this`.
     fn rbin_op_ty(_lhs: &TyBasic, _op: TypingBinOp) -> Option<Ty> {
-        Some(Ty::any())
+        None
     }
 
     /// Called when exporting a value under a specific name,

@@ -250,7 +250,7 @@ impl ImplStarlarkValue {
 
     fn bin_op_arm(&self, bin_op: &str, impl_name: &str) -> Option<syn::Arm> {
         let bin_op = syn::Ident::new(bin_op, self.span());
-        if self.has_fn(impl_name) {
+        if self.has_fn(impl_name) || (impl_name == "bit_or" && self.has_fn("eval_type")) {
             Some(syn::parse_quote_spanned! {
                 self.span()=>
                 starlark::typing::TypingBinOp::#bin_op => {
