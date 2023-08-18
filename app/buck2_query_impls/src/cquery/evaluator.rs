@@ -36,7 +36,7 @@ use crate::uquery::environment::QueryLiterals;
 use crate::uquery::environment::UqueryDelegate;
 
 pub struct CqueryEvaluator<'c> {
-    dice_query_delegate: Arc<DiceQueryDelegate<'c>>,
+    dice_query_delegate: DiceQueryDelegate<'c>,
     functions: DefaultQueryFunctionsModule<CqueryEnvironment<'c>>,
     owner_behavior: CqueryOwnerBehavior,
 }
@@ -69,7 +69,7 @@ impl CqueryEvaluator<'_> {
                 }
             };
             Ok(CqueryEnvironment::new(
-                self.dice_query_delegate.dupe(),
+                &self.dice_query_delegate,
                 Arc::new(resolved_literals),
                 Some(universe),
                 self.owner_behavior,
@@ -103,7 +103,7 @@ pub async fn get_cquery_evaluator<'a, 'c: 'a>(
     owner_behavior: CqueryOwnerBehavior,
 ) -> anyhow::Result<CqueryEvaluator<'c>> {
     let dice_query_delegate =
-        Arc::new(get_dice_query_delegate(ctx, working_dir, global_target_platform).await?);
+        get_dice_query_delegate(ctx, working_dir, global_target_platform).await?;
     let functions = DefaultQueryFunctionsModule::new();
     Ok(CqueryEvaluator {
         dice_query_delegate,

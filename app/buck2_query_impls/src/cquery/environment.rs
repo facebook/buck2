@@ -73,7 +73,7 @@ pub trait CqueryDelegate: Send + Sync {
 }
 
 pub struct CqueryEnvironment<'c> {
-    delegate: Arc<dyn CqueryDelegate + 'c>,
+    delegate: &'c dyn CqueryDelegate,
     literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
     // TODO(nga): BXL `cquery` function does not provides us the universe.
     // TODO(nga): do not compute the universe when we don't need it, because it is not free.
@@ -87,7 +87,7 @@ pub struct CqueryEnvironment<'c> {
 
 impl<'c> CqueryEnvironment<'c> {
     pub fn new(
-        delegate: Arc<dyn CqueryDelegate + 'c>,
+        delegate: &'c dyn CqueryDelegate,
         literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
         universe: Option<CqueryUniverse>,
         owner_behavior: CqueryOwnerBehavior,

@@ -113,7 +113,7 @@ pub trait QueryLiterals<T: QueryTarget>: Send + Sync {
 }
 
 pub struct UqueryEnvironment<'c> {
-    delegate: Arc<dyn UqueryDelegate + 'c>,
+    delegate: &'c dyn UqueryDelegate,
     literals: Arc<dyn QueryLiterals<TargetNode> + 'c>,
 }
 
@@ -176,7 +176,7 @@ impl<T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
 
 impl<'c> UqueryEnvironment<'c> {
     pub fn new(
-        delegate: Arc<dyn UqueryDelegate + 'c>,
+        delegate: &'c dyn UqueryDelegate,
         literals: Arc<dyn QueryLiterals<TargetNode> + 'c>,
     ) -> Self {
         Self { delegate, literals }
@@ -246,11 +246,11 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
     }
 
     async fn allbuildfiles(&self, universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
-        return allbuildfiles(universe, &*self.delegate).await;
+        return allbuildfiles(universe, self.delegate).await;
     }
 
     async fn rbuildfiles(&self, universe: &FileSet, argset: &FileSet) -> anyhow::Result<FileSet> {
-        return rbuildfiles(universe, argset, &*self.delegate).await;
+        return rbuildfiles(universe, argset, self.delegate).await;
     }
 
     async fn owner(&self, paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {

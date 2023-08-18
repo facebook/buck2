@@ -40,10 +40,10 @@ struct BxlUqueryFunctionsImpl {
 }
 
 impl BxlUqueryFunctionsImpl {
-    async fn uquery_env<'c>(
+    async fn uquery_delegate<'c>(
         &self,
         dice: &'c mut DiceComputations,
-    ) -> anyhow::Result<UqueryEnvironment<'c>> {
+    ) -> anyhow::Result<DiceQueryDelegate<'c>> {
         let cell_resolver = dice.get_cell_resolver().await?;
 
         let package_boundary_exceptions = dice.get_package_boundary_exceptions().await?;
@@ -58,16 +58,20 @@ impl BxlUqueryFunctionsImpl {
             self.project_root.dupe(),
             target_alias_resolver,
         )?);
-        let dice_query_delegate = Arc::new(DiceQueryDelegate::new(
+        Ok(DiceQueryDelegate::new(
             dice,
             cell_resolver,
             package_boundary_exceptions,
             query_data,
-        ));
-        Ok(UqueryEnvironment::new(
-            dice_query_delegate.dupe(),
-            dice_query_delegate.query_data().dupe(),
         ))
+    }
+
+    async fn uquery_env<'c>(
+        &self,
+        delegate: &'c DiceQueryDelegate<'c>,
+    ) -> anyhow::Result<UqueryEnvironment<'c>> {
+        let literals = delegate.query_data().dupe();
+        Ok(UqueryEnvironment::new(delegate, literals))
     }
 }
 
@@ -80,7 +84,11 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         to: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         Ok(uquery_functions()
-            .allpaths(&self.uquery_env(dice).await?, from, to)
+            .allpaths(
+                &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                from,
+                to,
+            )
             .await?)
     }
     async fn somepath(
@@ -90,7 +98,11 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         to: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         Ok(uquery_functions()
-            .somepath(&self.uquery_env(dice).await?, from, to)
+            .somepath(
+                &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                from,
+                to,
+            )
             .await?)
     }
     async fn deps(
@@ -102,7 +114,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         Ok(uquery_functions()
             .deps(
-                &self.uquery_env(dice).await?,
+                &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
                 &DefaultQueryFunctionsModule::new(),
                 targets,
                 deps,
@@ -118,7 +130,12 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         depth: Option<i32>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         Ok(uquery_functions()
-            .rdeps(&self.uquery_env(dice).await?, universe, targets, depth)
+            .rdeps(
+                &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                universe,
+                targets,
+                depth,
+            )
             .await?)
     }
     async fn testsof(
@@ -127,7 +144,10 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         targets: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         Ok(uquery_functions()
-            .testsof(&self.uquery_env(dice).await?, targets)
+            .testsof(
+                &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                targets,
+            )
             .await?)
     }
     async fn owner(
@@ -136,7 +156,10 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         file_set: &FileSet,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         Ok(uquery_functions()
-            .owner(&self.uquery_env(dice).await?, file_set)
+            .owner(
+                &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                file_set,
+            )
             .await?)
     }
 }
