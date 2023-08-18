@@ -548,6 +548,17 @@ def test():
 }
 
 #[test]
+fn test_int_bitor_float() {
+    TypeCheck::new().ty("x").check(
+        "int_bitor_float",
+        r#"
+def test():
+    x = 0x60000000000000000000000 | 1.0
+"#,
+    );
+}
+
+#[test]
 fn test_int_mul_list() {
     // TODO(nga): fix.
     TypeCheck::new().ty("x").check(
