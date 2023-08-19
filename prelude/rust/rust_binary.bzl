@@ -74,7 +74,7 @@ _CompileOutputs = record(
     args = field(ArgLike),
     extra_targets = field(list[(str, Artifact)]),
     runtime_files = field(list[ArgLike]),
-    sub_targets = field(dict[str, [DefaultInfo]]),
+    sub_targets = field(dict[str, list[DefaultInfo]]),
 )
 
 def _rust_binary_common(

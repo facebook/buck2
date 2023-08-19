@@ -117,7 +117,7 @@ FrameworksLinkable = record(
 )
 
 SwiftmoduleLinkable = record(
-    swiftmodule = field("artifact"),
+    swiftmodule = field(Artifact),
     _type = field(LinkableType.type, LinkableType("swiftmodule")),
 )
 

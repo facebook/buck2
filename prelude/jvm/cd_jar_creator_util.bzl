@@ -389,7 +389,7 @@ def prepare_cd_exe(
         debug_port: [int, None],
         debug_target: [Label, None],
         extra_jvm_args: list[str],
-        extra_jvm_args_target: [Label, None]) -> tuple.type:
+        extra_jvm_args_target: [Label, None]) -> tuple:
     local_only = False
     jvm_args = ["-XX:-MaxFDLimit"]
 
@@ -467,7 +467,7 @@ def generate_abi_jars(
         class_abi_jar: [Artifact, None],
         class_abi_output_dir: [Artifact, None],
         encode_abi_command: typing.Callable,
-        define_action: typing.Callable) -> tuple.type:
+        define_action: typing.Callable) -> tuple:
     class_abi = None
     source_abi = None
     source_only_abi = None
