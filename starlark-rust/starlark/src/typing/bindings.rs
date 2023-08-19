@@ -214,9 +214,9 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         for (i, p) in def_params.params.iter().enumerate() {
             let name = &p.node.ident;
             let ty = p.node.ty;
+            let ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
             let name_ty = match &p.node.kind {
                 DefParamKind::Regular(default_value) => {
-                    let ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
                     let mut param = if i >= def_params.num_positional as usize {
                         Param::name_only(&name.0, ty.clone())
                     } else {
@@ -231,16 +231,14 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                 DefParamKind::Args => {
                     // There is the type we require people calling us use (usually any)
                     // and then separately the type we are when we are running (always tuple)
-                    let item_ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
                     // TODO(nga): currently there's no way to express the type `tuple[str, ...]`.
-                    params2.push(Param::args(item_ty));
+                    params2.push(Param::args(ty));
                     Some((name, Ty::any_tuple()))
                 }
                 DefParamKind::Kwargs => {
-                    let value_ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
-                    let ty = Ty::dict(Ty::string(), value_ty.clone());
-                    params2.push(Param::kwargs(value_ty));
-                    Some((name, ty))
+                    let var_ty = Ty::dict(Ty::string(), ty.clone());
+                    params2.push(Param::kwargs(ty));
+                    Some((name, var_ty))
                 }
             };
             if let Some((name, ty)) = name_ty {
