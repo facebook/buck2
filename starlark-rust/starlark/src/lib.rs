@@ -174,7 +174,7 @@
 //! use starlark::syntax::{AstModule, Dialect, DialectTypes};
 //!
 //! let content = r#"
-//! def takes_int(x: int.type):
+//! def takes_int(x: int):
 //!     pass
 //! takes_int("test")
 //! "#;

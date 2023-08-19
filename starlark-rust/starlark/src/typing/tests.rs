@@ -207,7 +207,7 @@ fn test_success() {
     TypeCheck::default().ty("y").check(
         "success",
         r#"
-def foo(x: str.type) -> str.type:
+def foo(x: str) -> str:
     return x.removeprefix("test")
 
 def bar():
@@ -291,8 +291,8 @@ fn test_dot_type() {
     TypeCheck::new().check(
         "dot_type_0",
         r#"
-def foo(x: list.type) -> bool.type:
-    return type(x) == list.type
+def foo(x: list) -> bool:
+    return type(x) == type(list)
 
 def bar():
     foo([1,2,3])
@@ -301,7 +301,7 @@ def bar():
     TypeCheck::new().check(
         "dot_type_1",
         r#"
-def foo(x: list.type) -> bool.type:
+def foo(x: list) -> bool:
     return type(x) == []
 
 def bar():
@@ -370,7 +370,7 @@ fn test_call_callable_or_not_callable() {
     TypeCheck::new().check(
         "call_callable_or_not_callable",
         r#"
-def foo(x: ["function", str.type], y: [str.type, "function"]):
+def foo(x: ["function", str], y: [str, "function"]):
     x()
     y()
 "#,
@@ -394,7 +394,7 @@ fn test_call_not_callable_or_unknown() {
     TypeCheck::new().check(
         "call_not_callable_or_unknown",
         r#"
-def foo(x: [str.type, "unknown"], y: ["unknown", str.type]):
+def foo(x: [str, "unknown"], y: ["unknown", str]):
     x()
     y()
 "#,
@@ -407,7 +407,7 @@ fn test_tuple() {
         "tuple",
         r#"
 def empty_tuple_fixed_name() -> (): return tuple()
-def empty_tuple_name_fixed() -> tuple.type: return ()
+def empty_tuple_name_fixed() -> tuple: return ()
 "#,
     );
 }

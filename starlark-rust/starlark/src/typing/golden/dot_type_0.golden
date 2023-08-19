@@ -5,8 +5,8 @@
 # ```
 
 Code:
-def foo(x: list.type) -> bool.type:
-    return type(x) == list.type
+def foo(x: list) -> bool:
+    return type(x) == type(list)
 
 def bar():
     foo([1,2,3])

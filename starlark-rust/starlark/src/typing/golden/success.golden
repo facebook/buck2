@@ -5,7 +5,7 @@
 # ```
 
 Code:
-def foo(x: str.type) -> str.type:
+def foo(x: str) -> str:
     return x.removeprefix("test")
 
 def bar():

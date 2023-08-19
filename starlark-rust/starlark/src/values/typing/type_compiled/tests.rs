@@ -26,7 +26,7 @@ fn test_types() {
     let a = assert::Assert::new();
     a.is_true(
         r#"
-def f(i: int.type) -> bool.type:
+def f(i: int) -> bool:
     return i == 3
 f(8) == False"#,
     );
@@ -40,7 +40,7 @@ f(8) == False"#,
 
     // Type errors should be caught in arguments
     a.fail(
-        "def f_runtime(i: bool.type):\n pass\nf_runtime(noop(1))",
+        "def f_runtime(i: bool):\n pass\nf_runtime(noop(1))",
         "Value `1` of type `int` does not match the type annotation `bool` for argument `i`",
     );
     a.fail(
@@ -53,8 +53,8 @@ def g():
         "Expected type `bool` but got `int`",
     );
     a.pass(
-        r#"Foo = record(value=int.type)
-def f(v: bool.type) -> Foo:
+        r#"Foo = record(value=int)
+def f(v: bool) -> Foo:
     return Foo(value=1)"#,
     );
     a.fails(
@@ -65,7 +65,7 @@ def f(v: Bar):
     );
     // Type errors should be caught in return positions
     a.fail(
-        "def f_return_runtime() -> bool.type:\n return noop(1)\nf_return_runtime()",
+        "def f_return_runtime() -> bool:\n return noop(1)\nf_return_runtime()",
         "Value `1` of type `int` does not match the type annotation `bool` for return type",
     );
     a.fail(
@@ -80,7 +80,7 @@ def g():
     // And for functions without return
     // TODO(nga): should be compile-time error.
     a.fail(
-        "def f_bool_none() -> bool.type:\n pass\nf_bool_none()",
+        "def f_bool_none() -> bool:\n pass\nf_bool_none()",
         "Value `None` of type `NoneType` does not match the type annotation `bool` for return type",
     );
     // And for functions that return None implicitly or explicitly
@@ -102,26 +102,26 @@ def g():
     // The following are all valid types
     a.all_true(
         r#"
-isinstance(1, int.type)
-isinstance(True, bool.type)
+isinstance(1, int)
+isinstance(True, bool)
 isinstance(True, "")
 isinstance(None, None)
 isinstance(assert_type, "function")
-isinstance([], [int.type])
-isinstance([], [""])
-isinstance([1, 2, 3], [int.type])
-isinstance(None, [None, int.type])
-isinstance('test', [int.type, str.type])
-isinstance(('test', None), (str.type, None))
-isinstance({"test": 1, "more": 2}, {str.type: int.type})
-isinstance({1: 1, 2: 2}, {int.type: int.type})
+isinstance([], list[int])
+isinstance([], list[typing.Any])
+isinstance([1, 2, 3], [int])
+isinstance(None, [None, int])
+isinstance('test', int | str)
+isinstance(('test', None), (str, None))
+isinstance({"test": 1, "more": 2}, dict[str, int])
+isinstance({1: 1, 2: 2}, dict[int, int])
 
 not isinstance(1, None)
-not isinstance((1, 1), str.type)
-not isinstance('test', [int.type, bool.type])
-not isinstance([1,2,None], [int.type])
-not isinstance({"test": 1, 8: 2}, {str.type: int.type})
-not isinstance({"test": 1, "more": None}, {str.type: int.type})
+not isinstance((1, 1), str)
+not isinstance('test', int | bool)
+not isinstance([1,2,None], list[int])
+not isinstance({"test": 1, 8: 2}, dict[str, int])
+not isinstance({"test": 1, "more": None}, dict[str, int])
 
 isinstance(1, "")
 isinstance([1,2,"test"], ["_a"])
@@ -140,7 +140,7 @@ isinstance([1,2,"test"], ["_a"])
     // Should check the type of default parameters that aren't used
     a.fail(
         r#"
-def foo(f: int.type = None):
+def foo(f: int = None):
     pass
 "#,
         "`None` of type `NoneType` does not match the type annotation `int`",
@@ -186,7 +186,7 @@ fn test_type_compiled_display() {
     }
 
     t("typing.Any", "\"\"");
-    t("list[typing.Any]", "list.type");
+    t("list[typing.Any]", "list");
     t("list[typing.Any]", "[\"\"]");
     t("None", "None");
     t("\"a\" | \"b\"", "[\"a\", \"b\"]");
@@ -194,13 +194,13 @@ fn test_type_compiled_display() {
 
 #[test]
 fn test_type_compiled_starlark_api() {
-    assert::eq("\"int\"", "repr(eval_type(int.type))");
+    assert::eq("\"int\"", "repr(eval_type(int))");
     assert::eq("\"int | str\"", "repr(eval_type(int | str))");
-    assert::is_true("eval_type(int.type).matches(1)");
-    assert::is_true("not eval_type(int.type).matches([])");
-    assert::pass("eval_type(int.type).check_matches(1)");
+    assert::is_true("eval_type(int).matches(1)");
+    assert::is_true("not eval_type(int).matches([])");
+    assert::pass("eval_type(int).check_matches(1)");
     assert::fail(
-        "eval_type(int.type).check_matches([])",
+        "eval_type(int).check_matches([])",
         "Value of type `list` does not match type `int`: []",
     );
 }
@@ -214,7 +214,7 @@ fn test_eval_type_eval_type() {
 fn test_type_compiled_can_be_used_in_function_signature() {
     assert::pass(
         r#"
-ty = eval_type(int.type)
+ty = eval_type(int)
 def f(x: ty):
     pass
 
@@ -223,7 +223,7 @@ f(1)
     );
     assert::fail(
         r#"
-ty = eval_type(int.type)
+ty = eval_type(int)
 def f(x: ty):
     pass
 
@@ -234,7 +234,7 @@ f(noop("x"))
     );
     assert::fail(
         r#"
-ty = eval_type(int.type)
+ty = eval_type(int)
 def f(x: ty):
     pass
 

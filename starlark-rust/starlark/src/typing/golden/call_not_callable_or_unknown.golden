@@ -5,7 +5,7 @@
 # ```
 
 Code:
-def foo(x: [str.type, "unknown"], y: ["unknown", str.type]):
+def foo(x: [str, "unknown"], y: ["unknown", str]):
     x()
     y()
 

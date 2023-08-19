@@ -104,7 +104,7 @@ def custom_types(arg1: str, arg2: "input") -> "output": pass
 def default_arg(arg1 = "_", arg2: typing.Any = None) -> list[str]: pass
 def pos_named(arg1: int, *, arg2: int) -> int: pass
 def simple(arg_int: int, arg_bool: bool, arg_vec: list[str], arg_dict: dict[str, (bool, int)]) -> None: pass
-def with_arguments(*args, **kwargs) -> int.type: pass
+def with_arguments(*args, **kwargs) -> int: pass
 "#,
     );
 

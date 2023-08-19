@@ -90,7 +90,7 @@ mod tests {
         let module = Module::new();
         let mut eval = Evaluator::new(&module);
         let program = r#"
-def f(s: str.type):
+def f(s: str):
     return int(s)
 
 def g():

@@ -39,6 +39,8 @@ enum TypeExprUnpackError {
     EmptyStrInType,
     #[error(r#"`"{0}"` is not allowed in type expression, use `{1}` instead"#)]
     StrBanReplace(&'static str, &'static str),
+    #[error(r#"`{0}.type` is not allowed in type expression, use `{0}` instead"#)]
+    DotTypeBan(&'static str),
 }
 
 /// This type should be used instead of `TypeExprP`, but a lot of code needs to be updated.
@@ -57,6 +59,23 @@ pub(crate) enum TypeExprUnpackP<'a, P: AstPayload> {
     Tuple(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     Literal(Spanned<&'a str>),
 }
+
+/// List of builtin types which are converted to proper types.
+/// First is the type name, second is the symbol.
+const BAN_REPLACE_TYPES: &[(&str, &str)] = &[
+    ("str", "str"),
+    ("string", "str"),
+    ("int", "int"),
+    ("float", "float"),
+    ("bool", "bool"),
+    ("list", "list"),
+    ("dict", "dict"),
+    ("tuple", "tuple"),
+    ("NoneType", "None"),
+    ("None", "None"),
+    // TODO(nga): ban `"function"` too.
+    // ("function", "typing.Callable"),
+];
 
 impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
     pub(crate) fn unpack(
@@ -91,6 +110,19 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                         }
                         ExprP::Identifier(i) => {
                             rem.reverse();
+                            if let [one] = rem.as_slice() {
+                                if one.node == "type" {
+                                    for (_, symbol) in BAN_REPLACE_TYPES {
+                                        if i.node.0.as_str() == *symbol {
+                                            return Err(EvalException::new(
+                                                TypeExprUnpackError::DotTypeBan(symbol).into(),
+                                                current.span,
+                                                codemap,
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
                             return Ok(Spanned {
                                 span,
                                 node: TypeExprUnpackP::Path(i, rem),
@@ -152,22 +184,8 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                         codemap,
                     ));
                 }
-                let ban_replace = [
-                    ("str", "str"),
-                    ("string", "str"),
-                    ("int", "int"),
-                    ("float", "float"),
-                    ("bool", "bool"),
-                    ("list", "list"),
-                    ("dict", "dict"),
-                    ("tuple", "tuple"),
-                    ("NoneType", "None"),
-                    ("None", "None"),
-                    // TODO(nga): ban `"function"` too.
-                    // ("function", "typing.Callable"),
-                ];
-                for (ban, replace) in ban_replace {
-                    if s.as_str() == ban {
+                for (ban, replace) in BAN_REPLACE_TYPES {
+                    if s.as_str() == *ban {
                         return Err(EvalException::new(
                             TypeExprUnpackError::StrBanReplace(ban, replace).into(),
                             expr.span,
