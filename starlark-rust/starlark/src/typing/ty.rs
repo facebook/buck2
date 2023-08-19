@@ -38,6 +38,7 @@ use crate::typing::function::TyCustomFunction;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::function::TyFunction;
 use crate::typing::structs::TyStruct;
+use crate::typing::tuple::TyTuple;
 use crate::values::bool::StarlarkBool;
 use crate::values::tuple::value::FrozenTuple;
 use crate::values::typing::never::TypingNever;
@@ -261,8 +262,8 @@ impl Ty {
     }
 
     /// Create a tuple of given elements.
-    pub fn tuple(elements: Vec<Ty>) -> Self {
-        Ty::basic(TyBasic::Tuple(elements))
+    pub fn tuple(elems: Vec<Ty>) -> Self {
+        Ty::basic(TyBasic::Tuple(TyTuple { elems }))
     }
 
     /// Tuple where elements are unknown.

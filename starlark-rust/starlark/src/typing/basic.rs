@@ -22,6 +22,7 @@ use allocative::Allocative;
 
 use crate::typing::custom::TyCustom;
 use crate::typing::starlark_value::TyStarlarkValue;
+use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
 use crate::typing::TyName;
 use crate::typing::TypingAttr;
@@ -50,7 +51,7 @@ pub enum TyBasic {
     /// A list.
     List(Box<Ty>),
     /// A tuple. May be empty, to indicate the empty tuple.
-    Tuple(Vec<Ty>),
+    Tuple(TyTuple),
     /// A dictionary, with key and value types
     Dict(Box<(Ty, Ty)>),
     /// Custom type.
@@ -160,13 +161,7 @@ impl Display for TyBasic {
                 }
             }
             TyBasic::List(x) => write!(f, "list[{}]", x),
-            TyBasic::Tuple(xs) => {
-                if xs.len() == 1 {
-                    write!(f, "({},)", xs[0])
-                } else {
-                    display_container::fmt_container(f, "(", ")", xs)
-                }
-            }
+            TyBasic::Tuple(tuple) => Display::fmt(tuple, f),
             TyBasic::Dict(k_v) => write!(f, "dict[{}, {}]", k_v.0, k_v.1),
             TyBasic::Custom(c) => Display::fmt(c, f),
         }

@@ -35,6 +35,7 @@ pub(crate) mod mode;
 pub(crate) mod oracle;
 pub(crate) mod starlark_value;
 pub(crate) mod structs;
+pub(crate) mod tuple;
 pub(crate) mod ty;
 pub(crate) mod typecheck;
 pub(crate) mod unordered_map;

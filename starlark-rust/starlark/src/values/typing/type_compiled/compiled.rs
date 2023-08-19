@@ -867,7 +867,7 @@ impl<'v> TypeCompiled<Value<'v>> {
                 TypeCompiled::type_list_of(item, heap)
             }
             TyBasic::Tuple(xs) => {
-                let xs = xs.map(|x| TypeCompiled::from_ty(x, heap));
+                let xs = xs.elems.map(|x| TypeCompiled::from_ty(x, heap));
                 TypeCompiled::type_tuple_of(xs, heap)
             }
             TyBasic::Dict(k_v) => {

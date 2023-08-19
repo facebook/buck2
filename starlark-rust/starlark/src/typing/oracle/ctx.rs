@@ -32,6 +32,7 @@ use crate::typing::function::Param;
 use crate::typing::function::ParamMode;
 use crate::typing::function::TyFunction;
 use crate::typing::mode::TypecheckMode;
+use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
 use crate::typing::TyName;
 use crate::typing::TypingAttr;
@@ -86,11 +87,11 @@ pub struct TypingOracleCtx<'a> {
 impl<'a> TypingOracle for TypingOracleCtx<'a> {
     fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         Some(Ok(match ty {
-            TyBasic::Tuple(tys) => match attr {
+            TyBasic::Tuple(tuple) => match attr {
                 TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(Ty::unions(tys.clone()))], Ty::bool())
+                    Ty::function(vec![Param::pos_only(tuple.item_ty())], Ty::bool())
                 }
-                TypingAttr::Iter => Ty::unions(tys.clone()),
+                TypingAttr::Iter => tuple.item_ty(),
                 _ => return Some(Err(())),
             },
             TyBasic::StarlarkValue(x) if x.as_name() == "tuple" => match attr {
@@ -423,7 +424,7 @@ impl<'a> TypingOracleCtx<'a> {
         array: &TyBasic,
         index: Spanned<&TyBasic>,
     ) -> Result<Ty, TypingOrInternalError> {
-        if let TyBasic::Tuple(xs) = array {
+        if let TyBasic::Tuple(tuple) = array {
             if !self.intersects_basic(index.node, &TyBasic::int()) {
                 return Err(self.mk_error_as_maybe_internal(
                     span,
@@ -433,7 +434,7 @@ impl<'a> TypingOracleCtx<'a> {
                     },
                 ));
             }
-            return Ok(Ty::unions(xs.clone()));
+            return Ok(tuple.item_ty());
         }
 
         if let TyBasic::StarlarkValue(array) = array {
@@ -774,9 +775,7 @@ impl<'a> TypingOracleCtx<'a> {
             (TyBasic::Dict(x), TyBasic::Dict(y)) => {
                 self.intersects(&x.0, &y.0) && self.intersects(&x.1, &y.1)
             }
-            (TyBasic::Tuple(xs), TyBasic::Tuple(ys)) if xs.len() == ys.len() => {
-                std::iter::zip(xs, ys).all(|(x, y)| self.intersects(&x, y))
-            }
+            (TyBasic::Tuple(x), TyBasic::Tuple(y)) => TyTuple::intersects(x, y, self),
             (TyBasic::Tuple(_), t) => t.is_tuple(),
             (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(&x, y),
             (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match self.iter_item_basic(y) {
