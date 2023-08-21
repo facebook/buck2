@@ -110,6 +110,10 @@ def _project_output(out: Artifact, path: str) -> Artifact:
     else:
         return out.project(path, hide_prefix = True)
 
+def _is_zip_file(output: Artifact):
+    ext = output.extension
+    return ext == ".zip" or ext == ".apk" or ext == ".jar" or ext == ".aar"
+
 def process_genrule(
         ctx: AnalysisContext,
         out_attr: [str, None],
@@ -244,7 +248,7 @@ def process_genrule(
     genrule_toolchain = ctx.attrs._genrule_toolchain[GenruleToolchainInfo]
     zip_scrubber = genrule_toolchain.zip_scrubber
     if not is_windows and zip_scrubber != None:
-        zip_outputs = [output for output in default_outputs + flatten(named_outputs.values()) if output.extension == ".zip"]
+        zip_outputs = [output for output in default_outputs + flatten(named_outputs.values()) if _is_zip_file(output)]
 
         if zip_outputs:
             hidden.append(zip_scrubber)
