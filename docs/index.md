@@ -43,6 +43,8 @@ The following sub-sections contain a list of links to key points in the Buck2 Do
 ### For people integrating with Buck2
 
 * [Extending Buck via BXL](developers/bxl.md) - powerful Starlark scripts for introspection of Buck2's graphs.
+* [Reindeer](https://github.com/facebookincubator/reindeer) - a set of tools for importing Rust crates from crates.io, git repos etc and generating a BUCK file for using them.
+* [ocaml-scripts](https://github.com/facebook/ocaml-scripts) - scripts to generate a BUCK file enabling the use of OCaml packages from an OPAM switch.
 
 ### External articles about Buck2
 
