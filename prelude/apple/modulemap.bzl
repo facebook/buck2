@@ -87,4 +87,4 @@ def _args_for_modulemap(
     return [cmd]
 
 def _exported_preprocessor_args(symlink_tree: Artifact) -> list[cmd_args]:
-    return [cmd_args(symlink_tree, format = "-I{}")]
+    return [cmd_args(symlink_tree, format = "-I./{}")]

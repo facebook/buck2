@@ -445,10 +445,10 @@ def _dep_file_type(ext: CxxExtension.type) -> [DepFileType.type, None]:
         # This should be unreachable as long as we handle all enum values
         fail("Unknown C++ extension: " + ext.value)
 
-def _add_compiler_info_flags(ctx: AnalysisContext, compiler_info: typing.Any, ext: CxxExtension.type, cmd: cmd_args):
+def _add_compiler_info_flags(compiler_info: typing.Any, ext: CxxExtension.type, cmd: cmd_args):
     cmd.add(compiler_info.preprocessor_flags or [])
     cmd.add(compiler_info.compiler_flags or [])
-    cmd.add(get_flags_for_reproducible_build(ctx, compiler_info.compiler_type))
+    cmd.add(get_flags_for_reproducible_build(compiler_info.compiler_type))
 
     if ext.value not in (".asm", ".asmpp"):
         # Clang's asm compiler doesn't support colorful output, so we skip this there.
@@ -466,7 +466,7 @@ def _mk_argsfile(
     """
     args = cmd_args()
 
-    _add_compiler_info_flags(ctx, compiler_info, ext, args)
+    _add_compiler_info_flags(compiler_info, ext, args)
 
     if absolute_path_prefix:
         args.add(preprocessor.set.project_as_args("abs_args"))
@@ -490,6 +490,10 @@ def _mk_argsfile(
     if ctx.attrs.prefix_header != None:
         args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
 
+    # To convert relative paths to absolute, we utilize/expect the `./` marker to symbolize relative paths.
+    if absolute_path_prefix:
+        args.replace_regex("\\./", absolute_path_prefix + "/")
+
     # Create a copy of the args so that we can continue to modify it later.
     args_without_file_prefix_args = cmd_args(args)
 
@@ -503,7 +507,7 @@ def _mk_argsfile(
     shell_quoted_args = cmd_args(args, quote = "shell")
 
     file_name = ext.value + ("-abs.argsfile" if absolute_path_prefix else ".argsfile")
-    argsfile, _ = ctx.actions.write(file_name, shell_quoted_args, allow_args = True, absolute = (absolute_path_prefix != None))
+    argsfile, _ = ctx.actions.write(file_name, shell_quoted_args, allow_args = True)
 
     input_args = [args]
 
