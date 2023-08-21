@@ -189,7 +189,7 @@ def format_system_include_arg(path: cmd_args, compiler_type: str) -> list[cmd_ar
     else:
         return [cmd_args("-isystem"), cmd_args(path, format = "./{}")]
 
-def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHeadersLayout.type, project_root_file: "artifact", extra_preprocessors: list[CPreprocessor.type] = []) -> CPreprocessor.type:
+def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHeadersLayout.type, extra_preprocessors: list[CPreprocessor.type] = [], absolute_path_prefix: [str, None] = None) -> CPreprocessor.type:
     """
     This rule's preprocessor info which is both applied to the compilation of
     its source and propagated to the compilation of dependent's sources.
@@ -235,7 +235,7 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
     system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
 
     relative_args = _get_exported_preprocessor_args(ctx, exported_header_map, style, compiler_type, raw_headers, extra_preprocessors, None)
-    absolute_args = _get_exported_preprocessor_args(ctx, exported_header_map, style, compiler_type, raw_headers, extra_preprocessors, project_root_file)
+    absolute_args = _get_exported_preprocessor_args(ctx, exported_header_map, style, compiler_type, raw_headers, extra_preprocessors, absolute_path_prefix) if absolute_path_prefix else CPreprocessorArgs()
 
     modular_args = []
     for pre in extra_preprocessors:
@@ -251,8 +251,8 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
         modular_args = modular_args,
     )
 
-def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle.type, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor.type], project_root_file: ["artifact", None]) -> CPreprocessorArgs.type:
-    header_root = prepare_headers(ctx, headers, "buck-headers", project_root_file)
+def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle.type, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor.type], absolute_path_prefix: [str, None]) -> CPreprocessorArgs.type:
+    header_root = prepare_headers(ctx, headers, "buck-headers", absolute_path_prefix)
 
     # Process args to handle the `$(cxx-header-tree)` macro.
     args = []
@@ -279,19 +279,19 @@ def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Art
 
     # Append any extra preprocessor info passed in via the constructor params
     for pre in extra_preprocessors:
-        args.extend(pre.absolute_args.args if project_root_file else pre.relative_args.args)
+        args.extend(pre.absolute_args.args if absolute_path_prefix else pre.relative_args.args)
 
     return CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args)
 
 def cxx_private_preprocessor_info(
         ctx: AnalysisContext,
         headers_layout: CxxHeadersLayout.type,
-        project_root_file: ["artifact", None],
         raw_headers: list[Artifact] = [],
         extra_preprocessors: list[CPreprocessor.type] = [],
         non_exported_deps: list[Dependency] = [],
-        is_test: bool = False) -> (CPreprocessor.type, list[CPreprocessor.type]):
-    private_preprocessor = _cxx_private_preprocessor_info(ctx, headers_layout, raw_headers, extra_preprocessors, project_root_file)
+        is_test: bool = False,
+        absolute_path_prefix: [str, None] = None) -> (CPreprocessor.type, list[CPreprocessor.type]):
+    private_preprocessor = _cxx_private_preprocessor_info(ctx, headers_layout, raw_headers, extra_preprocessors, absolute_path_prefix)
 
     test_preprocessors = []
     if is_test:
@@ -307,7 +307,7 @@ def _cxx_private_preprocessor_info(
         headers_layout: CxxHeadersLayout.type,
         raw_headers: list[Artifact],
         extra_preprocessors: list[CPreprocessor.type],
-        project_root_file: ["artifact", None]) -> CPreprocessor.type:
+        absolute_path_prefix: [str, None]) -> CPreprocessor.type:
     """
     This rule's preprocessor info which is only applied to the compilation of
     its source, and not propagated to dependents.
@@ -350,7 +350,7 @@ def _cxx_private_preprocessor_info(
     include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.include_directories])
 
     relative_args = _get_private_preprocessor_args(ctx, header_map, compiler_type, all_raw_headers, None)
-    absolute_args = _get_private_preprocessor_args(ctx, header_map, compiler_type, all_raw_headers, project_root_file)
+    absolute_args = _get_private_preprocessor_args(ctx, header_map, compiler_type, all_raw_headers, absolute_path_prefix) if absolute_path_prefix else CPreprocessorArgs()
 
     return CPreprocessor(
         relative_args = CPreprocessorArgs(args = relative_args.args, file_prefix_args = relative_args.file_prefix_args),
@@ -361,11 +361,11 @@ def _cxx_private_preprocessor_info(
         uses_modules = uses_modules,
     )
 
-def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], compiler_type: str, all_raw_headers: list[Artifact], project_root_file: ["artifact", None]) -> CPreprocessorArgs.type:
+def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], compiler_type: str, all_raw_headers: list[Artifact], absolute_path_prefix: [str, None]) -> CPreprocessorArgs.type:
     # Create private header tree and propagate via args.
     args = []
     file_prefix_args = []
-    header_root = prepare_headers(ctx, headers, "buck-private-headers", project_root_file)
+    header_root = prepare_headers(ctx, headers, "buck-private-headers", absolute_path_prefix)
     if header_root != None:
         args.extend(_format_include_arg("-I", header_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:

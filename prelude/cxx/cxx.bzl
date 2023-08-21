@@ -10,10 +10,6 @@ load(
     "merge_android_packageable_info",
 )
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
-load(
-    "@prelude//apple:xcode.bzl",
-    "get_project_root_file",
-)
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
@@ -326,11 +322,9 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     first_order_deps = ctx.attrs.deps
     exported_first_order_deps = cxx_attr_exported_deps(ctx)
 
-    project_root_file = get_project_root_file(ctx)
-
     # Exported preprocessor info.
     inherited_pp_infos = cxx_inherited_preprocessor_infos(exported_first_order_deps)
-    generic_exported_pre = cxx_exported_preprocessor_info(ctx, cxx_get_regular_cxx_headers_layout(ctx), project_root_file, [])
+    generic_exported_pre = cxx_exported_preprocessor_info(ctx, cxx_get_regular_cxx_headers_layout(ctx), [])
     args = []
     compiler_type = get_cxx_toolchain_info(ctx).cxx_compiler_info.compiler_type
     if header_dirs != None:

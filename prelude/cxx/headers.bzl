@@ -169,7 +169,7 @@ def _header_mode(ctx: AnalysisContext) -> HeaderMode.type:
         return header_mode
     return get_cxx_toolchain_info(ctx).header_mode
 
-def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, project_root_file: ["artifact", None]) -> [Headers.type, None]:
+def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, absolute_path_prefix: [str, None]) -> [Headers.type, None]:
     """
     Prepare all the headers we want to use, depending on the header_mode
     set on the target's toolchain.
@@ -191,11 +191,11 @@ def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, 
         is_any(lambda n: paths.basename(n) == "module.modulemap", srcs.keys())):
         header_mode = HeaderMode("symlink_tree_only")
 
-    output_name = name + "-abs" if project_root_file else name
+    output_name = name + "-abs" if absolute_path_prefix else name
 
     if header_mode == HeaderMode("header_map_only"):
         headers = {h: (a, "{}") for h, a in srcs.items()}
-        hmap = _mk_hmap(ctx, output_name, headers, project_root_file)
+        hmap = _mk_hmap(ctx, output_name, headers, absolute_path_prefix)
         return Headers(
             include_path = cmd_args(hmap).hidden(srcs.values()),
         )
@@ -204,7 +204,7 @@ def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, 
         return Headers(include_path = cmd_args(symlink_dir), symlink_tree = symlink_dir)
     if header_mode == HeaderMode("symlink_tree_with_header_map"):
         headers = {h: (symlink_dir, "{}/" + h) for h in srcs}
-        hmap = _mk_hmap(ctx, output_name, headers, project_root_file)
+        hmap = _mk_hmap(ctx, output_name, headers, absolute_path_prefix)
         file_prefix_args = _get_debug_prefix_args(ctx, symlink_dir)
         return Headers(
             include_path = cmd_args(hmap).hidden(symlink_dir),
@@ -330,7 +330,7 @@ def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> [cmd_a
     )
     return debug_prefix_args
 
-def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)], project_root_file: ["artifact", None]) -> Artifact:
+def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)], absolute_path_prefix: [str, None]) -> Artifact:
     output = ctx.actions.declare_output(name + ".hmap")
     cmd = cmd_args(get_cxx_toolchain_info(ctx).mk_hmap)
     cmd.add(["--output", output.as_output()])
@@ -344,7 +344,7 @@ def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)
 
     hmap_args_file = ctx.actions.write(output.basename + ".argsfile", cmd_args(header_args, quote = "shell"))
     cmd.add(["--mappings-file", hmap_args_file]).hidden(header_args)
-    if project_root_file:
-        cmd.add(["--project-root-file", project_root_file])
+    if absolute_path_prefix:
+        cmd.add(["--absolute-path-prefix", absolute_path_prefix])
     ctx.actions.run(cmd, category = "generate_hmap", identifier = name)
     return output
