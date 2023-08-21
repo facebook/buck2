@@ -564,18 +564,26 @@ fn check_compatible(
 /// Ideally, we would check this much earlier. However, that turns out to be a bit tricky to
 /// implement. Naively implementing this check on unconfigured nodes doesn't work because it results
 /// in dice cycles when there are cycles in the unconfigured graph.
-async fn check_plugin_deps_are_not_toolchains(
+async fn check_plugin_deps(
     ctx: &DiceComputations,
+    target_label: &ConfiguredTargetLabel,
     plugin_deps: &PluginLists,
 ) -> anyhow::Result<()> {
-    for (_, target, elem_kind) in plugin_deps.iter() {
+    for (_, dep_label, elem_kind) in plugin_deps.iter() {
         if *elem_kind == PluginListElemKind::Direct {
             let dep_node = ctx
-                .get_target_node(target)
+                .get_target_node(dep_label)
                 .await
-                .with_context(|| format!("looking up unconfigured target node `{}`", target))?;
+                .with_context(|| format!("looking up unconfigured target node `{}`", dep_label))?;
             if dep_node.is_toolchain_rule() {
-                return Err(PluginDepError::PluginDepIsToolchainRule(target.dupe()).into());
+                return Err(PluginDepError::PluginDepIsToolchainRule(dep_label.dupe()).into());
+            }
+            if !dep_node.is_visible_to(target_label.unconfigured())? {
+                return Err(VisibilityError::NotVisibleTo(
+                    dep_label.dupe(),
+                    target_label.unconfigured().dupe(),
+                )
+                .into());
             }
         }
     }
@@ -817,7 +825,7 @@ async fn compute_configured_target_node_no_transition(
     let (gathered_deps, mut errors_and_incompats) =
         gather_deps(target_label, &target_node, &attr_cfg_ctx, ctx).await?;
 
-    check_plugin_deps_are_not_toolchains(ctx, &gathered_deps.plugin_lists).await?;
+    check_plugin_deps(ctx, target_label, &gathered_deps.plugin_lists).await?;
 
     let execution_platform_resolution = if target_cfg.is_unbound() {
         // The unbound configuration is used when evaluation configuration nodes.
