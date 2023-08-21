@@ -16,8 +16,8 @@ use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::target::label::TargetLabel;
-use buck2_util::collections::unordered_map::UnorderedMap;
 use dupe::Dupe;
+use starlark_map::unordered_map::UnorderedMap;
 use starlark_map::Equivalent;
 
 #[derive(Debug, Eq, Allocative)]

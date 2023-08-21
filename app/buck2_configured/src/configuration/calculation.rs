@@ -19,7 +19,7 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::cells::name::CellName;
-use buck2_util::collections::unordered_map::UnorderedMap;
+use starlark_map::unordered_map::UnorderedMap;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;

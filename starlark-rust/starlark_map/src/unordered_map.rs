@@ -1,11 +1,21 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright 2019 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
+//! `HashMap` that does not expose insertion order.
 
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -14,8 +24,9 @@ use std::mem;
 
 use allocative::Allocative;
 use hashbrown::raw::RawTable;
-use starlark_map::Equivalent;
-use starlark_map::StarlarkHasher;
+
+use crate::Equivalent;
+use crate::StarlarkHasher;
 
 /// Hash map which does not expose any insertion order-specific behavior
 /// (except `Debug`).
@@ -30,21 +41,25 @@ impl<K, V> Default for UnorderedMap<K, V> {
 }
 
 impl<K, V> UnorderedMap<K, V> {
+    /// Create a new empty map.
     #[inline]
     pub fn new() -> UnorderedMap<K, V> {
         UnorderedMap(RawTable::new())
     }
 
+    /// Create a new empty map with the specified capacity.
     #[inline]
     pub fn with_capacity(n: usize) -> UnorderedMap<K, V> {
         UnorderedMap(RawTable::with_capacity(n))
     }
 
+    /// Get the number of elements in the map.
     #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Is the map empty?
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -57,6 +72,7 @@ impl<K, V> UnorderedMap<K, V> {
         hasher.finish()
     }
 
+    /// Get a reference to the value associated with the given key.
     #[inline]
     pub fn get<Q>(&self, k: &Q) -> Option<&V>
     where
@@ -68,6 +84,7 @@ impl<K, V> UnorderedMap<K, V> {
             .map(|(_, v)| v)
     }
 
+    /// Get a mutable reference to the value associated with the given key.
     #[inline]
     pub fn get_mut<Q>(&mut self, k: &Q) -> Option<&mut V>
     where
@@ -79,6 +96,7 @@ impl<K, V> UnorderedMap<K, V> {
             .map(|(_, v)| v)
     }
 
+    /// Does the map contain the specified key?
     #[inline]
     pub fn contains_key<Q>(&self, k: &Q) -> bool
     where
@@ -87,6 +105,7 @@ impl<K, V> UnorderedMap<K, V> {
         self.get(k).is_some()
     }
 
+    /// Insert an entry into the map.
     #[inline]
     pub fn insert(&mut self, k: K, v: V) -> Option<V>
     where
@@ -103,6 +122,7 @@ impl<K, V> UnorderedMap<K, V> {
         }
     }
 
+    /// Remove an entry from the map.
     #[inline]
     pub fn remove<Q>(&mut self, k: &Q) -> Option<V>
     where
@@ -114,6 +134,7 @@ impl<K, V> UnorderedMap<K, V> {
             .map(|(_, v)| v)
     }
 
+    /// Clear the map, removing all entries.
     #[inline]
     pub fn clear(&mut self) {
         self.0.clear();
@@ -133,6 +154,7 @@ impl<K: Debug, V: Debug> Debug for UnorderedMap<K, V> {
 }
 
 impl<K: Eq + Hash, V: Eq> PartialEq for UnorderedMap<K, V> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len() && self.iter().all(|(k, v)| other.get(k) == Some(v))
     }
@@ -170,7 +192,7 @@ mod tests {
     use std::hash::Hash;
     use std::hash::Hasher;
 
-    use crate::collections::unordered_map::UnorderedMap;
+    use crate::unordered_map::UnorderedMap;
 
     #[test]
     fn test_hash() {

@@ -33,6 +33,8 @@ mod mix_u32;
 pub mod small_map;
 pub mod small_set;
 pub(crate) mod sorting;
+pub mod unordered_map;
+pub mod unordered_set;
 pub mod vec2;
 pub(crate) mod vec_map;
 

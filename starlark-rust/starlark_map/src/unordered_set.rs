@@ -1,25 +1,37 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright 2019 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
+//! `HashSet` that does not expose insertion order.
 
 use std::hash::Hash;
 
 use allocative::Allocative;
-use starlark_map::Equivalent;
 
-use crate::collections::unordered_map::UnorderedMap;
+use crate::unordered_map::UnorderedMap;
+use crate::Equivalent;
 
+/// `HashSet` that does not expose insertion order.
 #[derive(Clone, Allocative, Debug)]
 pub struct UnorderedSet<T> {
     map: UnorderedMap<T, ()>,
 }
 
 impl<T> UnorderedSet<T> {
+    /// Create a new empty set.
     #[inline]
     pub fn new() -> UnorderedSet<T> {
         UnorderedSet {
@@ -27,6 +39,7 @@ impl<T> UnorderedSet<T> {
         }
     }
 
+    /// Create a new empty set with the specified capacity.
     #[inline]
     pub fn with_capacity(n: usize) -> UnorderedSet<T> {
         UnorderedSet {
@@ -34,6 +47,7 @@ impl<T> UnorderedSet<T> {
         }
     }
 
+    /// Insert a value into the set.
     #[inline]
     pub fn insert(&mut self, k: T) -> bool
     where
@@ -42,19 +56,26 @@ impl<T> UnorderedSet<T> {
         self.map.insert(k, ()).is_none()
     }
 
+    /// Clear the set, removing all values.
     #[inline]
     pub fn clear(&mut self) {
         self.map.clear();
     }
 
+    /// Is the set empty?
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
 
+    /// Get the number of elements in the set.
+    #[inline]
     pub fn len(&self) -> usize {
         self.map.len()
     }
 
+    /// Does the set contain the specified value?
+    #[inline]
     pub fn contains<Q>(&self, value: &Q) -> bool
     where
         Q: Hash + Equivalent<T> + ?Sized,
@@ -64,6 +85,7 @@ impl<T> UnorderedSet<T> {
 }
 
 impl<T: Eq + Hash> PartialEq for UnorderedSet<T> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.map == other.map
     }
@@ -73,6 +95,7 @@ impl<T: Eq + Hash> Eq for UnorderedSet<T> {}
 
 impl<T: Eq + Hash> FromIterator<T> for UnorderedSet<T> {
     #[allow(clippy::from_iter_instead_of_collect)]
+    #[inline]
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> UnorderedSet<T> {
         UnorderedSet {
             map: UnorderedMap::from_iter(iter.into_iter().map(|v| (v, ()))),
@@ -82,7 +105,7 @@ impl<T: Eq + Hash> FromIterator<T> for UnorderedSet<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::collections::unordered_set::UnorderedSet;
+    use crate::unordered_set::UnorderedSet;
 
     #[test]
     fn test_insert() {
