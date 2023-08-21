@@ -29,6 +29,7 @@ load(
 load(
     "@prelude//apple:xcode.bzl",
     "apple_get_xcode_absolute_path_prefix",
+    "get_project_root_file",
 )
 load(
     "@prelude//apple/swift:swift_runtime.bzl",
@@ -310,6 +311,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
     # TODO(T110378095) right now we implement reexport of exported_* flags manually, we should improve/automate that in the macro layer
 
     absolute_path_prefix = apple_get_xcode_absolute_path_prefix()
+    project_root_file = get_project_root_file(ctx)
 
     # Gather preprocessor inputs.
     (own_non_exported_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
@@ -318,9 +320,9 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
         extra_preprocessors = impl_params.extra_preprocessors,
         non_exported_deps = non_exported_deps,
         is_test = impl_params.is_test,
-        absolute_path_prefix = absolute_path_prefix,
+        project_root_file = project_root_file,
     )
-    own_exported_preprocessor_info = cxx_exported_preprocessor_info(ctx, impl_params.headers_layout, impl_params.extra_exported_preprocessors, absolute_path_prefix)
+    own_exported_preprocessor_info = cxx_exported_preprocessor_info(ctx, impl_params.headers_layout, project_root_file, impl_params.extra_exported_preprocessors)
     own_preprocessors = [own_non_exported_preprocessor_info, own_exported_preprocessor_info] + test_preprocessor_infos
 
     inherited_non_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(
