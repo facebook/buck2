@@ -89,15 +89,15 @@ def _cgo(
 
     # Return a `cmd_args` to use as the generated sources.
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    expect(go_toolchain.cgo != None)
+    expect(go_toolchain.base.cgo != None)
     expect(CxxToolchainInfo in ctx.attrs._cxx_toolchain)
     cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
 
-    cmd = get_toolchain_cmd_args(go_toolchain, go_root = False)
+    cmd = get_toolchain_cmd_args(go_toolchain.base, go_root = False)
     cmd.add(go_toolchain.cgo_wrapper[RunInfo])
 
     args = cmd_args()
-    args.add(cmd_args(go_toolchain.cgo, format = "--cgo={}"))
+    args.add(cmd_args(go_toolchain.base.cgo, format = "--cgo={}"))
 
     # TODO(agallagher): cgo outputs a dir with generated sources, but I'm not
     # sure how to pass in an output dir *and* enumerate the sources we know will
