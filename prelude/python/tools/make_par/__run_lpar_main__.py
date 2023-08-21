@@ -16,6 +16,7 @@ def __invoke_main():
     import sys
 
     module = os.getenv("FB_LPAR_MAIN_MODULE")
+    main_function = os.getenv("FB_LPAR_MAIN_FUNCTION")
 
     # Allow users to decorate the main module. In normal Python invocations
     # this can be done by prefixing the arguments with `-m decoratingmodule`.
@@ -37,6 +38,15 @@ def __invoke_main():
 
     del os
     del sys
+
+    if main_function:
+        assert module
+        from importlib import import_module
+
+        mod = import_module(module)
+        main = getattr(mod, main_function)
+        main()
+        return
 
     # pyre-fixme[16]: Module `runpy` has no attribute `_run_module_as_main`.
     runpy._run_module_as_main(module, False)
