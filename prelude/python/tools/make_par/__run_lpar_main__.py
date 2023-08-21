@@ -15,8 +15,8 @@ def __invoke_main():
     import runpy
     import sys
 
-    module = os.getenv("FB_LPAR_MAIN_MODULE")
-    main_function = os.getenv("FB_LPAR_MAIN_FUNCTION")
+    module = os.getenv("FB_PAR_MAIN_MODULE")
+    main_function = os.getenv("FB_PAR_MAIN_FUNCTION")
 
     # Allow users to decorate the main module. In normal Python invocations
     # this can be done by prefixing the arguments with `-m decoratingmodule`.
