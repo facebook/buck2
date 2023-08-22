@@ -59,7 +59,7 @@ load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_sdk_metadata.bzl", "IPhoneSimulatorSdkMetadata", "MacOSXCatalystSdkMetadata")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
-load(":apple_utility.bzl", "get_apple_cxx_headers_layout")
+load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback")
 load(":debug.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
@@ -102,6 +102,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
 
         swiftmodule_linkable = get_swiftmodule_linkable(swift_compile)
 
+        stripped = get_apple_stripped_attr_value_with_default_fallback(ctx)
         constructor_params = CxxRuleConstructorParams(
             rule_type = "apple_binary",
             headers_layout = get_apple_cxx_headers_layout(ctx),
@@ -120,7 +121,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
             extra_link_input = swift_object_files,
             extra_link_input_has_external_debug_info = True,
             extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre] + swift_preprocessor,
-            strip_executable = ctx.attrs.stripped,
+            strip_executable = stripped,
             strip_args_factory = apple_strip_args,
             cxx_populate_xcode_attributes_func = apple_populate_xcode_attributes,
             link_group_info = get_link_group_info(ctx),
@@ -134,7 +135,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
             actions = ctx.actions,
             tsets = [cxx_output.external_debug_info],
         )
-        if ctx.attrs.stripped:
+        if stripped:
             expect(cxx_output.unstripped_binary != None, "Expect to save unstripped_binary when stripped is enabled")
             cxx_output.sub_targets["unstripped"] = [DefaultInfo(default_output = cxx_output.unstripped_binary)]
             dsym_input_binary = cxx_output.unstripped_binary

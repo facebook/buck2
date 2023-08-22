@@ -67,7 +67,7 @@ load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentV
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
-load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_module_name")
+load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "get_module_name")
 load(
     ":debug.bzl",
     "AppleDebuggableInfo",
@@ -230,7 +230,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
         # targets with 'preferred_linkage = "shared"'
-        strip_executable = ctx.attrs.stripped,
+        strip_executable = get_apple_stripped_attr_value_with_default_fallback(ctx),
         strip_args_factory = apple_strip_args,
         force_link_group_linking = params.force_link_group_linking,
         cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, populate_xcode_attributes_func = params.populate_xcode_attributes_func, **kwargs),
@@ -284,7 +284,7 @@ def _get_link_style_sub_targets_and_providers(
         tsets = [output.external_debug_info],
     )
 
-    if ctx.attrs.stripped:
+    if get_apple_stripped_attr_value_with_default_fallback(ctx):
         expect(output.unstripped != None, "Expecting unstripped output to be non-null when stripping is enabled.")
         dsym_executable = output.unstripped
     else:
