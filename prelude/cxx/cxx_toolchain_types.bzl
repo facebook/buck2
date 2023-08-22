@@ -9,6 +9,8 @@ load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
 LinkerType = ["gnu", "darwin", "windows"]
 
+ShlibInterfacesMode = enum("disabled", "enabled", "defined_only")
+
 # TODO(T110378149): Consider whether it makes sense to move these things to
 # configurations/constraints rather than part of the toolchain.
 LinkerInfo = provider(fields = [
@@ -39,7 +41,7 @@ LinkerInfo = provider(fields = [
     "mk_shlib_intf",
     # "o" on Unix, "obj" on Windows
     "object_file_extension",  # str
-    "shlib_interfaces",
+    "shlib_interfaces",  # ShlibInterfacesMode.type
     "shared_dep_runtime_ld_flags",
     # "lib{}.so" on Linux, "lib{}.dylib" on Mac, "{}.dll" on Windows
     "shared_library_name_format",  # str

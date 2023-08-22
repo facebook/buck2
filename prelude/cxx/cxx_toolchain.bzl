@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:open_source.bzl", "is_open_source")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "PicBehavior", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "PicBehavior", "ShlibInterfacesMode", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
@@ -91,7 +91,7 @@ def cxx_toolchain_impl(ctx):
         lto_mode = lto_mode,
         mk_shlib_intf = ctx.attrs.shared_library_interface_producer,
         object_file_extension = ctx.attrs.object_file_extension or "o",
-        shlib_interfaces = "disabled",
+        shlib_interfaces = ShlibInterfacesMode("disabled"),
         independent_shlib_interface_linker_flags = ctx.attrs.shared_library_interface_flags,
         requires_archives = value_or(ctx.attrs.requires_archives, True),
         requires_objects = value_or(ctx.attrs.requires_objects, False),

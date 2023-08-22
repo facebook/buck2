@@ -100,6 +100,7 @@ load(
     "CCompilerInfo",
     "CxxCompilerInfo",
     "LinkerInfo",
+    "ShlibInterfacesMode",
     "StripFlagsInfo",
     "cxx_toolchain_infos",
 )
@@ -336,7 +337,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             object_file_extension = "o",
             #mk_shlib_intf = None,  # not needed if shlib_interfaces = "disabled"
             produce_interface_from_stub_shared_library = True,
-            shlib_interfaces = "disabled",
+            shlib_interfaces = ShlibInterfacesMode("disabled"),
             shared_dep_runtime_ld_flags = ctx.attrs.shared_dep_runtime_ld_flags,
             shared_library_name_format = "lib{}.so",
             shared_library_versioned_name_format = "lib{}.so.{}",
