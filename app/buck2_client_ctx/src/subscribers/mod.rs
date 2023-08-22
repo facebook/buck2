@@ -16,6 +16,7 @@ use buck2_core::env_helper::EnvHelper;
 use tokio::process::Child;
 use tokio::task::JoinHandle;
 
+pub(crate) mod build_graph_stats;
 pub(crate) mod build_id_writer;
 pub mod event_log;
 pub mod get;

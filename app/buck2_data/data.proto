@@ -1524,6 +1524,7 @@ message Invocation {
 message RecordEvent {
   oneof data {
     InvocationRecord invocation_record = 1;
+    BuildGraphStats build_graph_stats = 2;
   }
 }
 
@@ -1677,6 +1678,19 @@ message InvocationRecord {
   // Metadata provided by the client. Unlike TypedMetadata, this won't become
   // its own column in Scuba, all those entries will land in a NormVector.
   repeated ClientMetadata client_metadata = 76;
+}
+
+// Record event sent directly to scribe.
+message BuildGraphStats {
+  repeated BuildTarget build_targets = 1;
+}
+
+message BuildTarget {
+  string target = 1;
+  string configuration = 2;
+  // The dependency graph size for this target, if enabled and the target was
+  // not skipped.
+  optional uint64 configured_graph_size = 3;
 }
 
 message ClientMetadata {

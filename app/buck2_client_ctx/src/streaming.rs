@@ -30,6 +30,7 @@ use crate::exit_result::FailureExitCode;
 use crate::path_arg::PathArg;
 use crate::signal_handler::with_simple_sigint_handler;
 use crate::subscribers::get::get_console_with_root;
+use crate::subscribers::get::try_get_build_graph_stats;
 use crate::subscribers::get::try_get_build_id_writer;
 use crate::subscribers::get::try_get_event_log_subscriber;
 use crate::subscribers::get::try_get_re_log_subscriber;
@@ -68,6 +69,9 @@ fn default_subscribers<'a, T: StreamingCommand>(
     }
     if let Some(build_id_writer) = try_get_build_id_writer(cmd.event_log_opts(), ctx)? {
         subscribers.push(build_id_writer)
+    }
+    if let Some(build_graph_stats) = try_get_build_graph_stats(cmd, ctx)? {
+        subscribers.push(build_graph_stats)
     }
     let recorder = try_get_invocation_recorder(
         ctx,

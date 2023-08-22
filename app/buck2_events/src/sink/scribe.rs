@@ -406,6 +406,7 @@ mod fbcode {
 
                 match r.data {
                     Some(Data::InvocationRecord(..)) => true,
+                    Some(Data::BuildGraphStats(..)) => true,
                     None => false,
                 }
             }
