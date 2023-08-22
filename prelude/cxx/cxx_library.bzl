@@ -388,8 +388,12 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
 
     # Compilation DB.
     if impl_params.generate_sub_targets.compilation_database:
-        comp_db = create_compilation_database(ctx, compiled_srcs.compile_cmds.src_compile_cmds)
+        comp_db = create_compilation_database(ctx, compiled_srcs.compile_cmds.src_compile_cmds, "compilation-database")
         sub_targets["compilation-database"] = [comp_db]
+
+        # Compilation DB including headers.
+        comp_db = create_compilation_database(ctx, compiled_srcs.compile_cmds.comp_db_compile_cmds, "full-compilation-database")
+        sub_targets["full-compilation-database"] = [comp_db]
 
     # comp_db_compile_cmds can include header files being compiled as C++ which should not be exposed in the [compilation-database] subtarget
     comp_db_info = None

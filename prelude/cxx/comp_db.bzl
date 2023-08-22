@@ -29,7 +29,8 @@ def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand.type], 
 
 def create_compilation_database(
         ctx: AnalysisContext,
-        src_compile_cmds: list[CxxSrcCompileCommand.type]) -> DefaultInfo.type:
+        src_compile_cmds: list[CxxSrcCompileCommand.type],
+        indentifier: str) -> DefaultInfo.type:
     mk_comp_db = get_cxx_toolchain_info(ctx).mk_comp_db[RunInfo]
 
     # Generate the per-source compilation DB entries.
@@ -37,7 +38,7 @@ def create_compilation_database(
     other_outputs = []
 
     for src_compile_cmd in src_compile_cmds:
-        cdb_path = paths.join("__comp_db__", src_compile_cmd.src.short_path + ".comp_db.json")
+        cdb_path = paths.join(indentifier, "__comp_db__", src_compile_cmd.src.short_path + ".comp_db.json")
         if cdb_path not in entries:
             entry = ctx.actions.declare_output(cdb_path)
             cmd = cmd_args(mk_comp_db)
@@ -49,18 +50,19 @@ def create_compilation_database(
             cmd.add(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
             cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
             cmd.add(src_compile_cmd.args)
-            ctx.actions.run(cmd, category = "cxx_compilation_database", identifier = src_compile_cmd.src.short_path)
+            entry_identifier = paths.join(indentifier, src_compile_cmd.src.short_path)
+            ctx.actions.run(cmd, category = "cxx_compilation_database", identifier = entry_identifier)
 
             # Add all inputs the command uses to runtime files.
             other_outputs.append(cmd)
             entries[cdb_path] = entry
 
     # Merge all entries into the actual compilation DB.
-    db = ctx.actions.declare_output("compile_commands.json")
+    db = ctx.actions.declare_output(paths.join(indentifier, "compile_commands.json"))
     cmd = cmd_args(mk_comp_db)
     cmd.add("merge")
     cmd.add(cmd_args(db.as_output(), format = "--output={}"))
     cmd.add(entries.values())
-    ctx.actions.run(cmd, category = "cxx_compilation_database_merge")
+    ctx.actions.run(cmd, category = "cxx_compilation_database_merge", identifier = indentifier)
 
     return DefaultInfo(default_output = db, other_outputs = other_outputs)

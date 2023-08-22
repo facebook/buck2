@@ -208,8 +208,12 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
     sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = cxx_objects_sub_targets(cxx_outs))]
 
     # Compilation DB.
-    comp_db = create_compilation_database(ctx, compile_cmd_output.src_compile_cmds)
+    comp_db = create_compilation_database(ctx, compile_cmd_output.src_compile_cmds, "compilation-database")
     sub_targets["compilation-database"] = [comp_db]
+
+    # Compilation DB including headers.
+    comp_db = create_compilation_database(ctx, compile_cmd_output.comp_db_compile_cmds, "full-compilation-database")
+    sub_targets["full-compilation-database"] = [comp_db]
 
     # comp_db_compile_cmds can include header files being compiled as C++ which should not be exposed in the [compilation-database] subtarget
     comp_db_info = make_compilation_db_info(compile_cmd_output.comp_db_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
