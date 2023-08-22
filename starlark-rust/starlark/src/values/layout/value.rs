@@ -1284,10 +1284,13 @@ where
 
 #[cfg(test)]
 mod tests {
+    use num_bigint::BigInt;
+
     use crate::assert;
     use crate::values::none::NoneType;
     use crate::values::string::StarlarkStr;
     use crate::values::types::int::PointerI32;
+    use crate::values::unpack::UnpackValue;
     use crate::values::Heap;
     use crate::values::Value;
     use crate::values::ValueLike;
@@ -1320,6 +1323,14 @@ mod tests {
         let heap = Heap::new();
         let value = heap.alloc(i32::MAX);
         assert_eq!(Some(i32::MAX), value.unpack_i32());
+    }
+
+    #[test]
+    fn test_unpack_bigint() {
+        let heap = Heap::new();
+        let value = heap.alloc(BigInt::from(i64::MAX));
+        assert_eq!(None, value.unpack_i32());
+        assert_eq!(Some(BigInt::from(i64::MAX)), BigInt::unpack_value(value));
     }
 
     #[test]
