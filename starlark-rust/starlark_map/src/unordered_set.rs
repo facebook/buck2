@@ -82,6 +82,21 @@ impl<T> UnorderedSet<T> {
     {
         self.map.contains_key(value)
     }
+
+    /// This function is private.
+    fn iter(&self) -> impl Iterator<Item = &T> {
+        self.map.iter().map(|(k, _)| k)
+    }
+
+    /// Get the entries in the set, sorted.
+    pub fn entries_sorted(&self) -> Vec<&T>
+    where
+        T: Ord,
+    {
+        let mut entries = Vec::from_iter(self.iter());
+        entries.sort_unstable();
+        entries
+    }
 }
 
 impl<T: Eq + Hash> PartialEq for UnorderedSet<T> {
@@ -94,7 +109,6 @@ impl<T: Eq + Hash> PartialEq for UnorderedSet<T> {
 impl<T: Eq + Hash> Eq for UnorderedSet<T> {}
 
 impl<T: Eq + Hash> FromIterator<T> for UnorderedSet<T> {
-    #[allow(clippy::from_iter_instead_of_collect)]
     #[inline]
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> UnorderedSet<T> {
         UnorderedSet {
@@ -115,5 +129,14 @@ mod tests {
         assert!(set.insert(20));
         assert!(!set.insert(20));
         assert_eq!(set.len(), 2);
+    }
+
+    #[test]
+    fn test_entries_sorted() {
+        let mut set = UnorderedSet::new();
+        set.insert(20);
+        set.insert(10);
+        set.insert(30);
+        assert_eq!(set.entries_sorted(), vec![&10, &20, &30]);
     }
 }

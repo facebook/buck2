@@ -566,7 +566,6 @@ where
     }
 }
 
-#[allow(clippy::from_iter_instead_of_collect)]
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;

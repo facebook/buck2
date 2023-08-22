@@ -21,12 +21,21 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem;
+use std::ops::Index;
 
 use allocative::Allocative;
+use hashbrown::raw::Bucket;
 use hashbrown::raw::RawTable;
 
 use crate::Equivalent;
 use crate::StarlarkHasher;
+
+#[inline]
+fn compute_hash<Q: Hash + ?Sized>(k: &Q) -> u64 {
+    let mut hasher = StarlarkHasher::new();
+    k.hash(&mut hasher);
+    hasher.finish()
+}
 
 /// Hash map which does not expose any insertion order-specific behavior
 /// (except `Debug`).
@@ -65,20 +74,13 @@ impl<K, V> UnorderedMap<K, V> {
         self.0.is_empty()
     }
 
-    #[inline]
-    fn hash<Q: Hash + ?Sized>(k: &Q) -> u64 {
-        let mut hasher = StarlarkHasher::new();
-        k.hash(&mut hasher);
-        hasher.finish()
-    }
-
     /// Get a reference to the value associated with the given key.
     #[inline]
     pub fn get<Q>(&self, k: &Q) -> Option<&V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
-        let hash = Self::hash(k);
+        let hash = compute_hash(k);
         self.0
             .get(hash, |(next_k, _v)| k.equivalent(next_k))
             .map(|(_, v)| v)
@@ -90,7 +92,7 @@ impl<K, V> UnorderedMap<K, V> {
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
-        let hash = Self::hash(k);
+        let hash = compute_hash(k);
         self.0
             .get_mut(hash, |(next_k, _v)| k.equivalent(next_k))
             .map(|(_, v)| v)
@@ -111,13 +113,13 @@ impl<K, V> UnorderedMap<K, V> {
     where
         K: Hash + Eq,
     {
-        let hash = Self::hash(&k);
+        let hash = compute_hash(&k);
         if let Some((_k, existing_value)) =
             self.0.get_mut(hash, |(next_k, _v)| k.equivalent(next_k))
         {
             Some(mem::replace(existing_value, v))
         } else {
-            self.0.insert(hash, (k, v), |(k, _v)| Self::hash(k));
+            self.0.insert(hash, (k, v), |(k, _v)| compute_hash(k));
             None
         }
     }
@@ -128,10 +130,28 @@ impl<K, V> UnorderedMap<K, V> {
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
-        let hash = Self::hash(k);
+        let hash = compute_hash(k);
         self.0
             .remove_entry(hash, |(next_k, _v)| k.equivalent(next_k))
             .map(|(_, v)| v)
+    }
+
+    /// Get an entry in the map for in-place manipulation.
+    #[inline]
+    pub fn entry(&mut self, k: K) -> Entry<K, V>
+    where
+        K: Hash + Eq,
+    {
+        let hash = compute_hash(&k);
+        if let Some(bucket) = self.0.find(hash, |(next_k, _v)| k.equivalent(next_k)) {
+            Entry::Occupied(OccupiedEntry { _map: self, bucket })
+        } else {
+            Entry::Vacant(VacantEntry {
+                map: self,
+                key: k,
+                hash,
+            })
+        }
     }
 
     /// Clear the map, removing all entries.
@@ -142,8 +162,52 @@ impl<K, V> UnorderedMap<K, V> {
 
     /// This function is private.
     #[inline]
-    fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+    pub(crate) fn iter(&self) -> impl ExactSizeIterator<Item = (&K, &V)> {
         unsafe { self.0.iter().map(|e| (&e.as_ref().0, &e.as_ref().1)) }
+    }
+
+    /// This function is private.
+    pub(crate) fn into_iter(self) -> impl ExactSizeIterator<Item = (K, V)> {
+        self.0.into_iter()
+    }
+
+    /// Get the entries in the map, sorted by key.
+    pub fn entries_sorted(&self) -> Vec<(&K, &V)>
+    where
+        K: Ord,
+    {
+        let mut entries = Vec::from_iter(self.iter());
+        entries.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
+        entries
+    }
+
+    /// Convert into `HashMap`.
+    pub fn into_hash_map(self) -> std::collections::HashMap<K, V>
+    where
+        K: Hash + Eq,
+    {
+        self.into_iter().collect()
+    }
+
+    /// Apply the function to value.
+    pub fn map_values<W>(self, mut f: impl FnMut(V) -> W) -> UnorderedMap<K, W>
+    where
+        K: Hash + Eq,
+    {
+        let mut map = UnorderedMap::with_capacity(self.len());
+        for (k, v) in self.into_iter() {
+            map.insert(k, f(v));
+        }
+        map
+    }
+}
+
+impl<K, V, Q: Equivalent<K> + Hash> Index<&Q> for UnorderedMap<K, V> {
+    type Output = V;
+
+    #[inline]
+    fn index(&self, k: &Q) -> &V {
+        self.get(k).expect("key not found")
     }
 }
 
@@ -183,6 +247,53 @@ impl<K: Eq + Hash, V> FromIterator<(K, V)> for UnorderedMap<K, V> {
             map.insert(k, v);
         }
         map
+    }
+}
+
+/// Reference to an occupied entry in a [`UnorderedMap`].
+pub struct OccupiedEntry<'a, K, V> {
+    _map: &'a mut UnorderedMap<K, V>,
+    bucket: Bucket<(K, V)>,
+}
+
+/// Reference to a vacant entry in a [`UnorderedMap`].
+pub struct VacantEntry<'a, K, V> {
+    map: &'a mut UnorderedMap<K, V>,
+    hash: u64,
+    key: K,
+}
+
+/// Reference to an entry in a [`UnorderedMap`].
+pub enum Entry<'a, K, V> {
+    /// Occupied entry.
+    Occupied(OccupiedEntry<'a, K, V>),
+    /// Vacant entry.
+    Vacant(VacantEntry<'a, K, V>),
+}
+
+impl<'a, K: Eq + Hash, V> VacantEntry<'a, K, V> {
+    /// Insert a value into the map.
+    pub fn insert(self, value: V) {
+        self.map
+            .0
+            .insert(self.hash, (self.key, value), |(k, _v)| compute_hash(k));
+    }
+}
+
+impl<'a, K, V> OccupiedEntry<'a, K, V> {
+    /// Remove the entry from the map.
+    pub fn get(&self) -> &V {
+        unsafe { &self.bucket.as_ref().1 }
+    }
+
+    /// Get a reference to the value associated with the entry.
+    pub fn get_mut(&mut self) -> &mut V {
+        unsafe { &mut self.bucket.as_mut().1 }
+    }
+
+    /// Replace the value associated with the entry.
+    pub fn insert(&mut self, value: V) -> V {
+        mem::replace(self.get_mut(), value)
     }
 }
 
@@ -228,5 +339,14 @@ mod tests {
         assert_eq!(UnorderedMap::from_iter([(1, 3)]), map);
         assert_eq!(map.remove(&1), Some(3));
         assert_eq!(UnorderedMap::new(), map);
+    }
+
+    #[test]
+    fn test_entries_sorted() {
+        let mut map = UnorderedMap::new();
+        map.insert(1, 2);
+        map.insert(5, 6);
+        map.insert(3, 4);
+        assert_eq!(map.entries_sorted(), vec![(&1, &2), (&3, &4), (&5, &6)]);
     }
 }
