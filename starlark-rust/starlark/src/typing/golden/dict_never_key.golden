@@ -8,22 +8,10 @@ Code:
 # We use `typing.Never` when expression is an error,
 # or it is a type parameter of empty list for example.
 # Dict lookup by never should not be an error.
-# TODO(nga): fix it.
 def test(d: dict[typing.Any, str], x: typing.Never):
     y = d[x]
 
-Error:
-error: Type `dict[typing.Any, str]` does not have [] operator
- --> filename:7:9
-  |
-7 |     y = d[x]
-  |         ^^^^
-  |
+No errors.
 
 Compiler typechecker (eval):
-error: Type `dict[typing.Any, str]` does not have [] operator
- --> filename:7:9
-  |
-7 |     y = d[x]
-  |         ^^^^
-  |
+No errors.

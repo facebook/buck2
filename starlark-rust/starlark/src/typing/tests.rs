@@ -522,7 +522,6 @@ fn test_dict_lookup_by_never() {
 # We use `typing.Never` when expression is an error,
 # or it is a type parameter of empty list for example.
 # Dict lookup by never should not be an error.
-# TODO(nga): fix it.
 def test(d: dict[typing.Any, str], x: typing.Never):
     y = d[x]
 "#,

@@ -472,8 +472,11 @@ impl<'a> TypingOracleCtx<'a> {
         array: Ty,
         index: Spanned<Ty>,
     ) -> Result<Ty, TypingOrInternalError> {
-        if array.is_any() || array.is_any() {
-            return Ok(Ty::any());
+        if array.is_any() || array.is_never() {
+            return Ok(array);
+        }
+        if index.is_never() {
+            return Ok(Ty::never());
         }
 
         let mut good = Vec::new();
