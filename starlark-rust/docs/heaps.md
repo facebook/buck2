@@ -64,7 +64,7 @@ fn move<'v>(from: &FrozenModule, to: &'v Module) {
 
 In general, you can use the `OwnedFrozenValue` in one of three ways:
 
-* **Operate on it directly** - with methods like `unpack_int` or `to_str`.
+* **Operate on it directly** - with methods like `unpack_i32` or `to_str`.
 * **Extract it safely** - using methods like `owned_frozen_value`, which takes a `FrozenHeap` to which the heap reference is added and returns a naked `FrozenValue`. After that, it is then  safe for the `FrozenHeap` you passed in to use the `FrozenValue`.
   * With `owned_value`, there is lifetime checking that the right heap is passed, but with `FrozenValue`, there isn't.
   * Be careful to pass the right heap, although given most programs only have one active heap at a time, it should mostly work out.

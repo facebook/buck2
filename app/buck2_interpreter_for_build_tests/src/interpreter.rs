@@ -50,7 +50,7 @@ fn test_eval_import() {
         )
         .unwrap();
 
-    assert_eq!(1, loaded.env().get("one").unwrap().unpack_int().unwrap());
+    assert_eq!(1, loaded.env().get("one").unwrap().unpack_i32().unwrap());
 
     assert_eq!(
         "world",

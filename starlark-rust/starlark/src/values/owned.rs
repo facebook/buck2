@@ -105,8 +105,9 @@ impl OwnedFrozenValue {
         self.value.unpack_bool()
     }
 
-    /// Unpack the int contained in the underlying value, or [`None`] if it is not an int.
-    pub fn unpack_int(&self) -> Option<i32> {
+    /// Obtain the underlying integer if it fits in an `i32`.
+    /// Note floats are not considered integers, i. e. `unpack_i32` for `1.0` will return `None`.
+    pub fn unpack_i32(&self) -> Option<i32> {
         self.value.unpack_i32()
     }
 

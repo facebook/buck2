@@ -245,7 +245,7 @@
 //! }
 //!
 //! let ab = get_module("ab.star")?;
-//! assert_eq!(ab.get("ab").unwrap().unpack_int(), Some(42));
+//! assert_eq!(ab.get("ab").unwrap().unpack_i32(), Some(42));
 //! # Ok(())
 //! # }
 //! # fn main(){ run().unwrap(); }
