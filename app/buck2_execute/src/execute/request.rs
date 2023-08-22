@@ -24,7 +24,6 @@ use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
-use buck2_util::collections::sorted_set::SortedSet;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
@@ -32,6 +31,7 @@ use host_sharing::host_sharing::HostSharingRequirements;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use sorted_vector_map::SortedVectorMap;
+use starlark_map::sorted_set::SortedSet;
 use thiserror::Error;
 
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;

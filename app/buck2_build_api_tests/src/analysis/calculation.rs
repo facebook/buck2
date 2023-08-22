@@ -54,13 +54,13 @@ use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::testing
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter_basic;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::rule::register_rule_function;
-use buck2_util::collections::ordered_map::OrderedMap;
 use dice::testing::DiceBuilder;
 use dice::UserComputationData;
 use dupe::Dupe;
 use indoc::indoc;
 use itertools::Itertools;
 use maplit::hashmap;
+use starlark_map::ordered_map::OrderedMap;
 
 #[tokio::test]
 async fn test_analysis_calculation() -> anyhow::Result<()> {

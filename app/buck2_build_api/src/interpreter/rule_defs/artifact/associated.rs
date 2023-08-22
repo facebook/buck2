@@ -10,9 +10,9 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_util::collections::ordered_set::OrderedSet;
 use dupe::*;
 use starlark::values::Trace;
+use starlark_map::ordered_set::OrderedSet;
 
 use crate::artifact_groups::ArtifactGroup;
 

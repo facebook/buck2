@@ -20,10 +20,10 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_util::collections::ordered_set::OrderedSet;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
+use starlark_map::ordered_set::OrderedSet;
 use thiserror::Error;
 
 use crate::query::syntax::simple::eval::error::QueryError;

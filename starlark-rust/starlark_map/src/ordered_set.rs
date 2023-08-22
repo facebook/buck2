@@ -1,52 +1,71 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright 2019 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
+//! `SmallSet` which considers order important for equality and hash.
 
 use std::cmp::Ordering;
 use std::hash::Hash;
 
 use allocative::Allocative;
-use starlark_map::small_set;
-use starlark_map::small_set::SmallSet;
-use starlark_map::Equivalent;
-use starlark_map::Hashed;
+
+use crate::small_set;
+use crate::small_set::SmallSet;
+use crate::Equivalent;
+use crate::Hashed;
 
 /// `SmallSet` wrapper, but equality and hash of self depends on iteration order.
 #[derive(Debug, Clone, Allocative)]
 pub struct OrderedSet<T>(SmallSet<T>);
 
+/// Error returned by `try_insert`.
 #[derive(Debug)]
 pub struct OccupiedError<'a, T> {
+    /// The value that was not inserted.
     pub value: T,
+    /// The value that was already in the set.
     pub occupied: &'a T,
 }
 
 impl<T> OrderedSet<T> {
+    /// Create a new empty set.
     #[inline]
     pub fn new() -> OrderedSet<T> {
         OrderedSet(SmallSet::new())
     }
 
+    /// Create a new empty set with the specified capacity.
     #[inline]
     pub fn with_capacity(capacity: usize) -> OrderedSet<T> {
         OrderedSet(SmallSet::with_capacity(capacity))
     }
 
+    /// Get the number of elements in the set.
     #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Check if the set is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Get an element from the set.
     #[inline]
     pub fn get<Q>(&self, value: &Q) -> Option<&T>
     where
@@ -56,6 +75,7 @@ impl<T> OrderedSet<T> {
         self.0.get(value)
     }
 
+    /// Check if the set contains an element.
     #[inline]
     pub fn contains<Q>(&self, value: &Q) -> bool
     where
@@ -65,11 +85,13 @@ impl<T> OrderedSet<T> {
         self.0.contains(value)
     }
 
+    /// Get an element by index.
     #[inline]
     pub fn get_index(&self, index: usize) -> Option<&T> {
         self.0.get_index(index)
     }
 
+    /// Get the index of an element in the set.
     #[inline]
     pub fn get_index_of<Q>(&self, value: &Q) -> Option<usize>
     where
@@ -79,6 +101,7 @@ impl<T> OrderedSet<T> {
         self.0.get_index_of(value)
     }
 
+    /// Remove an element from the set.
     #[inline]
     pub fn take<Q>(&mut self, value: &Q) -> Option<T>
     where
@@ -88,21 +111,25 @@ impl<T> OrderedSet<T> {
         self.0.take(value)
     }
 
+    /// Iterate over the elements.
     #[inline]
     pub fn iter(&self) -> small_set::Iter<T> {
         self.0.iter()
     }
 
+    /// Get the first element.
     #[inline]
     pub fn first(&self) -> Option<&T> {
         self.0.first()
     }
 
+    /// Get the last element.
     #[inline]
     pub fn last(&self) -> Option<&T> {
         self.0.last()
     }
 
+    /// Insert an element into the set.
     #[inline]
     pub fn insert(&mut self, value: T) -> bool
     where
@@ -141,11 +168,13 @@ impl<T> OrderedSet<T> {
         Ok(())
     }
 
+    /// Clear the set.
     #[inline]
     pub fn clear(&mut self) {
         self.0.clear()
     }
 
+    /// Sort the set.
     #[inline]
     pub fn sort(&mut self)
     where
@@ -154,6 +183,7 @@ impl<T> OrderedSet<T> {
         self.0.sort()
     }
 
+    /// Iterate over the union of two sets.
     #[inline]
     pub fn union<'a>(&'a self, other: &'a Self) -> impl Iterator<Item = &'a T>
     where
@@ -246,7 +276,7 @@ mod tests {
 
     use dupe::Dupe;
 
-    use crate::collections::ordered_set::OrderedSet;
+    use crate::ordered_set::OrderedSet;
 
     #[test]
     fn test_keys_are_not_hashed_when_map_is_hashed() {

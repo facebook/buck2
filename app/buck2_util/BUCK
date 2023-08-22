@@ -17,7 +17,6 @@ rust_library(
         ),
     ],
     test_deps = [
-        "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:serde_json",
     ],
     deps = [

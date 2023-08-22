@@ -10,11 +10,11 @@
 use std::collections::BTreeMap;
 
 use allocative::Allocative;
-use buck2_util::collections::ordered_map::OrderedMap;
 use derive_more::Display;
 use dupe::Dupe;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
+use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::Entry;
 
 use crate::cells::cell_path::CellPath;

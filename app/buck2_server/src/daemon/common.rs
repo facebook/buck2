@@ -46,11 +46,11 @@ use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_forkserver::client::ForkserverClient;
-use buck2_util::collections::sorted_map::SortedMap;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
 use once_cell::sync::OnceCell;
 use remote_execution as RE;
+use starlark_map::sorted_map::SortedMap;
 
 pub fn parse_concurrency(requested: u32) -> anyhow::Result<usize> {
     let mut ret = requested.try_into().context("Invalid concurrency")?;

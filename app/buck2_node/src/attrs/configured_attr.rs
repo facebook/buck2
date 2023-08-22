@@ -17,10 +17,10 @@ use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
-use buck2_util::collections::ordered_map::OrderedMap;
 use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
 
 use super::attr_type::arg::ConfiguredStringWithMacros;

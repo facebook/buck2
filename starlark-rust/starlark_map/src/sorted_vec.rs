@@ -1,11 +1,21 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright 2019 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
+//! `Vec` with elements sorted.
 
 use std::slice;
 use std::vec;
@@ -19,6 +29,7 @@ pub struct SortedVec<T> {
 }
 
 impl<T> SortedVec<T> {
+    /// Construct an empty `SortedVec`.
     #[inline]
     pub fn new() -> SortedVec<T> {
         SortedVec { vec: Vec::new() }
@@ -34,6 +45,7 @@ impl<T> SortedVec<T> {
         SortedVec { vec }
     }
 
+    /// Iterate over the elements.
     #[inline]
     pub fn iter(&self) -> slice::Iter<T> {
         self.vec.iter()
@@ -68,7 +80,7 @@ impl<T> IntoIterator for SortedVec<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::collections::sorted_vec::SortedVec;
+    use crate::sorted_vec::SortedVec;
 
     /// Test `new_unchecked` panics in debug mode when the elements are not sorted.
     #[cfg(debug_assertions)]

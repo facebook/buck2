@@ -16,6 +16,7 @@ tracing = { workspace = true }
 allocative = { workspace = true }
 dupe = { workspace = true }
 dice = { workspace = true }
+starlark_map = { workspace = true }
 watchman_client.version = "0.8.0"
 # @oss-disable: watchman_client.path = "../../../watchman/rust/watchman_client"
 

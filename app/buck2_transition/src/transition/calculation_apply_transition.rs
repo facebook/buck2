@@ -33,8 +33,6 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_util::collections::ordered_map::OrderedMap;
-use buck2_util::collections::sorted_map::SortedMap;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -48,6 +46,8 @@ use starlark::values::dict::DictOf;
 use starlark::values::structs::AllocStruct;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark_map::ordered_map::OrderedMap;
+use starlark_map::sorted_map::SortedMap;
 use thiserror::Error;
 
 use crate::coerced_attr::CoercedAttrResolveExt;

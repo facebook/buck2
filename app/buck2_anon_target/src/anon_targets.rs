@@ -76,7 +76,6 @@ use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::internal::internal_attrs;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
-use buck2_util::collections::ordered_map::OrderedMap;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -94,6 +93,7 @@ use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 

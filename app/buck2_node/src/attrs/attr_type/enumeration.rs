@@ -12,7 +12,7 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use buck2_util::arc_str::ArcStr;
-use buck2_util::collections::ordered_set::OrderedSet;
+use starlark_map::ordered_set::OrderedSet;
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct EnumAttrType {

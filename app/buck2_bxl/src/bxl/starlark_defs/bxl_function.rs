@@ -17,7 +17,6 @@ use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::paths::bxl::BxlFilePath;
-use buck2_util::collections::ordered_map::OrderedMap;
 use cli_args::CliArgs;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
@@ -38,6 +37,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark_map::ordered_map::OrderedMap;
 use thiserror::Error;
 
 use crate::bxl::eval::CliResolutionCtx;

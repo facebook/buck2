@@ -27,8 +27,8 @@ use buck2_core::target::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
 use buck2_node::rule_type::StarlarkRuleType;
-use buck2_util::collections::sorted_map::SortedMap;
 use cmp_any::PartialEqAny;
+use starlark_map::sorted_map::SortedMap;
 
 use crate::anon_target_attr::AnonTargetAttr;
 

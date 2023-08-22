@@ -43,7 +43,6 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
-use buck2_util::collections::ordered_map::OrderedMap;
 use clap::ErrorKind;
 use dashmap::DashMap;
 use dice::DiceComputations;
@@ -57,6 +56,7 @@ use starlark::values::structs::AllocStruct;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark_map::ordered_map::OrderedMap;
 use thiserror::Error;
 
 use crate::bxl::key::BxlKey;

@@ -14,10 +14,10 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
-use buck2_util::collections::ordered_set;
-use buck2_util::collections::ordered_set::OrderedSet;
 use buck2_util::indent::indent;
 use dupe::Dupe;
+use starlark_map::ordered_set;
+use starlark_map::ordered_set::OrderedSet;
 
 use crate::nodes::unconfigured::TargetNode;
 

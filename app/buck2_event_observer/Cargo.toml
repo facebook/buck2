@@ -5,6 +5,8 @@ edition = "2021"
 description = "utilities to interpret the buck2 event stream"
 
 [dependencies]
+starlark_map = { workspace = true }
+
 anyhow = { workspace = true }
 buck2_common = { workspace = true }
 buck2_data = { workspace = true }

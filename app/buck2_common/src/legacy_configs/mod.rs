@@ -33,7 +33,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::*;
 use buck2_core::fs::project::*;
-use buck2_util::collections::sorted_map::SortedMap;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::eq_chain;
@@ -42,6 +41,7 @@ use itertools::Itertools;
 use once_cell::sync::Lazy;
 use once_cell::unsync::OnceCell;
 use regex::Regex;
+use starlark_map::sorted_map::SortedMap;
 use thiserror::Error;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;

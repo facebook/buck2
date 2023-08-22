@@ -19,9 +19,9 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_util::collections::ordered_map::OrderedMap;
-use buck2_util::collections::sorted_map::SortedMap;
 use dupe::Dupe;
+use starlark_map::ordered_map::OrderedMap;
+use starlark_map::sorted_map::SortedMap;
 
 use crate::configuration::resolved::ConfigurationSettingKeyRef;
 use crate::configuration::resolved::ResolvedConfiguration;

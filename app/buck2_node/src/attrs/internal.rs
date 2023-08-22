@@ -13,9 +13,9 @@ use std::sync::Arc;
 
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::id::ProviderId;
-use buck2_util::collections::ordered_map::OrderedMap;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
+use starlark_map::ordered_map::OrderedMap;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::any::AnyAttrType;

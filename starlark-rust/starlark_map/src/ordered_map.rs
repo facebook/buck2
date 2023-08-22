@@ -1,11 +1,21 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright 2019 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
+//! `SmallMap` which considers iteration order important for equality and hash.
 
 use std::cmp::Ordering;
 use std::hash::Hash;
@@ -13,61 +23,71 @@ use std::hash::Hash;
 use allocative::Allocative;
 use serde::Deserialize;
 use serde::Serialize;
-use starlark_map::small_map;
-use starlark_map::small_map::IterHashed;
-use starlark_map::small_map::SmallMap;
-use starlark_map::Equivalent;
+
+use crate::small_map;
+use crate::small_map::SmallMap;
+use crate::Equivalent;
 
 /// Wrapper for `SmallMap` which considers map equal if iteration order is equal.
 #[derive(Debug, Clone, Allocative)]
 pub struct OrderedMap<K, V>(SmallMap<K, V>);
 
 impl<K, V> OrderedMap<K, V> {
+    /// Create a new empty map.
     #[inline]
     pub fn new() -> OrderedMap<K, V> {
         OrderedMap(SmallMap::new())
     }
 
+    /// Create a new empty map with the specified capacity.
     #[inline]
     pub fn with_capacity(capacity: usize) -> OrderedMap<K, V> {
         OrderedMap(SmallMap::with_capacity(capacity))
     }
 
+    /// Get the number of elements in the map.
     #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Check if the map is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Iterate over the entries.
     #[inline]
     pub fn iter(&self) -> small_map::Iter<K, V> {
         self.0.iter()
     }
 
+    /// Iterate over the entries, with mutable values.
     #[inline]
     pub fn iter_mut(&mut self) -> small_map::IterMut<K, V> {
         self.0.iter_mut()
     }
 
+    /// Iterate over the keys.
     #[inline]
     pub fn keys(&self) -> impl ExactSizeIterator<Item = &K> {
         self.0.keys()
     }
 
+    /// Iterate over the values.
     #[inline]
     pub fn values(&self) -> impl ExactSizeIterator<Item = &V> {
         self.0.values()
     }
 
+    /// Iterate over the values, with mutable values.
     #[inline]
     pub fn values_mut(&mut self) -> impl ExactSizeIterator<Item = &mut V> {
         self.0.values_mut()
     }
 
+    /// Get a reference to the value associated with the given key.
     #[inline]
     pub fn get<Q>(&self, k: &Q) -> Option<&V>
     where
@@ -76,6 +96,7 @@ impl<K, V> OrderedMap<K, V> {
         self.0.get(k)
     }
 
+    /// Get a mutable reference to the value associated with the given key.
     #[inline]
     pub fn get_mut<Q>(&mut self, k: &Q) -> Option<&mut V>
     where
@@ -99,6 +120,7 @@ impl<K, V> OrderedMap<K, V> {
         self.0.get_index_of(key)
     }
 
+    /// Check if the map contains the given key.
     #[inline]
     pub fn contains_key<Q>(&self, k: &Q) -> bool
     where
@@ -107,6 +129,7 @@ impl<K, V> OrderedMap<K, V> {
         self.0.contains_key(k)
     }
 
+    /// Insert an entry into the map.
     #[inline]
     pub fn insert(&mut self, k: K, v: V) -> Option<V>
     where
@@ -115,6 +138,7 @@ impl<K, V> OrderedMap<K, V> {
         self.0.insert(k, v)
     }
 
+    /// Remove an entry by key.
     #[inline]
     pub fn remove<Q>(&mut self, k: &Q) -> Option<V>
     where
@@ -123,11 +147,13 @@ impl<K, V> OrderedMap<K, V> {
         self.0.remove(k)
     }
 
+    /// Clear the map.
     #[inline]
     pub fn clear(&mut self) {
         self.0.clear()
     }
 
+    /// Get an entry by key.
     #[inline]
     pub fn entry(&mut self, k: K) -> small_map::Entry<'_, K, V>
     where
@@ -136,6 +162,7 @@ impl<K, V> OrderedMap<K, V> {
         self.0.entry(k)
     }
 
+    /// Sort the map by keys.
     #[inline]
     pub fn sort_keys(&mut self)
     where
@@ -144,8 +171,9 @@ impl<K, V> OrderedMap<K, V> {
         self.0.sort_keys()
     }
 
+    /// Iterate over the map with hashes.
     #[inline]
-    pub fn iter_hashed(&self) -> IterHashed<K, V> {
+    pub fn iter_hashed(&self) -> small_map::IterHashed<K, V> {
         self.0.iter_hashed()
     }
 }
@@ -255,7 +283,7 @@ mod tests {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::Hash;
 
-    use crate::collections::ordered_map::OrderedMap;
+    use crate::ordered_map::OrderedMap;
 
     #[test]
     fn test_keys_are_not_hashed_when_map_is_hashed() {

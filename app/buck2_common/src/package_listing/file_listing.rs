@@ -10,8 +10,8 @@
 use allocative::Allocative;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_util::arc_str::ArcS;
-use buck2_util::collections::sorted_set::SortedSet;
 use dupe::Dupe;
+use starlark_map::sorted_set::SortedSet;
 
 use crate::package_listing::binary_search::binary_search_by;
 
@@ -87,7 +87,7 @@ impl PackageFileListing {
 
 pub mod testing {
     use buck2_core::package::package_relative_path::PackageRelativePath;
-    use buck2_util::collections::sorted_set::SortedSet;
+    use starlark_map::sorted_set::SortedSet;
 
     use crate::package_listing::file_listing::PackageFileListing;
 

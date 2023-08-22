@@ -1,23 +1,33 @@
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright 2019 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under both the MIT license found in the
- * LICENSE-MIT file in the root directory of this source tree and the Apache
- * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
- * of this source tree.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
+//! `SmallSet` which asserts that its elements are sorted.
 
 use std::hash::Hash;
 
 use allocative::Allocative;
-use starlark_map::small_set;
-use starlark_map::small_set::SmallSet;
-use starlark_map::Equivalent;
 
-use crate::collections::ordered_set::OrderedSet;
-use crate::collections::sorted_vec::SortedVec;
+use crate::ordered_set::OrderedSet;
+use crate::small_set;
+use crate::small_set::SmallSet;
+use crate::sorted_vec::SortedVec;
+use crate::Equivalent;
 
-/// An immutable IndexSet with values guaranteed to be sorted.
+/// An immutable `SmallSet` with values guaranteed to be sorted.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
 pub struct SortedSet<T: Eq + Hash> {
     inner: OrderedSet<T>,
@@ -27,6 +37,7 @@ impl<T> SortedSet<T>
 where
     T: Eq + Ord + Hash,
 {
+    /// Construct an empty `SortedSet`.
     #[inline]
     pub fn new() -> SortedSet<T> {
         SortedSet {
@@ -34,26 +45,31 @@ where
         }
     }
 
+    /// Construct without checking that the elements are sorted.
     #[inline]
     pub fn new_unchecked(inner: OrderedSet<T>) -> Self {
         Self { inner }
     }
 
+    /// Return the number of elements in the set.
     #[inline]
     pub fn len(&self) -> usize {
         self.inner.len()
     }
 
+    /// Check if the set is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
+    /// Iterate over the elements.
     #[inline]
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &T> {
         self.inner.iter()
     }
 
+    /// Get the element in the set.
     #[inline]
     pub fn get<Q: ?Sized>(&self, value: &Q) -> Option<&T>
     where
@@ -62,6 +78,7 @@ where
         self.inner.get(value)
     }
 
+    /// Check if the set contains the given value.
     #[inline]
     pub fn contains<Q: ?Sized>(&self, value: &Q) -> bool
     where
@@ -70,11 +87,13 @@ where
         self.inner.contains(value)
     }
 
+    /// Get the element at the given index.
     #[inline]
     pub fn get_index(&self, index: usize) -> Option<&T> {
         self.inner.get_index(index)
     }
 
+    /// Iterate over the union of two sets.
     #[inline]
     pub fn union<'a>(&'a self, other: &'a Self) -> impl Iterator<Item = &'a T> {
         // TODO(nga): return sorted.

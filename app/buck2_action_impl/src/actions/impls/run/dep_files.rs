@@ -57,7 +57,6 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_file_watcher::dep_files::FLUSH_DEP_FILES;
 use buck2_file_watcher::mergebase::Mergebase;
-use buck2_util::collections::ordered_map::OrderedMap;
 use dashmap::DashMap;
 use derive_more::Display;
 use dupe::Dupe;
@@ -66,6 +65,7 @@ use once_cell::sync::Lazy;
 use parking_lot::MappedMutexGuard;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
+use starlark_map::ordered_map::OrderedMap;
 use thiserror::Error;
 use tracing::instrument;
 

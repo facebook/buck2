@@ -27,7 +27,6 @@ use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
-use buck2_util::collections::ordered_map::OrderedMap;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -53,6 +52,7 @@ use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
+use starlark_map::ordered_map::OrderedMap;
 use thiserror::Error;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
