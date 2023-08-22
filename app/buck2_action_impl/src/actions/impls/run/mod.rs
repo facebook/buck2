@@ -74,7 +74,6 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use thiserror::Error;
 
-use crate::actions::impls::run::dep_files::check_local_dep_file_cache;
 use crate::actions::impls::run::dep_files::make_dep_file_bundle;
 use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
@@ -590,35 +589,46 @@ impl IncrementalActionExecutable for RunAction {
             None
         };
 
-        // First prepare the action, check the action cache, check dep_files if needed, and execute the command
+        // First, check in the local dep file cache if an identical action can be found there.
+        // Do this before checking the action cache as we can avoid a potentially large download.
+        // Once the action cache lookup misses, we will do the full dep file cache look up.
+        let should_fully_check_dep_file_cache = if let Some(dep_file_bundle) = &dep_file_bundle {
+            let (outputs, should_fully_check_dep_file_cache) = dep_file_bundle
+                .check_local_dep_file_cache_for_identical_action(ctx, self.outputs.as_slice())
+                .await?;
+            if let Some(m) = outputs {
+                return Ok(m);
+            }
+            should_fully_check_dep_file_cache
+        } else {
+            false
+        };
+
+        // Prepare the action, check the action cache, fully check the local dep file cache if needed, then execute the command
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
-        let (mut result, mut dep_file_bundle) = match ctx
-            .action_cache(manager, &req, &prepared_action)
-            .await
-        {
-            ControlFlow::Break(res) => (res, dep_file_bundle),
-            ControlFlow::Continue(manager) => {
-                let dep_file_bundle = if let Some(dep_file_bundle) = dep_file_bundle {
-                    match check_local_dep_file_cache(ctx, self.outputs.as_slice(), &dep_file_bundle)
-                        .await?
-                    {
-                        Some(m) => {
-                            // We have a dep_file based match, return early
-                            return Ok(m);
-                        }
-                        None => Some(dep_file_bundle),
-                    }
-                } else {
-                    None
-                };
 
-                (
-                    ctx.exec_cmd(manager, &req, &prepared_action).await,
-                    dep_file_bundle,
-                )
-            }
-        };
+        let (mut result, mut dep_file_bundle) =
+            match ctx.action_cache(manager, &req, &prepared_action).await {
+                ControlFlow::Break(res) => (res, dep_file_bundle),
+                ControlFlow::Continue(manager) => {
+                    if let Some(dep_file_bundle) = &dep_file_bundle {
+                        if should_fully_check_dep_file_cache {
+                            let lookup = dep_file_bundle
+                                .check_local_dep_file_cache(ctx, self.outputs.as_slice())
+                                .await?;
+                            if let Some(m) = lookup {
+                                return Ok(m);
+                            }
+                        }
+                    };
+
+                    (
+                        ctx.exec_cmd(manager, &req, &prepared_action).await,
+                        dep_file_bundle,
+                    )
+                }
+            };
 
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
         let upload_dep_file = self.inner.allow_dep_file_cache_upload && dep_file_bundle.is_some();

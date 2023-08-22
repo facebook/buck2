@@ -1399,7 +1399,9 @@ message FileWatcherEnd {
   FileWatcherStats stats = 1;
 }
 
-message MatchDepFilesStart {}
+message MatchDepFilesStart {
+  bool checking_filtered_inputs = 1;
+}
 
 message MatchDepFilesEnd {}
 

@@ -254,7 +254,16 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                 "Syncing file changes via {}",
                 display_file_watcher(x.provider)
             )),
-            Data::MatchDepFiles(buck2_data::MatchDepFilesStart {}) => Ok("dep_files".to_owned()),
+            Data::MatchDepFiles(buck2_data::MatchDepFilesStart {
+                checking_filtered_inputs,
+            }) => {
+                let detail = if *checking_filtered_inputs {
+                    "full"
+                } else {
+                    "partial"
+                };
+                Ok(format!("dep_files({})", detail))
+            }
             Data::SharedTask(..) => Ok("Waiting on task from another command".to_owned()),
             Data::CacheUpload(upload) => {
                 let reason = match buck2_data::CacheUploadReason::from_i32(upload.reason) {

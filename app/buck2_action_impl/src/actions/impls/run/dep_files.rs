@@ -420,6 +420,85 @@ impl<'a> DepFileBundle<'a> {
 
         Ok(res)
     }
+
+    pub async fn check_local_dep_file_cache_for_identical_action(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+        declared_outputs: &[BuildArtifact],
+    ) -> anyhow::Result<(Option<(ActionOutputs, ActionExecutionMetadata)>, bool)> {
+        // Get the action outputs (if cache hit) and an indicator on whether a full lookup operation should be performed
+        let (outputs, check_filterd_inputs) = span_async(
+            buck2_data::MatchDepFilesStart {
+                checking_filtered_inputs: false,
+            },
+            async {
+                let res: anyhow::Result<_> = try {
+                    match_if_identical_action(
+                        ctx,
+                        &self.dep_files_key,
+                        &self.input_directory_digest,
+                        &self.common_digests.commandline_cli_digest,
+                        declared_outputs,
+                        &self.declared_dep_files,
+                    )
+                    .await?
+                };
+
+                (res, buck2_data::MatchDepFilesEnd {})
+            },
+        )
+        .await?;
+        let outputs = outputs.map(|o| {
+            (
+                o,
+                ActionExecutionMetadata {
+                    execution_kind: ActionExecutionKind::LocalDepFile,
+                    timing: Default::default(),
+                },
+            )
+        });
+        Ok((outputs, check_filterd_inputs))
+    }
+
+    pub async fn check_local_dep_file_cache(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+        declared_outputs: &[BuildArtifact],
+    ) -> anyhow::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
+        let matching_result = span_async(
+            buck2_data::MatchDepFilesStart {
+                checking_filtered_inputs: true,
+            },
+            async {
+                let res: anyhow::Result<_> = try {
+                    match_or_clear_dep_file(
+                        ctx,
+                        &self.dep_files_key,
+                        &self.input_directory_digest,
+                        &self.common_digests.commandline_cli_digest,
+                        &self.shared_declared_inputs,
+                        declared_outputs,
+                        &self.declared_dep_files,
+                    )
+                    .await?
+                };
+
+                (res, buck2_data::MatchDepFilesEnd {})
+            },
+        )
+        .await?;
+
+        let matching_result = matching_result.map(|o| {
+            (
+                o,
+                ActionExecutionMetadata {
+                    execution_kind: ActionExecutionKind::LocalDepFile,
+                    timing: Default::default(),
+                },
+            )
+        });
+        Ok(matching_result)
+    }
 }
 
 pub(crate) fn make_dep_file_bundle<'a>(
@@ -477,68 +556,62 @@ pub(crate) fn make_dep_file_bundle<'a>(
     })
 }
 
-pub(crate) async fn check_local_dep_file_cache(
-    ctx: &mut dyn ActionExecutionCtx,
+/// See if there is an identical action that matches in the cache.
+/// If there is, return the outputs. Otherwise, additionally return a boolean to indicate if the lookup was a miss.
+#[instrument(level = "debug", skip(input_directory_digest,cli_digest,ctx), fields(key = %key))]
+pub(crate) async fn match_if_identical_action(
+    ctx: &dyn ActionExecutionCtx,
+    key: &DepFilesKey,
+    input_directory_digest: &FileDigest,
+    cli_digest: &ExpandedCommandLineDigest,
     declared_outputs: &[BuildArtifact],
-    dep_file_bundle: &DepFileBundle<'_>,
-) -> anyhow::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
-    let DepFileBundle {
-        dep_files_key,
+    declared_dep_files: &DeclaredDepFiles,
+) -> anyhow::Result<(Option<ActionOutputs>, bool)> {
+    let previous_state = match get_dep_files(key) {
+        Some(d) => d.dupe(),
+        None => return Ok((None, false)),
+    };
+
+    let actions_match = check_action(
+        &previous_state,
         input_directory_digest,
-        shared_declared_inputs,
+        cli_digest,
+        declared_outputs,
         declared_dep_files,
-        common_digests,
-        ..
-    } = dep_file_bundle;
+    );
 
-    let matching_result = span_async(buck2_data::MatchDepFilesStart {}, async {
-        let res: anyhow::Result<_> = try {
-            match_or_clear_dep_file(
-                dep_files_key,
-                input_directory_digest,
-                &common_digests.commandline_cli_digest,
-                shared_declared_inputs,
-                declared_outputs,
-                declared_dep_files,
-                ctx,
-            )
-            .await?
-        };
-
-        (res, buck2_data::MatchDepFilesEnd {})
-    })
-    .await?;
-
-    if let Some(matching_result) = matching_result {
-        Ok(Some((
-            matching_result,
-            ActionExecutionMetadata {
-                execution_kind: ActionExecutionKind::LocalDepFile,
-                timing: Default::default(),
-            },
-        )))
-    } else {
-        Ok(None)
+    if actions_match == InitialDepFileLookupResult::Hit
+        && outputs_match(ctx, &previous_state).await?
+    {
+        tracing::trace!("Dep files are a hit");
+        return Ok((Some(previous_state.result.dupe()), false));
     }
+
+    // Don't remote the key from cache in this case as we did not fully check with the dep file content
+    tracing::trace!("Local dep file cache does not have an identical action cached");
+    Ok((
+        None,
+        actions_match == InitialDepFileLookupResult::CheckFilteredInputs,
+    ))
 }
 
 /// Match the dep file recorded for key, or clear it from the map (if it exists).
-#[instrument(level = "debug", skip(input_directory_digest,cli_digest, declared_inputs, ctx), fields(key = %key))]
+#[instrument(level = "debug", skip(input_directory_digest,cli_digest,declared_inputs,ctx), fields(key = %key))]
 pub(crate) async fn match_or_clear_dep_file(
+    ctx: &dyn ActionExecutionCtx,
     key: &DepFilesKey,
     input_directory_digest: &FileDigest,
     cli_digest: &ExpandedCommandLineDigest,
     declared_inputs: &PartitionedInputs<ActionSharedDirectory>,
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
-    ctx: &dyn ActionExecutionCtx,
 ) -> anyhow::Result<Option<ActionOutputs>> {
     let previous_state = match get_dep_files(key) {
         Some(d) => d.dupe(),
         None => return Ok(None),
     };
 
-    if dep_files_match(
+    let dep_files_match = dep_files_match(
         &previous_state,
         input_directory_digest,
         cli_digest,
@@ -547,34 +620,78 @@ pub(crate) async fn match_or_clear_dep_file(
         declared_dep_files,
         ctx,
     )
-    .await?
-    {
-        let fs = ctx.fs();
-
-        // Finally, we need to make sure that the artifacts in the materializer actually
-        // match. This is necessary in case a different action wrote to those artifacts and
-        // didn't use the same cache key.
-        let output_matches = previous_state
-            .result
-            .iter()
-            .map(|(path, value)| (fs.buck_out_path_resolver().resolve_gen(path), value.dupe()))
-            .collect();
-
-        let materializer_accepts = ctx
-            .materializer()
-            .declare_match(output_matches)
-            .await?
-            .is_match();
-
-        if materializer_accepts {
-            tracing::trace!("Dep files are a hit");
-            return Ok(Some(previous_state.result.dupe()));
-        }
+    .await?;
+    if dep_files_match && outputs_match(ctx, &previous_state).await? {
+        tracing::trace!("Dep files are a hit");
+        return Ok(Some(previous_state.result.dupe()));
     }
 
-    tracing::trace!("Dep files are a miss");
+    tracing::trace!("Dep files are a miss, removing the key from cache");
     DEP_FILES.remove(key);
+
     Ok(None)
+}
+
+#[derive(PartialEq)]
+enum InitialDepFileLookupResult {
+    Hit,
+    Miss,
+    CheckFilteredInputs,
+}
+
+async fn outputs_match(
+    ctx: &dyn ActionExecutionCtx,
+    previous_state: &Arc<DepFileState>,
+) -> anyhow::Result<bool> {
+    let fs = ctx.fs();
+
+    // Finally, we need to make sure that the artifacts in the materializer actually
+    // match. This is necessary in case a different action wrote to those artifacts and
+    // didn't use the same cache key.
+    let output_matches = previous_state
+        .result
+        .iter()
+        .map(|(path, value)| (fs.buck_out_path_resolver().resolve_gen(path), value.dupe()))
+        .collect();
+
+    let materializer_accepts = ctx
+        .materializer()
+        .declare_match(output_matches)
+        .await?
+        .is_match();
+    Ok(materializer_accepts)
+}
+
+fn check_action(
+    previous_state: &DepFileState,
+    input_directory_digest: &FileDigest,
+    cli_digest: &ExpandedCommandLineDigest,
+    declared_outputs: &[BuildArtifact],
+    declared_dep_files: &DeclaredDepFiles,
+) -> InitialDepFileLookupResult {
+    if !declared_dep_files.declares_same_dep_files(&previous_state.declared_dep_files) {
+        // We first need to check if the same dep files existed before or not. If not, then we
+        // can't assume they'll still be on disk, and we have to bail.
+        tracing::trace!("Dep files miss: Dep files declaration has changed");
+        return InitialDepFileLookupResult::Miss;
+    }
+
+    if !outputs_are_reusable(declared_outputs, &previous_state.result) {
+        tracing::trace!("Dep files miss: Output declaration has changed");
+        return InitialDepFileLookupResult::Miss;
+    }
+
+    if *cli_digest != previous_state.digests.cli {
+        tracing::trace!("Dep files miss: Command line has changed");
+        return InitialDepFileLookupResult::Miss;
+    }
+
+    if *input_directory_digest == previous_state.digests.directory {
+        // The actions are identical
+        tracing::trace!("Dep files hit: Command line and directory have not changed");
+        return InitialDepFileLookupResult::Hit;
+    }
+    InitialDepFileLookupResult::CheckFilteredInputs
 }
 
 async fn dep_files_match(
@@ -586,25 +703,14 @@ async fn dep_files_match(
     declared_dep_files: &DeclaredDepFiles,
     ctx: &dyn ActionExecutionCtx,
 ) -> anyhow::Result<bool> {
-    if !declared_dep_files.declares_same_dep_files(&previous_state.declared_dep_files) {
-        // We first need to check if the same dep files existed before or not. If not, then we
-        // can't assume they'll still be on disk, and we have to bail.
-        tracing::trace!("Dep files miss: Dep files declaration has changed");
-        return Ok(false);
-    }
-
-    if !outputs_are_reusable(declared_outputs, &previous_state.result) {
-        tracing::trace!("Dep files miss: Output declaration has changed");
-        return Ok(false);
-    }
-
-    if *cli_digest != previous_state.digests.cli {
-        tracing::trace!("Dep files miss: Command line has changed");
-        return Ok(false);
-    }
-
-    if *input_directory_digest == previous_state.digests.directory {
-        tracing::trace!("Dep files hit: Command line and directory have not changed");
+    let initial_check = check_action(
+        previous_state,
+        input_directory_digest,
+        cli_digest,
+        declared_outputs,
+        declared_dep_files,
+    );
+    if initial_check == InitialDepFileLookupResult::Hit {
         return Ok(true);
     }
 
@@ -667,7 +773,6 @@ fn outputs_are_reusable(declared_outputs: &[BuildArtifact], outputs: &ActionOutp
             return false;
         }
     }
-
     true
 }
 
