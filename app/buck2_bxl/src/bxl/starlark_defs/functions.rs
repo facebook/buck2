@@ -11,13 +11,6 @@ use std::time::Instant;
 
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProvidersLabel;
-use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
-use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
-use buck2_interpreter::types::target_label::value_to_providers_name;
-use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
-use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -25,7 +18,6 @@ use dupe::Dupe;
 use futures::FutureExt;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
-use starlark::values::list::AllocList;
 use starlark::values::none::NoneType;
 use starlark::values::Heap;
 use starlark::values::StringValue;
@@ -39,36 +31,6 @@ use super::context::output::get_cmd_line_inputs;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::time::StarlarkInstant;
-
-/// Global methods on the target label.
-#[starlark_module]
-pub(crate) fn register_label_function(builder: &mut GlobalsBuilder) {
-    /// Exact same behavior as `with_providers` on `TargetLabel`, and deprecated in favor of it
-    fn sub_target<'v>(
-        target: &StarlarkTargetLabel,
-        #[starlark(default = AllocList::EMPTY)] subtarget_name: Value<'v>,
-    ) -> anyhow::Result<StarlarkProvidersLabel> {
-        let providers_name = value_to_providers_name(subtarget_name)?;
-
-        Ok(StarlarkProvidersLabel::new(ProvidersLabel::new(
-            target.label().dupe(),
-            providers_name,
-        )))
-    }
-
-    /// Exact same behavior as `with_providers` on `ConfiguredTargetLabel`, and deprecated in favor
-    /// of it
-    fn configured_sub_target<'v>(
-        target: &StarlarkConfiguredTargetLabel,
-        #[starlark(default = AllocList::EMPTY)] subtarget_name: Value<'v>,
-    ) -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
-        let providers_name = value_to_providers_name(subtarget_name)?;
-
-        Ok(StarlarkConfiguredProvidersLabel::new(
-            ConfiguredProvidersLabel::new(target.label().dupe(), providers_name),
-        ))
-    }
-}
 
 /// Global methods on the target set.
 #[starlark_module]
