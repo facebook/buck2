@@ -21,11 +21,13 @@
 use std::fmt::Write;
 
 use dupe::Dupe;
+use num_traits::Signed;
 use thiserror::Error;
 
 use crate::values::float;
 use crate::values::num::value::NumRef;
 use crate::values::string::dot_format::format_one;
+use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::Heap;
 use crate::values::StringValue;
@@ -33,6 +35,12 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+
+// `i32::abs(i32::MIN)` panics as `i32::MIN` has no corresponding
+// positive value that fits inside `i32`. For this edge case,
+// let's just hardcode the results.
+const I32_MIN_OCTAL: &str = "-20000000000";
+const I32_MIN_HEX: &str = "-80000000";
 
 /// Operator `%` format or evaluation errors
 #[derive(Clone, Dupe, Debug, Error)]
@@ -218,46 +226,85 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
             Some(PercentSFormat::Repr) => next_value()?.collect_repr(&mut res),
             Some(PercentSFormat::Dec) => {
                 let value = next_value()?;
-                if let Some(NumRef::Float(v)) = value.unpack_num() {
-                    match NumRef::Float(v.trunc()).as_int() {
-                        None => {
-                            return ValueError::unsupported(&float::StarlarkFloat(v), "%d");
-                        }
-                        Some(v) => write!(res, "{}", v).unwrap(),
+                match value.unpack_num() {
+                    Some(NumRef::Int(StarlarkIntRef::Small(v))) => {
+                        write!(res, "{}", v.to_i32()).unwrap()
                     }
-                } else {
-                    write!(res, "{}", value.to_int()?).unwrap()
+                    Some(NumRef::Int(StarlarkIntRef::Big(v))) => {
+                        write!(res, "{}", v.get()).unwrap()
+                    }
+                    Some(NumRef::Float(v)) => match NumRef::Float(v.trunc()).as_int() {
+                        Some(v) => write!(res, "{}", v).unwrap(),
+                        None => ValueError::unsupported_type(value, "format(%d)")?,
+                    },
+                    None => ValueError::unsupported_type(value, "format(%d)")?,
                 }
             }
             Some(PercentSFormat::Oct) => {
-                let v = next_value()?.to_int()?;
-                write!(
-                    res,
-                    "{}{:o}",
-                    if v < 0 { "-" } else { "" },
-                    v.wrapping_abs() as u64
-                )
-                .unwrap();
+                let value = next_value()?;
+                match value.unpack_num() {
+                    Some(NumRef::Int(StarlarkIntRef::Small(v))) => match v.to_i32() {
+                        i32::MIN => write!(res, "{}", I32_MIN_OCTAL).unwrap(),
+                        v => write!(res, "{}{:o}", if v < 0 { "-" } else { "" }, v.abs()).unwrap(),
+                    },
+                    Some(NumRef::Int(StarlarkIntRef::Big(v))) => {
+                        let v = v.get();
+                        write!(
+                            res,
+                            "{}{:o}",
+                            if v.is_negative() { "-" } else { "" },
+                            v.abs()
+                        )
+                        .unwrap()
+                    }
+                    Some(NumRef::Float(_)) | None => {
+                        ValueError::unsupported_type(value, "format(%o)")?
+                    }
+                }
             }
             Some(PercentSFormat::Hex) => {
-                let v = next_value()?.to_int()?;
-                write!(
-                    res,
-                    "{}{:x}",
-                    if v < 0 { "-" } else { "" },
-                    v.wrapping_abs() as u64
-                )
-                .unwrap();
+                let value = next_value()?;
+                match value.unpack_num() {
+                    Some(NumRef::Int(StarlarkIntRef::Small(v))) => match v.to_i32() {
+                        i32::MIN => write!(res, "{}", I32_MIN_HEX).unwrap(),
+                        v => write!(res, "{}{:x}", if v < 0 { "-" } else { "" }, v.abs()).unwrap(),
+                    },
+                    Some(NumRef::Int(StarlarkIntRef::Big(v))) => {
+                        let v = v.get();
+                        write!(
+                            res,
+                            "{}{:x}",
+                            if v.is_negative() { "-" } else { "" },
+                            v.abs()
+                        )
+                        .unwrap()
+                    }
+                    Some(NumRef::Float(_)) | None => {
+                        ValueError::unsupported_type(value, "format(%x)")?
+                    }
+                }
             }
             Some(PercentSFormat::HexUpper) => {
-                let v = next_value()?.to_int()?;
-                write!(
-                    res,
-                    "{}{:X}",
-                    if v < 0 { "-" } else { "" },
-                    v.wrapping_abs() as u64
-                )
-                .unwrap();
+                let value = next_value()?;
+                match value.unpack_num() {
+                    Some(NumRef::Int(StarlarkIntRef::Small(v))) => match v.to_i32() {
+                        i32::MIN => write!(res, "{}", I32_MIN_HEX).unwrap(),
+                        v => write!(res, "{}{:X}", if v < 0 { "-" } else { "" }, v.abs()).unwrap(),
+                    },
+                    Some(NumRef::Int(StarlarkIntRef::Big(v))) => {
+                        let v = v.get();
+                        write!(
+                            res,
+                            "{}{:X}",
+                            if v.is_negative() { "-" } else { "" },
+                            v.abs()
+                        )
+                        .unwrap()
+                    }
+                    Some(NumRef::Float(_)) | None => {
+                        ValueError::unsupported_type(value, "format(%X)")?
+                    }
+                }
             }
             Some(PercentSFormat::Exp) => {
                 let v = NumRef::unpack_param(next_value()?)?.as_float();
@@ -368,5 +415,105 @@ mod tests {
         assert_eq!(None, parse_percent_s_one("a%s%"));
         assert_eq!(None, parse_percent_s_one("a%s%s"));
         assert_eq!(None, parse_percent_s_one("%d"));
+    }
+
+    #[test]
+    fn test_type_support_d() {
+        assert::eq("'%d' % (-123,)", "'-123'");
+        assert::eq("'%d' % (-12345678901234567890,)", "'-12345678901234567890'");
+        assert::eq("'%d' % (-123.0,)", "'-123'");
+
+        assert::fail(
+            "'%d' % (True,)",
+            "Operation `format(%d)` not supported on type `bool`",
+        );
+        assert::fail(
+            "'%d' % ('abc',)",
+            "Operation `format(%d)` not supported on type `string`",
+        );
+        assert::fail(
+            "'%d' % ([],)",
+            "Operation `format(%d)` not supported on type `list`",
+        );
+    }
+
+    #[test]
+    fn test_type_support_o() {
+        assert::eq("'%o' % (-123,)", "'-173'");
+        assert::eq(
+            "'%o' % (-12345678901234567890,)",
+            "'-1255245230635307605322'",
+        );
+
+        assert::fail(
+            "'%o' % (-123.0,)",
+            "Operation `format(%o)` not supported on type `float`",
+        );
+        assert::fail(
+            "'%o' % (True,)",
+            "Operation `format(%o)` not supported on type `bool`",
+        );
+        assert::fail(
+            "'%o' % ('abc',)",
+            "Operation `format(%o)` not supported on type `string`",
+        );
+        assert::fail(
+            "'%o' % ([],)",
+            "Operation `format(%o)` not supported on type `list`",
+        );
+    }
+
+    #[test]
+    fn test_type_support_x() {
+        assert::eq("'%x' % (-123,)", "'-7b'");
+        assert::eq("'%x' % (-12345678901234567890,)", "'-ab54a98ceb1f0ad2'");
+
+        assert::fail(
+            "'%x' % (-123.0,)",
+            "Operation `format(%x)` not supported on type `float`",
+        );
+        assert::fail(
+            "'%x' % (True,)",
+            "Operation `format(%x)` not supported on type `bool`",
+        );
+        assert::fail(
+            "'%x' % ('abc',)",
+            "Operation `format(%x)` not supported on type `string`",
+        );
+        assert::fail(
+            "'%x' % ([],)",
+            "Operation `format(%x)` not supported on type `list`",
+        );
+    }
+
+    #[test]
+    fn test_type_support_e() {
+        assert::eq("'%e' % (-123,)", "'-1.230000e+02'");
+        assert::eq("'%e' % (-12345678901234567890,)", "'-1.234568e+19'");
+        assert::eq("'%e' % (-123.0,)", "'-1.230000e+02'");
+
+        assert::fail(
+            "'%e' % (True,)",
+            "Type of parameters mismatch, expected `int or float`, actual `bool`",
+        );
+        assert::fail(
+            "'%e' % ('abc',)",
+            "Type of parameters mismatch, expected `int or float`, actual `string`",
+        );
+        assert::fail(
+            "'%e' % ([],)",
+            "Type of parameters mismatch, expected `int or float`, actual `list`",
+        );
+    }
+
+    #[test]
+    fn test_int_min() {
+        // 2147483647 is `i32::MIN + 1`, it has corresponding positive value in i32.
+        // 2147483648 is `i32::MIN`, it has no corresponding positive value in i32.
+        assert::eq("'%o' % (-2147483647,)", "'-17777777777'");
+        assert::eq("'%o' % (-2147483648,)", "'-20000000000'");
+
+        assert::eq("'%x' % (-2147483647,)", "'-7fffffff'");
+        assert::eq("'%x' % (-2147483648,)", "'-80000000'");
     }
 }

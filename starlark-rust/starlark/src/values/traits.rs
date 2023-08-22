@@ -749,6 +749,7 @@ pub trait StarlarkValue<'v>:
     /// "a %s c" % 3 == "a 3 c"
     /// "Hello %s, your score is %d" % ("Bob", 75) == "Hello Bob, your score is 75"
     /// "%d %o %x" % (65, 65, 65) == "65 101 41"
+    /// "%d" % 12345678901234567890 == "12345678901234567890"
     /// "Hello %s, welcome" % "Bob" == "Hello Bob, welcome"
     /// "%s" % (1,) == "1"
     /// "%s" % ((1,),) == "(1,)"
