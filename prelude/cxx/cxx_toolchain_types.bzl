@@ -56,6 +56,7 @@ LinkerInfo = provider(fields = [
     "use_archiver_flags",
     "force_full_hybrid_if_capable",
     "is_pdb_generated",  # bool
+    "produce_interface_from_stub_shared_library",  # bool
 ])
 
 BinaryUtilitiesInfo = provider(fields = [

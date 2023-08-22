@@ -104,6 +104,7 @@ def cxx_toolchain_impl(ctx):
         static_pic_dep_runtime_ld_flags = ctx.attrs.static_pic_dep_runtime_ld_flags,
         type = ctx.attrs.linker_type,
         use_archiver_flags = ctx.attrs.use_archiver_flags,
+        produce_interface_from_stub_shared_library = ctx.attrs.produce_interface_from_stub_shared_library,
     )
 
     utilities_info = BinaryUtilitiesInfo(
@@ -188,6 +189,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         # Used for resolving any 'platform_*' attributes.
         "platform_name": attrs.option(attrs.string(), default = None),
         "private_headers_symlinks_enabled": attrs.bool(default = True),
+        "produce_interface_from_stub_shared_library": attrs.bool(default = True),
         "public_headers_symlinks_enabled": attrs.bool(default = True),
         "ranlib": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "requires_objects": attrs.bool(default = False),
