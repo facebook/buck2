@@ -26,6 +26,7 @@ load(
 load(
     "@prelude//apple:xcode.bzl",
     "apple_get_xcode_absolute_path_prefix",
+    "get_project_root_file",
 )
 load(
     "@prelude//cxx:cxx_bolt.bzl",
@@ -171,17 +172,18 @@ CxxExecutableOutput = record(
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool = False) -> CxxExecutableOutput.type:
     absolute_path_prefix = apple_get_xcode_absolute_path_prefix()
+    project_root_file = get_project_root_file(ctx)
 
     # Gather preprocessor inputs.
     preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
     (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx,
         impl_params.headers_layout,
+        project_root_file = project_root_file,
         raw_headers = ctx.attrs.raw_headers,
         extra_preprocessors = impl_params.extra_preprocessors,
         non_exported_deps = preprocessor_deps,
         is_test = is_cxx_test,
-        absolute_path_prefix = absolute_path_prefix,
     )
     inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(preprocessor_deps) + impl_params.extra_preprocessors_info
 
