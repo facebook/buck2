@@ -91,3 +91,88 @@ impl EventSubscriber for BuildGraphStats {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[fbinit::test]
+    fn build_graph_stats_normal(fb: FacebookInit) {
+        let res = buck2_cli_proto::BuildResponse {
+            build_targets: vec![
+                buck2_cli_proto::BuildTarget {
+                    target: "//some/target:A".to_owned(),
+                    configuration: "//some/conf:A".to_owned(),
+                    configured_graph_size: Some(123),
+                    ..Default::default()
+                },
+                buck2_cli_proto::BuildTarget {
+                    target: "//some/target:B".to_owned(),
+                    configuration: "//some/conf:B".to_owned(),
+                    configured_graph_size: None,
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+
+        let uuid = TraceId::new();
+        let handler = BuildGraphStats::new(fb, uuid.dupe());
+        let event = handler.build_graph_stats_from_build_response(&res);
+
+        let event_expected = buck2_data::BuckEvent {
+            data: Some(buck2_data::buck_event::Data::Record(
+                buck2_data::RecordEvent {
+                    data: Some(buck2_data::record_event::Data::BuildGraphStats(
+                        buck2_data::BuildGraphStats {
+                            build_targets: vec![
+                                buck2_data::BuildTarget {
+                                    target: "//some/target:A".to_owned(),
+                                    configuration: "//some/conf:A".to_owned(),
+                                    configured_graph_size: Some(123),
+                                },
+                                buck2_data::BuildTarget {
+                                    target: "//some/target:B".to_owned(),
+                                    configuration: "//some/conf:B".to_owned(),
+                                    configured_graph_size: None,
+                                },
+                            ],
+                        },
+                    )),
+                },
+            )),
+            ..Default::default()
+        };
+
+        assert_eq!(event.trace_id().unwrap(), uuid);
+        assert_eq!(event.data(), &event_expected.data.unwrap());
+    }
+
+    #[fbinit::test]
+    fn build_graph_stats_empty_target(fb: FacebookInit) {
+        let res = buck2_cli_proto::BuildResponse {
+            build_targets: vec![],
+            ..Default::default()
+        };
+
+        let uuid = TraceId::new();
+        let handler = BuildGraphStats::new(fb, uuid.dupe());
+        let event = handler.build_graph_stats_from_build_response(&res);
+
+        let event_expected = buck2_data::BuckEvent {
+            data: Some(buck2_data::buck_event::Data::Record(
+                buck2_data::RecordEvent {
+                    data: Some(buck2_data::record_event::Data::BuildGraphStats(
+                        buck2_data::BuildGraphStats {
+                            build_targets: vec![],
+                        },
+                    )),
+                },
+            )),
+            ..Default::default()
+        };
+
+        assert_eq!(event.trace_id().unwrap(), uuid);
+        assert_eq!(event.data(), &event_expected.data.unwrap());
+    }
+}
