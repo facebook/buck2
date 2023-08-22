@@ -26,6 +26,7 @@ from py_compile import compile, PycInvalidationMode
 
 if sys.version_info[0] == 3:
     import importlib
+    import importlib.util
 
     DEFAULT_FORMAT = importlib.util.cache_from_source("{pkg}/{name}.py")
 else:
