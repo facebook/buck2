@@ -565,6 +565,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .unwrap_or_else(RolloutPercentage::always)
             .roll();
 
+        let log_configured_graph_size = root_config
+            .parse::<bool>("buck2", "log_configured_graph_size")?
+            .unwrap_or(false);
+
         let executor_global_knobs = ExecutorGlobalKnobs {
             enable_miniperf,
             log_action_keys,
@@ -651,6 +655,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         let tags = vec![
             format!("lazy-cycle-detector:{}", has_cycle_detector),
             format!("miniperf:{}", enable_miniperf),
+            format!("log-configured-graph-size:{}", log_configured_graph_size),
         ];
         self.events.instant_event(buck2_data::TagEvent { tags });
 
