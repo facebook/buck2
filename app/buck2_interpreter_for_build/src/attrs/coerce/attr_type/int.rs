@@ -12,6 +12,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::attrs::coerce::error::CoercionError;
@@ -24,7 +25,7 @@ impl AttrTypeCoerce for IntAttrType {
         _ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<CoercedAttr> {
-        match value.unpack_i32() {
+        match i64::unpack_value(value) {
             Some(x) => Ok(CoercedAttr::Int(x)),
             None => Err(anyhow::anyhow!(CoercionError::type_error("int", value))),
         }

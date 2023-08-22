@@ -20,6 +20,7 @@ use starlark::typing::Ty;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::attrs::coerce::AttrTypeCoerce;
@@ -35,7 +36,7 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> anyhow::Result<Coe
         Ok(CoercedAttr::None)
     } else if let Some(x) = value.unpack_bool() {
         Ok(CoercedAttr::Bool(BoolLiteral(x)))
-    } else if let Some(x) = value.unpack_i32() {
+    } else if let Some(x) = i64::unpack_value(value) {
         Ok(CoercedAttr::Int(x))
     } else if let Some(x) = DictRef::from_value(value) {
         Ok(CoercedAttr::Dict(

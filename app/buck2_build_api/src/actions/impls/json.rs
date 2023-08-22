@@ -86,7 +86,7 @@ fn get_artifact<'v>(x: Value<'v>) -> Option<Box<dyn FnOnce() -> anyhow::Result<A
 enum JsonUnpack<'v> {
     None,
     String(&'v str),
-    Number(i32),
+    Number(i64),
     Bool(bool),
     List(&'v ListRef<'v>),
     Tuple(&'v TupleRef<'v>),
@@ -109,7 +109,7 @@ fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
         JsonUnpack::None
     } else if let Some(x) = value.unpack_str() {
         JsonUnpack::String(x)
-    } else if let Some(x) = value.unpack_i32() {
+    } else if let Some(x) = i64::unpack_value(value) {
         JsonUnpack::Number(x)
     } else if let Some(x) = value.unpack_bool() {
         JsonUnpack::Bool(x)
@@ -152,7 +152,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
         match unpack(self.value) {
             JsonUnpack::None => serializer.serialize_none(),
             JsonUnpack::String(x) => serializer.serialize_str(x),
-            JsonUnpack::Number(x) => serializer.serialize_i32(x),
+            JsonUnpack::Number(x) => serializer.serialize_i64(x),
             JsonUnpack::Bool(x) => serializer.serialize_bool(x),
             JsonUnpack::List(x) => serializer.collect_seq(x.iter().map(|v| self.with_value(v))),
             JsonUnpack::Tuple(x) => serializer.collect_seq(x.iter().map(|v| self.with_value(v))),

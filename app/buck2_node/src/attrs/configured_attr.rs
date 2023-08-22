@@ -73,7 +73,7 @@ enum ConfiguredAttrError {
 #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug)]
 pub enum ConfiguredAttr {
     Bool(BoolLiteral),
-    Int(i32),
+    Int(i64),
     // Note we store `String`, not `Arc<str>` here, because we store full attributes
     // in unconfigured target node, but configured target node is basically a pair
     // (reference to unconfigured target node, configuration).
