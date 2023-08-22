@@ -379,6 +379,8 @@ def setup_dep_files(
 
     return new_cmd
 
+FORCE_PERSISTENT_WORKERS = read_root_config("build", "require_persistent_workers", "false").lower() == "true"
+
 def prepare_cd_exe(
         qualified_name: str,
         java: RunInfo.type,
@@ -417,7 +419,7 @@ def prepare_cd_exe(
             # This is used for local execution if `build.use_persistent_workers=True`
             worker = worker,
         )
-        return worker_run_info, False
+        return worker_run_info, FORCE_PERSISTENT_WORKERS
 
 # If there's additional compiled srcs, we need to merge them in and if the
 # caller specified an output artifact we need to make sure the jar is in that
