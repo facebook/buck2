@@ -33,6 +33,7 @@ use futures::future::BoxFuture;
 use futures::FutureExt;
 use gazebo::variants::VariantName;
 use itertools::Itertools;
+use num_bigint::BigInt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
@@ -150,7 +151,7 @@ impl CliArgs {
 )]
 pub(crate) enum CliArgValue {
     Bool(bool),
-    Int(i32),
+    Int(BigInt),
     // store this as a string here for eq, hash since generally this comes from cmdline.
     // Note that this means `3.0` and `3.00` would not be equal. The string should already have
     // been verified to be a f64.
@@ -170,7 +171,7 @@ impl CliArgValue {
     pub(crate) fn as_starlark<'v>(&self, heap: &'v Heap) -> Value<'v> {
         match self {
             CliArgValue::Bool(b) => Value::new_bool(*b),
-            CliArgValue::Int(i) => heap.alloc(*i),
+            CliArgValue::Int(i) => heap.alloc(i.clone()),
             CliArgValue::Float(f) => heap.alloc(f.parse::<f64>().expect("already verified")),
             CliArgValue::String(s) => heap.alloc(s),
             CliArgValue::List(l) => heap.alloc(AllocList(l.iter().map(|v| v.as_starlark(heap)))),
@@ -287,7 +288,7 @@ impl CliArgType {
             CliArgType::Bool => CliArgValue::Bool(value.unpack_bool().ok_or_else(|| {
                 CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
             })?),
-            CliArgType::Int => CliArgValue::Int(value.unpack_i32().ok_or_else(|| {
+            CliArgType::Int => CliArgValue::Int(BigInt::unpack_value(value).ok_or_else(|| {
                 CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
             })?),
             CliArgType::Float => CliArgValue::Float(
@@ -371,7 +372,7 @@ impl CliArgType {
     pub(crate) fn to_clap<'a>(&'a self, clap: clap::Arg<'a>) -> clap::Arg<'a> {
         match self {
             CliArgType::Bool => clap.takes_value(true).validator(|x| x.parse::<bool>()),
-            CliArgType::Int => clap.takes_value(true).validator(|x| x.parse::<i32>()),
+            CliArgType::Int => clap.takes_value(true).validator(|x| x.parse::<BigInt>()),
             CliArgType::Float => clap.takes_value(true).validator(|x| x.parse::<f64>()),
             CliArgType::String => clap.takes_value(true),
             CliArgType::Enumeration(variants) => clap
@@ -416,7 +417,7 @@ impl CliArgType {
                     r.map(Some)
                 })?,
                 CliArgType::Int => clap.value_of().map_or(Ok(None), |x| {
-                    let r: anyhow::Result<_> = try { CliArgValue::Int(x.parse::<i32>()?) };
+                    let r: anyhow::Result<_> = try { CliArgValue::Int(x.parse::<BigInt>()?) };
                     r.map(Some)
                 })?,
                 CliArgType::Float => clap.value_of().map_or(Ok(None), |x| {
@@ -649,6 +650,7 @@ mod tests {
     use buck2_core::target::label::TargetLabel;
     use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
     use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+    use num_bigint::BigInt;
     use starlark::values::Heap;
     use starlark::values::Value;
 
@@ -660,7 +662,7 @@ mod tests {
         let args = vec![
             CliArgValue::Bool(true),
             CliArgValue::String("test".to_owned()),
-            CliArgValue::Int(1),
+            CliArgValue::Int(BigInt::from(1)),
         ];
 
         let cli_arg = CliArgValue::List(args);
@@ -681,7 +683,7 @@ mod tests {
 
         assert_eq!(
             CliArgType::int().coerce_value(heap.alloc(42))?,
-            CliArgValue::Int(42)
+            CliArgValue::Int(BigInt::from(42))
         );
 
         assert_eq!(
@@ -722,9 +724,9 @@ mod tests {
         assert_eq!(
             CliArgType::list(CliArgType::int()).coerce_value(heap.alloc(vec![1, 4, 2]))?,
             CliArgValue::List(vec![
-                CliArgValue::Int(1),
-                CliArgValue::Int(4),
-                CliArgValue::Int(2)
+                CliArgValue::Int(BigInt::from(1)),
+                CliArgValue::Int(BigInt::from(4)),
+                CliArgValue::Int(BigInt::from(2))
             ])
         );
 

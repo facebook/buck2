@@ -26,6 +26,7 @@ rust_library(
         "fbsource//third-party/rust:higher-order-closure",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:num-bigint",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
