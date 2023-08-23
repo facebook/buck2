@@ -20,6 +20,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use either::Either;
 use serde::Serialize;
 use serde::Serializer;
@@ -40,6 +41,7 @@ use crate::typing::function::TyFunction;
 use crate::typing::structs::TyStruct;
 use crate::typing::tuple::TyTuple;
 use crate::values::bool::StarlarkBool;
+use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::tuple::value::FrozenTuple;
 use crate::values::typing::never::TypingNever;
 use crate::values::StarlarkValue;
@@ -104,8 +106,8 @@ impl Serialize for Ty {
 }
 
 /// The name of an atomic type.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
-pub struct TyName(String);
+#[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
+pub struct TyName(ArcStr);
 
 impl Display for TyName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -115,11 +117,15 @@ impl Display for TyName {
 
 impl PartialEq<str> for TyName {
     fn eq(&self, other: &str) -> bool {
-        self.0 == other
+        self.as_str() == other
     }
 }
 
 impl TyName {
+    pub(crate) fn new(s: &str) -> TyName {
+        TyName(ArcStr::from(s))
+    }
+
     /// Get the underlying `str` for a `TyName`.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -169,7 +175,7 @@ impl Ty {
             "tuple" => Self::any_tuple(),
             // Note that "tuple" cannot be converted to Ty::Tuple
             // since we don't know the length of the tuple.
-            _ => Ty::basic(TyBasic::Name(TyName(name.to_owned()))),
+            _ => Ty::basic(TyBasic::Name(TyName::new(name))),
         }
     }
 
