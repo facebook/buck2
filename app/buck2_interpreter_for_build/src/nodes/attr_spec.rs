@@ -185,7 +185,7 @@ impl AttributeSpecExt for AttributeSpec {
 
     fn starlark_types(&self) -> Vec<Ty> {
         self.attr_specs()
-            .map(|(_, _, a)| a.starlark_type())
+            .map(|(_, _, a)| a.starlark_type().to_ty())
             .collect()
     }
 

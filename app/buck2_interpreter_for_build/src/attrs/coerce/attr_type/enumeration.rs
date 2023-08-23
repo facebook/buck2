@@ -17,6 +17,7 @@ use starlark::typing::Ty;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
@@ -47,7 +48,7 @@ impl AttrTypeCoerce for EnumAttrType {
         }
     }
 
-    fn starlark_type(&self) -> Ty {
-        Ty::string()
+    fn starlark_type(&self) -> TyMaybeSelect {
+        TyMaybeSelect::Basic(Ty::string())
     }
 }

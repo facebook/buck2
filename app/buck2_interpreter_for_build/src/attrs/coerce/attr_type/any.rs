@@ -23,6 +23,7 @@ use starlark::values::tuple::TupleRef;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 #[derive(Debug, thiserror::Error)]
@@ -83,7 +84,7 @@ impl AttrTypeCoerce for AnyAttrType {
         to_literal(value, ctx)
     }
 
-    fn starlark_type(&self) -> Ty {
-        Ty::any()
+    fn starlark_type(&self) -> TyMaybeSelect {
+        TyMaybeSelect::Basic(Ty::any())
     }
 }

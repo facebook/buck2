@@ -14,6 +14,7 @@ use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
 use starlark::values::Value;
 
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::AttrTypeCoerce;
 
@@ -31,7 +32,10 @@ impl AttrTypeCoerce for OptionAttrType {
         }
     }
 
-    fn starlark_type(&self) -> Ty {
-        Ty::union2(Ty::none(), self.inner.starlark_type())
+    fn starlark_type(&self) -> TyMaybeSelect {
+        TyMaybeSelect::Union(vec![
+            TyMaybeSelect::Basic(Ty::none()),
+            self.inner.starlark_type(),
+        ])
     }
 }
