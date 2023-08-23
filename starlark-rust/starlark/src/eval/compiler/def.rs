@@ -537,29 +537,6 @@ impl<'v> Def<'v> {
     }
 }
 
-impl<'v, T1: ValueLike<'v>> DefGen<T1> {
-    fn docs(&self) -> Option<DocItem> {
-        let parameter_types: HashMap<usize, Ty> = self
-            .parameter_types
-            .iter()
-            .map(|(idx, _, ty)| (idx.0 as usize, ty.as_ty().clone()))
-            .collect();
-
-        let return_type = self.return_type.map_or(Ty::any(), |r| r.as_ty().clone());
-
-        let function_docs = DocFunction::from_docstring(
-            DocStringKind::Starlark,
-            self.parameters
-                .documentation(parameter_types, HashMap::new()),
-            return_type,
-            self.def_info.docstring.as_ref().map(String::as_ref),
-            None,
-        );
-
-        Some(DocItem::Function(function_docs))
-    }
-}
-
 impl<'v> Freeze for Def<'v> {
     type Frozen = FrozenDef;
 
@@ -613,7 +590,24 @@ where
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        self.docs()
+        let parameter_types: HashMap<usize, Ty> = self
+            .parameter_types
+            .iter()
+            .map(|(idx, _, ty)| (idx.0 as usize, ty.as_ty().clone()))
+            .collect();
+
+        let return_type = self.return_type.map_or(Ty::any(), |r| r.as_ty().clone());
+
+        let function_docs = DocFunction::from_docstring(
+            DocStringKind::Starlark,
+            self.parameters
+                .documentation(parameter_types, HashMap::new()),
+            return_type,
+            self.def_info.docstring.as_ref().map(String::as_ref),
+            None,
+        );
+
+        Some(DocItem::Function(function_docs))
     }
 }
 
