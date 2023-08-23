@@ -227,6 +227,8 @@ provide_output_file(
         end,
     JsonLogs = execution_logs:create_dir_summary(OutputDir),
     file:write_file(filename:join(OutputDir, "logs.json"), jsone:encode(JsonLogs)),
+    test_artifact_directory:link_to_artifact_dir(test_logger:get_std_out(OutputDir, ct_executor), OutputDir),
+    test_artifact_directory:link_to_artifact_dir(test_logger:get_std_out(OutputDir, test_runner), OutputDir),
     test_artifact_directory:prepare(OutputDir).
 
 trimmed_content_file(File) ->
