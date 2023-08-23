@@ -385,6 +385,7 @@ incremental = true
 debug = true
 panic = "abort"
 opt-level = 1
+lto = "off"
 
 [profile.test]
 incremental = true
