@@ -71,6 +71,7 @@ const BAN_REPLACE_TYPES: &[(&str, &str)] = &[
     ("list", "list"),
     ("dict", "dict"),
     ("tuple", "tuple"),
+    ("range", "range"),
     ("NoneType", "None"),
     ("None", "None"),
     // TODO(nga): ban `"function"` too.
