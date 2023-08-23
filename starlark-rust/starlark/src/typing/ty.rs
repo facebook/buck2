@@ -273,11 +273,16 @@ impl Ty {
 
     /// Create a function type.
     pub fn function(params: Vec<Param>, result: Ty) -> Self {
-        Self::custom(TyCustomFunction(TyFunction {
+        Self::ty_function(TyFunction {
             type_attr: None,
             params,
             result: Box::new(result),
-        }))
+        })
+    }
+
+    /// Create a function type.
+    pub fn ty_function(f: TyFunction) -> Self {
+        Self::custom(TyCustomFunction(f))
     }
 
     /// Create a function, where the first argument is the result of `.type`.
