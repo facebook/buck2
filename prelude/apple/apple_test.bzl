@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 # @oss-disable: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "apple_test_re_capabilities") 
@@ -104,10 +105,12 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
         binary_part = AppleBundlePart(source = test_binary, destination = AppleBundleDestination("executables"), new_name = ctx.attrs.name)
         part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = [binary_part]))
 
+        bundle_parts = part_list_output.parts + _get_xctest_framework(ctx)
+
         primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, binary_part)
         swift_stdlib_args = SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path)
 
-        sub_targets = assemble_bundle(ctx, xctest_bundle, part_list_output.parts, part_list_output.info_plist_part, swift_stdlib_args)
+        sub_targets = assemble_bundle(ctx, xctest_bundle, bundle_parts, part_list_output.info_plist_part, swift_stdlib_args)
 
         sub_targets.update(cxx_library_output.sub_targets)
         (debuginfo,) = sub_targets[DEBUGINFO_SUBTARGET]
@@ -258,3 +261,15 @@ def _get_xctest_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, 
         "-F",
         xctest_framework_search_path,
     ]
+
+def _get_xctest_framework(ctx: AnalysisContext) -> list[AppleBundlePart.type]:
+    toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
+    xctest_framework_platform_relative_path = "Developer/Library/Frameworks/XCTest.framework"
+    copied_xctest_framework = ctx.actions.declare_output(paths.basename(xctest_framework_platform_relative_path))
+
+    # We have to copy because:
+    # 1) Platform path might be a string (e.g. for Xcode toolchains)
+    # 2) It's not possible to project artifact which is not produced by different target (and platform path is a separate target for distributed toolchains).
+    ctx.actions.run(["cp", "-PR", cmd_args(toolchain.platform_path, xctest_framework_platform_relative_path, delimiter = "/"), copied_xctest_framework.as_output()], category = "extract_xctest_framework")
+
+    return [AppleBundlePart(source = copied_xctest_framework, destination = AppleBundleDestination("frameworks"), codesign_on_copy = True)]
