@@ -6,5 +6,4 @@
 # of this source tree.
 
 def is_open_source() -> bool:
-    # @oss-disable: return False 
-    return True # @oss-enable
+    return read_root_config("buck2", "is_full_meta_repo", None) != "true"
