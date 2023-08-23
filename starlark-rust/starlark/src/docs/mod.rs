@@ -168,14 +168,26 @@ impl DocString {
         None
     }
 
+    fn split_summary_details(s: &str) -> Option<(&str, &str)> {
+        let mut summary_len = 0;
+        for line in s.split_inclusive('\n') {
+            if line.trim().is_empty() {
+                let details_start = summary_len + line.len();
+                return Some((s[..summary_len].trim(), &s[details_start..]));
+            } else {
+                summary_len += line.len();
+            }
+        }
+        None
+    }
+
     /// Do common work to parse a docstring (dedenting, splitting summary and details, etc)
     pub fn from_docstring(kind: DocStringKind, user_docstring: &str) -> Option<DocString> {
         let trimmed_docs = user_docstring.trim();
         if trimmed_docs.is_empty() {
             None
         } else {
-            static SPLIT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\n[ ]*\n").unwrap());
-            let split: Option<(&str, &str)> = SPLIT_RE.splitn(trimmed_docs, 2).collect_tuple();
+            let split: Option<(&str, &str)> = Self::split_summary_details(trimmed_docs);
             let (summary, details) = match split {
                 Some((summary, details)) if !summary.is_empty() && !details.is_empty() => {
                     // Dedent the details separately so that people can have the summary on the
