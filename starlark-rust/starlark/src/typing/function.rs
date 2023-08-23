@@ -69,11 +69,11 @@ pub enum ParamMode {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct Param {
     /// The type of parameter
-    pub mode: ParamMode,
+    pub(crate) mode: ParamMode,
     /// Whether the parameter have a default value or is otherwise optional
-    pub optional: bool,
+    pub(crate) optional: bool,
     /// The type of the parameter
-    pub ty: Ty,
+    pub(crate) ty: Ty,
 }
 
 impl Param {
