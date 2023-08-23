@@ -68,6 +68,6 @@ def _get_attribute_with_output(ctx: AnalysisContext, attr_name: str) -> [Depende
 def apple_get_xcode_absolute_path_prefix() -> [str, None]:
     return read_root_config("xcode", "absolute_path_prefix", None)
 
-def get_project_root_file(ctx) -> "artifact":
+def get_project_root_file(ctx) -> Artifact:
     content = cmd_args(ctx.label.project_root)
     return ctx.actions.write("project_root", content, absolute = True)

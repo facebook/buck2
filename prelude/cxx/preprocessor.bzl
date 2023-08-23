@@ -189,7 +189,7 @@ def format_system_include_arg(path: cmd_args, compiler_type: str) -> list[cmd_ar
     else:
         return [cmd_args("-isystem"), path]
 
-def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHeadersLayout.type, project_root_file: "artifact", extra_preprocessors: list[CPreprocessor.type] = []) -> CPreprocessor.type:
+def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHeadersLayout.type, project_root_file: Artifact, extra_preprocessors: list[CPreprocessor.type] = []) -> CPreprocessor.type:
     """
     This rule's preprocessor info which is both applied to the compilation of
     its source and propagated to the compilation of dependent's sources.
@@ -251,7 +251,7 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
         modular_args = modular_args,
     )
 
-def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle.type, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor.type], project_root_file: ["artifact", None]) -> CPreprocessorArgs.type:
+def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle.type, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor.type], project_root_file: [Artifact, None]) -> CPreprocessorArgs.type:
     header_root = prepare_headers(ctx, headers, "buck-headers", project_root_file)
 
     # Process args to handle the `$(cxx-header-tree)` macro.
@@ -286,7 +286,7 @@ def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Art
 def cxx_private_preprocessor_info(
         ctx: AnalysisContext,
         headers_layout: CxxHeadersLayout.type,
-        project_root_file: ["artifact", None],
+        project_root_file: [Artifact, None],
         raw_headers: list[Artifact] = [],
         extra_preprocessors: list[CPreprocessor.type] = [],
         non_exported_deps: list[Dependency] = [],
@@ -307,7 +307,7 @@ def _cxx_private_preprocessor_info(
         headers_layout: CxxHeadersLayout.type,
         raw_headers: list[Artifact],
         extra_preprocessors: list[CPreprocessor.type],
-        project_root_file: ["artifact", None]) -> CPreprocessor.type:
+        project_root_file: [Artifact, None]) -> CPreprocessor.type:
     """
     This rule's preprocessor info which is only applied to the compilation of
     its source, and not propagated to dependents.
@@ -361,7 +361,7 @@ def _cxx_private_preprocessor_info(
         uses_modules = uses_modules,
     )
 
-def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], compiler_type: str, all_raw_headers: list[Artifact], project_root_file: ["artifact", None]) -> CPreprocessorArgs.type:
+def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], compiler_type: str, all_raw_headers: list[Artifact], project_root_file: [Artifact, None]) -> CPreprocessorArgs.type:
     # Create private header tree and propagate via args.
     args = []
     file_prefix_args = []

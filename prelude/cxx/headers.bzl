@@ -169,7 +169,7 @@ def _header_mode(ctx: AnalysisContext) -> HeaderMode.type:
         return header_mode
     return get_cxx_toolchain_info(ctx).header_mode
 
-def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, project_root_file: ["artifact", None]) -> [Headers.type, None]:
+def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, project_root_file: [Artifact, None]) -> [Headers.type, None]:
     """
     Prepare all the headers we want to use, depending on the header_mode
     set on the target's toolchain.
@@ -330,7 +330,7 @@ def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> [cmd_a
     )
     return debug_prefix_args
 
-def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)], project_root_file: ["artifact", None]) -> Artifact:
+def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)], project_root_file: [Artifact, None]) -> Artifact:
     output = ctx.actions.declare_output(name + ".hmap")
     cmd = cmd_args(get_cxx_toolchain_info(ctx).mk_hmap)
     cmd.add(["--output", output.as_output()])
