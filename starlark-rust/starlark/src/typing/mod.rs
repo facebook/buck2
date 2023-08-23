@@ -46,7 +46,6 @@ mod tests;
 pub use basic::TyBasic;
 pub use function::Arg;
 pub use function::Param;
-pub use function::ParamMode;
 pub use function::TyFunction;
 pub use interface::Interface;
 pub use oracle::ctx::TypingOracleCtx;

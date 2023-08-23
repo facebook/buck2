@@ -52,7 +52,7 @@ pub enum Arg {
 
 /// The type of a parameter - can be positional, by name, `*args` or `**kwargs`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
-pub enum ParamMode {
+pub(crate) enum ParamMode {
     /// Parameter can only be passed by position.
     PosOnly,
     /// Parameter can be passed by position or name.
@@ -77,7 +77,7 @@ pub struct Param {
 }
 
 impl Param {
-    /// Create a [`ParamMode::PosOnly`] parameter.
+    /// Create a positional only parameter.
     pub fn pos_only(ty: Ty) -> Self {
         Self {
             mode: ParamMode::PosOnly,
@@ -86,7 +86,7 @@ impl Param {
         }
     }
 
-    /// Create a [`ParamMode::NameOnly`] parameter.
+    /// Create a named only parameter.
     pub fn name_only(name: &str, ty: Ty) -> Self {
         Self {
             mode: ParamMode::NameOnly(name.to_owned()),
@@ -95,7 +95,7 @@ impl Param {
         }
     }
 
-    /// Create a [`ParamMode::PosOrName`] parameter.
+    /// Create a positional or named parameter.
     pub fn pos_or_name(name: &str, ty: Ty) -> Self {
         Self {
             mode: ParamMode::PosOrName(name.to_owned()),
@@ -112,7 +112,7 @@ impl Param {
         }
     }
 
-    /// Create a [`ParamMode::Args`] parameter.
+    /// Create a `*args` parameter.
     ///
     /// `ty` is a tuple item type.
     pub fn args(ty: Ty) -> Self {
@@ -123,7 +123,7 @@ impl Param {
         }
     }
 
-    /// Create a [`ParamMode::Kwargs`] parameter.
+    /// Create a `**kwargs` parameter.
     ///
     /// `ty` is a dict value type.
     pub fn kwargs(ty: Ty) -> Self {
