@@ -26,7 +26,6 @@ use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::Slot;
-use crate::eval::compiler::scope::TopLevelStmtIndex;
 use crate::eval::compiler::Compiler;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::frame_span::FrameSpan;
@@ -144,15 +143,9 @@ impl<'v> Compiler<'v, '_, '_> {
             ));
         }
 
-        if self.last_stmt_defining_type.is_none() {
-            self.typecheck(&mut stmts)?;
-        }
-
         let mut last = Value::new_none();
-        for i in 0..stmts.len() {
-            self.populate_types_in_stmts(&mut stmts, TopLevelStmtIndex(i + 1))?;
-
-            let stmt = &mut stmts[i];
+        for stmt in stmts.iter_mut() {
+            self.populate_types_in_stmt(stmt)?;
 
             match &mut stmt.node {
                 StmtP::Load(load) => {
@@ -164,11 +157,10 @@ impl<'v> Compiler<'v, '_, '_> {
                 }
                 _ => last = self.eval_regular_top_level_stmt(stmt, local_names)?,
             }
-
-            if Some(TopLevelStmtIndex(i)) == self.last_stmt_defining_type {
-                self.typecheck(&mut stmts)?;
-            }
         }
+
+        self.typecheck(&mut stmts)?;
+
         Ok(last)
     }
 
@@ -176,8 +168,6 @@ impl<'v> Compiler<'v, '_, '_> {
         if !self.eval.static_typechecking {
             return Ok(());
         }
-
-        self.populate_types_in_stmts(stmts, TopLevelStmtIndex(stmts.len()))?;
 
         let oracle = TypingOracleCtx {
             oracle: &OracleAny,

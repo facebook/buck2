@@ -24,7 +24,6 @@ use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
-use crate::eval::compiler::scope::TopLevelStmtIndex;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::Compiler;
 use crate::eval::compiler::EvalException;
@@ -218,22 +217,10 @@ impl<'v> Compiler<'v, '_, '_> {
         Ok(())
     }
 
-    fn populate_types_in_stmt(&mut self, stmt: &mut CstStmt) -> Result<(), EvalException> {
-        stmt.visit_type_expr_err_mut(&mut |type_expr| self.populate_types_in_type_expr(type_expr))
-    }
-
-    pub(crate) fn populate_types_in_stmts(
+    pub(crate) fn populate_types_in_stmt(
         &mut self,
-        stmts: &mut [&mut CstStmt],
-        up_to: TopLevelStmtIndex,
+        stmt: &mut CstStmt,
     ) -> Result<(), EvalException> {
-        if self.last_stmt_with_populated_types >= up_to {
-            return Ok(());
-        }
-        for stmt in &mut stmts[self.last_stmt_with_populated_types.0..up_to.0] {
-            self.populate_types_in_stmt(stmt)?;
-        }
-        self.last_stmt_with_populated_types = up_to;
-        Ok(())
+        stmt.visit_type_expr_err_mut(&mut |type_expr| self.populate_types_in_type_expr(type_expr))
     }
 }

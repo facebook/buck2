@@ -18,7 +18,6 @@
 pub(crate) mod payload;
 mod tests;
 
-use std::cmp;
 use std::collections::HashMap;
 use std::iter;
 use std::marker::PhantomData;
@@ -95,8 +94,6 @@ struct ModuleScopeBuilder<'a> {
     globals: FrozenRef<'static, Globals>,
     errors: Vec<EvalException>,
     top_level_stmt_count: usize,
-    /// Index of last statement that defines a type.
-    last_stmt_defining_type: Option<TopLevelStmtIndex>,
 }
 
 pub(crate) struct ModuleScopes<'f> {
@@ -106,8 +103,6 @@ pub(crate) struct ModuleScopes<'f> {
     pub(crate) module_bindings: SmallMap<FrozenStringValue, BindingId>,
     /// Number of top-level statements in the module.
     pub(crate) top_level_stmt_count: usize,
-    /// Index of last statement that defines a type.
-    pub(crate) last_stmt_defining_type: Option<TopLevelStmtIndex>,
 }
 
 struct UnscopeBinding {
@@ -297,10 +292,9 @@ impl<'f> ModuleScopeBuilder<'f> {
             locals.insert_hashed(name.get_hashed(), binding_id);
         }
 
-        for (i, stmt) in top_level_stmts.iter_mut().enumerate() {
+        for stmt in top_level_stmts.iter_mut() {
             Stmt::collect_defines(
                 stmt,
-                TopLevelStmtIndex(i),
                 InLoop::No,
                 &mut scope_data,
                 frozen_heap,
@@ -319,11 +313,10 @@ impl<'f> ModuleScopeBuilder<'f> {
         }
 
         // Here we traverse the AST second time to collect scopes of defs
-        for (i, stmt) in top_level_stmts.iter_mut().enumerate() {
+        for stmt in top_level_stmts.iter_mut() {
             ModuleScopeBuilder::collect_defines_recursively(
                 &mut scope_data,
                 stmt,
-                TopLevelStmtIndex(i),
                 frozen_heap,
                 dialect,
                 &codemap,
@@ -340,10 +333,9 @@ impl<'f> ModuleScopeBuilder<'f> {
             globals,
             errors: Vec::new(),
             top_level_stmt_count: top_level_stmts.len(),
-            last_stmt_defining_type: None,
         };
-        for (i, stmt) in top_level_stmts.iter_mut().enumerate() {
-            scope.resolve_idents(stmt, TopLevelStmtIndex(i));
+        for stmt in top_level_stmts.iter_mut() {
+            scope.resolve_idents(stmt);
         }
         (cst, scope)
     }
@@ -409,7 +401,6 @@ impl<'f> ModuleScopes<'f> {
             dialect,
         );
         let top_level_stmt_count = scope.top_level_stmt_count;
-        let last_stmt_defining_type = scope.last_stmt_defining_type;
         let errors = mem::take(&mut scope.errors);
         let (module_slot_count, scope_data, module_bindings) = scope.exit_module();
         (
@@ -420,7 +411,6 @@ impl<'f> ModuleScopes<'f> {
                 module_bindings,
                 module_slot_count,
                 top_level_stmt_count,
-                last_stmt_defining_type,
             },
         )
     }
@@ -432,7 +422,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         scope_id: ScopeId,
         params: &mut [CstParameter],
         body: Option<&mut CstStmt>,
-        top_level_stmt_index: TopLevelStmtIndex,
+
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
         codemap: &CodeMap,
@@ -452,7 +442,7 @@ impl<'f> ModuleScopeBuilder<'f> {
             let binding_id = scope_data
                 .new_binding(
                     name,
-                    BindingSource::Source(p.span, top_level_stmt_index),
+                    BindingSource::Source(p.span),
                     Visibility::Public,
                     AssignCount::AtMostOnce,
                 )
@@ -464,7 +454,6 @@ impl<'f> ModuleScopeBuilder<'f> {
         if let Some(code) = body {
             Stmt::collect_defines(
                 code,
-                top_level_stmt_index,
                 InLoop::No,
                 scope_data,
                 frozen_heap,
@@ -482,7 +471,7 @@ impl<'f> ModuleScopeBuilder<'f> {
     fn collect_defines_recursively(
         scope_data: &mut ModuleScopeData,
         code: &mut CstStmt,
-        top_level_stmt_index: TopLevelStmtIndex,
+
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
         codemap: &CodeMap,
@@ -502,7 +491,6 @@ impl<'f> ModuleScopeBuilder<'f> {
                 *scope_id,
                 params,
                 Some(body),
-                top_level_stmt_index,
                 frozen_heap,
                 dialect,
                 codemap,
@@ -513,26 +501,20 @@ impl<'f> ModuleScopeBuilder<'f> {
             VisitMut::Expr(e) => Self::collect_defines_recursively_in_expr(
                 scope_data,
                 e,
-                top_level_stmt_index,
                 frozen_heap,
                 dialect,
                 codemap,
             ),
-            VisitMut::Stmt(s) => Self::collect_defines_recursively(
-                scope_data,
-                s,
-                top_level_stmt_index,
-                frozen_heap,
-                dialect,
-                codemap,
-            ),
+            VisitMut::Stmt(s) => {
+                Self::collect_defines_recursively(scope_data, s, frozen_heap, dialect, codemap)
+            }
         });
     }
 
     fn collect_defines_recursively_in_expr(
         scope_data: &mut ModuleScopeData,
         code: &mut CstExpr,
-        top_level_stmt_index: TopLevelStmtIndex,
+
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
         codemap: &CodeMap,
@@ -548,7 +530,6 @@ impl<'f> ModuleScopeBuilder<'f> {
                 *scope_id,
                 params,
                 None,
-                top_level_stmt_index,
                 frozen_heap,
                 dialect,
                 codemap,
@@ -556,18 +537,11 @@ impl<'f> ModuleScopeBuilder<'f> {
         }
 
         code.visit_expr_mut(|e| {
-            Self::collect_defines_recursively_in_expr(
-                scope_data,
-                e,
-                top_level_stmt_index,
-                frozen_heap,
-                dialect,
-                codemap,
-            )
+            Self::collect_defines_recursively_in_expr(scope_data, e, frozen_heap, dialect, codemap)
         });
     }
 
-    fn resolve_idents(&mut self, code: &mut CstStmt, top_level_stmt_index: TopLevelStmtIndex) {
+    fn resolve_idents(&mut self, code: &mut CstStmt) {
         match &mut code.node {
             StmtP::Def(DefP {
                 name: _,
@@ -581,28 +555,23 @@ impl<'f> ModuleScopeBuilder<'f> {
                 return_type.as_mut().map(|r| &mut **r),
                 Some(body),
                 None,
-                top_level_stmt_index,
             ),
             StmtP::Assign(AssignP { lhs, ty, rhs }) => {
-                self.resolve_idents_in_assign(lhs, top_level_stmt_index);
+                self.resolve_idents_in_assign(lhs);
                 if let Some(ty) = ty {
-                    self.resolve_idents_in_type_expr(ty, top_level_stmt_index);
+                    self.resolve_idents_in_type_expr(ty);
                 }
-                self.resolve_idents_in_expr(rhs, top_level_stmt_index);
+                self.resolve_idents_in_expr(rhs);
             }
             _ => code.visit_children_mut(|visit| match visit {
-                VisitMut::Stmt(stmt) => self.resolve_idents(stmt, top_level_stmt_index),
-                VisitMut::Expr(expr) => self.resolve_idents_in_expr(expr, top_level_stmt_index),
+                VisitMut::Stmt(stmt) => self.resolve_idents(stmt),
+                VisitMut::Expr(expr) => self.resolve_idents_in_expr(expr),
             }),
         }
     }
 
-    fn resolve_idents_in_assign(
-        &mut self,
-        assign: &mut CstAssign,
-        top_level_stmt_index: TopLevelStmtIndex,
-    ) {
-        assign.visit_expr_mut(|expr| self.resolve_idents_in_expr(expr, top_level_stmt_index));
+    fn resolve_idents_in_assign(&mut self, assign: &mut CstAssign) {
+        assign.visit_expr_mut(|expr| self.resolve_idents_in_expr(expr));
     }
 
     fn resolve_idents_in_def(
@@ -612,81 +581,57 @@ impl<'f> ModuleScopeBuilder<'f> {
         ret: Option<&mut CstTypeExpr>,
         body_stmt: Option<&mut CstStmt>,
         body_expr: Option<&mut CstExpr>,
-        top_level_stmt_index: TopLevelStmtIndex,
     ) {
         for param in params {
             let (_, ty, def) = param.split_mut();
             if let Some(ty) = ty {
-                self.resolve_idents_in_type_expr(ty, top_level_stmt_index);
+                self.resolve_idents_in_type_expr(ty);
             }
             if let Some(def) = def {
-                self.resolve_idents_in_expr(def, top_level_stmt_index);
+                self.resolve_idents_in_expr(def);
             }
         }
         if let Some(ret) = ret {
-            self.resolve_idents_in_type_expr(ret, top_level_stmt_index);
+            self.resolve_idents_in_type_expr(ret);
         }
 
         self.enter_def(scope_id);
         if let Some(body_stmt) = body_stmt {
-            self.resolve_idents(body_stmt, top_level_stmt_index);
+            self.resolve_idents(body_stmt);
         }
         if let Some(body_expr) = body_expr {
-            self.resolve_idents_in_expr(body_expr, top_level_stmt_index);
+            self.resolve_idents_in_expr(body_expr);
         }
         self.exit_def();
     }
 
-    fn resolve_idents_in_expr_impl(
-        &mut self,
-        scope: ResolveIdentScope,
-        expr: &mut CstExpr,
-        top_level_stmt_index: TopLevelStmtIndex,
-    ) {
+    fn resolve_idents_in_expr_impl(&mut self, scope: ResolveIdentScope, expr: &mut CstExpr) {
         match &mut expr.node {
             ExprP::Identifier(ident) => self.resolve_ident(scope, ident),
             ExprP::Lambda(LambdaP {
                 params,
                 body,
                 payload: scope_id,
-            }) => self.resolve_idents_in_def(
-                *scope_id,
-                params,
-                None,
-                None,
-                Some(body),
-                top_level_stmt_index,
-            ),
+            }) => self.resolve_idents_in_def(*scope_id, params, None, None, Some(body)),
             ExprP::ListComprehension(expr, first_for, clauses) => {
-                self.resolve_idents_in_compr(&mut [expr], first_for, clauses, top_level_stmt_index)
+                self.resolve_idents_in_compr(&mut [expr], first_for, clauses)
             }
             ExprP::DictComprehension(k_v, first_for, clauses) => {
                 let (k, v) = &mut **k_v;
-                self.resolve_idents_in_compr(&mut [k, v], first_for, clauses, top_level_stmt_index)
+                self.resolve_idents_in_compr(&mut [k, v], first_for, clauses)
             }
-            _ => expr.visit_expr_mut(|expr| {
-                self.resolve_idents_in_expr_impl(scope, expr, top_level_stmt_index)
-            }),
+            _ => expr.visit_expr_mut(|expr| self.resolve_idents_in_expr_impl(scope, expr)),
         }
     }
 
-    fn resolve_idents_in_expr(
-        &mut self,
-        expr: &mut CstExpr,
-        top_level_stmt_index: TopLevelStmtIndex,
-    ) {
-        self.resolve_idents_in_expr_impl(ResolveIdentScope::Any, expr, top_level_stmt_index);
+    fn resolve_idents_in_expr(&mut self, expr: &mut CstExpr) {
+        self.resolve_idents_in_expr_impl(ResolveIdentScope::Any, expr);
     }
 
-    fn resolve_idents_in_type_expr(
-        &mut self,
-        expr: &mut CstTypeExpr,
-        top_level_stmt_index: TopLevelStmtIndex,
-    ) {
+    fn resolve_idents_in_type_expr(&mut self, expr: &mut CstTypeExpr) {
         self.resolve_idents_in_expr_impl(
             ResolveIdentScope::GlobalForTypeExpression,
             &mut expr.node.expr,
-            top_level_stmt_index,
         );
     }
 
@@ -718,18 +663,6 @@ impl<'f> ModuleScopeBuilder<'f> {
         )
     }
 
-    fn update_latest_binding_used_in_type_expr(&mut self, binding_id: BindingId) {
-        let binding = self.scope_data.get_binding(binding_id);
-        let top_level_stmt_index = match binding.source {
-            BindingSource::Source(_, top_level_stmt_index) => top_level_stmt_index,
-            BindingSource::FromModule => return,
-        };
-        match &mut self.last_stmt_defining_type {
-            None => self.last_stmt_defining_type = Some(top_level_stmt_index),
-            Some(last_stmt) => *last_stmt = cmp::max(*last_stmt, top_level_stmt_index),
-        }
-    }
-
     fn resolve_ident(&mut self, scope: ResolveIdentScope, ident: &mut CstIdent) {
         assert!(ident.node.1.is_none());
         let resolved = match self.get_name(self.frozen_heap.alloc_str_intern(&ident.node.0)) {
@@ -756,9 +689,7 @@ impl<'f> ModuleScopeBuilder<'f> {
                     ));
                     return;
                 }
-                ResolvedIdent::Slot(Slot::Module(_), binding_id) => {
-                    self.update_latest_binding_used_in_type_expr(binding_id);
-                }
+                ResolvedIdent::Slot(Slot::Module(_), _) => {}
                 ResolvedIdent::Global(_) => {}
             },
         }
@@ -770,10 +701,9 @@ impl<'f> ModuleScopeBuilder<'f> {
         exprs: &mut [&mut CstExpr],
         first_for: &mut ForClauseP<CstPayload>,
         clauses: &mut [ClauseP<CstPayload>],
-        top_level_stmt_index: TopLevelStmtIndex,
     ) {
         // First for is resolved in outer scope
-        self.resolve_idents_in_for_clause(first_for, top_level_stmt_index);
+        self.resolve_idents_in_for_clause(first_for);
 
         self.enter_compr();
 
@@ -786,36 +716,29 @@ impl<'f> ModuleScopeBuilder<'f> {
                     ClauseP::If(..) => None,
                 },
             )),
-            top_level_stmt_index,
         );
 
         // Now resolve idents in compr scope
 
         for clause in clauses.iter_mut() {
             match clause {
-                ClauseP::For(for_clause) => {
-                    self.resolve_idents_in_for_clause(for_clause, top_level_stmt_index)
-                }
-                ClauseP::If(cond) => self.resolve_idents_in_expr(cond, top_level_stmt_index),
+                ClauseP::For(for_clause) => self.resolve_idents_in_for_clause(for_clause),
+                ClauseP::If(cond) => self.resolve_idents_in_expr(cond),
             }
         }
 
         // Finally, resolve the item expression
 
         for expr in exprs {
-            self.resolve_idents_in_expr(expr, top_level_stmt_index);
+            self.resolve_idents_in_expr(expr);
         }
 
         self.exit_compr();
     }
 
-    fn resolve_idents_in_for_clause(
-        &mut self,
-        for_clause: &mut ForClauseP<CstPayload>,
-        top_level_stmt_index: TopLevelStmtIndex,
-    ) {
-        self.resolve_idents_in_expr(&mut for_clause.over, top_level_stmt_index);
-        self.resolve_idents_in_assign(&mut for_clause.var, top_level_stmt_index);
+    fn resolve_idents_in_for_clause(&mut self, for_clause: &mut ForClauseP<CstPayload>) {
+        self.resolve_idents_in_expr(&mut for_clause.over);
+        self.resolve_idents_in_assign(&mut for_clause.var);
     }
 
     pub fn enter_def(&mut self, scope_id: ScopeId) {
@@ -835,17 +758,12 @@ impl<'f> ModuleScopeBuilder<'f> {
         self.unscopes.push(Unscope::default());
     }
 
-    fn add_compr<'x>(
-        &mut self,
-        var: impl IntoIterator<Item = &'x mut CstAssign>,
-        top_level_stmt_index: TopLevelStmtIndex,
-    ) {
+    fn add_compr<'x>(&mut self, var: impl IntoIterator<Item = &'x mut CstAssign>) {
         let scope_id = self.top_scope_id();
         let mut locals = SmallMap::new();
         for var in var {
             AssignTarget::collect_defines_lvalue(
                 var,
-                top_level_stmt_index,
                 InLoop::Yes,
                 &mut self.scope_data,
                 self.frozen_heap,
@@ -913,7 +831,7 @@ impl Stmt {
     // Collect all the variables that are defined in this scope
     fn collect_defines<'a>(
         stmt: &'a mut CstStmt,
-        top_level_stmt_index: TopLevelStmtIndex,
+
         in_loop: InLoop,
         scope_data: &mut ModuleScopeData,
         frozen_heap: &FrozenHeap,
@@ -924,7 +842,6 @@ impl Stmt {
             StmtP::Assign(AssignP { lhs: dest, .. }) | StmtP::AssignModify(dest, _, _) => {
                 AssignTarget::collect_defines_lvalue(
                     dest,
-                    top_level_stmt_index,
                     in_loop,
                     scope_data,
                     frozen_heap,
@@ -934,25 +851,15 @@ impl Stmt {
             StmtP::For(ForP { var, over: _, body }) => {
                 AssignTarget::collect_defines_lvalue(
                     var,
-                    top_level_stmt_index,
                     InLoop::Yes,
                     scope_data,
                     frozen_heap,
                     result,
                 );
-                StmtP::collect_defines(
-                    body,
-                    top_level_stmt_index,
-                    InLoop::Yes,
-                    scope_data,
-                    frozen_heap,
-                    result,
-                    dialect,
-                );
+                StmtP::collect_defines(body, InLoop::Yes, scope_data, frozen_heap, result, dialect);
             }
             StmtP::Def(DefP { name, .. }) => AssignIdent::collect_assign_ident(
                 name,
-                top_level_stmt_index,
                 in_loop,
                 Visibility::Public,
                 scope_data,
@@ -968,7 +875,6 @@ impl Stmt {
                     }
                     AssignIdent::collect_assign_ident(
                         name,
-                        top_level_stmt_index,
                         in_loop,
                         vis,
                         scope_data,
@@ -978,15 +884,7 @@ impl Stmt {
                 }
             }
             stmt => stmt.visit_stmt_mut(|x| {
-                Stmt::collect_defines(
-                    x,
-                    top_level_stmt_index,
-                    in_loop,
-                    scope_data,
-                    frozen_heap,
-                    result,
-                    dialect,
-                )
+                Stmt::collect_defines(x, in_loop, scope_data, frozen_heap, result, dialect)
             }),
         }
     }
@@ -995,7 +893,7 @@ impl Stmt {
 impl AssignIdent {
     fn collect_assign_ident<'a>(
         assign: &'a mut CstAssignIdent,
-        top_level_stmt_index: TopLevelStmtIndex,
+
         in_loop: InLoop,
         vis: Visibility,
         scope_data: &mut ModuleScopeData,
@@ -1006,7 +904,7 @@ impl AssignIdent {
         fn assign_ident_impl<'b>(
             name: FrozenStringValue,
             span: Span,
-            top_level_stmt_index: TopLevelStmtIndex,
+
             binding: &'b mut Option<BindingId>,
             in_loop: InLoop,
             mut vis: Visibility,
@@ -1041,7 +939,7 @@ impl AssignIdent {
                     };
                     let (new_binding_id, _) = scope_data.new_binding(
                         name,
-                        BindingSource::Source(span, top_level_stmt_index),
+                        BindingSource::Source(span),
                         vis,
                         assign_count,
                     );
@@ -1053,7 +951,6 @@ impl AssignIdent {
         assign_ident_impl(
             frozen_heap.alloc_str_intern(&assign.node.0),
             assign.span,
-            top_level_stmt_index,
             &mut assign.node.1,
             in_loop,
             vis,
@@ -1068,7 +965,7 @@ impl AssignTarget {
     // for variable etc)
     fn collect_defines_lvalue<'a>(
         expr: &'a mut CstAssign,
-        top_level_stmt_index: TopLevelStmtIndex,
+
         in_loop: InLoop,
         scope_data: &mut ModuleScopeData,
         frozen_heap: &FrozenHeap,
@@ -1077,7 +974,6 @@ impl AssignTarget {
         expr.node.visit_lvalue_mut(|x| {
             AssignIdent::collect_assign_ident(
                 x,
-                top_level_stmt_index,
                 in_loop,
                 Visibility::Public,
                 scope_data,
@@ -1115,7 +1011,7 @@ pub(crate) enum Captured {
 #[derive(Debug)]
 pub(crate) enum BindingSource {
     /// Variable is defined in the source of the module.
-    Source(Span, TopLevelStmtIndex),
+    Source(Span),
     /// Variable came from `Module`, not defined in the source file.
     FromModule,
 }
@@ -1161,7 +1057,7 @@ impl<'f> Binding<'f> {
 
     fn span(&self) -> Span {
         match self.source {
-            BindingSource::Source(span, _) => span,
+            BindingSource::Source(span) => span,
             BindingSource::FromModule => Span::default(),
         }
     }
@@ -1204,10 +1100,6 @@ impl ScopeId {
         ScopeId(0)
     }
 }
-
-/// Index of top-level statement.
-#[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq, Ord, PartialOrd)]
-pub(crate) struct TopLevelStmtIndex(pub(crate) usize);
 
 impl<'f> ModuleScopeData<'f> {
     pub(crate) fn new() -> ModuleScopeData<'f> {
