@@ -87,11 +87,11 @@ impl PreparedCommandOptionalExecutor for Arc<dyn PreparedCommandOptionalExecutor
     }
 }
 
-// When we don't want to check a command can be skipped, just use the NoOpCommandExecutor that always returns the continue case.
-pub struct NoOpCommandExecutor {}
+// When we don't want to check a command can be skipped, just use the NoOpCommandOptionalExecutor that always returns the continue case.
+pub struct NoOpCommandOptionalExecutor {}
 
 #[async_trait]
-impl PreparedCommandOptionalExecutor for NoOpCommandExecutor {
+impl PreparedCommandOptionalExecutor for NoOpCommandOptionalExecutor {
     async fn maybe_execute(
         &self,
         _command: &PreparedCommand<'_, '_>,

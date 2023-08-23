@@ -29,7 +29,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
 use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
-use buck2_execute::execute::prepared::NoOpCommandExecutor;
+use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
@@ -164,7 +164,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             return Ok(CommandExecutorResponse {
                 executor: Arc::new(local_executor_new(&LocalExecutorOptions::default())),
                 platform: Default::default(),
-                cache_checker: Arc::new(NoOpCommandExecutor {}),
+                cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 cache_uploader: Arc::new(NoOpCacheUploader {}),
             });
         }
@@ -196,7 +196,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     Some(CommandExecutorResponse {
                         executor: Arc::new(local_executor_new(local)),
                         platform: Default::default(),
-                        cache_checker: Arc::new(NoOpCommandExecutor {}),
+                        cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                         cache_uploader: Arc::new(NoOpCacheUploader {}),
                     })
                 }
@@ -223,7 +223,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
                 let cache_checker_new = || -> Arc<dyn PreparedCommandOptionalExecutor> {
                     if disable_caching {
-                        return Arc::new(NoOpCommandExecutor {}) as _;
+                        return Arc::new(NoOpCommandOptionalExecutor {}) as _;
                     }
 
                     Arc::new(ActionCacheChecker {
@@ -301,7 +301,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 };
 
                 let cache_checker = if self.paranoid.is_some() {
-                    Arc::new(NoOpCommandExecutor {}) as _
+                    Arc::new(NoOpCommandOptionalExecutor {}) as _
                 } else {
                     cache_checker_new()
                 };

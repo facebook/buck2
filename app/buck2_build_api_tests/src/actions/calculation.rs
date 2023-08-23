@@ -76,7 +76,7 @@ use buck2_execute::execute::dice_data::SetCommandExecutor;
 use buck2_execute::execute::dice_data::SetReClient;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::output::CommandStdStreams;
-use buck2_execute::execute::prepared::NoOpCommandExecutor;
+use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::execute::result::CommandExecutionReport;
@@ -189,7 +189,7 @@ async fn make_default_dice_state(
             ));
             Ok(CommandExecutorResponse {
                 executor,
-                cache_checker: Arc::new(NoOpCommandExecutor {}),
+                cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 platform: Default::default(),
                 cache_uploader: Arc::new(NoOpCacheUploader {}),
             })
