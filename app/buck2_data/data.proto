@@ -951,6 +951,9 @@ enum ActionExecutionKind {
   ACTION_EXECUTION_KIND_LOCAL_DEP_FILE = 7;
   // This action was executed locally via a worker.
   ACTION_EXECUTION_KIND_LOCAL_WORKER = 8;
+  // This action was served by a remote execution service's action cache based
+  // on a dep file based key.
+  ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE = 9;
 }
 
 // A name for a particular action, suitable for offline analytics and user
@@ -1497,6 +1500,12 @@ message WorkerCommand {
   repeated string fallback_exe = 4;
 }
 
+enum CacheHitType {
+  ACTION_CACHE = 0;
+  REMOTE_DEP_FILE_CACHE = 1;
+  EXECUTED = 2; // not a cache hit
+}
+
 // A representation of a command we executed remotely.
 message RemoteCommand {
   string action_digest = 1;
@@ -1507,6 +1516,9 @@ message RemoteCommand {
 
   // Potentially more details about this command.
   optional RemoteCommandDetails details = 4;
+
+  CacheHitType cache_hit_type = 5;
+  optional string remote_dep_file_key = 6;
 }
 
 message RemoteCommandDetails {

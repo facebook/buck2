@@ -38,8 +38,19 @@ pub fn get_last_command_execution_kind(
             LastCommandExecutionKind::LocalWorker
         }
         Some(Command::RemoteCommand(buck2_data::RemoteCommand {
-            cache_hit: true, ..
-        })) => LastCommandExecutionKind::Cached,
+            cache_hit: true,
+            cache_hit_type,
+            ..
+        })) => {
+            match buck2_data::CacheHitType::from_i32(*cache_hit_type).unwrap() {
+                // ActionCache is 0, so this should be backwards compatible
+                buck2_data::CacheHitType::ActionCache => LastCommandExecutionKind::Cached,
+                buck2_data::CacheHitType::RemoteDepFileCache => {
+                    LastCommandExecutionKind::RemoteDepFileCached
+                }
+                buck2_data::CacheHitType::Executed => LastCommandExecutionKind::Remote,
+            }
+        }
         Some(Command::RemoteCommand(buck2_data::RemoteCommand {
             cache_hit: false, ..
         })) => LastCommandExecutionKind::Remote,
