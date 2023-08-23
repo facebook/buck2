@@ -140,7 +140,8 @@ def create_compile_cmds(
         ctx: AnalysisContext,
         impl_params: "CxxRuleConstructorParams",
         own_preprocessors: list[CPreprocessor.type],
-        inherited_preprocessor_infos: list[CPreprocessorInfo.type]) -> CxxCompileCommandOutput.type:
+        inherited_preprocessor_infos: list[CPreprocessorInfo.type],
+        absolute_path_prefix: [str, None]) -> CxxCompileCommandOutput.type:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
     and optional source file flags. Returns CxxCompileCommandOutput containing an array
@@ -214,8 +215,9 @@ def create_compile_cmds(
                         dep_tracking_mode = tracking_mode,
                     )
 
-            argsfile_by_ext[ext.value] = _mk_argsfile(ctx, compiler_info, pre, ext, headers_tag, False)
-            abs_argsfile_by_ext[ext.value] = _mk_argsfile(ctx, compiler_info, pre, ext, abs_headers_tag, True)
+            argsfile_by_ext[ext.value] = _mk_argsfile(ctx, compiler_info, pre, ext, headers_tag, None)
+            if absolute_path_prefix:
+                abs_argsfile_by_ext[ext.value] = _mk_argsfile(ctx, compiler_info, pre, ext, abs_headers_tag, absolute_path_prefix)
 
             cxx_compile_cmd_by_ext[ext] = _CxxCompileCommand(
                 base_compile_cmd = base_compile_cmd,
@@ -458,7 +460,7 @@ def _mk_argsfile(
         preprocessor: CPreprocessorInfo.type,
         ext: CxxExtension.type,
         headers_tag: "artifact_tag",
-        use_absolute_paths: bool) -> CompileArgsfile.type:
+        absolute_path_prefix: [str, None]) -> CompileArgsfile.type:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
@@ -466,7 +468,7 @@ def _mk_argsfile(
 
     _add_compiler_info_flags(ctx, compiler_info, ext, args)
 
-    if use_absolute_paths:
+    if absolute_path_prefix:
         args.add(preprocessor.set.project_as_args("abs_args"))
     else:
         args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
@@ -493,15 +495,15 @@ def _mk_argsfile(
 
     # Put file_prefix_args in argsfile directly, make sure they do not appear when evaluating $(cxxppflags)
     # to avoid "argument too long" errors
-    if use_absolute_paths:
+    if absolute_path_prefix:
         args.add(cmd_args(preprocessor.set.project_as_args("abs_file_prefix_args")))
     else:
         args.add(cmd_args(preprocessor.set.project_as_args("file_prefix_args")))
 
     shell_quoted_args = cmd_args(args, quote = "shell")
 
-    file_name = ext.value + ("-abs.argsfile" if use_absolute_paths else ".argsfile")
-    argsfile, _ = ctx.actions.write(file_name, shell_quoted_args, allow_args = True, absolute = use_absolute_paths)
+    file_name = ext.value + ("-abs.argsfile" if absolute_path_prefix else ".argsfile")
+    argsfile, _ = ctx.actions.write(file_name, shell_quoted_args, allow_args = True, absolute = (absolute_path_prefix != None))
 
     input_args = [args]
 
