@@ -58,6 +58,7 @@ class Args(NamedTuple):
     buck_target: Optional[str]
     failure_filter: Optional[IO[bytes]]
     required_output: Optional[List[Tuple[str, str]]]
+    only_artifact: Optional[str]
     rustc: List[str]
 
 
@@ -119,6 +120,12 @@ def arg_parse() -> Args:
         "(and filled with a placeholder on a filtered failure)",
     )
     parser.add_argument(
+        "--only-artifact",
+        metavar="TYPE",
+        help="Terminate rustc after requested artifact type (metadata, link, etc) has been emitted. "
+        "(Assumes compiler is invoked with --error-format=json --json=artifacts)",
+    )
+    parser.add_argument(
         "rustc",
         nargs=argparse.REMAINDER,
         type=str,
@@ -132,13 +139,14 @@ async def handle_output(  # noqa: C901
     proc: asyncio.subprocess.Process,
     args: Args,
     crate_map: Dict[str, str],
-) -> bool:
+) -> Tuple[bool, bool]:
     got_error_diag = False
+    shutdown = False
 
     proc_stderr = proc.stderr
     assert proc_stderr is not None
 
-    while True:
+    while not shutdown:
         line = await proc_stderr.readline()
 
         if line is None or line == b"":
@@ -153,7 +161,12 @@ async def handle_output(  # noqa: C901
         if DEBUG:
             print(f"diag={repr(diag)}", end="\n")
 
-        if "unused_extern_names" in diag:
+        # We have to sniff the shape of diag record based on what fields it has set.
+        if "artifact" in diag and "emit" in diag:
+            if diag["emit"] == args.only_artifact:
+                shutdown = True
+            continue
+        elif "unused_extern_names" in diag:
             unused_names = diag["unused_extern_names"]
 
             # Empty unused_extern_names is just noise.
@@ -206,7 +219,7 @@ async def handle_output(  # noqa: C901
     if args.diag_txt:
         args.diag_txt.close()
 
-    return got_error_diag
+    return (got_error_diag, shutdown)
 
 
 async def main() -> int:
@@ -291,12 +304,20 @@ async def main() -> int:
             stderr=subprocess.PIPE,
             limit=1_000_000,
         )
-        got_error_diag = await handle_output(proc, args, crate_map)
-        res = await proc.wait()
+        (got_error_diag, shutdown) = await handle_output(proc, args, crate_map)
+
+        if shutdown:
+            # We got what we want so shut down early
+            proc.terminate()
+            await proc.wait()
+            res = 0
+        else:
+            res = await proc.wait()
 
     if DEBUG:
         print(
             f"res={repr(res)} "
+            f"shutdown={shutdown} "
             f"got_error_diag={got_error_diag} "
             f"args.failure_filter {args.failure_filter}",
             end="\n",
