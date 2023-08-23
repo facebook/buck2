@@ -78,6 +78,8 @@ struct RuleCallable<'v> {
     implementation: Value<'v>,
     // Field Name -> Attribute
     attributes: AttributeSpec,
+    /// Type for the typechecker.
+    ty: Ty,
     /// When specified, this transition will be applied to the target before configuring it.
     cfg: Option<Arc<TransitionId>>,
     /// The plugins that are used by these targets
@@ -173,6 +175,10 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
     fn documentation(&self) -> Option<DocItem> {
         Some(self.documentation_impl())
     }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(self.ty.clone())
+    }
 }
 
 impl<'v> Freeze for RuleCallable<'v> {
@@ -200,6 +206,7 @@ impl<'v> Freeze for RuleCallable<'v> {
             implementation: frozen_impl,
             signature,
             rule_docs,
+            ty: self.ty,
             ignore_attrs_for_profiling: self.ignore_attrs_for_profiling,
         })
     }
@@ -214,6 +221,7 @@ pub struct FrozenRuleCallable {
     implementation: FrozenValue,
     signature: ParametersSpec<FrozenValue>,
     rule_docs: DocItem,
+    ty: Ty,
     ignore_attrs_for_profiling: bool,
 }
 starlark_simple_value!(FrozenRuleCallable);
@@ -279,6 +287,10 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
     fn documentation(&self) -> Option<DocItem> {
         Some(self.rule_docs.clone())
     }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(self.ty.clone())
+    }
 }
 
 #[starlark_module]
@@ -342,11 +354,14 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             (true, true) => return Err(RuleError::IsConfigurationAndToolchain.into()),
         };
 
+        let attributes = AttributeSpec::from(sorted_validated_attrs)?;
+        let ty = Ty::ty_function(attributes.ty_function());
         Ok(RuleCallable {
             import_path: bzl_path,
             id: RefCell::new(None),
             implementation,
-            attributes: AttributeSpec::from(sorted_validated_attrs)?,
+            attributes,
+            ty,
             cfg,
             rule_kind,
             uses_plugins,
