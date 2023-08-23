@@ -348,6 +348,7 @@ impl RageCommand {
             re_logs_command
         );
         let sections = vec![
+            build_info.to_string(),
             system_info.to_string(),
             daemon_stderr_dump.to_string(),
             hg_snapshot_id.to_string(),
@@ -355,7 +356,6 @@ impl RageCommand {
             materializer_state.to_string(),
             materializer_fsck.to_string(),
             thread_dump.to_string(),
-            build_info.to_string(),
             event_log_dump.to_string(),
             re_logs.to_string(),
         ];
