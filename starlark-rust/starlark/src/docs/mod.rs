@@ -181,6 +181,19 @@ impl DocString {
         None
     }
 
+    // Remove any newlines (and surrounding whitespace) in the summary, and
+    // replace them with a single space.
+    fn normalize_summary(summary: &str) -> String {
+        let mut res = String::with_capacity(summary.len());
+        for line in summary.lines() {
+            if !res.is_empty() {
+                res.push(' ');
+            }
+            res.push_str(line.trim());
+        }
+        res
+    }
+
     /// Do common work to parse a docstring (dedenting, splitting summary and details, etc)
     pub fn from_docstring(kind: DocStringKind, user_docstring: &str) -> Option<DocString> {
         let trimmed_docs = user_docstring.trim();
@@ -204,11 +217,7 @@ impl DocString {
                 _ => (trimmed_docs, None),
             };
 
-            // Remove any newlines (and surrounding whitespace) in the summary, and
-            // replace them with a single space.
-            static NEWLINES_RE: Lazy<Regex> =
-                Lazy::new(|| Regex::new(r"(\S)\s*\n\s*(\S)").unwrap());
-            let summary = NEWLINES_RE.replace_all(summary, r"$1 $2").to_string();
+            let summary = Self::normalize_summary(summary);
 
             Some(DocString { summary, details })
         }
