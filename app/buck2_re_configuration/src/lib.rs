@@ -42,6 +42,7 @@ mod fbcode {
         pub use_p2p: bool,
 
         pub cas_thread_count: i32,
+        pub cas_thread_count_ratio: f32,
 
         pub rich_client_channels_per_blob: Option<i32>,
         pub rich_client_attempt_timeout_ms: Option<i32>,
@@ -82,6 +83,9 @@ mod fbcode {
                 cas_thread_count: legacy_config
                     .parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_thread_count")?
                     .unwrap_or(4),
+                cas_thread_count_ratio: legacy_config
+                    .parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_thread_count_ratio")?
+                    .unwrap_or(0.0),
                 use_manifold_rich_client: legacy_config
                     .parse(BUCK2_RE_CLIENT_CFG_SECTION, "use_manifold_rich_client_new")?
                     .unwrap_or(true),

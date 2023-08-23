@@ -523,8 +523,13 @@ impl RemoteExecutionClientImpl {
                         .to_owned(),
                 );
 
-                embedded_cas_daemon_config.thread_count =
-                    ThreadConfig::fixed_thread_count(static_metadata.cas_thread_count);
+                if static_metadata.cas_thread_count_ratio == 0.0 {
+                    embedded_cas_daemon_config.thread_count =
+                        ThreadConfig::fixed_thread_count(static_metadata.cas_thread_count);
+                } else {
+                    embedded_cas_daemon_config.thread_count =
+                        ThreadConfig::thread_count_ratio(static_metadata.cas_thread_count_ratio);
+                }
 
                 // make sure that outputs are writable
                 // otherwise actions that are modifying outputs will fail due to a permission error
