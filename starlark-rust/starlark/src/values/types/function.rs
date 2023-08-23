@@ -294,7 +294,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
             .map(|raw_docs| DocItem::Function(raw_docs.documentation()))
     }
 
-    fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
+    fn typechecker_ty(&self) -> Option<Ty> {
         self.ty.clone()
     }
 

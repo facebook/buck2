@@ -304,8 +304,7 @@ pub trait StarlarkValue<'v>:
 
     /// Type of this instance for typechecker.
     /// Note this can be more precise than generic type.
-    #[doc(hidden)]
-    fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
+    fn typechecker_ty(&self) -> Option<Ty> {
         None
     }
 

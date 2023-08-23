@@ -318,7 +318,7 @@ impl<'v> AValueDyn<'v> {
     }
 
     pub(crate) fn typechecker_ty(self) -> Option<Ty> {
-        (self.vtable.starlark_value.typechecker_ty)(self.value, Private)
+        (self.vtable.starlark_value.typechecker_ty)(self.value)
     }
 
     pub(crate) fn eval_type(self) -> Option<Ty> {

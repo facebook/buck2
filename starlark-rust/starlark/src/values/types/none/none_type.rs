@@ -98,7 +98,7 @@ impl<'v> StarlarkValue<'v> for NoneType {
         Ty::none()
     }
 
-    fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
+    fn typechecker_ty(&self) -> Option<Ty> {
         Some(Ty::none())
     }
 

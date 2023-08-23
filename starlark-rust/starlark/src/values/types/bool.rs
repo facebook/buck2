@@ -152,7 +152,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBool {
         }
     }
 
-    fn typechecker_ty(&self, _private: Private) -> Option<Ty> {
+    fn typechecker_ty(&self) -> Option<Ty> {
         Some(Ty::bool())
     }
 
