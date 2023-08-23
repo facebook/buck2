@@ -22,6 +22,7 @@ def apple_bundle_config() -> dict[str, typing.Any]:
         # `apple.fast_adhoc_signing_enabled=false` in a global buckconfig file.
         "_fast_adhoc_signing_enabled": _maybe_get_bool("fast_adhoc_signing_enabled", True),
         "_incremental_bundling_enabled": _maybe_get_bool("incremental_bundling_enabled", True),
+        "_info_plist_identify_build_system_default": _maybe_get_bool("info_plist_identify_build_system", True),
         "_profile_bundling_enabled": _maybe_get_bool("profile_bundling_enabled", False),
         "_use_entitlements_when_adhoc_code_signing": _maybe_get_bool("use_entitlements_when_adhoc_code_signing", None),
     }
