@@ -5,5 +5,5 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def is_open_source() -> bool:
-    return read_root_config("buck2", "is_full_meta_repo", None) != "true"
+def is_full_meta_repo() -> bool:
+    return read_root_config("buck2", "is_full_meta_repo", None) == "true"

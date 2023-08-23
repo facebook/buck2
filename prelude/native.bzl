@@ -26,7 +26,7 @@ load("@prelude//rust:with_workspace.bzl", "with_rust_workspace")
 load("@prelude//user:all.bzl", _user_rules = "rules")
 load("@prelude//utils:selects.bzl", "selects")
 load("@prelude//utils:utils.bzl", "expect")
-load(":open_source.bzl", "is_open_source")
+load(":is_full_meta_repo.bzl", "is_full_meta_repo")
 load(":paths.bzl", "paths")
 load(":rules.bzl", __rules__ = "rules")
 
@@ -352,7 +352,7 @@ def _swift_toolchain_macro_stub(**kwargs):
 def _cxx_toolchain_macro_stub(inherit_target_platform = False, **kwargs):
     if inherit_target_platform:
         rule = cxx_toolchain_inheriting_target_platform
-        if not is_open_source():
+        if is_full_meta_repo():
             cache_links = kwargs.get("cache_links")
             kwargs["cache_links"] = select({
                 "DEFAULT": cache_links,

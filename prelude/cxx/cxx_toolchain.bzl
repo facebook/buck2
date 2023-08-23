@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:open_source.bzl", "is_open_source")
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "PicBehavior", "ShlibInterfacesMode", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
@@ -214,7 +214,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
                 "ovr_config//cpu:x86_32": "fbsource//arvr/third-party/toolchains/visual_studio:14.28.29910-cl_32_and_tools",
                 "ovr_config//cpu:x86_64": "fbsource//arvr/third-party/toolchains/visual_studio:14.28.29910-cl_64_and_tools",
             }),
-        }) if not is_open_source() else None)),
+        }) if is_full_meta_repo() else None)),
         "_mk_comp_db": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_mk_hmap": attrs.default_only(dep_type(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper")),
