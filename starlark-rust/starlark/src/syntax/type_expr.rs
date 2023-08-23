@@ -76,6 +76,14 @@ const BAN_REPLACE_TYPES: &[(&str, &str)] = &[
     ("None", "None"),
     // TODO(nga): ban `"function"` too.
     // ("function", "typing.Callable"),
+
+    // Following do not belong to starlark, but this code will go away
+    // after we finish migration from string-based types.
+    ("actions", "AnalysisActions"),
+    ("context", "AnalysisContext"),
+    ("artifact", "Artifact"),
+    ("dependency", "Dependency"),
+    ("provider", "Provider"),
 ];
 
 impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
