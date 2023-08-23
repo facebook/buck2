@@ -52,7 +52,7 @@ use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::future::LocalBoxFuture;
 use manifold::file_to_manifold;
-use manifold::manifold_url;
+use manifold::manifold_leads;
 use maplit::convert_args;
 use maplit::hashmap;
 use serde::Serialize;
@@ -510,7 +510,7 @@ async fn upload_re_logs_impl(
     upload_re_logs::upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename)
         .await?;
 
-    Ok(manifold_url(&bucket, filename))
+    Ok(manifold_leads(&bucket, filename))
 }
 
 async fn dispatch_result_event(
