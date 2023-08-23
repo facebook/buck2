@@ -47,6 +47,7 @@ use crate::collections::StarlarkHasher;
 use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
+use crate::typing::Ty;
 use crate::values::index::apply_slice;
 use crate::values::string::repr::string_repr;
 use crate::values::types::none::NoneOr;
@@ -379,6 +380,10 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
 
     fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(interpolation::percent(self, other)?))
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::starlark_value::<Self>())
     }
 }
 

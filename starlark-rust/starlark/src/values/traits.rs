@@ -305,6 +305,8 @@ pub trait StarlarkValue<'v>:
     /// Type of this instance for typechecker.
     /// Note this can be more precise than generic type.
     fn typechecker_ty(&self) -> Option<Ty> {
+        // TODO(nga): replace with `Self::get_type_starlark_repr()`
+        //   when it gets implemented properly.
         None
     }
 
