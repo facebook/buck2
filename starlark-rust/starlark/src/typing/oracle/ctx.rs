@@ -424,46 +424,44 @@ impl<'a> TypingOracleCtx<'a> {
         array: &TyBasic,
         index: Spanned<&TyBasic>,
     ) -> Result<Ty, TypingOrInternalError> {
-        if let TyBasic::Tuple(tuple) = array {
-            if !self.intersects_basic(index.node, &TyBasic::int()) {
-                return Err(self.mk_error_as_maybe_internal(
-                    span,
-                    TypingOracleCtxError::IndexOperatorWrongArg {
-                        array: Ty::basic(array.clone()),
-                        index: Ty::basic(index.node.clone()),
-                    },
-                ));
-            }
-            return Ok(tuple.item_ty());
-        }
-
-        if let TyBasic::StarlarkValue(array) = array {
-            match array.index(index.node) {
-                Ok(x) => return Ok(x),
-                Err(()) => {
+        match array {
+            TyBasic::Tuple(tuple) => {
+                if !self.intersects_basic(index.node, &TyBasic::int()) {
                     return Err(self.mk_error_as_maybe_internal(
                         span,
-                        TypingOracleCtxError::MissingIndexOperator {
-                            ty: Ty::basic(TyBasic::StarlarkValue(*array)),
+                        TypingOracleCtxError::IndexOperatorWrongArg {
+                            array: Ty::basic(array.clone()),
+                            index: Ty::basic(index.node.clone()),
                         },
                     ));
                 }
+                Ok(tuple.item_ty())
             }
-        }
-
-        let f = match self.attribute(array, TypingAttr::Index) {
-            None => return Ok(Ty::any()),
-            Some(Ok(x)) => x,
-            Some(Err(())) => {
-                return Err(self.mk_error_as_maybe_internal(
+            TyBasic::StarlarkValue(array) => match array.index(index.node) {
+                Ok(x) => Ok(x),
+                Err(()) => Err(self.mk_error_as_maybe_internal(
                     span,
                     TypingOracleCtxError::MissingIndexOperator {
-                        ty: Ty::basic(array.clone()),
+                        ty: Ty::basic(TyBasic::StarlarkValue(*array)),
                     },
-                ));
+                )),
+            },
+            array => {
+                let f = match self.attribute(array, TypingAttr::Index) {
+                    None => return Ok(Ty::any()),
+                    Some(Ok(x)) => x,
+                    Some(Err(())) => {
+                        return Err(self.mk_error_as_maybe_internal(
+                            span,
+                            TypingOracleCtxError::MissingIndexOperator {
+                                ty: Ty::basic(array.clone()),
+                            },
+                        ));
+                    }
+                };
+                self.validate_call(span, &f, &[index.map(|i| Arg::Pos(Ty::basic(i.clone())))])
             }
-        };
-        self.validate_call(span, &f, &[index.map(|i| Arg::Pos(Ty::basic(i.clone())))])
+        }
     }
 
     pub(crate) fn expr_index(
