@@ -8,8 +8,6 @@
 
 set -e
 
-# - Apply a debug prefix map for the current directory
-# to make debug info relocatable.
 # - Use $TMPDIR for the module cache location. This
 # will be set to a unique location for each RE action
 # which will avoid sharing modules across RE actions.
@@ -31,4 +29,9 @@ if [ -z "$EXPLICIT_MODULES_ENABLED" ]; then
     module_cache_path_args+=("$MODULE_CACHE_PATH")
 fi
 
+# - Apply a debug prefix map for the current directory
+# to make debug info relocatable. To correctly make paths
+# relocatable, we must use that path at which the action
+# is run (be it locally or on RE) and this is not known
+# at the time of action definition.
 exec "$@" -debug-prefix-map "$PWD"=. "${module_cache_path_args[@]}"

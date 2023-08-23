@@ -397,8 +397,7 @@ def _get_shared_flags(
     cmd = cmd_args()
     cmd.add([
         # This allows us to use a relative path for the compiler resource directory.
-        "-working-directory",
-        ".",
+        "-working-directory=",
         "-sdk",
         toolchain.sdk_path,
         "-target",
@@ -412,6 +411,8 @@ def _get_shared_flags(
         "-no-clang-module-breadcrumbs",
         "-Xfrontend",
         "-enable-cross-import-overlays",
+        # We set a -debug-prefix-map in the swift execution wrapper, in order to
+        # capture the working directory in which the action is executed.
     ])
 
     if parse_as_library:
