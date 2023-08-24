@@ -210,6 +210,7 @@ pub trait TargetSetExt {
         self.attrfilter(attribute, &filter)
     }
 
+    /// Filter targets by fully qualified name using regex partial match.
     fn filter_name(&self, regex: &str) -> anyhow::Result<TargetSet<Self::T>> {
         let re = Regex::new(regex)?;
         self.filter(|node| Ok(re.is_match(&node.node_ref().to_string())?))
