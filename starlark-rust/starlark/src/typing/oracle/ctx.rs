@@ -85,7 +85,8 @@ pub struct TypingOracleCtx<'a> {
 }
 
 impl<'a> TypingOracleCtx<'a> {
-    pub(crate) fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+    pub(crate) fn attribute_index(&self, ty: &TyBasic) -> Option<Result<Ty, ()>> {
+        let attr = TypingAttr::Index;
         Some(Ok(match ty {
             TyBasic::Tuple(tuple) => match attr {
                 TypingAttr::BinOp(TypingBinOp::In) => {
@@ -441,7 +442,7 @@ impl<'a> TypingOracleCtx<'a> {
                 )),
             },
             array => {
-                let f = match self.attribute(array, TypingAttr::Index) {
+                let f = match self.attribute_index(array) {
                     None => return Ok(Ty::any()),
                     Some(Ok(x)) => x,
                     Some(Err(())) => {
