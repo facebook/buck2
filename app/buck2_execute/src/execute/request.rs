@@ -34,6 +34,7 @@ use sorted_vector_map::SortedVectorMap;
 use starlark_map::sorted_set::SortedSet;
 use thiserror::Error;
 
+use super::dep_file_digest::DepFileDigest;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use crate::digest_config::DigestConfig;
 use crate::directory::insert_entry;
@@ -292,6 +293,9 @@ pub struct CommandExecutionRequest {
     /// Whether the executor should guarantee that the inodes for all inputs are unique (i.e. avoid
     /// hardlinking identical input files, for example)
     unique_input_inodes: bool,
+    /// Remote dep file key, if the action has a dep file.
+    /// If this key is set and remote dep file caching is enabled, it will be used to query the cache.
+    pub remote_dep_file_key: Option<DepFileDigest>,
 }
 
 impl CommandExecutionRequest {
@@ -319,6 +323,7 @@ impl CommandExecutionRequest {
             required_local_resources: SortedSet::new(),
             worker: None,
             unique_input_inodes: false,
+            remote_dep_file_key: None,
         }
     }
 
@@ -362,6 +367,15 @@ impl CommandExecutionRequest {
     pub fn with_outputs_cleanup(mut self, outputs_cleanup: bool) -> Self {
         self.outputs_cleanup = outputs_cleanup;
         self
+    }
+
+    pub fn with_remote_dep_file_key(mut self, remote_dep_file_key: &DepFileDigest) -> Self {
+        self.remote_dep_file_key = Some(remote_dep_file_key.dupe());
+        self
+    }
+
+    pub fn remote_dep_file_key(&self) -> &Option<DepFileDigest> {
+        &self.remote_dep_file_key
     }
 
     pub fn prefetch_lossy_stderr(&self) -> bool {

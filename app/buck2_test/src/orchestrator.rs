@@ -598,6 +598,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             did_dep_file_cache_upload: _,
             dep_file_key: _,
             eligible_for_full_hybrid: _,
+            dep_file_metadata: _,
         } = match metadata {
             DisplayMetadata::Listing(listing) => {
                 let start = TestDiscoveryStart {
@@ -1047,6 +1048,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             did_dep_file_cache_upload: _,
             dep_file_key: _,
             eligible_for_full_hybrid: _,
+            dep_file_metadata: _,
         } = execution_result;
 
         let std_streams = std_streams

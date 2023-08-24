@@ -433,6 +433,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             did_dep_file_cache_upload,
             dep_file_key,
             eligible_for_full_hybrid,
+            dep_file_metadata: _,
         } = result;
         // TODO (@torozco): The execution kind should be made to come via the command reports too.
         let res = match &report.status {

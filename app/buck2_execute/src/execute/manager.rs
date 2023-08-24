@@ -116,6 +116,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
             did_dep_file_cache_upload: false,
             dep_file_key: None,
             eligible_for_full_hybrid: false,
+            dep_file_metadata: None,
         }
     }
 }
@@ -180,6 +181,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
             did_dep_file_cache_upload: false,
             dep_file_key: None,
             eligible_for_full_hybrid: false,
+            dep_file_metadata: None,
         }
     }
 }
