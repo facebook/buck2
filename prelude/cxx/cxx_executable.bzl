@@ -25,7 +25,6 @@ load(
 )
 load(
     "@prelude//apple:xcode.bzl",
-    "apple_get_xcode_absolute_path_prefix",
     "get_project_root_file",
 )
 load(
@@ -171,7 +170,6 @@ CxxExecutableOutput = record(
 )
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool = False) -> CxxExecutableOutput.type:
-    absolute_path_prefix = apple_get_xcode_absolute_path_prefix()
     project_root_file = get_project_root_file(ctx)
 
     # Gather preprocessor inputs.
@@ -198,13 +196,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
         impl_params,
         [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,
-        absolute_path_prefix,
     )
     cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_style != LinkStyle("static"))
 
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, "argsfiles")]
-    if absolute_path_prefix:
-        sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.absolute, "abs-argsfiles")]
+    sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.absolute, "abs-argsfiles")]
     sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = cxx_objects_sub_targets(cxx_outs))]
 
     # Compilation DB.
@@ -477,7 +473,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams.t
         output = binary.output,
         populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
         srcs = impl_params.srcs + impl_params.additional.srcs,
-        argsfiles = compile_cmd_output.argsfiles.absolute if absolute_path_prefix else compile_cmd_output.argsfiles.relative,
+        argsfiles = compile_cmd_output.argsfiles.absolute,
         product_name = get_cxx_executable_product_name(ctx),
     )
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info

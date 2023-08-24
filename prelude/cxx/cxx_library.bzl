@@ -28,7 +28,6 @@ load(
 )
 load(
     "@prelude//apple:xcode.bzl",
-    "apple_get_xcode_absolute_path_prefix",
     "get_project_root_file",
 )
 load(
@@ -310,7 +309,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
 
     # TODO(T110378095) right now we implement reexport of exported_* flags manually, we should improve/automate that in the macro layer
 
-    absolute_path_prefix = apple_get_xcode_absolute_path_prefix()
     project_root_file = get_project_root_file(ctx)
 
     # Gather preprocessor inputs.
@@ -338,7 +336,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
         own_preprocessors = own_preprocessors,
         inherited_non_exported_preprocessor_infos = inherited_non_exported_preprocessor_infos,
         inherited_exported_preprocessor_infos = inherited_exported_preprocessor_infos,
-        absolute_path_prefix = absolute_path_prefix,
         preferred_linkage = preferred_linkage,
     )
 
@@ -355,8 +352,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
 
     if impl_params.generate_sub_targets.argsfiles:
         sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compiled_srcs.compile_cmds.argsfiles.relative, "argsfiles")]
-        if absolute_path_prefix:
-            sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compiled_srcs.compile_cmds.argsfiles.absolute, "abs-argsfiles")]
+        sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compiled_srcs.compile_cmds.argsfiles.absolute, "abs-argsfiles")]
 
     if impl_params.generate_sub_targets.clang_remarks:
         if compiled_srcs.non_pic and compiled_srcs.non_pic.clang_remarks:
@@ -533,7 +529,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: "CxxRuleConstru
             output = default_output.default if default_output else None,
             populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
             srcs = impl_params.srcs + impl_params.additional.srcs,
-            argsfiles = compiled_srcs.compile_cmds.argsfiles.absolute if absolute_path_prefix else compiled_srcs.compile_cmds.argsfiles.relative,
+            argsfiles = compiled_srcs.compile_cmds.argsfiles.absolute,
             product_name = get_default_cxx_library_product_name(ctx, impl_params),
         )
         sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
@@ -840,7 +836,6 @@ def cxx_compile_srcs(
         own_preprocessors: list[CPreprocessor.type],
         inherited_non_exported_preprocessor_infos: list[CPreprocessorInfo.type],
         inherited_exported_preprocessor_infos: list[CPreprocessorInfo.type],
-        absolute_path_prefix: [str, None],
         preferred_linkage: Linkage.type) -> _CxxCompiledSourcesOutput.type:
     """
     Compile objects we'll need for archives and shared libraries.
@@ -852,7 +847,6 @@ def cxx_compile_srcs(
         impl_params = impl_params,
         own_preprocessors = own_preprocessors,
         inherited_preprocessor_infos = inherited_non_exported_preprocessor_infos + inherited_exported_preprocessor_infos,
-        absolute_path_prefix = absolute_path_prefix,
     )
 
     # Define object files.
