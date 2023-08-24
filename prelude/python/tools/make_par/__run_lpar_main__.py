@@ -36,17 +36,20 @@ def __invoke_main():
     sys.argv[0] = os.getenv("FB_LPAR_INVOKED_NAME")
     del sys.path[0]
 
-    del os
-    del sys
-
     if main_function:
         assert module
         from importlib import import_module
 
         mod = import_module(module)
         main = getattr(mod, main_function)
+        # This is normally done by `runpy._run_module_as_main`, and is
+        # important to make multiprocessing work
+        sys.modules["__main__"] = mod
         main()
         return
+
+    del os
+    del sys
 
     # pyre-fixme[16]: Module `runpy` has no attribute `_run_module_as_main`.
     runpy._run_module_as_main(module, False)

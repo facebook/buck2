@@ -43,6 +43,9 @@ def __run():
     from importlib import import_module
     mod = import_module(mod_name)
     main = getattr(mod, fn_name)
+    # This is normally done by `runpy._run_module_as_main`, and is
+    # important to make multiprocessing work
+    sys.modules["__main__"] = mod
     main()
 
 
