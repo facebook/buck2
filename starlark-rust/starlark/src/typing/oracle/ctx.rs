@@ -84,8 +84,8 @@ pub struct TypingOracleCtx<'a> {
     pub(crate) typecheck_mode: TypecheckMode,
 }
 
-impl<'a> TypingOracle for TypingOracleCtx<'a> {
-    fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
+impl<'a> TypingOracleCtx<'a> {
+    pub(crate) fn attribute(&self, ty: &TyBasic, attr: TypingAttr) -> Option<Result<Ty, ()>> {
         Some(Ok(match ty {
             TyBasic::Tuple(tuple) => match attr {
                 TypingAttr::BinOp(TypingBinOp::In) => {
@@ -106,11 +106,7 @@ impl<'a> TypingOracle for TypingOracleCtx<'a> {
         }))
     }
 
-    fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
-        self.oracle.as_function(ty)
-    }
-
-    fn subtype(&self, require: &TyName, got: &TyName) -> bool {
+    pub(crate) fn subtype(&self, require: &TyName, got: &TyName) -> bool {
         match self.typecheck_mode {
             TypecheckMode::Lint => self.oracle.subtype(require, got),
             TypecheckMode::Compiler => {
@@ -121,9 +117,7 @@ impl<'a> TypingOracle for TypingOracleCtx<'a> {
             }
         }
     }
-}
 
-impl<'a> TypingOracleCtx<'a> {
     pub(crate) fn mk_error(&self, span: Span, err: impl Into<anyhow::Error>) -> TypingError {
         TypingError::new(err.into(), span, self.codemap)
     }
