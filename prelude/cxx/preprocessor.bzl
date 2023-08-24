@@ -101,6 +101,12 @@ def _cpreprocessor_include_dirs(pres: list[CPreprocessor.type]):
         for d in pre.include_dirs:
             args.add(cmd_args(d, format = "-I{}"))
         if pre.system_include_dirs != None:
+            if pre.system_include_dirs.compiler_type == "windows":
+                # cl issues the following warning without this flag:
+                # Command line warning D9007 : '/external:I' requires '/external:W'; option ignored
+                # /external:I is added by format_system_include_arg when the compiler_type is
+                # windows.
+                args.add("/external:W1")
             for d in pre.system_include_dirs.include_dirs:
                 system_include_args = format_system_include_arg(cmd_args(d), pre.system_include_dirs.compiler_type)
                 args.add(system_include_args)
