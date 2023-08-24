@@ -69,7 +69,7 @@ pub mod session_info;
 pub mod test;
 pub mod timed_list;
 
-const SUPERCONSOLE_WIDTH: usize = 150;
+const SUPERCONSOLE_WIDTH: usize = 300;
 
 pub const CUTOFFS: Cutoffs = Cutoffs {
     inform: Duration::from_secs(4),
