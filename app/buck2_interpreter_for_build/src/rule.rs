@@ -125,6 +125,68 @@ impl<'v> AllocValue<'v> for RuleCallable<'v> {
 }
 
 impl<'v> RuleCallable<'v> {
+    fn new(
+        implementation: Value<'v>,
+        attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
+        cfg: Option<Value>,
+        doc: &str,
+        is_configuration_rule: bool,
+        is_toolchain_rule: bool,
+        uses_plugins: Vec<Value<'v>>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<RuleCallable<'v>> {
+        // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
+        // TODO(nmj): Verify that names are valid. This is technically handled by the Params
+        //                 objects, but will blow up in a friendlier way here.
+
+        let build_context = BuildContext::from_context(eval)?;
+        let bzl_path: ImportPath = match &build_context.additional {
+            PerFileTypeContext::Bzl(bzl_path) => bzl_path.bzl_path.clone(),
+            _ => return Err(RuleError::RuleNonInBzl.into()),
+        };
+        let sorted_validated_attrs = attrs
+            .to_dict()
+            .into_iter()
+            .sorted_by(|(k1, _), (k2, _)| Ord::cmp(k1, k2))
+            .map(|(name, value)| {
+                if name == NAME_ATTRIBUTE_FIELD {
+                    Err(RuleError::InvalidParameterName(NAME_ATTRIBUTE_FIELD.to_owned()).into())
+                } else {
+                    Ok((name.to_owned(), value.clone_attribute()))
+                }
+            })
+            .collect::<anyhow::Result<Vec<(String, Attribute)>>>()?;
+
+        let cfg = cfg.try_map(transition_id_from_value)?;
+        let uses_plugins = uses_plugins
+            .into_iter()
+            .map(plugin_kind_from_value)
+            .collect::<anyhow::Result<_>>()?;
+
+        let rule_kind = match (is_configuration_rule, is_toolchain_rule) {
+            (false, false) => RuleKind::Normal,
+            (true, false) => RuleKind::Configuration,
+            (false, true) => RuleKind::Toolchain,
+            (true, true) => return Err(RuleError::IsConfigurationAndToolchain.into()),
+        };
+
+        let attributes = AttributeSpec::from(sorted_validated_attrs)?;
+        let ty = Ty::ty_function(attributes.ty_function());
+
+        Ok(RuleCallable {
+            import_path: bzl_path,
+            id: RefCell::new(None),
+            implementation,
+            attributes,
+            ty,
+            cfg,
+            rule_kind,
+            uses_plugins,
+            docs: Some(doc.to_owned()),
+            ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
+        })
+    }
+
     fn documentation_impl(&self) -> DocItem {
         let name = self
             .id
@@ -317,56 +379,15 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = Vec::new())] uses_plugins: Vec<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {
-        // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
-        // TODO(nmj): Verify that names are valid. This is technically handled by the Params
-        //                 objects, but will blow up in a friendlier way here.
-
-        let implementation = r#impl;
-
-        let build_context = BuildContext::from_context(eval)?;
-        let bzl_path: ImportPath = match &build_context.additional {
-            PerFileTypeContext::Bzl(bzl_path) => bzl_path.bzl_path.clone(),
-            _ => return Err(RuleError::RuleNonInBzl.into()),
-        };
-        let sorted_validated_attrs = attrs
-            .to_dict()
-            .into_iter()
-            .sorted_by(|(k1, _), (k2, _)| Ord::cmp(k1, k2))
-            .map(|(name, value)| {
-                if name == NAME_ATTRIBUTE_FIELD {
-                    Err(RuleError::InvalidParameterName(NAME_ATTRIBUTE_FIELD.to_owned()).into())
-                } else {
-                    Ok((name.to_owned(), value.clone_attribute()))
-                }
-            })
-            .collect::<anyhow::Result<Vec<(String, Attribute)>>>()?;
-
-        let cfg = cfg.try_map(transition_id_from_value)?;
-        let uses_plugins = uses_plugins
-            .into_iter()
-            .map(plugin_kind_from_value)
-            .collect::<anyhow::Result<_>>()?;
-
-        let rule_kind = match (is_configuration_rule, is_toolchain_rule) {
-            (false, false) => RuleKind::Normal,
-            (true, false) => RuleKind::Configuration,
-            (false, true) => RuleKind::Toolchain,
-            (true, true) => return Err(RuleError::IsConfigurationAndToolchain.into()),
-        };
-
-        let attributes = AttributeSpec::from(sorted_validated_attrs)?;
-        let ty = Ty::ty_function(attributes.ty_function());
-        Ok(RuleCallable {
-            import_path: bzl_path,
-            id: RefCell::new(None),
-            implementation,
-            attributes,
-            ty,
+        RuleCallable::new(
+            r#impl,
+            attrs,
             cfg,
-            rule_kind,
+            doc,
+            is_configuration_rule,
+            is_toolchain_rule,
             uses_plugins,
-            docs: Some(doc.to_owned()),
-            ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
-        })
+            eval,
+        )
     }
 }
