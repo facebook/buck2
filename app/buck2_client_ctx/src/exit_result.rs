@@ -322,7 +322,7 @@ fn execv(args: ExecArgs) -> anyhow::Result<ExitResult> {
                 )
             })?;
         let code = status.code().unwrap_or(1);
-        return Ok(ExitResult::status(code.try_into().unwrap_or(1)));
+        Ok(ExitResult::status(code.try_into().unwrap_or(1)))
     } else {
         let argv_cstrs: Vec<CString> = args.argv.try_map(|s| CString::new(s.clone()))?;
         let mut argv_ptrs: Vec<_> = argv_cstrs.map(|cstr| cstr.as_ptr());
@@ -332,8 +332,8 @@ fn execv(args: ExecArgs) -> anyhow::Result<ExitResult> {
         unsafe {
             libc::execvp(prog_cstr.as_ptr(), argv_ptrs.as_ptr());
         }
-    }
 
-    // `execv` never returns on success; on failure, it sets errno.
-    Err(std::io::Error::last_os_error().into())
+        // `execv` never returns on success; on failure, it sets errno.
+        Err(io::Error::last_os_error().into())
+    }
 }
