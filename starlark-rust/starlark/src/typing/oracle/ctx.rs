@@ -692,7 +692,7 @@ impl<'a> TypingOracleCtx<'a> {
             }
             BinOp::Equal | BinOp::NotEqual => {
                 // It's not an error to compare two different types, but it is pointless
-                self.validate_type(&lhs, &rhs, span)?;
+                self.validate_type(&rhs, &lhs, span)?;
                 Ok(bool_ret)
             }
             BinOp::In | BinOp::NotIn => {

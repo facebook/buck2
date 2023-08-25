@@ -20,7 +20,7 @@ error: Expected type `list[typing.Any]` but got `bool`
   |
 
 Error:
-error: Expected type `list[typing.Never]` but got `str`
+error: Expected type `str` but got `list[typing.Never]`
  --> filename:3:12
   |
 3 |     return type(x) == []
