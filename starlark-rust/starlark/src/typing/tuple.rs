@@ -21,9 +21,18 @@ use std::fmt::Formatter;
 use std::iter;
 
 use allocative::Allocative;
+use starlark_derive::ProvidesStaticType;
 
+use crate as starlark;
+use crate::slice_vec_ext::SliceExt;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
+use crate::values::tuple::value::Tuple;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
+use crate::values::typing::type_compiled::compiled::TypeCompiledBox;
+use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
+use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::Value;
 
 #[derive(Eq, PartialEq, Hash, Clone, Debug, Ord, PartialOrd, Allocative)]
 pub struct TyTuple {
@@ -42,6 +51,30 @@ impl TyTuple {
     pub(crate) fn intersects(this: &TyTuple, other: &TyTuple, ctx: &TypingOracleCtx) -> bool {
         this.elems.len() == other.elems.len()
             && iter::zip(&this.elems, &other.elems).all(|(x, y)| ctx.intersects(x, y))
+    }
+
+    pub(crate) fn matcher<'v>(
+        &self,
+        type_compiled_factory: TypeCompiledFactory<'v>,
+    ) -> TypeCompiled<Value<'v>> {
+        #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
+        struct IsTupleOf(Vec<TypeCompiledBox>);
+
+        impl TypeCompiledImpl for IsTupleOf {
+            fn matches(&self, value: Value) -> bool {
+                match Tuple::from_value(value) {
+                    Some(v) if v.len() == self.0.len() => {
+                        v.iter().zip(self.0.iter()).all(|(v, t)| t.0.matches_dyn(v))
+                    }
+                    _ => false,
+                }
+            }
+        }
+
+        let elems = self
+            .elems
+            .map(|t| TypeCompiled::from_ty(t, type_compiled_factory.heap()).to_box_dyn());
+        type_compiled_factory.alloc(IsTupleOf(elems))
     }
 }
 

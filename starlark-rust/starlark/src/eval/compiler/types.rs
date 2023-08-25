@@ -31,6 +31,7 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::slice_vec_ext::VecExt;
 use crate::syntax::type_expr::TypeExprUnpackP;
+use crate::typing::Ty;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Value;
@@ -192,8 +193,8 @@ impl<'v> Compiler<'v, '_, '_> {
                 Ok(TypeCompiled::type_any_of(xs, self.eval.heap()))
             }
             TypeExprUnpackP::Tuple(xs) => {
-                let xs = xs.into_try_map(|x| self.eval_expr_as_type(x))?;
-                Ok(TypeCompiled::type_tuple_of(xs, self.eval.heap()))
+                let xs = xs.into_try_map(|x| Ok(self.eval_expr_as_type(x)?.as_ty().clone()))?;
+                Ok(TypeCompiled::from_ty(&Ty::tuple(xs), self.eval.heap()))
             }
             TypeExprUnpackP::Literal(s) => Ok(TypeCompiled::from_str(s.node, self.eval.heap())),
         }
