@@ -43,6 +43,7 @@ use starlark::starlark_simple_value;
 use starlark::typing::Ty;
 use starlark::values::dict::DictOf;
 use starlark::values::starlark_value;
+use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -126,7 +127,7 @@ impl<'v> AllocValue<'v> for RuleCallable<'v> {
 
 impl<'v> RuleCallable<'v> {
     fn new(
-        implementation: Value<'v>,
+        implementation: StarlarkCallable<'v>,
         attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
         cfg: Option<Value>,
         doc: &str,
@@ -176,7 +177,7 @@ impl<'v> RuleCallable<'v> {
         Ok(RuleCallable {
             import_path: bzl_path,
             id: RefCell::new(None),
-            implementation,
+            implementation: implementation.0,
             attributes,
             ty,
             cfg,
@@ -365,7 +366,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     /// })
     /// ```
     fn rule<'v>(
-        #[starlark(require = named)] r#impl: Value<'v>,
+        #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
         #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
         #[starlark(require = named)] cfg: Option<Value>,
         #[starlark(require = named, default = "")] doc: &str,
