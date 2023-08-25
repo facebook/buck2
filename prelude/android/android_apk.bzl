@@ -160,6 +160,9 @@ def get_install_info(ctx: AnalysisContext, output_apk: Artifact, manifest: Artif
     if secondary_dex_exopackage_info or native_library_exopackage_info or resources_info:
         files["exopackage_agent_apk"] = ctx.attrs._android_toolchain[AndroidToolchainInfo].exopackage_agent_apk
 
+    if hasattr(ctx.attrs, "cpu_filters"):
+        files["cpu_filters"] = ctx.actions.write("cpu_filters.txt", ctx.attrs.cpu_filters)
+
     return InstallInfo(
         installer = ctx.attrs._android_toolchain[AndroidToolchainInfo].installer,
         files = files,
