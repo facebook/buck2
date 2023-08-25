@@ -227,7 +227,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn count(
-        mut this: &str,
+        this: &str,
         #[starlark(require = pos)] needle: &str,
         #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
         #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,

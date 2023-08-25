@@ -20,12 +20,10 @@ use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
 use quote::quote_spanned;
-use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::Expr;
 use syn::ExprLit;
 use syn::Lit;
-use syn::Type;
 
 use crate::module::render::render_starlark_return_type;
 use crate::module::render::render_starlark_type;
@@ -36,7 +34,6 @@ use crate::module::typ::StarArgSource;
 use crate::module::typ::StarFun;
 use crate::module::typ::StarFunSource;
 use crate::module::util::ident_string;
-use crate::module::util::mut_token;
 
 impl StarFun {
     fn ty_custom_expr(&self) -> syn::Expr {
@@ -154,14 +151,7 @@ impl StarFun {
     }
 
     /// Non-special params.
-    fn binding_params_arg(
-        &self,
-    ) -> (
-        Vec<TokenStream>,
-        Vec<TokenStream>,
-        TokenStream,
-        Vec<TokenStream>,
-    ) {
+    fn binding_params_arg(&self) -> (Vec<syn::FnArg>, Vec<syn::Type>, TokenStream, Vec<syn::Expr>) {
         let Bindings { prepare, bindings } = render_binding(self);
         let binding_params: Vec<_> = bindings.iter().map(|b| b.render_param()).collect();
         let binding_param_types: Vec<_> = bindings.iter().map(|b| b.render_param_type()).collect();
@@ -169,11 +159,11 @@ impl StarFun {
         (binding_params, binding_param_types, prepare, binding_args)
     }
 
-    fn trait_name(&self) -> TokenStream {
+    fn trait_name(&self) -> syn::Path {
         if self.is_method() {
-            quote_spanned! {self.span()=> starlark::values::function::NativeMeth }
+            syn::parse_quote_spanned! {self.span()=> starlark::values::function::NativeMeth }
         } else {
-            quote_spanned! {self.span()=> starlark::values::function::NativeFunc }
+            syn::parse_quote_spanned! {self.span()=> starlark::values::function::NativeFunc }
         }
     }
 
@@ -214,7 +204,7 @@ impl StarFun {
         &self,
         documentation_var: &Ident,
         struct_fields_init: TokenStream,
-    ) -> syn::Result<TokenStream> {
+    ) -> syn::Result<syn::Stmt> {
         let name_str = self.name_str();
         let speculative_exec_safe = self.speculative_exec_safe;
         let struct_name = self.struct_name();
@@ -233,7 +223,7 @@ impl StarFun {
                     "methods cannot have a `ty_custom_function` attribute",
                 ));
             }
-            Ok(quote_spanned! {self.span()=>
+            Ok(syn::parse_quote_spanned! {self.span()=>
                 #[allow(clippy::redundant_closure)]
                 globals_builder.set_method(
                     #name_str,
@@ -247,7 +237,7 @@ impl StarFun {
         } else {
             let typ = self.as_type_expr();
             let ty_custom = self.ty_custom_expr();
-            Ok(quote_spanned! {self.span()=>
+            Ok(syn::parse_quote_spanned! {self.span()=>
                 #[allow(clippy::redundant_closure)]
                 globals_builder.set_function(
                     #name_str,
@@ -265,7 +255,7 @@ impl StarFun {
     }
 }
 
-pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
+pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
     let span = x.span();
 
     let (documentation_var, documentation) = render_documentation(&x)?;
@@ -289,64 +279,64 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
         ..
     } = x;
 
-    Ok(quote_spanned! {
+    Ok(syn::parse_quote_spanned! {
         span=>
-        struct #struct_name {
-            #struct_fields
-        }
-
-        impl #struct_name {
-            // TODO(nga): copy lifetime parameter from declaration,
-            //   so the warning would be precise.
-            #[allow(clippy::extra_unused_lifetimes)]
-            #( #attrs )*
-            fn invoke_impl<'v>(
-                #this_param
-                #( #binding_params, )*
-                #eval_param
-                #heap_param
-            ) -> #return_type {
-                #body
-            }
-
-            // When function signature declares return type as `anyhow::Result<impl AllocValue>`,
-            // we cannot call `T::starlark_type_repr` to render documentation, because there's no T.
-            // Future Rust will provide syntax `type ReturnType = impl AllocValue`:
-            // https://github.com/rust-lang/rfcs/pull/2515
-            // Until then we use this hack as a workaround.
-            #[allow(dead_code)] // Function is not used when return type is specified explicitly.
-            fn return_type_starlark_type_repr() -> starlark::typing::Ty {
-                fn get_impl<'v, T: starlark::values::AllocValue<'v>>(
-                    _f: fn(
-                        #this_param_type
-                        #( #binding_param_types, )*
-                        #eval_param_type
-                        #heap_param_type
-                    ) -> anyhow::Result<T>,
-                ) -> starlark::typing::Ty {
-                    <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
-                }
-                get_impl(Self::invoke_impl)
-            }
-        }
-
-        impl #trait_name for #struct_name {
-            #[allow(non_snake_case)] // Starlark doesn't have this convention
-            fn invoke<'v>(
-                &self,
-                eval: &mut starlark::eval::Evaluator<'v, '_>,
-                #this_param
-                parameters: &starlark::eval::Arguments<'v, '_>,
-            ) -> anyhow::Result<starlark::values::Value<'v>> {
-                #prepare
-                match Self::invoke_impl(#this_arg #( #binding_args, )* #eval_arg #heap_arg) {
-                    Ok(v) => Ok(eval.heap().alloc(v)),
-                    Err(e) => Err(e),
-                }
-            }
-        }
-
         {
+            struct #struct_name {
+                #struct_fields
+            }
+
+            impl #struct_name {
+                // TODO(nga): copy lifetime parameter from declaration,
+                //   so the warning would be precise.
+                #[allow(clippy::extra_unused_lifetimes)]
+                #( #attrs )*
+                fn invoke_impl<'v>(
+                    #this_param
+                    #( #binding_params, )*
+                    #eval_param
+                    #heap_param
+                ) -> #return_type {
+                    #body
+                }
+
+                // When function signature declares return type as `anyhow::Result<impl AllocValue>`,
+                // we cannot call `T::starlark_type_repr` to render documentation, because there's no T.
+                // Future Rust will provide syntax `type ReturnType = impl AllocValue`:
+                // https://github.com/rust-lang/rfcs/pull/2515
+                // Until then we use this hack as a workaround.
+                #[allow(dead_code)] // Function is not used when return type is specified explicitly.
+                fn return_type_starlark_type_repr() -> starlark::typing::Ty {
+                    fn get_impl<'v, T: starlark::values::AllocValue<'v>>(
+                        _f: fn(
+                            #this_param_type
+                            #( #binding_param_types, )*
+                            #eval_param_type
+                            #heap_param_type
+                        ) -> anyhow::Result<T>,
+                    ) -> starlark::typing::Ty {
+                        <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+                    }
+                    get_impl(Self::invoke_impl)
+                }
+            }
+
+            impl #trait_name for #struct_name {
+                #[allow(non_snake_case)] // Starlark doesn't have this convention
+                fn invoke<'v>(
+                    &self,
+                    eval: &mut starlark::eval::Evaluator<'v, '_>,
+                    #this_param
+                    parameters: &starlark::eval::Arguments<'v, '_>,
+                ) -> anyhow::Result<starlark::values::Value<'v>> {
+                    #prepare
+                    match Self::invoke_impl(#this_arg #( #binding_args, )* #eval_arg #heap_arg) {
+                        Ok(v) => Ok(eval.heap().alloc(v)),
+                        Err(e) => Err(e),
+                    }
+                }
+            }
+
             #documentation
             #builder_set
         }
@@ -378,8 +368,8 @@ fn render_binding(x: &StarFun) -> Bindings {
                     name: name.to_owned(),
                     ty: ty.to_owned(),
                     attrs: attrs.clone(),
-                    mutability: quote_spanned! { span=> },
-                    expr: quote_spanned! { span=> parameters },
+                    mutability: None,
+                    expr: syn::parse_quote_spanned! { span=> parameters },
                 }],
             }
         }
@@ -401,8 +391,8 @@ fn render_binding(x: &StarFun) -> Bindings {
                         name: name.to_owned(),
                         ty: ty.to_owned(),
                         attrs: attrs.clone(),
-                        mutability: quote_spanned! { span=> },
-                        expr: quote_spanned! { span=> parameters },
+                        mutability: None,
+                        expr: syn::parse_quote_spanned! { span=> parameters },
                     },
                 ],
             }
@@ -442,35 +432,33 @@ fn render_binding(x: &StarFun) -> Bindings {
 }
 
 struct BindingArg {
-    expr: TokenStream,
+    expr: syn::Expr,
 
     attrs: Vec<Attribute>,
-    mutability: TokenStream,
+    mutability: Option<syn::Token![mut]>,
     name: Ident,
-    ty: Type,
+    ty: syn::Type,
 }
 
 impl BindingArg {
-    fn render_param_type(&self) -> TokenStream {
+    fn render_param_type(&self) -> syn::Type {
         let BindingArg { ty, .. } = self;
-        quote_spanned! { ty.span()=>
-            #ty
-        }
+        ty.clone()
     }
 
-    fn render_param(&self) -> TokenStream {
+    fn render_param(&self) -> syn::FnArg {
         let mutability = &self.mutability;
         let name = &self.name;
         let ty = self.render_param_type();
         let attrs = &self.attrs;
-        quote_spanned! {
+        syn::parse_quote_spanned! {
             self.name.span()=>
             #( #attrs )*
             #mutability #name: #ty
         }
     }
 
-    fn render_arg(&self) -> TokenStream {
+    fn render_arg(&self) -> syn::Expr {
         self.expr.clone()
     }
 }
@@ -491,20 +479,20 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
 
     // Rust doesn't have powerful enough nested if yet
     let next = if arg.pass_style == StarArgPassStyle::This {
-        quote_spanned! { span=> starlark::eval::Arguments::check_this(#source)? }
+        syn::parse_quote_spanned! { span=> starlark::eval::Arguments::check_this(#source)? }
     } else if arg.is_option() {
         assert!(
             arg.default.is_none(),
             "Can't have Option argument with a default, for `{}`",
             name_str
         );
-        quote_spanned! { span=> starlark::eval::Arguments::check_optional(#name_str, #source)? }
+        syn::parse_quote_spanned! { span=> starlark::eval::Arguments::check_optional(#name_str, #source)? }
     } else if !arg.is_value() && arg.default.is_some() {
         let default = arg
             .default
             .as_ref()
             .unwrap_or_else(|| unreachable!("Checked on the line above"));
-        quote_spanned! { span=>
+        syn::parse_quote_spanned! { span=>
             {
                 // Combo
                 #[allow(clippy::manual_unwrap_or)]
@@ -515,15 +503,13 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
             }
         }
     } else {
-        quote_spanned! { span=> starlark::eval::Arguments::check_required(#name_str, #source)? }
+        syn::parse_quote_spanned! { span=> starlark::eval::Arguments::check_required(#name_str, #source)? }
     };
-
-    let mutability = mut_token(arg.mutable);
 
     BindingArg {
         expr: next,
         attrs: arg.attrs.clone(),
-        mutability,
+        mutability: arg.mutable,
         name: arg.name.to_owned(),
         ty: arg.ty.clone(),
     }
