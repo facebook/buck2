@@ -243,7 +243,7 @@ pub struct TyFunction {
     /// The parameters to the function.
     pub(crate) params: Vec<Param>,
     /// The result type of the function.
-    pub(crate) result: Box<Ty>,
+    pub(crate) result: Ty,
 }
 
 impl TyFunction {
@@ -253,7 +253,7 @@ impl TyFunction {
         TyFunction {
             type_attr: Some(type_attr),
             params,
-            result: Box::new(result),
+            result,
         }
     }
 
@@ -262,7 +262,7 @@ impl TyFunction {
         TyFunction {
             type_attr: None,
             params,
-            result: Box::new(result),
+            result,
         }
     }
 
@@ -271,7 +271,7 @@ impl TyFunction {
         TyFunction {
             type_attr: None,
             params: vec![Param::args(Ty::any()), Param::kwargs(Ty::any())],
-            result: Box::new(Ty::any()),
+            result: Ty::any(),
         }
     }
 }

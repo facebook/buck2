@@ -271,7 +271,7 @@ impl<'a> TypingOracleCtx<'a> {
         args: &[Spanned<Arg>],
     ) -> Result<Ty, TypingOrInternalError> {
         self.validate_args(&fun.params, args, span)?;
-        Ok((*fun.result).clone())
+        Ok(fun.result.clone())
     }
 
     fn validate_call_for_type_name(

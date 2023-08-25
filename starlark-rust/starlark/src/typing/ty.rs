@@ -282,7 +282,7 @@ impl Ty {
         Self::ty_function(TyFunction {
             type_attr: None,
             params,
-            result: Box::new(result),
+            result,
         })
     }
 
@@ -296,7 +296,7 @@ impl Ty {
         Self::custom(TyCustomFunction(TyFunction {
             type_attr: Some(type_attr.clone()),
             params,
-            result: Box::new(result),
+            result,
         }))
     }
 
