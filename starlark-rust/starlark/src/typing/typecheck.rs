@@ -26,6 +26,7 @@ use starlark_map::unordered_map::UnorderedMap;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;
 use crate::codemap::Span;
+use crate::codemap::Spanned;
 use crate::environment::names::MutableNames;
 use crate::environment::Globals;
 use crate::eval::compiler::scope::payload::CstStmt;
@@ -106,7 +107,13 @@ pub(crate) fn solve_bindings(
             None => Ty::none(),
             Some(x) => ctx.expression_type(x)?,
         };
-        ctx.validate_type(&ty, require, *span);
+        ctx.validate_type(
+            Spanned {
+                node: &ty,
+                span: *span,
+            },
+            require,
+        );
     }
     Ok((
         ctx.errors.into_inner(),

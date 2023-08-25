@@ -131,15 +131,10 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
-    pub(crate) fn validate_type(
-        &self,
-        got: &Ty,
-        require: &Ty,
-        span: Span,
-    ) -> Result<(), TypingError> {
-        if !self.intersects(got, require) {
+    pub(crate) fn validate_type(&self, got: Spanned<&Ty>, require: &Ty) -> Result<(), TypingError> {
+        if !self.intersects(got.node, require) {
             Err(self.mk_error(
-                span,
+                got.span,
                 TypingOracleCtxError::IncompatibleType {
                     got: got.to_string(),
                     require: require.to_string(),
@@ -238,13 +233,13 @@ impl<'a> TypingOracleCtx<'a> {
             }
             match param.mode {
                 ParamMode::PosOnly | ParamMode::PosOrName(_) | ParamMode::NameOnly(_) => {
-                    self.validate_type(args[0].node, &param.ty, args[0].span)?;
+                    self.validate_type(args[0], &param.ty)?;
                 }
                 ParamMode::Args => {
                     for ty in args {
                         // For an arg, we require the type annotation to be inner value,
                         // rather than the outer (which is always a tuple)
-                        self.validate_type(ty.node, &param.ty, ty.span)?;
+                        self.validate_type(ty, &param.ty)?;
                     }
                 }
                 ParamMode::Kwargs => {
@@ -260,7 +255,7 @@ impl<'a> TypingOracleCtx<'a> {
                     if !val_types.is_empty() {
                         let require = Ty::unions(val_types);
                         for ty in args {
-                            self.validate_type(ty.node, &require, ty.span)?;
+                            self.validate_type(ty, &require)?;
                         }
                     }
                 }
@@ -692,7 +687,7 @@ impl<'a> TypingOracleCtx<'a> {
             }
             BinOp::Equal | BinOp::NotEqual => {
                 // It's not an error to compare two different types, but it is pointless
-                self.validate_type(&rhs, &lhs, span)?;
+                self.validate_type(rhs.as_ref(), &lhs)?;
                 Ok(bool_ret)
             }
             BinOp::In | BinOp::NotIn => {
