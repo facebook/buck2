@@ -16,6 +16,7 @@
  */
 
 use std::cell::Cell;
+use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::cell::UnsafeCell;
 use std::marker;
@@ -120,6 +121,14 @@ unsafe impl<'v, T: Trace<'v>> Trace<'v> for RefCell<T> {
 unsafe impl<'v, T: Trace<'v>> Trace<'v> for Cell<T> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         self.get_mut().trace(tracer);
+    }
+}
+
+unsafe impl<'v, T: Trace<'v>> Trace<'v> for OnceCell<T> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        if let Some(x) = self.get_mut() {
+            x.trace(tracer)
+        }
     }
 }
 
