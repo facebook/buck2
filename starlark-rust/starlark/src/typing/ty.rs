@@ -328,12 +328,35 @@ impl Ty {
 
     /// Create a unions type, which will be normalised before being created.
     pub fn unions(xs: Vec<Self>) -> Self {
-        let mut xs: Vec<TyBasic> = xs.into_iter().flat_map(|x| x.into_iter_union()).collect();
-        xs.sort();
-        xs.dedup();
-        if xs.contains(&TyBasic::Any) {
+        // Handle common cases first.
+
+        if xs.iter().any(|x| x.is_any()) {
             return Ty::any();
         }
+
+        fn next_skip_never<I: Iterator<Item = Ty>>(iter: &mut I) -> Option<Ty> {
+            iter.find(|x| !x.is_never())
+        }
+        let mut xs = xs.into_iter();
+        let Some(x0) = next_skip_never(&mut xs) else {
+            return Ty::never();
+        };
+        let Some(x1) = next_skip_never(&mut xs) else {
+            return x0;
+        };
+        if xs.len() == 0 && x0 == x1 {
+            return x0;
+        }
+
+        // Now default slow version.
+
+        let mut xs: Vec<TyBasic> = [x0, x1]
+            .into_iter()
+            .chain(xs)
+            .flat_map(|x| x.into_iter_union())
+            .collect();
+        xs.sort();
+        xs.dedup();
         // Try merging adjacent elements
         let xs = merge_adjacent(xs, |x, y| match (x, y) {
             (TyBasic::List(x), TyBasic::List(y)) => Either::Left(TyBasic::list(Ty::union2(*x, *y))),
@@ -362,7 +385,19 @@ impl Ty {
 
     /// Create a union of two entries.
     pub fn union2(a: Self, b: Self) -> Self {
-        Self::unions(vec![a, b])
+        // Handle fast cases first.
+        // Optimizations, semantically identical to default implementation.
+        if a.is_any() || b.is_any() {
+            Ty::any()
+        } else if a == b {
+            a
+        } else if a.is_never() {
+            b
+        } else if b.is_never() {
+            a
+        } else {
+            Ty::unions(vec![a, b])
+        }
     }
 
     /// Create a custom type.
