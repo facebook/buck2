@@ -263,14 +263,14 @@ impl ProviderCodegen {
                 let field_types = [
                     #(#field_types),*
                 ];
-                buck2_interpreter::types::provider::callable::ProviderCallableLike::provider_callable_documentation(
+                Some(buck2_interpreter::types::provider::callable::ProviderCallableLike::provider_callable_documentation(
                     self,
                     Some(#create_func),
                     &docstring,
                     &field_names,
                     &field_docs,
                     &field_types,
-                )
+                ))
             }
         })
     }

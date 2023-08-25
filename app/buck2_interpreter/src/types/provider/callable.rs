@@ -47,7 +47,7 @@ pub trait ProviderCallableLike {
         fields: &[&str],
         field_docs: &[Option<DocString>],
         field_types: &[Ty],
-    ) -> Option<DocItem> {
+    ) -> DocItem {
         let members = itertools::izip!(fields.iter(), field_docs.iter(), field_types.iter())
             .map(|(name, docs, return_type)| {
                 let prop = DocProperty {
@@ -74,13 +74,13 @@ pub trait ProviderCallableLike {
         };
 
         match ctor {
-            None => Some(DocItem::Object(DocObject {
+            None => DocItem::Object(DocObject {
                 docs: overall.clone(),
                 members: members
                     .into_iter()
                     .map(|(a, b)| (a.to_owned(), DocMember::Property(b)))
                     .collect(),
-            })),
+            }),
             Some((
                 _name,
                 DocFunction {
@@ -119,12 +119,12 @@ pub trait ProviderCallableLike {
                     summary,
                     details: Some(details.iter().flatten().join("\n\n")),
                 });
-                Some(DocItem::Function(DocFunction {
+                DocItem::Function(DocFunction {
                     docs,
                     params,
                     ret,
                     as_type,
-                }))
+                })
             }
         }
     }
