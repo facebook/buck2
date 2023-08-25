@@ -268,6 +268,10 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
             &return_types,
         ))
     }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Self::get_type_starlark_repr())
+    }
 }
 
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)]
@@ -359,6 +363,10 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
             &self.field_docs,
             &return_types,
         ))
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Self::get_type_starlark_repr())
     }
 
     fn eval_type(&self) -> Option<Ty> {
