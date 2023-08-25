@@ -154,6 +154,8 @@ def _get_shared_link_style_sub_targets_and_providers(
         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, output.default, cxx_toolchain.dumpbin_toolchain_path)
     if output.linker_map != None:
         sub_targets["linker-map"] = [DefaultInfo(default_output = output.linker_map.map, other_outputs = [output.linker_map.binary])]
+    if output.implib != None:
+        sub_targets["implib"] = [DefaultInfo(default_output = output.implib)]
     return (sub_targets, providers)
 
 def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:

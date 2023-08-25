@@ -210,6 +210,8 @@ CxxLibraryOutput = record(
     # A shared shared library may have an associated PDB file with
     # its corresponding Windows debug info.
     pdb = field([Artifact, None], None),
+    # The import library is the linkable output of a Windows shared library build.
+    implib = field([Artifact, None], None),
     linker_map = field([CxxLinkerMapData.type, None], None),
 )
 
@@ -975,6 +977,7 @@ def _form_library_outputs(
                     dwp = shlib.dwp,
                     linker_map = result.link_result.linker_map_data,
                     pdb = shlib.pdb,
+                    implib = shlib.import_library,
                 )
                 solibs[result.soname] = shlib
                 sub_targets[link_style] = extra_linker_outputs | {
