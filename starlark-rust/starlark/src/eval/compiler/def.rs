@@ -79,6 +79,7 @@ use crate::starlark_complex_values;
 use crate::syntax::def::DefParam;
 use crate::syntax::def::DefParamKind;
 use crate::syntax::def::DefParams;
+use crate::typing::Param;
 use crate::typing::Ty;
 use crate::values::frozen_ref::AtomicFrozenRefOption;
 use crate::values::function::FUNCTION_TYPE;
@@ -189,6 +190,13 @@ impl<T> ParameterCompiled<T> {
         }
     }
 
+    pub(crate) fn ty(&self) -> Ty {
+        match self.name_ty() {
+            (_, Some(t)) => t.as_ty().clone(),
+            (_, None) => Ty::any(),
+        }
+    }
+
     pub(crate) fn is_star_or_star_star(&self) -> bool {
         matches!(
             self,
@@ -248,6 +256,34 @@ impl<T> ParametersCompiled<T> {
             })
             .collect()
     }
+
+    pub(crate) fn to_ty_params(&self) -> Vec<Param> {
+        self.params
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let ty = p.ty();
+                match &p.node {
+                    ParameterCompiled::Normal(name, ..) => {
+                        if i < self.num_positional as usize {
+                            Param::pos_or_name(&name.name, ty)
+                        } else {
+                            Param::name_only(&name.name, ty)
+                        }
+                    }
+                    ParameterCompiled::WithDefaultValue(name, ..) => {
+                        if i < self.num_positional as usize {
+                            Param::pos_or_name(&name.name, ty).optional()
+                        } else {
+                            Param::name_only(&name.name, ty).optional()
+                        }
+                    }
+                    ParameterCompiled::Args(..) => Param::args(ty),
+                    ParameterCompiled::KwArgs(..) => Param::kwargs(ty),
+                }
+            })
+            .collect()
+    }
 }
 
 /// Copy local variable slot to nested function.
@@ -269,6 +305,8 @@ pub(crate) struct DefInfo {
     pub(crate) signature_span: FrozenFileSpan,
     /// Indices of parameters, which are captured in nested defs.
     parameter_captures: FrozenRef<'static, [LocalSlotId]>,
+    /// Type of this function, for the typechecker.
+    ty: Ty,
     /// Codemap of the file where the function is declared.
     pub(crate) codemap: FrozenRef<'static, CodeMap>,
     /// The raw docstring pulled out of the AST.
@@ -301,6 +339,7 @@ impl DefInfo {
             name: const_frozen_string!("<empty>"),
             signature_span: FrozenFileSpan::default(),
             parameter_captures: FrozenRef::new(&[]),
+            ty: Ty::any(),
             codemap: FrozenRef::new(CodeMap::empty_static()),
             docstring: None,
             used: FrozenRef::new(&[]),
@@ -324,6 +363,7 @@ impl DefInfo {
             name: const_frozen_string!("<module>"),
             signature_span: FrozenFileSpan::default(),
             parameter_captures: FrozenRef::new(&[]),
+            ty: Ty::any(),
             codemap,
             docstring: None,
             used: local_names,
@@ -410,6 +450,11 @@ impl Compiler<'_, '_, '_> {
         };
         let return_type = self.expr_for_type(return_type).map(|t| t.node);
 
+        let ty = Ty::function(
+            params.to_ty_params(),
+            return_type.map_or(Ty::any(), |t| t.as_ty().clone()),
+        );
+
         self.enter_scope(scope_id);
 
         let docstring = DocString::extract_raw_starlark_docstring(suite);
@@ -439,6 +484,7 @@ impl Compiler<'_, '_, '_> {
                 .eval
                 .frozen_heap()
                 .alloc_any_slice_display_from_debug(&params.parameter_captures()),
+            ty,
             codemap: self.codemap,
             docstring,
             used,
@@ -608,6 +654,10 @@ where
         );
 
         Some(DocItem::Function(function_docs))
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(self.def_info.ty.clone())
     }
 }
 
