@@ -20,6 +20,7 @@
 use std::cell::Cell;
 use std::cmp;
 use std::collections::HashMap;
+use std::iter;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -81,6 +82,9 @@ pub struct ParametersSpecBuilder<V> {
     function_name: String,
     params: Vec<(String, ParameterKind<V>)>,
     names: SymbolMap<u32>,
+    /// Number of parameters that can be filled only positionally.
+    positional_only: usize,
+    /// Number of parameters that can be filled positionally.
     positional: usize,
 
     /// Has the no_args been passed
@@ -107,6 +111,8 @@ pub struct ParametersSpec<V> {
     #[freeze(identity)]
     pub(crate) names: SymbolMap<u32>,
 
+    /// Number of arguments that can be filled only positionally.
+    positional_only: u32,
     /// Number of arguments that can be filled positionally.
     /// Excludes *args/**kwargs, keyword arguments after *args
     positional: u32,
@@ -138,6 +144,9 @@ impl<V: Copy> ParametersSpecBuilder<V> {
             // If you've already seen `args` or `no_args`, you can't enter these
             // positionally
             self.positional = i + 1;
+            if self.current_style == CurrentParameterStyle::PosOnly {
+                self.positional_only = i + 1;
+            }
         }
     }
 
@@ -216,6 +225,7 @@ impl<V: Copy> ParametersSpecBuilder<V> {
     pub fn finish(self) -> ParametersSpec<V> {
         let ParametersSpecBuilder {
             function_name,
+            positional_only,
             positional,
             args,
             current_style,
@@ -224,12 +234,16 @@ impl<V: Copy> ParametersSpecBuilder<V> {
             names,
         } = self;
         let _ = current_style;
+        let positional_only: u32 = positional_only.try_into().unwrap();
+        let positional: u32 = positional.try_into().unwrap();
+        assert!(positional_only <= positional);
         ParametersSpec {
             function_name,
             param_kinds: params.iter().map(|p| p.1).collect(),
             param_names: params.into_iter().map(|p| p.0).collect(),
             names,
-            positional: positional.try_into().unwrap(),
+            positional_only,
+            positional,
             args: args.map(|args| args.try_into().unwrap()),
             kwargs: kwargs.map(|kwargs| kwargs.try_into().unwrap()),
         }
@@ -248,6 +262,7 @@ impl<V> ParametersSpec<V> {
             function_name,
             params: Vec::with_capacity(capacity),
             names: SymbolMap::with_capacity(capacity),
+            positional_only: 0,
             positional: 0,
             current_style: CurrentParameterStyle::PosOnly,
             args: None,
@@ -307,18 +322,6 @@ impl<V> ParametersSpec<V> {
             }
         }
         collector
-    }
-
-    /// Get the index where a user would have supplied "*" as a parameter.
-    pub(crate) fn no_args_param_index(&self) -> Option<usize> {
-        if (self.positional as usize) < self.param_kinds.len() {
-            match self.param_kinds.get(self.positional as usize) {
-                Some(ParameterKind::Args) | Some(ParameterKind::KWargs) => None,
-                _ => Some(self.positional as usize),
-            }
-        } else {
-            None
-        }
     }
 
     /// Iterate over the parameters
@@ -659,21 +662,35 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         mut parameter_types: HashMap<usize, Ty>,
         mut parameter_docs: HashMap<String, Option<DocString>>,
     ) -> Vec<DocParam> {
-        let mut pos_only = 0;
-        let mut params: Vec<DocParam> = self
-            .iter_params()
+        self.iter_params()
             .enumerate()
-            .map(|(i, (name, kind))| {
+            .flat_map(|(i, (name, kind))| {
                 let typ = parameter_types.remove(&i).unwrap_or_else(Ty::any);
                 let docs = parameter_docs.remove(name).flatten();
-                if pos_only == i
-                    && !matches!(kind, ParameterKind::Args | ParameterKind::KWargs)
-                    && self.names.get_str(name).is_none()
-                {
-                    pos_only += 1;
-                }
                 let name = name.to_owned();
-                match kind {
+
+                // Add `/` before the first named parameter.
+                let only_pos_before = if i != 0 && i == self.positional_only as usize {
+                    Some(DocParam::OnlyPosBefore)
+                } else {
+                    None
+                };
+
+                // Add `*` before first named-only parameter.
+                let no_args = match kind {
+                    ParameterKind::Args | ParameterKind::KWargs => None,
+                    ParameterKind::Required
+                    | ParameterKind::Optional
+                    | ParameterKind::Defaulted(_) => {
+                        if i == self.positional as usize {
+                            Some(DocParam::NoArgs)
+                        } else {
+                            None
+                        }
+                    }
+                };
+
+                let doc_param = match kind {
                     ParameterKind::Required => DocParam::Arg {
                         name,
                         docs,
@@ -694,20 +711,23 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
                     },
                     ParameterKind::Args => DocParam::Args { name, docs, typ },
                     ParameterKind::KWargs => DocParam::Kwargs { name, docs, typ },
-                }
+                };
+                only_pos_before
+                    .into_iter()
+                    .chain(no_args)
+                    .chain(iter::once(doc_param))
             })
-            .collect();
-
-        // Go back and add the "*" arg if it's present
-        if let Some(i) = self.no_args_param_index() {
-            params.insert(i, DocParam::NoArgs);
-        }
-
-        if pos_only > 0 {
-            params.insert(pos_only, DocParam::OnlyPosBefore);
-        }
-
-        params
+            .chain(
+                // Add last `/`.
+                if self.positional_only == self.param_kinds.len() as u32
+                    && self.param_kinds.len() != 0
+                {
+                    Some(DocParam::OnlyPosBefore)
+                } else {
+                    None
+                },
+            )
+            .collect()
     }
 
     /// Create a [`ParametersParser`] for given arguments.
@@ -810,7 +830,6 @@ mod tests {
         ];
 
         assert_eq!(expected, params);
-        assert_eq!(Some(2), p.no_args_param_index());
 
         let mut p = ParametersSpec::<FrozenValue>::new("f".to_owned());
         p.required("a");
@@ -827,7 +846,6 @@ mod tests {
         ];
 
         assert_eq!(expected, params);
-        assert_eq!(None, p.no_args_param_index());
 
         let mut p = ParametersSpec::<FrozenValue>::new("f".to_owned());
         p.args();
