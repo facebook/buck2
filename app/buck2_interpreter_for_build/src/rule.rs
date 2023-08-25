@@ -197,12 +197,7 @@ impl<'v> RuleCallable<'v> {
         //            refactoring to get that pulled out of the attributespec
         let parameters_spec = self.attributes.signature(name);
 
-        let parameter_types = self
-            .attributes
-            .starlark_types()
-            .into_iter()
-            .enumerate()
-            .collect();
+        let parameter_types = self.attributes.starlark_types();
         let parameter_docs = self.attributes.docstrings();
         let function_docs = DocFunction::from_docstring(
             DocStringKind::Starlark,

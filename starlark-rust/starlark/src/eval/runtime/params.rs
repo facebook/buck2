@@ -659,13 +659,19 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     ///                    that parameter
     pub fn documentation(
         &self,
-        mut parameter_types: HashMap<usize, Ty>,
+        parameter_types: Vec<Ty>,
         mut parameter_docs: HashMap<String, Option<DocString>>,
     ) -> Vec<DocParam> {
+        assert_eq!(
+            self.param_kinds.len(),
+            parameter_types.len(),
+            "function: `{}`",
+            self.function_name,
+        );
         self.iter_params()
             .enumerate()
-            .flat_map(|(i, (name, kind))| {
-                let typ = parameter_types.remove(&i).unwrap_or_else(Ty::any);
+            .zip(parameter_types)
+            .flat_map(|((i, (name, kind)), typ)| {
                 let docs = parameter_docs.remove(name).flatten();
                 let name = name.to_owned();
 
@@ -892,8 +898,7 @@ mod tests {
                 default_value: Some("_".to_owned()),
             },
         ];
-        let mut types = HashMap::new();
-        types.insert(1, Ty::int());
+        let types = vec![Ty::any(), Ty::int(), Ty::any()];
         let mut docs = HashMap::new();
         docs.insert("a".to_owned(), None);
         docs.insert(

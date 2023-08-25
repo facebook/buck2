@@ -590,11 +590,11 @@ where
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        let parameter_types: HashMap<usize, Ty> = self
-            .parameter_types
-            .iter()
-            .map(|(idx, _, ty)| (idx.0 as usize, ty.as_ty().clone()))
-            .collect();
+        let mut parameter_types = vec![Ty::any(); self.parameters.len()];
+        for (idx, _, ty) in &self.parameter_types {
+            // Local slot number for parameter is the same as parameter index.
+            parameter_types[idx.0 as usize] = ty.as_ty().clone();
+        }
 
         let return_type = self.return_type.map_or(Ty::any(), |r| r.as_ty().clone());
 
