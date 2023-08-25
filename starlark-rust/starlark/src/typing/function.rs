@@ -239,14 +239,33 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct TyFunction {
     /// The `.type` property of the function, often `""`.
-    pub type_attr: Option<Ty>,
+    pub(crate) type_attr: Option<Ty>,
     /// The parameters to the function.
-    pub params: Vec<Param>,
+    pub(crate) params: Vec<Param>,
     /// The result type of the function.
-    pub result: Box<Ty>,
+    pub(crate) result: Box<Ty>,
 }
 
 impl TyFunction {
+    /// Constructor.
+    pub fn new_with_type_attr(params: Vec<Param>, result: Ty, type_attr: Ty) -> Self {
+        // TODO(nga): validate params are in correct order.
+        TyFunction {
+            type_attr: Some(type_attr),
+            params,
+            result: Box::new(result),
+        }
+    }
+
+    /// Constructor.
+    pub fn new(params: Vec<Param>, result: Ty) -> Self {
+        TyFunction {
+            type_attr: None,
+            params,
+            result: Box::new(result),
+        }
+    }
+
     /// Function type that accepts any arguments and returns any result.
     pub(crate) fn any() -> TyFunction {
         TyFunction {

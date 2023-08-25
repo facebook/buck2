@@ -37,17 +37,14 @@ struct CustomBuck;
 impl TypingOracle for CustomBuck {
     fn as_function(&self, ty: &TyName) -> Option<Result<TyFunction, ()>> {
         match ty.as_str() {
-            "provider_callable" => Some(Ok(TyFunction {
-                type_attr: None,
-                params: vec![Param::kwargs(Ty::any())],
-                // TODO(nga): this should be more precise.
-                result: Box::new(Ty::any()),
-            })),
-            "rule" => Some(Ok(TyFunction {
-                type_attr: None,
-                params: vec![Param::kwargs(Ty::any())],
-                result: Box::new(Ty::none()),
-            })),
+            "provider_callable" => Some(Ok(TyFunction::new(
+                vec![Param::kwargs(Ty::any())],
+                Ty::any(),
+            ))),
+            "rule" => Some(Ok(TyFunction::new(
+                vec![Param::kwargs(Ty::any())],
+                Ty::none(),
+            ))),
             _ => None,
         }
     }
