@@ -95,9 +95,9 @@ impl Display for TyStarlarkValue {
 }
 
 impl PartialEq for TyStarlarkValue {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
-        // TODO(nga): compare type ids instead, here and below.
-        self.vtable.type_name == other.vtable.type_name
+        self.vtable.starlark_type_id == other.vtable.starlark_type_id
     }
 }
 
@@ -105,6 +105,8 @@ impl Eq for TyStarlarkValue {}
 
 impl Hash for TyStarlarkValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        // Hash type name because type id is not stable.
+        // TODO(nga): store hash in vtable.
         self.vtable.type_name.hash(state);
     }
 }
