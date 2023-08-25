@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//utils:utils.bzl", "expect")
-
 SECONDARY_DEX = 1
 NATIVE_LIBRARY = 2
 RESOURCES = 4
@@ -14,7 +12,9 @@ MODULES = 8
 ARCH64 = 16
 
 def get_exopackage_flags(exopackage_modes: list[str]) -> int:
-    expect("modules" not in exopackage_modes, "Modular exopackage is not supported!")
+    # To maintain compatibility with Windows, we can't use the `expect` function in utils.bzl
+    if "modules" in exopackage_modes:
+        fail("Modular exopackage is not supported!")
     flags = 0
 
     for (name, flag) in [
