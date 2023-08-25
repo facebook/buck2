@@ -32,7 +32,7 @@ AppleBundleInfo = provider(fields = [
 
 # Provider which helps to propagate minimum deployment version up the target graph.
 AppleMinDeploymentVersionInfo = provider(fields = [
-    # `str`
+    # [None, `str`]
     "version",
 ])
 
