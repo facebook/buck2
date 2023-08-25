@@ -85,28 +85,6 @@ pub struct TypingOracleCtx<'a> {
 }
 
 impl<'a> TypingOracleCtx<'a> {
-    pub(crate) fn attribute_index(&self, ty: &TyBasic) -> Option<Result<Ty, ()>> {
-        let attr = TypingAttr::Index;
-        Some(Ok(match ty {
-            TyBasic::Tuple(tuple) => match attr {
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(tuple.item_ty())], Ty::bool())
-                }
-                TypingAttr::Iter => tuple.item_ty(),
-                _ => return Some(Err(())),
-            },
-            TyBasic::StarlarkValue(x) if x.as_name() == "tuple" => match attr {
-                TypingAttr::Iter => Ty::any(),
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::bool())
-                }
-                _ => return Some(Err(())),
-            },
-            TyBasic::Custom(c) => return Some(c.0.attribute_dyn(attr)),
-            ty => return self.oracle.attribute(ty, attr),
-        }))
-    }
-
     pub(crate) fn subtype(&self, require: &TyName, got: &TyName) -> bool {
         match self.typecheck_mode {
             TypecheckMode::Lint => self.oracle.subtype(require, got),
@@ -441,8 +419,17 @@ impl<'a> TypingOracleCtx<'a> {
                     },
                 )),
             },
+            TyBasic::Custom(c) => match c.0.attribute_dyn(TypingAttr::Index) {
+                Ok(x) => Ok(x),
+                Err(()) => Err(self.mk_error_as_maybe_internal(
+                    span,
+                    TypingOracleCtxError::MissingIndexOperator {
+                        ty: Ty::basic(TyBasic::Custom(c.clone())),
+                    },
+                )),
+            },
             array => {
-                let f = match self.attribute_index(array) {
+                let f = match self.oracle.attribute(array, TypingAttr::Index) {
                     None => return Ok(Ty::any()),
                     Some(Ok(x)) => x,
                     Some(Err(())) => {
