@@ -21,6 +21,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use dupe::Dupe;
+use starlark_map::unordered_map::UnorderedMap;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;
@@ -48,7 +49,6 @@ use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
-use crate::typing::unordered_map::UnorderedMap;
 use crate::values::FrozenHeap;
 
 // Things which are None in the map have type void - they are never constructed

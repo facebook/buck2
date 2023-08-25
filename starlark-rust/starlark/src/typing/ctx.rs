@@ -18,6 +18,8 @@
 use std::cell::RefCell;
 use std::fmt::Debug;
 
+use starlark_map::unordered_map::UnorderedMap;
+
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::scope::payload::CstArgument;
@@ -47,7 +49,6 @@ use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingUnOp;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
-use crate::typing::unordered_map::UnorderedMap;
 
 pub(crate) struct TypingContext<'a> {
     pub(crate) oracle: TypingOracleCtx<'a>,
