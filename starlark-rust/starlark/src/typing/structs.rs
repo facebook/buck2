@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_map::sorted_map::SortedMap;
 
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::Param;
@@ -38,7 +38,7 @@ use crate::values::Value;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct TyStruct {
     /// The fields that are definitely present in the struct, with their types.
-    pub(crate) fields: BTreeMap<String, Ty>,
+    pub(crate) fields: SortedMap<String, Ty>,
     /// [`true`] if there might be additional fields not captured above,
     /// [`false`] if this struct has no extra members.
     pub(crate) extra: bool,
@@ -48,7 +48,7 @@ impl TyStruct {
     /// Any struct.
     pub fn any() -> TyStruct {
         TyStruct {
-            fields: BTreeMap::new(),
+            fields: SortedMap::new(),
             extra: true,
         }
     }
@@ -79,13 +79,13 @@ impl TyCustomImpl for TyStruct {
             // Fast path.
             Ok(a)
         } else if a.extra == b.extra && itertools::equal(a.fields.keys(), b.fields.keys()) {
-            let mut fields = BTreeMap::new();
+            let mut fields = Vec::new();
             for ((a_k, a_v), (b_k, b_v)) in a.fields.into_iter().zip(b.fields) {
                 assert_eq!(a_k, b_k);
-                fields.insert(a_k, Ty::union2(a_v, b_v));
+                fields.push((a_k, Ty::union2(a_v.clone(), b_v.clone())));
             }
             Ok(Box::new(TyStruct {
-                fields,
+                fields: SortedMap::from_iter(fields),
                 extra: a.extra,
             }))
         } else {

@@ -16,11 +16,11 @@
  */
 
 //! Implementation of `struct` function.
-use std::collections::BTreeMap;
 
 use allocative::Allocative;
 use dupe::Dupe;
 use starlark_derive::starlark_module;
+use starlark_map::sorted_map::SortedMap;
 
 use crate as starlark;
 use crate::codemap::Span;
@@ -49,7 +49,7 @@ impl TyCustomFunctionImpl for StructType {
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
-        let mut fields = BTreeMap::new();
+        let mut fields = Vec::new();
         let mut extra = false;
         for x in args {
             match &x.node {
@@ -63,12 +63,15 @@ impl TyCustomFunctionImpl for StructType {
                     // ```
                 }
                 Arg::Name(name, val) => {
-                    fields.insert(name.clone(), val.clone());
+                    fields.push((name.clone(), val.clone()));
                 }
                 Arg::Kwargs(_) => extra = true,
             }
         }
-        Ok(Ty::custom(TyStruct { fields, extra }))
+        Ok(Ty::custom(TyStruct {
+            fields: SortedMap::from_iter(fields),
+            extra,
+        }))
     }
 }
 
