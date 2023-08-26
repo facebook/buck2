@@ -124,7 +124,7 @@ def _create_fat_jar(
     return outputs
 
 def _get_run_cmd(
-        attrs: struct.type,
+        attrs: struct,
         script_mode: bool,
         main_artifact: Artifact,
         java_toolchain: JavaToolchainInfo.type) -> cmd_args:

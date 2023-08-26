@@ -98,7 +98,7 @@ def create_jar_artifact_javacd(
     def encode_library_command(
             output_paths: OutputPaths.type,
             path_to_class_hashes: Artifact,
-            classpath_jars_tag: "artifact_tag") -> struct.type:
+            classpath_jars_tag: "artifact_tag") -> struct:
         target_type = TargetType("library")
 
         base_jar_command = encode_base_jar_command(
@@ -139,7 +139,7 @@ def create_jar_artifact_javacd(
             output_paths: OutputPaths.type,
             target_type: TargetType.type,
             classpath_jars_tag: "artifact_tag",
-            source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []) -> struct.type:
+            source_only_abi_compiling_deps: list["JavaClasspathEntry"] = []) -> struct:
         base_jar_command = encode_base_jar_command(
             javac_tool,
             target_type,
@@ -176,7 +176,7 @@ def create_jar_artifact_javacd(
     def define_javacd_action(
             category_prefix: str,
             actions_identifier: [str, None],
-            encoded_command: struct.type,
+            encoded_command: struct,
             qualified_name: str,
             output_paths: OutputPaths.type,
             classpath_jars_tag: "artifact_tag",
