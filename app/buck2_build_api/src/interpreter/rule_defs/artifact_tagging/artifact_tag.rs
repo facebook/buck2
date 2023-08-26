@@ -87,7 +87,7 @@ starlark_simple_value!(ArtifactTag);
 impl<'v> StarlarkValue<'v> for ArtifactTag {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(input_tag_methods)
+        RES.methods(artifact_tag_methods)
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
@@ -104,7 +104,7 @@ impl<'v> StarlarkValue<'v> for ArtifactTag {
 }
 
 #[starlark_module]
-fn input_tag_methods(_: &mut MethodsBuilder) {
+fn artifact_tag_methods(_: &mut MethodsBuilder) {
     fn tag_artifacts<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
