@@ -52,6 +52,7 @@ JavaToolchainInfo = provider(
         "zip_scrubber",
         "is_bootstrap_toolchain",
         "gen_class_to_source_map",
+        "gen_class_to_source_map_debuginfo",
     ],
 )
 
