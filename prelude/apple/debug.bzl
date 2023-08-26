@@ -7,7 +7,6 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
-    "ArtifactProjection",
     "make_artifact_tset",
     "project_artifacts",
 )
@@ -15,7 +14,7 @@ load(
 DEBUGINFO_SUBTARGET = "debuginfo"
 DEBUGINFO_DB_SUBTARGET = "debuginfo-db"
 
-AppleDebugInfo = ArtifactProjection
+AppleDebugInfo = TransitiveSetArgsProjection
 
 # Represents Apple debug info from both executables and bundles.
 AppleDebuggableInfo = provider(fields = [
