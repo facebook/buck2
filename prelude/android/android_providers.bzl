@@ -282,9 +282,9 @@ def merge_android_packageable_info(
 
 def _get_transitive_set(
         actions: AnalysisActions,
-        children: list["transitive_set"],
+        children: list[TransitiveSet],
         node: typing.Any,
-        transitive_set_definition: "transitive_set_definition") -> ["transitive_set", None]:
+        transitive_set_definition: TransitiveSetDefinition) -> [TransitiveSet, None]:
     kwargs = {}
     if children:
         kwargs["children"] = children

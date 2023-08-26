@@ -349,7 +349,7 @@ def setup_dep_files(
         cmd: cmd_args,
         classpath_jars_tag: "artifact_tag",
         used_classes_json_outputs: list[Artifact],
-        abi_to_abi_dir_map: ["transitive_set_args_projection", list[cmd_args], None],
+        abi_to_abi_dir_map: [TransitiveSetArgsProjection, list[cmd_args], None],
         hidden = ["artifact"]) -> cmd_args:
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
 
