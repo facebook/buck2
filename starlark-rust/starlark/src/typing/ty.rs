@@ -302,7 +302,7 @@ impl Ty {
 
     /// Function type that accepts any arguments and returns any result.
     pub(crate) fn any_function() -> Self {
-        Self::custom(TyCustomFunction(TyFunction::any()))
+        Ty::basic(TyBasic::Callable)
     }
 
     /// Type from the implementation of [`StarlarkValue`].

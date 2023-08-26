@@ -167,9 +167,7 @@ impl TyCustom {
 
     #[allow(clippy::if_same_then_else, clippy::needless_bool)]
     pub(crate) fn intersects(x: &TyCustom, y: &TyCustom) -> bool {
-        if x.as_name() == Some("function") && y.as_name() == Some("function") {
-            true
-        } else if x.0.eq_token().type_id() == y.0.eq_token().type_id() {
+        if x.0.eq_token().type_id() == y.0.eq_token().type_id() {
             // FIXME: Can probably be a bit more precise here
             true
         } else {
@@ -180,6 +178,7 @@ impl TyCustom {
     pub(crate) fn intersects_with(&self, other: &TyBasic) -> bool {
         match other {
             TyBasic::Custom(other) => Self::intersects(self, other),
+            TyBasic::Callable => self.as_name() == Some("function"),
             _ => false,
         }
     }

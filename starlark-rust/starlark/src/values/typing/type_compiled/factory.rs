@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+use allocative::Allocative;
+use dupe::Dupe;
+
 use crate::typing::Ty;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
@@ -39,5 +42,18 @@ impl<'v> TypeCompiledFactory<'v> {
 
     pub(crate) fn heap(&self) -> &'v Heap {
         self.heap
+    }
+
+    pub(crate) fn callable(self) -> TypeCompiled<Value<'v>> {
+        #[derive(Allocative, Eq, PartialEq, Hash, Clone, Copy, Dupe, Debug)]
+        struct FunctionMatcher;
+
+        impl TypeCompiledImpl for FunctionMatcher {
+            fn matches(&self, value: Value) -> bool {
+                value.vtable().starlark_value.HAS_invoke
+            }
+        }
+
+        self.alloc(FunctionMatcher)
     }
 }

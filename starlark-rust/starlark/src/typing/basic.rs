@@ -48,6 +48,8 @@ pub enum TyBasic {
     /// Iter is a type that supports iteration, only used as arguments to primitive functions.
     /// The inner type is applicable for each iteration element.
     Iter(Box<Ty>),
+    /// `typing.Callable`.
+    Callable,
     /// A list.
     List(Box<Ty>),
     /// A tuple. May be empty, to indicate the empty tuple.
@@ -105,7 +107,7 @@ impl TyBasic {
             TyBasic::Tuple(_) => Some("tuple"),
             TyBasic::Dict(_) => Some("dict"),
             TyBasic::Custom(c) => c.as_name(),
-            TyBasic::Any | TyBasic::Iter(_) => None,
+            TyBasic::Any | TyBasic::Iter(_) | TyBasic::Callable => None,
         }
     }
 
@@ -160,6 +162,7 @@ impl Display for TyBasic {
                     write!(f, "typing.Iterable[{}]", x)
                 }
             }
+            TyBasic::Callable => write!(f, "typing.Callable"),
             TyBasic::List(x) => write!(f, "list[{}]", x),
             TyBasic::Tuple(tuple) => Display::fmt(tuple, f),
             TyBasic::Dict(k_v) => write!(f, "dict[{}, {}]", k_v.0, k_v.1),

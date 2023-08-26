@@ -22,7 +22,6 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 
 use allocative::Allocative;
-use dupe::Dupe;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -32,11 +31,8 @@ use crate::typing::Ty;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
-use crate::values::typing::callable::StarlarkCallable;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
-use crate::values::UnpackValue;
 use crate::values::Value;
 
 /// An argument being passed to a function
@@ -222,16 +218,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
     }
 
     fn matcher<'v>(&self, factory: TypeCompiledFactory<'v>) -> TypeCompiled<Value<'v>> {
-        #[derive(Allocative, Eq, PartialEq, Hash, Clone, Copy, Dupe, Debug)]
-        struct FunctionMatcher;
-
-        impl TypeCompiledImpl for FunctionMatcher {
-            fn matches(&self, value: Value) -> bool {
-                StarlarkCallable::unpack_value(value).is_some()
-            }
-        }
-
-        factory.alloc(FunctionMatcher)
+        factory.callable()
     }
 }
 
@@ -263,15 +250,6 @@ impl TyFunction {
             type_attr: None,
             params,
             result,
-        }
-    }
-
-    /// Function type that accepts any arguments and returns any result.
-    pub(crate) fn any() -> TyFunction {
-        TyFunction {
-            type_attr: None,
-            params: vec![Param::args(Ty::any()), Param::kwargs(Ty::any())],
-            result: Ty::any(),
         }
     }
 }

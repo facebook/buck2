@@ -845,6 +845,7 @@ impl<'v> TypeCompiled<Value<'v>> {
                 TypeCompiled::type_dict_of(k, v, heap)
             }
             TyBasic::Iter(item) => TypeCompiled::iter(item, heap),
+            TyBasic::Callable => TypeCompiledFactory::new(Ty::basic(ty.clone()), heap).callable(),
             TyBasic::Custom(custom) => TypeCompiled::ty_custom(custom, heap),
         }
     }

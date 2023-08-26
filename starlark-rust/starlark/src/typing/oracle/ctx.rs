@@ -318,6 +318,7 @@ impl<'a> TypingOracleCtx<'a> {
                 // Unknown type, may be callable.
                 Ok(Ty::any())
             }
+            TyBasic::Callable => Ok(Ty::any()),
             TyBasic::Custom(t) => t.0.validate_call_dyn(span, args, *self),
         }
     }
