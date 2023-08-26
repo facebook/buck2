@@ -334,6 +334,7 @@ pub(crate) struct NativeMethod {
     #[allocative(skip)]
     pub(crate) function: Box<dyn NativeMeth>,
     pub(crate) name: String,
+    pub(crate) ty: Ty,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
@@ -356,6 +357,10 @@ impl<'v> StarlarkValue<'v> for NativeMethod {
 
     fn documentation(&self) -> Option<DocItem> {
         Some(DocItem::Function(self.raw_docs.documentation()))
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(self.ty.clone())
     }
 }
 

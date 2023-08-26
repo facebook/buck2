@@ -441,6 +441,8 @@ impl MethodsBuilder {
     ) where
         F: NativeMeth,
     {
+        let ty = Ty::from_docs_function(&raw_docs.documentation());
+
         self.members.insert(
             name,
             FrozenValueNotSpecial::new(self.heap.alloc(NativeMethod {
@@ -448,6 +450,7 @@ impl MethodsBuilder {
                 name: name.to_owned(),
                 speculative_exec_safe,
                 raw_docs,
+                ty,
             }))
             .unwrap(),
         );
