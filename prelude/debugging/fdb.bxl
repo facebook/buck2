@@ -1,0 +1,45 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+# Bxl script in this file is addressing the problem of retrieving additional information
+# from language rule providers in order to correctly setup debugging tools
+# Typical use case is:
+#   - a user wants to debug "buck run `//some:target`" or "buck test //some:test"
+#   - depending on the language and/or platform used //some:target could be a macros wrapping a rule provider
+#   - actual language rule might have relevant information / artifacts in order to make debugging possible.
+# So this script provides various hooks to let debugging tool
+#   1) traverse targets and rules based on  //some:target
+#   2) inspect rule providers and extract information required for seamless debugging setup
+# Example:
+# buck2 bxl prelude//debugging/fdb.bxl:inspect_target -- --target=//some:target
+# This outputs file containing JSON serialized `ExecInfo` (see types.bzl)
+
+load("@prelude//debugging/common.bzl", "create_target_info", "resolve_actual_target", "target_name")
+load("@prelude//debugging/types.bzl", "ExecInfo", "ScriptSettings")
+
+def inspect(ctx: "bxl_ctx", target: "target_node", _settings: ScriptSettings):
+    actions = ctx.bxl_actions().actions
+    actual_target = resolve_actual_target(ctx, target)
+    return actions.write_json("out.json", ExecInfo(
+        target_name = target_name(actual_target),
+        target_info = create_target_info(actual_target),
+    ))
+
+def inspect_target_impl(ctx: "bxl_ctx"):
+    node = ctx.configured_targets(ctx.cli_args.target)
+    ctx.output.print(ctx.output.ensure(inspect(ctx, node, ScriptSettings(
+        target = node,
+        args = ctx.cli_args.args if ctx.cli_args.args else [],
+    ))).abs_path())
+
+inspect_target = bxl_main(
+    impl = inspect_target_impl,
+    cli_args = {
+        "args": cli_args.option(cli_args.list(cli_args.string())),
+        "target": cli_args.target_label(),
+    },
+)
