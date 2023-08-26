@@ -18,20 +18,52 @@
 # buck2 bxl prelude//debugging/fdb.bxl:inspect_target -- --target=//some:target
 # This outputs file containing JSON serialized `ExecInfo` (see types.bzl)
 
-load("@prelude//debugging/common.bzl", "create_target_info", "resolve_actual_target", "target_name")
-load("@prelude//debugging/types.bzl", "ExecInfo", "ScriptSettings")
+load("@prelude//debugging/common.bzl", "resolve_actual_target", "rule_type")
+load("@prelude//debugging/inspect_default.bzl", "inspect_default")
+load("@prelude//debugging/labels.bzl", "DBG_INFO_REF", "get_info_ref", "get_label_or_mark")
+load("@prelude//debugging/types.bzl", "ScriptSettings")
 
-def inspect(ctx: "bxl_ctx", target: "target_node", _settings: ScriptSettings):
-    actions = ctx.bxl_actions().actions
-    actual_target = resolve_actual_target(ctx, target)
-    return actions.write_json("out.json", ExecInfo(
-        target_name = target_name(actual_target),
-        target_info = create_target_info(actual_target),
-    ))
+INSPECT_BY_RULE = {
+}
+
+def inspect_rule_alias(ctx: "bxl_ctx", actions: AnalysisActions, target: "target_node", settings: ScriptSettings):
+    aliased_target_label = get_info_ref(target.attrs_lazy().get("labels").value())
+    if not aliased_target_label:
+        return inspect_default(
+            ctx,
+            actions,
+            target,
+            settings,
+        )
+
+    aliases_target = ctx.configured_targets(aliased_target_label)
+    return inspect_any_target(
+        ctx,
+        actions,
+        resolve_actual_target(ctx, aliases_target),
+        settings,
+    )
+
+INSPECT_BY_LABEL = {
+    DBG_INFO_REF: inspect_rule_alias,
+}
+
+def inspect_any_target(ctx: "bxl_ctx", actions: AnalysisActions, target: "target_node", settings: ScriptSettings):
+    attrs = target.attrs_lazy()
+    labels = attrs.get("labels").value() if attrs.get("labels") else []
+    inspect_func = INSPECT_BY_RULE.get(rule_type(target), inspect_default)
+    for label in labels:
+        inspect_func = INSPECT_BY_LABEL.get(get_label_or_mark(label), inspect_func)
+
+    return inspect_func(ctx, actions, target, settings)
+
+def inspect(ctx: "bxl_ctx", actions: AnalysisActions, target: "target_node", settings: ScriptSettings):
+    return actions.write_json("out.json", inspect_any_target(ctx, actions, target, settings))
 
 def inspect_target_impl(ctx: "bxl_ctx"):
+    actions = ctx.bxl_actions().actions
     node = ctx.configured_targets(ctx.cli_args.target)
-    ctx.output.print(ctx.output.ensure(inspect(ctx, node, ScriptSettings(
+    ctx.output.print(ctx.output.ensure(inspect(ctx, actions, node, ScriptSettings(
         target = node,
         args = ctx.cli_args.args if ctx.cli_args.args else [],
     ))).abs_path())
