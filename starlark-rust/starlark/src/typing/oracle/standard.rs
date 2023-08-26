@@ -208,13 +208,6 @@ impl TypingOracle for OracleStandard {
                 },
                 _ => return fallback(),
             },
-            TyBasic::Name(x) if x == "range" => match attr {
-                TypingAttr::Iter => Ty::int(),
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(Ty::int())], Ty::bool())
-                }
-                _ => return Some(Err(())),
-            },
             _ => {
                 let res = self.fallback.attribute(ty, attr);
                 if res.is_none() && self.fallback.known_object(ty.as_name().unwrap_or_default()) {
