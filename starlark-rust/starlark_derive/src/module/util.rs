@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use proc_macro2::TokenStream;
-use quote::quote;
 use syn::*;
 
 /// Is a type matching a given name
@@ -61,13 +59,5 @@ pub(crate) fn ident_string(x: &Ident) -> String {
     match x.strip_prefix("r#") {
         Some(x) => x.to_owned(),
         None => x,
-    }
-}
-
-pub(crate) fn mut_token(x: bool) -> TokenStream {
-    if x {
-        quote! {mut}
-    } else {
-        quote! {}
     }
 }

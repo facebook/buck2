@@ -21,10 +21,12 @@ use std::fmt;
 use std::fmt::Display;
 
 use dupe::Dupe;
+use starlark_map::unordered_map::UnorderedMap;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;
 use crate::codemap::Span;
+use crate::codemap::Spanned;
 use crate::environment::names::MutableNames;
 use crate::environment::Globals;
 use crate::eval::compiler::scope::payload::CstStmt;
@@ -48,7 +50,6 @@ use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingOracle;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
-use crate::typing::unordered_map::UnorderedMap;
 use crate::values::FrozenHeap;
 
 // Things which are None in the map have type void - they are never constructed
@@ -106,7 +107,13 @@ pub(crate) fn solve_bindings(
             None => Ty::none(),
             Some(x) => ctx.expression_type(x)?,
         };
-        ctx.validate_type(&ty, require, *span);
+        ctx.validate_type(
+            Spanned {
+                node: &ty,
+                span: *span,
+            },
+            require,
+        );
     }
     Ok((
         ctx.errors.into_inner(),

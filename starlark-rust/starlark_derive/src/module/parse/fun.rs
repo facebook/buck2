@@ -689,7 +689,7 @@ fn parse_arg(
             Ok(StarArgOrSpecial::StarArg(StarArg {
                 span,
                 attrs: param_attrs.unused_attrs,
-                mutable: ident.mutability.is_some(),
+                mutable: ident.mutability,
                 name: ident.ident,
                 pass_style,
                 ty: *ty,

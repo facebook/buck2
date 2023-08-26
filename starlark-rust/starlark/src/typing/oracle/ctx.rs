@@ -85,28 +85,6 @@ pub struct TypingOracleCtx<'a> {
 }
 
 impl<'a> TypingOracleCtx<'a> {
-    pub(crate) fn attribute_index(&self, ty: &TyBasic) -> Option<Result<Ty, ()>> {
-        let attr = TypingAttr::Index;
-        Some(Ok(match ty {
-            TyBasic::Tuple(tuple) => match attr {
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(tuple.item_ty())], Ty::bool())
-                }
-                TypingAttr::Iter => tuple.item_ty(),
-                _ => return Some(Err(())),
-            },
-            TyBasic::StarlarkValue(x) if x.as_name() == "tuple" => match attr {
-                TypingAttr::Iter => Ty::any(),
-                TypingAttr::BinOp(TypingBinOp::In) => {
-                    Ty::function(vec![Param::pos_only(Ty::any())], Ty::bool())
-                }
-                _ => return Some(Err(())),
-            },
-            TyBasic::Custom(c) => return Some(c.0.attribute_dyn(attr)),
-            ty => return self.oracle.attribute(ty, attr),
-        }))
-    }
-
     pub(crate) fn subtype(&self, require: &TyName, got: &TyName) -> bool {
         match self.typecheck_mode {
             TypecheckMode::Lint => self.oracle.subtype(require, got),
@@ -153,15 +131,10 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
-    pub(crate) fn validate_type(
-        &self,
-        got: &Ty,
-        require: &Ty,
-        span: Span,
-    ) -> Result<(), TypingError> {
-        if !self.intersects(got, require) {
+    pub(crate) fn validate_type(&self, got: Spanned<&Ty>, require: &Ty) -> Result<(), TypingError> {
+        if !self.intersects(got.node, require) {
             Err(self.mk_error(
-                span,
+                got.span,
                 TypingOracleCtxError::IncompatibleType {
                     got: got.to_string(),
                     require: require.to_string(),
@@ -260,13 +233,13 @@ impl<'a> TypingOracleCtx<'a> {
             }
             match param.mode {
                 ParamMode::PosOnly | ParamMode::PosOrName(_) | ParamMode::NameOnly(_) => {
-                    self.validate_type(args[0].node, &param.ty, args[0].span)?;
+                    self.validate_type(args[0], &param.ty)?;
                 }
                 ParamMode::Args => {
                     for ty in args {
                         // For an arg, we require the type annotation to be inner value,
                         // rather than the outer (which is always a tuple)
-                        self.validate_type(ty.node, &param.ty, ty.span)?;
+                        self.validate_type(ty, &param.ty)?;
                     }
                 }
                 ParamMode::Kwargs => {
@@ -282,7 +255,7 @@ impl<'a> TypingOracleCtx<'a> {
                     if !val_types.is_empty() {
                         let require = Ty::unions(val_types);
                         for ty in args {
-                            self.validate_type(ty.node, &require, ty.span)?;
+                            self.validate_type(ty, &require)?;
                         }
                     }
                 }
@@ -298,7 +271,7 @@ impl<'a> TypingOracleCtx<'a> {
         args: &[Spanned<Arg>],
     ) -> Result<Ty, TypingOrInternalError> {
         self.validate_args(&fun.params, args, span)?;
-        Ok((*fun.result).clone())
+        Ok(fun.result.clone())
     }
 
     fn validate_call_for_type_name(
@@ -441,8 +414,17 @@ impl<'a> TypingOracleCtx<'a> {
                     },
                 )),
             },
+            TyBasic::Custom(c) => match c.0.attribute_dyn(TypingAttr::Index) {
+                Ok(x) => Ok(x),
+                Err(()) => Err(self.mk_error_as_maybe_internal(
+                    span,
+                    TypingOracleCtxError::MissingIndexOperator {
+                        ty: Ty::basic(TyBasic::Custom(c.clone())),
+                    },
+                )),
+            },
             array => {
-                let f = match self.attribute_index(array) {
+                let f = match self.oracle.attribute(array, TypingAttr::Index) {
                     None => return Ok(Ty::any()),
                     Some(Ok(x)) => x,
                     Some(Err(())) => {
@@ -705,7 +687,7 @@ impl<'a> TypingOracleCtx<'a> {
             }
             BinOp::Equal | BinOp::NotEqual => {
                 // It's not an error to compare two different types, but it is pointless
-                self.validate_type(&lhs, &rhs, span)?;
+                self.validate_type(rhs.as_ref(), &lhs)?;
                 Ok(bool_ret)
             }
             BinOp::In | BinOp::NotIn => {

@@ -56,7 +56,7 @@ impl TyCustomFunctionImpl for ListType {
         static LIST: Lazy<TyFunction> = Lazy::new(|| TyFunction {
             type_attr: Some(Ty::any_list()),
             params: vec![Param::pos_only(Ty::iter(Ty::any())).optional()],
-            result: Box::new(Ty::any_list()),
+            result: Ty::any_list(),
         });
 
         oracle.validate_fn_call(span, &LIST, args)?;

@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
+use starlark_map::unordered_map::UnorderedMap;
+
 use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
 use crate::typing::basic::TyBasic;
 use crate::typing::oracle::traits::TypingAttr;
-use crate::typing::unordered_map::UnorderedMap;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
 

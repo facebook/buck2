@@ -57,8 +57,10 @@ enum ExitResultVariant {
     /// `ErrorObserver::error_cause` if more accurate categorization is available after the
     /// command ends. If no categorization succeeded, it will return exit code 1.
     UncategorizedError,
-    /// Instead of terminating normally, `exec` a new process with the given name and argv.
-    Exec(ExecArgs),
+    /// Instead of terminating normally, `exec` (or spawn on Windows)
+    /// a new process with the given name and argv.
+    /// This is used to implement `buck2 run`.
+    Buck2RunExec(ExecArgs),
     /// We failed (i.e. due to a Buck internal error).
     /// At this time, when execution does fail, we print out the error message to stderr.
     Err(anyhow::Error),
@@ -100,7 +102,7 @@ impl ExitResult {
         env: Vec<(String, String)>,
     ) -> Self {
         Self {
-            variant: ExitResultVariant::Exec(ExecArgs {
+            variant: ExitResultVariant::Buck2RunExec(ExecArgs {
                 prog,
                 argv,
                 chdir,
@@ -203,7 +205,7 @@ impl ExitResultVariant {
         let mut exit_code = match self {
             Self::Status(v) => v,
             Self::UncategorizedError => 1,
-            Self::Exec(args) => {
+            Self::Buck2RunExec(args) => {
                 // Terminate by exec-ing a new process - usually because of `buck2 run`.
                 //
                 // execv does not return on successful operation, so it always returns an error.

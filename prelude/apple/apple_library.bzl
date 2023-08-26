@@ -277,7 +277,7 @@ def _get_link_style_sub_targets_and_providers(
         return ({}, [resource_graph])
 
     min_version = get_min_deployment_version_for_node(ctx)
-    min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
+    min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)]
 
     debug_info = project_artifacts(
         actions = ctx.actions,

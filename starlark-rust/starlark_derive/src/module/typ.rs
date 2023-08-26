@@ -189,7 +189,7 @@ pub(crate) enum StarArgPassStyle {
 pub(crate) struct StarArg {
     pub span: Span,
     pub attrs: Vec<Attribute>,
-    pub mutable: bool,
+    pub mutable: Option<syn::Token![mut]>,
     pub pass_style: StarArgPassStyle,
     pub name: Ident,
     pub ty: Type,

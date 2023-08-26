@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-use std::collections::hash_map;
 use std::fmt::Display;
 use std::iter;
+
+use starlark_map::unordered_map;
+use starlark_map::unordered_map::UnorderedMap;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -46,7 +48,6 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
-use crate::typing::unordered_map::UnorderedMap;
 use crate::typing::Approximation;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
@@ -295,11 +296,11 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
     ) -> Result<(), InternalError> {
         let module_slot_id = self.resolve_assign_ident_to_module_slot_id(ident)?;
         match self.values.entry(module_slot_id) {
-            hash_map::Entry::Occupied(mut e) => {
+            unordered_map::Entry::Occupied(mut e) => {
                 let value = GlobalValue::union2(value, e.get().clone());
                 e.insert(value);
             }
-            hash_map::Entry::Vacant(e) => {
+            unordered_map::Entry::Vacant(e) => {
                 e.insert(value);
             }
         }

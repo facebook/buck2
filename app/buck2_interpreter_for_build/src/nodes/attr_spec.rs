@@ -202,11 +202,7 @@ impl AttributeSpecExt for AttributeSpec {
             };
             params.push(param);
         }
-        TyFunction {
-            type_attr: None,
-            params,
-            result: Box::new(Ty::none()),
-        }
+        TyFunction::new(params, Ty::none())
     }
 
     fn starlark_types(&self) -> Vec<Ty> {

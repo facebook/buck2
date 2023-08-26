@@ -15,69 +15,43 @@
  * limitations under the License.
  */
 
-//! Fixed set enumerations, with runtime checking of validity.
-//!
-//! Calling `enum()` produces an [`EnumType`]. Calling the [`EnumType`] creates an [`EnumValue`].
-//!
-//! The implementation ensures that each value of the enumeration is only stored once,
-//! so they may also provide (modest) memory savings. Created in starlark with the
-//! `enum` function:
-//!
-//! ```
-//! # starlark::assert::pass(r#"
-//! Colors = enum("Red", "Green", "Blue")
-//! val = Colors("Red")
-//! assert_eq(val.value, "Red")
-//! assert_eq(val.index, 0)
-//! assert_eq(Colors[0], val)
-//! assert_eq(Colors.type, "Colors")
-//! assert_eq([v.value for v in Colors], ["Red", "Green", "Blue"])
-//! # "#);
-//! ```
-
 use std::cell::UnsafeCell;
 use std::fmt;
-use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use derivative::Derivative;
 use display_container::fmt_container;
 use either::Either;
-use serde::Serialize;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
+use starlark_derive::Coerce;
+use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkDocs;
+use starlark_derive::Trace;
+use starlark_map::small_map::SmallMap;
 use starlark_map::Equivalent;
-use thiserror::Error;
 
+use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::Coerce;
-use crate::collections::SmallMap;
-use crate::collections::StarlarkHasher;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::starlark_complex_value;
-use crate::starlark_complex_values;
+use crate::values::enumeration::EnumValue;
+use crate::values::exported_name::ExportedName;
+use crate::values::exported_name::FrozenExportedName;
+use crate::values::exported_name::MutableExportedName;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::index::convert_index;
-use crate::values::types::exported_name::ExportedName;
-use crate::values::types::exported_name::FrozenExportedName;
-use crate::values::types::exported_name::MutableExportedName;
-use crate::values::Freeze;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
-use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLike;
-use crate::{self as starlark};
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 enum EnumError {
     #[error("enum values must all be distinct, but repeated `{0}`")]
     DuplicateEnumValue(String),
@@ -101,7 +75,7 @@ enum EnumError {
 // Deliberately store fully populated values
 // for each entry, so we can produce enum values with zero allocation.
 pub struct EnumTypeGen<V, Typ: ExportedName> {
-    typ: Typ,
+    pub(crate) typ: Typ,
     // The key is the value of the enumeration
     // The value is a value of type EnumValue
     #[allocative(skip)] // TODO(nga): do not skip.
@@ -121,35 +95,6 @@ impl<V: Display, Typ: ExportedName> Display for EnumTypeGen<V, Typ> {
 pub type EnumType<'v> = EnumTypeGen<Value<'v>, MutableExportedName>;
 /// Frozen enum type.
 pub type FrozenEnumType = EnumTypeGen<FrozenValue, FrozenExportedName>;
-
-/// A value from an enumeration.
-#[derive(
-    Clone,
-    Derivative,
-    Trace,
-    Coerce,
-    Freeze,
-    ProvidesStaticType,
-    Allocative
-)]
-#[repr(C)]
-#[derivative(Debug)]
-pub struct EnumValueGen<V> {
-    // Must ignore value.typ or type.elements, since they are circular
-    #[derivative(Debug = "ignore")]
-    typ: V, // Must be EnumType it points back to (so it can get the type)
-    value: V,   // The value of this enumeration
-    index: i32, // The index in the enumeration
-}
-
-impl<V: Display> Display for EnumValueGen<V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.value.fmt(f)
-    }
-}
-
-starlark_complex_values!(EnumType);
-starlark_complex_value!(pub EnumValue);
 
 impl<'v> EnumType<'v> {
     pub(crate) fn new(elements: Vec<Value<'v>>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -179,16 +124,6 @@ impl<'v> EnumType<'v> {
             *t.elements.get() = res;
         }
         Ok(typ)
-    }
-}
-
-impl<'v, V: ValueLike<'v>> EnumValueGen<V> {
-    /// The result of calling `type()` on an enum value.
-    pub const TYPE: &'static str = "enum";
-
-    fn get_enum_type(&self) -> Either<&'v EnumType<'v>, &'v FrozenEnumType> {
-        // Safe to unwrap because we always ensure typ is EnumType
-        EnumType::from_value(self.typ.to_value()).unwrap()
     }
 }
 
@@ -290,53 +225,5 @@ fn enum_type_methods(builder: &mut MethodsBuilder) {
             Either::Left(x) => Ok(heap.alloc_list_iter(x.elements().keys().copied())),
             Either::Right(x) => Ok(heap.alloc_list_iter(x.elements().keys().map(|x| x.to_value()))),
         }
-    }
-}
-
-#[starlark_value(type = EnumValue::TYPE)]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for EnumValueGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
-    fn matches_type(&self, ty: &str) -> bool {
-        if ty == EnumValue::TYPE {
-            return true;
-        }
-        match self.get_enum_type() {
-            Either::Left(x) => x.typ.equal_to(ty),
-            Either::Right(x) => x.typ.equal_to(ty),
-        }
-    }
-
-    fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        match EnumValue::from_value(other) {
-            Some(other) if self.typ.equals(other.typ)? => Ok(self.index == other.index),
-            _ => Ok(false),
-        }
-    }
-
-    fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        self.value.write_hash(hasher)
-    }
-
-    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
-        match attribute {
-            "index" => Some(heap.alloc(self.index)),
-            "value" => Some(self.value.to_value()),
-            _ => None,
-        }
-    }
-
-    fn dir_attr(&self) -> Vec<String> {
-        vec!["index".to_owned(), "value".to_owned()]
-    }
-}
-
-impl<'v, V: ValueLike<'v>> Serialize for EnumValueGen<V> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.value.serialize(serializer)
     }
 }

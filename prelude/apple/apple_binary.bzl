@@ -152,7 +152,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], "promise"]:
         cxx_output.sub_targets.update(extra_linker_output_providers)
 
         min_version = get_min_deployment_version_for_node(ctx)
-        min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
+        min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)]
 
         resource_graph = create_resource_graph(
             ctx = ctx,

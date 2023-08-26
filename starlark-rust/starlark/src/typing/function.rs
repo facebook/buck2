@@ -32,9 +32,11 @@ use crate::typing::Ty;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
+use crate::values::typing::callable::StarlarkCallable;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::UnpackValue;
 use crate::values::Value;
 
 /// An argument being passed to a function
@@ -225,7 +227,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 
         impl TypeCompiledImpl for FunctionMatcher {
             fn matches(&self, value: Value) -> bool {
-                value.vtable().starlark_value.HAS_invoke
+                StarlarkCallable::unpack_value(value).is_some()
             }
         }
 
@@ -237,20 +239,39 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct TyFunction {
     /// The `.type` property of the function, often `""`.
-    pub type_attr: Option<Ty>,
+    pub(crate) type_attr: Option<Ty>,
     /// The parameters to the function.
-    pub params: Vec<Param>,
+    pub(crate) params: Vec<Param>,
     /// The result type of the function.
-    pub result: Box<Ty>,
+    pub(crate) result: Ty,
 }
 
 impl TyFunction {
+    /// Constructor.
+    pub fn new_with_type_attr(params: Vec<Param>, result: Ty, type_attr: Ty) -> Self {
+        // TODO(nga): validate params are in correct order.
+        TyFunction {
+            type_attr: Some(type_attr),
+            params,
+            result,
+        }
+    }
+
+    /// Constructor.
+    pub fn new(params: Vec<Param>, result: Ty) -> Self {
+        TyFunction {
+            type_attr: None,
+            params,
+            result,
+        }
+    }
+
     /// Function type that accepts any arguments and returns any result.
     pub(crate) fn any() -> TyFunction {
         TyFunction {
             type_attr: None,
             params: vec![Param::args(Ty::any()), Param::kwargs(Ty::any())],
-            result: Box::new(Ty::any()),
+            result: Ty::any(),
         }
     }
 }

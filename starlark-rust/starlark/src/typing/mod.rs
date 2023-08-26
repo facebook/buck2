@@ -38,7 +38,6 @@ pub(crate) mod structs;
 pub(crate) mod tuple;
 pub(crate) mod ty;
 pub(crate) mod typecheck;
-pub(crate) mod unordered_map;
 
 #[cfg(test)]
 mod tests;

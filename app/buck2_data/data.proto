@@ -661,8 +661,9 @@ message CommandStart {
 }
 
 // An event that marks that the command has start execution and synced it's
-// state. The period of time between CommandStart and CommandBegin is the time
-// spent synchronizing changes and waiting for concurrent commands to finish.
+// state. The period of time between CommandStart and CommandCriticalStart is
+// the time spent synchronizing changes and waiting for concurrent commands to
+// finish.
 message CommandCriticalStart {
   reserved 2;
 
@@ -773,7 +774,7 @@ message CommandEnd {
   repeated string error_messages = 3;
 }
 
-// Marks the exit of the `CommandBeginCritical` event, such that the command has
+// Marks the exit of the `CommandCriticalStart` event, such that the command has
 // left the critical section.
 message CommandCriticalEnd {
   // Metadata associated with this command. Values in this map have no

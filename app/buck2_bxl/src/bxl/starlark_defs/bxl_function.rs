@@ -28,6 +28,7 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::dict::DictOf;
 use starlark::values::starlark_value;
+use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -49,7 +50,7 @@ use crate::bxl::starlark_defs::cli_args::CliArgValue;
 #[starlark_module]
 pub(crate) fn register_bxl_function(builder: &mut GlobalsBuilder) {
     fn bxl_main<'v>(
-        #[starlark(require = named)] r#impl: Value<'v>,
+        #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
         #[starlark(require = named)] cli_args: DictOf<'v, &'v str, &'v CliArgs>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -59,12 +60,12 @@ pub(crate) fn register_bxl_function(builder: &mut GlobalsBuilder) {
 }
 
 fn bxl_impl<'v>(
-    r#impl: Value<'v>,
+    r#impl: StarlarkCallable<'v>,
     cli_args: DictOf<'v, &'v str, &'v CliArgs>,
     doc: &str,
     eval: &mut Evaluator<'v, '_>,
 ) -> anyhow::Result<Value<'v>> {
-    let implementation = r#impl;
+    let implementation = r#impl.0;
 
     let bxl_path = (*starlark_path_from_build_context(eval)?
         .unpack_bxl_file()

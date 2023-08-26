@@ -155,7 +155,7 @@ impl<T> NativeAttr for T where
 pub struct NativeCallableRawDocs {
     pub rust_docstring: Option<&'static str>,
     pub signature: ParametersSpec<FrozenValue>,
-    pub parameter_types: HashMap<usize, Ty>,
+    pub parameter_types: Vec<Ty>,
     pub return_type: Ty,
     pub as_type: Option<Ty>,
 }

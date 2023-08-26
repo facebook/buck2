@@ -36,4 +36,8 @@ impl<'v> TypeCompiledFactory<'v> {
     pub(crate) fn alloc(self, matcher: impl TypeCompiledImpl) -> TypeCompiled<Value<'v>> {
         TypeCompiled::alloc(matcher, self.ty, self.heap)
     }
+
+    pub(crate) fn heap(&self) -> &'v Heap {
+        self.heap
+    }
 }

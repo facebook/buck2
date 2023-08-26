@@ -220,6 +220,12 @@ fn categorize_error(err: &anyhow::Error) -> &'static str {
         "persist_log_input_output_error"
     } else if err_msg.contains("failed to lookup address information") {
         "persist_log_dns_failed_lookup"
+    } else if err_msg.contains("BadCertificate") {
+        "persist_log_bad_certificate"
+    } else if err_msg.contains("connection reset") {
+        "persist_log_connection_reset"
+    } else if err_msg.contains("Broken pipe") {
+        "persist_log_broken_pipe"
     } else {
         "persist_log_other"
     }

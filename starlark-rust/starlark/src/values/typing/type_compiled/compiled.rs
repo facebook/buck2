@@ -55,7 +55,6 @@ use crate::values::none::NoneType;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::tuple::value::Tuple;
-use crate::values::types::tuple::value::TupleGen;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::AllocValue;
 use crate::values::Demand;
@@ -95,7 +94,7 @@ pub(crate) trait TypeCompiledImpl:
     }
 }
 
-trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
+pub(crate) trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
     fn as_ty_dyn(&self) -> &Ty;
     fn matches_dyn(&self, value: Value) -> bool;
     fn is_runtime_wildcard_dyn(&self) -> bool;
@@ -143,7 +142,7 @@ where
 }
 
 #[derive(Allocative, Debug)]
-struct TypeCompiledBox(Box<dyn TypeCompiledDyn>);
+pub(crate) struct TypeCompiledBox(pub(crate) Box<dyn TypeCompiledDyn>);
 
 impl Clone for TypeCompiledBox {
     fn clone(&self) -> Self {
@@ -330,7 +329,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         self.downcast().unwrap().is_runtime_wildcard_dyn()
     }
 
-    fn to_box_dyn(&self) -> TypeCompiledBox {
+    pub(crate) fn to_box_dyn(&self) -> TypeCompiledBox {
         self.downcast().unwrap().to_box()
     }
 
@@ -751,28 +750,6 @@ impl<'v> TypeCompiled<Value<'v>> {
         Self::alloc(IsDictOf(kt.to_box_dyn(), vt.to_box_dyn()), ty, heap)
     }
 
-    pub(crate) fn type_tuple_of(
-        ts: Vec<TypeCompiled<Value<'v>>>,
-        heap: &'v Heap,
-    ) -> TypeCompiled<Value<'v>> {
-        #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, ProvidesStaticType)]
-        struct IsTupleOf(Vec<TypeCompiledBox>);
-
-        impl TypeCompiledImpl for IsTupleOf {
-            fn matches(&self, value: Value) -> bool {
-                match Tuple::from_value(value) {
-                    Some(v) if v.len() == self.0.len() => {
-                        v.iter().zip(self.0.iter()).all(|(v, t)| t.0.matches_dyn(v))
-                    }
-                    _ => false,
-                }
-            }
-        }
-
-        let ty = Ty::tuple(ts.map(|t| t.as_ty().clone()));
-        Self::alloc(IsTupleOf(ts.into_map(|t| t.to_box_dyn())), ty, heap)
-    }
-
     /// Types that are `""` or start with `"_"` are wildcard - they match everything.
     pub(crate) fn is_wildcard(x: &str) -> bool {
         x == "" || x.starts_with('_')
@@ -797,14 +774,6 @@ impl<'v> TypeCompiled<Value<'v>> {
                 t => TypeCompiled::type_concrete(t, heap),
             }
         }
-    }
-
-    fn from_tuple(
-        t: &TupleGen<Value<'v>>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<TypeCompiled<Value<'v>>> {
-        let ts = t.content().try_map(|t| TypeCompiled::new(*t, heap))?;
-        Ok(TypeCompiled::type_tuple_of(ts, heap))
     }
 
     /// Parse `[t1, t2, ...]` as type.
@@ -866,9 +835,8 @@ impl<'v> TypeCompiled<Value<'v>> {
                 let item = TypeCompiled::from_ty(item, heap);
                 TypeCompiled::type_list_of(item, heap)
             }
-            TyBasic::Tuple(xs) => {
-                let xs = xs.elems.map(|x| TypeCompiled::from_ty(x, heap));
-                TypeCompiled::type_tuple_of(xs, heap)
+            TyBasic::Tuple(tuple) => {
+                tuple.matcher(TypeCompiledFactory::new(Ty::basic(ty.clone()), heap))
             }
             TyBasic::Dict(k_v) => {
                 let (k, v) = &**k_v;
@@ -895,7 +863,10 @@ impl<'v> TypeCompiled<Value<'v>> {
         } else if ty.is_none() {
             Ok(TypeCompiled::type_none())
         } else if let Some(t) = Tuple::from_value(ty) {
-            TypeCompiled::from_tuple(t, heap)
+            let elems = t
+                .content()
+                .try_map(|t| anyhow::Ok(TypeCompiled::new(*t, heap)?.as_ty().clone()))?;
+            Ok(TypeCompiled::from_ty(&Ty::tuple(elems), heap))
         } else if let Some(t) = ListRef::from_value(ty) {
             TypeCompiled::from_list(t, heap)
         } else if let Some(t) = DictRef::from_value(ty) {

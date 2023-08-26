@@ -27,10 +27,10 @@ pub(crate) mod dict;
 pub(crate) mod enumeration;
 pub(crate) mod extra;
 mod funcs;
+pub(crate) mod internal;
 pub(crate) mod json;
-pub(crate) mod partial;
-
 pub(crate) mod list;
+pub(crate) mod partial;
 pub(crate) mod string;
 pub(crate) mod structs;
 pub(crate) mod util;
@@ -38,6 +38,7 @@ pub(crate) mod util;
 pub use extra::PrintHandler;
 
 use crate::stdlib::funcs::globals::register_globals;
+use crate::stdlib::internal::register_internal;
 use crate::values::record::globals::register_record;
 use crate::values::typing;
 
@@ -84,6 +85,9 @@ pub enum LibraryExtension {
     Abs,
     /// `type_compiled()` function.
     Typing,
+    /// Utilities exposing starlark-rust internals.
+    /// These are not for production use.
+    Internal,
     // Make sure if you add anything new, you add it to `all` below.
 }
 
@@ -106,6 +110,7 @@ impl LibraryExtension {
             Json,
             Abs,
             Typing,
+            Internal,
         ]
     }
 
@@ -127,6 +132,7 @@ impl LibraryExtension {
             Json => json::json(builder),
             Abs => extra::abs(builder),
             Typing => typing::globals::register_typing(builder),
+            Internal => register_internal(builder),
         }
     }
 }
