@@ -97,6 +97,7 @@ extra_attributes = {
         "java_args_for_run_info": attrs.list(attrs.string(), default = []),
         "meta_inf_directory": attrs.option(attrs.source(allow_directory = True), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+        "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": attrs.exec_dep(
             default = select_java_toolchain(),
             providers = [
