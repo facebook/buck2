@@ -16,10 +16,12 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -132,4 +134,9 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
             heap.alloc(value)
         })
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_artifact_tag(globals: &mut GlobalsBuilder) {
+    const ArtifactTag: StarlarkValueAsType<ArtifactTag> = StarlarkValueAsType::new();
 }
