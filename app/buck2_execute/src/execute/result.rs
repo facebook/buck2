@@ -146,6 +146,13 @@ impl CommandExecutionResult {
             .sum()
     }
 
+    pub fn was_success(&self) -> bool {
+        match self.report.status {
+            CommandExecutionStatus::Success { .. } => true,
+            _ => false,
+        }
+    }
+
     pub fn was_locally_executed(&self) -> bool {
         match self.report.status {
             CommandExecutionStatus::Success {
