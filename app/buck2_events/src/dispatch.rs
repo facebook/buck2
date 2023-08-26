@@ -394,16 +394,11 @@ thread_local! {
     static CURRENT_SPAN: Cell<Option<SpanId>> = Cell::new(None);
 }
 
-#[allow(clippy::declare_interior_mutable_const)]
-// TODO: remove when clippy updates past https://github.com/rust-lang/rust-clippy/issues/8493
-mod ignore_clippy_warning {
-    use crate::dispatch::EventDispatcher;
-    tokio::task_local! {
-        pub static EVENTS: EventDispatcher;
-    }
-}
 use allocative::Allocative;
-pub use ignore_clippy_warning::*;
+
+tokio::task_local! {
+    pub static EVENTS: EventDispatcher;
+}
 
 /// Invokes function func, setting the dispatcher to the task_local for the duration
 /// of the call (and for any downstream events).
