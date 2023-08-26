@@ -8,6 +8,7 @@
 load(
     "@prelude//java:class_to_srcs.bzl",
     "JavaClassToSourceMapInfo",  # @unused Used as a type
+    "create_class_to_source_map_debuginfo",
     "create_class_to_source_map_from_jar",
     "create_class_to_source_map_info",
 )
@@ -119,6 +120,7 @@ def get_class_to_source_map_info(
         deps: list[Dependency]) -> (JavaClassToSourceMapInfo.type, dict):
     sub_targets = {}
     class_to_srcs = None
+    class_to_srcs_debuginfo = None
     if not ctx.attrs._is_building_android_binary and outputs != None:
         class_to_srcs = create_class_to_source_map_from_jar(
             actions = ctx.actions,
@@ -127,12 +129,22 @@ def get_class_to_source_map_info(
             jar = outputs.classpath_entry.full_library,
             srcs = ctx.attrs.srcs,
         )
+        class_to_srcs_debuginfo = create_class_to_source_map_debuginfo(
+            actions = ctx.actions,
+            java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
+            name = ctx.attrs.name + ".debuginfo.json",
+            srcs = ctx.attrs.srcs,
+        )
         sub_targets["class-to-srcs"] = [DefaultInfo(default_output = class_to_srcs)]
+
     class_to_src_map_info = create_class_to_source_map_info(
         ctx = ctx,
         mapping = class_to_srcs,
+        mapping_debuginfo = class_to_srcs_debuginfo,
         deps = deps,
     )
+    if not ctx.attrs._is_building_android_binary and outputs != None:
+        sub_targets["debuginfo"] = [DefaultInfo(default_output = class_to_src_map_info.debuginfo)]
     return (class_to_src_map_info, sub_targets)
 
 def get_classpath_subtarget(actions: AnalysisActions, packaging_info: "JavaPackagingInfo") -> dict[str, list[Provider]]:
