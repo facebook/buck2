@@ -43,6 +43,17 @@ impl<T> SmallArcVec1<T> {
         SmallArcVec1(SmallArcVec1Impl::One(x))
     }
 
+    pub(crate) fn clone_from_slice(slice: &[T]) -> SmallArcVec1<T>
+    where
+        T: Clone,
+    {
+        match slice {
+            [] => SmallArcVec1::empty(),
+            [x] => SmallArcVec1::one(x.clone()),
+            xs => SmallArcVec1(SmallArcVec1Impl::Arc(xs.into())),
+        }
+    }
+
     pub(crate) fn as_slice(&self) -> &[T] {
         match &self.0 {
             SmallArcVec1Impl::Zero => &[],

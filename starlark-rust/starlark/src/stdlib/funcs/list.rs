@@ -53,10 +53,12 @@ impl TyCustomFunctionImpl for ListType {
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
-        static LIST: Lazy<TyFunction> = Lazy::new(|| TyFunction {
-            type_attr: Some(Ty::any_list()),
-            params: vec![Param::pos_only(Ty::iter(Ty::any())).optional()],
-            result: Ty::any_list(),
+        static LIST: Lazy<TyFunction> = Lazy::new(|| {
+            TyFunction::new_with_type_attr(
+                vec![Param::pos_only(Ty::iter(Ty::any())).optional()],
+                Ty::any_list(),
+                Ty::any_list(),
+            )
         });
 
         oracle.validate_fn_call(span, &LIST, args)?;
