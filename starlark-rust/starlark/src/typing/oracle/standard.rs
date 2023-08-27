@@ -85,7 +85,6 @@ impl TypingOracle for OracleStandard {
         // We explicitly implement polymorphic functions (e.g. `dict.get`) so they can get much more precise types.
         Some(Ok(match ty {
             TyBasic::List(elem) => match attr {
-                TypingAttr::Slice => Ty::basic(ty.clone()),
                 TypingAttr::BinOp(TypingBinOp::Less) => {
                     // This is a bit weak, beacuse it only looks at this oracle
                     return self.attribute(ty, attr);
@@ -203,7 +202,6 @@ impl TypingOracle for OracleStandard {
                 TypingAttr::BinOp(TypingBinOp::Mul) => {
                     Ty::function(vec![Param::pos_only(Ty::int())], Ty::string())
                 }
-                TypingAttr::Slice => Ty::string(),
                 TypingAttr::BinOp(TypingBinOp::Percent) => {
                     Ty::function(vec![Param::pos_only(Ty::any())], Ty::string())
                 }

@@ -486,14 +486,31 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
-    pub(crate) fn expr_slice(&self, span: Span, array: Ty) -> Result<Ty, TypingError> {
-        match self.attribute_ty(&array, TypingAttr::Slice) {
-            Ok(x) => Ok(x),
-            Err(()) => Err(self.mk_error(
-                span,
-                TypingOracleCtxError::MissingSliceOperator { ty: array.clone() },
-            )),
+    fn expr_slice_basic(&self, array: &TyBasic) -> Result<Ty, ()> {
+        if array.is_str() || array.is_tuple() || array.is_list() || array.as_name() == Some("range")
+        {
+            Ok(Ty::basic(array.dupe()))
+        } else {
+            Err(())
         }
+    }
+
+    pub(crate) fn expr_slice(&self, span: Span, array: Ty) -> Result<Ty, TypingError> {
+        if array.is_any() || array.is_never() {
+            return Ok(array);
+        }
+
+        for variant in array.iter_union() {
+            match self.expr_slice_basic(variant) {
+                Ok(x) => return Ok(x),
+                Err(()) => {}
+            }
+        }
+
+        Err(self.mk_error(
+            span,
+            TypingOracleCtxError::MissingSliceOperator { ty: array },
+        ))
     }
 
     pub(crate) fn expr_dot(&self, span: Span, array: &Ty, attr: &str) -> Result<Ty, TypingError> {

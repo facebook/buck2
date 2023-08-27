@@ -127,6 +127,10 @@ impl TyBasic {
         self.as_name() == Some("list")
     }
 
+    pub(crate) fn is_str(&self) -> bool {
+        self == &TyBasic::string()
+    }
+
     /// If I do `self[i]` what will the resulting type be.
     pub(crate) fn indexed(&self, i: usize) -> Ty {
         match self {
