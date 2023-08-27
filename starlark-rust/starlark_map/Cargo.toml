@@ -16,6 +16,7 @@ allocative = { workspace = true, features = ["hashbrown"] }
 
 fnv = "1.0.7"
 hashbrown = { version = "0.12.3", features = ["raw"] }
+equivalent = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]

@@ -26,10 +26,10 @@ use std::hash::Hasher;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
+use equivalent::Equivalent;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::equivalent::Equivalent;
 use crate::hashed::Hashed;
 use crate::small_map::SmallMap;
 pub use crate::small_set::iter::IntoIter;

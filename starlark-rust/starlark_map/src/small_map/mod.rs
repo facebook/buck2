@@ -28,11 +28,11 @@ use std::marker::PhantomData;
 use std::mem;
 
 use allocative::Allocative;
+use equivalent::Equivalent;
 use hashbrown::raw::RawTable;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::equivalent::Equivalent;
 use crate::hashed::Hashed;
 pub use crate::small_map::iter::IntoIter;
 pub use crate::small_map::iter::IntoIterHashed;
