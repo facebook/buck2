@@ -43,6 +43,7 @@ use crate::values::exported_name::MutableExportedName;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::record::field::FieldGen;
 use crate::values::record::Record;
+use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
@@ -62,6 +63,7 @@ use crate::values::ValueLike;
 )]
 #[starlark_docs(builtin = "extension")]
 pub struct RecordTypeGen<V, Name: ExportedName> {
+    id: TypeInstanceId,
     pub(crate) typ: Name,
     /// The V is the type the field must satisfy (e.g. `"string"`)
     fields: SmallMap<String, FieldGen<V>>,
@@ -93,6 +95,7 @@ impl<'v> RecordType<'v> {
     pub(crate) fn new(fields: SmallMap<String, FieldGen<Value<'v>>>) -> Self {
         let parameter_spec = Self::make_parameter_spec(&fields);
         Self {
+            id: TypeInstanceId::gen(),
             typ: MutableExportedName::default(),
             fields,
             parameter_spec,
@@ -119,6 +122,7 @@ impl<'v> Freeze for RecordType<'v> {
     type Frozen = FrozenRecordType;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         Ok(FrozenRecordType {
+            id: self.id,
             typ: self.typ.freeze(freezer)?,
             fields: self.fields.freeze(freezer)?,
             parameter_spec: self.parameter_spec,

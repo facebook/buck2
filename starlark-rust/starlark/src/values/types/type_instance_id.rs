@@ -15,30 +15,19 @@
  * limitations under the License.
  */
 
-pub mod any;
-pub mod any_array;
-pub mod array;
-pub mod bigint;
-pub mod bool;
-pub mod dict;
-pub(crate) mod ellipsis;
-pub mod enumeration;
-pub mod exported_name;
-pub mod float;
-pub mod function;
-pub(crate) mod inline_int;
-pub mod int;
-pub(crate) mod int_or_big;
-pub(crate) mod known_methods;
-pub mod list;
-pub mod none;
-pub mod not_type;
-pub mod range;
-pub mod record;
-pub mod regex;
-pub mod starlark_value_as_type;
-pub mod string;
-pub mod structs;
-pub mod tuple;
-pub(crate) mod type_instance_id;
-pub(crate) mod unbound;
+use std::sync::atomic;
+use std::sync::atomic::AtomicU64;
+
+use allocative::Allocative;
+use dupe::Dupe;
+
+/// Globally unique identifier for a type, like record type or enum type.
+#[derive(Debug, Copy, Clone, Dupe, Hash, Eq, PartialEq, Allocative)]
+pub(crate) struct TypeInstanceId(u64);
+
+impl TypeInstanceId {
+    pub(crate) fn gen() -> TypeInstanceId {
+        static LAST_ID: AtomicU64 = AtomicU64::new(0);
+        TypeInstanceId(LAST_ID.fetch_add(1, atomic::Ordering::SeqCst) + 1)
+    }
+}
