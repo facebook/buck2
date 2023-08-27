@@ -35,6 +35,7 @@ use crate::coerce::coerce;
 use crate::coerce::Coerce;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
+use crate::typing::Ty;
 use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;
 use crate::values::index::apply_slice;
@@ -253,6 +254,10 @@ where
 
     fn collect_repr_cycle(&self, collector: &mut String) {
         collector.push_str("(...)");
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::any_tuple())
     }
 }
 

@@ -489,6 +489,10 @@ where
         }
         Ok(heap.alloc(Dict::new(items)))
     }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::any_dict())
+    }
 }
 
 impl<'v, T: DictLike<'v>> Serialize for DictGen<T> {

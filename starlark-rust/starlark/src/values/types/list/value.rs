@@ -536,6 +536,10 @@ where
         let i = convert_index(index, self.0.content().len() as i32)? as usize;
         self.0.set_at(i, alloc_value)
     }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::any_list())
+    }
 }
 
 impl<'v, T: ListLike<'v>> Serialize for ListGen<T> {

@@ -313,6 +313,10 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         // but keep for consistency.
         typecheck_num_bin_op(NumTy::Int, op, rhs)
     }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::int())
+    }
 }
 
 impl Serialize for PointerI32 {

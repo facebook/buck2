@@ -274,6 +274,10 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             .hash(hasher);
         Ok(())
     }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::int())
+    }
 }
 
 #[cfg(test)]
