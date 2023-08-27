@@ -26,6 +26,10 @@ use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
 use crate::typing::Ty;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::Basic;
+use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
@@ -73,6 +77,9 @@ impl<T: StarlarkValue<'static>> StarlarkValueAsType<T> {
     pub const fn new() -> Self {
         Self(PhantomData)
     }
+
+    const INSTANCE: AValueRepr<AValueImpl<Basic, StarlarkValueAsType<T>>> =
+        alloc_static(Basic, StarlarkValueAsType::<T>(PhantomData));
 }
 
 impl<T: StarlarkValue<'static>> Default for StarlarkValueAsType<T> {
@@ -82,8 +89,8 @@ impl<T: StarlarkValue<'static>> Default for StarlarkValueAsType<T> {
 }
 
 impl<T: StarlarkValue<'static>> AllocFrozenValue for StarlarkValueAsType<T> {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        heap.alloc_simple(self)
+    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
+        FrozenValue::new_repr(&Self::INSTANCE)
     }
 }
 
