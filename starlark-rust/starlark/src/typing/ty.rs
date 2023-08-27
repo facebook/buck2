@@ -447,7 +447,8 @@ impl Ty {
         }
     }
 
-    pub(crate) fn of_value(value: Value) -> Ty {
+    /// Typechecker type of value.
+    pub fn of_value(value: Value) -> Ty {
         if let Some(t) = value.get_ref().typechecker_ty() {
             t
         } else {

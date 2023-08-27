@@ -274,6 +274,21 @@ impl ProviderCodegen {
         })
     }
 
+    fn typechecker_ty_function(&self) -> syn::Result<syn::Item> {
+        let create_func = &self.args.creator_func;
+        Ok(syn::parse_quote_spanned! {
+            self.span=>
+            fn typechecker_ty(&self) -> Option<starlark::typing::Ty> {
+                static TY: once_cell::sync::Lazy<starlark::typing::Ty> = once_cell::sync::Lazy::new(|| {
+                    crate::interpreter::rule_defs::provider::builtin::ty::builtin_provider_typechecker_ty(
+                        #create_func
+                    )
+                });
+                Some(TY.clone())
+            }
+        })
+    }
+
     fn impl_display(&self) -> syn::Result<syn::Item> {
         let gen_name = &self.input.ident;
         let name_str = self.name_str()?;
@@ -436,6 +451,7 @@ impl ProviderCodegen {
         let name_str = self.name_str()?;
         let callable_name = self.callable_name()?;
         let documentation_function = self.documentation_function()?;
+        let typechecker_ty_function = self.typechecker_ty_function()?;
         let create_func = &self.args.creator_func;
         let callable_name_snake_str = callable_name.to_string().to_case(Case::Snake);
 
@@ -477,6 +493,7 @@ impl ProviderCodegen {
                     }
 
                     #documentation_function
+                    #typechecker_ty_function
                 }
             },
         ])
