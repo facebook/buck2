@@ -52,6 +52,14 @@ use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 
+#[derive(Debug, thiserror::Error)]
+enum RecordTypeError {
+    #[error(
+        "Record instance cannot be created if record type is not assigned to a global variable"
+    )]
+    RecordTypeNotAssigned,
+}
+
 /// The result of `record()`, being the type of records.
 #[derive(
     Debug,
@@ -152,6 +160,10 @@ where
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
+        if self.typ.borrow().is_none() {
+            return Err(RecordTypeError::RecordTypeNotAssigned.into());
+        }
+
         let this = me;
 
         self.parameter_spec
@@ -268,6 +280,14 @@ def f_fail_rt(x: RecFailRt1):
 noop(f_fail_rt)(RecFailRt2(a = 1, b = 2))
 ",
             "Value `record(a=1, b=2)` of type `record` does not match the type annotation",
+        );
+    }
+
+    #[test]
+    fn test_anon_record() {
+        assert::fail(
+            "record(a = field(int))(a = 1)",
+            "not assigned to a global variable",
         );
     }
 }
