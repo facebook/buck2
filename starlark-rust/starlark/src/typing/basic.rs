@@ -19,7 +19,9 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use dupe::Dupe;
 
+use crate::typing::arc_ty::ArcTy;
 use crate::typing::custom::TyCustom;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
@@ -35,7 +37,7 @@ use crate::values::typing::any::TypingAny;
 use crate::values::StarlarkValue;
 
 /// Type that is not a union.
-#[derive(Eq, PartialEq, Hash, Clone, Debug, Ord, PartialOrd, Allocative)]
+#[derive(Eq, PartialEq, Hash, Clone, Dupe, Debug, Ord, PartialOrd, Allocative)]
 pub enum TyBasic {
     /// Type that contain anything
     Any,
@@ -47,15 +49,15 @@ pub enum TyBasic {
     StarlarkValue(TyStarlarkValue),
     /// Iter is a type that supports iteration, only used as arguments to primitive functions.
     /// The inner type is applicable for each iteration element.
-    Iter(Box<Ty>),
+    Iter(ArcTy),
     /// `typing.Callable`.
     Callable,
     /// A list.
-    List(Box<Ty>),
+    List(ArcTy),
     /// A tuple. May be empty, to indicate the empty tuple.
     Tuple(TyTuple),
     /// A dictionary, with key and value types
-    Dict(Box<(Ty, Ty)>),
+    Dict(ArcTy, ArcTy),
     /// Custom type.
     Custom(TyCustom),
 }
@@ -83,17 +85,17 @@ impl TyBasic {
 
     /// Create a list type.
     pub(crate) fn list(element: Ty) -> Self {
-        TyBasic::List(Box::new(element))
+        TyBasic::List(ArcTy::new(element))
     }
 
     /// Create a iterable type.
     pub(crate) fn iter(item: Ty) -> Self {
-        TyBasic::Iter(Box::new(item))
+        TyBasic::Iter(ArcTy::new(item))
     }
 
     /// Create a dictionary type.
     pub(crate) fn dict(key: Ty, value: Ty) -> Self {
-        TyBasic::Dict(Box::new((key, value)))
+        TyBasic::Dict(ArcTy::new(key), ArcTy::new(value))
     }
 
     /// Turn a type back into a name, potentially erasing some structure.
@@ -105,7 +107,7 @@ impl TyBasic {
             TyBasic::StarlarkValue(t) => Some(t.as_name()),
             TyBasic::List(_) => Some("list"),
             TyBasic::Tuple(_) => Some("tuple"),
-            TyBasic::Dict(_) => Some("dict"),
+            TyBasic::Dict(..) => Some("dict"),
             TyBasic::Custom(c) => c.as_name(),
             TyBasic::Any | TyBasic::Iter(_) | TyBasic::Callable => None,
         }
@@ -129,7 +131,7 @@ impl TyBasic {
     pub(crate) fn indexed(self, i: usize) -> Ty {
         match self {
             TyBasic::Any => Ty::any(),
-            TyBasic::List(x) => *x,
+            TyBasic::List(x) => x.to_ty(),
             TyBasic::Tuple(xs) => xs.get(i).cloned().unwrap_or(Ty::never()),
             // Not exactly sure what we should do here
             _ => Ty::any(),
@@ -165,7 +167,7 @@ impl Display for TyBasic {
             TyBasic::Callable => write!(f, "typing.Callable"),
             TyBasic::List(x) => write!(f, "list[{}]", x),
             TyBasic::Tuple(tuple) => Display::fmt(tuple, f),
-            TyBasic::Dict(k_v) => write!(f, "dict[{}, {}]", k_v.0, k_v.1),
+            TyBasic::Dict(k, v) => write!(f, "dict[{}, {}]", k, v),
             TyBasic::Custom(c) => Display::fmt(c, f),
         }
     }

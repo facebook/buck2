@@ -838,8 +838,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             TyBasic::Tuple(tuple) => {
                 tuple.matcher(TypeCompiledFactory::new(Ty::basic(ty.clone()), heap))
             }
-            TyBasic::Dict(k_v) => {
-                let (k, v) = &**k_v;
+            TyBasic::Dict(k, v) => {
                 let k = TypeCompiled::from_ty(k, heap);
                 let v = TypeCompiled::from_ty(v, heap);
                 TypeCompiled::type_dict_of(k, v, heap)

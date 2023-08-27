@@ -88,6 +88,18 @@ impl ArcTy {
             ArcTy(ArcTyInner::Arc(Arc::new(ty)))
         }
     }
+
+    pub(crate) fn to_ty(&self) -> Ty {
+        Ty::clone(self)
+    }
+
+    pub(crate) fn union2(a: ArcTy, b: ArcTy) -> ArcTy {
+        if a == b {
+            a
+        } else {
+            ArcTy::new(Ty::union2(a.to_ty(), b.to_ty()))
+        }
+    }
 }
 
 impl Deref for ArcTy {

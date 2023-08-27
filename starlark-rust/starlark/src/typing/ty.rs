@@ -31,6 +31,7 @@ use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::eval::compiler::small_vec_1::SmallVec1;
+use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
 use crate::typing::custom::TyCustom;
 use crate::typing::custom::TyCustomImpl;
@@ -362,10 +363,13 @@ impl Ty {
         xs.dedup();
         // Try merging adjacent elements
         let xs = merge_adjacent(xs, |x, y| match (x, y) {
-            (TyBasic::List(x), TyBasic::List(y)) => Either::Left(TyBasic::list(Ty::union2(*x, *y))),
-            (TyBasic::Dict(x), TyBasic::Dict(y)) => {
-                Either::Left(TyBasic::dict(Ty::union2(x.0, y.0), Ty::union2(x.1, y.1)))
+            (TyBasic::List(x), TyBasic::List(y)) => {
+                Either::Left(TyBasic::List(ArcTy::union2(x, y)))
             }
+            (TyBasic::Dict(x_k, x_v), TyBasic::Dict(y_k, y_v)) => Either::Left(TyBasic::Dict(
+                ArcTy::union2(x_k, y_k),
+                ArcTy::union2(x_v, y_v),
+            )),
             (TyBasic::Custom(x), TyBasic::Custom(y)) => match TyCustom::union2(x, y) {
                 Ok(u) => Either::Left(TyBasic::Custom(u)),
                 Err((x, y)) => Either::Right((TyBasic::Custom(x), TyBasic::Custom(y))),

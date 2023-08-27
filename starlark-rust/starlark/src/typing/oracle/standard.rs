@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use dupe::Dupe;
+
 use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::environment::Globals;
@@ -118,38 +120,41 @@ impl TypingOracle for OracleStandard {
                 }
                 _ => return fallback(),
             },
-            TyBasic::Dict(tk_tv) => {
-                let (ref tk, ref tv) = **tk_tv;
+            TyBasic::Dict(tk, tv) => {
                 match attr {
                     TypingAttr::BinOp(TypingBinOp::In) => {
-                        Ty::function(vec![Param::pos_only(tk.clone())], Ty::bool())
+                        Ty::function(vec![Param::pos_only(tk.to_ty())], Ty::bool())
                     }
                     TypingAttr::BinOp(TypingBinOp::BitOr) => Ty::function(
                         vec![Param::pos_only(Ty::basic(ty.clone()))],
                         Ty::basic(ty.clone()),
                     ),
-                    TypingAttr::Iter => tk.clone(),
+                    TypingAttr::Iter => tk.to_ty(),
                     TypingAttr::Index => {
-                        Ty::function(vec![Param::pos_only(tk.clone())], tv.clone())
+                        Ty::function(vec![Param::pos_only(tk.to_ty())], tv.to_ty())
                     }
                     TypingAttr::Regular("get") => Ty::union2(
                         Ty::function(
-                            vec![Param::pos_only(tk.clone())],
-                            Ty::union2(tv.clone(), Ty::none()),
+                            vec![Param::pos_only(tk.to_ty())],
+                            Ty::union2(tv.to_ty(), Ty::none()),
                         ),
                         // This second signature is a bit too lax, but get with a default is much rarer
                         Ty::function(
-                            vec![Param::pos_only(tk.clone()), Param::pos_only(Ty::any())],
+                            vec![Param::pos_only(tk.to_ty()), Param::pos_only(Ty::any())],
                             Ty::any(),
                         ),
                     ),
-                    TypingAttr::Regular("keys") => Ty::function(vec![], Ty::list(tk.clone())),
-                    TypingAttr::Regular("values") => Ty::function(vec![], Ty::list(tv.clone())),
+                    TypingAttr::Regular("keys") => {
+                        Ty::function(vec![], Ty::basic(TyBasic::List(tk.dupe())))
+                    }
+                    TypingAttr::Regular("values") => {
+                        Ty::function(vec![], Ty::basic(TyBasic::List(tv.dupe())))
+                    }
                     TypingAttr::Regular("items") => {
-                        Ty::function(vec![], Ty::list(Ty::tuple(vec![tk.clone(), tv.clone()])))
+                        Ty::function(vec![], Ty::list(Ty::tuple(vec![tk.to_ty(), tv.to_ty()])))
                     }
                     TypingAttr::Regular("popitem") => {
-                        Ty::function(vec![], Ty::tuple(vec![tk.clone(), tv.clone()]))
+                        Ty::function(vec![], Ty::tuple(vec![tk.to_ty(), tv.to_ty()]))
                     }
                     _ => return fallback(),
                 }

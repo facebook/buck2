@@ -189,7 +189,7 @@ impl TypingContext<'_> {
                         TyBasic::List(_) => {
                             res.push(Ty::list(e.clone()));
                         }
-                        TyBasic::Dict(_) => {
+                        TyBasic::Dict(..) => {
                             res.push(Ty::dict(index.node.clone(), e.clone()));
                         }
                         _ => {

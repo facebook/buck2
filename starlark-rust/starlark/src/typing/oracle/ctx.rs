@@ -248,7 +248,7 @@ impl<'a> TypingOracleCtx<'a> {
                         .iter_union()
                         .iter()
                         .filter_map(|x| match x {
-                            TyBasic::Dict(k_v) => Some(k_v.1.clone()),
+                            TyBasic::Dict(_k, v) => Some(v.to_ty()),
                             _ => None,
                         })
                         .collect();
@@ -307,7 +307,7 @@ impl<'a> TypingOracleCtx<'a> {
                 span,
                 TypingOracleCtxError::CallToNonCallable { ty: t.to_string() },
             )),
-            TyBasic::List(_) | TyBasic::Dict(_) | TyBasic::Tuple(_) => Err(self
+            TyBasic::List(_) | TyBasic::Dict(..) | TyBasic::Tuple(_) => Err(self
                 .mk_error_as_maybe_internal(
                     span,
                     TypingOracleCtxError::CallToNonCallable {
@@ -751,8 +751,8 @@ impl<'a> TypingOracleCtx<'a> {
             (TyBasic::Any, _) => true,
             (TyBasic::Name(x), TyBasic::Name(y)) => self.intersects_name(x, y),
             (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
-            (TyBasic::Dict(x), TyBasic::Dict(y)) => {
-                self.intersects(&x.0, &y.0) && self.intersects(&x.1, &y.1)
+            (TyBasic::Dict(x_k, x_v), TyBasic::Dict(y_k, y_v)) => {
+                self.intersects(x_k, y_k) && self.intersects(x_v, y_v)
             }
             (TyBasic::Tuple(x), TyBasic::Tuple(y)) => TyTuple::intersects(x, y, self),
             (TyBasic::Tuple(_), t) => t.is_tuple(),
