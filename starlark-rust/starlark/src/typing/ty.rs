@@ -126,8 +126,12 @@ impl PartialEq<str> for TyName {
 }
 
 impl TyName {
-    pub(crate) fn new(s: &str) -> TyName {
-        TyName(ArcStr::from(s))
+    pub(crate) fn new(s: impl Into<ArcStr>) -> TyName {
+        TyName(s.into())
+    }
+
+    pub(crate) fn new_static(s: &'static str) -> TyName {
+        TyName(ArcStr::new_static(s))
     }
 
     /// Get the underlying `str` for a `TyName`.
@@ -163,23 +167,39 @@ impl Ty {
         Ty::any()
     }
 
-    /// Create a [`Ty::Name`], or one of the standard functions.
-    pub(crate) fn name(name: &str) -> Self {
+    fn try_name_special(name: &str) -> Option<Self> {
         match name {
-            "list" => Self::list(Ty::any()),
-            "dict" => Self::dict(Ty::any(), Ty::any()),
-            "function" => Self::any_function(),
-            "struct" => Self::custom(TyStruct::any()),
-            "never" => Self::never(),
-            "NoneType" => Self::none(),
-            "bool" => Self::bool(),
-            "int" => Self::int(),
-            "float" => Self::float(),
-            "string" => Self::string(),
-            "tuple" => Self::any_tuple(),
+            "list" => Some(Self::list(Ty::any())),
+            "dict" => Some(Self::dict(Ty::any(), Ty::any())),
+            "function" => Some(Self::any_function()),
+            "struct" => Some(Self::custom(TyStruct::any())),
+            "never" => Some(Self::never()),
+            "NoneType" => Some(Self::none()),
+            "bool" => Some(Self::bool()),
+            "int" => Some(Self::int()),
+            "float" => Some(Self::float()),
+            "string" => Some(Self::string()),
+            "tuple" => Some(Self::any_tuple()),
             // Note that "tuple" cannot be converted to Ty::Tuple
             // since we don't know the length of the tuple.
-            _ => Ty::basic(TyBasic::Name(TyName::new(name))),
+            _ => None,
+        }
+    }
+
+    /// Create a [`Ty::Name`], or one of the standard functions.
+    pub(crate) fn name_static(name: &'static str) -> Self {
+        if let Some(x) = Self::try_name_special(name) {
+            x
+        } else {
+            Ty::basic(TyBasic::Name(TyName::new_static(name)))
+        }
+    }
+
+    pub(crate) fn name(name: &str) -> Self {
+        if let Some(x) = Self::try_name_special(name) {
+            x
+        } else {
+            Ty::basic(TyBasic::Name(TyName::new(name)))
         }
     }
 

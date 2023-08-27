@@ -297,7 +297,7 @@ impl<'v, V: ValueLike<'v>> Display for TypeCompiled<V> {
 
 impl<V> StarlarkTypeRepr for TypeCompiled<V> {
     fn starlark_type_repr() -> Ty {
-        Ty::name("eval_type")
+        Ty::name_static("eval_type")
     }
 }
 
