@@ -64,7 +64,7 @@ impl TyCustomFunctionImpl for StructType {
                     // ```
                 }
                 Arg::Name(name, val) => {
-                    fields.push((ArcStr::from(name.as_str()), val.clone()));
+                    fields.push((ArcStr::from(*name), val.clone()));
                 }
                 Arg::Kwargs(_) => extra = true,
             }

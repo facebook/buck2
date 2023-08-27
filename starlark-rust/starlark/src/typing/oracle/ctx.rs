@@ -185,7 +185,7 @@ impl<'a> TypingOracleCtx<'a> {
                 Arg::Name(name, ty) => {
                     let mut success = false;
                     for (i, param) in params.iter().enumerate() {
-                        if param.name() == name || param.mode == ParamMode::Kwargs {
+                        if param.name() == *name || param.mode == ParamMode::Kwargs {
                             param_args[i].push(Spanned {
                                 span: arg.span,
                                 node: ty,
@@ -197,7 +197,9 @@ impl<'a> TypingOracleCtx<'a> {
                     if !success {
                         return Err(self.mk_error_as_maybe_internal(
                             arg.span,
-                            TypingOracleCtxError::UnexpectedNamedArgument { name: name.clone() },
+                            TypingOracleCtxError::UnexpectedNamedArgument {
+                                name: (*name).to_owned(),
+                            },
                         ));
                     }
                 }

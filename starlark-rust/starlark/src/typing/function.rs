@@ -40,11 +40,11 @@ use crate::values::Value;
 
 /// An argument being passed to a function
 #[derive(Debug)]
-pub enum Arg {
+pub enum Arg<'a> {
     /// A positional argument.
     Pos(Ty),
     /// A named argument.
-    Name(String, Ty),
+    Name(&'a str, Ty),
     /// A `*args`.
     Args(Ty),
     /// A `**kwargs`.

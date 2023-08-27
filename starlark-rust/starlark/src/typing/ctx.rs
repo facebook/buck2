@@ -299,9 +299,7 @@ impl TypingContext<'_> {
                 span: x.span,
                 node: match &**x {
                     ArgumentP::Positional(x) => Arg::Pos(self.expression_type(x)?),
-                    ArgumentP::Named(name, x) => {
-                        Arg::Name((**name).clone(), self.expression_type(x)?)
-                    }
+                    ArgumentP::Named(name, x) => Arg::Name(name.as_str(), self.expression_type(x)?),
                     ArgumentP::Args(x) => {
                         let ty = self.expression_type(x)?;
                         self.from_iterated(&ty, x.span);
