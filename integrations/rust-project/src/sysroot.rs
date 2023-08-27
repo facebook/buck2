@@ -116,7 +116,8 @@ pub fn resolve_rustup_sysroot() -> Result<Sysroot, anyhow::Error> {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    let output = utf8_output(cmd.output(), &cmd)?;
+    let mut output = utf8_output(cmd.output(), &cmd)?;
+    truncate_line_ending(&mut output);
     let sysroot = PathBuf::from(output);
 
     let sysroot = Sysroot {
