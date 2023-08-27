@@ -19,8 +19,10 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::iter;
+use std::sync::Arc;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
@@ -34,9 +36,10 @@ use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::Value;
 
-#[derive(Eq, PartialEq, Hash, Clone, Debug, Ord, PartialOrd, Allocative)]
+#[derive(Eq, PartialEq, Hash, Clone, Dupe, Debug, Ord, PartialOrd, Allocative)]
 pub struct TyTuple {
-    pub(crate) elems: Vec<Ty>,
+    /// `tuple[T0, T1, T2]`.
+    pub(crate) elems: Arc<[Ty]>,
 }
 
 impl TyTuple {
@@ -45,12 +48,12 @@ impl TyTuple {
     }
 
     pub(crate) fn item_ty(&self) -> Ty {
-        Ty::unions(self.elems.clone())
+        Ty::unions(self.elems.to_vec())
     }
 
     pub(crate) fn intersects(this: &TyTuple, other: &TyTuple, ctx: &TypingOracleCtx) -> bool {
         this.elems.len() == other.elems.len()
-            && iter::zip(&this.elems, &other.elems).all(|(x, y)| ctx.intersects(x, y))
+            && iter::zip(&*this.elems, &*other.elems).all(|(x, y)| ctx.intersects(x, y))
     }
 
     pub(crate) fn matcher<'v>(
@@ -80,7 +83,7 @@ impl TyTuple {
 
 impl Display for TyTuple {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self.elems.as_slice() {
+        match &*self.elems {
             [x] => write!(f, "({},)", x),
             xs => display_container::fmt_container(f, "(", ")", xs),
         }

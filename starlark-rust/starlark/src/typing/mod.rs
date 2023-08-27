@@ -23,6 +23,7 @@
 
 //! Types required to support the [`typecheck`](crate::syntax::AstModule::typecheck) function.
 
+pub(crate) mod arc_ty;
 pub(crate) mod basic;
 pub(crate) mod bindings;
 pub(crate) mod ctx;

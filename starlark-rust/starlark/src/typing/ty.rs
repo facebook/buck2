@@ -208,7 +208,7 @@ impl Ty {
         Ty::basic(TyBasic::Any)
     }
 
-    pub(crate) fn never() -> Self {
+    pub(crate) const fn never() -> Self {
         Ty {
             alternatives: SmallVec1::new(),
         }
@@ -269,7 +269,9 @@ impl Ty {
 
     /// Create a tuple of given elements.
     pub fn tuple(elems: Vec<Ty>) -> Self {
-        Ty::basic(TyBasic::Tuple(TyTuple { elems }))
+        Ty::basic(TyBasic::Tuple(TyTuple {
+            elems: elems.into(),
+        }))
     }
 
     /// Tuple where elements are unknown.
