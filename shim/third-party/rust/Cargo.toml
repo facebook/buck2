@@ -200,6 +200,7 @@ unicode-segmentation = "1.7"
 uuid = { version = "1.2", features = ["v4"] }
 walkdir = "2.3.2"
 which = "4.3.0"
+windows_x86_64_msvc = "=0.48.0"  # our fixup only works if we are on precisely 0.48.0
 winapi = { version = "0.3", features = ["everything"] }
 xattr = "0.2.2"
 zip = "0.5"
