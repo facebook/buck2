@@ -22,6 +22,7 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use dupe::Dupe;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -31,6 +32,7 @@ use crate::typing::Ty;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
+use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::Value;
@@ -49,14 +51,14 @@ pub enum Arg {
 }
 
 /// The type of a parameter - can be positional, by name, `*args` or `**kwargs`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
+#[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub(crate) enum ParamMode {
     /// Parameter can only be passed by position.
     PosOnly,
     /// Parameter can be passed by position or name.
-    PosOrName(String),
+    PosOrName(ArcStr),
     /// Parameter can only be passed by name.
-    NameOnly(String),
+    NameOnly(ArcStr),
     /// Parameter is `*args`.
     Args,
     /// Parameter is `**kwargs`.
@@ -87,7 +89,7 @@ impl Param {
     /// Create a named only parameter.
     pub fn name_only(name: &str, ty: Ty) -> Self {
         Self {
-            mode: ParamMode::NameOnly(name.to_owned()),
+            mode: ParamMode::NameOnly(ArcStr::from(name)),
             optional: false,
             ty,
         }
@@ -96,7 +98,7 @@ impl Param {
     /// Create a positional or named parameter.
     pub fn pos_or_name(name: &str, ty: Ty) -> Self {
         Self {
-            mode: ParamMode::PosOrName(name.to_owned()),
+            mode: ParamMode::PosOrName(ArcStr::from(name)),
             optional: false,
             ty,
         }
