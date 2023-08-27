@@ -18,6 +18,7 @@
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -405,7 +406,7 @@ impl Ty {
     /// Create a custom type.
     /// This is called from generated code.
     pub fn custom(t: impl TyCustomImpl) -> Self {
-        Ty::basic(TyBasic::Custom(TyCustom(Box::new(t))))
+        Ty::basic(TyBasic::Custom(TyCustom(Arc::new(t))))
     }
 
     /// Create a custom function type.

@@ -23,10 +23,12 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use cmp_any::OrdAny;
 use cmp_any::PartialEqAny;
+use dupe::Dupe;
 use starlark_map::StarlarkHasher;
 
 use crate::codemap::Span;
@@ -55,7 +57,7 @@ pub trait TyCustomImpl:
         Err(oracle.msg_error(span, format!("Value of type `{}` is not callable", self)))
     }
     fn attribute(&self, attr: TypingAttr) -> Result<Ty, ()>;
-    fn union2(x: Box<Self>, other: Box<Self>) -> Result<Box<Self>, (Box<Self>, Box<Self>)> {
+    fn union2(x: Arc<Self>, other: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
         if x == other { Ok(x) } else { Err((x, other)) }
     }
 
@@ -67,9 +69,8 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     fn eq_token(&self) -> PartialEqAny;
     fn hash_code(&self) -> u64;
     fn cmp_token(&self) -> (OrdAny, &'static str);
-    fn into_any(self: Box<Self>) -> Box<dyn Any>;
+    fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 
-    fn clone_box_dyn(&self) -> Box<dyn TyCustomDyn>;
     fn as_name_dyn(&self) -> Option<&str>;
     fn validate_call_dyn(
         &self,
@@ -79,9 +80,9 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     ) -> Result<Ty, TypingOrInternalError>;
     fn attribute_dyn(&self, attr: TypingAttr) -> Result<Ty, ()>;
     fn union2_dyn(
-        self: Box<Self>,
-        other: Box<dyn TyCustomDyn>,
-    ) -> Result<Box<dyn TyCustomDyn>, (Box<dyn TyCustomDyn>, Box<dyn TyCustomDyn>)>;
+        self: Arc<Self>,
+        other: Arc<dyn TyCustomDyn>,
+    ) -> Result<Arc<dyn TyCustomDyn>, (Arc<dyn TyCustomDyn>, Arc<dyn TyCustomDyn>)>;
 
     fn matcher_dyn<'v>(
         &self,
@@ -104,12 +105,8 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         (OrdAny::new(self), any::type_name::<Self>())
     }
 
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+    fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
         self
-    }
-
-    fn clone_box_dyn(&self) -> Box<dyn TyCustomDyn> {
-        Box::new(self.clone())
     }
 
     fn as_name_dyn(&self) -> Option<&str> {
@@ -130,14 +127,14 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
     }
 
     fn union2_dyn(
-        self: Box<Self>,
-        other: Box<dyn TyCustomDyn>,
-    ) -> Result<Box<dyn TyCustomDyn>, (Box<dyn TyCustomDyn>, Box<dyn TyCustomDyn>)> {
+        self: Arc<Self>,
+        other: Arc<dyn TyCustomDyn>,
+    ) -> Result<Arc<dyn TyCustomDyn>, (Arc<dyn TyCustomDyn>, Arc<dyn TyCustomDyn>)> {
         if TypeId::of::<Self>() == other.eq_token().type_id() {
-            let other: Box<Self> = other.into_any().downcast().unwrap();
+            let other: Arc<Self> = Arc::downcast(other.into_any()).unwrap();
             T::union2(self, other)
-                .map::<Box<dyn TyCustomDyn>, _>(|x| x)
-                .map_err::<(Box<dyn TyCustomDyn>, Box<dyn TyCustomDyn>), _>(|(x, y)| (x, y))
+                .map::<Arc<dyn TyCustomDyn>, _>(|x| x)
+                .map_err::<(Arc<dyn TyCustomDyn>, Arc<dyn TyCustomDyn>), _>(|(x, y)| (x, y))
         } else {
             Err((self, other))
         }
@@ -151,8 +148,8 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
     }
 }
 
-#[derive(Debug, derive_more::Display, Allocative)]
-pub struct TyCustom(pub(crate) Box<dyn TyCustomDyn>);
+#[derive(Debug, derive_more::Display, Allocative, Clone, Dupe)]
+pub struct TyCustom(pub(crate) Arc<dyn TyCustomDyn>);
 
 impl TyCustom {
     pub(crate) fn as_name(&self) -> Option<&str> {
@@ -228,11 +225,5 @@ impl Ord for TyCustom {
         }
 
         a_cmp.cmp(&b_cmp)
-    }
-}
-
-impl Clone for TyCustom {
-    fn clone(&self) -> TyCustom {
-        TyCustom(self.0.clone_box_dyn())
     }
 }

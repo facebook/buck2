@@ -45,6 +45,7 @@ use crate::typing::Ty;
 use crate::typing::TyStruct;
 use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
+use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::structs::unordered_hasher::UnorderedHasher;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
@@ -208,7 +209,7 @@ where
             fields: self
                 .fields
                 .iter()
-                .map(|(name, value)| (name.as_str().to_owned(), Ty::of_value(value.to_value())))
+                .map(|(name, value)| (ArcStr::from(name.as_str()), Ty::of_value(value.to_value())))
                 .collect(),
             extra: false,
         }))

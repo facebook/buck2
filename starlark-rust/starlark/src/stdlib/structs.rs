@@ -33,6 +33,7 @@ use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::structs::TyStruct;
 use crate::typing::Ty;
+use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
 use crate::values::Heap;
@@ -63,7 +64,7 @@ impl TyCustomFunctionImpl for StructType {
                     // ```
                 }
                 Arg::Name(name, val) => {
-                    fields.push((name.clone(), val.clone()));
+                    fields.push((ArcStr::from(name.as_str()), val.clone()));
                 }
                 Arg::Kwargs(_) => extra = true,
             }

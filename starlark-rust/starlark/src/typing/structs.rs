@@ -18,6 +18,7 @@
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -28,6 +29,7 @@ use crate::typing::Param;
 use crate::typing::Ty;
 use crate::typing::TypingAttr;
 use crate::typing::TypingBinOp;
+use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::structs::StructRef;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::compiled::TypeCompiledImpl;
@@ -38,7 +40,7 @@ use crate::values::Value;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct TyStruct {
     /// The fields that are definitely present in the struct, with their types.
-    pub(crate) fields: SortedMap<String, Ty>,
+    pub(crate) fields: SortedMap<ArcStr, Ty>,
     /// [`true`] if there might be additional fields not captured above,
     /// [`false`] if this struct has no extra members.
     pub(crate) extra: bool,
@@ -74,17 +76,17 @@ impl TyCustomImpl for TyStruct {
         }
     }
 
-    fn union2(a: Box<Self>, b: Box<Self>) -> Result<Box<Self>, (Box<Self>, Box<Self>)> {
+    fn union2(a: Arc<Self>, b: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
         if a == b {
             // Fast path.
             Ok(a)
         } else if a.extra == b.extra && itertools::equal(a.fields.keys(), b.fields.keys()) {
             let mut fields = Vec::new();
-            for ((a_k, a_v), (b_k, b_v)) in a.fields.into_iter().zip(b.fields) {
+            for ((a_k, a_v), (b_k, b_v)) in a.fields.iter().zip(&b.fields) {
                 assert_eq!(a_k, b_k);
-                fields.push((a_k, Ty::union2(a_v.clone(), b_v.clone())));
+                fields.push((a_k.dupe(), Ty::union2(a_v.clone(), b_v.clone())));
             }
-            Ok(Box::new(TyStruct {
+            Ok(Arc::new(TyStruct {
                 fields: SortedMap::from_iter(fields),
                 extra: a.extra,
             }))
