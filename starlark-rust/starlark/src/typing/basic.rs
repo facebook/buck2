@@ -128,7 +128,7 @@ impl TyBasic {
     }
 
     /// If I do `self[i]` what will the resulting type be.
-    pub(crate) fn indexed(self, i: usize) -> Ty {
+    pub(crate) fn indexed(&self, i: usize) -> Ty {
         match self {
             TyBasic::Any => Ty::any(),
             TyBasic::List(x) => x.to_ty(),

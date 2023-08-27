@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use either::Either;
 use serde::Serialize;
 use serde::Serializer;
@@ -40,6 +41,7 @@ use crate::typing::function::ParamMode;
 use crate::typing::function::TyCustomFunction;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::function::TyFunction;
+use crate::typing::small_arc_vec::SmallArcVec1;
 use crate::typing::structs::TyStruct;
 use crate::typing::tuple::TyTuple;
 use crate::values::bool::StarlarkBool;
@@ -76,7 +78,7 @@ impl Display for Approximation {
 }
 
 /// A Starlark type.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
+#[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub struct Ty {
     /// A series of alternative types.
     ///
@@ -94,7 +96,7 @@ pub struct Ty {
     ///
     /// This is different handling of union types than in TypeScript for example,
     /// TypeScript would consider such expression to be an error.
-    alternatives: SmallVec1<TyBasic>,
+    alternatives: SmallArcVec1<TyBasic>,
 }
 
 impl Serialize for Ty {
@@ -201,7 +203,7 @@ impl Ty {
 
     pub(crate) const fn basic(basic: TyBasic) -> Self {
         Ty {
-            alternatives: SmallVec1::One(basic),
+            alternatives: SmallArcVec1::one(basic),
         }
     }
 
@@ -212,7 +214,7 @@ impl Ty {
 
     pub(crate) const fn never() -> Self {
         Ty {
-            alternatives: SmallVec1::new(),
+            alternatives: SmallArcVec1::empty(),
         }
     }
 
@@ -354,10 +356,12 @@ impl Ty {
 
         // Now default slow version.
 
+        let xs = xs.as_slice();
         let mut xs: Vec<TyBasic> = [x0, x1]
-            .into_iter()
+            .iter()
             .chain(xs)
-            .flat_map(|x| x.into_iter_union())
+            .flat_map(|x| x.iter_union())
+            .duped()
             .collect();
         xs.sort();
         xs.dedup();
@@ -377,17 +381,14 @@ impl Ty {
             xy => Either::Right(xy),
         });
 
-        Ty { alternatives: xs }
+        Ty {
+            alternatives: xs.into_iter().collect(),
+        }
     }
 
     /// Iterate over the types within a union, pretending the type is a singleton union if not a union.
     pub(crate) fn iter_union(&self) -> &[TyBasic] {
         &self.alternatives
-    }
-
-    /// Iterate over the types within a union, pretending the type is a singleton union if not a union.
-    pub(crate) fn into_iter_union(self) -> impl Iterator<Item = TyBasic> {
-        self.alternatives.into_iter()
     }
 
     /// Create a union of two entries.
@@ -420,12 +421,7 @@ impl Ty {
 
     /// If I do `self[i]` what will the resulting type be.
     pub(crate) fn indexed(self, i: usize) -> Ty {
-        Ty::unions(
-            self.alternatives
-                .into_iter()
-                .map(|x| x.indexed(i))
-                .collect(),
-        )
+        Ty::unions(self.alternatives.iter().map(|x| x.indexed(i)).collect())
     }
 
     pub(crate) fn from_docs_member(member: &DocMember) -> Self {

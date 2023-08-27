@@ -95,7 +95,7 @@ impl ArcTy {
 
     pub(crate) fn union2(a: ArcTy, b: ArcTy) -> ArcTy {
         if a == b {
-            a
+            a.dupe()
         } else {
             ArcTy::new(Ty::union2(a.to_ty(), b.to_ty()))
         }

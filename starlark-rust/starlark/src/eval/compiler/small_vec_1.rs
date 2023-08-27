@@ -100,10 +100,6 @@ impl<T> SmallVec1<T> {
         }
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
-        self.as_slice().is_empty()
-    }
-
     pub(crate) fn extend(&mut self, that: SmallVec1<T>) {
         *self = match (mem::replace(self, SmallVec1::Vec(Vec::new())), that) {
             (SmallVec1::Vec(vec), right) if vec.is_empty() => right,
