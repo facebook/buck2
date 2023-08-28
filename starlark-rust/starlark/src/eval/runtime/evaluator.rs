@@ -34,7 +34,7 @@ use crate::const_frozen_string;
 use crate::environment::slots::ModuleSlotId;
 use crate::environment::FrozenModuleData;
 use crate::environment::Module;
-use crate::errors::Diagnostic;
+use crate::errors::diagnostic::Diagnostic;
 use crate::errors::Frame;
 use crate::eval::bc::addr::BcPtrAddr;
 use crate::eval::bc::bytecode::Bc;

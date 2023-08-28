@@ -32,7 +32,7 @@ use crate::collections::SmallMap;
 use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
-use crate::errors::Diagnostic;
+use crate::errors::diagnostic::Diagnostic;
 use crate::eval::Evaluator;
 use crate::starlark_simple_value;
 use crate::syntax::AstModule;

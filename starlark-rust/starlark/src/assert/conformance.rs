@@ -26,7 +26,7 @@
 use itertools::Itertools;
 
 use crate::assert::assert::Assert;
-use crate::errors::Diagnostic;
+use crate::errors::diagnostic::Diagnostic;
 
 impl<'a> Assert<'a> {
     /// Run a conformance test, e.g. the Go Starlark tests

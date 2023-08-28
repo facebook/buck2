@@ -29,7 +29,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
-use crate::errors::Diagnostic;
+use crate::errors::diagnostic::Diagnostic;
 
 pub(crate) trait LintWarning: Display {
     fn severity(&self) -> EvalSeverity;

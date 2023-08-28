@@ -27,7 +27,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Pos;
 use crate::codemap::Span;
-use crate::errors::Diagnostic;
+use crate::errors::diagnostic::Diagnostic;
 use crate::eval::compiler::eval_exception::EvalException;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::Stmt;

@@ -37,7 +37,7 @@ use eval_exception::EvalException;
 
 use crate::codemap::CodeMap;
 use crate::environment::Globals;
-use crate::errors::Diagnostic;
+use crate::errors::diagnostic::Diagnostic;
 use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::ScopeNames;

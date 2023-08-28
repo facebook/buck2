@@ -35,7 +35,7 @@ use crate::environment::FrozenModule;
 use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
-use crate::errors::Diagnostic;
+use crate::errors::diagnostic::Diagnostic;
 use crate::eval::Evaluator;
 use crate::eval::ReturnFileLoader;
 use crate::stdlib::PrintHandler;

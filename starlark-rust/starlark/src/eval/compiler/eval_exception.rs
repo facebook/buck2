@@ -18,7 +18,7 @@
 use starlark_syntax::codemap::CodeMap;
 use starlark_syntax::codemap::Span;
 
-use crate::errors::Diagnostic;
+use crate::errors::diagnostic::Diagnostic;
 
 /// Error with location.
 #[derive(Debug, derive_more::Display)]
