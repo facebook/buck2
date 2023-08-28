@@ -310,4 +310,6 @@ pub fn value_to_providers_name<'v>(subtarget_name: Value<'v>) -> anyhow::Result<
 #[starlark_module]
 pub fn register_target_label(globals: &mut GlobalsBuilder) {
     const TargetLabel: StarlarkValueAsType<StarlarkTargetLabel> = StarlarkValueAsType::new();
+    const ConfiguredTargetLabel: StarlarkValueAsType<StarlarkConfiguredTargetLabel> =
+        StarlarkValueAsType::new();
 }
