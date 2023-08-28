@@ -146,10 +146,6 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
-    fn attribute_ty(&self, ty: &Ty, attr: TypingAttr) -> Result<Ty, ()> {
-        ty.typecheck_union_simple(|basic| self.attribute_basic(basic, attr))
-    }
-
     pub(crate) fn validate_type(&self, got: Spanned<&Ty>, require: &Ty) -> Result<(), TypingError> {
         if !self.intersects(got.node, require) {
             Err(self.mk_error(
@@ -516,8 +512,12 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
+    fn expr_dot_basic(&self, array: &TyBasic, attr: &str) -> Result<Ty, ()> {
+        self.attribute_basic(array, TypingAttr::Regular(attr))
+    }
+
     pub(crate) fn expr_dot(&self, span: Span, array: &Ty, attr: &str) -> Result<Ty, TypingError> {
-        match self.attribute_ty(array, TypingAttr::Regular(attr)) {
+        match array.typecheck_union_simple(|basic| self.expr_dot_basic(basic, attr)) {
             Ok(x) => Ok(x),
             Err(()) => Err(self.mk_error(
                 span,
