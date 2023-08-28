@@ -596,15 +596,6 @@ impl<'v> AnonTargetsRegistry<'v> {
         Ok(())
     }
 
-    pub(crate) fn register_many(
-        &mut self,
-        promise: ValueTyped<'v, StarlarkPromise<'v>>,
-        keys: Vec<AnonTargetKey>,
-    ) -> anyhow::Result<()> {
-        self.promises.push_list(promise, keys);
-        Ok(())
-    }
-
     pub(crate) fn register_artifact(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,

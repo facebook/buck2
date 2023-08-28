@@ -185,7 +185,7 @@ impl<'v> StarlarkPromise<'v> {
         }
     }
 
-    fn join(
+    pub fn join(
         args: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
         heap: &'v Heap,
     ) -> ValueTyped<'v, StarlarkPromise<'v>> {

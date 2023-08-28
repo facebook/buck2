@@ -45,14 +45,6 @@ impl<'v> AnonPromises<'v> {
     ) {
         self.entries.push((promise, Either::Left(one)));
     }
-
-    pub(crate) fn push_list(
-        &mut self,
-        promise: ValueTyped<'v, StarlarkPromise<'v>>,
-        many: Vec<AnonTargetKey>,
-    ) {
-        self.entries.push((promise, Either::Right(many)));
-    }
 }
 
 #[async_trait(?Send)]

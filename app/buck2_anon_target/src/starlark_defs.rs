@@ -268,25 +268,56 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         }
     }
 
-    /// Generate a series of anonymous targets
+    /// Generate a series of anonymous targets. Returns a list of `StarlarkAnonTargets`.
+    ///
+    /// `with_artifacts` is a temporary parameter used for migration purposes. Please do not use.
     fn anon_targets<'v>(
         this: &AnalysisActions<'v>,
         rules: Vec<(
             ValueTyped<'v, FrozenRuleCallable>,
             DictOf<'v, &'v str, Value<'v>>,
         )>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
-        let res = heap.alloc_typed(StarlarkPromise::new_unresolved());
+        #[starlark(require = named, default = false)] with_artifacts: bool,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
-        let keys =
-            rules.into_try_map(|(rule, attributes)| registry.anon_target_key(rule, attributes))?;
+        let declaration_location = eval.call_stack_top_location();
 
-        registry.register_many(res, keys)?;
+        let mut anon_targets = Vec::new();
+        let mut promises_to_join = Vec::new();
+        rules.into_try_map(|(rule, attributes)| {
+            let key = registry.anon_target_key(rule, attributes)?;
+            let res = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
 
-        // TODO(@wendyy) support promise artifacts here
-        Ok(res)
+            promises_to_join.push(res);
+
+            registry.register_one(res, key.clone())?;
+            let anon_target = StarlarkAnonTarget::new(
+                declaration_location.clone(),
+                res,
+                rule.artifact_promise_mappings(),
+                key.clone(),
+                registry,
+                eval,
+            )?;
+
+            anon_targets.push(anon_target);
+
+            anyhow::Ok(key)
+        })?;
+
+        let anon_targets = StarlarkAnonTargets {
+            promise: StarlarkPromise::join(promises_to_join, eval.heap()),
+            anon_targets,
+            declaration_location,
+        };
+
+        if with_artifacts {
+            Ok(eval.heap().alloc(anon_targets))
+        } else {
+            Ok(anon_targets.promise.to_value())
+        }
     }
 
     /// Generate a promise artifact that has short path accessible on it. The short path's correctness will
