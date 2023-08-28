@@ -58,8 +58,8 @@ enum TypingOracleCtxError {
     TooManyPositionalArguments,
     #[error("Call arguments incompatible, fn type is `{fun}`")]
     CallArgumentsIncompatible { fun: Ty },
-    #[error("Type `{ty}` does not have [] operator")]
-    MissingIndexOperator { ty: Ty },
+    #[error("Type `{ty}` does not have [] operator or [] cannot accept `{index}`")]
+    MissingIndexOperator { ty: Ty, index: Ty },
     #[error("Type `{ty}` does not have [::] operator")]
     MissingSliceOperator { ty: Ty },
     #[error("The attribute `{attr}` is not available on the type `{ty}`")]
@@ -473,7 +473,10 @@ impl<'a> TypingOracleCtx<'a> {
             //   But we don't support that.
             Err(self.mk_error_as_maybe_internal(
                 span,
-                TypingOracleCtxError::MissingIndexOperator { ty: array },
+                TypingOracleCtxError::MissingIndexOperator {
+                    ty: array,
+                    index: index.node,
+                },
             ))
         } else {
             Ok(Ty::unions(good))
