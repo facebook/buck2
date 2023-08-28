@@ -466,11 +466,6 @@ impl Ty {
         Ty::custom(TyCustomFunction(f))
     }
 
-    /// If I do `self[i]` what will the resulting type be.
-    pub(crate) fn indexed(self, i: usize) -> Ty {
-        Ty::unions(self.alternatives.iter().map(|x| x.indexed(i)).collect())
-    }
-
     pub(crate) fn from_docs_member(member: &DocMember) -> Self {
         match member {
             DocMember::Property(x) => x.typ.clone(),

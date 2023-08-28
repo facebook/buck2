@@ -113,8 +113,41 @@ impl<'a> TypingOracleCtx<'a> {
         TypingOrInternalError::Typing(TypingError::msg(msg, span, self.codemap))
     }
 
+    /// If I do `self[i]` what will the resulting type be.
+    pub(crate) fn indexed_basic(&self, ty: &TyBasic, i: usize) -> Ty {
+        match ty {
+            TyBasic::Any => Ty::any(),
+            TyBasic::List(x) => x.to_ty(),
+            TyBasic::Tuple(xs) => xs.get(i).cloned().unwrap_or(Ty::never()),
+            // Not exactly sure what we should do here
+            _ => Ty::any(),
+        }
+    }
+
+    /// If I do `self[i]` what will the resulting type be.
+    pub(crate) fn indexed(&self, ty: &Ty, i: usize) -> Ty {
+        Ty::unions(
+            ty.iter_union()
+                .iter()
+                .map(|x| self.indexed_basic(x, i))
+                .collect(),
+        )
+    }
+
+    /// See what lies behind an attribute on a type
+    pub(crate) fn attribute_basic(&self, ty: &TyBasic, attr: TypingAttr) -> Result<Ty, ()> {
+        // There are some structural types which have to be handled in a specific way
+        match ty {
+            TyBasic::Any => Ok(Ty::any()),
+            _ => match self.oracle.attribute(ty, attr) {
+                Some(r) => r,
+                None => Ok(Ty::any()),
+            },
+        }
+    }
+
     fn attribute_ty(&self, ty: &Ty, attr: TypingAttr) -> Result<Ty, ()> {
-        ty.typecheck_union_simple(|basic| basic.attribute(attr, *self))
+        ty.typecheck_union_simple(|basic| self.attribute_basic(basic, attr))
     }
 
     pub(crate) fn validate_type(&self, got: Spanned<&Ty>, require: &Ty) -> Result<(), TypingError> {
@@ -350,7 +383,7 @@ impl<'a> TypingOracleCtx<'a> {
     fn iter_item_basic(&self, ty: &TyBasic) -> Result<Ty, ()> {
         match ty {
             TyBasic::StarlarkValue(ty) => ty.iter_item(),
-            ty => ty.attribute(TypingAttr::Iter, *self),
+            ty => self.attribute_basic(ty, TypingAttr::Iter),
         }
     }
 

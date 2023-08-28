@@ -27,8 +27,6 @@ use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
 use crate::typing::TyName;
-use crate::typing::TypingAttr;
-use crate::typing::TypingOracleCtx;
 use crate::values::float::StarlarkFloat;
 use crate::values::none::NoneType;
 use crate::values::string::StarlarkStr;
@@ -129,29 +127,6 @@ impl TyBasic {
 
     pub(crate) fn is_str(&self) -> bool {
         self == &TyBasic::string()
-    }
-
-    /// If I do `self[i]` what will the resulting type be.
-    pub(crate) fn indexed(&self, i: usize) -> Ty {
-        match self {
-            TyBasic::Any => Ty::any(),
-            TyBasic::List(x) => x.to_ty(),
-            TyBasic::Tuple(xs) => xs.get(i).cloned().unwrap_or(Ty::never()),
-            // Not exactly sure what we should do here
-            _ => Ty::any(),
-        }
-    }
-
-    /// See what lies behind an attribute on a type
-    pub(crate) fn attribute(&self, attr: TypingAttr, ctx: TypingOracleCtx) -> Result<Ty, ()> {
-        // There are some structural types which have to be handled in a specific way
-        match self {
-            TyBasic::Any => Ok(Ty::any()),
-            _ => match ctx.oracle.attribute(self, attr) {
-                Some(r) => r,
-                None => Ok(Ty::any()),
-            },
-        }
     }
 }
 

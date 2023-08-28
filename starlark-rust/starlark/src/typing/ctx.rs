@@ -152,7 +152,7 @@ impl TypingContext<'_> {
     pub(crate) fn expression_bind_type(&self, x: &BindExpr) -> Result<Ty, InternalError> {
         match x {
             BindExpr::Expr(x) => self.expression_type(x),
-            BindExpr::GetIndex(i, x) => Ok(self.expression_bind_type(x)?.indexed(*i)),
+            BindExpr::GetIndex(i, x) => Ok(self.oracle.indexed(&self.expression_bind_type(x)?, *i)),
             BindExpr::Iter(x) => Ok(self.from_iterated(&self.expression_bind_type(x)?, x.span())),
             BindExpr::AssignModify(lhs, op, rhs) => {
                 let span = lhs.span;
