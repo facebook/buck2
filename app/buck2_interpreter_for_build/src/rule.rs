@@ -424,4 +424,35 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             eval,
         )
     }
+
+    /// Define an anon rule, similar to how a normal rule is defined, except with an extra `artifact_promise_mappings` field. This
+    /// is a dict where the keys are the string name of the artifact, and the values are the callable functions that produce
+    /// the artifact. This is only intended to be used with anon targets.
+    fn anon_rule<'v>(
+        #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
+        #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
+        #[starlark(require = named, default = "")] doc: &str,
+        #[starlark(require = named)] artifact_promise_mappings: SmallMap<
+            StringValue<'v>,
+            StarlarkCallable<'v>,
+        >,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<RuleCallable<'v>> {
+        RuleCallable::new(
+            r#impl,
+            attrs,
+            None,
+            doc,
+            false,
+            false,
+            Vec::new(),
+            Some(ArtifactPromiseMappings {
+                mappings: artifact_promise_mappings
+                    .iter()
+                    .map(|(k, v)| (*k, v.0))
+                    .collect::<SmallMap<_, _>>(),
+            }),
+            eval,
+        )
+    }
 }
